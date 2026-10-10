@@ -9,3 +9,4 @@ data/fashion/
 data/text/*.txt
 data/text/*.conllu
 *.log
+runs/*.log

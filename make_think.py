@@ -3,6 +3,11 @@
 Format: 12 + 34 = [12 + 34 = 46] 46   ve   What is 12 plus 34? [12 + 34 = 46] It is 46.
 Köşeliler geniş alfabede var (kod sembolleri). Sayılar 0-99 (öğrenilebilir aralık)."""
 import random
+import sys
+
+# --reverse: izdeki sonuç TERS yazılır (elde sağdan sola taşınır; Lee vd. 2023), son cevap düz.
+REV = "--reverse" in sys.argv
+rv = (lambda r: str(r)[::-1]) if REV else str
 
 random.seed(7)
 ops = ["+", "-", "*"]
@@ -15,9 +20,9 @@ for i in range(60000):
     if r < 0:
         continue
     if i % 2 == 0:
-        out.append("%d %s %d = [%d %s %d = %d] %d" % (a, ops[k], b, a, ops[k], b, r, r))
+        out.append("%d %s %d = [%d %s %d = %s] %d" % (a, ops[k], b, a, ops[k], b, rv(r), r))
     else:
-        out.append("What is %d %s %d? [%d %s %d = %d] It is %d." % (a, words[k], b, a, ops[k], b, r, r))
+        out.append("What is %d %s %d? [%d %s %d = %s] It is %d." % (a, words[k], b, a, ops[k], b, rv(r), r))
 t = "\n".join(out)
-open("D:\\NoRa_AGI\\data\\text\\think_math.txt", "w", encoding="utf-8").write(t)
+open("D:\\NoRa_AGI\\data\\text\\think_math%s.txt" % ("_rev" if REV else ""), "w", encoding="utf-8").write(t)
 print("think: %d örnek, %.1fM char" % (len(out), len(t) / 1e6))

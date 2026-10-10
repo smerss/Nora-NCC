@@ -88,12 +88,16 @@ def evalloss(fn, ids, chars, block, batch, n=20):
 class AutoBrain(nn.Module):
     """KAPALI DÖNGÜ beyni: donuk omurga + segment-başı (adaptör, kafa) çiftleri.
     Kural (GrowingNet): yalnızca EN YENİ çift eğitilir; eskiler donar, unutma sıfırdır.
-    Yönlendirici: her parti için en düşük kayıp veren kafa (1-adım zihinsel yoklama)."""
+    Yönlendirici: her parti için en düşük kayıp veren kafa (1-adım zihinsel yoklama).
+    apos: 'head' = adaptör yalnızca son gizli durumda (eski; dikkate dokunamaz),
+          'block' = her bloğun çıkışında bir adaptör (Houlsby-tarzı; sonraki katmanların
+          dikkati de değişir). Bir 'adaptör birimi' block kipinde katman-başı listedir."""
 
-    def __init__(self, backbone: MicroGPT, n_extra=0, bn=64):
+    def __init__(self, backbone: MicroGPT, n_extra=0, bn=64, apos="head"):
         super().__init__()
         self.bb = backbone
         self.bn = bn
+        self.apos = apos
         for p in self.bb.parameters():
             p.requires_grad = False
         self.adapts = nn.ModuleList()
@@ -112,12 +116,18 @@ class AutoBrain(nn.Module):
     def V_total(self):
         return self.bb.head.out_features + self.n_extra
 
-    def _make_adapter(self):
+    def _make_one(self):
         e = self.bb.head.in_features
         a = nn.Sequential(nn.Linear(e, self.bn), nn.GELU(), nn.Linear(self.bn, e))
         nn.init.zeros_(a[-1].weight)
         nn.init.zeros_(a[-1].bias)
         return a
+
+    def _make_adapter(self):
+        """Bir adaptör birimi: head kipinde tek darboğaz, block kipinde katman-başı liste."""
+        if self.apos == "block":
+            return nn.ModuleList([self._make_one() for _ in self.bb.layers])
+        return self._make_one()
 
     def _make_head(self):
         e, V = self.bb.head.in_features, self.bb.head.out_features
@@ -171,11 +181,16 @@ class AutoBrain(nn.Module):
             x = x + self.emb_ext(torch.clamp(idx - V0, 0, self.n_extra - 1)) * nov.unsqueeze(-1)
         else:
             x = self.bb.tok(idx) + self.bb.pos(torch.arange(T))
-        for l in self.bb.layers:
+        blk = self.apos == "block"
+        for li, l in enumerate(self.bb.layers):
             x = l(x, mask)
+            if blk:
+                for u in self.adapts[s]:
+                    x = x + u[li](x)
         h = self.bb.ln(x)
-        for a in self.adapts[s]:
-            h = h + a(h)
+        if not blk:
+            for a in self.adapts[s]:
+                h = h + a(h)
         lo = self.heads[s](h)
         if self.n_extra:
             lo = torch.cat([lo, self.head_ext(h)], dim=-1)
@@ -211,15 +226,23 @@ def arith_result(a, op, b):
     return a + b if op == "+" else (a - b if op == "-" else a * b)
 
 
+REV_TRACE = False  # --rev-trace: izdeki sonuç ters yazılır (make_think*.py --reverse ile uyumlu)
+
+
+def trace_num(s):
+    """İz içindeki sonuç dizgesini sayıya çevir (ters kipte önce çevrilir)."""
+    return int(s[::-1] if REV_TRACE else s)
+
+
 def expected_trace(a, op, b):
     r = arith_result(a, op, b)
-    return " [%d %s %d = %d] %d" % (a, op, b, r, r)
+    return " [%d %s %d = %s] %d" % (a, op, b, str(r)[::-1] if REV_TRACE else r, r)
 
 
 def rebuild_brain(src, bb):
     """Kayıtlı beyni AYNI mimariyle dirilt (iç içe adaptörler + ext dahil); hepsi donuk döner."""
     n_ext = len(src.get("ext_chars", []))
-    brain = AutoBrain(bb, n_ext, src.get("bn", 64))
+    brain = AutoBrain(bb, n_ext, src.get("bn", 64), src.get("apos", "head"))
     raw = src["adapts"] if src.get("nested") else [[s] for s in src["adapts"]]
     for seg_sds, h_sd in zip(raw, src["heads"]):
         brain.open_segment()
@@ -274,13 +297,14 @@ def load_ids(path, stoi, nchars=None):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", choices=["adapt", "full", "detect", "auto", "sleep", "refine", "think", "rft"], required=True,
+    ap.add_argument("--stage", choices=["adapt", "full", "detect", "auto", "sleep", "refine", "think", "rft", "evalarith"], required=True,
                     help="detect: etiketsiz karışık akışta dağılım sınırlarını şaşkınlıkla bul (eğitim yok); "
                          "auto: KAPALI DÖNGÜ — detect öttükçe adaptör+kafa aç, eğit, yönlendir (insan yok); "
                          "sleep: UYKU — benzer segmentleri kaynaştır (işlevsel eşdeğerlik), yönlendiriciyi koru; "
                          "refine: İNCE AYAR — kayıtlı beynin bir segmentine kapasite istifle, kaldığı yerden eğit; "
                          "think: SYSTEM-2 — üret-ve-test muhakeme döngüsü (yavaş düşünme); "
-                         "rft: araç-doğrulanmış izlerle ince-eğitim (reddetme-örneklemesi)")
+                         "rft: araç-doğrulanmış izlerle ince-eğitim (reddetme-örneklemesi); "
+                         "evalarith: sabit 200 soruda greedy iz/cevap doğruluğu (ölçüm, eğitim yok)")
     ap.add_argument("--max-adapt", type=int, default=3, help="en fazla adaptör sayısı (büyüme tavanı)")
     ap.add_argument("--plateau-eps", type=float, default=0.02, help="bu iyileşmenin altı = plato")
     ap.add_argument("--plateau-w", type=int, default=3, help="plato penceresi (B-val sayısı)")
@@ -290,6 +314,9 @@ def main():
     ap.add_argument("--iters", type=int, default=200)
     ap.add_argument("--batch", type=int, default=32, help="eğitim partisi (commit darlığında 16 verin)")
     ap.add_argument("--adapt-bn", type=int, default=64, help="adaptör darboğazı (felsefe: omurga donuk, kapasite yalnızca yeni-nöronlarda)")
+    ap.add_argument("--adapt-pos", choices=["head", "block"], default="block",
+                    help="auto: adaptör konumu — block: her blok çıkışında (dikkate etki eder), head: yalnızca sonda (eski)")
+    ap.add_argument("--out", default=None, help="auto: beyin kayıt yolu (varsayılan models/grow_auto.pt)")
     ap.add_argument("--seg-iters", type=int, default=80, help="kapalı-döngüde segment-başı eğitim iterasyonu")
     ap.add_argument("--max-seg-adapt", type=int, default=2,
                     help="segment-başı tavan (plato-büyümesiyle aynı-etiketli devam segmentleri; uyku birleştirir)")
@@ -310,8 +337,12 @@ def main():
     ap.add_argument("--rft-n", type=int, default=24, help="rft: tur-başı prompt sayısı")
     ap.add_argument("--rft-iters", type=int, default=30, help="rft: tur-başı eğitim iterasyonu")
     ap.add_argument("--rft-max", type=int, default=99, help="rft: operand tavanı (soğuk-başlatma için 9 verin)")
+    ap.add_argument("--rev-trace", action="store_true",
+                    help="think/rft: izdeki sonuç TERS (make_think*.py --reverse korpusuyla eğitilmiş beyin)")
     ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
+    global REV_TRACE
+    REV_TRACE = args.rev_trace
     torch.manual_seed(args.seed)
     torch.set_num_threads(2)
 
@@ -483,7 +514,7 @@ def main():
             import gc as _gc
             del A
             _gc.collect()
-        brain = AutoBrain(bb, len(ext_chars), args.adapt_bn)
+        brain = AutoBrain(bb, len(ext_chars), args.adapt_bn, args.adapt_pos)
         acc, acc_tags, s_prev, seg_tags = [], [], None, []
         t0 = time.time()
 
@@ -652,14 +683,14 @@ def main():
             tot += 1
         print(f"\nAUTO: {len(seg_tags)} segment {seg_tags} | yönlendirici: {ok}/{tot} | süre={time.time()-t0:.0f}sn")
         torch.save({"n_seg": len(seg_tags), "tags": seg_tags, "pool": args.pool,
-                    "ext_chars": ext_chars, "bn": args.adapt_bn, "nested": True,
+                    "ext_chars": ext_chars, "bn": args.adapt_bn, "nested": True, "apos": brain.apos,
                     "protos": torch.stack([p for p, _ in seg_protos]),
                     "spreads": [s for _, s in seg_protos],
                     "adapts": [[a.state_dict() for a in seg] for seg in brain.adapts],
                     "heads": [h.state_dict() for h in brain.heads],
                     "emb_ext": brain.emb_ext.state_dict() if brain.n_extra else None,
                     "head_ext": brain.head_ext.state_dict() if brain.n_extra else None,
-                    "chars": chars, "cfg": cfg}, os.path.join(MODEL_DIR, "grow_auto.pt"))
+                    "chars": chars, "cfg": cfg}, args.out or os.path.join(MODEL_DIR, "grow_auto.pt"))
         return
 
     if args.stage == "refine":
@@ -704,14 +735,14 @@ def main():
         after = evalloss(lambda x: brain.forward_seg(x, si), Dv, chars, cfg["block"], 32)
         print(f"  SONUÇ seg{si} [{tag}]: {before:.3f} -> {after:.3f} ({'HEDEF TUTTU (<2.0)' if tag == 'C' and after < 2.0 else 'devam gerekli' if tag == 'C' else 'tamam'})")
         out = {"n_seg": len(src["tags"]), "tags": list(src["tags"]), "pool": src.get("pool", "nar"),
-               "ext_chars": src.get("ext_chars", []), "bn": src.get("bn", 64), "nested": True,
+               "ext_chars": src.get("ext_chars", []), "bn": src.get("bn", 64), "nested": True, "apos": brain.apos,
                "protos": src.get("protos"), "spreads": src.get("spreads"),
                "adapts": [[a.state_dict() for a in seg] for seg in brain.adapts],
                "heads": [h.state_dict() for h in brain.heads],
                "emb_ext": brain.emb_ext.state_dict() if brain.n_extra else None,
                "head_ext": brain.head_ext.state_dict() if brain.n_extra else None,
                "chars": chars, "cfg": cfg}
-        torch.save(out, os.path.join(MODEL_DIR, "grow_auto_r1.pt"))
+        torch.save(out, args.out or os.path.join(MODEL_DIR, "grow_auto_r1.pt"))
         print("  kaydedildi: grow_auto_r1.pt (eski beyin duruyor)")
         return
 
@@ -770,15 +801,68 @@ def main():
                     loss.backward()
                     opt.step()
         out = {"n_seg": len(src["tags"]), "tags": list(src["tags"]), "pool": src.get("pool", "nar"),
-               "ext_chars": src.get("ext_chars", []), "bn": src.get("bn", 64), "nested": True,
+               "ext_chars": src.get("ext_chars", []), "bn": src.get("bn", 64), "nested": True, "apos": brain.apos,
                "protos": src.get("protos"), "spreads": src.get("spreads"),
                "adapts": [[a.state_dict() for a in seg] for seg in brain.adapts],
                "heads": [h.state_dict() for h in brain.heads],
                "emb_ext": brain.emb_ext.state_dict() if brain.n_extra else None,
                "head_ext": brain.head_ext.state_dict() if brain.n_extra else None,
                "chars": chars, "cfg": cfg}
-        torch.save(out, os.path.join(MODEL_DIR, "grow_auto_rft.pt"))
+        torch.save(out, args.out or os.path.join(MODEL_DIR, "grow_auto_rft.pt"))
         print(f"  kaydedildi: grow_auto_rft.pt  süre={time.time()-t0:.0f}sn")
+        return
+
+    if args.stage == "evalarith":
+        # ÖLÇÜM: sabit soru kümesi (seed 1234), greedy; iz-sadakati ve son-cevap AYRI sayılır.
+        # Basamak sınıfı: 1 = iki operand < 10, 2 = en az biri 10-99.
+        import random as _rnd
+        import re
+        src = torch.load(args.brain, map_location="cpu", weights_only=False)
+        brain = rebuild_brain(src, bb)
+        brain.eval()
+        si = resolve_seg(args.seg, list(src["tags"]))
+        allc = chars + src.get("ext_chars", [])
+        stx = {c: i for i, c in enumerate(allc)}  # alfabe beyinden: --pool gerekmez
+        rq = _rnd.Random(1234)
+        qs = []
+        while len(qs) < 200:
+            mx = 9 if len(qs) < 100 else args.rft_max
+            a, b, op = rq.randint(0, mx), rq.randint(0, mx), rq.choice(["+", "-", "*"])
+            if op == "-" and b > a:
+                a, b = b, a
+            qs.append((a, op, b))
+        st = {1: [0, 0, 0], 2: [0, 0, 0]}  # [n, iz-doğru, cevap-doğru]
+        ops_ok = {"+": [0, 0], "-": [0, 0], "*": [0, 0]}
+        t0 = time.time()
+        for qi, (a, op, b) in enumerate(qs):
+            pr = "%d %s %d =" % (a, op, b)
+            idx = torch.tensor([[stx.get(c, 0) for c in pr]], dtype=torch.long)
+            with torch.no_grad():
+                for _ in range(len(expected_trace(a, op, b)) + 2):
+                    nxt = int(brain.forward_seg(idx[:, -cfg["block"]:], si)[0, -1].argmax())
+                    idx = torch.cat([idx, torch.tensor([[nxt]])], 1)
+            gen = "".join(allc[t] for t in idx[0].tolist())[len(pr):]
+            r = arith_result(a, op, b)
+            m = re.match(r"\s*\[\s*\d+\s*[+\-*]\s*\d+\s*=\s*(\d+)\s*\]\s*(-?\d+)", gen)
+            tr_ok = bool(m) and trace_num(m.group(1)) == r
+            an_ok = bool(m) and int(m.group(2)) == r
+            k = 1 if max(a, b) < 10 else 2
+            st[k][0] += 1
+            st[k][1] += tr_ok
+            st[k][2] += an_ok
+            ops_ok[op][0] += 1
+            ops_ok[op][1] += an_ok
+            if qi % 40 == 0:
+                print(f"  örnek: {pr}{gen.rstrip()}  iz={'✓' if tr_ok else '✗'} cevap={'✓' if an_ok else '✗'}", flush=True)
+        for k in (1, 2):
+            n, t_, c_ = st[k]
+            if n:
+                print(f"  {k}-basamak (n={n}): iz-doğru %{100*t_/n:.1f}  cevap-doğru %{100*c_/n:.1f}")
+        print("  işlem-başı cevap: " + "  ".join(f"{o} %{100*v[1]/max(1,v[0]):.0f}" for o, v in ops_ok.items()))
+        n = sum(v[0] for v in st.values())
+        print(f"EVALARITH [{os.path.basename(args.brain)} seg={src['tags'][si]} rev={REV_TRACE}]: "
+              f"iz %{100*sum(v[1] for v in st.values())/n:.1f}  cevap %{100*sum(v[2] for v in st.values())/n:.1f}  "
+              f"süre={time.time()-t0:.0f}sn")
         return
 
     if args.stage == "think":
@@ -795,6 +879,8 @@ def main():
         allc = chars + src.get("ext_chars", [])
 
         def calc_bonus(text):
+            # Son CEVABI denetle: köşeli iz (kapanmamışı da) çıkarılır; iz trace_bonus'un işi.
+            text = re.sub(r"\[[^\]]*(\]|$)", "", text)
             m = re.search(r"(\d+)\s*([+\-*])\s*(\d+)\s*=\s*(-?\d+)", text)
             if not m:
                 return 0.0
@@ -815,7 +901,7 @@ def main():
                 if err is not None:
                     continue
                 try:
-                    r = int(parts[1].strip().split()[0])
+                    r = trace_num(parts[1].strip().split()[0])
                 except (ValueError, IndexError):
                     continue
                 bonus += -0.5 if (int(v) if float(v).is_integer() else v) == r else +0.5
@@ -898,7 +984,7 @@ def main():
         src = torch.load(os.path.join(MODEL_DIR, "grow_auto.pt"), map_location="cpu", weights_only=False)
         assert src["chars"] == chars, "vocab uyuşmuyor"
         n_ext = len(src.get("ext_chars", []))
-        brain = AutoBrain(bb, n_ext, src.get("bn", 64))
+        brain = AutoBrain(bb, n_ext, src.get("bn", 64), src.get("apos", "head"))
         raw_ad = src["adapts"]
         if not src.get("nested"):  # eski düz kayıtlar: her segment tek adaptör
             raw_ad = [[sd] for sd in raw_ad]
@@ -970,7 +1056,7 @@ def main():
         keep = [i for i in range(len(tags)) if i not in drop]
         print(f"  sonuç: {len(tags)} -> {len(keep)} segment (yaşayan: {keep})")
         torch.save({"n_seg": len(keep), "tags": [tags[i] for i in keep], "pool": src.get("pool", "nar"),
-                    "ext_chars": src.get("ext_chars", []), "nested": True,
+                    "ext_chars": src.get("ext_chars", []), "bn": src.get("bn", 64), "nested": True, "apos": brain.apos,
                     "adapts": [[a.state_dict() for a in brain.adapts[i]] for i in keep],
                     "heads": [brain.heads[i].state_dict() for i in keep],
                     "emb_ext": brain.emb_ext.state_dict() if brain.n_extra else None,
