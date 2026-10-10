@@ -1,0 +1,40 @@
+# NoRa_AGI - eklemeli sürekli öğrenme
+- Tüm veri/kod D:\NoRa_AGI altında (C dolu, 0.7GB boş). Data: D:\NoRa_AGI\data\<dataset>, beyin: D:\NoRa_AGI\beyin.npz
+- Sistem: Pentium G5400 2-çekirdek, RX580 -> CPU-only NumPy, <5sn yerleşme hedefi
+- v3: --fast (prototip kafa, geri yayılım yok, ~0.07sn/görev), --sleep (prototip tazeleme), --router proto (varsayılan)
+- Sonuç Fashion 5-görev: fast 1.3sn toplam, task-known 0.93, BWT 0.0, task-unknown proto 0.65
+- Felsefe: reset yok, dondur + üzerine ekle (extra-if), uyku fazı yıkıcı değil
+
+v3 inceleme düzeltmeleri (8 madde) uygulandı: _train tek-softmax (NLL yalnızca raporda), reuse_hist çift koruma + plato bypass kaldırıldı, ensemble temiz z-skor (DENEYSEL), --fast=hızlı-NCM taban çizgisi + eğitim-acc kapısı, PROJECT_ROOT taşınabilir (Win D:/NoRa_AGI), sleep gerçek ms + aday etiketi, growth_map npz'de kalıcı. D-disiplini: .venv + .cache D'de, D_kullan.ps1 kilidi, DPY ile çalıştır. Fashion 5-görev yavaş: 0.979/BWT 0.0, proto-unknown 0.621.
+
+micro_gpt.py: 4L/4H/256e block128 batch32 ~3.2M char-GPT, torch-CPU D .venv'de. Veri: tiny_slice.txt 42M karakter TinyStories (HF Range ile ilk 42MB). Eğitim: 800 iter total, val 4.02→1.25 (~45dk). --resume ile kaldığı yerden devam, --curriculum ilk %20 kolay satırlar. ckpt: D:\NoRa_AGI\models\micro_tiny.pt. Sonraki: grow_gpt (dondur+adaptör blok, unutmasız dil).
+
+v4 AGI yönü: --stream ile etiketsiz akışta 5/5 sınır otomatik (referans-çapalı seviye+değişim kuralı), 2.4sn, BWT 0.0, tek blok. Parça maliyeti sabit (0.5/0.1sn) — veri 10x artsa adım maliyeti aynı. surprise()/recall() eklendi (çok-boyutlu kafa uyumlu). Ders: EMA-çapa kayması ve inf-önyükleme hataları düzeltildi. Sonraki: grow_gpt adaptör + micro-GPT dünya-modeli geri-beslemesi.
+
+grow_gpt.py: donuk 3.2M omurga + 57k adaptör (256-64-256 sıfır-init) + B kafası. Dağılım kaymasında (TinyStories→Shakespeare): adapt F=0.000/L_B=2.045/4dk, full F=+0.724/L_B=1.773/11dk. Aynı-dağılım kontrolünde unutma yok (F=-0.077). Açık: plastisite farkı 0.27 — sonraki iş adaptör kapasitesi/büyüme eşiği. B-diliminde 52 görülmemiş karakter boşluğa eşlendi (kayıt).
+
+Adaptör-büyüme: plato (W=3 B-val, eps=0.02) → eskileri dondur + sıfır-init yeni adaptör. 300 iter Shakespeare: plato tetiklenmedi (istikrarlı iyileşme 2.17→2.01), L_B=2.009, F=0.0. Mekanik kanıt: yeni adaptör identity (fark 0.0), eskiler donuk, 57k eğitilebilir. Kural silahlı bekliyor; tetikleme daha uzun/plato-yakın rejimde.
+
+Dil-şaşkınlık kapısı (grow_gpt --stage detect): 8 parça [A,A,B,B,S,S,A,B] akışında 3/3 isabet, 0 yanlış-alarm (ort+p90, referans-çapa, seviye+değişim). Aynı-dağılım A→B sessiz (özgüllük), S→A dönüşü ötüyor. İki hat birleşti: hangi cümle yeni bilgi sorusu etiketsiz çözülüyor. Sonraki: detect→adaptör zinciri (otomatik büyü-kapan döngüsü).
+
+Kapalı döngü (grow_gpt --stage auto) çalışıyor: [S×4,A×2] akışında insansız 2 segment, yönlendirici 20/20 (yenilik→segment, tanıdık→omurga), 335sn. A-dönüşü ateşledi ama gereksiz büyüme YOK (birikim tanıdık→atıldı). Bilinen kusur: önyükleme+birikim çift S segmenti (hafif aşırı-bölütleme), ateşleme-nedeni hizası kusurlu ama segmentler saf. grow_auto.pt kayıtlı.
+
+Uyku-birleştirme (grow_gpt --stage sleep): işlevsel eşdeğerlik (eps 0.025, sabit partiler) + kosinüs ön-eleme. Çift S: cos=0.050, fark=0.046 → birleşme DOĞRU ŞEKİLDE REDDEDİLDİ (farklı çözüm, benzer kayıp). Router 20/20 korundu, grow_merged.pt kayıtlı. Ders: aynı kayıp ≠ aynı bilgi; işlevsel test yanlış-birleşmeyi önledi.
+
+BLOKAJ: commit 0.3GB (hoi4 3GB+steam yiyor, pagefile C dolu büyüyemiyor). torch import 310MB (threads=1 ile 183MB). Önlemler kodlandı (uint8 depo, kapaklı yükleme, del ck, batch/thread CLI, D_kullan.ps1) ama commit bitikken eğitim imkansız — eskiden çalışan config bile ölüyor. Çözüm: hoi4/steam kapatılıp commit 2GB+ olunca devam. Resume: . D:\NoRa_AGI\D_kullan.ps1; DPY grow_gpt.py --stage auto --pool codemath --batch 8
+
+Kapalı-döngü codemath BAŞARILI: [C×4,M×2] akışında insansız ['C','M'] segmentleri; C-val 2.90 (sıfır-atım 4.66), M-val 1.46 (sıfır-atım ~7.2); yönlendirici 20/20; 348sn. Anahtar: asimetrik vektör-şaşkınlık (aday-yayılımlı, kf=3) — skaler kayıp M'yi C-bulutunda kaybediyordu. Pekleşmiş birikim atılıyor (verimlilik), A-dönüşü büyüme yapmıyor. Blokaj dersi: commit darlığında uint8 depo + kapaklı yükleme + batch 8 + tek-çekirdek.
+
+Full-codemath tavanı (150iter/faz): CODE-sonu L_A=2.37/L_C=1.82; MATH-sonu L_A=6.27/L_C=7.07/L_M=0.96. Hüküm tablosu — adapt: C 2.90/M 1.46/F 0.00; full: C 1.82/M 0.96/F +5.08 ve kod-tam-yıkım 7.07. Plastisite farkı C 1.08/M 0.50 (full ~2x iter gördü, not edildi). Sıradaki: farkı F=0 ile kapatma (adaptör kapasite/iter/plato-büyüme).
+
+Grid hükmü: G1 2.445/G2 2.417/G3 2.271/G4 2.207 (kod-val, hepsi F=0). Genişlik 128 değmez (+58% param, -0.03). İter işgücü, büyüme taçlandırma (2 kez tetiklendi). Kazanan-konfig MATH: 1.248. Final: adapt C 2.21/M 1.25/F 0.00 vs full C 1.82/M 0.96/F +5.08. Fark C 1.08→0.39, M 0.50→0.29. Önerilen varsayılan: bn64 + plato-büyüme (eps~0.1, max-adapt 3) + bütçece iter.
+
+Döngü-içi istifleme DÜZGÜN çalışıyor: seg1 altına adaptör2 istiflendi, M-val 1.364→1.250, ['C','M'], C 2.90, router 20/20. Ders kaydedildi: yeni-kafa açmak sıfırlardı (router 6/20'ye çöktü), istifleme korur. Final: adapt C 2.90/M 1.25/F 0.00 vs full C 1.82/M 0.96/F +5.08. Mimari olgun: detect→segment-büyüme→döngü-içi-istifleme→uyku→yönlendirici.
+
+3-havuz döngü TAMAM: ['C','M','T'], val 2.84/1.32/2.51, kf=2.5 ile T yakalandı (3.0'da kaçmıştı), istifleme C+M+T hepsinde tetiklendi, router 20/20, uyku 3→3 (doğru ret), 123 sembol. Üretim sondası: M formatı kapmış (12+34=58), C zayıf, T ekli-kök uyduruyor. Sıradaki (kullanıcı dönünce soracak): C segmentine daha iter veya 4. havuz.
+
+System-2 üçlüsü CANLI: C) tool_calc (ast-whitelist) + kapı 46'yı düzeltti; B) ToT-lite geri-dönüşlü seçim; A) iz-eğitimi 400iter (M 1.18→1.01) iz ŞEKLİ öğretti ama sadakat yok ([81+9=27] tipi halüsinasyon) — P(rakam|'=')≈0, ödül örneklenmeyeni seçemez. C-refine: 2.84→2.25→2.14 (<2.0 kaçtı, tavan ~2.1). Ders: altyapı hazır, getiri kafa gücüne kilitli.
+
+Müfredat sonucu: 1digit 350iter (0.78→0.74) kopyalama filizlendi (sadık alt-izler, '= [2' bağlam-kopyası), mezuniyet think_math 200iter (1.17→0.97). 2-basamak iz-sadakati YOK ([87+6=44]) — transfer bekliyor. Araç kapısı her demoda düzeltiyor (46). Ölçüm dersi: prob konumu iz-içi olmalı ('=' sonrası boşluk+köşeli DOĞRU davranış). r1 beyinde M 4 adaptör.
+
+RFT soğuk-başlatma SIFIR isabet (katı eşleşme + bağlama yok) → tek-basamak müfredat + 750 iz-iteri: İLK operand bağlanması filizlendi ([2+9.., [2-2.., [3+3..), val 0.73. İkinci operand + sonuç hâlâ rastgele. Araç kapısı her demoda düzeltiyor (5, 46). Hüküm: yön doğru, tam sadakat daha iter ister; correctness ŞİMDİDEN araçta garanti.
