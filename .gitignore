@@ -1,0 +1,11 @@
+.venv/
+.cache/
+__pycache__/
+*.pyc
+models/*.pt
+beyin.npz
+data/mnist/
+data/fashion/
+data/text/*.txt
+data/text/*.conllu
+*.log
