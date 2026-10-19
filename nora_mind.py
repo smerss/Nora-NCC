@@ -208,6 +208,16 @@ class Narrator:
                                (mind.age - e[0]["t"], e[0]["pos"][0], e[0]["pos"][1], word), claim=e[0]["pos"].copy(), basis=e[0]["t"]))
         return cl
 
+    def testimony(self, mind):
+        """Tanıklık: ajanın haritasındaki güvenilir su/tehlike yerlerini sabit, ayrıştırılabilir cümlelere döker
+        ('su (15, 12) civarında; tehlike (5, 8) civarında'). Başka bir ajan bu metni okuyup haritasına işleyebilir."""
+        mp = mind.map
+        parts = []
+        for name, arr in (("su", np.maximum(mp.water, 0.5 * mp.wseen)), ("tehlike", np.maximum(mp.hurt / 3.0 * 3.0, mp.seen))):
+            for (i, j) in np.argwhere(arr >= 0.45):
+                parts.append("%s (%d, %d) civarında" % (name, int((i + 0.5) * mp.cell), int((j + 0.5) * mp.cell)))
+        return "; ".join(parts) + "."
+
     def say(self, mind, obs):
         obs = mind.last_obs if mind.last_obs is not None else obs
         cl = self.clauses(mind, obs)
@@ -714,6 +724,18 @@ class Mind:
         return np.array([1.5 * d[0] ** 2, 1.5 * d[1] ** 2, max(1.5 * d[2] ** 2, 1.2 * haz ** 2), 0.0], np.float32)
 
     # ------------------------------------------------------------ ana döngü
+    def hear(self, text, trust=0.6):
+        """Tanıklığı oku: 'su (x, y) civarında' / 'tehlike (x, y) civarında' cümlelerini haritaya ÖN BİLGİ olarak işle."""
+        import re
+        n = 0
+        for what, x, y in re.findall(r"(su|tehlike) \((\d+), (\d+)\) civarında", text):
+            c = self.map.cell_of((float(x), float(y)))
+            arr = self.map.wseen if what == "su" else self.map.seen
+            arr[c] = max(arr[c], trust)                       # duyulan bilgi: orta güven (yeniden görüldükçe oyla pekişir)
+            n += 1
+        self.map.target = {}
+        return n
+
     def intervene(self, kind, value=None, steps=30):
         """Deneysel müdahale: DÜNYAYA dokunmadan iç durumu değiştirir (nedensel doğrulama protokolü)."""
         if kind == "goal":
@@ -1472,9 +1494,51 @@ def stage_demo(args):
             print("[adım %5d | gündüz=%.1f]\n  %s\n" % (mind.age, world.light(), nar.say(mind, obs)[0]))
 
 
+def stage_testimony(args):
+    """TANIKLIKLA ÖĞRENME: A yaşar ve anlatır; yeni doğan B anlatıyı okuyup haritasına işler. Koşullar (B'nin erken yaşamı):
+    yalnızca kendi kendine | A'nın gerçek anlatısı | YANLIŞ anlatı (başka düzene sahip bir evrende yaşamış ajandan)."""
+    nar = Narrator()
+    rows = {"kendi başına": [], "doğru tanıklık": [], "yanlış tanıklık": []}
+    for s in range(args.seed0, args.seed0 + args.seeds):
+        A, wA = Mind(seed=s), Universe(seed=s)
+        live(A, wA, args.steps, window=args.steps, verbose=False)
+        good = nar.testimony(A)
+        Af, wAf = Mind(seed=s + 50), Universe(seed=s + 50)
+        live(Af, wAf, args.steps, window=args.steps, verbose=False)
+        bad = nar.testimony(Af)
+        for name, text in (("kendi başına", None), ("doğru tanıklık", good), ("yanlış tanıklık", bad)):
+            B, wB = Mind(seed=1000 + s), Universe(seed=s)
+            heard = B.hear(text) if text else 0
+            obs, died = wB.observe(), False
+            first_drink, first_hurt, wmin, hurts, deaths, n_drink = None, None, 1.0, 0.0, 0, 0
+            for t in range(1, args.window * 4 + 1):
+                obs, info = wB.step(B.act(obs, died))
+                died = info["died"] is not None
+                deaths += died
+                wmin = min(wmin, wB.w)
+                hurts += info["hurt"] > 0
+                if info["drank"] > 0:
+                    n_drink += 1
+                    if first_drink is None:
+                        first_drink = t
+                if info["hurt"] > 0 and first_hurt is None:
+                    first_hurt = t
+            print("RAW %s %d %d %.3f %d %d" % (name.replace(' ', '_'), s, first_drink if first_drink is not None else -1, wmin, hurts, deaths), flush=True)
+            rows[name].append(dict(heard=heard, first_drink=first_drink if first_drink is not None else args.window * 4,
+                                   wmin=wmin, hurts=hurts, deaths=deaths, first_hurt=first_hurt if first_hurt is not None else args.window * 4))
+        if s == 0:
+            print("[örnek tanıklık, A->B] " + good[:200])
+    print("\ntanıklıkla öğrenme | yeni doğan B'nin ilk %d adımı, %d evren" % (args.window * 4, args.seeds))
+    for name, lst in rows.items():
+        print("  %-16s duyulan yer %4.1f | ilk içmeye kadar adım %6.0f (medyan %5.0f) | en düşük su %.2f | yara adımı %5.1f | ölüm %.2f | ilk yara adımı %6.0f" %
+              (name, np.mean([r["heard"] for r in lst]), np.mean([r["first_drink"] for r in lst]), np.median([r["first_drink"] for r in lst]),
+               np.mean([r["wmin"] for r in lst]), np.mean([r["hurts"] for r in lst]), np.mean([r["deaths"] for r in lst]),
+               np.mean([r["first_hurt"] for r in lst])))
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", choices=["run", "compare", "shift", "introspect", "narrate", "transfer", "demo"], default="run")
+    ap.add_argument("--stage", choices=["run", "compare", "shift", "introspect", "narrate", "transfer", "demo", "testimony"], default="run")
     ap.add_argument("--mode", choices=["full", "flat", "random"], default="full")
     ap.add_argument("--steps", type=int, default=30000)
     ap.add_argument("--window", type=int, default=5000)
@@ -1482,6 +1546,7 @@ def main():
     ap.add_argument("--no-sm", action="store_true")
     ap.add_argument("--no-ctx", action="store_true")
     ap.add_argument("--every", type=int, default=3000)
+    ap.add_argument("--seed0", type=int, default=0)
     ap.add_argument("--log", type=int, default=6000)
     ap.add_argument("--trials", type=int, default=40)
     ap.add_argument("--kind", choices=["invert", "poison", "layout"], default="invert")
@@ -1491,7 +1556,7 @@ def main():
     ap.add_argument("--save", default=None)
     ap.add_argument("--resume", default=None)
     args = ap.parse_args()
-    {"run": stage_run, "compare": stage_compare, "shift": stage_shift, "introspect": stage_introspect, "narrate": stage_narrate, "transfer": stage_transfer, "demo": stage_demo}[args.stage](args)
+    {"run": stage_run, "compare": stage_compare, "shift": stage_shift, "introspect": stage_introspect, "narrate": stage_narrate, "transfer": stage_transfer, "demo": stage_demo, "testimony": stage_testimony}[args.stage](args)
 
 
 if __name__ == "__main__":
