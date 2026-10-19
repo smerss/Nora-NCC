@@ -36,7 +36,7 @@ class Universe:
     OBS_DIM = R * 5 + 3 + 2 + 1 + 1 + 2     # 45 görme | 3 iç duyu | 2 hız | 1 dokunma | 1 ışık | 2 pusula
     I_RAYS, I_INTERO, I_SPEED, I_TOUCH, I_LIGHT, I_COMPASS = 0, 45, 48, 50, 51, 52
 
-    def __init__(self, seed=0, size=24.0, n_food=14, dt=0.25, day_len=600, wind=True, n_term=0):
+    def __init__(self, seed=0, size=24.0, n_food=14, dt=0.25, day_len=600, wind=True, n_term=0, metabolism=True):
         self.rng = np.random.default_rng(seed)
         self.L, self.dt, self.day_len, self.wind_on = float(size), dt, day_len, wind
         self.A, self.fric, self.turn = 4.0, 2.0, 0.40       # itiş ivmesi, sürtünme, dönüş açısı
@@ -52,6 +52,7 @@ class Universe:
         self.water_c, self.haz_c = self._layout(lay)
         self.rock = lay.uniform(4, self.L - 4, 2)
         self.rock_v = np.zeros(2)
+        self.metab = 1.0 if metabolism else 0.0                # 0: ihtiyaçlar tükenmez (çürütme testi için 'cansız' evren)
         self.is_term = np.zeros(n_food, bool)                # 'bilmeceli kutu': yiyecek gibi görünür, ancak soru çözülünce enerji verir
         self.is_term[:n_term] = True
         self.food = np.zeros((n_food, 2))
@@ -187,8 +188,8 @@ class Universe:
             self.touch, info["push"] = 1.0, True
         # metabolizma
         night = 1.25 - 0.25 * self.light()
-        self.e -= (self.c_base + self.c_move * thrust * thrust + 0.0002 * (a in (2, 3))) * night
-        self.w -= 0.0010
+        self.e -= (self.c_base + self.c_move * thrust * thrust + 0.0002 * (a in (2, 3))) * night * self.metab
+        self.w -= 0.0010 * self.metab
         d_food = np.hypot(*(self.food - self.pos).T)
         for k in np.flatnonzero(d_food < self.ra + self.food_r):
             if self.is_term[k]:                              # terminal: ödül çözüm sonrası grant() ile verilir

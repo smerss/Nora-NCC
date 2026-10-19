@@ -221,8 +221,28 @@ class Narrator:
     def say(self, mind, obs):
         obs = mind.last_obs if mind.last_obs is not None else obs
         cl = self.clauses(mind, obs)
-        alive = "yaşıyorum" if obs[I_E:I_I + 1].min() > 0 else "ölüyorum"
-        return ("Bir bedenim ve ihtiyaçlarım var, " + alive + ": " + "; ".join(c["text"] for c in cl) + "."), cl
+        life = self.life_claim(mind)
+        return (life["text"] + ": " + "; ".join(c["text"] for c in cl) + "."), cl
+
+    def life_claim(self, mind):
+        """'Yaşıyorum' bir KALIP değil, kanıttan türetilmiş önermedir. Dayanaklar ajanın kendi gözlemleri:
+        (1) bedeni kendiliğinden tükeniyor, (2) eylemleriyle onu onarabiliyor, (3) ölebildiğini biliyor (ölüm anısı).
+        Dayanak yoksa iddia kurulamaz; ihtiyaçların tükenmediği bir evrende ajan kendini yaşayan saymaz."""
+        depl = mind.n_idle > 200 and (mind.drift_e < -1e-4 or mind.drift_w < -1e-4)
+        fix = mind.n_fix_e + mind.n_fix_w >= 1
+        deaths = len(mind.epi.last("öldü", n=999))
+        if depl and fix:
+            extra = ", ölebildiğimi de biliyorum (%d kez öldüm)" % deaths if deaths else ""
+            return dict(alive=True, premises=(depl, fix, deaths > 0),
+                        text="Bedenim kendiliğinden tükeniyor (adım başına enerji %+.4f, su %+.4f); yiyip içerek onu onarabiliyorum%s. Bu kanıtlarla kendimi yaşayan bir varlık sayıyorum" %
+                             (mind.drift_e, mind.drift_w, extra))
+        if depl:
+            return dict(alive=False, premises=(depl, fix, deaths > 0),
+                        text="Bedenim kendiliğinden tükeniyor ama onu onarabildiğimi henüz görmedim; yaşayıp yaşamadığımdan emin değilim")
+        if mind.n_idle > 200:
+            return dict(alive=False, premises=(depl, fix, deaths > 0),
+                        text="Bedenim tükenmiyor (adım başına enerji %+.4f, su %+.4f); bu kanıtla kendimi yaşayan sayamam" % (mind.drift_e, mind.drift_w))
+        return dict(alive=False, premises=(False, False, False), text="Henüz yeterli gözlemim yok, yaşayıp yaşamadığımı bilmiyorum")
 
 
 def wrap(a):
@@ -540,6 +560,8 @@ class Mind:
         self.err_n = 0.0
         self.err_vel = 0.0
         self._last_kind = -1
+        self.drift_e, self.drift_w, self.n_idle = 0.0, 0.0, 0
+        self.n_fix_e, self.n_fix_w = 0, 0
         self.ev_mu, self.ev_var, self.agency_z = 0.5, 0.1, 0.0
         self._prev_pos = np.zeros(2)
         self.err_head = 0.0
@@ -832,6 +854,18 @@ class Mind:
                 self._learn_world(obs)
             if self.grow:
                 self._infer_context()
+        # ---------- beden istatistikleri: kendiliğinden tükenme (olaysız adımlarda) ve onarım olayları
+        if self.prev is not None and not died:
+            de, dw = float(obs[I_E] - self.prev[2][I_E]), float(obs[I_W] - self.prev[2][I_W])
+            if abs(de) < 0.01 and abs(dw) < 0.01:
+                self.n_idle += 1
+                a_ = 0.002
+                self.drift_e += a_ * (de - self.drift_e)
+                self.drift_w += a_ * (dw - self.drift_w)
+            if de > 0.05:
+                self.n_fix_e += 1
+            if dw > 0.02 and self._last_kind != 1:
+                self.n_fix_w += 1
         # ---------- otobiyografik bellek: öne çıkan olayları kaydet
         if self.prev is not None:
             pobs = self.prev[2]
@@ -1536,9 +1570,33 @@ def stage_testimony(args):
                np.mean([r["first_hurt"] for r in lst])))
 
 
+def stage_alive(args):
+    """'Yaşıyorum' iddiasının TÜRETİLMESİ ve ÇÜRÜTÜLEBİLİRLİĞİ: normal evrende iddia ne zaman kurulur (dayanaklar oluşunca)?
+    İhtiyaçların tükenmediği 'cansız' evrende iddia kurulmamalı."""
+    nar = Narrator()
+    for label, metab in (("NORMAL evren (ihtiyaçlar tükenir)", True), ("CANSIZ evren (ihtiyaçlar tükenmez)", False)):
+        first, n_alive = [], 0
+        for s in range(args.seeds):
+            w, m = Universe(seed=s, metabolism=metab), Mind(seed=s)
+            obs, died = w.observe(), False
+            t_first = None
+            for t in range(1, args.steps + 1):
+                obs, info = w.step(m.act(obs, died))
+                died = info["died"] is not None
+                if t_first is None and nar.life_claim(m)["alive"]:
+                    t_first = t
+                if s == 0 and t in (1, 150, 400, 1500, args.steps):
+                    print("[%s | adım %d]\n   %s" % (label, t, nar.life_claim(m)["text"]))
+            first.append(t_first)
+            n_alive += nar.life_claim(m)["alive"]
+        got = [t for t in first if t is not None]
+        print("  >> %s: %d/%d evrende 'kendimi yaşayan sayıyorum' iddiası kuruldu; ilk kurulma adımı medyan %s\n" %
+              (label, n_alive, args.seeds, ("%d" % np.median(got)) if got else "—"))
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", choices=["run", "compare", "shift", "introspect", "narrate", "transfer", "demo", "testimony"], default="run")
+    ap.add_argument("--stage", choices=["run", "compare", "shift", "introspect", "narrate", "transfer", "demo", "testimony", "alive"], default="run")
     ap.add_argument("--mode", choices=["full", "flat", "random"], default="full")
     ap.add_argument("--steps", type=int, default=30000)
     ap.add_argument("--window", type=int, default=5000)
@@ -1557,7 +1615,7 @@ def main():
     ap.add_argument("--save", default=None)
     ap.add_argument("--resume", default=None)
     args = ap.parse_args()
-    {"run": stage_run, "compare": stage_compare, "shift": stage_shift, "introspect": stage_introspect, "narrate": stage_narrate, "transfer": stage_transfer, "demo": stage_demo, "testimony": stage_testimony}[args.stage](args)
+    {"run": stage_run, "compare": stage_compare, "shift": stage_shift, "introspect": stage_introspect, "narrate": stage_narrate, "transfer": stage_transfer, "demo": stage_demo, "testimony": stage_testimony, "alive": stage_alive}[args.stage](args)
 
 
 if __name__ == "__main__":
