@@ -24,30 +24,38 @@ beyin ölümler arasında kesintisiz sürer, öğrenme asla sıfırlanmaz.
 Öğrenme: dopamin(TD hatası)-kapılı, yalnızca aktif Kenyon hücreleri değişir (sinek mantar cismi kuralı).
 Nöron temeli: loblu seyrek kod; her duyusal kanalın kendi KC popülasyonu ve heterojen eşikleri var.
 
-## Ölçülen sonuçlar (60.000 adım, 4 evren tohumu, son %40 pencere)
-| mod | ölüm / 1000 adım | konfor (min ihtiyaç) |
-|---|---|---|
-| rastgele (doğuştan önyargı) | ≈1,2 | ≈0,56 |
-| flat (çalışma alanı yok, ağırlıklı karışım) + bağlam | 0,17 ± 0,13 | 0,75 |
-| full (çalışma alanı) + bağlam | 0,15 ± 0,09 | 0,66 |
-| full, bağlam lobu kapalı | 0,21 ± 0,09 | 0,62 |
+## Ölçülen sonuçlar (60.000 adım, 8 evren tohumu, son %40 pencere)
+| mod | ölüm / 1000 adım | konfor | ölüm nedenleri (toplam) |
+|---|---|---|---|
+| rastgele | 1,11 ± 0,20 | 0,56 | yara 138, susuzluk 62, açlık 22 |
+| **full** (çalışma alanı + harita/plan) | **0,08 ± 0,04** | 0,70 | yara 10, susuzluk 4, açlık 2 |
+| full, haritasız | 0,12 ± 0,10 | 0,68 | susuzluk 15, açlık 6, yara 3 |
+| flat (çalışma alanı yok) + harita/plan | 0,23 ± 0,09 | 0,73 | yara 35, açlık 9, susuzluk 2 |
+| flat, haritasız | 0,15 ± 0,11 | 0,75 | yara 20, susuzluk 6, açlık 3 |
 
-Göstergeler (full): öz-model hareket becerisi **+0,5** (doğrusal tavan ≈+0,5), güven kalibrasyonu r≈**+0,5**,
-dış-kuvvet ayrımı (ajanlık) AUC≈**0,82**, ölüm sonrası devam eden beyin sıfırdan başlayandan iyi (süreklilik).
+Okuma:
+- **Harita susuzluk ölümlerini bitiriyor** (15 → 4 çalışma alanlıda): suyun yerini öğrenip görünmediğinde rota çiziyor.
+- **Çalışma alanı, planlama varken belirgin üstün** (0,08 vs 0,23, ~3 sd): hedefler çatıştığında (plan tehlikeye
+  doğru çekerken) kazananın kontrolü alması tehlike uzmanının planı ezmesini sağlıyor; karışım bunu yapamıyor
+  (flat'ta harita eklemek ölüm oranını 0,15 → 0,23 kötüleştirdi). Yani çalışma alanının işlevsel değeri
+  *çatışma çözümü*; planlama olmadan görünmüyordu.
+- Haritasız ablasyonun etkisi ölüm toplamında gürültü içinde; nedenlerde (susuzluk) net.
+- Konum bilgisi VERİLMİYOR: pusula + hızdan yol integrasyonu + duvar çapası ile konum hatası ≈0,5 birim
+  (arena 24). Rastgele politikada bu bile 1,6 (çapa az duvar görüyor).
+- Öz-model hareket becerisi ≈+0,5–0,68 (doğrusal tavan ≈+0,5), güven kalibrasyonu r≈+0,5, ajanlık AUC≈0,8.
 
 ## Dürüst sınırlar
 - Öğrenme potansiyel-tabanlı ödül şekillendirme (koku gradyanı benzeri doğuştan duyusal potansiyel) olmadan
   çalışmadı: 40 bin adımda ~60 yem olayı öğrenmek için yetersiz. Şekillendirme en iyi politikayı değiştirmez
   ama doğuştan bir ön bilgidir; ileride kaldırılmalı/öğrenilmeli.
-- **Çalışma alanı bugün hayatta kalmada karışıma üstün değil**; konforda geride. Winner-take-all geçiş
-  maliyeti yaratıyor. Değeri başka testlerle (çok-adımlı çelişen hedefler, bölünmüş dikkat, raporlanabilirlik)
-  gösterilmeli; gösterilemezse mimari değişmeli.
+- Çalışma alanı karışıma göre konforda hâlâ biraz geride (0,70 vs 0,73): kazanan-hepsini-alır geçiş maliyeti var.
 - "Ateşleme" şu an hemen her adımda gerçekleşiyor (≈0,99): ayırt edici bir gösterge değil.
-- Ajanın geleceği **planlamıyor** (dünya modeli yok), uzamsal belleği yok (su nerede?).
+- Planlama yalnızca haritada rota arama; öğrenilmiş bir dünya modeli (algı öngörüsü, hayal gücü) yok.
+- Harita ızgarası ve arena boyutu (24, 12x12) ajana doğuştan verilmiş; ölçek öğrenilmiyor.
 - Bunlar işlevsel göstergelerdir; öznel deneyim kanıtı değildir.
 
 ## Sonraki adımlar (AGI'ye katkıya göre)
-1. Dünya modeli + planlama (öz-modelin evrene genişletilmesi), uzamsal bellek.
+1. Öğrenilmiş dünya modeli + hayal gücü (algı öngörüsü), değişen evrende (kaynaklar taşınır) harita güncelleme.
 2. Ateşleme göstergesini seçici yapmak (nonlineer, sürdürülen yayın) ve çalışma alanının değerini ölçen testler.
 3. Şekillendirmenin öğrenilmesi (içsel koku değeri), uyku/tekrar oynatma (`nora_think` ile birleşme).
 4. Dil: `nora_think`/GPT hattını bu zihnin çalışma alanına bağlamak.
