@@ -77,7 +77,9 @@ dışarıdan gözlenebilir dünya girdisinden raporu taklit etmeyi öğrenen sı
 | sahte iç duyu: su açığı | +12,6 | +0,6 |
 | sahte iç duyu: enerji açığı | +7,4 | +1,4 |
 
-- Işınlanma → raporlanan öz-model sürprizi: rapor d=+3,1, papağan +0,4.
+- **Bağımsız tekrar** (25 bin adım eğitim, n=12): iç müdahalede ortalama etki rapor **+5,6**, papağan **−0,2** (amaç=susuz +15,7 vs +0,5; sahte su açığı +5,5 vs +0,0;
+  sahte enerji açığı +9,5 vs +0,4). Ruh hali müdahalesinde her ikisi de değişiyor (ruh hali davranışı ve dolayısıyla dünya girdisini de değiştirdiği için).
+- Işınlanma → raporlanan öz-model sürprizi: ilk koşuda rapor d=+3,1 / papağan +0,4, tekrarda +0,3 / −0,0: **tutarsız, sonuçsuz**.
 - **Gizli dünya değişimi** (gerçek su düşer, sensör gizler): rapor 1,56, papağan 1,05 (1,0 = etkisiz). **Ayırt edici
   değil**, papağan zaten suya duyarsız; bu test iyileştirilmeli.
 - Papağan doğruluğu (dünya gözleminden rapor tahmini): ridge 0,45, 5-NN 0,34 (çoğunluk tabanı 0,23).
