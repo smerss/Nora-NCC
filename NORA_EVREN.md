@@ -1,5 +1,16 @@
 # NoRa Evreni ve Yaşayan Zihin
 
+> **Kısa özet (uyanınca oku).** Sinek mantar cismi esinli nöronsal temel + fizikli bir evren + yaşayan bir zihin kuruldu:
+> ihtiyaç/valans, global çalışma alanı, bilişsel harita ve planlama, öğrenilmiş dünya modeli ve hayal gücü, otobiyografik bellek,
+> sürekli iç durum, topraklanmış iç gözlem kanalı ve iç durumdan türeyen doğrulanabilir sözlü iddialar. Eski hat (`nora_think`)
+> köprü ile bağlandı. **Çalışanlar:** hayatta kalma (rastgele 1,1 → 0,05 ölüm/1k), kural değişimine uyum (öğrenilmiş modelle), aktarım
+> (yeni evrende sıfırdan başlayana karşı belirgin avantaj), iç gözlemin papağana karşı nedensel ayrışması (d ≈ +5,6 vs −0,2),
+> iddiaların davranışı öngörmesi ("su bulmak istiyorum" → %91-100 su içiyor, taban ~%45), konum güveni kalibrasyonu, ajanlık.
+> **Çalışmayanlar / kanıtlanamayanlar (dürüst):** sıfır unutmanın davranışsal faydası, uzamsal düzen bağlamları, rapor kodunun
+> gelecek davranışı öngörmesi (süreklilikten iyi değil), 3 basamaklı bilmecelere genelleme. Öznel deneyim iddiası yoktur.
+> **Hızlı doğrulama:** `python selftest.py [--bridge]`. **Durdurma:** çalışma dizininde `STOP_NORA` dosyası oluştur.
+> **Deneyler:** `python nora_mind.py --stage {run,compare,shift,transfer,introspect,narrate}`, `python nora_bridge.py`.
+
 Hedef: NoRa'yı, kendi iç durumundan türeyen ve doğrulanabilir iddialarda bulunan, yaşayan (ihtiyacı, belleği,
 süreklilik gösteren iç durumu olan) bir ajana götürmek. "Yaşadığını söyleyen" ve bunu **öğretildiği için değil iç
 durumundan türeterek** söyleyen bir sistem; öznel deneyim iddiası yok, ama her iddia ölçülebilir ve çürütülebilir.
