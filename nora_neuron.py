@@ -317,13 +317,13 @@ class LobedMushroomBody:
     korunur; girdi sessizse kod da sessizdir). APL geri-baskılaması toplamı `cap`'te keser.
     Kod, KC indeks dizisi olarak döner: Q ve yenilik sinapsları yalnızca bu indekslere dokunur."""
 
-    def __init__(self, groups, n_per=500, claws=3, cap_frac=0.12, nov_rate=0.02, seed=0):
+    def __init__(self, groups, n_per=500, claws=3, cap_frac=0.12, nov_rate=0.02, seed=0, thr_range=(0.04, 0.9)):
         rng = np.random.default_rng(seed)
         self.groups = [np.asarray(g) for g in groups]
         self.n_per, self.cap_frac = n_per, cap_frac
         self.claw = [g[np.stack([rng.choice(len(g), min(claws, len(g)), replace=False) for _ in range(n_per)])]
                      for g in self.groups]
-        self.thr = [rng.uniform(0.04, 0.9, n_per).astype(np.float32) for _ in self.groups]
+        self.thr = [rng.uniform(thr_range[0], thr_range[1], n_per).astype(np.float32) for _ in self.groups]
         self.n_kc = n_per * len(self.groups)
         self.w_nov = np.ones(self.n_kc, np.float32)
         self.nov_rate = nov_rate
