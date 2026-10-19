@@ -512,7 +512,7 @@ class CognitiveMap:
 
 
 class Mind:
-    def __init__(self, mode="full", seed=0, n_kc=3000, n_res=96, gamma=0.95, lr=0.25, self_model=True, shape=2.0, ctx=True, use_map=True, grow=True, model=True, imag=True, replay=True, maplayouts=False, anchor=False, landmark=False, arena=24.0):
+    def __init__(self, mode="full", seed=0, n_kc=3000, n_res=96, gamma=0.95, lr=0.25, self_model=True, shape=2.0, ctx=True, use_map=True, grow=True, model=True, imag=True, replay=True, maplayouts=False, anchor=False, landmark=False, arena=24.0, kc_cap=0.12, kc_thr=(0.04, 0.9)):
         self.mode, self.rng, self.gamma, self.lr = mode, np.random.default_rng(seed), gamma, lr
         self.use_sm, self.shape, self.ctx, self.use_map = self_model, shape, ctx, use_map
         self.grow, self.use_model, self.use_imag, self.use_replay, self.use_anchor = grow, model, imag, replay, anchor
@@ -528,7 +528,7 @@ class Mind:
         groups = [np.arange(c, 45, 5) for c in range(5)] + [np.array([48, 49, 50])]   # kanal başına ışınlar | proprio
         if ctx:                                                # bağlam lobu: sürekli iç durum h davranışa girer
             groups.append(np.arange(Universe.OBS_DIM, Universe.OBS_DIM + self.n_ctx))
-        self.mb = LobedMushroomBody(groups, n_per=n_kc // len(groups), seed=seed)
+        self.mb = LobedMushroomBody(groups, n_per=n_kc // len(groups), seed=seed, cap_frac=kc_cap, thr_range=kc_thr)
         n_kc = self.mb.n_kc
         self.n_kc = n_kc
         # --- süreklilik: tekrarlayan durum (HİÇ sıfırlanmaz)
@@ -1105,6 +1105,10 @@ def _SHIFT_EVENTS(steps):
 def _one(job):
     mode, seed, steps, window, kw = job
     base, *flags = mode.split("-")
+    if "sparser" in flags:
+        kw.update(kc_cap=0.04, kc_thr=(0.3, 0.9))
+    if "dense" in flags:
+        kw.update(kc_cap=1.0, kc_thr=(0.0, 0.25))
     kw = dict(kw, ctx=("noctx" not in flags), self_model=("nosm" not in flags), use_map=("nomap" not in flags),
               grow=("nogrow" not in flags), model=("nomodel" not in flags), imag=("noimag" not in flags),
               replay=("noreplay" not in flags), maplayouts=("mapctx" in flags), anchor=("anchor" in flags), landmark=("landmark" in flags))
