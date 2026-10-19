@@ -182,6 +182,9 @@ class Narrator:
         v = mind.mood
         mood = "iyi" if v > 0.05 else ("kötü" if v < -0.05 else "ne iyi ne kötü")
         cl.append(dict(kind="duygu", text="%s hissediyorum" % mood, claim=(1 if v > 0.05 else (-1 if v < -0.05 else 0)), basis=v))
+        pushed = mind.agency_z > 2.5
+        cl.append(dict(kind="ajanlık", text=("beni beklenmedik bir kuvvet itiyor" if pushed else "hareketlerimi ben yönlendiriyorum"),
+                       claim=bool(pushed), basis=float(mind.agency_z)))
         sure = (mind.map.unc < 0.15) if mind.use_map else None
         if sure is not None:
             cl.append(dict(kind="konum", text="nerede olduğumdan %s" % ("eminim" if sure else "emin değilim"), claim=bool(sure),
@@ -224,15 +227,103 @@ class CognitiveMap:
     Hücre başına öğrenilen: su bulunan yerler, yaralanılan yerler, en son ziyaret zamanı (taze/bayat).
     Planlayıcı: hedeften maliyet-alanı (Bellman), tehlike hücreleri pahalı -> güvenli rota."""
 
-    def __init__(self, L=24.0, G=12, dt=0.25):
+    def __init__(self, L=24.0, G=12, dt=0.25, multi=True):
         self.L, self.G, self.dt, self.cell = L, G, dt, L / G
         self.pos, self.unc = np.array([L / 2, L / 2]), 1.0
-        self.water = np.zeros((G, G), np.float32)
-        self.hurt = np.zeros((G, G), np.float32)
-        self.seen = np.zeros((G, G), np.float32)                # görerek haritalanan tehlike (acı çekmeden)
+        self.multi = multi                                       # düzen bağlamları (sıfır unutma) açık mı
+        self.layouts = [self._blank()]
+        self.cur_l, self.contra, self.l_cool, self.n_layouts = 0, [0.0], 0, 1
         self.last = np.zeros((G, G), np.float32)
         self.th = 0.0
         self.target = {}                                      # uzman -> (hücre, atandığı zaman, alan)
+
+    def _blank(self):
+        G = self.G
+        return dict(water=np.zeros((G, G), np.float32), hurt=np.zeros((G, G), np.float32),
+                    seen=np.zeros((G, G), np.float32),            # görerek haritalanan tehlike (acı çekmeden)
+                    wseen=np.zeros((G, G), np.float32),           # görerek haritalanan su
+                    free_h=np.zeros((G, G), bool),                # orada durdum, ≥2 farklı yönden bakıp tehlike görmedim (onaylı boş)
+                    free_w=np.zeros((G, G), bool),
+                    look_h=np.full((G, G), np.nan, np.float32),   # ilk 'boş' bakışın yönü
+                    look_w=np.full((G, G), np.nan, np.float32))
+
+    water = property(lambda s: s.layouts[s.cur_l]["water"], lambda s, v: s.layouts[s.cur_l].__setitem__("water", v))
+    hurt = property(lambda s: s.layouts[s.cur_l]["hurt"], lambda s, v: s.layouts[s.cur_l].__setitem__("hurt", v))
+    seen = property(lambda s: s.layouts[s.cur_l]["seen"], lambda s, v: s.layouts[s.cur_l].__setitem__("seen", v))
+    wseen = property(lambda s: s.layouts[s.cur_l]["wseen"], lambda s, v: s.layouts[s.cur_l].__setitem__("wseen", v))
+
+    def _layout_inference(self, obs, c):
+        """Düzen çıkarımı: her saklı düzenin 'şu an görülenle' çelişki oranı (EMA). Çelişki = harita bir şey söylüyor, gözlem başka.
+        En az çelişkili düzen etkinleşir; hiçbiri açıklamıyorsa yeni düzen açılır (çoklu bağlam kapalıysa harita sıfırlanır)."""
+        rr = obs[:45].reshape(Universe.R, 5)
+        hz, wt = float(rr[:, RAY_HAZ].max()), float(rr[:, RAY_WATER].max())
+        i, j = c
+
+        def nb(a):
+            return a[max(i - 1, 0):i + 2, max(j - 1, 0):j + 2].max()
+        for li, Lx in enumerate(self.layouts):
+            e = []
+            # çelişki: harita 'burası boştu' diyor ama şimdi içindeyim; ya da 'burada var' diyor ama yok
+            if hz > 0.9 and Lx["free_h"][c] and not (nb(Lx["seen"]) > 0 or nb(Lx["hurt"]) > 0):
+                e.append(1.0)
+            if wt > 0.9 and Lx["free_w"][c] and not (nb(Lx["wseen"]) > 0 or nb(Lx["water"]) > 0):
+                e.append(1.0)
+            # görünürlüğe duyarlı beklenti: haritadaki çekirdek hücre şu an GÖRÜŞ KONİSİ ve MENZİLİ içindeyse ışında görünmeli
+            e.extend(v for v, _, _ in self._expect_checks(rr, obs, Lx))
+            # uyum: içindeyim ve harita biliyor
+            if hz > 0.9 and (nb(Lx["seen"]) > 0 or nb(Lx["hurt"]) > 0):
+                e.append(0.0)
+            if wt > 0.9 and (nb(Lx["wseen"]) > 0 or nb(Lx["water"]) > 0):
+                e.append(0.0)
+            if e:
+                self.contra[li] = 0.98 * self.contra[li] + 0.02 * float(np.mean(e))
+        Lc = self.layouts[self.cur_l]                       # onaylı boş hücreleri yalnızca etkin düzen öğrenir
+        th = self.th
+        for key, look, free, val in (("h", Lc["look_h"], Lc["free_h"], hz), ("w", Lc["look_w"], Lc["free_w"], wt)):
+            if val < 0.3:
+                if np.isnan(look[c]):
+                    look[c] = th
+                elif abs(wrap(th - look[c])) > 2.0:                    # ≥2 farklı yönden bakıldı: gerçekten boş
+                    free[c] = True
+        self.l_cool = max(0, self.l_cool - 1)
+        cur = self.contra[self.cur_l]
+        if self.l_cool > 0 or cur < 0.5:
+            return
+        best = int(np.argmin(self.contra))
+        if self.multi and best != self.cur_l and self.contra[best] < 0.4 * cur:       # eski bir düzene dönüldü
+            self.cur_l, self.l_cool, self.target = best, 60, {}
+        elif cur > 0.55 and (not self.multi or (min(self.contra) > 0.45 and len(self.layouts) < 6)):
+            if self.multi:                                                              # yeni düzen: eskisi donuk kalır
+                self.layouts.append(self._blank())
+                self.contra.append(0.0)
+                self.cur_l, self.n_layouts = len(self.layouts) - 1, self.n_layouts + 1
+            else:                                                                       # tek harita: ESKİ BİLGİ SİLİNİR (unutma)
+                self.layouts[0] = self._blank()
+                self.contra[0] = 0.0
+            self.l_cool, self.target = 200, {}
+
+    def _expect_checks(self, rr, obs, Lx):
+        """Harita 'burada tehlike/su var' diyor ve o yer şu an görüş konisi + menzil içindeyse, o yöndeki ışınlarda görünmeli.
+        Görünmüyorsa çelişki (1.0), görünüyorsa uyum (0.0). Yalnızca çekirdek hücreler (komşuluğu da işaretli) denetlenir."""
+        vis = 5.0 + 7.0 * float(obs[51])
+        out = []
+        for marks, chan in ((np.maximum(Lx["seen"], Lx["hurt"]) > 0, RAY_HAZ), (np.maximum(Lx["wseen"], Lx["water"]) > 0, RAY_WATER)):
+            if not marks.any():
+                continue
+            pad = np.pad(marks.astype(np.int32), 1)
+            cnt = sum(pad[1 + di:1 + di + self.G, 1 + dj:1 + dj + self.G] for di in (-1, 0, 1) for dj in (-1, 0, 1))
+            idx = np.argwhere(marks & (cnt >= 4))
+            if len(idx) == 0:
+                continue
+            vec = (idx + 0.5) * self.cell - self.pos
+            dist = np.hypot(vec[:, 0], vec[:, 1])
+            rel = wrap(np.arctan2(vec[:, 1], vec[:, 0]) - self.th)
+            ok = (np.abs(rel) < Universe.FOV / 2 - 0.2) & (dist > 1.5) & (dist < vis - 1.5)
+            for q in np.flatnonzero(ok)[:4]:
+                k = int(np.argmin(np.abs(rel[q] - _RAY_OFF)))
+                bad = rr[max(k - 1, 0):k + 2, chan].max() < 0.05
+                out.append((1.0 if bad else 0.0, chan, tuple(idx[q])))
+        return out
 
     def cell_of(self, p):
         return tuple(np.clip((np.asarray(p) / self.cell).astype(int), 0, self.G - 1))
@@ -287,26 +378,34 @@ class CognitiveMap:
                 self.pos = self.pos + 0.12 * corr / n
         else:
             self.unc = min(1.0, self.unc + 0.004)                   # duvar kanıtı yokken yol integrasyonu kayar: belirsizlik artar
-        if self.unc < 0.3:                                    # konum güvenilirse görülen tehlikeyi haritala
-            hz = obs[:45].reshape(Universe.R, 5)[:, RAY_HAZ]
-            for k in np.flatnonzero(hz > 0.02):
-                dvec = np.array([np.cos(ang[k]), np.sin(ang[k])])
-                for extra in (0.3, 1.2, 2.2):
-                    p = self.pos + dvec * (vis * (1 - hz[k]) + extra)
-                    if 0 <= p[0] < self.L and 0 <= p[1] < self.L:
-                        self.seen[self.cell_of(p)] = 1.0
+        if self.unc < 0.3:                                    # konum güvenilirse görülen tehlikeyi ve suyu haritala
+            self._pending_mark = (ang, vis)
         self.pos = np.clip(self.pos, 0.3, self.L - 0.3)
         c = self.cell_of(self.pos)
         self.last[c] = now
-        if self.unc < 0.3:                                          # GERÇEKLİK DENETİMİ: burada olduğumu biliyorum ama beklediğim şey görünmüyor
-            rr = obs[:45].reshape(Universe.R, 5)
-            if self.water[c] > 0 and rr[:, RAY_WATER].max() < 0.5:   # 'su burada' sanıyorum, yakında su yok -> bilgi yanlış
-                self.water[c] *= 0.85
-            if (self.seen[c] > 0 or self.hurt[c] > 0) and rr[:, RAY_HAZ].max() < 0.5:
-                self.seen[c] *= 0.85
-                self.hurt[c] *= 0.85
-                if self.seen[c] < 0.2:
-                    self.seen[c] = 0.0
+        if self.unc < 0.15:
+            if self.multi:
+                self._layout_inference(obs, c)                      # (deneysel) çoklu düzen bağlamı
+            else:                                                   # YEREL ONARIM: görünürlük koşulu sağlanıp görünmeyen işaret silinir
+                rr = obs[:45].reshape(Universe.R, 5)
+                for v, chan, cell in self._expect_checks(rr, obs, self.layouts[0]):
+                    if v > 0:
+                        arrs = (self.seen, self.hurt) if chan == RAY_HAZ else (self.wseen, self.water)
+                        for a in arrs:
+                            a[cell] *= 0.8
+                            if a[cell] < 0.2:
+                                a[cell] = 0.0
+        if self.unc < 0.3 and getattr(self, "_pending_mark", None) is not None:
+            ang, vis = self._pending_mark
+            for chn, arr in ((RAY_HAZ, self.seen), (RAY_WATER, self.wseen)):
+                hz = obs[:45].reshape(Universe.R, 5)[:, chn]
+                for k in np.flatnonzero(hz > 0.02):
+                    dvec = np.array([np.cos(ang[k]), np.sin(ang[k])])
+                    for extra in (0.3, 1.2, 2.2):
+                        p = self.pos + dvec * (vis * (1 - hz[k]) + extra)
+                        if 0 <= p[0] < self.L and 0 <= p[1] < self.L:
+                            arr[self.cell_of(p)] = 1.0
+        self._pending_mark = None
         if prev is not None:
             if obs[I_W] - prev[I_W] > 0.02:
                 self.water[c] += 1.0
@@ -328,8 +427,9 @@ class CognitiveMap:
 
     def choose_target(self, kind, now):
         """kind 'su': öğrenilmiş su hücresi (yoksa bayat). 'gez': en bayat ve yakın, tehlikesiz hücre."""
-        if kind == "su" and self.water.max() > 0:
-            return np.argwhere(self.water >= 0.5 * self.water.max())
+        if kind == "su" and (self.water.max() > 0 or self.wseen.max() > 0):
+            known = self.water + 0.5 * self.wseen
+            return np.argwhere(known >= 0.5 * known.max())
         age = now - self.last
         ci, cj = self.cell_of(self.pos)
         ii, jj = np.meshgrid(np.arange(self.G), np.arange(self.G), indexing="ij")
@@ -366,7 +466,7 @@ class CognitiveMap:
 
 
 class Mind:
-    def __init__(self, mode="full", seed=0, n_kc=3000, n_res=96, gamma=0.95, lr=0.25, self_model=True, shape=2.0, ctx=True, use_map=True, grow=True, model=True, imag=True, replay=True):
+    def __init__(self, mode="full", seed=0, n_kc=3000, n_res=96, gamma=0.95, lr=0.25, self_model=True, shape=2.0, ctx=True, use_map=True, grow=True, model=True, imag=True, replay=True, maplayouts=False):
         self.mode, self.rng, self.gamma, self.lr = mode, np.random.default_rng(seed), gamma, lr
         self.use_sm, self.shape, self.ctx, self.use_map = self_model, shape, ctx, use_map
         self.grow, self.use_model, self.use_imag, self.use_replay = grow, model, imag, replay
@@ -374,7 +474,7 @@ class Mind:
         self.intro = Introspector()
         self.force = None                                              # müdahale: (uzman, kalan adım)
         self.sensor_bias = None                                        # müdahale: sahte iç duyu (açık eklemesi, kalan adım)
-        self.map = CognitiveMap()
+        self.map = CognitiveMap(multi=maplayouts)
         self.n_ctx = 48
         n_act = Universe.N_ACT
         # --- nöronsal temel: KC kodu yalnızca duyusal girdiden (iç duyu HARİÇ) -> Q ihtiyaçtan bağımsız
@@ -413,6 +513,7 @@ class Mind:
         self.err_n = 0.0
         self.err_vel = 0.0
         self._last_kind = -1
+        self.ev_mu, self.ev_var, self.agency_z = 0.5, 0.1, 0.0
         self._prev_pos = np.zeros(2)
         self.err_head = 0.0
         self.age = 0
@@ -679,6 +780,10 @@ class Mind:
             self.err_n = float(en[3:5].mean())          # hareket boyutları: öngörülebilir olan öz-etki
             self.err_vel = float(en[3:5].mean())
             self.err_head = float(en[6])
+            a = 0.01
+            self.ev_var += a * ((self.err_vel - self.ev_mu) ** 2 - self.ev_var)
+            self.ev_mu += a * (self.err_vel - self.ev_mu)
+            self.agency_z = (self.err_vel - self.ev_mu) / np.sqrt(self.ev_var + 1e-3)
             zz = float(self.z @ self.z) + 1e-3
             if not self.freeze:                                        # sürprizde aktif bağlam KİRLENMESİN
                 self.Wsm += 0.5 * np.outer(err, self.z) / zz
@@ -793,7 +898,7 @@ class Mind:
         np.savez(path, Wq=np.stack([c['Wq'] for c in self.ctxs]), Wsm=np.stack([c['Wsm'] for c in self.ctxs]),
                  Wc=np.stack([c['Wc'] for c in self.ctxs]), Wm=np.stack([c['Wm'] for c in self.ctxs]), Pm=np.stack([c['Pm'] for c in self.ctxs]), cerr=np.array(self.cerr), oerr=np.array(self.oerr), good=np.array([c['good'] for c in self.ctxs]), V=np.stack([c['V'] for c in self.ctxs]), Vn=np.stack([c['Vn'] for c in self.ctxs]), cur=self.cur, scale=self.scale, h=self.h, w_nov=self.mb.w_nov,
                  claw=np.stack(self.mb.claw), thr=np.stack(self.mb.thr), Wr=self.Wr, Win=self.Win, mood=self.mood, age=self.age,
-                 m_water=self.map.water, m_hurt=self.map.hurt, m_last=self.map.last, m_seen=self.map.seen)
+                 m_lay=np.stack([np.stack([Lx['water'], Lx['hurt'], Lx['seen'], Lx['wseen'], Lx['free_h'].astype(np.float32), Lx['free_w'].astype(np.float32), np.nan_to_num(Lx['look_h'], nan=-9.0), np.nan_to_num(Lx['look_w'], nan=-9.0)]) for Lx in self.map.layouts]), m_contra=np.array(self.map.contra), m_cur=self.map.cur_l, m_last=self.map.last)
 
     def load(self, path):
         z = np.load(path)
@@ -803,7 +908,8 @@ class Mind:
         self.cerr, self.oerr, self.cur = list(z["cerr"]), list(z["oerr"]), int(z["cur"])
         self.mb.w_nov, self.mb.claw, self.mb.thr = z["w_nov"], list(z["claw"]), list(z["thr"])
         self.mood, self.age = float(z["mood"]), int(z["age"])
-        self.map.water, self.map.hurt, self.map.last, self.map.seen = z["m_water"], z["m_hurt"], z["m_last"], z["m_seen"]
+        self.map.layouts = [dict(water=a[0], hurt=a[1], seen=a[2], wseen=a[3], free_h=a[4] > 0, free_w=a[5] > 0, look_h=np.where(a[6] < -8, np.nan, a[6]), look_w=np.where(a[7] < -8, np.nan, a[7])) for a in z["m_lay"]]
+        self.map.contra, self.map.cur_l, self.map.last = list(z["m_contra"]), int(z["m_cur"]), z["m_last"]
 
 
 # ================================================================ yaşam döngüsü + göstergeler
@@ -909,6 +1015,8 @@ SHIFT_KIND = "invert"
 def _SHIFT_EVENTS(steps):
     q = steps // 4                                    # evreler: normal | değişmiş | normal | değişmiş
     def flip(v):
+        if SHIFT_KIND == "layout":
+            return lambda w: w.relayout(1 if v else 0)
         return lambda w: setattr(w, SHIFT_KIND, v)
     return {q + 1: flip(True), 2 * q + 1: flip(False), 3 * q + 1: flip(True)}
 
@@ -918,7 +1026,7 @@ def _one(job):
     base, *flags = mode.split("-")
     kw = dict(kw, ctx=("noctx" not in flags), self_model=("nosm" not in flags), use_map=("nomap" not in flags),
               grow=("nogrow" not in flags), model=("nomodel" not in flags), imag=("noimag" not in flags),
-              replay=("noreplay" not in flags))
+              replay=("noreplay" not in flags), maplayouts=("mapctx" in flags))
     world, mind = Universe(seed=seed), Mind(mode=base, seed=seed, **kw)
     return mode, seed, live(mind, world, steps, window=window, verbose=False, events=_SHIFT_EVENTS(steps) if SHIFT else None)
 
@@ -1160,6 +1268,7 @@ def stage_narrate(args):
     ev = dict(ate=[], drank=[], hurt=[])
     truth_pos = {}
     first_say = None
+    ag = []
 
     def run(n=1):
         nonlocal obs, died
@@ -1168,6 +1277,7 @@ def stage_narrate(args):
             obs, info = world.step(a)
             died = info["died"] is not None
             t = mind.age
+            ag.append((bool(info["ext"]), float(mind.agency_z)))
             if info["ate"] > 0:
                 ev["ate"].append(t)
             if info["drank"] > 0:
@@ -1255,6 +1365,12 @@ def stage_narrate(args):
     print("[a2] (adım>=6) 'eminim' hatası %s (n=%d) | 'emin değilim' hatası %s (n=%d)" %
           ("%.2f" % np.mean(sure_e) if sure_e else "—", len(sure_e), "%.2f" % np.mean(unsure_e) if unsure_e else "—", len(unsure_e)))
 
+    ext = np.array([a for e, a in ag if e])
+    non = np.array([a for e, a in ag if not e])
+    if len(ext) > 5:
+        print("[a3] ajanlık: dışarıdan itildiğinde (rüzgâr, n=%d adım) 'beni bir kuvvet itiyor' deme oranı %.2f | itilmediğinde (n=%d) %.3f | AUC %.2f" %
+              (len(ext), float((ext > 2.5).mean()), len(non), float((non > 2.5).mean()), auc(ext, non)))
+
     # ---- (c) sahte iç duyu: ajan su açığı olduğuna 'inanır'; söz ve davranış birlikte mi gidiyor?
     sham_say = ill_say = sham_go = ill_go = 0
     n = args.trials
@@ -1321,7 +1437,7 @@ def main():
     ap.add_argument("--no-ctx", action="store_true")
     ap.add_argument("--log", type=int, default=6000)
     ap.add_argument("--trials", type=int, default=40)
-    ap.add_argument("--kind", choices=["invert", "poison"], default="invert")
+    ap.add_argument("--kind", choices=["invert", "poison", "layout"], default="invert")
     ap.add_argument("--no-map", action="store_true")
     ap.add_argument("--seeds", type=int, default=3)
     ap.add_argument("--modes", default="random,flat,full")
