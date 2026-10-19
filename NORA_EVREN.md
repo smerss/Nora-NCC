@@ -6,7 +6,7 @@
 > köprü ile bağlandı. **Çalışanlar:** hayatta kalma (rastgele 1,06 → 0,05 ölüm/1k), kural değişimine uyum (öğrenilmiş modelle), aktarım
 > (yeni evrende sıfırdan başlayana karşı belirgin avantaj), iç gözlemin papağana karşı nedensel ayrışması (d ≈ +5,6 vs −0,2),
 > iddiaların davranışı öngörmesi ("su bulmak istiyorum" → %94-100 su içiyor, taban ~%50), konum güveni kalibrasyonu, ajanlık.
-> **Çalışmayanlar / kanıtlanamayanlar (dürüst):** sıfır unutmanın davranışsal faydası, uzamsal düzen bağlamları, rapor kodunun
+> **Çalışmayanlar / kanıtlanamayanlar (dürüst):** sıfır unutmanın davranışsal faydası, tanıklıkla (anlatıyla) öğrenme, uzamsal düzen bağlamları, rapor kodunun
 > gelecek davranışı öngörmesi (süreklilikten iyi değil), 3 basamaklı bilmecelere genelleme. Öznel deneyim iddiası yoktur.
 > **Hızlı doğrulama:** `python selftest.py [--bridge]`. **Durdurma:** çalışma dizininde `STOP_NORA` dosyası oluştur.
 > **Deneyler:** `python nora_mind.py --stage {run,compare,shift,transfer,introspect,narrate,demo}` (`demo`: insan-okunur yaşam öyküsü, ör. `--stage demo --steps 9000 --seed 5`), `python nora_bridge.py`.
@@ -155,6 +155,22 @@ basamak-bazlı kalibrasyonla; düşünmek dünya adımı harcar; doğrulanmış 
 Haritayı düzen-anahtarlı bağlamlarla (`-mapctx`) sıfır unutmayı haritaya taşıma denemesi: görünürlüğe duyarlı çelişki kanıtına
 rağmen, gürültülü harita işaretleri sabit evrende bile yanlış alarm üretti (6 sahte düzen). Varsayılan: tek harita + yerel onarım.
 Kod bayrak altında duruyor; sağlam bir "hangi dünyadayım" çıkarımı için daha iyi işaretleme/kalibrasyon gerekir.
+
+### H. Tanıklıkla öğrenme (olumsuz)
+A ajanı 15 bin adım yaşar, haritasındaki güvenilir su/tehlike yerlerini ayrıştırılabilir cümlelere döker ("su (15, 12) civarında; tehlike (5, 8)
+civarında"); yeni doğan B cümleleri okuyup haritasına ön bilgi olarak işler (`Mind.hear`). Koşullar: kendi başına | A'nın doğru anlatısı |
+YANLIŞ anlatı (başka düzene sahip evrende yaşamış ajandan). B'nin ilk 3000 adımı, **24 evren**, eşleştirilmiş:
+
+| | yara adımı | ölüm / yaşam | en düşük su | ilk içmeye kadar adım |
+|---|---|---|---|---|
+| kendi başına | 16,5 ± 2,8 | 0,54 ± 0,13 | 0,25 | 426 |
+| doğru tanıklık | 17,0 ± 2,8 | 0,67 ± 0,13 | 0,24 | 415 |
+| yanlış tanıklık | 18,4 ± 4,8 | 0,79 ± 0,24 | 0,27 | 448 |
+
+**Anlatı etkisiz** (eşleştirilmiş farklar anlamlı değil; 8 evrelik ilk bakış "0,38 vs 0,75 ölüm" gürültüydü). Yorum: yeni doğan ajan refleksle
+(görünce kaçınma, gradyan tırmanışı) zaten hızla yetkin; harita bilgisi yalnızca planlı rotalarda kullanılıyor, erken hayatta kalmanın
+darboğazı harita bilgisi değil. Anlatının *içeriği* doğru (A'nın gerçek su/tehlike hücreleri) ama bu bilgiyi kullanan bir davranış yok. Tanıklığın
+işe yaraması için ya bilgi darboğazı olan bir görev (gizli uzak kaynak) ya da refleksi etkileyen bir kanal gerekir.
 
 ## Dürüst sınırlar
 - Öznel deneyim kanıtı yoktur ve bu sistem onu iddia etmez. Sonuçlar işlevsel göstergelerdir.
