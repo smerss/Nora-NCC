@@ -3,7 +3,7 @@
 > **Kısa özet (uyanınca oku).** Sinek mantar cismi esinli nöronsal temel + fizikli bir evren + yaşayan bir zihin kuruldu:
 > ihtiyaç/valans, global çalışma alanı, bilişsel harita ve planlama, öğrenilmiş dünya modeli ve hayal gücü, otobiyografik bellek,
 > sürekli iç durum, topraklanmış iç gözlem kanalı ve iç durumdan türeyen doğrulanabilir sözlü iddialar. Eski hat (`nora_think`)
-> köprü ile bağlandı. **Çalışanlar:** hayatta kalma (rastgele 1,06 → 0,05 ölüm/1k), kural değişimine uyum (öğrenilmiş modelle), aktarım
+> köprü ile bağlandı. **Çalışanlar:** hayatta kalma (rastgele 1,06 → ≈0,05–0,08 ölüm/1k), kural değişimine uyum (öğrenilmiş modelle), aktarım
 > (yeni evrende sıfırdan başlayana karşı belirgin avantaj), iç gözlemin papağana karşı nedensel ayrışması (d ≈ +5,6 vs −0,2),
 > **anlatı yoluyla bilgi aktarımı** (48×48 arenada B'nin ölümü yaşam başına 1,35 → 0,70; yanlış anlatı yardım etmiyor), iddiaların davranışı öngörmesi ("su bulmak istiyorum" → %94-100 su içiyor, taban ~%50), konum güveni kalibrasyonu, ajanlık, **kanıttan türetilen ve çürütülebilir "yaşıyorum" önermesi** (ihtiyaçları tükenmeyen evrende kurulmuyor).
 > **Çalışmayanlar / kanıtlanamayanlar (dürüst):** sıfır unutmanın davranışsal faydası, tanıklıkla öğrenmenin küçük arenada (bilgi darboğazı yokken), uzamsal düzen bağlamları, rapor kodunun
@@ -54,7 +54,7 @@ durumundan türeterek** söyleyen bir sistem; öznel deneyim iddiası yok, ama h
 | mod | ölüm / 1000 adım | konfor | ölüm nedenleri (toplam) |
 |---|---|---|---|
 | rastgele | 1,06 ± 0,11 | 0,57 | yara 139, susuzluk 52, açlık 21 |
-| **çalışma alanı + harita/plan (full)** | **0,05 ± 0,03** | 0,71 | yara 8, susuzluk 1, açlık 1 |
+| **çalışma alanı + harita/plan (full)** | **0,05 ± 0,03** (ikinci bağımsız koşu, küçük sayısal değişimden sonra: 0,08 ± 0,07; birleşik ≈0,065) | 0,71 | yara 8, susuzluk 1, açlık 1 (ikinci koşu: yara 14, susuzluk 2) |
 | çalışma alanı, haritasız | 0,11 ± 0,10 | 0,64 | susuzluk 16, yara 3, açlık 2 |
 | karışım (çalışma alanı yok) + harita/plan | 0,10 ± 0,16 | **0,77** | yara 19, açlık 1 |
 
