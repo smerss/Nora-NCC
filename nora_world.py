@@ -36,7 +36,7 @@ class Universe:
     OBS_DIM = R * 5 + 3 + 2 + 1 + 1 + 2     # 45 görme | 3 iç duyu | 2 hız | 1 dokunma | 1 ışık | 2 pusula
     I_RAYS, I_INTERO, I_SPEED, I_TOUCH, I_LIGHT, I_COMPASS = 0, 45, 48, 50, 51, 52
 
-    def __init__(self, seed=0, size=24.0, n_food=14, dt=0.25, day_len=600, wind=True):
+    def __init__(self, seed=0, size=24.0, n_food=14, dt=0.25, day_len=600, wind=True, n_term=0):
         self.rng = np.random.default_rng(seed)
         self.L, self.dt, self.day_len, self.wind_on = float(size), dt, day_len, wind
         self.A, self.fric, self.turn = 4.0, 2.0, 0.40       # itiş ivmesi, sürtünme, dönüş açısı
@@ -52,6 +52,8 @@ class Universe:
         self.water_c, self.haz_c = self._layout(lay)
         self.rock = lay.uniform(4, self.L - 4, 2)
         self.rock_v = np.zeros(2)
+        self.is_term = np.zeros(n_food, bool)                # 'bilmeceli kutu': yiyecek gibi görünür, ancak soru çözülünce enerji verir
+        self.is_term[:n_term] = True
         self.food = np.zeros((n_food, 2))
         for i in range(n_food):
             self.food[i] = self._spawn_food()
@@ -127,9 +129,13 @@ class Universe:
         o[52:54] = (np.cos(self.th), np.sin(self.th))      # pusula (yön hücreleri): mutlak yön, konum DEĞİL
         return o
 
+    def grant(self, gain):
+        """Bilmece ödülü: çözülen terminalin enerjisi."""
+        self.e = min(1.0, self.e + gain)
+
     # ---- fizik
     def step(self, a):
-        dt, info = self.dt, dict(ate=0.0, drank=0.0, hurt=0.0, died=None, ext=False, push=False)
+        dt, info = self.dt, dict(ate=0.0, drank=0.0, hurt=0.0, died=None, ext=False, push=False, puzzle=0.0)
         if self.invert and a in (2, 3):
             a = 5 - a
         f = np.array([np.cos(self.th), np.sin(self.th)])
@@ -178,6 +184,10 @@ class Universe:
         self.w -= 0.0010
         d_food = np.hypot(*(self.food - self.pos).T)
         for k in np.flatnonzero(d_food < self.ra + self.food_r):
+            if self.is_term[k]:                              # terminal: ödül çözüm sonrası grant() ile verilir
+                info["puzzle"] = min(self.food_gain, 1.0 - self.e)
+                self.food[k] = self._spawn_food()
+                continue
             gain = -0.35 if self.poison else min(self.food_gain, 1.0 - self.e)
             self.e, info["ate"] = self.e + gain, info["ate"] + max(gain, 0.0)
             self.food[k] = self._spawn_food()
