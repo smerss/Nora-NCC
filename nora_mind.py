@@ -369,7 +369,7 @@ class CognitiveMap:
             else:
                 self.unc *= 0.9
             if self.unc > 0.25 and n >= 3:                          # KAYBOLDUM: duvar geometrisiyle küresel yeniden konumlama
-                g = np.linspace(0.5, self.L - 0.5, 41)
+                g = np.linspace(0.5, self.L - 0.5, int(self.L * 1.7))
                 P = np.stack(np.meshgrid(g, g, indexing="ij"), -1).reshape(-1, 2)
                 cost = self._wall_cost(P, ang, d_obs, vis) + 0.0005 * (1 - self.unc) * ((P - self.pos) ** 2).sum(1)
                 j = int(np.argmin(cost))
@@ -492,7 +492,7 @@ class CognitiveMap:
 
 
 class Mind:
-    def __init__(self, mode="full", seed=0, n_kc=3000, n_res=96, gamma=0.95, lr=0.25, self_model=True, shape=2.0, ctx=True, use_map=True, grow=True, model=True, imag=True, replay=True, maplayouts=False, anchor=False, landmark=False):
+    def __init__(self, mode="full", seed=0, n_kc=3000, n_res=96, gamma=0.95, lr=0.25, self_model=True, shape=2.0, ctx=True, use_map=True, grow=True, model=True, imag=True, replay=True, maplayouts=False, anchor=False, landmark=False, arena=24.0):
         self.mode, self.rng, self.gamma, self.lr = mode, np.random.default_rng(seed), gamma, lr
         self.use_sm, self.shape, self.ctx, self.use_map = self_model, shape, ctx, use_map
         self.grow, self.use_model, self.use_imag, self.use_replay, self.use_anchor = grow, model, imag, replay, anchor
@@ -500,7 +500,7 @@ class Mind:
         self.intro = Introspector()
         self.force = None                                              # müdahale: (uzman, kalan adım)
         self.sensor_bias = None                                        # müdahale: sahte iç duyu (açık eklemesi, kalan adım)
-        self.map = CognitiveMap(multi=maplayouts)
+        self.map = CognitiveMap(L=arena, G=int(arena // 2), multi=maplayouts)
         self.map.landmark = landmark
         self.n_ctx = 48
         n_act = Universe.N_ACT
@@ -1500,14 +1500,14 @@ def stage_testimony(args):
     nar = Narrator()
     rows = {"kendi başına": [], "doğru tanıklık": [], "yanlış tanıklık": []}
     for s in range(args.seed0, args.seed0 + args.seeds):
-        A, wA = Mind(seed=s), Universe(seed=s)
+        A, wA = Mind(seed=s, arena=args.arena), Universe(seed=s, size=args.arena, n_food=int(14 * (args.arena / 24.0) ** 2))
         live(A, wA, args.steps, window=args.steps, verbose=False)
         good = nar.testimony(A)
-        Af, wAf = Mind(seed=s + 50), Universe(seed=s + 50)
+        Af, wAf = Mind(seed=s + 50, arena=args.arena), Universe(seed=s + 50, size=args.arena, n_food=int(14 * (args.arena / 24.0) ** 2))
         live(Af, wAf, args.steps, window=args.steps, verbose=False)
         bad = nar.testimony(Af)
         for name, text in (("kendi başına", None), ("doğru tanıklık", good), ("yanlış tanıklık", bad)):
-            B, wB = Mind(seed=1000 + s), Universe(seed=s)
+            B, wB = Mind(seed=1000 + s, arena=args.arena), Universe(seed=s, size=args.arena, n_food=int(14 * (args.arena / 24.0) ** 2))
             heard = B.hear(text) if text else 0
             obs, died = wB.observe(), False
             first_drink, first_hurt, wmin, hurts, deaths, n_drink = None, None, 1.0, 0.0, 0, 0
@@ -1547,6 +1547,7 @@ def main():
     ap.add_argument("--no-ctx", action="store_true")
     ap.add_argument("--every", type=int, default=3000)
     ap.add_argument("--seed0", type=int, default=0)
+    ap.add_argument("--arena", type=float, default=24.0)
     ap.add_argument("--log", type=int, default=6000)
     ap.add_argument("--trials", type=int, default=40)
     ap.add_argument("--kind", choices=["invert", "poison", "layout"], default="invert")
