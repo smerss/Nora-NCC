@@ -30,7 +30,8 @@ durumundan türeterek** söyleyen bir sistem; öznel deneyim iddiası yok, ama h
 3. **Global çalışma alanı**: dört uzman (aç, susuz, tehlike, merak) yarışır, kazanan yayınlar. Planlamayla birlikte
    çatışma çözümü işlevi var (aşağıdaki sonuçlar).
 4. **Bilişsel harita**: pusula + hızdan yol integrasyonu, duvar çapası, kaybolunca duvar geometrisiyle **küresel
-   yeniden konumlama** (belirsiz çözümde güven yükselmez), öğrenilen su/tehlike haritası, tehlikeden kaçan rota planı.
+   yeniden konumlama** (belirsiz çözümde güven yükselmez), öğrenilen su/tehlike haritası (görerek haritalama; oy birikimi + sönme;
+   görünürlüğe duyarlı yerel onarım), tehlikeden kaçan rota planı.
 5. **Öğrenilmiş dünya modeli + hayal gücü**: eylem başına doğrusal egosantrik dönüşüm (RLS); eylem dizileri
    zihinde denenir, ödül anlamsal bellekten hesaplanır. Planlayıcı eylemi modelin "hangi eylem yönümü nasıl
    değiştirir" öngörüsüyle seçer (kumanda ters çevrilince ezber değil model değişir).
@@ -145,6 +146,9 @@ Kod bayrak altında duruyor; sağlam bir "hangi dünyadayım" çıkarımı için
   gelse de **büyüklüğü ve "yakınlığa göre potansiyel" biçimi doğuştandır**.
 - Sıfır unutmanın davranışsal faydası net kanıtlanmadı (B), uzamsal düzen bağlamları başarısız (G).
 - Dil/akıl yürütme katmanı küçük ve sıfırdan eğitildi (F); sezgi zayıf, 3 basamak genellenemedi.
+- **Uzun yaşamda konum belirsizliği artıyor**: 120 bin adımda 'belirsiz' geçirilen zaman payı 0,14 → 0,51, ortalama konum hatası 0,4 → 1,1 birim
+  (medyan sabit ≈0,15). Harita işaretleri kararlı (oy + sönme), ölüm oranı düşük kalıyor; nedeni doğrulanmadı (duvardan uzak zaman, kaya çarpışmalarında
+  yol integrasyonu kayması şüpheli).
 - Rapor kanalının *davranışı nedensel olarak yönlendirdiği* (geri besleme) gösterilmedi; kanal şu an bir ölçüm
   aracıdır. Altında yatan değişkenler (ruh hali, belirsizlik, amaç) davranışı gerçekten yönlendirir.
 - Konum için pusula (mutlak yön) duyusu doğuştandır. Arena boyutu/ızgara harita doğuştandır.
