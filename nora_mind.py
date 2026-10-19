@@ -185,6 +185,11 @@ class Narrator:
         if sure is not None:
             cl.append(dict(kind="konum", text="nerede olduğumdan %s" % ("eminim" if sure else "emin değilim"), claim=bool(sure),
                            basis=mind.map.unc))
+        cog = getattr(mind, "cog", None)
+        if cog is not None and cog.last is not None:
+            r = cog.last
+            how = "sezgime güvendim" if r["mode"] == "sezgi" else "sezgime güvenmediğim için düşündüm"
+            cl.append(dict(kind="akıl", text="son bilmecede (%d basamak) %s (güven %.2f)" % (r["n"], how, r["conf"]), claim=r["mode"], basis=r["conf"]))
         deaths = mind.epi.last("öldü", n=999)
         if deaths:
             cl.append(dict(kind="ölüm", text="ölebileceğimi biliyorum (%d kez öldüm)" % len(deaths), claim=len(deaths), basis=len(deaths)))
@@ -1022,6 +1027,27 @@ def stage_introspect(args):
 
     def parrot_now():
         return int(ridge(obs[None, :])[0])
+
+    # ---- 2b) öz-öngörü: rapor, ajanın 10 adım sonraki AMACINI dışarıdan gözlenebilir girdiden daha iyi tahmin ediyor mu?
+    H = 10
+    fut = goal[H:]
+    tk, ob, gl = tok[:-H], X[:-H], goal[:-H]
+    split = int(0.7 * len(tk))
+    if len(tk) > 100:
+        # raporla tahmin: token -> en sık gelecek amaç (eğitim kısmından)
+        maj = {j: (np.bincount(fut[:split][tk[:split] == j] + 1, minlength=5).argmax() - 1) if (tk[:split] == j).any() else -1
+               for j in range(n_tok)}
+        acc_rep = float(np.mean([maj[j] == f for j, f in zip(tk[split:], fut[split:])]))
+        # dünya gözleminden ridge
+        Xb = np.c_[ob[:split], np.ones(split)]
+        Y = np.eye(5)[fut[:split] + 1]
+        Wf = np.linalg.solve(Xb.T @ Xb + 1.0 * np.eye(Xb.shape[1]), Xb.T @ Y)
+        pred_w = np.argmax(np.c_[ob[split:], np.ones(len(ob) - split)] @ Wf, axis=1) - 1
+        acc_world = float(np.mean(pred_w == fut[split:]))
+        acc_cur = float(np.mean(gl[split:] == fut[split:]))               # 'şimdiki amaç sürer' tabanı
+        base_maj = float(np.bincount(fut[split:] + 1, minlength=5).max() / len(fut[split:]))
+        print("\n[2b] öz-öngörü: 10 adım sonraki amacı tahmin — rapor tokeni %.2f | yalnızca dünya gözlemi %.2f | 'amaç sürer' %.2f | çoğunluk tabanı %.2f"
+              % (acc_rep, acc_world, acc_cur, base_maj))
 
     # ---- 3) iç müdahale (dünya sabit): çözülmüş rapor profilinde HEDEF özelliğin kayması / aynı denemenin boş sapması
     def prof_g():
