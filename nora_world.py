@@ -12,7 +12,7 @@ Fizik (basitleştirilmiş ama gerçek yasalar):
   - Gün/gece döngüsü: görüş menzili değişir (karanlıkta kör)
   - Rüzgâr: ajanın EYLEMİ DIŞINDA gelen kısa dış kuvvetler -> "bunu ben mi yaptım?" (ajanlık) testi
 Duyular: 9 ışınlık egosantrik görme x 5 kanal (duvar, yiyecek, su, tehlike, kaya), iç duyu (enerji,
-  su, bütünlük), propriosepsiyon (ileri/yan hız), dokunma, ışık.
+  su, bütünlük), propriosepsiyon (ileri/yan hız), dokunma, ışık, pusula (yön; konum VERİLMEZ).
 İhtiyaçlar: enerji (yiyecek), su (havuz), bütünlük (tehlike bölgeleri yaralar). Biri 0 olursa ölüm.
 
 Kullanım:  DPY nora_world.py --stage test      # fizik ve görme öz-sınaması
@@ -33,8 +33,8 @@ class Universe:
     N_ACT = 5
     R = 9                                   # ışın sayısı
     FOV = np.deg2rad(150.0)
-    OBS_DIM = R * 5 + 3 + 2 + 1 + 1         # 45 görme | 3 iç duyu | 2 hız | 1 dokunma | 1 ışık
-    I_RAYS, I_INTERO, I_SPEED, I_TOUCH, I_LIGHT = 0, 45, 48, 50, 51
+    OBS_DIM = R * 5 + 3 + 2 + 1 + 1 + 2     # 45 görme | 3 iç duyu | 2 hız | 1 dokunma | 1 ışık | 2 pusula
+    I_RAYS, I_INTERO, I_SPEED, I_TOUCH, I_LIGHT, I_COMPASS = 0, 45, 48, 50, 51, 52
 
     def __init__(self, seed=0, size=24.0, n_food=14, dt=0.25, day_len=600, wind=True):
         self.rng = np.random.default_rng(seed)
@@ -122,6 +122,7 @@ class Universe:
         o[48:50] = (self.vel @ f / 2.0, self.vel @ l / 2.0)
         o[50] = self.touch
         o[51] = self.light()
+        o[52:54] = (np.cos(self.th), np.sin(self.th))      # pusula (yön hücreleri): mutlak yön, konum DEĞİL
         return o
 
     # ---- fizik
