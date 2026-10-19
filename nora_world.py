@@ -58,6 +58,7 @@ class Universe:
         self.t = 0
         self.wind_left, self.wind_f = 0, np.zeros(2)
         self.lives, self.touch = 0, 0.0
+        self.poison = False                                  # kural değişimi 2: yiyecek zehirli (değer tersine döner)
         self.invert = False                                  # kural değişimi: sağ/sol kumanda ters (duyu-motor yeniden eşleme)
         self._respawn()
 
@@ -177,8 +178,8 @@ class Universe:
         self.w -= 0.0010
         d_food = np.hypot(*(self.food - self.pos).T)
         for k in np.flatnonzero(d_food < self.ra + self.food_r):
-            gain = min(self.food_gain, 1.0 - self.e)
-            self.e, info["ate"] = self.e + gain, info["ate"] + gain
+            gain = -0.35 if self.poison else min(self.food_gain, 1.0 - self.e)
+            self.e, info["ate"] = self.e + gain, info["ate"] + max(gain, 0.0)
             self.food[k] = self._spawn_food()
         if np.any(np.hypot(*(self.water_c - self.pos).T) < self.zone_w):
             gain = min(0.06, 1.0 - self.w)
