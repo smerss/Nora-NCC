@@ -97,18 +97,16 @@ dışarıdan gözlenebilir dünya girdisinden raporu taklit etmeyi öğrenen sı
 - **Öz-öngörü (olumsuz)**: rapor tokeni ajanın 10 adım sonraki amacını 0,58 doğrulukla tahmin ediyor; yalnızca dünya gözlemi 0,57,
   'şimdiki amaç sürer' tabanı 0,64, çoğunluk tabanı 0,50. Yani rapor kodu, gelecekteki davranışı basit sürekliliğin ötesinde öngörmüyor.
 
-### D. Söz katmanının doğruluğu (narrate)
+### D. Söz katmanının doğruluğu (narrate; 3 bağımsız tohum, her biri 20 bin adım yaşamış ajan)
 - Doğumda: "henüz hiç ölmedim, ölümü bilmiyorum"; yaşam sonunda: "ölebileceğimi biliyorum (3 kez öldüm)".
-- "İhtiyaç" ve "ölüm sayısı" iddiaları gerçekle %100 örtüşüyor; anı konumu hatası ≈1,2–1,8 birim.
-- **Davranış tahmini**: "su bulmak istiyorum" diyen ajan 150 adımda %91–100 su içiyor (taban %45–49); "yemek bulmak" için
-  %84–100 (taban %58–61).
-- **Sahte susuzluk** (dünya sabit): 'su açığım var' diyen oran 1,00 (sham 0,14–0,20), amacı susuzluk olan oran 1,00 (sham 0,20–0,38).
-- Konum güveni: normalde "eminim" iken hata 0,17 birim, "emin değilim" iken 3,4 birim. Kaçırılmadan 40+ adım sonra
-  "eminim" 0,2–0,4 / "emin değilim" 6–7,5 birim; **ilk 2–15 adımda hâlâ yanlış-ama-emin vakaları var** (bayat algı,
-  belirsiz geometri).
-- **Ajanlık cümlesi** (öz-model sürpriz z-skoru): dışarıdan itildiğinde (rüzgâr) %56 'beni beklenmedik bir kuvvet itiyor', itilmediğinde %1,7 (AUC 0,83).
+- "İhtiyaç" iddiası gerçek açıkla %99–100, "ölüm sayısı" iddiası %100 örtüşüyor; anı konumu hatası 0,7–1,1 birim.
+- **Davranış tahmini**: "su bulmak istiyorum" diyen ajan 150 adımda **%94–100** su içiyor (taban %47–52); "yemek bulmak" için %71–92 (taban %52–60).
+- **Sahte susuzluk** (dünya sabit, ajan 'su açığım var' sanır): 'su açığım var' diyen oran **1,00** (sham 0,00–0,25), amacı susuzluk olan oran **1,00** (sham 0,15–0,20), üç tohumda da.
+- **Ajanlık cümlesi** (öz-model sürpriz z-skoru): dışarıdan itildiğinde (rüzgâr) %51–55 'beni beklenmedik bir kuvvet itiyor',
+  itilmediğinde %1,8–1,9 (AUC 0,82, üç tohumda aynı).
+- Konum güveni: normalde "eminim" iken hata 0,14–0,17 birim, "emin değilim" iken 0,5–1,5 birim. Kaçırıldıktan ≥6 adım sonra
+  "eminim" 2,7–4,4 birim, "emin değilim" 5,9–9,6 birim (yön tutarlı; **erken adımlarda yanlış-ama-emin vakaları sürüyor**: bayat algı, belirsiz geometri).
 - Küresel yeniden konumlama: kaçırılmadan sonra hata 13,1 → 5,6 (5 adım) → 3,8 (40) → 1,1 (100 adım).
-
 
 ### E. Aktarım (az örnekle yeni evrende yaşama)
 30 bin adım bir evrende yaşamış ajan, su/tehlike düzeni tamamen farklı 6 yeni evrene bırakıldı; sıfırdan başlayan ajanla kıyas
