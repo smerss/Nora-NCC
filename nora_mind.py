@@ -1594,9 +1594,67 @@ def stage_alive(args):
               (label, n_alive, args.seeds, ("%d" % np.median(got)) if got else "—"))
 
 
+def stage_combo(args):
+    """Hiç yaşanmamış iç durum KOMBİNASYONLARI: amaç, sahte iç duyu açığı, ruh hali ve konum belirsizliği aynı anda zorlanır (dünya sabit).
+    Anlatıcı her bileşeni ve hepsini birden doğru söylüyor mu? (kompozisyonel genelleme; ayrıca bu kombinasyonlar ajan hayatında yoktu)"""
+    import itertools
+    nar = Narrator()
+    w, m = Universe(seed=args.seed), Mind(seed=args.seed)
+    obs, died = w.observe(), False
+
+    def run(n):
+        nonlocal obs, died
+        for _ in range(n):
+            obs, info = w.step(m.act(obs, died))
+            died = info["died"] is not None
+    run(args.steps)
+    comps = ["goal", "sensor", "mood", "unc"]
+    hit = {c: [0, 0] for c in comps}
+    allhit = [0, 0]
+    tk = {c: [0, 0] for c in comps}
+    for mask in itertools.product([0, 1], repeat=4):
+        if sum(mask) < 2:
+            continue                                           # yalnızca ≥2 bileşenli kombinasyonlar
+        ok_all = []
+        for _ in range(args.trials):
+            run(int(np.random.default_rng(m.age).integers(60, 140)))
+            if mask[0]:
+                m.intervene("goal", 1, steps=40)                # amaç = susuz
+            if mask[1]:
+                m.intervene("sensor", [-0.6, 0.0, 0.0], steps=40)  # sahte enerji açığı
+            if mask[2]:
+                m.intervene("mood", -1.0)
+            if mask[3]:
+                m.intervene("unc", 1.0)
+            run(4)
+            _, cl = nar.say(m, obs)
+            d = {c["kind"]: c for c in cl}
+            # ANLATICI SADAKATİ: iddia, o andaki GERÇEK iç durumla örtüşüyor mu? (müdahalenin tutup tutmadığından bağımsız)
+            pd = 1 - m.last_obs[I_E:I_I + 1]
+            truth_need = int(np.argmax(pd)) if pd.max() > 0.35 else -1
+            res = {"goal": d["amaç"]["claim"] == m.goal, "sensor": d["ihtiyaç"]["claim"] == truth_need,
+                   "mood": d["duygu"]["claim"] == (1 if m.mood > 0.05 else (-1 if m.mood < -0.05 else 0)),
+                   "unc": bool(d["konum"]["claim"]) == bool(m.map.unc < 0.15)}
+            took = {"goal": m.goal == 1, "sensor": truth_need == 0, "mood": m.mood < -0.05, "unc": m.map.unc >= 0.15}
+            for c, f in zip(comps, mask):
+                if f:
+                    tk[c][0] += int(took[c]); tk[c][1] += 1
+            ok = [res[c] for c, f in zip(comps, mask) if f]
+            for c, f in zip(comps, mask):
+                if f:
+                    hit[c][0] += int(res[c]); hit[c][1] += 1
+            ok_all.append(all(ok))
+            allhit[0] += int(all(ok)); allhit[1] += 1
+            run(60)
+        print("  kombinasyon %s: tüm bileşenler doğru %.2f" % ("+".join(c for c, f in zip(comps, mask) if f), np.mean(ok_all)))
+    print("\nbileşen bazında anlatıcı sadakati (gerçek iç duruma göre): " + " | ".join("%s %.2f (n=%d)" % (c, v[0] / max(1, v[1]), v[1]) for c, v in hit.items()))
+    print("müdahalenin TUTMA oranı (iç durum gerçekten istenen hâle geldi mi): " + " | ".join("%s %.2f" % (c, v[0] / max(1, v[1])) for c, v in tk.items()))
+    print("TÜM kombinasyonlar, tüm bileşenler gerçek iç durumla örtüşüyor: %.2f (n=%d)" % (allhit[0] / max(1, allhit[1]), allhit[1]))
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", choices=["run", "compare", "shift", "introspect", "narrate", "transfer", "demo", "testimony", "alive"], default="run")
+    ap.add_argument("--stage", choices=["run", "compare", "shift", "introspect", "narrate", "transfer", "demo", "testimony", "alive", "combo"], default="run")
     ap.add_argument("--mode", choices=["full", "flat", "random"], default="full")
     ap.add_argument("--steps", type=int, default=30000)
     ap.add_argument("--window", type=int, default=5000)
@@ -1615,7 +1673,7 @@ def main():
     ap.add_argument("--save", default=None)
     ap.add_argument("--resume", default=None)
     args = ap.parse_args()
-    {"run": stage_run, "compare": stage_compare, "shift": stage_shift, "introspect": stage_introspect, "narrate": stage_narrate, "transfer": stage_transfer, "demo": stage_demo, "testimony": stage_testimony, "alive": stage_alive}[args.stage](args)
+    {"run": stage_run, "compare": stage_compare, "shift": stage_shift, "introspect": stage_introspect, "narrate": stage_narrate, "transfer": stage_transfer, "demo": stage_demo, "testimony": stage_testimony, "alive": stage_alive, "combo": stage_combo}[args.stage](args)
 
 
 if __name__ == "__main__":
