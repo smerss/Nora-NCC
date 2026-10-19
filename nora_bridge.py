@@ -50,8 +50,8 @@ def make_thinker(seed=0, d=128, layers=3, block=64):
 class Cognition:
     """Yaşayan zihnin akıl yürütme organı: sezgi ↔ düşünme kararı, kalibrasyon, uyku."""
 
-    def __init__(self, seed=0, boot_iters=500, boot_n=3000, K=8, retries=3, sleep_every=30, sleep_iters=120,
-                 price=0.004, audit=0.1, verbose=True):
+    def __init__(self, seed=0, boot_iters=3000, boot_n=3000, K=8, retries=3, sleep_every=30, sleep_iters=120,
+                 price=0.004, audit=0.1, verbose=True, direct_every=1, lr=6e-3, batch=32):
         torch.set_num_threads(2)
         self.mind, self.rng = make_thinker(seed), random.Random(seed)
         self.cur = nt.Curiosity(None, "auto")
@@ -62,17 +62,18 @@ class Cognition:
         self.c_think = {n: 6.0 * n for n in range(1, 5)}        # düşünme maliyeti (dünya adımı)
         self.memory, self.today = [], []
         self.n_puz = self.n_ok = self.n_int = self.n_think = self.n_int_ok = 0
-        self.teach = []
+        self.teach, self.lr, self.batch = [], lr, batch
         trng = random.Random(7)
+        # gün-0 öğretmen gösterimi: ağırlıklı 1 basamak (ezberlenebilir), az 2 basamak (nora_think: yalnızca 1-2 basamak gösterilir)
         for i in range(boot_n):
-            op = nt.OPS[i % 2]
-            a, op, b = nt.make_problem(trng, op, trng.randint(1, nt.TEACH_MAX_DIGITS))
+            n = 1 if i < int(0.8 * boot_n) else 2
+            a, op, b = nt.make_problem(trng, nt.OPS[i % 2], n)
             self.teach.append(nt.think_line(a, op, b, nt.teacher_steps(a, op, b), nt.answer_of(a, op, b)))
-            if i % 4 == 0:
+            if i % direct_every == 0:
                 self.teach.append(nt.direct_line(a, op, b, nt.answer_of(a, op, b)))
         t0 = time.time()
         self.mind.grow(5)
-        loss = self.mind.train_lines(self.teach, boot_iters, 16, 2e-3, seed, log_every=10 ** 9)
+        loss = self.mind.train_lines(self.teach, boot_iters, self.batch, self.lr, seed, log_every=10 ** 9)
         if verbose:
             print("[düşünce sütunu] gün-0 öğretmen gösterimi (yalnızca 1-2 basamak): %d satır, %d iter, kayıp %.3f, %.0fs" %
                   (len(self.teach), boot_iters, loss, time.time() - t0), flush=True)
@@ -148,7 +149,7 @@ class Cognition:
         lines = self.today * 2 + replay + self.rng.sample(self.teach, min(200, len(self.teach)))
         self.rng.shuffle(lines)
         self.mind.grow(5)
-        self.mind.train_lines(lines, self.sleep_iters, 16, 2e-3, self.n_puz, log_every=10 ** 9)
+        self.mind.train_lines(lines, self.sleep_iters, self.batch, self.lr * 0.6, self.n_puz, log_every=10 ** 9)
         self.today = []
 
 
@@ -232,7 +233,7 @@ def main():
     ap.add_argument("--steps", type=int, default=40000)
     ap.add_argument("--window", type=int, default=5000)
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--boot-iters", type=int, default=500)
+    ap.add_argument("--boot-iters", type=int, default=3000)
     ap.add_argument("--terms", type=int, default=10)
     ap.add_argument("--sleep-every", type=int, default=12)
     args = ap.parse_args()
