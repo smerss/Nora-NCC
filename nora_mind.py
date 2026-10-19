@@ -42,6 +42,7 @@ try:
 except Exception:
     pass
 
+STOP_FILE = "STOP_NORA"                              # bu dosya varsa yaşam döngüleri güvenle durur
 SPEC = ("aç", "susuz", "tehlike", "merak")
 I_E, I_W, I_I = Universe.I_INTERO, Universe.I_INTERO + 1, Universe.I_INTERO + 2
 RAY_FOOD, RAY_WATER, RAY_HAZ = 1, 2, 3
@@ -822,6 +823,9 @@ def live(mind, world, steps, window=5000, verbose=True, tag="", events=None):
     truth = {}                                       # son gerçek olay konumları (otobiyografik bellek sınavı için)
     t0 = time.time()
     for t in range(1, steps + 1):
+        if t % 500 == 0 and os.path.exists(STOP_FILE):                # durdurma mekanizması (etik): dosya varsa zarifçe çık
+            print("STOP_NORA bulundu: yaşam döngüsü durduruldu (adım %d)" % t)
+            break
         if events and t in events:
             events[t](world)
         a = mind.act(obs, died)

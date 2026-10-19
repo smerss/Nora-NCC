@@ -158,6 +158,9 @@ def live_bridge(mind, cog, world, steps, window=5000, tag="köprü"):
     t0 = time.time()
     rows = []
     for t in range(1, steps + 1):
+        if t % 500 == 0 and os.path.exists("STOP_NORA"):
+            print("STOP_NORA bulundu: durduruldu (adım %d)" % t)
+            break
         a = mind.act(obs, died)
         obs, info = world.step(a)
         died = info["died"] is not None
