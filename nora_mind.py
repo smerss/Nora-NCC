@@ -158,6 +158,52 @@ class Introspector:
         return self.P[token] * np.sqrt(self.var + 1e-3) + self.mu
 
 
+class Narrator:
+    """Söz katmanı: ajanın İÇ DURUMUNDAN ve otobiyografik belleğinden türeyen, doğruluk koşulları denetlenebilir
+    yan cümleler. Eğitim metni ya da öğretilmiş öz-tanım cümlesi YOKTUR; bir iddia ancak ona dayanak olan iç durum/anı
+    varsa söylenir (ör. 'ölebilirim' yalnızca ölüm anısı varsa). Her yan cümle bir (tür, iddia, dayanak) kaydı döndürür:
+    sonradan gerçekle karşılaştırılabilsin diye."""
+    VARS = ("enerji", "su", "bütünlük")
+    GOALS = ("yemek bulmak", "su bulmak", "tehlikeden uzaklaşmak", "yeni yerler keşfetmek")
+
+    def clauses(self, mind, obs):
+        obs = mind.last_obs if mind.last_obs is not None else obs      # ajanın ALGILADIĞI (sahte duyu dahil), ham dünya değil
+        cl = []
+        d = 1 - obs[I_E:I_I + 1]
+        k = int(np.argmax(d))
+        need = d[k] > 0.35
+        cl.append(dict(kind="ihtiyaç", text=("%s açığım var" % self.VARS[k]) if need else "ihtiyaçlarım karşılanmış durumda",
+                       claim=(k if need else -1), basis=d.copy()))
+        if mind.goal >= 0:
+            cl.append(dict(kind="amaç", text="şu an %s istiyorum" % self.GOALS[mind.goal], claim=mind.goal, basis=mind.acc.copy()))
+        else:
+            cl.append(dict(kind="amaç", text="belirli bir amacım yok, gezinmekteyim", claim=-1, basis=mind.acc.copy()))
+        v = mind.mood
+        mood = "iyi" if v > 0.05 else ("kötü" if v < -0.05 else "ne iyi ne kötü")
+        cl.append(dict(kind="duygu", text="%s hissediyorum" % mood, claim=(1 if v > 0.05 else (-1 if v < -0.05 else 0)), basis=v))
+        sure = (mind.map.unc < 0.15) if mind.use_map else None
+        if sure is not None:
+            cl.append(dict(kind="konum", text="nerede olduğumdan %s" % ("eminim" if sure else "emin değilim"), claim=bool(sure),
+                           basis=mind.map.unc))
+        deaths = mind.epi.last("öldü", n=999)
+        if deaths:
+            cl.append(dict(kind="ölüm", text="ölebileceğimi biliyorum (%d kez öldüm)" % len(deaths), claim=len(deaths), basis=len(deaths)))
+        else:
+            cl.append(dict(kind="ölüm", text="henüz hiç ölmedim, ölümü bilmiyorum", claim=0, basis=0))
+        for kind, word in (("içti", "su içtim"), ("yaralandı", "yaralandım")):
+            e = mind.epi.last(kind)
+            if e:
+                cl.append(dict(kind="anı-" + kind, text="en son %d adım önce, (%.0f, %.0f) civarında %s" %
+                               (mind.age - e[0]["t"], e[0]["pos"][0], e[0]["pos"][1], word), claim=e[0]["pos"].copy(), basis=e[0]["t"]))
+        return cl
+
+    def say(self, mind, obs):
+        obs = mind.last_obs if mind.last_obs is not None else obs
+        cl = self.clauses(mind, obs)
+        alive = "yaşıyorum" if obs[I_E:I_I + 1].min() > 0 else "ölüyorum"
+        return ("Bir bedenim ve ihtiyaçlarım var, " + alive + ": " + "; ".join(c["text"] for c in cl) + "."), cl
+
+
 def wrap(a):
     return (a + np.pi) % (2 * np.pi) - np.pi
 
@@ -183,6 +229,16 @@ class CognitiveMap:
     def cell_of(self, p):
         return tuple(np.clip((np.asarray(p) / self.cell).astype(int), 0, self.G - 1))
 
+    def _wall_cost(self, P, ang, d_obs, vis):
+        """P (n,2) aday konumlar için görülen duvar mesafeleriyle öngörülenlerin kare hata toplamı."""
+        dx, dy = np.cos(ang)[None, :], np.sin(ang)[None, :]
+        px, py = P[:, 0:1], P[:, 1:2]
+        with np.errstate(divide="ignore", invalid="ignore"):
+            tx = np.where(dx > 1e-9, (self.L - px) / dx, np.where(dx < -1e-9, -px / dx, np.inf))
+            ty = np.where(dy > 1e-9, (self.L - py) / dy, np.where(dy < -1e-9, -py / dy, np.inf))
+        pred = np.minimum(np.minimum(tx, ty), vis)
+        return ((pred - d_obs[None, :]) ** 2).sum(1)
+
     def update(self, obs, prev, died, now):
         if died:
             self.pos, self.unc = np.array([self.L / 2, self.L / 2]), 1.0
@@ -194,15 +250,35 @@ class CognitiveMap:
         vis = 5.0 + 7.0 * obs[51]
         rays = obs[:45].reshape(Universe.R, 5)[:, 0]
         ang = self.th + _RAY_OFF
-        corr, n = np.zeros(2), 0
-        for k in np.flatnonzero(rays > 0.02):
-            hit = self.pos + vis * (1 - rays[k]) * np.array([np.cos(ang[k]), np.sin(ang[k])])
-            dx0, dx1, dy0, dy1 = hit[0], hit[0] - self.L, hit[1], hit[1] - self.L
-            j = int(np.argmin(np.abs([dx0, dx1, dy0, dy1])))
-            corr[j // 2] -= [dx0, dx1, dy0, dy1][j]
-            n += 1
-        if n:
-            self.pos = self.pos + (0.12 + 0.5 * self.unc) * corr / n
+        vis_k = rays > 0.02                                         # duvar görünen ışınlar
+        n = int(vis_k.sum())
+        if n >= 2:
+            d_obs = np.where(vis_k, vis * (1 - rays), vis)
+            res = float(np.sqrt(self._wall_cost(self.pos[None, :], ang, d_obs, vis)[0] / len(ang)))
+            if res > 1.0:                                           # bildiğim konum, görülen duvarlarla çelişiyor: 'yanılıyorum'
+                self.unc = max(self.unc, min(1.0, res / 3.0))
+            else:
+                self.unc *= 0.9
+            if self.unc > 0.25 and n >= 3:                          # KAYBOLDUM: duvar geometrisiyle küresel yeniden konumlama
+                g = np.linspace(0.5, self.L - 0.5, 41)
+                P = np.stack(np.meshgrid(g, g, indexing="ij"), -1).reshape(-1, 2)
+                cost = self._wall_cost(P, ang, d_obs, vis) + 0.0005 * (1 - self.unc) * ((P - self.pos) ** 2).sum(1)
+                j = int(np.argmin(cost))
+                if np.sqrt(cost[j] / len(ang)) < 0.6:
+                    far = ((P - P[j]) ** 2).sum(1) > 9.0               # başka bir (3+ birim uzak) konum da aynı geometriyi açıklıyor mu?
+                    ambiguous = bool(far.any()) and np.sqrt(cost[far].min() / len(ang)) < 0.6
+                    self.pos = P[j].copy()
+                    self.unc = 0.5 if ambiguous else 0.1                # belirsiz çözümde güven YÜKSELMEZ
+            else:                                                   # yumuşak çapa: kaymayı düzelt
+                corr = np.zeros(2)
+                for k in np.flatnonzero(vis_k):
+                    hit = self.pos + d_obs[k] * np.array([np.cos(ang[k]), np.sin(ang[k])])
+                    dd = [hit[0], hit[0] - self.L, hit[1], hit[1] - self.L]
+                    j = int(np.argmin(np.abs(dd)))
+                    corr[j // 2] -= dd[j]
+                self.pos = self.pos + 0.12 * corr / n
+        else:
+            self.unc = min(1.0, self.unc + 0.004)                   # duvar kanıtı yokken yol integrasyonu kayar: belirsizlik artar
         if self.unc < 0.3:                                    # konum güvenilirse görülen tehlikeyi haritala
             hz = obs[:45].reshape(Universe.R, 5)[:, RAY_HAZ]
             for k in np.flatnonzero(hz > 0.02):
@@ -211,7 +287,6 @@ class CognitiveMap:
                     p = self.pos + dvec * (vis * (1 - hz[k]) + extra)
                     if 0 <= p[0] < self.L and 0 <= p[1] < self.L:
                         self.seen[self.cell_of(p)] = 1.0
-        self.unc *= 0.98
         self.pos = np.clip(self.pos, 0.3, self.L - 0.3)
         c = self.cell_of(self.pos)
         self.last[c] = now
@@ -1035,9 +1110,141 @@ def stage_introspect(args):
 
 
 
+def stage_narrate(args):
+    """Söz katmanının DOĞRULUK sınavı: iddialar (a) gerçekle, (b) ajanın sonraki davranışıyla, (c) belleğiyle örtüşüyor mu?
+    Ayrıca sahte iç duyu altında rapor ve davranışın birlikte hareket ettiği gösterilir."""
+    world, mind = Universe(seed=args.seed), Mind(seed=args.seed)
+    nar = Narrator()
+    obs, died = world.observe(), False
+    ev = dict(ate=[], drank=[], hurt=[])
+    truth_pos = {}
+    first_say = None
+
+    def run(n=1):
+        nonlocal obs, died
+        for _ in range(n):
+            a = mind.act(obs, died)
+            obs, info = world.step(a)
+            died = info["died"] is not None
+            t = mind.age
+            if info["ate"] > 0:
+                ev["ate"].append(t)
+            if info["drank"] > 0:
+                ev["drank"].append(t)
+            if info["hurt"] > 0:
+                ev["hurt"].append(t)
+            if info["hurt"] > 0 and not truth_pos.get("_h"):
+                truth_pos["yaralandı"] = world.pos.copy()
+            if info["drank"] > 0 and not truth_pos.get("_d"):
+                truth_pos["içti"] = world.pos.copy()
+            truth_pos["_h"], truth_pos["_d"] = info["hurt"] > 0, info["drank"] > 0
+
+    # ---- doğum: ilk söz (ölümü bilmiyor)
+    run(5)
+    txt, cl = nar.say(mind, obs)
+    print("[doğum, adım %d] %s" % (mind.age, txt))
+    run(args.steps)
+    txt, cl = nar.say(mind, obs)
+    print("[yaşam, adım %d] %s\n" % (mind.age, txt))
+
+    # ---- iddia kaydı
+    rec = {"ihtiyaç": [], "amaç": [], "konum": [], "ölüm": [], "anı": []}
+    for _ in range(args.log // 40):
+        run(40)
+        _, cl = nar.say(mind, obs)
+        t0 = mind.age
+        d = 1 - np.array([world.e, world.w, world.i])                # dünyanın gerçek açıkları (kayıt amaçlı)
+        for c in cl:
+            if c["kind"] == "ihtiyaç":
+                truth = int(np.argmax(d)) if d.max() > 0.35 else -1
+                rec["ihtiyaç"].append(c["claim"] == truth)
+            elif c["kind"] == "amaç":
+                rec["amaç"].append((c["claim"], t0))
+            elif c["kind"] == "konum":
+                rec["konum"].append((c["claim"], float(np.hypot(*(mind.map.pos - world.pos)))))
+            elif c["kind"] == "ölüm":
+                rec["ölüm"].append(c["claim"] == world.lives - 1)
+            elif c["kind"].startswith("anı-"):
+                kd = c["kind"][4:]
+                if kd in truth_pos:
+                    rec["anı"].append(float(np.hypot(*(c["claim"] - truth_pos[kd]))))
+    print("[a] 'ihtiyaç' iddiası gerçek açıkla örtüşme: %.2f (n=%d)" % (np.mean(rec["ihtiyaç"]), len(rec["ihtiyaç"])))
+    print("[a] 'ölüm' iddiası (kaç kez öldüm) gerçekle örtüşme: %.2f" % np.mean(rec["ölüm"]))
+    sure = [e for c, e in rec["konum"] if c]
+    unsure = [e for c, e in rec["konum"] if not c]
+    print("[a] konum güveni kalibrasyonu: 'eminim' iken gerçek konum hatası %.2f (n=%d) | 'emin değilim' iken %s (n=%d)" %
+          (np.mean(sure) if sure else float("nan"), len(sure), "%.2f" % np.mean(unsure) if unsure else "—", len(unsure)))
+    print("[a] anı doğruluğu: bellekteki 'en son olay' konumu ile gerçek arasında ortalama hata %.2f birim (n=%d)" %
+          (np.mean(rec["anı"]) if rec["anı"] else float("nan"), len(rec["anı"])))
+
+    # ---- (b) davranış tahmini: 'şu an su istiyorum' diyen ajan gerçekten su içiyor mu?
+    ev_arr = {k: np.array(v) for k, v in ev.items()}
+    print("[b] iddia -> sonraki 150 adımda davranış (olayın görülme olasılığı / tüm zamanların tabanı):")
+    for gi, key, nm in ((0, "ate", "yemek bulmak"), (1, "drank", "su bulmak"), (2, "hurt", "tehlikeden uzaklaşmak")):
+        ts = [t for (g, t) in rec["amaç"] if g == gi]
+        if len(ts) < 5:
+            continue
+        a = ev_arr[key]
+        p = np.mean([np.any((a > t) & (a <= t + 150)) for t in ts]) if len(a) else 0.0
+        allt = np.arange(1000, mind.age - 150, 40)
+        base = np.mean([np.any((a > t) & (a <= t + 150)) for t in allt]) if len(a) else 0.0
+        print("    '%s' dediğinde: P(%s) = %.2f  | taban %.2f  (n=%d iddia)" % (nm, key, p, base, len(ts)))
+
+    # ---- (a2) üstbilişsel kalibrasyon: ışınlan (kaçırılma); ajan 'emin değilim' demeli, sonra güveni yeniden kazanmalı
+    cal = []
+    for _ in range(args.trials):
+        run(int(np.random.default_rng(mind.age).integers(60, 150)))
+        world.pos = np.random.default_rng(mind.age).uniform(2, world.L - 2, 2)
+        world.vel = np.zeros(2)
+        done = 0
+        for target in (2, 6, 15, 40, 100):                           # ışınlanmadan sonra kümülatif adımlarda sor (ilk adım algı gecikmesi)
+            run(target - done)
+            done = target
+            _, cl = nar.say(mind, obs)
+            c = [c for c in cl if c["kind"] == "konum"]
+            cal.append((target, bool(c[0]["claim"]) if c else None, float(np.hypot(*(mind.map.pos - world.pos)))))
+        run(120)
+    for tgt in (2, 6, 15, 40, 100):
+        se = [e for s, c, e in cal if s == tgt and c]
+        ue = [e for s, c, e in cal if s == tgt and c is False]
+        print("[a2] kaçırılmadan %3d adım sonra: 'eminim' diyenlerin hatası %s (n=%d) | 'emin değilim' diyenlerin hatası %s (n=%d)" %
+              (tgt, "%.2f" % np.mean(se) if se else "—", len(se), "%.2f" % np.mean(ue) if ue else "—", len(ue)))
+    sure_e = [e for s, c, e in cal if c and s >= 6]
+    unsure_e = [e for s, c, e in cal if c is False and s >= 6]
+    print("[a2] (adım>=6) 'eminim' hatası %s (n=%d) | 'emin değilim' hatası %s (n=%d)" %
+          ("%.2f" % np.mean(sure_e) if sure_e else "—", len(sure_e), "%.2f" % np.mean(unsure_e) if unsure_e else "—", len(unsure_e)))
+
+    # ---- (c) sahte iç duyu: ajan su açığı olduğuna 'inanır'; söz ve davranış birlikte mi gidiyor?
+    sham_say = ill_say = sham_go = ill_go = 0
+    n = args.trials
+    for cond in ("sham", "illusion"):
+        for _ in range(n):
+            run(int(np.random.default_rng(mind.age).integers(80, 200)))
+            n_before = len(ev["drank"])
+            if cond == "illusion":
+                mind.intervene("sensor", [0.0, -0.6, 0.0], steps=60)
+            run(5)
+            _, cl = nar.say(mind, obs)
+            said = any(c["kind"] == "ihtiyaç" and c["claim"] == 1 for c in cl)
+            goal_w = False
+            for _ in range(80):
+                run(1)
+                goal_w |= mind.goal == 1
+            went = len(ev["drank"]) > n_before
+            if cond == "sham":
+                sham_say += said; sham_go += goal_w
+            else:
+                ill_say += said; ill_go += goal_w
+            run(60)
+    print("[c] sahte susuzluk (dünya değişmez, ajan 'su açığım var' sanır): 'su açığım var' diyen %.2f (sham %.2f) | "
+          "amacı susuzluk olan %.2f (sham %.2f)" % (ill_say / n, sham_say / n, ill_go / n, sham_go / n))
+    return rec
+
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", choices=["run", "compare", "shift", "introspect"], default="run")
+    ap.add_argument("--stage", choices=["run", "compare", "shift", "introspect", "narrate"], default="run")
     ap.add_argument("--mode", choices=["full", "flat", "random"], default="full")
     ap.add_argument("--steps", type=int, default=30000)
     ap.add_argument("--window", type=int, default=5000)
@@ -1053,7 +1260,7 @@ def main():
     ap.add_argument("--save", default=None)
     ap.add_argument("--resume", default=None)
     args = ap.parse_args()
-    {"run": stage_run, "compare": stage_compare, "shift": stage_shift, "introspect": stage_introspect}[args.stage](args)
+    {"run": stage_run, "compare": stage_compare, "shift": stage_shift, "introspect": stage_introspect, "narrate": stage_narrate}[args.stage](args)
 
 
 if __name__ == "__main__":
