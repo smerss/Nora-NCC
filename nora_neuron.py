@@ -309,6 +309,46 @@ class MushroomBody:
         return self.mbon(X).argmax(1)
 
 
+class LobedMushroomBody:
+    """Loblu mantar cismi: sinekte KC alt-tipleri (α/β, α'/β', γ) FARKLI duyusal girdi tiplerini alır.
+    Burada her duyusal grup (ör. 'yiyecek ışınları', 'duvar ışınları', 'propriosepsiyon') kendi KC
+    popülasyonuna sahip; her KC grubundan rastgele `claws` girdi alır ve KENDİ rastgele eşiğine sahiptir
+    (heterojen eşik -> yakınlık, ateşleyen KC SAYISIYLA kodlanır, yani analog bilgi seyrek ikili kodda
+    korunur; girdi sessizse kod da sessizdir). APL geri-baskılaması toplamı `cap`'te keser.
+    Kod, KC indeks dizisi olarak döner: Q ve yenilik sinapsları yalnızca bu indekslere dokunur."""
+
+    def __init__(self, groups, n_per=500, claws=3, cap_frac=0.12, nov_rate=0.02, seed=0):
+        rng = np.random.default_rng(seed)
+        self.groups = [np.asarray(g) for g in groups]
+        self.n_per, self.cap_frac = n_per, cap_frac
+        self.claw = [g[np.stack([rng.choice(len(g), min(claws, len(g)), replace=False) for _ in range(n_per)])]
+                     for g in self.groups]
+        self.thr = [rng.uniform(0.04, 0.9, n_per).astype(np.float32) for _ in self.groups]
+        self.n_kc = n_per * len(self.groups)
+        self.w_nov = np.ones(self.n_kc, np.float32)
+        self.nov_rate = nov_rate
+
+    def kc(self, x):
+        out = []
+        for gi, (cl, th) in enumerate(zip(self.claw, self.thr)):
+            drive = x[cl].mean(1)
+            fire = np.flatnonzero(drive > th)
+            cap = int(self.cap_frac * self.n_per)
+            if len(fire) > cap:
+                fire = fire[np.argpartition(-drive[fire], cap - 1)[:cap]]
+            out.append(fire + gi * self.n_per)
+        return np.concatenate(out) if out else np.zeros(0, np.int64)
+
+    def novelty(self, idx, learn=True):
+        if len(idx) == 0:
+            return 0.0
+        nov = float(self.w_nov[idx].mean())
+        if learn:
+            self.w_nov[idx] *= (1.0 - self.nov_rate)
+            self.w_nov += 0.002 * (1.0 - self.w_nov)
+        return nov
+
+
 # ================================================================ aşamalar
 def stage_test(args):
     print("[test] sentetik konektom + LIF tutarlılığı")
