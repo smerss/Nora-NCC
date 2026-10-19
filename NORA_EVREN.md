@@ -3,7 +3,7 @@
 > **Kısa özet (uyanınca oku).** Sinek mantar cismi esinli nöronsal temel + fizikli bir evren + yaşayan bir zihin kuruldu:
 > ihtiyaç/valans, global çalışma alanı, bilişsel harita ve planlama, öğrenilmiş dünya modeli ve hayal gücü, otobiyografik bellek,
 > sürekli iç durum, topraklanmış iç gözlem kanalı ve iç durumdan türeyen doğrulanabilir sözlü iddialar. Eski hat (`nora_think`)
-> köprü ile bağlandı. **Çalışanlar:** hayatta kalma (rastgele 1,1 → 0,05 ölüm/1k), kural değişimine uyum (öğrenilmiş modelle), aktarım
+> köprü ile bağlandı. **Çalışanlar:** hayatta kalma (rastgele 1,06 → 0,05 ölüm/1k), kural değişimine uyum (öğrenilmiş modelle), aktarım
 > (yeni evrende sıfırdan başlayana karşı belirgin avantaj), iç gözlemin papağana karşı nedensel ayrışması (d ≈ +5,6 vs −0,2),
 > iddiaların davranışı öngörmesi ("su bulmak istiyorum" → %91-100 su içiyor, taban ~%45), konum güveni kalibrasyonu, ajanlık.
 > **Çalışmayanlar / kanıtlanamayanlar (dürüst):** sıfır unutmanın davranışsal faydası, uzamsal düzen bağlamları, rapor kodunun
@@ -50,17 +50,18 @@ durumundan türeterek** söyleyen bir sistem; öznel deneyim iddiası yok, ama h
 
 ## Ölçülen sonuçlar
 
-### A. Hayatta kalma ve çalışma alanı (60 bin adım, 8 evren tohumu)
-| mod | ölüm / 1000 adım | konfor |
-|---|---|---|
-| rastgele | 1,11 ± 0,20 | 0,56 |
-| çalışma alanı + harita/plan | **0,08 ± 0,04** | 0,70 |
-| çalışma alanı, haritasız | 0,12 ± 0,10 | 0,68 |
-| karışım (çalışma alanı yok) + harita/plan | 0,23 ± 0,09 | 0,73 |
-| karışım, haritasız | 0,15 ± 0,11 | 0,75 |
+### A. Hayatta kalma ve çalışma alanı (60 bin adım, 8 evren tohumu, **güncel kodla**: hayal gücü, öğrenilmiş şekillendirme, anı tekrarı, oy tabanlı harita)
+| mod | ölüm / 1000 adım | konfor | ölüm nedenleri (toplam) |
+|---|---|---|---|
+| rastgele | 1,06 ± 0,11 | 0,57 | yara 139, susuzluk 52, açlık 21 |
+| **çalışma alanı + harita/plan (full)** | **0,05 ± 0,03** | 0,71 | yara 8, susuzluk 1, açlık 1 |
+| çalışma alanı, haritasız | 0,11 ± 0,10 | 0,64 | susuzluk 16, yara 3, açlık 2 |
+| karışım (çalışma alanı yok) + harita/plan | 0,10 ± 0,16 | **0,77** | yara 19, açlık 1 |
 
-Harita susuzluk ölümlerini bitirdi (15→4). Çalışma alanı, plan hedefleri çatıştığında (plan tehlikeye çekerken)
-kazananın kontrolü alması sayesinde karışımı belirgin geçti; planlamasız fark yoktu.
+Okuma: harita susuzluk ölümlerini neredeyse bitirdi (16 → 1). Çalışma alanı yara ölümlerini azaltıyor (8 vs 19: kazanan uzman, plan tehlikeye
+çekerken tehlike uzmanının planı ezmesine izin veriyor) ama **ölüm oranı farkı artık gürültü içinde** (0,05 vs 0,10 ± 0,16; hayal gücü
+ve öğrenilmiş şekillendirme karışımı da güçlendirdi) ve karışım ihtiyaçları **daha dengeli** tutuyor (konfor 0,77 vs 0,71). Yani çalışma
+alanının hayatta kalma faydası bu evrende kanıtlanmış değil; yalnızca yara ölümlerinde tutarlı bir eğilim var.
 
 ### B. Kural değişimi (kumanda ters; yiyecek zehirli)
 - **Ters kumanda**: öğrenilmiş modelle yönlendirilen ajan 0,06 ölüm/1k ve 0,72 konforda kalıyor; modelsiz ajan
