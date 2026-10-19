@@ -81,6 +81,8 @@ dışarıdan gözlenebilir dünya girdisinden raporu taklit etmeyi öğrenen sı
 - **Gizli dünya değişimi** (gerçek su düşer, sensör gizler): rapor 1,56, papağan 1,05 (1,0 = etkisiz). **Ayırt edici
   değil**, papağan zaten suya duyarsız; bu test iyileştirilmeli.
 - Papağan doğruluğu (dünya gözleminden rapor tahmini): ridge 0,45, 5-NN 0,34 (çoğunluk tabanı 0,23).
+- **Öz-öngörü (olumsuz)**: rapor tokeni ajanın 10 adım sonraki amacını 0,58 doğrulukla tahmin ediyor; yalnızca dünya gözlemi 0,57,
+  'şimdiki amaç sürer' tabanı 0,64, çoğunluk tabanı 0,50. Yani rapor kodu, gelecekteki davranışı basit sürekliliğin ötesinde öngörmüyor.
 
 ### D. Söz katmanının doğruluğu (narrate)
 - Doğumda: "henüz hiç ölmedim, ölümü bilmiyorum"; yaşam sonunda: "ölebileceğimi biliyorum (3 kez öldüm)".
@@ -91,23 +93,51 @@ dışarıdan gözlenebilir dünya girdisinden raporu taklit etmeyi öğrenen sı
 - Konum güveni: normalde "eminim" iken hata 0,17 birim, "emin değilim" iken 3,4 birim. Kaçırılmadan 40+ adım sonra
   "eminim" 0,2–0,4 / "emin değilim" 6–7,5 birim; **ilk 2–15 adımda hâlâ yanlış-ama-emin vakaları var** (bayat algı,
   belirsiz geometri).
+- **Ajanlık cümlesi** (öz-model sürpriz z-skoru): dışarıdan itildiğinde (rüzgâr) %56 'beni beklenmedik bir kuvvet itiyor', itilmediğinde %1,7 (AUC 0,83).
 - Küresel yeniden konumlama: kaçırılmadan sonra hata 13,1 → 5,6 (5 adım) → 3,8 (40) → 1,1 (100 adım).
+
+
+### E. Aktarım (az örnekle yeni evrende yaşama)
+30 bin adım bir evrende yaşamış ajan, su/tehlike düzeni tamamen farklı 6 yeni evrene bırakıldı; sıfırdan başlayan ajanla kıyas
+(pencere = 1000 adım, ilk 8 pencere):
+
+| | ilk pencere ölüm/1k | ilk pencere konfor | konfor ≥ 0,65'e ulaşma (pencere) |
+|---|---|---|---|
+| aktarım (yaşanmış) | 0,0 | 0,76 | 0,2 |
+| sıfırdan (yeni doğmuş) | 0,5 | 0,54 | 1,0 |
+
+Öğrenilen beceri düzenden bağımsız aktarılıyor (refleks Q'lar göreli algıya bağlı, öz-model/dünya modeli evrene özgü değil).
+Harita bilgisi ise düzene özgü: eskiyen işaretleri gidermek için görünürlüğe duyarlı yerel onarım var.
+
+### F. Köprü: akıl yürütme organı (nora_bridge, 40 bin adım, 10 bilmeceli kutu)
+- Ajan bilmeceleri **yaşarken** çözüyor: 1 basamak %98, 2 basamak %86 (hakemli adım adım düşünme), enerji kazancı ≈3/4000 adım.
+- 3 basamak çözülemedi (%0): öğretmen yalnızca 1-2 basamak gösteriyor ve sıfırdan eğitilen küçük model bunu genelleyemiyor.
+- **Sezgi zayıf** (1 basamak %47, 2 basamak %2) ve sezgi güveni sezgi doğruluğunu yalnızca zayıf ayırt ediyor (AUROC 0,57).
+  Düşünce→sezgi damıtması (uyku) bu küçük, sıfırdan eğitilmiş modelde belirgin kazanç üretmedi. Sınır model kalitesi:
+  nora_think'in orijinal hattı TinyStories ile önceden eğitilmiş donuk omurga + yanal bağ kullanıyordu, ağırlıklar repoda yok.
+- Anlatıcı akıl yürütmeyi de iç durumdan söylüyor: "son bilmecede (1 basamak) sezgime güvenmediğim için düşündüm (güven 0,40)".
+
+### G. Düzen bağlamları (deneysel, BAŞARISIZ)
+Haritayı düzen-anahtarlı bağlamlarla (`-mapctx`) sıfır unutmayı haritaya taşıma denemesi: görünürlüğe duyarlı çelişki kanıtına
+rağmen, gürültülü harita işaretleri sabit evrende bile yanlış alarm üretti (6 sahte düzen). Varsayılan: tek harita + yerel onarım.
+Kod bayrak altında duruyor; sağlam bir "hangi dünyadayım" çıkarımı için daha iyi işaretleme/kalibrasyon gerekir.
 
 ## Dürüst sınırlar
 - Öznel deneyim kanıtı yoktur ve bu sistem onu iddia etmez. Sonuçlar işlevsel göstergelerdir.
 - Ajan sineğin ötesinde bir zekâ değildir: tek basit evren, yerel öğrenme, doğrusal modeller.
 - Şekillendirme olmadan (seyrek ödül) öğrenme başarısızdı; şekillendirmenin yönü artık öğrenilen anlamsal bellekten
   gelse de **büyüklüğü ve "yakınlığa göre potansiyel" biçimi doğuştandır**.
-- Sıfır unutmanın davranışsal faydası net kanıtlanmadı (yukarıda B).
+- Sıfır unutmanın davranışsal faydası net kanıtlanmadı (B), uzamsal düzen bağlamları başarısız (G).
+- Dil/akıl yürütme katmanı küçük ve sıfırdan eğitildi (F); sezgi zayıf, 3 basamak genellenemedi.
 - Rapor kanalının *davranışı nedensel olarak yönlendirdiği* (geri besleme) gösterilmedi; kanal şu an bir ölçüm
   aracıdır. Altında yatan değişkenler (ruh hali, belirsizlik, amaç) davranışı gerçekten yönlendirir.
 - Konum için pusula (mutlak yön) duyusu doğuştandır. Arena boyutu/ızgara harita doğuştandır.
 
 ## Bekleyen ölçümler / sonraki adımlar
 1. Sıfır unutmayı gerçekten zorlayan bir evren (yeniden öğrenmesi pahalı bilgi: ör. çok sayıda ardışık düzen/kural, nadir ödül) tasarlamak.
-2. Köprü: bilmecelerde sezgi/düşünme kararı, üstbilişsel AUROC, uyku ile sezgi artışı.
+2. Köprü: orijinal önceden eğitilmiş omurgayı (TinyStories + yanal bağ) yeniden üretmek ya da çok daha uzun eğitmek; sezgi güçlenince damıtma ve üstbilişsel AUROC yeniden ölçülmeli.
 3. Gizli dünya değişimi testini ayırt edici hale getirmek; raporun davranışa geri beslenmesi ve ablasyonu.
-4. Öz-öngörü: rapor, ajanın 10 adım sonraki amacını dışarıdan gözlenebilir girdiden daha iyi tahmin ediyor mu (kodlandı, çalıştırılacak).
+4. Rapor kodunu gelecekteki davranışı öngörecek şekilde zenginleştirmek (öz-öngörü şu an olumsuz).
 5. Çok-ajan/ayna testi, stakes (ölümün bellek maliyeti) ve durdurma mekanizması (etik not aşağıda).
 
 ## Etik not

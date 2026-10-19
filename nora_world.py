@@ -73,6 +73,13 @@ class Universe:
                 pts.append(p)
         return np.array(pts[:2]), np.array(pts[2:])
 
+    def relayout(self, layout_seed):
+        """Düzen değişimi: su/tehlike bölgeleri yeni yerlere taşınır (harita bilgisi eskir). Aynı seed her zaman aynı düzen."""
+        self.water_c, self.haz_c = self._layout(np.random.default_rng(layout_seed + 7919))
+        for i in range(len(self.food)):
+            if np.any(np.hypot(*(self.haz_c - self.food[i]).T) <= self.zone_h + 1.5):
+                self.food[i] = self._spawn_food()
+
     def _spawn_food(self):
         while True:
             p = self.rng.uniform(1.0, self.L - 1.0, 2)
