@@ -1663,9 +1663,65 @@ def stage_combo(args):
     print("TÜM kombinasyonlar, tüm bileşenler gerçek iç durumla örtüşüyor: %.2f (n=%d)" % (allhit[0] / max(1, allhit[1]), allhit[1]))
 
 
+def stage_lead(args):
+    """AYRICALIKLI ERİŞİM: sahte susuzluk (iç duyu) uygulandıktan sonra raporun ('su açığım var' / amaç susuz) ve dışarıdan gözlenebilir
+    davranışın (en yakın su bölgesine yönelip ilerleme) değiştiği adımı karşılaştır. İç gözlem davranıştan önce mi gelir?"""
+    nar = Narrator()
+    w, m = Universe(seed=args.seed), Mind(seed=args.seed)
+    obs, died = w.observe(), False
+
+    def step():
+        nonlocal obs, died
+        a = m.act(obs, died)
+        obs, info = w.step(a)
+        died = info["died"] is not None
+        return a
+
+    for _ in range(args.steps):
+        step()
+    lead_need, lead_goal, lead_beh, ok = [], [], [], 0
+    for _ in range(args.trials):
+        for _ in range(int(np.random.default_rng(m.age).integers(80, 200))):
+            step()
+        if w.w < 0.7:                                          # zaten susuzsa atla (fark ölçülemez)
+            for _ in range(150):
+                step()
+            continue
+        m.intervene("sensor", [0.0, -0.7, 0.0], steps=60)
+        t_need = t_goal = t_beh = None
+        for k in range(1, 41):
+            a = step()
+            _, cl = nar.say(m, obs)
+            d = {c["kind"]: c for c in cl}
+            if t_need is None and d["ihtiyaç"]["claim"] == 1:
+                t_need = k
+            if t_goal is None and m.goal == 1:
+                t_goal = k
+            # davranış: dünya gerçeğine göre en yakın su bölgesine doğru yönelmiş ve ileri gidiyor
+            dz = w.water_c - w.pos
+            j = int(np.argmin(np.hypot(dz[:, 0], dz[:, 1])))
+            ang = np.arctan2(dz[j, 1], dz[j, 0])
+            err = abs(wrap(ang - w.th))
+            if t_beh is None and err < 0.5 and a == 1 and np.hypot(*dz[j]) > 3.0:
+                t_beh = k
+        if t_need is not None and t_beh is not None:
+            ok += 1
+        lead_need.append(t_need if t_need is not None else 41)
+        lead_goal.append(t_goal if t_goal is not None else 41)
+        lead_beh.append(t_beh if t_beh is not None else 41)
+        for _ in range(80):
+            step()
+    print("n=%d deneme. İlk görülme adımı (medyan; 41 = 40 adımda görülmedi):" % len(lead_need))
+    print("  rapor 'su açığım var' : %.1f (ort. %.1f)" % (np.median(lead_need), np.mean(lead_need)))
+    print("  amaç = susuzluk       : %.1f (ort. %.1f)" % (np.median(lead_goal), np.mean(lead_goal)))
+    print("  gözlenebilir davranış : %.1f (ort. %.1f)  [su bölgesine yönelip ileri gitme]" % (np.median(lead_beh), np.mean(lead_beh)))
+    d = np.array(lead_beh) - np.array(lead_need)
+    print("  rapor, davranıştan ortalama %.1f adım ÖNCE (davranıştan önce olduğu denemeler: %.2f)" % (d.mean(), np.mean(d > 0)))
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", choices=["run", "compare", "shift", "introspect", "narrate", "transfer", "demo", "testimony", "alive", "combo"], default="run")
+    ap.add_argument("--stage", choices=["run", "compare", "shift", "introspect", "narrate", "transfer", "demo", "testimony", "alive", "combo", "lead"], default="run")
     ap.add_argument("--mode", choices=["full", "flat", "random"], default="full")
     ap.add_argument("--steps", type=int, default=30000)
     ap.add_argument("--window", type=int, default=5000)
@@ -1684,7 +1740,7 @@ def main():
     ap.add_argument("--save", default=None)
     ap.add_argument("--resume", default=None)
     args = ap.parse_args()
-    {"run": stage_run, "compare": stage_compare, "shift": stage_shift, "introspect": stage_introspect, "narrate": stage_narrate, "transfer": stage_transfer, "demo": stage_demo, "testimony": stage_testimony, "alive": stage_alive, "combo": stage_combo}[args.stage](args)
+    {"run": stage_run, "compare": stage_compare, "shift": stage_shift, "introspect": stage_introspect, "narrate": stage_narrate, "transfer": stage_transfer, "demo": stage_demo, "testimony": stage_testimony, "alive": stage_alive, "combo": stage_combo, "lead": stage_lead}[args.stage](args)
 
 
 if __name__ == "__main__":
