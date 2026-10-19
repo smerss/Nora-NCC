@@ -119,11 +119,15 @@ class Cognition:
         self.log = []
 
     # ---- kalibrasyon: P(sezgi doğru | güven)
-    def p_correct(self, conf):
-        if len(self.calib) < 12:
+    def p_correct(self, conf, n=None):
+        """Bağlama (basamak sayısına) özgü kalibrasyon: aynı zorlukta, benzer güvenli geçmiş sezgilerin doğruluk oranı."""
+        pool = [t for t in self.calib if n is None or t[2] == n]
+        if len(pool) < 10:
+            pool = self.calib
+        if len(pool) < 12:
             return 0.5
-        near = sorted(self.calib, key=lambda t: abs(t[0] - conf))[:25]
-        return float(np.mean([ok for _, ok in near]))
+        near = sorted(pool, key=lambda t: abs(t[0] - conf))[:15]
+        return float(np.mean([t[1] for t in near]))
 
     def new_problem(self):
         op, n = self.cur.pick(self.rng)
@@ -133,7 +137,7 @@ class Cognition:
         """Döner: (cevap, dünya adımı maliyeti, kayıt)."""
         g, conf = self.mind.intuition(a, op, b)
         truth = nt.answer_of(a, op, b)
-        pi = self.p_correct(conf) if g is not None else 0.0
+        pi = self.p_correct(conf, min(n, 4)) if g is not None else 0.0
         price = self.price * (1.0 + urgency)
         ev_int = pi - price * 1
         ev_think = self.p_think[min(n, 4)] - price * self.c_think[min(n, 4)]
@@ -158,20 +162,20 @@ class Cognition:
         if rec["mode"] == "sezgi":
             self.n_int += 1
             self.n_int_ok += int(correct)
-            self.calib.append((rec["conf"], int(correct)))
+            self.calib.append((rec["conf"], int(correct), n))
         else:
             self.n_think += 1
             ok = rec["mode"] == "düşünce"
             self.p_think[n] += 0.1 * (int(ok) - self.p_think[n])
             self.c_think[n] += 0.1 * (rec["cost"] - self.c_think[n])
             if ok:                                              # doğrulanmış cevap: sezginin doğruluğu da bilinir
-                self.calib.append((rec["conf"], int(rec["g"] == rec["ans"])))
+                self.calib.append((rec["conf"], int(rec["g"] == rec["ans"]), n))
                 self.today.append(nt.think_line(rec["a"], rec["op"], rec["b"], rec["steps"], rec["ans"]))
                 self.today.append(nt.direct_line(rec["a"], rec["op"], rec["b"], rec["ans"]))
                 self.memory.append([rec["a"], rec["op"], rec["b"]])
             self.cur.update(rec["op"], n, int(ok), (rec["g"] == rec["ans"]) if ok else None, rec.get("perc"))
         self.calib = self.calib[-400:]
-        self.tau = nt.calibrate(self.calib, 0.95)
+        self.tau = nt.calibrate([(c, ok) for c, ok, _ in self.calib], 0.95)
         rec["correct"] = bool(correct)
         self.last = rec
         self.log.append(dict(n=rec["n"], conf=rec["conf"], g_ok=(rec["g"] == rec["truth"]), mode=rec["mode"], correct=bool(correct), cost=rec["cost"], p_int=rec["p_int"]))
