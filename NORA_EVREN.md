@@ -121,12 +121,17 @@ dışarıdan gözlenebilir dünya girdisinden raporu taklit etmeyi öğrenen sı
 Harita bilgisi ise düzene özgü: eskiyen işaretleri gidermek için görünürlüğe duyarlı yerel onarım var.
 
 ### F. Köprü: akıl yürütme organı (nora_bridge, 40 bin adım, 10 bilmeceli kutu)
-- Ajan bilmeceleri **yaşarken** çözüyor: 1 basamak %98, 2 basamak %86 (hakemli adım adım düşünme), enerji kazancı ≈3/4000 adım.
-- 3 basamak çözülemedi (%0): öğretmen yalnızca 1-2 basamak gösteriyor ve sıfırdan eğitilen küçük model bunu genelleyemiyor.
-- **Sezgi zayıf** (1 basamak %47, 2 basamak %2) ve sezgi güveni sezgi doğruluğunu yalnızca zayıf ayırt ediyor (AUROC 0,57).
-  Düşünce→sezgi damıtması (uyku) bu küçük, sıfırdan eğitilmiş modelde belirgin kazanç üretmedi. Sınır model kalitesi:
-  nora_think'in orijinal hattı TinyStories ile önceden eğitilmiş donuk omurga + yanal bağ kullanıyordu, ağırlıklar repoda yok.
-- Anlatıcı akıl yürütmeyi de iç durumdan söylüyor: "son bilmecede (1 basamak) sezgime güvenmediğim için düşündüm (güven 0,40)".
+Düşünce sütunu (0,7M parametre) sıfırdan, satır bazlı **maskeli** kayıpla (yalnızca '=' sonrası, doğrudan cevap satırları 4× ağırlık)
+eğitildi; gün-0'da yalnızca 1-2 basamak (ağırlıklı 1 basamak) gösterildi. Karar kuralı: beklenen değer (sezgi mi, düşünme mi)
+basamak-bazlı kalibrasyonla; düşünmek dünya adımı harcar; doğrulanmış düşünceler her 12 bilmecede uykuda sezgiye damıtılır.
+- Ajan bilmeceleri **yaşarken** çözüyor, enerji kazanıyor, ölüm/1k ≈ 0. 1 basamak çözüm oranı **%96**.
+- **Üstbiliş**: sezgi güveni → sezginin doğruluğu **AUROC 0,81** (önceki, basamaksız kalibrasyon ve zayıf eğitimle 0,57).
+  1 basamakta sezgi doğruluğu %89; 2 basamakta %2 ve ajan artık %91 oranında *düşünüyor* (basamak-bazlı kalibrasyondan önce %56'sı yanlış sezgiyle yanıtlanıyordu).
+- **Uyku damıtması işe yarıyor**: sezgi doğruluğu yaşam boyunca 0,47 → 0,67 (ilk/son üçte bir).
+- Sınırlar: 2 basamak çözüm oranı yalnızca %38 (hakemli adım adım düşünme çoğu zaman geçerli adım üretemiyor), 3 basamak %0
+  (öğretmen yalnızca 1-2 basamak gösteriyor; küçük model genelleyemiyor). Sınır model kalitesidir: orijinal hat TinyStories ile önceden
+  eğitilmiş donuk omurga + yanal bağ kullanıyordu, ağırlıklar repoda yok.
+- Anlatıcı akıl yürütmeyi de iç durumdan söylüyor: "son bilmecede (2 basamak) sezgime güvenmediğim için düşündüm (güven 0,69)".
 
 ### G. Düzen bağlamları (deneysel, BAŞARISIZ)
 Haritayı düzen-anahtarlı bağlamlarla (`-mapctx`) sıfır unutmayı haritaya taşıma denemesi: görünürlüğe duyarlı çelişki kanıtına
