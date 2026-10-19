@@ -49,6 +49,8 @@ BODY_IDX = [45, 46, 47, 48, 49, 50]                 # öz-modelin öngördüğü
 _RAY_OFF = np.linspace(-Universe.FOV / 2, Universe.FOV / 2, Universe.R)
 # öz-model hata normalizasyonunun TABANI: eylemlerin tipik etkisi (hareketsizlik ölçeği çökertmesin)
 REF = np.array([1e-3, 1e-3, 1e-3, 0.03, 0.03, 0.1, 0.1], np.float32)
+IM_G = 2.5                                            # hayal gücünün eylem üstündeki logit ağırlığı
+V_DEFAULT = np.array([0.3, 0.06, -0.05], np.float32)   # doğuştan beklenti: yem +, su +, tehlike -
 PLAN_G = 3.0                                          # planın eylem üstündeki logit ağırlığı
 PRIOR = np.array([0.0, 0.8, 0.0, 0.0, -1.0], np.float32)   # doğuştan: ileri yönelim, geri kaçınma
 
@@ -57,6 +59,103 @@ def softmax(x):
     x = x - x.max()
     e = np.exp(x)
     return e / e.sum()
+
+
+KINDS = ("yedi", "içti", "yaralandı", "öldü", "hedef-değişti", "bağlam-değişti", "yeni-yer")
+
+
+class EpisodicMemory:
+    """Otobiyografik bellek: öne çıkan olayların kaydı (ne, nerede, ne zaman, nasıl hissettirdi, hangi amaçla,
+    hangi dünya bağlamında) + geçiş (öğrenme için). İki işlevi var:
+      1) SORGU: 'en son nerede yaralandım?', 'en son ne zaman yedim?' — yaşam geçmişi hakkında doğrulanabilir cevap.
+      2) UYKU TEKRARI: nadir ve yüksek değerli geçişler çevrimdışı yeniden oynatılır (uyku konsolidasyonu).
+    Kapasite sınırlı; en az öne çıkan (|valans| küçük) olay önce unutulur."""
+
+    def __init__(self, cap=3000):
+        self.cap, self.items = cap, []
+
+    def add(self, **ev):
+        self.items.append(ev)
+        if len(self.items) > self.cap:
+            i = int(np.argmin([abs(e["val"]) + 1e-3 * e["t"] / (self.items[-1]["t"] + 1) for e in self.items]))
+            self.items.pop(i)
+
+    def last(self, kind, n=1):
+        sel = [e for e in self.items if e["kind"] == kind]
+        return sel[-n:][::-1]
+
+    def where(self, kind):
+        """Bu türden olayların harita konumları (n,2) ve değerleri."""
+        sel = [e for e in self.items if e["kind"] == kind]
+        return (np.array([e["pos"] for e in sel]) if sel else np.zeros((0, 2))), [e["val"] for e in sel]
+
+    def replay_batch(self, rng, n, ctx):
+        """Geçiş içeren olaylardan, öne çıkanlığa orantılı örnek. YALNIZCA aynı dünya bağlamının olayları
+        (başka dünyanın deneyimi bu dünyanın değerlerini kirletmesin)."""
+        pool = [e for e in self.items if e.get("tr") is not None and e["ctx"] == ctx]
+        if not pool:
+            return []
+        w = np.array([abs(e["val"]) + 0.05 for e in pool])
+        sel = rng.choice(len(pool), size=min(n, len(pool)), p=w / w.sum())
+        return [pool[i]["tr"] for i in sel]
+
+
+class Introspector:
+    """Topraklanmış iç gözlem kanalı. Ajanın KENDİ iç değişkenlerinden (çalışma alanı birikimleri, valans, ruh hali,
+    öz-model hatası/güveni, bağlam uyumu, harita belirsizliği, iç duyu açığı) türeyen, denetimsiz öğrenilen
+    ayrık bir rapor kodu üretir: yarışmalı öğrenen prototipler (gerektikçe işe alınır). İnsan metni/etiketi yok.
+    Kanalın çıktısı (token, güven marjı, devamlı rapor vektörü) iç durumun bir FONKSİYONUDUR; dış dünyayı
+    doğrudan okumaz. Anlam atama (token -> insan sözcüğü) yalnızca sonradan, yorum katmanında yapılır."""
+    D = 16
+    NAMES = ("birikim_aç", "birikim_susuz", "birikim_tehlike", "birikim_merak", "ateşleme", "valans", "ruh_hali",
+             "açık_enerji", "açık_su", "açık_bütünlük", "öz_model_hatası", "güven", "bağlam_uyumu", "konum_belirsizliği",
+             "değer", "deneme_modu")
+
+    def __init__(self, k_max=12, thr=2.4):
+        self.k_max, self.thr = k_max, thr
+        self.P = np.zeros((0, self.D), np.float32)
+        self.cnt = np.zeros(0)
+        self.mu, self.var, self.n = np.zeros(self.D, np.float32), np.ones(self.D, np.float32), 0
+        self.token, self.margin, self.vec = -1, 0.0, np.zeros(self.D, np.float32)
+        self.hist = []
+
+    def features(self, mind, obs):
+        d = 1 - obs[I_E:I_I + 1]
+        f = np.r_[mind.acc, float(mind.ignited), mind.valence, mind.mood, d,
+                  min(3.0, mind.err_n), float(np.clip(mind.conf, -3, 3)), min(3.0, mind.cerr[mind.cur]),
+                  mind.map.unc if mind.use_map else 0.0, float(mind.B[-1]), float(mind.prob is not None)]
+        return f.astype(np.float32)
+
+    def step(self, mind, obs):
+        f = self.features(mind, obs)
+        self.n += 1
+        a = 0.01 if self.n > 100 else 1.0 / self.n
+        self.mu += a * (f - self.mu)
+        self.var += a * ((f - self.mu) ** 2 - self.var)
+        z = (f - self.mu) / np.sqrt(self.var + 1e-3)
+        self.vec = z
+        if len(self.P) == 0:
+            self.P, self.cnt = z[None, :].copy(), np.ones(1)
+        d = np.sqrt(((self.P - z) ** 2).sum(1))
+        j = int(np.argmin(d))
+        if d[j] > self.thr and len(self.P) < self.k_max and self.n > 200:        # yeni bir iç durum türü: prototip işe al
+            self.P = np.vstack([self.P, z[None, :]])
+            self.cnt = np.r_[self.cnt, 1.0]
+            j = len(self.P) - 1
+            d = np.r_[d, 0.0]
+        else:
+            self.cnt[j] += 1
+            self.P[j] += max(0.005, 1.0 / self.cnt[j]) * (z - self.P[j])
+        ds = np.sort(d)
+        self.hist = (self.hist + [j])[-5:]
+        self.raw = j
+        self.token = int(np.bincount(self.hist).argmax())            # zamansal düzleştirme: titreme yok
+        self.margin = float((ds[1] - ds[0]) / (ds[1] + ds[0] + 1e-6)) if len(ds) > 1 else 1.0
+        return self.token
+
+    def decode(self, token):
+        """Tokenin temsil ettiği iç durum profili (prototip, gerçek birimlere geri ölçeklenmiş)."""
+        return self.P[token] * np.sqrt(self.var + 1e-3) + self.mu
 
 
 def wrap(a):
@@ -175,10 +274,14 @@ class CognitiveMap:
 
 
 class Mind:
-    def __init__(self, mode="full", seed=0, n_kc=3000, n_res=96, gamma=0.95, lr=0.25, self_model=True, shape=2.0, ctx=True, use_map=True, grow=True, model=True):
+    def __init__(self, mode="full", seed=0, n_kc=3000, n_res=96, gamma=0.95, lr=0.25, self_model=True, shape=2.0, ctx=True, use_map=True, grow=True, model=True, imag=True, replay=True):
         self.mode, self.rng, self.gamma, self.lr = mode, np.random.default_rng(seed), gamma, lr
         self.use_sm, self.shape, self.ctx, self.use_map = self_model, shape, ctx, use_map
-        self.grow, self.use_model = grow, model
+        self.grow, self.use_model, self.use_imag, self.use_replay = grow, model, imag, replay
+        self.epi = EpisodicMemory()
+        self.intro = Introspector()
+        self.force = None                                              # müdahale: (uzman, kalan adım)
+        self.sensor_bias = None                                        # müdahale: sahte iç duyu (açık eklemesi, kalan adım)
         self.map = CognitiveMap()
         self.n_ctx = 48
         n_act = Universe.N_ACT
@@ -217,6 +320,8 @@ class Mind:
         self.pred, self.z, self.conf = None, None, 0.0
         self.err_n = 0.0
         self.err_vel = 0.0
+        self._last_kind = -1
+        self._prev_pos = np.zeros(2)
         self.err_head = 0.0
         self.age = 0
         self.last_obs = None
@@ -226,9 +331,13 @@ class Mind:
     def _new_ctx(self, src=None):
         c = dict(Wq=np.zeros((len(SPEC), Universe.N_ACT, self.n_kc), np.float32),
                  Wsm=np.zeros((self.n_body, self.nz), np.float32), Wc=np.zeros(self.nz, np.float32),
-                 good=False, n=0, ok=0, V=np.full(3, np.nan), Vn=np.zeros(3))                                      # good: bu bağlam dünyayı bir kez açıkladı mı (olgun mu)
+                 good=False, n=0, ok=0, V=np.full(3, np.nan), Vn=np.zeros(3),
+                 Wm=np.zeros((Universe.N_ACT, 48, 45), np.float32), Pm=np.zeros((Universe.N_ACT, 48, 48), np.float32))
+        for a in range(Universe.N_ACT):                                 # dünya modeli: kalıcılıkla başla, RLS ile öğren
+            c["Wm"][a][:45, :45] = np.eye(45, dtype=np.float32)
+            c["Pm"][a] = 100.0 * np.eye(48, dtype=np.float32)                                      # good: bu bağlam dünyayı bir kez açıkladı mı (olgun mu)
         if src is not None:                                           # sıcak başlangıç: bilgi KOPYALANIR, eskisi donuk kalır
-            for k in ("Wq", "Wsm", "Wc"):
+            for k in ("Wq", "Wsm", "Wc", "Wm", "Pm"):
                 c[k][:] = src[k]
             pass                                                      # anlamsal bellek (V) KOPYALANMAZ: aday sonuçları sıfırdan öğrenir
         return c
@@ -236,6 +345,24 @@ class Mind:
     Wq = property(lambda s: s.ctxs[s.cur]["Wq"])
     Wsm = property(lambda s: s.ctxs[s.cur]["Wsm"], lambda s, v: s.ctxs[s.cur].__setitem__("Wsm", v))
     Wc = property(lambda s: s.ctxs[s.cur]["Wc"], lambda s, v: s.ctxs[s.cur].__setitem__("Wc", v))
+
+    def _sleep(self, n):
+        """UYKU TEKRARI: nadir ve duygusal geçişler çevrimdışı yeniden oynatılır (konsolidasyon)."""
+        for pidx, pa, r, idx, dead in self.epi.replay_batch(self.rng, n, self.cur):
+            qn = self._q(idx).max(1) if not dead else np.zeros(len(SPEC), np.float32)
+            delta = np.clip(r + self.gamma * qn - self._q(pidx)[:, pa], -3.0, 3.0)
+            self.Wq[:, pa, pidx] += (self.lr * delta / max(1, len(pidx)))[:, None]
+
+    def _learn_world(self, obs):
+        """Dünya modeli: eylem başına doğrusal egosantrik dönüşüm, özyinelemeli en küçük kareler (RLS)."""
+        a = self.prev[1]
+        c = self.ctxs[self.cur]
+        x = np.r_[self.last_obs[:45], 1.0, self.last_obs[48], self.last_obs[49]].astype(np.float32)
+        P = c["Pm"][a]
+        Px = P @ x
+        k = Px / (0.9995 + float(x @ Px))
+        c["Wm"][a] += np.outer(k, obs[:45] - x @ c["Wm"][a])
+        c["Pm"][a] = (P - np.outer(k, Px)) / 0.9995
 
     def _infer_context(self):
         """Bağlam çıkarımı: olgun bağlam bir kez dünyayı açıklar (good); sonra sürpriz görürse
@@ -298,7 +425,7 @@ class Mind:
         a1 = np.zeros(Universe.N_ACT, np.float32)
         a1[act] = 1.0
         return np.concatenate([0.25 * self.h, 3.0 * a1, 3.0 * obs[BODY_IDX], 3.0 * np.outer(a1, obs[48:50]).ravel(),
-                               [3.0 * obs[51]], [3.0], 3.0 * np.abs(self._phi(obs)[:3]), 3.0 * a1[1] * np.abs(self._phi(obs)[:3])]
+                               [3.0 * obs[51]], [3.0], 3.0 * self._phi_raw(obs), 3.0 * a1[1] * self._phi_raw(obs)]
                               ).astype(np.float32)
 
     def _steer(self, err, obs):
@@ -318,11 +445,54 @@ class Mind:
         return float(((1 - obs[I_E:I_I + 1]) ** 2).sum())
 
     @staticmethod
-    def _phi(obs):
-        """Duyusal potansiyel Φ_k (koku gradyanı gibi): kanalın en yakın ışın yakınlığı. Potansiyel-tabanlı
-        şekillendirme r' = γΦ(s') - Φ(s) en iyi politikayı DEĞİŞTİRMEZ (Ng 1999), yalnızca öğrenmeyi yoğunlaştırır."""
+    def _phi_raw(obs):
+        """Ham duyusal yakınlık (yiyecek, su, tehlike): kanalın en yakın ışın yakınlığı."""
         rays = obs[:45].reshape(Universe.R, 5)
-        return np.array([rays[:, RAY_FOOD].max(), rays[:, RAY_WATER].max(), -rays[:, RAY_HAZ].max(), 0.0], np.float32)
+        return np.array([rays[:, RAY_FOOD].max(), rays[:, RAY_WATER].max(), rays[:, RAY_HAZ].max()], np.float32)
+
+    def _V(self):
+        """Bağlamın anlamsal sonuç belleği: yemek/içmek/yara beden için ne yapar (bilinmiyorsa doğuştan beklenti)."""
+        v = self.ctxs[self.cur]["V"]
+        return np.where(np.isfinite(v), v, V_DEFAULT).astype(np.float32)
+
+    def _phi(self, obs):
+        """Şekillendirme potansiyeli Φ_k = işaret(V_k) * yakınlık_k. İşaret ÖĞRENİLİR (zehirli yemekten kaçın);
+        potansiyel-tabanlı olduğu için (Ng 1999) en iyi politikayı değiştirmeden öğrenmeyi yoğunlaştırır."""
+        return np.r_[np.sign(self._V()) * self._phi_raw(obs), 0.0].astype(np.float32)
+
+    def imagine(self, obs, k, N=40, H=5):
+        """HAYAL GÜCÜ: öğrenilmiş dünya modeliyle (eylem başına ışın dönüşümü) eylem dizilerini zihinde dene.
+        Ödül, bağlamın anlamsal belleğinden (V) gelir: temas ödülü + işaretle yönlenen yaklaşma terimi.
+        Dönüş: birinci eylem için normalize avantaj (5,) ya da None."""
+        c = self.ctxs[self.cur]
+        V = self._V()
+        chan = (RAY_FOOD, RAY_WATER, RAY_HAZ)[k]
+        gain = (3.0, 3.0, 5.0)[k] * float(V[k])
+        sgn = float(np.sign(V[k]))
+        per = N // Universe.N_ACT
+        a0 = np.repeat(np.arange(Universe.N_ACT), per)
+        seq = self.rng.choice(Universe.N_ACT, size=(len(a0), H), p=[.05, .5, .2, .2, .05])
+        seq[:, 0] = a0
+        R = np.tile(obs[:45], (len(a0), 1))
+        vf, vl = float(obs[48]), float(obs[49])
+        prox = R.reshape(-1, Universe.R, 5)[:, :, chan].max(1)
+        ret = np.zeros(len(a0), np.float32)
+        touched = np.zeros(len(a0), bool)
+        for t in range(H):
+            X = np.c_[R, np.ones(len(R), np.float32), np.full(len(R), vf, np.float32), np.full(len(R), vl, np.float32)]
+            Rn = np.empty_like(R)
+            for aa in range(Universe.N_ACT):
+                sel = seq[:, t] == aa
+                if sel.any():
+                    Rn[sel] = X[sel] @ c["Wm"][aa]
+            R = np.clip(Rn, 0.0, 1.0)
+            pn = R.reshape(-1, Universe.R, 5)[:, :, chan].max(1)
+            contact = (pn > 0.9) & ~touched if k < 2 else (pn > 0.9)
+            ret += (self.gamma ** t) * (gain * contact + 2.0 * sgn * (self.gamma * pn - prox))
+            touched |= pn > 0.9
+            prox = pn
+        sc = np.array([0.5 * (ret[a0 == a].mean() + ret[a0 == a].max()) for a in range(Universe.N_ACT)], np.float32)
+        return np.clip((sc - sc.mean()) / (sc.std() + 0.05), -2.0, 2.0)
 
     def _q(self, idx):
         return self.Wq[:, :, idx].sum(2)                 # (uzman, eylem)
@@ -334,9 +504,28 @@ class Mind:
         return np.array([1.5 * d[0] ** 2, 1.5 * d[1] ** 2, max(1.5 * d[2] ** 2, 1.2 * haz ** 2), 0.0], np.float32)
 
     # ------------------------------------------------------------ ana döngü
+    def intervene(self, kind, value=None, steps=30):
+        """Deneysel müdahale: DÜNYAYA dokunmadan iç durumu değiştirir (nedensel doğrulama protokolü)."""
+        if kind == "goal":
+            self.force = [int(value), steps]                           # uzman birikimini zorla yükselt
+        elif kind == "mood":
+            self.mood = float(value)
+        elif kind == "unc":
+            self.map.unc = float(value)
+        elif kind == "sensor":                                         # sahte iç duyu: (Δenerji, Δsu, Δbütünlük) eklenir
+            self.sensor_bias = [np.asarray(value, np.float32), steps]
+        else:
+            raise ValueError(kind)
+
     def act(self, obs, died=False):
         self.age += 1
         rr = self.rng
+        if self.sensor_bias is not None:
+            obs = obs.copy()
+            obs[I_E:I_I + 1] = np.clip(obs[I_E:I_I + 1] + self.sensor_bias[0], 0.0, 1.0)
+            self.sensor_bias[1] -= 1
+            if self.sensor_bias[1] <= 0:
+                self.sensor_bias = None
         # ---------- algı: seyrek kod + yenilik
         idx = self.mb.kc(np.concatenate([np.abs(obs), np.clip(3.0 * np.abs(self.h[:self.n_ctx]), 0, 1)]))
         nov = self.mb.novelty(idx)
@@ -350,6 +539,7 @@ class Mind:
             self.valence = float(np.clip(raw - 30.0 * hurt, -2.0, 2.0)) if not died else -2.0
         self.mood += 0.01 * (self.valence - self.mood)
         # ---------- öğrenme (dopamin = TD hatası, yalnızca aktif KC'ler)
+        tr = None
         if self.prev is not None:
             pidx, pa, pobs, _ = self.prev
             r = np.array([3.0 * max(-0.5, obs[I_E] - pobs[I_E]),
@@ -359,6 +549,7 @@ class Mind:
             r += self.shape * (self.gamma * self._phi(obs) - self._phi(pobs)) * np.array([1, 1, 1, 0], np.float32)
             qn = self._q(idx).max(1) if not died else np.zeros(len(SPEC), np.float32)
             delta = np.clip(r + self.gamma * qn - self._q(pidx)[:, pa], -3.0, 3.0)
+            tr = (pidx, pa, r.copy(), idx.copy(), died)
             if not self.freeze:
                 self.Wq[:, pa, pidx] += (self.lr * delta / max(1, len(pidx)))[:, None]
                 self.ctxs[self.cur]["n"] += 1
@@ -401,8 +592,36 @@ class Mind:
                 self.Wsm += 0.5 * np.outer(err, self.z) / zz
                 self.Wc += 0.2 * (self.err_n - float(self.Wc @ self.z)) * self.z / zz
             self.scale += 0.01 * (np.abs(d) - self.scale)
+            if not self.freeze:
+                self._learn_world(obs)
             if self.grow:
                 self._infer_context()
+        # ---------- otobiyografik bellek: öne çıkan olayları kaydet
+        if self.prev is not None:
+            pobs = self.prev[2]
+            kinds = []
+            evpos = self.map.pos.copy()
+            if died:
+                kinds.append(3)
+                evpos = self._prev_pos.copy()                          # yeniden doğuş öncesi konum
+                if pobs[I_I] < 0.15:                                   # ölümcül yara da bir 'yaralandı' anısıdır
+                    kinds.append(2)
+            else:
+                if abs(obs[I_E] - pobs[I_E]) > 0.05:
+                    kinds.append(0)
+                if obs[I_W] - pobs[I_W] > 0.02 and self._last_kind != 1:
+                    kinds.append(1)
+                if pobs[I_I] - obs[I_I] > 0.02 and self._last_kind != 2:
+                    kinds.append(2)
+            for kd in kinds:
+                self.epi.add(t=self.age, kind=KINDS[kd], pos=evpos, val=float(self.valence), goal=self.goal,
+                             body=obs[I_E:I_I + 1].copy(), ctx=self.cur, tr=tr)
+            self._last_kind = kinds[0] if kinds else -1
+            if tr is not None and not kinds and abs(self.valence) > 0.3:         # olaysız ama duygusal geçiş (öğrenme için)
+                self.epi.add(t=self.age, kind="geçiş", pos=self.map.pos.copy(), val=float(self.valence), goal=self.goal,
+                             body=obs[I_E:I_I + 1].copy(), ctx=self.cur, tr=tr)
+        if self.use_replay and self.age % 500 == 0 and not self.freeze:
+            self._sleep(48)
         # ---------- süreklilik: tekrarlayan durum (algı + önceki yayın)
         u = np.concatenate([obs, self.B])
         self.h = ((1 - self.alpha) * self.h + self.alpha * np.tanh(self.Win @ u + self.Wr @ self.h)).astype(np.float32)
@@ -414,11 +633,13 @@ class Mind:
         sal[3] = 0.15 + 0.4 * nov
         sal = sal + 0.02 * rr.standard_normal(len(SPEC))
         temp = 1.0 + 0.8 * float(np.clip(-self.mood, 0, 1))
-        phi = self._phi(obs)
+        phi = self._phi_raw(obs)
 
         def proposal(k):
             """Uzman k'nın eylem logitleri: refleks Q (öğrenilmiş) + gerekirse bellek/plan (kaynak görünmüyorsa)."""
             lg = 8.0 * Q[k] + PRIOR
+            if self.use_imag and self.age > 1500 and k < 3 and phi[k] > 0.05:      # kaynak görünüyorsa: hayal gücüyle ince ayar
+                lg += IM_G * self.imagine(obs, k)
             if self.use_map and k != 2 and not (k < 2 and phi[k] > 0.05):
                 pe = self.map.plan(k, "su" if k == 1 else "gez", self.age)
                 if pe is not None:
@@ -433,6 +654,12 @@ class Mind:
         else:
             # global çalışma alanı: yanal baskılamalı sızıntılı toplayıcılar
             a = self.acc
+            if self.force is not None:
+                a = np.zeros_like(a)
+                a[self.force[0]] = 1.2
+                self.force[1] -= 1
+                if self.force[1] <= 0:
+                    self.force = None
             for _ in range(3):
                 a = np.clip(0.75 * a + 0.5 * sal - 0.35 * (a.sum() - a), 0.0, 1.5)
             self.acc = a
@@ -455,6 +682,8 @@ class Mind:
         self.z = self._zvec(obs, act)
         self.pred = self.Wsm @ self.z                                  # öngörülen Δ(beden)
         self.conf = float(self.Wc @ self.z)
+        self.intro.step(self, obs)
+        self._prev_pos = self.map.pos.copy()
         self.prev = (idx, act, obs.copy(), H)
         self.last_obs = obs.copy()
         self.last_y = yv
@@ -470,7 +699,7 @@ class Mind:
     # ------------------------------------------------------------ süreklilik: kayıt
     def save(self, path):
         np.savez(path, Wq=np.stack([c['Wq'] for c in self.ctxs]), Wsm=np.stack([c['Wsm'] for c in self.ctxs]),
-                 Wc=np.stack([c['Wc'] for c in self.ctxs]), cerr=np.array(self.cerr), oerr=np.array(self.oerr), good=np.array([c['good'] for c in self.ctxs]), V=np.stack([c['V'] for c in self.ctxs]), Vn=np.stack([c['Vn'] for c in self.ctxs]), cur=self.cur, scale=self.scale, h=self.h, w_nov=self.mb.w_nov,
+                 Wc=np.stack([c['Wc'] for c in self.ctxs]), Wm=np.stack([c['Wm'] for c in self.ctxs]), Pm=np.stack([c['Pm'] for c in self.ctxs]), cerr=np.array(self.cerr), oerr=np.array(self.oerr), good=np.array([c['good'] for c in self.ctxs]), V=np.stack([c['V'] for c in self.ctxs]), Vn=np.stack([c['Vn'] for c in self.ctxs]), cur=self.cur, scale=self.scale, h=self.h, w_nov=self.mb.w_nov,
                  claw=np.stack(self.mb.claw), thr=np.stack(self.mb.thr), Wr=self.Wr, Win=self.Win, mood=self.mood, age=self.age,
                  m_water=self.map.water, m_hurt=self.map.hurt, m_last=self.map.last, m_seen=self.map.seen)
 
@@ -478,7 +707,7 @@ class Mind:
         z = np.load(path)
         for k in ("scale", "h", "Wr", "Win"):
             setattr(self, k, z[k])
-        self.ctxs = [dict(Wq=z["Wq"][i], Wsm=z["Wsm"][i], Wc=z["Wc"][i], good=bool(z["good"][i]), n=0, ok=0, V=z["V"][i], Vn=z["Vn"][i]) for i in range(len(z["Wq"]))]
+        self.ctxs = [dict(Wq=z["Wq"][i], Wsm=z["Wsm"][i], Wc=z["Wc"][i], good=bool(z["good"][i]), n=0, ok=0, V=z["V"][i], Vn=z["Vn"][i], Wm=z["Wm"][i], Pm=z["Pm"][i]) for i in range(len(z["Wq"]))]
         self.cerr, self.oerr, self.cur = list(z["cerr"]), list(z["oerr"]), int(z["cur"])
         self.mb.w_nov, self.mb.claw, self.mb.thr = z["w_nov"], list(z["claw"]), list(z["thr"])
         self.mood, self.age = float(z["mood"]), int(z["age"])
@@ -495,12 +724,22 @@ def auc(pos, neg):
     return float((ranks[:len(pos)].sum() - len(pos) * (len(pos) + 1) / 2) / (len(pos) * len(neg)))
 
 
+def _recall_err(mind, truth):
+    """Otobiyografik sınav: 'en son nerede yaralandın / içtin?' -> belleğin cevabı ile gerçek konum arasındaki mesafe."""
+    out = {}
+    for kind in ("yaralandı", "içti"):
+        e = mind.epi.last(kind)
+        out[kind] = float(np.hypot(*(e[0]["pos"] - truth[kind]))) if (e and kind in truth) else float("nan")
+    return out
+
+
 def live(mind, world, steps, window=5000, verbose=True, tag="", events=None):
     obs = world.observe()
     died = False
     rows, W = [], dict(steps=0, deaths=0, comfort=0.0, share=np.zeros(5), ign=0, sw=0, ate=0.0, drank=0.0,
                        hurt=0.0, errn=[], conf=[], ev_ext=[], ev_non=[], val=0.0, mood=0.0, life=[], cause={}, loc=[], head=[])
     last_goal, life_start = -2, 0
+    truth = {}                                       # son gerçek olay konumları (otobiyografik bellek sınavı için)
     t0 = time.time()
     for t in range(1, steps + 1):
         if events and t in events:
@@ -517,6 +756,11 @@ def live(mind, world, steps, window=5000, verbose=True, tag="", events=None):
         if mind.ignited:
             last_goal = mind.goal
         W["ate"] += info["ate"]; W["drank"] += info["drank"]; W["hurt"] += info["hurt"]
+        if info["hurt"] > 0 and not truth.get("_h"):                   # serinin İLK adımı (bellek de ilkini kaydeder)
+            truth["yaralandı"] = world.pos.copy()
+        if info["drank"] > 0 and not truth.get("_d"):
+            truth["içti"] = world.pos.copy()
+        truth["_h"], truth["_d"] = info["hurt"] > 0, info["drank"] > 0
         W["val"] += mind.valence; W["mood"] += mind.mood
         if mind.use_sm and mind.pred is not None and mind.age > 500:
             W["errn"].append(mind.err_n); W["conf"].append(mind.conf); W["head"].append(mind.err_head)
@@ -536,14 +780,15 @@ def live(mind, world, steps, window=5000, verbose=True, tag="", events=None):
                        calib=float(np.corrcoef(ec, cf)[0, 1]) if len(ec) > 10 and cf.std() > 1e-9 else float("nan"),
                        agency=auc(np.array(W["ev_ext"]), np.array(W["ev_non"])),
                        val=W["val"] / n, mood=W["mood"] / n, cause=dict(W["cause"]), nctx=len(mind.ctxs), cur=mind.cur, head=1.0 - float(np.mean(W["head"])) if W["head"] else float("nan"),
-                       loc=float(np.mean(W["loc"])) if W["loc"] else float("nan"))
+                       loc=float(np.mean(W["loc"])) if W["loc"] else float("nan"),
+                       recall=_recall_err(mind, truth))
             rows.append(row)
             if verbose:
                 print("%s t=%6d ölüm/1k=%5.1f ömür=%6.0f konfor=%.2f | pay aç/su/teh/merak/karanlık=%s ateşleme=%.2f "
-                      "geçiş/100=%.1f | yem=%d su=%.1f yara=%.1f | öz-model beceri=%+.2f kalibrasyon r=%+.2f ajanlık AUC=%.2f | konum hatası=%.2f | ölüm nedeni=%s | duygu %+.3f ruh %+.3f | %.0fs"
+                      "geçiş/100=%.1f | yem=%d su=%.1f yara=%.1f | öz-model beceri=%+.2f kalibrasyon r=%+.2f ajanlık AUC=%.2f | konum hatası=%.2f | anı hatası(yara,su)=%s | ölüm nedeni=%s | duygu %+.3f ruh %+.3f | %.0fs"
                       % (tag, t, row["per1k"], row["life"], row["comfort"],
                          "/".join("%.2f" % x for x in row["share"]), row["ign"], row["sw"], row["ate"] / 0.4, row["drank"], row["hurt"], row["skill"], row["calib"],
-                         row["agency"], row["loc"], row["cause"], row["val"], row["mood"], time.time() - t0), flush=True)
+                         row["agency"], row["loc"], "%.1f/%.1f" % (row["recall"]["yaralandı"], row["recall"]["içti"]), row["cause"], row["val"], row["mood"], time.time() - t0), flush=True)
                 print("      iç gözlem:", mind.report())
             W = dict(steps=0, deaths=0, comfort=0.0, share=np.zeros(5), ign=0, sw=0, ate=0.0, drank=0.0, hurt=0.0,
                      errn=[], conf=[], ev_ext=[], ev_non=[], val=0.0, mood=0.0, life=[], cause={}, loc=[], head=[])
@@ -577,7 +822,8 @@ def _one(job):
     mode, seed, steps, window, kw = job
     base, *flags = mode.split("-")
     kw = dict(kw, ctx=("noctx" not in flags), self_model=("nosm" not in flags), use_map=("nomap" not in flags),
-              grow=("nogrow" not in flags), model=("nomodel" not in flags))
+              grow=("nogrow" not in flags), model=("nomodel" not in flags), imag=("noimag" not in flags),
+              replay=("noreplay" not in flags))
     world, mind = Universe(seed=seed), Mind(mode=base, seed=seed, **kw)
     return mode, seed, live(mind, world, steps, window=window, verbose=False, events=_SHIFT_EVENTS(steps) if SHIFT else None)
 
@@ -638,15 +884,168 @@ def stage_shift(args):
     return out
 
 
+def _fit_parrot(X, y, n_tok):
+    """Papağan: dışarıdan GÖZLENEBİLİR dünya girdisinden (ham algı + iç duyu sensörleri) raporu taklit etmeyi öğrenen
+    sınıflandırıcı (ridge; ayrıca 5-en yakın komşu). İç duruma erişimi yoktur."""
+    Xb = np.c_[X, np.ones(len(X))]
+    Y = np.eye(n_tok)[y]
+    W = np.linalg.solve(Xb.T @ Xb + 1.0 * np.eye(Xb.shape[1]), Xb.T @ Y)
+    ridge = lambda Z: np.argmax(np.c_[Z, np.ones(len(Z))] @ W, axis=1)
+
+    def knn(Z):
+        out = []
+        for z in Z:
+            d = ((X - z) ** 2).sum(1)
+            nn = np.argpartition(d, 5)[:5]
+            out.append(np.bincount(y[nn], minlength=n_tok).argmax())
+        return np.array(out)
+    return ridge, knn
+
+
+def stage_introspect(args):
+    """Topraklanmış iç gözlem kanalı + nedensel doğrulama. Rapor iç durumun fonksiyonu mu, yoksa dışarıdan taklit mi?
+    Çift ayrışma: (a) iç müdahale (dünya sabit) -> rapor değişmeli, papağan değişmemeli;
+                  (b) dünya müdahalesi (iç durum sabit) -> papağan değişmeli, rapor değişmemeli."""
+    world, mind = Universe(seed=args.seed), Mind(seed=args.seed)
+    live(mind, world, args.steps, window=max(args.steps // 4, 1000), verbose=False)
+    print("[eğitim] %d adım yaşadı, yaş %d, %d prototip (iç durum türü)" % (args.steps, mind.age, len(mind.intro.P)))
+    rng = np.random.default_rng(args.seed + 1)
+    obs, died = world.observe(), False
+
+    def run(n):
+        nonlocal obs, died
+        for _ in range(n):
+            a = mind.act(obs, died)
+            obs, info = world.step(a)
+            died = info["died"] is not None
+
+    # ---- 1) kayıt: rapor, hedef, dünya gözlemi
+    rows = []
+    for _ in range(args.log):
+        run(1)
+        rows.append((obs.copy(), mind.intro.token, mind.goal, mind.ignited, mind.intro.margin))
+    X = np.array([r[0] for r in rows])
+    tok = np.array([r[1] for r in rows])
+    goal = np.array([r[2] for r in rows])
+    n_tok = len(mind.intro.P)
+    print("\n[1] rapor kodunun içeriği (iç durum profilleri; adlandırma SONRADAN, yorum katmanında)")
+    for j in range(n_tok):
+        sel = tok == j
+        if sel.sum() < 20:
+            continue
+        prof = mind.intro.decode(j)
+        gshare = np.bincount(goal[sel] + 1, minlength=5)[1:] / sel.sum()
+        top = np.argsort(-prof[:4])[0]
+        print("  token %2d  pay %.2f | amaç dağılımı aç/su/teh/merak %s | açık(e,w,i)=%s ruh=%+.2f | en güçlü birikim: %s" %
+              (j, sel.mean(), np.round(gshare, 2), np.round(prof[7:10], 2), prof[6], SPEC[top]))
+    k = int(0.7 * len(X))
+    ridge, knn = _fit_parrot(X[:k], tok[:k], n_tok)
+    acc_r = float((ridge(X[k:]) == tok[k:]).mean())
+    acc_k = float((knn(X[k:600 + k]) == tok[k:600 + k]).mean())
+    base = float(np.bincount(tok[k:], minlength=n_tok).max() / len(tok[k:]))
+    print("\n[2] papağan (yalnızca dünya gözleminden raporu taklit): doğruluk ridge %.2f, 5-NN %.2f (çoğunluk tabanı %.2f)" % (acc_r, acc_k, base))
+
+    def parrot_now():
+        return int(ridge(obs[None, :])[0])
+
+    # ---- 3) iç müdahale (dünya sabit): çözülmüş rapor profilinde HEDEF özelliğin kayması / aynı denemenin boş sapması
+    def prof_g():
+        return mind.intro.decode(mind.intro.token)
+
+    def prof_p():
+        return mind.intro.decode(parrot_now())
+
+    print("\n[3] İÇ müdahale (dünyaya dokunulmaz). Etki d = hedef özelliğin raporlanan kayması / müdahalesiz kendi sapması (n=%d)" % args.trials)
+    print("    hedef özellik rapor profilinden okunur; papağan raporu aynı kod defteriyle çözülür")
+    conds = [("zorla amaç=susuz", ("goal", 1), 1), ("zorla amaç=tehlike", ("goal", 2), 2), ("zorla amaç=aç", ("goal", 0), 0),
+             ("ruh hali=-1", ("mood", -1.0), 6), ("konum belirsizliği=1", ("unc", 1.0), 13),
+             ("sahte iç duyu: su açığı +0.6", ("sensor", [0.0, -0.6, 0.0]), 8), ("sahte iç duyu: enerji açığı +0.6", ("sensor", [-0.6, 0.0, 0.0]), 7)]
+    res = {}
+    sd_all = np.sqrt(mind.intro.var + 1e-3)
+    for name, iv, fi in conds:
+        sg, sp, ng, npar = [], [], [], []
+        for _ in range(args.trials):
+            run(int(rng.integers(60, 200)))
+            pre_g, pre_p = [], []
+            for _ in range(12):
+                run(1)
+                pre_g.append(prof_g()[fi] / sd_all[fi]); pre_p.append(prof_p()[fi] / sd_all[fi])
+            mind.intervene(iv[0], iv[1], steps=30)
+            post_g, post_p = [], []
+            for _ in range(10):
+                run(1)
+                post_g.append(prof_g()[fi] / sd_all[fi]); post_p.append(prof_p()[fi] / sd_all[fi])
+            ng.append(np.mean(pre_g[6:]) - np.mean(pre_g[:6])); npar.append(np.mean(pre_p[6:]) - np.mean(pre_p[:6]))
+            sg.append(np.mean(post_g[2:]) - np.mean(pre_g[6:])); sp.append(np.mean(post_p[2:]) - np.mean(pre_p[6:]))
+            run(35)
+        dg = np.mean(sg) / (np.std(ng) + 0.05)
+        dp = np.mean(sp) / (np.std(npar) + 0.05)
+        res[name] = (dg, dp)
+        print("  %-36s özellik '%s' | rapor d=%+.2f (kayma %+.2f) | papağan d=%+.2f (kayma %+.2f)" %
+              (name, Introspector.NAMES[fi], dg, np.mean(sg), dp, np.mean(sp)))
+
+    # ---- 4) GİZLİ dünya değişimi: gerçek su/enerji düşer ama ajanın sensörü eski değeri gösterir (ajan fark etmez)
+    sg, sp, ng, npar = [], [], [], []
+    iw, ie = Universe.I_INTERO + 1, Universe.I_INTERO
+    for _ in range(args.trials):
+        run(int(rng.integers(60, 200)))
+        pg, pp = [], []
+        for _ in range(12):
+            run(1)
+            pg.append(prof_g() / sd_all); pp.append(prof_p() / sd_all)
+        dw = min(0.35, world.w - 0.1)
+        world.w -= dw
+        mind.intervene("sensor", [0.0, dw, 0.0], steps=30)           # sensör gizler: Mind eski değeri görür
+        qg, qp = [], []
+        for _ in range(10):
+            run(1)
+            qg.append(prof_g() / sd_all); qp.append(prof_p() / sd_all)
+        ng.append(np.linalg.norm(np.mean(pg[6:], 0) - np.mean(pg[:6], 0))); npar.append(np.linalg.norm(np.mean(pp[6:], 0) - np.mean(pp[:6], 0)))
+        sg.append(np.linalg.norm(np.mean(qg[2:], 0) - np.mean(pg[6:], 0))); sp.append(np.linalg.norm(np.mean(qp[2:], 0) - np.mean(pp[6:], 0)))
+        run(35)
+    dgw, dpw = np.mean(sg) / (np.mean(ng) + 0.05), np.mean(sp) / (np.mean(npar) + 0.05)
+    print("\n[4] GİZLİ dünya değişimi (gerçek su düşer, ajan fark etmez): profil kayması / boş sapma  rapor %.2f | papağan %.2f (1.0 = etkisiz)" % (dgw, dpw))
+
+    # ---- 5) ışınlanma: öz-model sürprizi olarak raporlanmalı (rapor 'bir şey ters' demeli); papağan bunu bilemez
+    sg, sp, ng, npar = [], [], [], []
+    fi = 10
+    for _ in range(args.trials):
+        run(int(rng.integers(60, 200)))
+        pg, pp = [], []
+        for _ in range(12):
+            run(1)
+            pg.append(prof_g()[fi] / sd_all[fi]); pp.append(prof_p()[fi] / sd_all[fi])
+        world.pos = rng.uniform(2, world.L - 2, 2)
+        world.vel = np.zeros(2)
+        qg, qp = [], []
+        for _ in range(10):
+            run(1)
+            qg.append(prof_g()[fi] / sd_all[fi]); qp.append(prof_p()[fi] / sd_all[fi])
+        ng.append(np.mean(pg[6:]) - np.mean(pg[:6])); npar.append(np.mean(pp[6:]) - np.mean(pp[:6]))
+        sg.append(np.max(qg) - np.mean(pg[6:])); sp.append(np.max(qp) - np.mean(pp[6:]))
+        run(35)
+    print("[5] IŞINLANMA -> raporlanan 'öz-model hatası' (şaşkınlık) artışı: rapor d=%+.2f | papağan d=%+.2f" %
+          (np.mean(sg) / (np.std(ng) + 0.05), np.mean(sp) / (np.std(npar) + 0.05)))
+    ig = np.mean([v[0] for v in res.values()])
+    ip = np.mean([v[1] for v in res.values()])
+    print("\nÖZET  iç müdahalede ortalama etki d: rapor %+.2f | papağan %+.2f ;  gizli dünya değişiminde kayma oranı: rapor %.2f | papağan %.2f"
+          % (ig, ip, dgw, dpw))
+    res["_dünya"] = (dgw, dpw)
+    return res
+
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", choices=["run", "compare", "shift"], default="run")
+    ap.add_argument("--stage", choices=["run", "compare", "shift", "introspect"], default="run")
     ap.add_argument("--mode", choices=["full", "flat", "random"], default="full")
     ap.add_argument("--steps", type=int, default=30000)
     ap.add_argument("--window", type=int, default=5000)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--no-sm", action="store_true")
     ap.add_argument("--no-ctx", action="store_true")
+    ap.add_argument("--log", type=int, default=6000)
+    ap.add_argument("--trials", type=int, default=40)
     ap.add_argument("--kind", choices=["invert", "poison"], default="invert")
     ap.add_argument("--no-map", action="store_true")
     ap.add_argument("--seeds", type=int, default=3)
@@ -654,7 +1053,7 @@ def main():
     ap.add_argument("--save", default=None)
     ap.add_argument("--resume", default=None)
     args = ap.parse_args()
-    {"run": stage_run, "compare": stage_compare, "shift": stage_shift}[args.stage](args)
+    {"run": stage_run, "compare": stage_compare, "shift": stage_shift, "introspect": stage_introspect}[args.stage](args)
 
 
 if __name__ == "__main__":
