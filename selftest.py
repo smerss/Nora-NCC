@@ -48,6 +48,9 @@ def main():
     for _ in range(300):
         obs, info = w.step(m.act(obs, died))
         died = info["died"] is not None
+    while w.t % 600 != 0:                                  # gündüz öğlesinde kaçır (gece duvar kanıtı yok; yeniden konumlama imkânsız)
+        obs, info = w.step(m.act(obs, died))
+        died = info["died"] is not None
     w.pos = rng.uniform(2, w.L - 2, 2)
     w.vel = np.zeros(2)
     for _ in range(120):

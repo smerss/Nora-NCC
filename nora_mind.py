@@ -307,7 +307,7 @@ class CognitiveMap:
         Görünmüyorsa çelişki (1.0), görünüyorsa uyum (0.0). Yalnızca çekirdek hücreler (komşuluğu da işaretli) denetlenir."""
         vis = 5.0 + 7.0 * float(obs[51])
         out = []
-        for marks, chan in ((np.maximum(Lx["seen"], Lx["hurt"]) > 0, RAY_HAZ), (np.maximum(Lx["wseen"], Lx["water"]) > 0, RAY_WATER)):
+        for marks, chan in ((np.maximum(Lx["seen"], Lx["hurt"]) >= 0.45, RAY_HAZ), (np.maximum(Lx["wseen"], Lx["water"]) >= 0.45, RAY_WATER)):
             if not marks.any():
                 continue
             pad = np.pad(marks.astype(np.int32), 1)
@@ -381,6 +381,11 @@ class CognitiveMap:
         if self.unc < 0.3:                                    # konum güvenilirse görülen tehlikeyi ve suyu haritala
             self._pending_mark = (ang, vis)
         self.pos = np.clip(self.pos, 0.3, self.L - 0.3)
+        if now % 100 == 0:                                         # yavaş sönme: yeniden görülmeyen zayıf işaretler silinir
+            for Lx in self.layouts:
+                for key, f in (("seen", 0.97), ("wseen", 0.97), ("water", 0.97), ("hurt", 0.985)):
+                    Lx[key] *= f
+                    Lx[key][Lx[key] < 0.15] = 0.0
         c = self.cell_of(self.pos)
         self.last[c] = now
         if self.unc < 0.15:
@@ -404,16 +409,17 @@ class CognitiveMap:
                     for extra in (0.3, 1.2, 2.2):
                         p = self.pos + dvec * (vis * (1 - hz[k]) + extra)
                         if 0 <= p[0] < self.L and 0 <= p[1] < self.L:
-                            arr[self.cell_of(p)] = 1.0
+                            cc_ = self.cell_of(p)
+                            arr[cc_] = min(1.0, arr[cc_] + 0.25)            # oy: tek seferlik hata kalıcı olmaz
         self._pending_mark = None
         if prev is not None:
             if obs[I_W] - prev[I_W] > 0.02:
-                self.water[c] += 1.0
+                self.water[c] = min(1.0, self.water[c] + 0.25)         # oy: yanlış konumda kaydedilen içme olayı kalıcı olmaz
             if prev[I_I] - obs[I_I] > 0.01:
-                self.hurt[c] += 1.0
+                self.hurt[c] = min(3.0, self.hurt[c] + 0.5)
 
     def _field(self, goal_mask):
-        cost = 1.0 + 8.0 * np.minimum(self.hurt, 3.0) + 20.0 * self.seen
+        cost = 1.0 + 8.0 * np.minimum(self.hurt, 3.0) * (self.hurt >= 0.45) + 20.0 * (self.seen >= 0.45)
         d = np.full((self.G, self.G), 1e9, np.float32)
         d[goal_mask] = 0.0
         for _ in range(2 * self.G):
@@ -427,13 +433,13 @@ class CognitiveMap:
 
     def choose_target(self, kind, now):
         """kind 'su': öğrenilmiş su hücresi (yoksa bayat). 'gez': en bayat ve yakın, tehlikesiz hücre."""
-        if kind == "su" and (self.water.max() > 0 or self.wseen.max() > 0):
-            known = self.water + 0.5 * self.wseen
+        if kind == "su" and (self.water.max() >= 0.45 or self.wseen.max() >= 0.45):
+            known = (self.water >= 0.45) * self.water + 0.5 * (self.wseen >= 0.45)
             return np.argwhere(known >= 0.5 * known.max())
         age = now - self.last
         ci, cj = self.cell_of(self.pos)
         ii, jj = np.meshgrid(np.arange(self.G), np.arange(self.G), indexing="ij")
-        score = age / 100.0 - 0.15 * np.hypot(ii - ci, jj - cj) - 5.0 * ((self.hurt > 0) | (self.seen > 0))
+        score = age / 100.0 - 0.15 * np.hypot(ii - ci, jj - cj) - 5.0 * ((self.hurt >= 0.45) | (self.seen >= 0.45))
         return np.array([np.unravel_index(int(np.argmax(score)), score.shape)])
 
     def plan(self, key, kind, now):
