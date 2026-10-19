@@ -388,6 +388,16 @@ class CognitiveMap:
                     Lx[key][Lx[key] < 0.15] = 0.0
         c = self.cell_of(self.pos)
         self.last[c] = now
+        if getattr(self, "landmark", False) and prev is not None and obs[I_W] - prev[I_W] > 0.02 and self.unc < 0.5:
+            # YER ÇAPASI (olay): içiyorum -> KESİN olarak bir su bölgesindeyim; bildiğim içme noktalarından çok uzaksam konumum yanlış
+            wm = self.water >= 0.45
+            if wm.any():
+                cells = np.argwhere(wm)
+                centers = (cells + 0.5) * self.cell
+                dd = np.hypot(centers[:, 0] - self.pos[0], centers[:, 1] - self.pos[1])
+                j = int(np.argmin(dd))
+                if dd[j] > 2.5:
+                    self.pos = self.pos + 0.4 * (centers[j] - self.pos)
         if self.unc < 0.15:
             if self.multi:
                 self._layout_inference(obs, c)                      # (deneysel) çoklu düzen bağlamı
@@ -472,15 +482,16 @@ class CognitiveMap:
 
 
 class Mind:
-    def __init__(self, mode="full", seed=0, n_kc=3000, n_res=96, gamma=0.95, lr=0.25, self_model=True, shape=2.0, ctx=True, use_map=True, grow=True, model=True, imag=True, replay=True, maplayouts=False):
+    def __init__(self, mode="full", seed=0, n_kc=3000, n_res=96, gamma=0.95, lr=0.25, self_model=True, shape=2.0, ctx=True, use_map=True, grow=True, model=True, imag=True, replay=True, maplayouts=False, anchor=False, landmark=False):
         self.mode, self.rng, self.gamma, self.lr = mode, np.random.default_rng(seed), gamma, lr
         self.use_sm, self.shape, self.ctx, self.use_map = self_model, shape, ctx, use_map
-        self.grow, self.use_model, self.use_imag, self.use_replay = grow, model, imag, replay
+        self.grow, self.use_model, self.use_imag, self.use_replay, self.use_anchor = grow, model, imag, replay, anchor
         self.epi = EpisodicMemory()
         self.intro = Introspector()
         self.force = None                                              # müdahale: (uzman, kalan adım)
         self.sensor_bias = None                                        # müdahale: sahte iç duyu (açık eklemesi, kalan adım)
         self.map = CognitiveMap(multi=maplayouts)
+        self.map.landmark = landmark
         self.n_ctx = 48
         n_act = Universe.N_ACT
         # --- nöronsal temel: KC kodu yalnızca duyusal girdiden (iç duyu HARİÇ) -> Q ihtiyaçtan bağımsız
@@ -871,6 +882,14 @@ class Mind:
             self.ignited = bool(a[win] > 0.25 and a[win] - a[run] > 0.08)
             self.goal = win if self.ignited else -1
             logits = proposal(win) if self.ignited else PRIOR.copy()
+        if self.use_map and self.use_anchor and self.map.unc > 0.3 and self.mode != "random":
+            # KAYBOLDUM (öz-bilgi davranışı yönlendirir): konumumdan emin değilim -> en yakın duvara yönel, kendimi yeniden çapala
+            P0, Lw = self.map.pos, self.map.L
+            cand = [(0.0, P0[1]), (Lw, P0[1]), (P0[0], 0.0), (P0[0], Lw)]
+            j = int(np.argmin([P0[0], Lw - P0[0], P0[1], Lw - P0[1]]))
+            err_w = wrap(np.arctan2(cand[j][1] - P0[1], cand[j][0] - P0[0]) - self.map.th)
+            logits = np.array(logits, dtype=np.float32)
+            logits[self._steer(err_w, obs)] += PLAN_G * float(self.map.unc)
         p = softmax(logits / temp)
         act = int(rr.choice(Universe.N_ACT, p=p))
         # ---------- yayın (tüm modüllere): amaç, valans, ruh hali, eylem kopyası, değer
@@ -1032,7 +1051,7 @@ def _one(job):
     base, *flags = mode.split("-")
     kw = dict(kw, ctx=("noctx" not in flags), self_model=("nosm" not in flags), use_map=("nomap" not in flags),
               grow=("nogrow" not in flags), model=("nomodel" not in flags), imag=("noimag" not in flags),
-              replay=("noreplay" not in flags), maplayouts=("mapctx" in flags))
+              replay=("noreplay" not in flags), maplayouts=("mapctx" in flags), anchor=("anchor" in flags), landmark=("landmark" in flags))
     world, mind = Universe(seed=seed), Mind(mode=base, seed=seed, **kw)
     return mode, seed, live(mind, world, steps, window=window, verbose=False, events=_SHIFT_EVENTS(steps) if SHIFT else None)
 
