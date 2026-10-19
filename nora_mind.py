@@ -512,7 +512,7 @@ class CognitiveMap:
 
 
 class Mind:
-    def __init__(self, mode="full", seed=0, n_kc=3000, n_res=96, gamma=0.95, lr=0.25, self_model=True, shape=2.0, ctx=True, use_map=True, grow=True, model=True, imag=True, replay=True, maplayouts=False, anchor=False, landmark=False, arena=24.0, kc_cap=0.12, kc_thr=(0.04, 0.9)):
+    def __init__(self, mode="full", seed=0, n_kc=3000, n_res=96, gamma=0.95, lr=0.25, self_model=True, shape=2.0, ctx=True, use_map=True, grow=True, model=True, imag=True, replay=True, maplayouts=False, anchor=False, landmark=False, arena=24.0, kc_cap=0.12, kc_thr=(0.04, 0.9), reservoir="random"):
         self.mode, self.rng, self.gamma, self.lr = mode, np.random.default_rng(seed), gamma, lr
         self.use_sm, self.shape, self.ctx, self.use_map = self_model, shape, ctx, use_map
         self.grow, self.use_model, self.use_imag, self.use_replay, self.use_anchor = grow, model, imag, replay, anchor
@@ -535,7 +535,12 @@ class Mind:
         self.n_res, self.alpha = n_res, 0.3
         self.n_B = len(SPEC) + 1 + 1 + n_act + 1                         # yayın vektörü boyutu
         rr = self.rng
-        Wr = rr.standard_normal((n_res, n_res)) * (rr.random((n_res, n_res)) < 0.1)
+        if reservoir == "fly":                                 # süreklilik durumu GERÇEK sinek bağlantı şeması üzerinde (FlyWire alt çizgesi)
+            Wr = np.load(os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "fly_reservoir_96.npz"))["W"].astype(np.float64)
+            n_res = Wr.shape[0]
+            self.n_res = n_res
+        else:
+            Wr = rr.standard_normal((n_res, n_res)) * (rr.random((n_res, n_res)) < 0.1)
         Wr *= 0.9 / max(1e-6, np.abs(np.linalg.eigvals(Wr)).max())
         self.Wr = Wr.astype(np.float32)
         self.Win = (rr.standard_normal((n_res, Universe.OBS_DIM + self.n_B)) * 0.4 *
@@ -1105,6 +1110,8 @@ def _SHIFT_EVENTS(steps):
 def _one(job):
     mode, seed, steps, window, kw = job
     base, *flags = mode.split("-")
+    if "flyres" in flags:
+        kw.update(reservoir="fly")
     if "sparser" in flags:
         kw.update(kc_cap=0.04, kc_thr=(0.3, 0.9))
     if "dense" in flags:
