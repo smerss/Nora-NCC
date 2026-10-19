@@ -1451,15 +1451,37 @@ def stage_transfer(args):
               (name, np.round(d, 1).tolist(), np.round(c, 2).tolist(), np.mean(reach)))
 
 
+def stage_demo(args):
+    """İnsan-okunur yaşam öyküsü: ajanın iç durumundan türeyen cümleler zaman çizelgesinde (doğum, her ölüm, düzenli aralıklar)."""
+    world, mind = Universe(seed=args.seed), Mind(seed=args.seed)
+    nar = Narrator()
+    obs, died = world.observe(), False
+    deaths = 0
+    print("=== NORA'NIN YAŞAM ÖYKÜSÜ (evren tohumu %d). Her cümle ajanın o andaki iç durumundan/anılarından türer; öğretilmiş metin yok. ===\n" % args.seed)
+    obs, info = world.step(mind.act(obs, died))
+    print("[adım %5d | doğum]\n  %s\n" % (mind.age, nar.say(mind, obs)[0]))
+    for t in range(1, args.steps + 1):
+        a = mind.act(obs, died)
+        obs, info = world.step(a)
+        died = info["died"] is not None
+        if died:
+            deaths += 1
+            mind.act(obs, died)
+            print("[adım %5d | ÖLDÜ (%s) — %d. ölüm]\n  %s\n" % (mind.age, info["died"], deaths, nar.say(mind, obs)[0]))
+        elif t % args.every == 0:
+            print("[adım %5d | gündüz=%.1f]\n  %s\n" % (mind.age, world.light(), nar.say(mind, obs)[0]))
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", choices=["run", "compare", "shift", "introspect", "narrate", "transfer"], default="run")
+    ap.add_argument("--stage", choices=["run", "compare", "shift", "introspect", "narrate", "transfer", "demo"], default="run")
     ap.add_argument("--mode", choices=["full", "flat", "random"], default="full")
     ap.add_argument("--steps", type=int, default=30000)
     ap.add_argument("--window", type=int, default=5000)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--no-sm", action="store_true")
     ap.add_argument("--no-ctx", action="store_true")
+    ap.add_argument("--every", type=int, default=3000)
     ap.add_argument("--log", type=int, default=6000)
     ap.add_argument("--trials", type=int, default=40)
     ap.add_argument("--kind", choices=["invert", "poison", "layout"], default="invert")
@@ -1469,7 +1491,7 @@ def main():
     ap.add_argument("--save", default=None)
     ap.add_argument("--resume", default=None)
     args = ap.parse_args()
-    {"run": stage_run, "compare": stage_compare, "shift": stage_shift, "introspect": stage_introspect, "narrate": stage_narrate, "transfer": stage_transfer}[args.stage](args)
+    {"run": stage_run, "compare": stage_compare, "shift": stage_shift, "introspect": stage_introspect, "narrate": stage_narrate, "transfer": stage_transfer, "demo": stage_demo}[args.stage](args)
 
 
 if __name__ == "__main__":
