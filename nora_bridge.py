@@ -47,6 +47,44 @@ def make_thinker(seed=0, d=128, layers=3, block=64):
     return m
 
 
+def train_masked(mind, lines, iters, batch, lr, seed, block=64):
+    """Satır bazlı, MASKELİ eğitim: kayıp yalnızca '=' sonrası karakterlere (sezgi cevabı / düşünce izi) uygulanır.
+    Soru kısmı (rastgele sayılar) öğrenilemez gürültüdür; pencere yerine tüm satırlar toplu verilir."""
+    import torch.nn.functional as F
+    g = torch.Generator().manual_seed(seed)
+    enc = [[mind.stoi[c] for c in (l + "\n")][:block] for l in lines]
+    L = max(len(e) for e in enc)
+    X = torch.zeros(len(enc), L, dtype=torch.long)
+    M = torch.zeros(len(enc), L, dtype=torch.bool)
+    Wt = torch.ones(len(enc), L)
+    for i, (e, l) in enumerate(zip(enc, lines)):
+        X[i, :len(e)] = torch.tensor(e)
+        eq = l.index("=")
+        M[i, eq:len(e) - 1] = True                      # t konumundaki girdi t+1'i öngörür
+        if "[" not in l:
+            Wt[i] = 4.0                                 # doğrudan cevap (sezgi) satırları daha ağır: asıl öğrenilmesi zor olan
+    for p in mind.col.parameters():
+        p.requires_grad = True
+    opt = torch.optim.AdamW(mind.col.parameters(), lr=lr)
+    sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=lr, total_steps=iters, pct_start=0.1)
+    mind.col.train()
+    loss = None
+    for it in range(iters):
+        idx = torch.randint(0, len(enc), (batch,), generator=g)
+        inp, tgt, m, wt = X[idx, :-1], X[idx, 1:], M[idx, :-1], Wt[idx, :-1]
+        logits = mind.col(inp, None)
+        ce = F.cross_entropy(logits[m], tgt[m], reduction="none")
+        loss = (ce * wt[m]).sum() / wt[m].sum()
+        opt.zero_grad()
+        loss.backward()
+        opt.step()
+        sched.step()
+    mind.col.eval()
+    for p in mind.col.parameters():
+        p.requires_grad = False
+    return float(loss.detach())
+
+
 class Cognition:
     """Yaşayan zihnin akıl yürütme organı: sezgi ↔ düşünme kararı, kalibrasyon, uyku."""
 
@@ -73,7 +111,7 @@ class Cognition:
                 self.teach.append(nt.direct_line(a, op, b, nt.answer_of(a, op, b)))
         t0 = time.time()
         self.mind.grow(5)
-        loss = self.mind.train_lines(self.teach, boot_iters, self.batch, self.lr, seed, log_every=10 ** 9)
+        loss = train_masked(self.mind, self.teach, boot_iters, self.batch, self.lr, seed)
         if verbose:
             print("[düşünce sütunu] gün-0 öğretmen gösterimi (yalnızca 1-2 basamak): %d satır, %d iter, kayıp %.3f, %.0fs" %
                   (len(self.teach), boot_iters, loss, time.time() - t0), flush=True)
@@ -148,8 +186,7 @@ class Cognition:
             replay += [nt.think_line(a, op, b, nt.teacher_steps(a, op, b), ans), nt.direct_line(a, op, b, ans)]
         lines = self.today * 2 + replay + self.rng.sample(self.teach, min(200, len(self.teach)))
         self.rng.shuffle(lines)
-        self.mind.grow(5)
-        self.mind.train_lines(lines, self.sleep_iters, self.batch, self.lr * 0.6, self.n_puz, log_every=10 ** 9)
+        train_masked(self.mind, lines, self.sleep_iters, self.batch, self.lr * 0.6, self.n_puz)
         self.today = []
 
 
