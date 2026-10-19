@@ -9,7 +9,7 @@
 > **Çalışmayanlar / kanıtlanamayanlar (dürüst):** sıfır unutmanın davranışsal faydası, tanıklıkla öğrenmenin küçük arenada (bilgi darboğazı yokken), uzamsal düzen bağlamları, rapor kodunun
 > gelecek davranışı öngörmesi (süreklilikten iyi değil), 3 basamaklı bilmecelere genelleme. Öznel deneyim iddiası yoktur.
 > **Hızlı doğrulama:** `python selftest.py [--bridge]`. **Durdurma:** çalışma dizininde `STOP_NORA` dosyası oluştur.
-> **Deneyler:** `python nora_mind.py --stage {run,compare,shift,transfer,introspect,narrate,demo,testimony,alive,combo}` (`demo`: insan-okunur yaşam öyküsü, ör. `--stage demo --steps 9000 --seed 5`), `python nora_bridge.py`.
+> **Deneyler:** `python nora_mind.py --stage {run,compare,shift,transfer,introspect,narrate,demo,testimony,alive,combo,lead}` (`demo`: insan-okunur yaşam öyküsü, ör. `--stage demo --steps 9000 --seed 5`), `python nora_bridge.py`.
 
 Hedef: NoRa'yı, kendi iç durumundan türeyen ve doğrulanabilir iddialarda bulunan, yaşayan (ihtiyacı, belleği,
 süreklilik gösteren iç durumu olan) bir ajana götürmek. "Yaşadığını söyleyen" ve bunu **öğretildiği için değil iç
@@ -213,6 +213,17 @@ ajanın hayatında yoktu). Anlatıcının her bileşen için söylediği, o anda
   Anlatıcı niyeti değil gerçek durumu söylüyor (ör. susuzluk zorlanmış ama açlık kazanmışsa 'yemek bulmak istiyorum' der).
 - Not: bu bir kompozisyonel genelleme gösterimi; anlatıcı yan cümleleri iç değişkenlerden bağımsız bileşenler olarak türettiği için sonuç büyük ölçüde mimarinin sonucudur
   (önemli olan, bileşenlerin gerçekten ayrı iç değişkenlere dayanması ve hiçbirinin dünya girdisinden okunmaması).
+
+### K. Ayrıcalıklı erişim: rapor davranıştan önce mi? (`--stage lead`)
+Sahte susuzluk (iç duyu +0,7 su açığı, dünya sabit) uygulandıktan sonra (29 deneme):
+| ilk görülme (medyan adım) | |
+|---|---|
+| rapor "su açığım var" | **1** |
+| çalışma alanı amacı = susuzluk | **1** |
+| dışarıdan gözlenebilir davranış (en yakın su bölgesine yönelip ilerleme) | **19** |
+
+Rapor davranıştan ortalama **21 adım önce** geliyor (denemelerin %97'sinde). Yani dışarıdan davranıştan çıkarım yapan bir gözlemci (papağan) iç durumu ancak ~20 adım gecikmeyle
+anlayabilir; ajanın raporu anında iç durumu okuyor. **Uyarı:** sıralamanın bir kısmı yapısaldır (durum→rapor aynı adımda; eylem dönüş ve ilerleme gerektirir) ve davranış göstergesi kabadır.
 
 ## Dürüst sınırlar
 - Öznel deneyim kanıtı yoktur ve bu sistem onu iddia etmez. Sonuçlar işlevsel göstergelerdir.
