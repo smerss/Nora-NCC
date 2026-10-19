@@ -21,6 +21,7 @@ durumundan türeterek** söyleyen bir sistem; öznel deneyim iddiası yok, ama h
 | `nora_world.py` | Evren: Newton fiziği, sürtünme, momentum korunumlu çarpışma, itilebilir kaya, gün/gece, rüzgâr, metabolizma; kalın-ışın görme (9×5 kanal), iç duyu, propriosepsiyon, pusula (yön; konum VERİLMEZ); kural değişimleri (`invert`: kumanda ters, `poison`: yiyecek zehirli); bilmeceli kutular |
 | `nora_neuron.py` | Nöron temeli: FlyWire sinek konektomu LIF simülatörü (Brian2 referansıyla r=0,967), `MushroomBody`, `LobedMushroomBody` |
 | `nora_mind.py` | Yaşayan zihin (aşağıda) + deney aşamaları: `run`, `compare`, `shift`, `transfer`, `introspect`, `narrate` |
+| `make_fly_reservoir.py`, `data/fly_reservoir_96.npz` | FlyWire konektomundan 96 nöronluk yoğun alt çizge (işaretli sinaps sayıları, Dale yasası korunur); `Mind(reservoir="fly")` / `-flyres` ile süreklilik durumunun yinelemeli ağırlıkları olarak kullanılır |
 | `nora_bridge.py` | Eski hat (`nora_think`: düşün → doğrula → uyu → sezgi) ile yaşayan zihin köprüsü |
 
 ## Mimari (nora_mind.py)
@@ -90,6 +91,11 @@ Kenyon hücre kodunun seyrekliği değiştirildi (8 tohum, 60 bin adım; hücre 
 
 Orta seyreklik (sineğin mantar cismindeki ~%5'e yakın) iki uçtan yaklaşık 2–3 kat daha az ölüm veriyor (gürültü payı yüksek: 8 tohum, her koşulda toplam 10–40 ölüm).
 Yani seyrek kodun "tatlı noktası" var; aşırı seyrek kod genellemeyi/kapsamayı, yoğun kod girişimi artırıyor gibi görünüyor (mekanizma doğrulanmadı).
+
+#### A4. Süreklilik durumu gerçek sinek bağlantı şeması üzerinde
+Kesintisiz iç durum `h` rastgele seyrek bir ağ yerine **gerçek FlyWire alt çizgesi** (96 nöron, 7415 bağlantı, Dale ihlali 0, ağırlıklar işaretli sinaps sayıları, spektral yarıçap 0,9'a normalize)
+üzerinde koşuyor: 8 tohum, 60 bin adım — ölüm/1k **0,08 ± 0,08** (rastgele ağ: 0,08 ± 0,07), konfor 0,705 (0,702). **İşlevsel olarak eşdeğer**: gerçek sinek şeması bir yerine-koyma olarak sorunsuz çalışıyor, ancak
+bu görevde rastgele ağdan daha iyi değil.
 
 ### B. Kural değişimi (kumanda ters; yiyecek zehirli)
 - **Ters kumanda**: öğrenilmiş modelle yönlendirilen ajan 0,06 ölüm/1k ve 0,72 konforda kalıyor; modelsiz ajan
