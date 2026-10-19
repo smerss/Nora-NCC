@@ -15,6 +15,11 @@ Hedef: NoRa'yı, kendi iç durumundan türeyen ve doğrulanabilir iddialarda bul
 süreklilik gösteren iç durumu olan) bir ajana götürmek. "Yaşadığını söyleyen" ve bunu **öğretildiği için değil iç
 durumundan türeterek** söyleyen bir sistem; öznel deneyim iddiası yok, ama her iddia ölçülebilir ve çürütülebilir.
 
+## Gereksinimler
+`pip install -r requirements.txt` (çekirdek için yalnızca `numpy`; köprü için `torch`; konektom dönüştürme için `pandas`+`pyarrow`). Büyük konektom
+dosyaları depoda yok: `git clone https://github.com/philshiu/Drosophila_brain_model` ve `python nora_neuron.py --stage convert --flywire <klasör> --v630`.
+Gerekli küçük sinek alt çizgesi (`data/fly_reservoir_96.npz`) depoda.
+
 ## Dosyalar
 | dosya | rol |
 |---|---|
