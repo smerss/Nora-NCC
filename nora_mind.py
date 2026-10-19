@@ -46,6 +46,8 @@ SPEC = ("aç", "susuz", "tehlike", "merak")
 I_E, I_W, I_I = Universe.I_INTERO, Universe.I_INTERO + 1, Universe.I_INTERO + 2
 RAY_FOOD, RAY_WATER, RAY_HAZ = 1, 2, 3
 BODY_IDX = [45, 46, 47, 48, 49, 50]                 # öz-modelin öngördüğü: e,w,i,hız_f,hız_y,dokunma
+_RAY_OFF = np.linspace(-Universe.FOV / 2, Universe.FOV / 2, Universe.R)
+PLAN_G = 3.0                                          # planın eylem üstündeki logit ağırlığı
 PRIOR = np.array([0.0, 0.8, 0.0, 0.0, -1.0], np.float32)   # doğuştan: ileri yönelim, geri kaçınma
 
 
@@ -55,10 +57,127 @@ def softmax(x):
     return e / e.sum()
 
 
+def wrap(a):
+    return (a + np.pi) % (2 * np.pi) - np.pi
+
+
+class CognitiveMap:
+    """Bilişsel harita (yol integrasyonu + duvar çapası + deneyimden öğrenilen kaynak/tehlike haritası).
+
+    Ajana konum VERİLMEZ. Konum, pusula (yön) ile propriosepsiyon hızının integralinden kestirilir
+    (böceklerde merkezi kompleks), kayma duvar ışınlarının geometrik tutarlılığıyla düzeltilir (yer çapası).
+    Hücre başına öğrenilen: su bulunan yerler, yaralanılan yerler, en son ziyaret zamanı (taze/bayat).
+    Planlayıcı: hedeften maliyet-alanı (Bellman), tehlike hücreleri pahalı -> güvenli rota."""
+
+    def __init__(self, L=24.0, G=12, dt=0.25):
+        self.L, self.G, self.dt, self.cell = L, G, dt, L / G
+        self.pos, self.unc = np.array([L / 2, L / 2]), 1.0
+        self.water = np.zeros((G, G), np.float32)
+        self.hurt = np.zeros((G, G), np.float32)
+        self.seen = np.zeros((G, G), np.float32)                # görerek haritalanan tehlike (acı çekmeden)
+        self.last = np.zeros((G, G), np.float32)
+        self.th = 0.0
+        self.target = {}                                      # uzman -> (hücre, atandığı zaman, alan)
+
+    def cell_of(self, p):
+        return tuple(np.clip((np.asarray(p) / self.cell).astype(int), 0, self.G - 1))
+
+    def update(self, obs, prev, died, now):
+        if died:
+            self.pos, self.unc = np.array([self.L / 2, self.L / 2]), 1.0
+        self.th = float(np.arctan2(obs[Universe.I_COMPASS + 1], obs[Universe.I_COMPASS]))
+        f = np.array([np.cos(self.th), np.sin(self.th)])
+        l = np.array([-f[1], f[0]])
+        self.pos = self.pos + (obs[48] * f + obs[49] * l) * 2.0 * self.dt              # yol integrasyonu
+        # duvar çapası: görünen duvar noktası gerçekte bir duvar üzerinde olmalı
+        vis = 5.0 + 7.0 * obs[51]
+        rays = obs[:45].reshape(Universe.R, 5)[:, 0]
+        ang = self.th + _RAY_OFF
+        corr, n = np.zeros(2), 0
+        for k in np.flatnonzero(rays > 0.02):
+            hit = self.pos + vis * (1 - rays[k]) * np.array([np.cos(ang[k]), np.sin(ang[k])])
+            dx0, dx1, dy0, dy1 = hit[0], hit[0] - self.L, hit[1], hit[1] - self.L
+            j = int(np.argmin(np.abs([dx0, dx1, dy0, dy1])))
+            corr[j // 2] -= [dx0, dx1, dy0, dy1][j]
+            n += 1
+        if n:
+            self.pos = self.pos + (0.12 + 0.5 * self.unc) * corr / n
+        if self.unc < 0.3:                                    # konum güvenilirse görülen tehlikeyi haritala
+            hz = obs[:45].reshape(Universe.R, 5)[:, RAY_HAZ]
+            for k in np.flatnonzero(hz > 0.02):
+                dvec = np.array([np.cos(ang[k]), np.sin(ang[k])])
+                for extra in (0.3, 1.2, 2.2):
+                    p = self.pos + dvec * (vis * (1 - hz[k]) + extra)
+                    if 0 <= p[0] < self.L and 0 <= p[1] < self.L:
+                        self.seen[self.cell_of(p)] = 1.0
+        self.unc *= 0.98
+        self.pos = np.clip(self.pos, 0.3, self.L - 0.3)
+        c = self.cell_of(self.pos)
+        self.last[c] = now
+        if prev is not None:
+            if obs[I_W] - prev[I_W] > 0.02:
+                self.water[c] += 1.0
+            if prev[I_I] - obs[I_I] > 0.01:
+                self.hurt[c] += 1.0
+
+    def _field(self, goal_mask):
+        cost = 1.0 + 8.0 * np.minimum(self.hurt, 3.0) + 20.0 * self.seen
+        d = np.full((self.G, self.G), 1e9, np.float32)
+        d[goal_mask] = 0.0
+        for _ in range(2 * self.G):
+            p = np.pad(d, 1, constant_values=1e9)
+            m = np.minimum(np.minimum(p[:-2, 1:-1], p[2:, 1:-1]), np.minimum(p[1:-1, :-2], p[1:-1, 2:]))
+            nd = np.minimum(d, m + cost)
+            if np.array_equal(nd, d):
+                break
+            d = nd
+        return d
+
+    def choose_target(self, kind, now):
+        """kind 'su': öğrenilmiş su hücresi (yoksa bayat). 'gez': en bayat ve yakın, tehlikesiz hücre."""
+        if kind == "su" and self.water.max() > 0:
+            return np.argwhere(self.water >= 0.5 * self.water.max())
+        age = now - self.last
+        ci, cj = self.cell_of(self.pos)
+        ii, jj = np.meshgrid(np.arange(self.G), np.arange(self.G), indexing="ij")
+        score = age / 100.0 - 0.15 * np.hypot(ii - ci, jj - cj) - 5.0 * ((self.hurt > 0) | (self.seen > 0))
+        return np.array([np.unravel_index(int(np.argmax(score)), score.shape)])
+
+    def plan(self, key, kind, now):
+        """Hedefe giden rotanın bir sonraki yönü için eylem (0..4) ya da None."""
+        cur = self.cell_of(self.pos)
+        tg = self.target.get(key)
+        if tg is None or now - tg[1] > 120 or tuple(tg[0]) == cur and kind == "gez" or kind != tg[3]:
+            cells = self.choose_target(kind, now)
+            mask = np.zeros((self.G, self.G), bool)
+            mask[tuple(cells.T)] = True
+            tg = (cells[0], now, self._field(mask), kind)
+            self.target[key] = tg
+        d = tg[2]
+        if cur in {tuple(c) for c in np.argwhere(d == 0)}:
+            wp = (np.array(cur) + 0.5) * self.cell                                # hedef hücrede: merkeze yaklaş
+        else:
+            best, bv = None, d[cur]
+            for di in (-1, 0, 1):
+                for dj in (-1, 0, 1):
+                    n = (cur[0] + di, cur[1] + dj)
+                    if (di or dj) and 0 <= n[0] < self.G and 0 <= n[1] < self.G and d[n] < bv:
+                        best, bv = n, d[n]
+            if best is None:
+                return None
+            wp = (np.array(best) + 0.5) * self.cell
+        err = wrap(np.arctan2(wp[1] - self.pos[1], wp[0] - self.pos[0]) - self.th)
+        return 2 if err > 0.3 else (3 if err < -0.3 else 1)
+
+    def state(self):
+        return dict(water=self.water, hurt=self.hurt, last=self.last)
+
+
 class Mind:
-    def __init__(self, mode="full", seed=0, n_kc=3000, n_res=96, gamma=0.95, lr=0.25, self_model=True, shape=2.0, ctx=True):
+    def __init__(self, mode="full", seed=0, n_kc=3000, n_res=96, gamma=0.95, lr=0.25, self_model=True, shape=2.0, ctx=True, use_map=True):
         self.mode, self.rng, self.gamma, self.lr = mode, np.random.default_rng(seed), gamma, lr
-        self.use_sm, self.shape, self.ctx = self_model, shape, ctx
+        self.use_sm, self.shape, self.ctx, self.use_map = self_model, shape, ctx, use_map
+        self.map = CognitiveMap()
         self.n_ctx = 48
         n_act = Universe.N_ACT
         # --- nöronsal temel: KC kodu yalnızca duyusal girdiden (iç duyu HARİÇ) -> Q ihtiyaçtan bağımsız
@@ -122,6 +241,8 @@ class Mind:
         idx = self.mb.kc(np.concatenate([np.abs(obs), np.clip(3.0 * np.abs(self.h[:self.n_ctx]), 0, 1)]))
         nov = self.mb.novelty(idx)
         H = self._H(obs)
+        if self.use_map:
+            self.map.update(obs, self.prev[2] if self.prev is not None else None, died, self.age)
         # ---------- valans (homeostatik hata türevi) ve ruh hali
         if self.prev is not None:
             raw = -(H - self.prev[3]) * 5.0
@@ -161,11 +282,21 @@ class Mind:
         sal[3] = 0.15 + 0.4 * nov
         sal = sal + 0.02 * rr.standard_normal(len(SPEC))
         temp = 1.0 + 0.8 * float(np.clip(-self.mood, 0, 1))
+        phi = self._phi(obs)
+
+        def proposal(k):
+            """Uzman k'nın eylem logitleri: refleks Q (öğrenilmiş) + gerekirse bellek/plan (kaynak görünmüyorsa)."""
+            lg = 8.0 * Q[k] + PRIOR
+            if self.use_map and k != 2 and not (k < 2 and phi[k] > 0.05):
+                pa = self.map.plan(k, "su" if k == 1 else "gez", self.age)
+                if pa is not None:
+                    lg[pa] += PLAN_G
+            return lg
         if self.mode == "random":
             logits, self.goal, self.ignited = PRIOR.copy(), -1, False
         elif self.mode == "flat":                                      # çalışma alanı YOK: ağırlıklı karışım
             w = urg + 0.1
-            logits = 8.0 * (w[:, None] * Q).sum(0) / w.sum() + PRIOR
+            logits = sum(w[k] * proposal(k) for k in range(len(SPEC))) / w.sum()
             self.goal, self.ignited = -1, False
         else:
             # global çalışma alanı: yanal baskılamalı sızıntılı toplayıcılar
@@ -177,7 +308,7 @@ class Mind:
             win, run = int(order[0]), int(order[1])
             self.ignited = bool(a[win] > 0.25 and a[win] - a[run] > 0.08)
             self.goal = win if self.ignited else -1
-            logits = (8.0 * Q[win] + PRIOR) if self.ignited else PRIOR.copy()
+            logits = proposal(win) if self.ignited else PRIOR.copy()
         p = softmax(logits / temp)
         act = int(rr.choice(Universe.N_ACT, p=p))
         # ---------- yayın (tüm modüllere): amaç, valans, ruh hali, eylem kopyası, değer
@@ -209,7 +340,8 @@ class Mind:
     # ------------------------------------------------------------ süreklilik: kayıt
     def save(self, path):
         np.savez(path, Wq=self.Wq, Wsm=self.Wsm, Wc=self.Wc, scale=self.scale, h=self.h, w_nov=self.mb.w_nov,
-                 claw=np.stack(self.mb.claw), thr=np.stack(self.mb.thr), Wr=self.Wr, Win=self.Win, mood=self.mood, age=self.age)
+                 claw=np.stack(self.mb.claw), thr=np.stack(self.mb.thr), Wr=self.Wr, Win=self.Win, mood=self.mood, age=self.age,
+                 m_water=self.map.water, m_hurt=self.map.hurt, m_last=self.map.last, m_seen=self.map.seen)
 
     def load(self, path):
         z = np.load(path)
@@ -217,6 +349,7 @@ class Mind:
             setattr(self, k, z[k])
         self.mb.w_nov, self.mb.claw, self.mb.thr = z["w_nov"], list(z["claw"]), list(z["thr"])
         self.mood, self.age = float(z["mood"]), int(z["age"])
+        self.map.water, self.map.hurt, self.map.last, self.map.seen = z["m_water"], z["m_hurt"], z["m_last"], z["m_seen"]
 
 
 # ================================================================ yaşam döngüsü + göstergeler
@@ -233,7 +366,7 @@ def live(mind, world, steps, window=5000, verbose=True, tag=""):
     obs = world.observe()
     died = False
     rows, W = [], dict(steps=0, deaths=0, comfort=0.0, share=np.zeros(5), ign=0, sw=0, ate=0.0, drank=0.0,
-                       hurt=0.0, errn=[], conf=[], ev_ext=[], ev_non=[], val=0.0, mood=0.0, life=[])
+                       hurt=0.0, errn=[], conf=[], ev_ext=[], ev_non=[], val=0.0, mood=0.0, life=[], cause={}, loc=[])
     last_goal, life_start = -2, 0
     t0 = time.time()
     for t in range(1, steps + 1):
@@ -255,6 +388,9 @@ def live(mind, world, steps, window=5000, verbose=True, tag=""):
             (W["ev_ext"] if info["ext"] else W["ev_non"]).append(mind.err_vel)
         if died:
             W["life"].append(t - life_start); life_start = t
+            W["cause"][info["died"]] = W["cause"].get(info["died"], 0) + 1
+        if mind.use_map and mind.age > 50:
+            W["loc"].append(float(np.hypot(*(mind.map.pos - world.pos))))
         if t % window == 0:
             n = W["steps"]
             ec, cf = np.array(W["errn"]), np.array(W["conf"])
@@ -264,23 +400,24 @@ def live(mind, world, steps, window=5000, verbose=True, tag=""):
                        skill=1.0 - float(ec.mean()) if len(ec) else float("nan"),
                        calib=float(np.corrcoef(ec, cf)[0, 1]) if len(ec) > 10 and cf.std() > 1e-9 else float("nan"),
                        agency=auc(np.array(W["ev_ext"]), np.array(W["ev_non"])),
-                       val=W["val"] / n, mood=W["mood"] / n)
+                       val=W["val"] / n, mood=W["mood"] / n, cause=dict(W["cause"]),
+                       loc=float(np.mean(W["loc"])) if W["loc"] else float("nan"))
             rows.append(row)
             if verbose:
                 print("%s t=%6d ölüm/1k=%5.1f ömür=%6.0f konfor=%.2f | pay aç/su/teh/merak/karanlık=%s ateşleme=%.2f "
-                      "geçiş/100=%.1f | yem=%d su=%.1f yara=%.1f | öz-model beceri=%+.2f kalibrasyon r=%+.2f ajanlık AUC=%.2f | duygu %+.3f ruh %+.3f | %.0fs"
+                      "geçiş/100=%.1f | yem=%d su=%.1f yara=%.1f | öz-model beceri=%+.2f kalibrasyon r=%+.2f ajanlık AUC=%.2f | konum hatası=%.2f | ölüm nedeni=%s | duygu %+.3f ruh %+.3f | %.0fs"
                       % (tag, t, row["per1k"], row["life"], row["comfort"],
                          "/".join("%.2f" % x for x in row["share"]), row["ign"], row["sw"], row["ate"] / 0.4, row["drank"], row["hurt"], row["skill"], row["calib"],
-                         row["agency"], row["val"], row["mood"], time.time() - t0), flush=True)
+                         row["agency"], row["loc"], row["cause"], row["val"], row["mood"], time.time() - t0), flush=True)
                 print("      iç gözlem:", mind.report())
             W = dict(steps=0, deaths=0, comfort=0.0, share=np.zeros(5), ign=0, sw=0, ate=0.0, drank=0.0, hurt=0.0,
-                     errn=[], conf=[], ev_ext=[], ev_non=[], val=0.0, mood=0.0, life=[])
+                     errn=[], conf=[], ev_ext=[], ev_non=[], val=0.0, mood=0.0, life=[], cause={}, loc=[])
     return rows
 
 
 def stage_run(args):
     world = Universe(seed=args.seed)
-    mind = Mind(mode=args.mode, seed=args.seed, self_model=not args.no_sm, ctx=not args.no_ctx)
+    mind = Mind(mode=args.mode, seed=args.seed, self_model=not args.no_sm, ctx=not args.no_ctx, use_map=not args.no_map)
     if args.resume and os.path.exists(args.resume):
         mind.load(args.resume)
         print("kaldığı yerden devam: yaş", mind.age)
@@ -293,7 +430,7 @@ def stage_run(args):
 def _one(job):
     mode, seed, steps, window, kw = job
     base, _, flag = mode.partition("-")
-    kw = dict(kw, ctx=(flag != "noctx"), self_model=(flag != "nosm"))
+    kw = dict(kw, ctx=(flag != "noctx"), self_model=(flag != "nosm"), use_map=(flag != "nomap"))
     world, mind = Universe(seed=seed), Mind(mode=base, seed=seed, **kw)
     return mode, seed, live(mind, world, steps, window=window, verbose=False)
 
@@ -313,8 +450,14 @@ def stage_compare(args):
         first = np.mean([r[0]["per1k"] for r in runs])
         last = np.array([np.mean([w["per1k"] for w in r[k:]]) for r in runs])
         conf = np.array([np.mean([w["comfort"] for w in r[k:]]) for r in runs])
-        print("%-7s ilk pencere %5.2f | son: %5.2f ± %4.2f (tohum başı %s) | konfor %.3f" %
-              (mode, first, last.mean(), last.std(), np.round(last, 2).tolist(), conf.mean()), flush=True)
+        cause = {}
+        for r in runs:
+            for w in r[k:]:
+                for c, v in w["cause"].items():
+                    cause[c] = cause.get(c, 0) + v
+        loc = np.nanmean([w["loc"] for r in runs for w in r[k:]]) if any(not np.isnan(w["loc"]) for r in runs for w in r) else float("nan")
+        print("%-11s ilk %5.2f | son: %5.2f ± %4.2f (tohum başı %s) | konfor %.3f | konum hatası %.2f | nedenler %s" %
+              (mode, first, last.mean(), last.std(), np.round(last, 2).tolist(), conf.mean(), loc, cause), flush=True)
     return out
 
 
@@ -327,6 +470,7 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--no-sm", action="store_true")
     ap.add_argument("--no-ctx", action="store_true")
+    ap.add_argument("--no-map", action="store_true")
     ap.add_argument("--seeds", type=int, default=3)
     ap.add_argument("--modes", default="random,flat,full")
     ap.add_argument("--save", default=None)
