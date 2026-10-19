@@ -47,6 +47,8 @@ I_E, I_W, I_I = Universe.I_INTERO, Universe.I_INTERO + 1, Universe.I_INTERO + 2
 RAY_FOOD, RAY_WATER, RAY_HAZ = 1, 2, 3
 BODY_IDX = [45, 46, 47, 48, 49, 50]                 # öz-modelin öngördüğü: e,w,i,hız_f,hız_y,dokunma
 _RAY_OFF = np.linspace(-Universe.FOV / 2, Universe.FOV / 2, Universe.R)
+# öz-model hata normalizasyonunun TABANI: eylemlerin tipik etkisi (hareketsizlik ölçeği çökertmesin)
+REF = np.array([1e-3, 1e-3, 1e-3, 0.03, 0.03, 0.1, 0.1], np.float32)
 PLAN_G = 3.0                                          # planın eylem üstündeki logit ağırlığı
 PRIOR = np.array([0.0, 0.8, 0.0, 0.0, -1.0], np.float32)   # doğuştan: ileri yönelim, geri kaçınma
 
@@ -144,7 +146,7 @@ class CognitiveMap:
         return np.array([np.unravel_index(int(np.argmax(score)), score.shape)])
 
     def plan(self, key, kind, now):
-        """Hedefe giden rotanın bir sonraki yönü için eylem (0..4) ya da None."""
+        """Hedefe giden rotanın bir sonraki yönü için yön hatası (rad) ya da None. Eylemi Mind seçer (öğrenilmiş modelle)."""
         cur = self.cell_of(self.pos)
         tg = self.target.get(key)
         if tg is None or now - tg[1] > 120 or tuple(tg[0]) == cur and kind == "gez" or kind != tg[3]:
@@ -166,17 +168,17 @@ class CognitiveMap:
             if best is None:
                 return None
             wp = (np.array(best) + 0.5) * self.cell
-        err = wrap(np.arctan2(wp[1] - self.pos[1], wp[0] - self.pos[0]) - self.th)
-        return 2 if err > 0.3 else (3 if err < -0.3 else 1)
+        return wrap(np.arctan2(wp[1] - self.pos[1], wp[0] - self.pos[0]) - self.th)      # hedef yön hatası (rad)
 
     def state(self):
         return dict(water=self.water, hurt=self.hurt, last=self.last)
 
 
 class Mind:
-    def __init__(self, mode="full", seed=0, n_kc=3000, n_res=96, gamma=0.95, lr=0.25, self_model=True, shape=2.0, ctx=True, use_map=True):
+    def __init__(self, mode="full", seed=0, n_kc=3000, n_res=96, gamma=0.95, lr=0.25, self_model=True, shape=2.0, ctx=True, use_map=True, grow=True, model=True):
         self.mode, self.rng, self.gamma, self.lr = mode, np.random.default_rng(seed), gamma, lr
         self.use_sm, self.shape, self.ctx, self.use_map = self_model, shape, ctx, use_map
+        self.grow, self.use_model = grow, model
         self.map = CognitiveMap()
         self.n_ctx = 48
         n_act = Universe.N_ACT
@@ -186,7 +188,7 @@ class Mind:
             groups.append(np.arange(Universe.OBS_DIM, Universe.OBS_DIM + self.n_ctx))
         self.mb = LobedMushroomBody(groups, n_per=n_kc // len(groups), seed=seed)
         n_kc = self.mb.n_kc
-        self.Wq = np.zeros((len(SPEC), n_act, n_kc), np.float32)       # uzman Q kafaları (KC->MBON)
+        self.n_kc = n_kc
         # --- süreklilik: tekrarlayan durum (HİÇ sıfırlanmaz)
         self.n_res, self.alpha = n_res, 0.3
         self.n_B = len(SPEC) + 1 + 1 + n_act + 1                         # yayın vektörü boyutu
@@ -199,9 +201,12 @@ class Mind:
         self.h = np.zeros(n_res, np.float32)
         # --- öz-model (NLMS) ve güven başlığı
         self.nz = n_res + n_act + len(BODY_IDX) + 2 * n_act + 1 + 1
-        self.Wsm = np.zeros((len(BODY_IDX), self.nz), np.float32)
-        self.Wc = np.zeros(self.nz, np.float32)
-        self.scale = np.full(len(BODY_IDX), 0.05, np.float32)           # sinyal değişkenliği (normalizasyon)
+        self.n_body = len(BODY_IDX) + 1                                 # beden(6) + yön değişimi
+        self.scale = np.full(self.n_body, 0.05, np.float32)             # sinyal değişkenliği (normalizasyon)
+        # --- BAĞLAMLAR: (refleks Q-kafaları + öz-model). Sürprizle yeni bağlam açılır, eskiler DONAR (sıfır unutma)
+        self.ctxs = [self._new_ctx()]
+        self.cur, self.cerr, self.cool = 0, [1.0], 0
+        self.n_created = 1
         # --- çalışma alanı ve duygu
         self.acc = np.zeros(len(SPEC), np.float32)
         self.B = np.zeros(self.n_B, np.float32)
@@ -210,8 +215,51 @@ class Mind:
         self.pred, self.z, self.conf = None, None, 0.0
         self.err_n = 0.0
         self.err_vel = 0.0
+        self.err_head = 0.0
         self.age = 0
         self.last_obs = None
+        self.last_y = None
+
+    # ------------------------------------------------------------ bağlamlar
+    def _new_ctx(self, src=None):
+        c = dict(Wq=np.zeros((len(SPEC), Universe.N_ACT, self.n_kc), np.float32),
+                 Wsm=np.zeros((self.n_body, self.nz), np.float32), Wc=np.zeros(self.nz, np.float32))
+        if src is not None:                                           # sıcak başlangıç: öz-model devredilir (ince ayar)
+            c["Wsm"][:] = src["Wsm"]
+            c["Wc"][:] = src["Wc"]
+        return c
+
+    Wq = property(lambda s: s.ctxs[s.cur]["Wq"])
+    Wsm = property(lambda s: s.ctxs[s.cur]["Wsm"], lambda s, v: s.ctxs[s.cur].__setitem__("Wsm", v))
+    Wc = property(lambda s: s.ctxs[s.cur]["Wc"], lambda s, v: s.ctxs[s.cur].__setitem__("Wc", v))
+
+    @staticmethod
+    def _bodyvec(obs):
+        return np.r_[obs[BODY_IDX], np.arctan2(obs[Universe.I_COMPASS + 1], obs[Universe.I_COMPASS])].astype(np.float32)
+
+    @staticmethod
+    def _delta(y, y0):
+        d = y - y0
+        d[-1] = wrap(d[-1])
+        return d
+
+    def _zvec(self, obs, act):
+        a1 = np.zeros(Universe.N_ACT, np.float32)
+        a1[act] = 1.0
+        return np.concatenate([0.25 * self.h, 3.0 * a1, 3.0 * obs[BODY_IDX], 3.0 * np.outer(a1, obs[48:50]).ravel(),
+                               [3.0 * obs[51]], [3.0]]).astype(np.float32)
+
+    def _steer(self, err, obs):
+        """Hedef yön hatasından eylem: ÖĞRENİLMİŞ modelin 'hangi eylem yönümü nasıl değiştirir' öngörüsüyle.
+        Kumandalar ters çevrilirse ezber değil model değişir; plan kendiliğinden uyum sağlar."""
+        if abs(err) <= 0.3:
+            return 1
+        if self.use_model and self.use_sm and self.age > 300:
+            pr = np.array([float(self.Wsm[-1] @ self._zvec(obs, a)) for a in (2, 3)])
+            s = np.sign(err) * pr
+            if s.max() > 0.05:
+                return 2 + int(np.argmax(s))
+        return 2 if err > 0 else 3
 
     # ------------------------------------------------------------ yardımcılar
     def _H(self, obs):
@@ -260,17 +308,34 @@ class Mind:
             qn = self._q(idx).max(1) if not died else np.zeros(len(SPEC), np.float32)
             delta = np.clip(r + self.gamma * qn - self._q(pidx)[:, pa], -3.0, 3.0)
             self.Wq[:, pa, pidx] += (self.lr * delta / max(1, len(pidx)))[:, None]
-        # ---------- öz-model: önceki öngörüyü gerçekle karşılaştır
-        y = obs[BODY_IDX]
+        # ---------- öz-model: önceki öngörüyü gerçekle karşılaştır; bağlam çıkarımı
+        yv = self._bodyvec(obs)
         if self.pred is not None and self.use_sm:
-            err = (y - self.last_obs[BODY_IDX]) - self.pred          # öz-model DEĞİŞİMİ öngörür
-            en = np.abs(err) / (self.scale + 1e-3)
+            d = self._delta(yv, self.last_y)
+            sc = np.maximum(self.scale, REF)
+            for ci, c in enumerate(self.ctxs):                          # her bağlamın modeli aynı olayı ne kadar iyi öngördü?
+                en_c = np.abs(d - c["Wsm"] @ self.z) / sc
+                self.cerr[ci] = 0.97 * self.cerr[ci] + 0.03 * float(en_c[[3, 4, 6]].mean())
+            err = d - self.pred
+            en = np.abs(err) / sc
             self.err_n = float(en[3:5].mean())          # hareket boyutları: öngörülebilir olan öz-etki
             self.err_vel = float(en[3:5].mean())
+            self.err_head = float(en[6])
             zz = float(self.z @ self.z) + 1e-3
             self.Wsm += 0.5 * np.outer(err, self.z) / zz
             self.Wc += 0.2 * (self.err_n - float(self.Wc @ self.z)) * self.z / zz
-            self.scale += 0.01 * (np.abs(y - self.last_obs[BODY_IDX]) - self.scale)
+            self.scale += 0.01 * (np.abs(d) - self.scale)
+            if self.grow and self.age > 300:
+                self.cool = max(0, self.cool - 1)
+                best = int(np.argmin(self.cerr))
+                if self.cool == 0:
+                    if self.cerr[best] > 1.15 and len(self.ctxs) < 8:      # hiçbir bağlam dünyayı açıklamıyor -> yeni bağlam
+                        self.ctxs.append(self._new_ctx(self.ctxs[self.cur]))
+                        self.cerr.append(1.0)
+                        self.cur, self.cool = len(self.ctxs) - 1, 400      # yeni bağlam uyum sağlayana dek yenisi açılmasın
+                        self.n_created += 1
+                    elif best != self.cur and self.cerr[best] < 0.8 * self.cerr[self.cur]:   # eski bir dünyaya dönüldü
+                        self.cur, self.cool = best, 100
         # ---------- süreklilik: tekrarlayan durum (algı + önceki yayın)
         u = np.concatenate([obs, self.B])
         self.h = ((1 - self.alpha) * self.h + self.alpha * np.tanh(self.Win @ u + self.Wr @ self.h)).astype(np.float32)
@@ -288,9 +353,9 @@ class Mind:
             """Uzman k'nın eylem logitleri: refleks Q (öğrenilmiş) + gerekirse bellek/plan (kaynak görünmüyorsa)."""
             lg = 8.0 * Q[k] + PRIOR
             if self.use_map and k != 2 and not (k < 2 and phi[k] > 0.05):
-                pa = self.map.plan(k, "su" if k == 1 else "gez", self.age)
-                if pa is not None:
-                    lg[pa] += PLAN_G
+                pe = self.map.plan(k, "su" if k == 1 else "gez", self.age)
+                if pe is not None:
+                    lg[self._steer(pe, obs)] += PLAN_G
             return lg
         if self.mode == "random":
             logits, self.goal, self.ignited = PRIOR.copy(), -1, False
@@ -320,14 +385,12 @@ class Mind:
         B[-1] = float(np.tanh(Q[self.goal].max())) if self.goal >= 0 else 0.0
         self.B = B
         # ---------- öz-model öngörüsü (eyleme koşullu)
-        a1 = np.zeros(Universe.N_ACT, np.float32)
-        a1[act] = 1.0
-        self.z = np.concatenate([0.25 * self.h, 3.0 * a1, 3.0 * obs[BODY_IDX], 3.0 * np.outer(a1, obs[48:50]).ravel(),
-                                 [3.0 * obs[51]], [3.0]]).astype(np.float32)
+        self.z = self._zvec(obs, act)
         self.pred = self.Wsm @ self.z                                  # öngörülen Δ(beden)
         self.conf = float(self.Wc @ self.z)
         self.prev = (idx, act, obs.copy(), H)
         self.last_obs = obs.copy()
+        self.last_y = yv
         return act
 
     # ------------------------------------------------------------ iç gözlem raporu
@@ -339,14 +402,17 @@ class Mind:
 
     # ------------------------------------------------------------ süreklilik: kayıt
     def save(self, path):
-        np.savez(path, Wq=self.Wq, Wsm=self.Wsm, Wc=self.Wc, scale=self.scale, h=self.h, w_nov=self.mb.w_nov,
+        np.savez(path, Wq=np.stack([c['Wq'] for c in self.ctxs]), Wsm=np.stack([c['Wsm'] for c in self.ctxs]),
+                 Wc=np.stack([c['Wc'] for c in self.ctxs]), cerr=np.array(self.cerr), cur=self.cur, scale=self.scale, h=self.h, w_nov=self.mb.w_nov,
                  claw=np.stack(self.mb.claw), thr=np.stack(self.mb.thr), Wr=self.Wr, Win=self.Win, mood=self.mood, age=self.age,
                  m_water=self.map.water, m_hurt=self.map.hurt, m_last=self.map.last, m_seen=self.map.seen)
 
     def load(self, path):
         z = np.load(path)
-        for k in ("Wq", "Wsm", "Wc", "scale", "h", "Wr", "Win"):
+        for k in ("scale", "h", "Wr", "Win"):
             setattr(self, k, z[k])
+        self.ctxs = [dict(Wq=z["Wq"][i], Wsm=z["Wsm"][i], Wc=z["Wc"][i]) for i in range(len(z["Wq"]))]
+        self.cerr, self.cur = list(z["cerr"]), int(z["cur"])
         self.mb.w_nov, self.mb.claw, self.mb.thr = z["w_nov"], list(z["claw"]), list(z["thr"])
         self.mood, self.age = float(z["mood"]), int(z["age"])
         self.map.water, self.map.hurt, self.map.last, self.map.seen = z["m_water"], z["m_hurt"], z["m_last"], z["m_seen"]
@@ -362,14 +428,16 @@ def auc(pos, neg):
     return float((ranks[:len(pos)].sum() - len(pos) * (len(pos) + 1) / 2) / (len(pos) * len(neg)))
 
 
-def live(mind, world, steps, window=5000, verbose=True, tag=""):
+def live(mind, world, steps, window=5000, verbose=True, tag="", events=None):
     obs = world.observe()
     died = False
     rows, W = [], dict(steps=0, deaths=0, comfort=0.0, share=np.zeros(5), ign=0, sw=0, ate=0.0, drank=0.0,
-                       hurt=0.0, errn=[], conf=[], ev_ext=[], ev_non=[], val=0.0, mood=0.0, life=[], cause={}, loc=[])
+                       hurt=0.0, errn=[], conf=[], ev_ext=[], ev_non=[], val=0.0, mood=0.0, life=[], cause={}, loc=[], head=[])
     last_goal, life_start = -2, 0
     t0 = time.time()
     for t in range(1, steps + 1):
+        if events and t in events:
+            events[t](world)
         a = mind.act(obs, died)
         obs, info = world.step(a)
         died = info["died"] is not None
@@ -384,7 +452,7 @@ def live(mind, world, steps, window=5000, verbose=True, tag=""):
         W["ate"] += info["ate"]; W["drank"] += info["drank"]; W["hurt"] += info["hurt"]
         W["val"] += mind.valence; W["mood"] += mind.mood
         if mind.use_sm and mind.pred is not None and mind.age > 500:
-            W["errn"].append(mind.err_n); W["conf"].append(mind.conf)
+            W["errn"].append(mind.err_n); W["conf"].append(mind.conf); W["head"].append(mind.err_head)
             (W["ev_ext"] if info["ext"] else W["ev_non"]).append(mind.err_vel)
         if died:
             W["life"].append(t - life_start); life_start = t
@@ -400,7 +468,7 @@ def live(mind, world, steps, window=5000, verbose=True, tag=""):
                        skill=1.0 - float(ec.mean()) if len(ec) else float("nan"),
                        calib=float(np.corrcoef(ec, cf)[0, 1]) if len(ec) > 10 and cf.std() > 1e-9 else float("nan"),
                        agency=auc(np.array(W["ev_ext"]), np.array(W["ev_non"])),
-                       val=W["val"] / n, mood=W["mood"] / n, cause=dict(W["cause"]),
+                       val=W["val"] / n, mood=W["mood"] / n, cause=dict(W["cause"]), nctx=len(mind.ctxs), cur=mind.cur, head=1.0 - float(np.mean(W["head"])) if W["head"] else float("nan"),
                        loc=float(np.mean(W["loc"])) if W["loc"] else float("nan"))
             rows.append(row)
             if verbose:
@@ -411,7 +479,7 @@ def live(mind, world, steps, window=5000, verbose=True, tag=""):
                          row["agency"], row["loc"], row["cause"], row["val"], row["mood"], time.time() - t0), flush=True)
                 print("      iç gözlem:", mind.report())
             W = dict(steps=0, deaths=0, comfort=0.0, share=np.zeros(5), ign=0, sw=0, ate=0.0, drank=0.0, hurt=0.0,
-                     errn=[], conf=[], ev_ext=[], ev_non=[], val=0.0, mood=0.0, life=[], cause={}, loc=[])
+                     errn=[], conf=[], ev_ext=[], ev_non=[], val=0.0, mood=0.0, life=[], cause={}, loc=[], head=[])
     return rows
 
 
@@ -427,12 +495,23 @@ def stage_run(args):
         print("kaydedildi:", args.save)
 
 
+SHIFT = False
+
+
+def _SHIFT_EVENTS(steps):
+    q = steps // 4                                    # evreler: normal | ters | normal | ters
+    def flip(v):
+        return lambda w: setattr(w, "invert", v)
+    return {q + 1: flip(True), 2 * q + 1: flip(False), 3 * q + 1: flip(True)}
+
+
 def _one(job):
     mode, seed, steps, window, kw = job
-    base, _, flag = mode.partition("-")
-    kw = dict(kw, ctx=(flag != "noctx"), self_model=(flag != "nosm"), use_map=(flag != "nomap"))
+    base, *flags = mode.split("-")
+    kw = dict(kw, ctx=("noctx" not in flags), self_model=("nosm" not in flags), use_map=("nomap" not in flags),
+              grow=("nogrow" not in flags), model=("nomodel" not in flags))
     world, mind = Universe(seed=seed), Mind(mode=base, seed=seed, **kw)
-    return mode, seed, live(mind, world, steps, window=window, verbose=False)
+    return mode, seed, live(mind, world, steps, window=window, verbose=False, events=_SHIFT_EVENTS(steps) if SHIFT else None)
 
 
 def stage_compare(args):
@@ -461,9 +540,39 @@ def stage_compare(args):
     return out
 
 
+def stage_shift(args):
+    """Kural değişimi: kumanda ters (çeyrek başına: normal | ters | normal | ters). Sıfır unutma ve uyum ölçümü.
+    Eski bağlamlar donar; dönüşte A'nın beceri ve modeli hemen geri gelmeli (yeniden öğrenme olmadan)."""
+    global SHIFT
+    from multiprocessing import Pool
+    SHIFT = True
+    modes = args.modes.split(",")
+    seeds = list(range(args.seeds))
+    jobs = [(m, s, args.steps, args.window, {}) for m in modes for s in seeds]
+    with Pool(min(len(jobs), os.cpu_count() or 1)) as pool:
+        out = pool.map(_one, jobs)
+    nw = args.steps // args.window
+    q = nw // 4
+    names = ["A normal", "B ters", "A' normal", "B' ters"]
+    print("kural değişimi (kumanda ters) | pencere=%d adım, evre=%d pencere | ölüm/1000 adım: [evrenin İLK penceresi -> SON penceresi]" % (args.window, q))
+    for mode in modes:
+        runs = [r for (mm, s, r) in out if mm == mode]
+        cells = []
+        for p in range(4):
+            f = np.mean([r[p * q]["per1k"] for r in runs])
+            l = np.mean([np.mean([w["per1k"] for w in r[(p + 1) * q - 2:(p + 1) * q]]) for r in runs])
+            cf = np.mean([r[p * q]["comfort"] for r in runs])
+            cl = np.mean([np.mean([w["comfort"] for w in r[(p + 1) * q - 2:(p + 1) * q]]) for r in runs])
+            cells.append("%s ölüm %.2f->%.2f konfor %.2f->%.2f" % (names[p], f, l, cf, cl))
+        head = [np.nanmean([w["head"] for r in runs for w in r[(p + 1) * q - 2:(p + 1) * q]]) for p in range(4)]
+        print("%-20s %s | bağlam sayısı %.1f | yön-öngörü becerisi (A,B,A',B') %s" %
+              (mode, "\n    ".join(cells), np.mean([r[-1]["nctx"] for r in runs]), np.round(head, 2).tolist()), flush=True)
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", choices=["run", "compare"], default="run")
+    ap.add_argument("--stage", choices=["run", "compare", "shift"], default="run")
     ap.add_argument("--mode", choices=["full", "flat", "random"], default="full")
     ap.add_argument("--steps", type=int, default=30000)
     ap.add_argument("--window", type=int, default=5000)
@@ -476,7 +585,7 @@ def main():
     ap.add_argument("--save", default=None)
     ap.add_argument("--resume", default=None)
     args = ap.parse_args()
-    {"run": stage_run, "compare": stage_compare}[args.stage](args)
+    {"run": stage_run, "compare": stage_compare, "shift": stage_shift}[args.stage](args)
 
 
 if __name__ == "__main__":

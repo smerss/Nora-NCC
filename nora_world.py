@@ -58,6 +58,7 @@ class Universe:
         self.t = 0
         self.wind_left, self.wind_f = 0, np.zeros(2)
         self.lives, self.touch = 0, 0.0
+        self.invert = False                                  # kural değişimi: sağ/sol kumanda ters (duyu-motor yeniden eşleme)
         self._respawn()
 
     # ---- kurulum
@@ -128,6 +129,8 @@ class Universe:
     # ---- fizik
     def step(self, a):
         dt, info = self.dt, dict(ate=0.0, drank=0.0, hurt=0.0, died=None, ext=False, push=False)
+        if self.invert and a in (2, 3):
+            a = 5 - a
         f = np.array([np.cos(self.th), np.sin(self.th)])
         thrust = 1.0 if a == 1 else (-0.5 if a == 4 else 0.0)
         if a == 2:
