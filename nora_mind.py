@@ -186,6 +186,8 @@ class Narrator:
         if sure is not None:
             cl.append(dict(kind="konum", text="nerede olduğumdan %s" % ("eminim" if sure else "emin değilim"), claim=bool(sure),
                            basis=mind.map.unc))
+        n_ev = len(mind.epi.items)
+        cl.append(dict(kind="süreklilik", text="%d adımdır varım ve %d önemli olay hatırlıyorum" % (mind.age, n_ev), claim=(mind.age, n_ev), basis=mind.age))
         cog = getattr(mind, "cog", None)
         if cog is not None and cog.last is not None:
             r = cog.last
@@ -296,6 +298,15 @@ class CognitiveMap:
         self.pos = np.clip(self.pos, 0.3, self.L - 0.3)
         c = self.cell_of(self.pos)
         self.last[c] = now
+        if self.unc < 0.3:                                          # GERÇEKLİK DENETİMİ: burada olduğumu biliyorum ama beklediğim şey görünmüyor
+            rr = obs[:45].reshape(Universe.R, 5)
+            if self.water[c] > 0 and rr[:, RAY_WATER].max() < 0.5:   # 'su burada' sanıyorum, yakında su yok -> bilgi yanlış
+                self.water[c] *= 0.85
+            if (self.seen[c] > 0 or self.hurt[c] > 0) and rr[:, RAY_HAZ].max() < 0.5:
+                self.seen[c] *= 0.85
+                self.hurt[c] *= 0.85
+                if self.seen[c] < 0.2:
+                    self.seen[c] = 0.0
         if prev is not None:
             if obs[I_W] - prev[I_W] > 0.02:
                 self.water[c] += 1.0
@@ -1272,9 +1283,36 @@ def stage_narrate(args):
 
 
 
+def stage_transfer(args):
+    """AKTARIM: bir evrende yaşamış ajanı, düzeni (su/tehlike yerleri) değişmiş YENİ evrene bırak; sıfırdan başlayan ajanla karşılaştır.
+    'Az örnekle öğrenme' ölçütü: yeni evrende ilk pencerelerdeki ölüm/konfor ve konfora (>=0.65) ulaşma süresi."""
+    import copy
+    pre = Mind(seed=args.seed)
+    live(pre, Universe(seed=args.seed), args.steps, window=args.steps, verbose=False)
+    print("[ön yaşam] evren %d'de %d adım yaşadı (yaş %d)" % (args.seed, args.steps, pre.age))
+    names = ["aktarım (yaşanmış ajan)", "sıfırdan (yeni doğmuş)"]
+    agg = {n: [] for n in names}
+    for k in range(args.seeds):
+        tgt = 100 + k
+        for name in names:
+            mind = copy.deepcopy(pre) if name == names[0] else Mind(seed=args.seed)
+            mind.map.target = {}
+            rows = live(mind, Universe(seed=tgt), args.window * 8, window=args.window, verbose=False)
+            agg[name].append(rows)
+    nw = args.window * 8 // args.window
+    print("yeni evrenler %s | pencere %d adım" % ([100 + k for k in range(args.seeds)], args.window))
+    for name in names:
+        R = agg[name]
+        d = [np.mean([r[i]["per1k"] for r in R]) for i in range(nw)]
+        c = [np.mean([r[i]["comfort"] for r in R]) for i in range(nw)]
+        reach = [next((i for i, w in enumerate(r) if w["comfort"] >= 0.65), nw) for r in R]
+        print("  %-26s ölüm/1k %s | konfor %s | konfor>=0.65'e ulaşma penceresi ort. %.1f" %
+              (name, np.round(d, 1).tolist(), np.round(c, 2).tolist(), np.mean(reach)))
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", choices=["run", "compare", "shift", "introspect", "narrate"], default="run")
+    ap.add_argument("--stage", choices=["run", "compare", "shift", "introspect", "narrate", "transfer"], default="run")
     ap.add_argument("--mode", choices=["full", "flat", "random"], default="full")
     ap.add_argument("--steps", type=int, default=30000)
     ap.add_argument("--window", type=int, default=5000)
@@ -1290,7 +1328,7 @@ def main():
     ap.add_argument("--save", default=None)
     ap.add_argument("--resume", default=None)
     args = ap.parse_args()
-    {"run": stage_run, "compare": stage_compare, "shift": stage_shift, "introspect": stage_introspect, "narrate": stage_narrate}[args.stage](args)
+    {"run": stage_run, "compare": stage_compare, "shift": stage_shift, "introspect": stage_introspect, "narrate": stage_narrate, "transfer": stage_transfer}[args.stage](args)
 
 
 if __name__ == "__main__":

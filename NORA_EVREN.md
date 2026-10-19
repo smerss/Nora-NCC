@@ -56,9 +56,12 @@ kazananın kontrolü alması sayesinde karışımı belirgin geçti; planlaması
   **bağlam mekanizması bu durumda gereksiz** (bağlamlı = bağlamsız): bağlamlar, yeniden öğrenmesi pahalı bilgi için.
 - **Zehirli yiyecek** (4 tohum): hayal gücü + öğrenilmiş şekillendirme işareti uyumu yaklaşık ikiye katlıyor
   (zehir evresi ilk 3 pencere ölüm/1k: 2,6'ya karşı 4,4–5,2); önceki sürümde uyum yoktu (5–6).
-- **Sıfır unutma**: mekanizma doğru çalışıyor (tam 2 bağlam, dönüşte eskisine geçiş; ikinci zehir evresinde 145
-  adımda geri çağrı, yeni bağlam açılmıyor). Davranışsal fayda **zayıf ve tutarsız** (normale dönüşte konfor
-  0,72'ye karşı 0,59 lehine, ikinci zehir evresinde fark yok). 8 tohumluk tekrar için bkz. "Bekleyen ölçümler".
+- **Sıfır unutma (8 tohum, zehir)**: mekanizma mekanik olarak doğru çalışıyor (tam 2 bağlam, dönüşte eskisine geçiş,
+  ikinci zehir evresinde ~145 adımda geri çağrı, yeni bağlam açılmıyor). **Ama davranışsal fayda gösterilemedi**:
+  normale dönüşte ilk 3 pencerede ölüm/1k 0,62 (bağlamlı) vs 0,46 (bağlamsız), konfor 0,63 vs 0,66; ikinci zehir
+  evresinde ölüm 2,79 vs 2,21. Yorum: bu evrende öğrenilen beceriler (refleks Q + anlamsal V) yeniden kısa sürede
+  öğrenilebiliyor veya bağlamdan bağımsız; bağlamlar yalnızca *yeniden öğrenmesi pahalı* bilgi için anlamlı olur.
+  Bu nedenle sıfır unutma iddiası **kanıtlanmış değil**; mekanizma ileride daha zor evrenlerde sınanmalı.
 
 ### C. Topraklanmış iç gözlem ve nedensel doğrulama (30 bin adım eğitimli ajan, n=30 deneme)
 Etki d = hedef özelliğin raporlanan kayması / aynı denemenin müdahalesiz kendi sapması. "Papağan" aynı ajanın
@@ -101,7 +104,7 @@ dışarıdan gözlenebilir dünya girdisinden raporu taklit etmeyi öğrenen sı
 - Konum için pusula (mutlak yön) duyusu doğuştandır. Arena boyutu/ızgara harita doğuştandır.
 
 ## Bekleyen ölçümler / sonraki adımlar
-1. Sıfır unutma: 8 tohumlu zehir tekrarı (arka planda koştu, sonuç bu belgeye eklenecek).
+1. Sıfır unutmayı gerçekten zorlayan bir evren (yeniden öğrenmesi pahalı bilgi: ör. çok sayıda ardışık düzen/kural, nadir ödül) tasarlamak.
 2. Köprü: bilmecelerde sezgi/düşünme kararı, üstbilişsel AUROC, uyku ile sezgi artışı.
 3. Gizli dünya değişimi testini ayırt edici hale getirmek; raporun davranışa geri beslenmesi ve ablasyonu.
 4. Öz-öngörü: rapor, ajanın 10 adım sonraki amacını dışarıdan gözlenebilir girdiden daha iyi tahmin ediyor mu (kodlandı, çalıştırılacak).
