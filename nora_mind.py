@@ -845,7 +845,7 @@ class Mind:
             if d[2] < -0.02:
                 evs.append((2, float(d[2])))                           # yaralandım
             chv = self.last_obs[:45].reshape(-1, 5)[:, 1:4].max(0)        # olaydan hemen önce hangi algı kanalı baskındı (food/su/tehlike görünümü)
-            ch = int(np.argmax(chv)) if chv.max() > 0.5 else -1
+            ch = int(np.argmax(chv)) if (chv.max() > 0.85 and np.sort(chv)[-2] < 0.5) else -1
             for ci, c in enumerate(self.ctxs):
                 pd = c["Wsm"] @ self.z
                 en_c = np.abs(d - pd) / sc
