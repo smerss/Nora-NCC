@@ -129,6 +129,8 @@ bu görevde rastgele ağdan daha iyi değil.
   Gözlük evresinin kendisinde (B, B') bağlamlı ajan bağlamsıza göre daha iyi değil (ölüm 1,6–1,9 vs 1,5–1,6): kazanç yalnızca *geri dönüşte unutmamak*. Küçük arenada (24×24, 14 yiyecek) yeniden öğrenme ucuz olduğundan fayda yoktu (yukarıda). Kısıt: 2 bağlam (A, B) açılıyor, bağlam sayısı 2,0; algısal anlambilim (`perc_sem`) bu kazanç için gerekli (gevşek ayarla sahte bağlam üretmişti).
 - **Öz-öngörü, zengin iç durum (`--stage introspect`, 10 adım sonraki amaç):** rapor tokeni 0,67 | dünya gözlemi 0,70 | 'amaç sürer' 0,70 | **zengin öz-durum (amaç + rapor + iç duyu düzeyi + 10 adımlık eğilim) 0,71**. Fark gürültü içinde (+0,01); amacın *değiştiği* 545 örnekte doğruluk yalnızca **0,23**.
   Sonuç: iç durum eğilimi eklemek öz-öngörüyü **anlamlı artırmadı**; amaç geçişleri büyük ölçüde yanal-engelleme yarışının gürültüsüne bağlı. Dürüst yorum: ajan kendi *şimdiki* durumunu raporluyor, geleceğini öngörmüyor. Gerçek bir öngörü için ayrı bir ileri model (amaç-geçiş dinamiği) gerekir.
+- **Birikimli kültür (`--stage culture`, 5 kuşak, 6 evren, zehirli kazanılabilir evren):** her kuşak öncekinin anlatısını (yerler + kural) duyup yaşıyor ve kendi anlatısını bırakıyor. İlk 3000 adımda zehirli ısırık/kuşak:
+  kültürlü [10,3 | 17,5 | 8,7 | 10,8 | 7,0] — kültürsüz [10,3 | 13,8 | 11,3 | 13,2 | 12,0]. Kuşak 2–4 ortalaması 8,8 vs 12,2 (≈%28 az); ama kuşak 1 daha kötü (17,5) ve ölüm sayıları neredeyse aynı (≈21–25). **Zayıf, gürültülü ve tutarsız**: birikimli kültür kanıtlanmış sayılmaz; yalnızca yön olumlu.
 
 ### C. Topraklanmış iç gözlem ve nedensel doğrulama (30 bin adım eğitimli ajan, n=30 deneme)
 Etki d = hedef özelliğin raporlanan kayması / aynı denemenin müdahalesiz kendi sapması. "Papağan" aynı ajanın
@@ -289,6 +291,11 @@ Hayatta kalma üstünlüğü her varyantta ≥8 kat; bulgu varsayılan evrenin i
 - Rapor kanalının *davranışı nedensel olarak yönlendirdiği* (geri besleme) gösterilmedi; kanal şu an bir ölçüm
   aracıdır. Altında yatan değişkenler (ruh hali, belirsizlik, amaç) davranışı gerçekten yönlendirir.
 - Konum için pusula (mutlak yön) duyusu doğuştandır. Arena boyutu/ızgara harita doğuştandır.
+
+## Bu turda denenen ama çözülemeyen (açık kalan)
+- Çalışma alanı üstünlüğü (dikkat kazancı): uzmana özgü KC kodu gerektiriyor (paylaşılan kodda uzman başına kazanç mümkün değil); yapılmadı.
+- Düzen bağlamları (yer hücresi yeniden haritalama) ve yer işaretiyle küresel yeniden konumlama: yeni tasarım denenmedi; önceki denemeler başarısız (bölüm G).
+- Köprü 3 basamak: öğretmen izi olmadan %0.
 
 ## Bekleyen ölçümler / sonraki adımlar
 1. Sıfır unutmayı gerçekten zorlayan bir evren (yeniden öğrenmesi pahalı bilgi: ör. çok sayıda ardışık düzen/kural, nadir ödül) tasarlamak.
