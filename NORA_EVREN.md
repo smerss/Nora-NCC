@@ -187,6 +187,8 @@ basamak-bazlı kalibrasyonla; düşünmek dünya adımı harcar; doğrulanmış 
 - Sınırlar: 2 basamak çözüm oranı yalnızca %38 (hakemli adım adım düşünme çoğu zaman geçerli adım üretemiyor), 3 basamak %0
   (öğretmen yalnızca 1-2 basamak gösteriyor; küçük model genelleyemiyor). Sınır model kalitesidir: orijinal hat TinyStories ile önceden
   eğitilmiş donuk omurga + yanal bağ kullanıyordu, ağırlıklar repoda yok.
+- **Köprü, daha uzun önyükleme (`--boot-iters 15000`, 40 bin adım, tek tohum):** 2 basamak çözüm oranı **%38 → %75** (düşünerek çözme %87), 1 basamak %99, ölüm/1k 0,0; sezgi doğruluğu yaşam boyunca 0,67 → 0,84.
+  Ama üstbiliş AUROC **0,81 → 0,68** (daha çok eğitilmiş sezgi 2 basamakta %43 doğru ve güven 0,70: kalibrasyon bozuldu) ve 3 basamak hâlâ **%0** (öğretmen 3 basamak göstermiyor; 3 basamak sezgisi %0, düşünme denemesi %62 ama hakem geçerli sonuç almıyor). Tek tohum: bunlar kesin ayrımlar değil, yön göstergesi.
 - Anlatıcı akıl yürütmeyi de iç durumdan söylüyor: "son bilmecede (2 basamak) sezgime güvenmediğim için düşündüm (güven 0,69)".
 
 ### G. Düzen bağlamları (deneysel, BAŞARISIZ)
