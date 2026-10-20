@@ -257,7 +257,9 @@ Aynı ajan, yalnızca varsayılan evrende ayarlanmış hâliyle, farklı evren v
 Hayatta kalma üstünlüğü her varyantta ≥8 kat; bulgu varsayılan evrenin ince ayarına bağlı değil.
 
 ## Dürüst sınırlar
-- Öznel deneyim kanıtı yoktur ve bu sistem onu iddia etmez. Sonuçlar işlevsel göstergelerdir.
+- Öznel deneyim kanıtı yoktur ve bu sistem onu iddia etmez. Sonuçlar işlevsel göstergelerdir. Anlatıcının "hissediyorum / istiyorum / kendimi yaşayan sayıyorum" gibi
+  birinci tekil sözcükleri **tasarım tercihidir**: her biri belirli bir iç değişkenin (ruh hali, çalışma alanı amacı, beden istatistikleri) adlandırmasıdır; içerik iç durumdan türer ve
+  doğruluk koşulları denetlenir, ancak sözcüklerin kendisi deneyim kanıtı değildir.
 - Ajan sineğin ötesinde bir zekâ değildir: tek basit evren, yerel öğrenme, doğrusal modeller.
 - Şekillendirme olmadan (seyrek ödül) öğrenme başarısızdı; şekillendirmenin yönü artık öğrenilen anlamsal bellekten
   gelse de **büyüklüğü ve "yakınlığa göre potansiyel" biçimi doğuştandır**.
@@ -292,3 +294,24 @@ kayıtlar ve göstergeler tartışmanın zeminini oluşturur.
   denetlenen şablon yan cümleleriyle yapıldı (öğretilmiş öz-tanım cümlesi yok).
 - Torch kuruldu (PyPI); nora_think'in eğitimli beyni repoda olmadığından, küçük düşünce sütunu sıfırdan eğitilerek köprü
   kuruldu.
+
+## Tabloları yeniden üretme (4 çekirdekli makinede yaklaşık süreler)
+```
+python selftest.py --bridge                                              # ~30 sn, tüm bileşenlerin duman testi
+python nora_mind.py --stage compare --steps 60000 --seeds 8 --modes random,full,full-nomap,flat   # A (~20 dk)
+python nora_mind.py --stage compare --steps 60000 --seeds 8 --modes full-noimag,full-noreplay,full-nomodel,full-noctx  # A2 (~20 dk)
+python nora_mind.py --stage compare --steps 60000 --seeds 8 --modes full-sparser,full-dense          # A3 (~10 dk)
+python nora_mind.py --stage compare --steps 60000 --seeds 8 --modes full-flyres,full                 # A4 (~10 dk)
+python nora_mind.py --stage shift --kind poison --steps 80000 --window 1000 --seeds 8 --modes full,full-nogrow   # B (~30 dk)
+python nora_mind.py --stage introspect --steps 30000 --log 6000 --trials 30                        # C (~6 dk)
+python nora_mind.py --stage narrate --seed 1 --steps 20000 --log 12000 --trials 20                 # D (~2 dk/tohum)
+python nora_mind.py --stage transfer --steps 30000 --seeds 6 --window 1000                         # E (~6 dk)
+python nora_bridge.py --steps 40000 --window 4000 --boot-iters 2500 --sleep-every 12               # F (~8 dk)
+python nora_mind.py --stage testimony --steps 30000 --seeds 6 --seed0 200 --window 750 --arena 48 # H2 (tohum aralığı başına ~13 dk)
+python nora_mind.py --stage alive --steps 4000 --seeds 8                                           # I (~1 dk)
+python nora_mind.py --stage combo --steps 15000 --trials 8; python nora_mind.py --stage lead --steps 12000 --trials 30   # J, K
+python nora_mind.py --stage conflict --steps 25000 --seeds 8 --trials 15 --modes full,flat,random  # L (~10 dk)
+python nora_mind.py --stage robust --steps 40000 --seeds 6                                         # M (~10 dk)
+python nora_mind.py --stage demo --steps 9000 --seed 5                                            # insan-okunur yaşam öyküsü
+```
+Tohum gürültüsü yüksektir (ölümler seyrek olaylar): tek bir koşunun sayıları ±birkaç kat oynayabilir; iddialar mümkün olduğunda 2+ bağımsız koşu veya eşleştirilmiş tasarımla desteklenmiştir.
