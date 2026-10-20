@@ -15,6 +15,7 @@ Koşullar (yalnızca bilgi akışı farklı):
   gw        modüler + yayın            (özel bilgi + yayınlanan içerik birleşir)
   yalıtık   modüler, yayın YOK         (her uzman yalnız kendi bilgisini görür; kazanan-hepsini-alır amaç seçimi)
   karışım   modüler, yayın YOK, kazanan YOK (acil durum ağırlıklı toplam)
+  gw_sahte  modüler + yayın var ama içerik YANLIŞ (başka uzmanın algısı): yayının İÇERİĞİ gerekli mi?
   monolit   tek uzman, tüm algıyı tek kodda görür (üst sınır: birleştirme zaten mümkün)
 Görev: yiyeceğin tehlike bölgesinin KENDİ kenarına konduğu evren (food_haz). Doğru yaklaşma tarafı = f(yiyecek yönü, tehlike yönü): bir KONJONKSİYON.
 Toplamsal ayrık uzmanlar bunu temsil edemez; yayınla alıcı uzman (tehlike) 'yiyecek şurada' bilgisini kendi tehlike bilgisiyle birleştirir.
@@ -63,7 +64,7 @@ class Agent:
             self.n_in = [9 * 4 + 3 + 1 + 2 + 2]
         else:
             base = [Universe.R + 1, Universe.R + 1, Universe.R + 2, Universe.R + 4]
-            self.n_in = [b + (self.bc_dim if cond == "gw" else 0) for b in base]
+            self.n_in = [b + (self.bc_dim if cond in ("gw", "gw_sahte") else 0) for b in base]
         self.J = len(self.n_in)
         self.mb = [LobedMushroomBody([np.arange(n)], n_per=n_per, claws=claws, cap_frac=0.15, seed=seed * 31 + j, thr_range=(0.05, 0.9))
                    for j, n in enumerate(self.n_in)]
@@ -82,10 +83,11 @@ class Agent:
                       obs[Universe.I_COMPASS:Universe.I_COMPASS + 2], obs[Universe.I_SPEED:Universe.I_SPEED + 2]]
             c = [self.mb[0].kc(x.astype(np.float32))]
             return [c for _ in range(self.G)]
-        if self.cond == "gw":
+        if self.cond in ("gw", "gw_sahte"):
             out = []
             for k in range(self.G):
-                bc = np.r_[np.eye(3)[k], P[k][:Universe.R]]          # yayın: amaç kimliği + amacın kendi algısı
+                src = k if self.cond == "gw" else (k + 1) % 3      # sahte: YANLIŞ uzmanın algısı yayınlanır (içerik denetimi)
+                bc = np.r_[np.eye(3)[k], P[src][:Universe.R]]          # yayın: amaç kimliği + amacın kendi algısı
                 out.append([self.mb[j].kc(np.r_[P[j], bc].astype(np.float32)) for j in range(self.J)])
             return out
         c = [self.mb[j].kc(P[j].astype(np.float32)) for j in range(self.J)]
