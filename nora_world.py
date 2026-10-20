@@ -36,7 +36,8 @@ class Universe:
     OBS_DIM = R * 5 + 3 + 2 + 1 + 1 + 2     # 45 görme | 3 iç duyu | 2 hız | 1 dokunma | 1 ışık | 2 pusula
     I_RAYS, I_INTERO, I_SPEED, I_TOUCH, I_LIGHT, I_COMPASS = 0, 45, 48, 50, 51, 52
 
-    def __init__(self, seed=0, size=24.0, n_food=14, dt=0.25, day_len=600, wind=True, n_term=0, metabolism=True):
+    def __init__(self, seed=0, size=24.0, n_food=14, dt=0.25, day_len=600, wind=True, n_term=0, metabolism=True, food_haz=0.0):
+        self.food_haz = food_haz                              # yiyeceğin tehlike bölgesinin kenarına konma olasılığı (konjonktif görev: yiyeceğe yaklaşma tarafı tehlikeye bağlı)
         self.rng = np.random.default_rng(seed)
         self.L, self.dt, self.day_len, self.wind_on = float(size), dt, day_len, wind
         self.A, self.fric, self.turn = 4.0, 2.0, 0.40       # itiş ivmesi, sürtünme, dönüş açısı
@@ -83,6 +84,13 @@ class Universe:
                 self.food[i] = self._spawn_food()
 
     def _spawn_food(self):
+        if self.food_haz > 0 and self.rng.random() < self.food_haz:
+            for _ in range(20):
+                c = self.haz_c[self.rng.integers(len(self.haz_c))]
+                a = self.rng.uniform(0, 2 * np.pi)
+                p = c + (self.zone_h + 0.55) * np.array([np.cos(a), np.sin(a)])
+                if np.all((p > 1.0) & (p < self.L - 1.0)):
+                    return p
         while True:
             p = self.rng.uniform(1.0, self.L - 1.0, 2)
             if np.all(np.hypot(*(self.haz_c - p).T) > self.zone_h + 1.5):
