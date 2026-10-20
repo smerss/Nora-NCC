@@ -60,7 +60,8 @@ class Agent:
         self.cond, self.rng, self.gamma, self.lr = cond, np.random.default_rng(seed), gamma, lr
         self.G = 3                                       # öğrenen amaçlar: yiyecek, su, tehlike
         self.bc_dim = 3 + Universe.R                     # amaç kimliği (one-hot) + amacın kendi algısı (9 ışın)
-        if cond == "monolit":
+        if cond.startswith("monolit"):
+            n_per, claws = {"monolit": (700, 4), "monolit_eş": (2800, 4), "monolit_2x": (5600, 6)}[cond]   # eş: toplam KC sayısı gw ile eşit; 2x: iki katı
             self.n_in = [9 * 4 + 3 + 1 + 2 + 2]
         else:
             base = [Universe.R + 1, Universe.R + 1, Universe.R + 2, Universe.R + 4]
@@ -77,7 +78,7 @@ class Agent:
     def codes(self, obs):
         """cod[k][j] = j. uzmanın amaç k için seyrek kodu (yayına bağlıysa k'ya bağlı)."""
         P = privates(obs)
-        if self.cond == "monolit":
+        if self.cond.startswith("monolit"):
             r = obs[:45].reshape(Universe.R, 5)
             x = np.r_[r[:, 1], r[:, 2], r[:, 3], r[:, 0], 1.0 - obs[I_E:I_I + 1], obs[Universe.I_TOUCH],
                       obs[Universe.I_COMPASS:Universe.I_COMPASS + 2], obs[Universe.I_SPEED:Universe.I_SPEED + 2]]

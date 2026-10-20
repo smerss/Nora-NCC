@@ -530,6 +530,12 @@ class CognitiveMap:
         return dict(water=self.water, hurt=self.hurt, last=self.last)
 
 
+class GoalCodes(list):
+    """Amaç başına seyrek kod listesi (modüler uzmanlar + yayın): kod[k] = amaç k için tüm uzmanların KC indeksleri."""
+    def copy(self):
+        return GoalCodes([a.copy() for a in self])
+
+
 class SelfForecast:
     """ÖZ-ÖNGÖRÜ (ileri model) + TAAHHÜT. Ajan bir amaca ATEŞLEDİĞİNDE bir NİYET açar: (amaç, başlangıç, öngörülen süre T̂).
     T̂, o andaki ölçülebilir iç/harita özelliklerinden (ihtiyaç açığı, haritadaki yol uzunluğu, kaynağın görünürlüğü) çevrimiçi öğrenilen
@@ -609,7 +615,7 @@ class SelfForecast:
 
 
 class Mind:
-    def __init__(self, mode="full", seed=0, n_kc=3000, n_res=96, gamma=0.95, lr=0.25, self_model=True, shape=2.0, ctx=True, use_map=True, grow=True, model=True, imag=True, replay=True, maplayouts=False, anchor=False, landmark=False, arena=24.0, kc_cap=0.12, kc_thr=(0.04, 0.9), reservoir="random", perc_sem=True, report_loop=False, stakes=0.0, forecast=True, self_correct=False, commit=0.0):
+    def __init__(self, mode="full", seed=0, n_kc=3000, n_res=96, gamma=0.95, lr=0.25, self_model=True, shape=2.0, ctx=True, use_map=True, grow=True, model=True, imag=True, replay=True, maplayouts=False, anchor=False, landmark=False, arena=24.0, kc_cap=0.12, kc_thr=(0.04, 0.9), reservoir="random", perc_sem=True, report_loop=False, stakes=0.0, forecast=True, self_correct=False, commit=0.0, modular=False, broadcast=True):
         self.mode, self.rng, self.gamma, self.lr = mode, np.random.default_rng(seed), gamma, lr
         self.use_sm, self.shape, self.ctx, self.use_map = self_model, shape, ctx, use_map
         self.grow, self.use_model, self.use_imag, self.use_replay, self.use_anchor = grow, model, imag, replay, anchor
@@ -634,6 +640,16 @@ class Mind:
         self.mb = LobedMushroomBody(groups, n_per=n_kc // len(groups), seed=seed, cap_frac=kc_cap, thr_range=kc_thr)
         n_kc = self.mb.n_kc
         self.n_kc = n_kc
+        self.modular, self.broadcast = modular, broadcast
+        if modular:                                              # ÇALIŞMA ALANI MİMARİSİ: uzmana özgü özel girdi + KENDİ kodu; yayın içeriği alıcı kodlarına girer (bkz. nora_gw.py)
+            self.n_priv = [Universe.R, Universe.R, Universe.R + 1, 2 * Universe.R + 2]
+            self.bc_dim = 3 + Universe.R
+            per = max(40, n_kc // (4 * 2))
+            self.msp = [LobedMushroomBody([np.arange(npv + self.bc_dim), np.arange(npv + self.bc_dim, npv + self.bc_dim + self.n_ctx)],
+                                          n_per=per, claws=4, seed=seed * 17 + j, cap_frac=kc_cap, thr_range=kc_thr)
+                        for j, npv in enumerate(self.n_priv)]
+            self.moff = np.cumsum([0] + [mb.n_kc for mb in self.msp])
+            self.n_kc = int(self.moff[-1])
         # --- süreklilik: tekrarlayan durum (HİÇ sıfırlanmaz)
         self.n_res, self.alpha = n_res, 0.3
         self.n_B = len(SPEC) + 1 + 1 + n_act + 1                         # yayın vektörü boyutu
@@ -701,7 +717,7 @@ class Mind:
         for pidx, pa, r, idx, dead in self.epi.replay_batch(self.rng, n, self.cur):
             qn = self._q(idx).max(1) if not dead else np.zeros(len(SPEC), np.float32)
             delta = np.clip(r + self.gamma * qn - self._q(pidx)[:, pa], -3.0, 3.0)
-            self.Wq[:, pa, pidx] += (self.lr * delta / max(1, len(pidx)))[:, None]
+            self._td_update(pidx, pa, delta)
 
     def _learn_world(self, obs):
         """Dünya modeli: eylem başına doğrusal egosantrik dönüşüm, özyinelemeli en küçük kareler (RLS)."""
@@ -849,7 +865,37 @@ class Mind:
         return np.clip((sc - sc.mean()) / (sc.std() + 0.05), -2.0, 2.0)
 
     def _q(self, idx):
+        if isinstance(idx, GoalCodes):
+            return np.stack([self.Wq[k][:, idx[k]].sum(1) for k in range(len(SPEC))])
         return self.Wq[:, :, idx].sum(2)                 # (uzman, eylem)
+
+    def _td_update(self, pidx, pa, delta):
+        if isinstance(pidx, GoalCodes):
+            for k in range(len(SPEC)):
+                self.Wq[k, pa, pidx[k]] += self.lr * delta[k] / max(1, len(pidx[k]))
+        else:
+            self.Wq[:, pa, pidx] += (self.lr * delta / max(1, len(pidx)))[:, None]
+
+    def _codes(self, obs):
+        """Modüler uzmanların amaç-koşullu kodları. Özel girdiler başka uzmanın bilgisini içermez; yayın_k = amaç kimliği + amacın kendi algısı."""
+        r = obs[:45].reshape(Universe.R, 5)
+        priv = [r[:, 1], r[:, 2], np.r_[r[:, 3], obs[Universe.I_TOUCH]], np.r_[r[:, 0], r[:, 4], obs[Universe.I_SPEED:Universe.I_SPEED + 2]]]
+        hc = np.clip(3.0 * np.abs(self.h[:self.n_ctx]), 0, 1)
+        use_bc = self.broadcast and self.mode == "full"
+        out, zero = [], None
+        for k in range(len(SPEC)):
+            if use_bc and k < 3:
+                bc = np.r_[np.eye(3)[k], r[:, k + 1]]
+            else:
+                bc = np.zeros(self.bc_dim)
+            if not (use_bc and k < 3) and zero is not None:
+                out.append(zero)
+                continue
+            code = np.concatenate([self.msp[j].kc(np.r_[priv[j], bc, hc].astype(np.float32)) + self.moff[j] for j in range(4)])
+            if not (use_bc and k < 3):
+                zero = code
+            out.append(code)
+        return GoalCodes(out)
 
     def _urgency(self, obs):
         rays = obs[:45].reshape(Universe.R, 5)
@@ -906,7 +952,9 @@ class Mind:
                 self.sensor_bias = None
         # ---------- algı: seyrek kod + yenilik
         idx = self.mb.kc(np.concatenate([np.abs(obs), np.clip(3.0 * np.abs(self.h[:self.n_ctx]), 0, 1)]))
-        nov = self.mb.novelty(idx)
+        nov = self.mb.novelty(idx)                                     # yenilik her zaman tek (bütünsel) kodla ölçülür
+        if self.modular:
+            idx = self._codes(obs)
         H = self._H(obs)
         if self.use_map:
             self.map.update(obs, self.prev[2] if self.prev is not None else None, died, self.age)
@@ -929,7 +977,7 @@ class Mind:
             delta = np.clip(r + self.gamma * qn - self._q(pidx)[:, pa], -3.0, 3.0)
             tr = (pidx, pa, r.copy(), idx.copy(), died)
             if not self.freeze:
-                self.Wq[:, pa, pidx] += (self.lr * delta / max(1, len(pidx)))[:, None]
+                self._td_update(pidx, pa, delta)
                 self.ctxs[self.cur]["n"] += 1
         # ---------- öz-model: önceki öngörüyü gerçekle karşılaştır; bağlam çıkarımı
         yv = self._bodyvec(obs)
@@ -1239,6 +1287,15 @@ def stage_run(args):
         print("kaydedildi:", args.save)
 
 
+def _world_kw(args):
+    kw = {}
+    if args.nfood:
+        kw.update(size=float(args.size), n_food=args.nfood)
+    if getattr(args, "food_haz", 0.0) > 0:
+        kw.update(food_haz=args.food_haz)
+    return kw
+
+
 SHIFT = False
 SHIFT_KIND = "invert"
 WORLD_KW = {}
@@ -1264,8 +1321,8 @@ def _one(job):
         kw.update(kc_cap=1.0, kc_thr=(0.0, 0.25))
     kw = dict(kw, ctx=("noctx" not in flags), self_model=("nosm" not in flags), use_map=("nomap" not in flags),
               grow=("nogrow" not in flags), model=("nomodel" not in flags), imag=("noimag" not in flags),
-              replay=("noreplay" not in flags), perc_sem=("nopsem" not in flags), stakes=(0.3 if "stakes" in flags else 0.0), self_correct=("correct" in flags), commit=(0.2 if "commit" in flags else 0.0), report_loop=("loop" in flags), maplayouts=("mapctx" in flags), anchor=("anchor" in flags), landmark=("landmark" in flags))
-    if WORLD_KW:
+              replay=("noreplay" not in flags), perc_sem=("nopsem" not in flags), stakes=(0.3 if "stakes" in flags else 0.0), self_correct=("correct" in flags), modular=("modular" in flags), broadcast=("nobc" not in flags), commit=(0.2 if "commit" in flags else 0.0), report_loop=("loop" in flags), maplayouts=("mapctx" in flags), anchor=("anchor" in flags), landmark=("landmark" in flags))
+    if WORLD_KW.get("size"):
         kw["arena"] = WORLD_KW["size"]
     world, mind = Universe(seed=seed, **WORLD_KW), Mind(mode=base, seed=seed, **kw)
     return mode, seed, live(mind, world, steps, window=window, verbose=False, events=_SHIFT_EVENTS(steps) if SHIFT else None)
@@ -1274,8 +1331,7 @@ def _one(job):
 def stage_compare(args):
     """Aynı evren/tohumlarda modlar yan yana. Son %40 pencerelerin ortalaması (öğrenmenin oturduğu bölge)."""
     global WORLD_KW
-    if args.nfood:
-        WORLD_KW = dict(size=float(args.size), n_food=args.nfood)
+    WORLD_KW = _world_kw(args)
     from multiprocessing import Pool
     modes = args.modes.split(",")
     seeds = list(range(args.seeds))
@@ -1306,8 +1362,7 @@ def stage_shift(args):
     global SHIFT, SHIFT_KIND, WORLD_KW
     from multiprocessing import Pool
     SHIFT, SHIFT_KIND = True, args.kind
-    if args.nfood:
-        WORLD_KW = dict(size=float(args.size), n_food=args.nfood)
+    WORLD_KW = _world_kw(args)
     modes = args.modes.split(",")
     seeds = list(range(args.seeds))
     jobs = [(m, s, args.steps, args.window, {}) for m in modes for s in seeds]
@@ -2198,6 +2253,7 @@ def main():
     ap.add_argument("--no-sm", action="store_true")
     ap.add_argument("--size", type=float, default=24.0)
     ap.add_argument("--nfood", type=int, default=0)
+    ap.add_argument("--food-haz", type=float, default=0.0)
     ap.add_argument("--no-ctx", action="store_true")
     ap.add_argument("--every", type=int, default=3000)
     ap.add_argument("--seed0", type=int, default=0)
