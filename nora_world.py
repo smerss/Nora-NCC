@@ -62,6 +62,7 @@ class Universe:
         self.wind_left, self.wind_f = 0, np.zeros(2)
         self.lives, self.touch = 0, 0.0
         self.poison = False                                  # kural değişimi 2: yiyecek zehirli (değer tersine döner)
+        self.swap = False                                    # algısal yeniden eşleme ('ters gözlük'): yiyecek/su/tehlike kanalları döner
         self.invert = False                                  # kural değişimi: sağ/sol kumanda ters (duyu-motor yeniden eşleme)
         self._respawn()
 
@@ -122,6 +123,8 @@ class Universe:
             dist = np.where(hit, t - np.sqrt(np.maximum(disc, 0.0)), np.inf)
             dist = np.where((c2 < rad * rad)[None, :], 0.0, np.maximum(dist, 0.0))
             out[:, ch] = np.clip(1 - dist.min(1) / vis, 0, 1)
+        if self.swap:
+            out[:, 1:4] = out[:, [2, 3, 1]]                   # yiyecek görünümü=su, su=tehlike, tehlike=yiyecek
         return out, vis
 
     def observe(self):
@@ -202,6 +205,8 @@ class Universe:
         if np.any(np.hypot(*(self.water_c - self.pos).T) < self.zone_w):
             gain = min(0.06, 1.0 - self.w)
             self.w, info["drank"] = self.w + gain, gain
+            if self.poison:                                  # zehirli evrende hayatta kalmanın yolu: su bölgesi az da olsa enerji verir
+                self.e = min(1.0, self.e + 0.03)
         if np.any(np.hypot(*(self.haz_c - self.pos).T) < self.zone_h):
             self.i -= 0.05
             info["hurt"] = 0.05
