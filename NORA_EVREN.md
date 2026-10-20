@@ -168,6 +168,19 @@ Tasarım: açık niyet, çalışma alanı yarışmasında bir **geçiş maliyeti
 - **Çalışmayan:** hayatta kalma farkı yok (ölüm/1k eşit düzeyde), yani verimlilik kazancı henüz ölümlere yansımıyor. Plan kriteri (3) 'rapor sonraki davranışı bağlar' **mimari olarak** sağlandı ve nedensel olarak doğrulandı; 'rapora bağlı davranışın işlevsel üstünlüğü' ise hâlâ kanıtlanmadı.
 - Sonuçlar 4 tohum. Taahhüt varsayılan değil (`-commit`).
 
+### B6. Çalışma alanı gerçekten gerekli mi? (`nora_gw.py` — kontrollü sınama tezgâhı, 6 tohum, 60 bin adım)
+Tasarım: 4 modüler uzman; her biri yalnızca KENDİ özel algısını ve KENDİ seyrek kodunu görür (yiyecek / su / tehlike / duvar-hareket). Amaç k için değer Q_k = Σ_j Q_j[k](a | kod_j(özel_j, yayın_k)); yayın_k = amaç kimliği + o amacın kendi algısı.
+Hepsinde aynı sinir bütçesi ve aynı TD öğrenme kuralı; **yalnızca bilgi akışı değişir.** Görev: yiyeceğin tehlike bölgesinin kenarına konduğu evren (`food_haz`): doğru yaklaşma tarafı hem yiyecek hem tehlike yönüne bağlı (konjonksiyon).
+| koşul | ölüm/1k (konjonksiyon var) | konfor | ölüm/1k (kontrol: konjonksiyon yok) |
+|---|---|---|---|
+| **gw** (modüler + doğru yayın) | **0,28 ± 0,08** | 0,595 | 0,19 ± 0,06 |
+| gw_sahte (yayın var, içerik YANLIŞ) | 0,62 ± 0,21 | 0,542 | 0,22 ± 0,07 |
+| yalıtık (yayın yok) | 0,93 ± 0,22 | 0,477 | 0,46 ± 0,16 |
+| monolit (tek kod, tüm algı) | 1,06 ± 0,19 | 0,424 | 0,72 ± 0,15 |
+- **Ablasyon:** yayın kapatılınca ölüm 0,28 → 0,93 (≈3,3×), konfor 0,595 → 0,477. Aynı mimari, aynı bütçe: tek fark bilgi akışı. Kuramın istediği ölçüt (çalışma alanı kapanınca performans düşer) **bu tezgâhta karşılandı.**
+- **İçerik denetimi:** yanlış içerikli yayın doğru yayından anlamlı kötü (0,62 vs 0,28): fayda yalnızca 'yayın var' olmasından değil, *içeriğin birleştirilmesinden* geliyor (konjonksiyon dünyasında).
+- **Dürüst sınırlar:** (1) Konjonksiyonsuz kontrolde gw ≈ gw_sahte (0,19 vs 0,22) ama ikisi de yalıtıktan iyi (0,46): orada kazancın büyük kısmı içerik-bağımsız (amaç kimliğine koşullu, daha zengin kod) — yani toplam avantajın bir parçası genel kapasite etkisi. (2) Tek kodlu 'monolit' beklenen üst sınır değil, en kötü çıktı: 44 girdiyi tek seyrek koda sıkıştırmak ayrıştırma gücünü düşürüyor; bu yüzden 'gw ≥ monolit' ilkesel bir üstünlük olarak okunmamalı. (3) Bu bir tezgâh: ana ajana (`Mind`) entegre edilmedi; Mind'daki çalışma alanı hâlâ 'karışımdan üstün değil'. Entegrasyon (uzmana özgü kodlar) büyük yeniden yapılandırma, sırada.
+
 ### C. Topraklanmış iç gözlem ve nedensel doğrulama (30 bin adım eğitimli ajan, n=30 deneme)
 Etki d = hedef özelliğin raporlanan kayması / aynı denemenin müdahalesiz kendi sapması. "Papağan" aynı ajanın
 dışarıdan gözlenebilir dünya girdisinden raporu taklit etmeyi öğrenen sınıflandırıcıdır (iç duruma erişimi yok).
