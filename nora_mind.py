@@ -220,6 +220,32 @@ class Narrator:
         parts.extend(self.rules(mind))
         return "; ".join(parts) + "."
 
+    def autobiography(self, mind, n=3):
+        """OTOBİYOGRAFİ: geçmiş kararlar GEREKÇESİYLE (hangi ihtiyaç/itki yola çıkardı), öngörüsüyle ve sonucuyla. Her cümle bir karar kaydından türer."""
+        names = ("yemek", "su", "tehlikeden kaçmak")
+        out = []
+        for e in [x for x in mind.fc.log if x["outcome"] is not None and x["need"][x["goal"]] > 0.25][-n:]:     # yalnızca esaslı kararlar (ihtiyaç belirgin)
+            g = e["goal"]
+            res = {"sonuç": "%d adımda ulaştım" % (e["y"] or 0), "terk": "vazgeçtim (%d adım sonra)" % (e["t1"] - e["t0"]), "öldü": "öldüm"}[e["outcome"]]
+            out.append(dict(kind="otobiyografi", claim=(e["t0"], g, e["outcome"]), basis=e["t0"],
+                            text="t=%d: %s için yola çıktım (gerekçe: açık %.2f, itki %.2f; öngörüm %d adım) -> %s" %
+                                 (e["t0"], names[g], e["need"][g], e["urg"][g] if len(e["urg"]) > g else 0.0, round(e["T"]), res)))
+        return out
+
+    def conflict(self, mind):
+        """ÇELİŞKİ: şimdiki öngörü, benzer geçmiş yolculukların deneyimiyle uyuşmuyorsa söyle."""
+        fc = mind.fc
+        if fc is None or fc.open is None or not fc.log:
+            return None
+        e = fc.log[-1]
+        if e["outcome"] is not None or e["precedent"] is None:
+            return None
+        r = e["T"] / max(1.0, e["precedent"])
+        if r > 2.0 or r < 0.5:
+            return dict(kind="çelişki", claim=(e["t0"], e["goal"]), basis=e["t0"],
+                        text="çelişki: şimdi %d adım bekliyorum ama benzer %d yolculukta ortalama %d adım sürdü" % (round(e["T"]), e["n_prec"], round(e["precedent"])))
+        return None
+
     def rules(self, mind):
         """Kural tanıklığı: bağlamın öğrendiği anlamsal sonuç belleği (şey X beden için ne yapar) — yalnızca yeterince gözlemlenmişse."""
         c = mind.ctxs[mind.cur]
@@ -557,6 +583,8 @@ class SelfForecast:
         self.scale = 1.0                                     # müdahale: sahte öngörü çarpanı (nedensel sınama)
         self.boost = 0
         self.gap = 0
+        self.cool = {0: 0, 1: 0}                             # sonuçtan sonra aynı amaçta yeni niyet açmadan önce bekleme (aynı olayı tekrar saymamak için)
+        self.log = []                                        # OTOBİYOGRAFİ: karar kayıtları (ne yaptım, neden, ne oldu)
 
     @staticmethod
     def feats(mind, obs, k):
@@ -575,9 +603,16 @@ class SelfForecast:
         self.w[k] = self.w[k] + g * (np.log(y + 1.0) - self.w[k] @ x)
         self.P[k] = (P - np.outer(g, Px)) / 0.995
 
-    def step(self, mind, obs, pobs):
+    def precedent(self, goal, need, tol=0.15, k=5):
+        """Benzer geçmiş yolculukların (aynı amaç, benzer ihtiyaç düzeyi) süre ortancası, ya da None."""
+        ys = [e["y"] for e in self.log if e["goal"] == goal and e["outcome"] == "sonuç" and abs(e["need"][goal] - need) < tol]
+        return (float(np.median(ys[-k:])), len(ys)) if len(ys) >= 3 else (None, len(ys))
+
+    def step(self, mind, obs, pobs, died=False):
         """Her adımda: sonuç oldu mu? niyet açık mı/gecikti mi? Yeni ateşlemede niyet aç."""
         t = mind.age
+        if died and self.open is not None and self.log and self.log[-1]["outcome"] is None:
+            self.log[-1].update(outcome="öldü", t1=t)
         k = mind.goal
         self.gap = self.gap + 1 if (self.open is not None and k != self.open["goal"]) else 0
         if self.open is not None:
@@ -587,9 +622,14 @@ class SelfForecast:
                 y = t - self.open["t0"]
                 self.records.append((g, self.open["T"], y, self.open["f"]))
                 self.learn(g, self.open["f"], y)
+                if self.log and self.log[-1]["outcome"] is None:
+                    self.log[-1].update(outcome="sonuç", t1=t, y=y)
+                self.cool[g] = t + 25
                 self.open, self.overdue = None, False
             elif k != g and self.gap >= 6:                   # terk edildi (başka amaç 6 adım üst üste kazandı; kısa titreme sayılmaz)
                 self.n_abandon += 1
+                if self.log and self.log[-1]["outcome"] is None:
+                    self.log[-1].update(outcome="terk", t1=t)
                 self.open, self.overdue = None, False
             else:
                 late = (t - self.open["t0"]) > max(40.0, 1.7 * self.open["T"])
@@ -599,9 +639,15 @@ class SelfForecast:
                     if self.correct:
                         mind.map.target.pop(g, None)         # yeniden planla
                         self.boost = 40                      # merak: yeni bir yere bak
-        if self.open is None and k in self.GOALS and mind.ignited:
+        if self.open is None and k in self.GOALS and mind.ignited and t >= self.cool.get(k, 0):
             f = self.feats(mind, obs, k)
             self.open = dict(goal=k, t0=t, T=self.predict(k, f), f=f)
+            why = getattr(mind, "_why", None) or {}
+            need = np.array([1.0 - obs[I_E], 1.0 - obs[I_W], 1.0 - obs[I_I]])
+            pm, pn = self.precedent(k, float(need[k]))
+            self.log.append(dict(t0=t, goal=k, T=self.open["T"], T_prec=(float(np.exp(0.5 * np.log(self.open["T"] + 1) + 0.5 * np.log(pm + 1)) - 1) if pm else None),
+                                 precedent=pm, n_prec=pn, need=need, urg=np.array(why.get("urg", np.zeros(4))), sal=np.array(why.get("sal", np.zeros(4))),
+                                 pos=mind.map.pos.copy(), ctx=mind.cur, outcome=None, t1=None, y=None))
         self.boost = max(0, self.boost - 1)
 
     def stats(self, last=None):
@@ -1140,7 +1186,8 @@ class Mind:
             self.goal = win if self.ignited else -1
             logits = proposal(win) if self.ignited else PRIOR.copy()
         if self.fc is not None and self.mode == "full":
-            self.fc.step(self, obs, self.prev[2] if self.prev is not None else None)
+            self._why = dict(urg=urg.copy(), sal=sal.copy())
+            self.fc.step(self, obs, self.prev[2] if self.prev is not None else None, died=died)
         if self.use_map and self.use_anchor and self.map.unc > 0.3 and self.mode != "random":
             # KAYBOLDUM (öz-bilgi davranışı yönlendirir): konumumdan emin değilim -> en yakın duvara yönel, kendimi yeniden çapala
             P0, Lw = self.map.pos, self.map.L
@@ -2259,9 +2306,73 @@ def stage_commit(args):
     return out
 
 
+def _autobio_job(job):
+    seed, steps, wkw = job
+    w = Universe(seed=seed, **wkw)
+    kw = dict(arena=wkw["size"]) if wkw.get("size") else {}
+    mind = Mind(seed=seed, commit=0.2, **kw)
+    obs, died = w.observe(), False
+    ate_t, drink_t, death_t = [], [], []
+    for t in range(1, steps + 1):
+        obs, info = w.step(mind.act(obs, died))
+        died = info["died"] is not None
+        if info["ate"] > 0 or (obs[I_E] - mind.last_obs[I_E] > 0.05):
+            ate_t.append(mind.age)
+        if info["drank"] > 0:
+            drink_t.append(mind.age)
+        if died:
+            death_t.append(mind.age)
+    L = [e for e in mind.fc.log if e["outcome"] is not None]
+    ok = tot = 0
+    for e in L:                                                  # DOĞRULUK: kayıtlı sonuç, dünyanın gerçek olayıyla örtüşüyor mu?
+        if e["outcome"] == "sonuç":
+            ev = ate_t if e["goal"] == 0 else drink_t
+            ok += any(abs(e["t1"] - x) <= 2 for x in ev); tot += 1
+        elif e["outcome"] == "öldü":
+            ok += any(abs(e["t1"] - x) <= 3 for x in death_t); tot += 1
+    R = [e for e in L if e["outcome"] == "sonuç" and e["need"][e["goal"]] > 0.25]
+    P = [e for e in R if e["T_prec"] is not None]
+    mae = lambda key, S: float(np.mean([abs(e[key] - e["y"]) for e in S])) if S else float("nan")
+    conf = [e for e in P if e["T"] / max(1.0, e["precedent"]) > 2.0 or e["T"] / max(1.0, e["precedent"]) < 0.5]
+    nonc = [e for e in P if e not in conf]
+    nar = Narrator()
+    before = [c["text"] for c in nar.autobiography(mind, 3)]
+    # dış müdahale: dünya değişir (yeniden düzen) -> GEÇMİŞ anlatı değişmemeli
+    w.relayout(2)
+    after_world = [c["text"] for c in nar.autobiography(mind, 3)]
+    # iç müdahale: belleğin yarısı silinir -> anlatı değişmeli/azalmalı
+    n_before = len(mind.fc.log)
+    mind.fc.log = mind.fc.log[: n_before // 2]
+    after_wipe = [c["text"] for c in nar.autobiography(mind, 3)]
+    return dict(n=len(L), verified=ok / max(1, tot), mae_plain=mae("T", P), mae_prec=mae("T_prec", P), n_prec=len(P),
+                mae_conf=mae("T", conf), mae_nonconf=mae("T", nonc), n_conf=len(conf),
+                world_same=(before == after_world), wipe_changed=(before != after_wipe), sample=before[:2])
+
+
+def stage_autobio(args):
+    """OTOBİYOGRAFİ (aşama 4): (1) kayıtlı kararlar dünyanın gerçek olaylarıyla örtüşüyor mu (doğruluk); (2) geçmiş kararlara başvurmak (emsal) öngörüyü iyileştiriyor mu;
+    (3) emsalle çelişen öngörüler gerçekten daha mı hatalı (çelişki sinyali anlamlı mı); (4) dış müdahale geçmişi değiştirmiyor, iç müdahale (bellek silme) değiştiriyor."""
+    from multiprocessing import Pool
+    wkw = _world_kw(args)
+    jobs = [(s, args.steps, wkw) for s in range(args.seed0, args.seed0 + args.seeds)]
+    with Pool(min(len(jobs), os.cpu_count() or 1)) as pool:
+        out = pool.map(_autobio_job, jobs)
+    f = lambda k: np.nanmean([o[k] for o in out])
+    print("otobiyografi | %d adım | %d tohum" % (args.steps, args.seeds))
+    print("  kayıtlı karar %.0f | dünya olayıyla doğrulanan %.2f" % (f("n"), f("verified")))
+    print("  emsale başvurma (n=%.0f): öngörü MAE sade %.1f -> emsalli %.1f" % (f("n_prec"), f("mae_plain"), f("mae_prec")))
+    print("  çelişki (n=%.0f): çelişkili öngörülerde MAE %.1f | çelişkisiz %.1f" % (f("n_conf"), f("mae_conf"), f("mae_nonconf")))
+    print("  dış müdahale (dünya değişti): geçmiş anlatı değişmedi %d/%d | iç müdahale (bellek yarı silindi): anlatı değişti %d/%d" %
+          (sum(o["world_same"] for o in out), len(out), sum(o["wipe_changed"] for o in out), len(out)))
+    for o in out[:1]:
+        for s in o["sample"]:
+            print("   örnek:", s)
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", choices=["run", "compare", "shift", "introspect", "narrate", "transfer", "demo", "testimony", "alive", "combo", "lead", "conflict", "robust", "rule", "culture", "loop", "forecast", "commit"], default="run")
+    ap.add_argument("--stage", choices=["run", "compare", "shift", "introspect", "narrate", "transfer", "demo", "testimony", "alive", "combo", "lead", "conflict", "robust", "rule", "culture", "loop", "forecast", "commit", "autobio"], default="run")
     ap.add_argument("--mode", choices=["full", "flat", "random"], default="full")
     ap.add_argument("--steps", type=int, default=30000)
     ap.add_argument("--window", type=int, default=5000)
@@ -2285,7 +2396,7 @@ def main():
     ap.add_argument("--save", default=None)
     ap.add_argument("--resume", default=None)
     args = ap.parse_args()
-    {"run": stage_run, "compare": stage_compare, "shift": stage_shift, "introspect": stage_introspect, "narrate": stage_narrate, "transfer": stage_transfer, "demo": stage_demo, "testimony": stage_testimony, "alive": stage_alive, "combo": stage_combo, "lead": stage_lead, "conflict": stage_conflict, "robust": stage_robust, "rule": stage_rule, "culture": stage_culture, "loop": stage_loop, "forecast": stage_forecast, "commit": stage_commit}[args.stage](args)
+    {"run": stage_run, "compare": stage_compare, "shift": stage_shift, "introspect": stage_introspect, "narrate": stage_narrate, "transfer": stage_transfer, "demo": stage_demo, "testimony": stage_testimony, "alive": stage_alive, "combo": stage_combo, "lead": stage_lead, "conflict": stage_conflict, "robust": stage_robust, "rule": stage_rule, "culture": stage_culture, "loop": stage_loop, "forecast": stage_forecast, "commit": stage_commit, "autobio": stage_autobio}[args.stage](args)
 
 
 if __name__ == "__main__":
