@@ -1719,9 +1719,64 @@ def stage_lead(args):
     print("  rapor, davranıştan ortalama %.1f adım ÖNCE (davranıştan önce olduğu denemeler: %.2f)" % (d.mean(), np.mean(d > 0)))
 
 
+def _conflict_job(job):
+    mode, seed, train_steps, n_ep = job
+    base, *flags = mode.split("-")
+    w, m = Universe(seed=seed), Mind(mode=base, seed=seed)
+    live(m, w, train_steps, window=train_steps, verbose=False)
+    rng = np.random.default_rng(seed + 999)
+    obs, died = w.observe(), False
+    res = []
+    for ep in range(n_ep):
+        for _ in range(int(rng.integers(40, 120))):              # bölümler arası serbest yaşam
+            obs, info = w.step(m.act(obs, died))
+            died = info["died"] is not None
+        w.e, w.w = float(rng.uniform(0.18, 0.28)), float(rng.uniform(0.18, 0.28))      # İKİ acil ihtiyaç aynı anda
+        w.pos = rng.uniform(2, w.L - 2, 2)
+        t_e = t_w = None
+        dead = False
+        sw = 0
+        last_goal = -2
+        for t in range(1, 701):
+            obs, info = w.step(m.act(obs, died))
+            died = info["died"] is not None
+            if died:
+                dead = True
+                break
+            if m.ignited and m.goal != last_goal and last_goal >= 0:
+                sw += 1
+            if m.ignited:
+                last_goal = m.goal
+            if t_e is None and w.e >= 0.7:
+                t_e = t
+            if t_w is None and w.w >= 0.7:
+                t_w = t
+            if t_e is not None and t_w is not None:
+                break
+        res.append(dict(dead=dead, done=(t_e is not None and t_w is not None), T=(max(t_e, t_w) if (t_e and t_w) else 700), sw=sw))
+    return mode, seed, res
+
+
+def stage_conflict(args):
+    """ÇELİŞEN ACİL İHTİYAÇLAR (çalışma alanının bağlılık iddiası): enerji ve su aynı anda ~0,2'ye düşürülür, rastgele konumdan başlanır;
+    iki ihtiyacı da 0,7'ye çıkarma süresi, başarı (ölmeden) oranı ve hedef geçiş sayısı. Modlar eğitimden sonra aynı bölümlerle sınanır."""
+    from multiprocessing import Pool
+    modes = args.modes.split(",")
+    jobs = [(mo, s, args.steps, args.trials) for mo in modes for s in range(args.seeds)]
+    with Pool(min(len(jobs), os.cpu_count() or 1)) as pool:
+        out = pool.map(_conflict_job, jobs)
+    print("çelişen acil ihtiyaçlar | eğitim %d adım | %d tohum x %d bölüm (700 adım sınırı)" % (args.steps, args.seeds, args.trials))
+    for mo in modes:
+        R = [r for (mm, s, rs) in out if mm == mo for r in rs]
+        print("  %-10s başarı (iki ihtiyaç da giderildi) %.2f | ölüm %.2f | giderme süresi (başarılılarda) %.0f adım | hedef geçişi/bölüm %.1f (n=%d)" %
+              (mo, np.mean([r["done"] for r in R]), np.mean([r["dead"] for r in R]),
+               np.mean([r["T"] for r in R if r["done"]]) if any(r["done"] for r in R) else float("nan"),
+               np.mean([r["sw"] for r in R]), len(R)))
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", choices=["run", "compare", "shift", "introspect", "narrate", "transfer", "demo", "testimony", "alive", "combo", "lead"], default="run")
+    ap.add_argument("--stage", choices=["run", "compare", "shift", "introspect", "narrate", "transfer", "demo", "testimony", "alive", "combo", "lead", "conflict"], default="run")
     ap.add_argument("--mode", choices=["full", "flat", "random"], default="full")
     ap.add_argument("--steps", type=int, default=30000)
     ap.add_argument("--window", type=int, default=5000)
@@ -1740,7 +1795,7 @@ def main():
     ap.add_argument("--save", default=None)
     ap.add_argument("--resume", default=None)
     args = ap.parse_args()
-    {"run": stage_run, "compare": stage_compare, "shift": stage_shift, "introspect": stage_introspect, "narrate": stage_narrate, "transfer": stage_transfer, "demo": stage_demo, "testimony": stage_testimony, "alive": stage_alive, "combo": stage_combo, "lead": stage_lead}[args.stage](args)
+    {"run": stage_run, "compare": stage_compare, "shift": stage_shift, "introspect": stage_introspect, "narrate": stage_narrate, "transfer": stage_transfer, "demo": stage_demo, "testimony": stage_testimony, "alive": stage_alive, "combo": stage_combo, "lead": stage_lead, "conflict": stage_conflict}[args.stage](args)
 
 
 if __name__ == "__main__":
