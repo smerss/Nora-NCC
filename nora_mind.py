@@ -216,7 +216,17 @@ class Narrator:
         for name, arr in (("su", np.maximum(mp.water, 0.5 * mp.wseen)), ("tehlike", np.maximum(mp.hurt / 3.0 * 3.0, mp.seen))):
             for (i, j) in np.argwhere(arr >= 0.45):
                 parts.append("%s (%d, %d) civarında" % (name, int((i + 0.5) * mp.cell), int((j + 0.5) * mp.cell)))
+        parts.extend(self.rules(mind))
         return "; ".join(parts) + "."
+
+    def rules(self, mind):
+        """Kural tanıklığı: bağlamın öğrendiği anlamsal sonuç belleği (şey X beden için ne yapar) — yalnızca yeterince gözlemlenmişse."""
+        c = mind.ctxs[mind.cur]
+        out = []
+        for k, name in enumerate(("yiyecek", "su", "tehlike")):
+            if np.isfinite(c["V"][k]) and c["Vn"][k] >= 3:
+                out.append("kural: %s %+.2f" % (name, float(c["V"][k])))
+        return out
 
     def say(self, mind, obs):
         obs = mind.last_obs if mind.last_obs is not None else obs
@@ -752,13 +762,18 @@ class Mind:
 
     # ------------------------------------------------------------ ana döngü
     def hear(self, text, trust=0.6):
-        """Tanıklığı oku: 'su (x, y) civarında' / 'tehlike (x, y) civarında' cümlelerini haritaya ÖN BİLGİ olarak işle."""
+        """Tanıklığı oku: 'su (x, y) civarında' / 'tehlike (x, y) civarında' (yer) ve 'kural: yiyecek -0.35' (kural) cümlelerini işle."""
         import re
         n = 0
         for what, x, y in re.findall(r"(su|tehlike) \((\d+), (\d+)\) civarında", text):
             c = self.map.cell_of((float(x), float(y)))
             arr = self.map.wseen if what == "su" else self.map.seen
             arr[c] = max(arr[c], trust)                       # duyulan bilgi: orta güven (yeniden görüldükçe oyla pekişir)
+            n += 1
+        for what, val in re.findall(r"kural: (yiyecek|su|tehlike) ([+-]\d+\.\d+)", text):
+            k = {"yiyecek": 0, "su": 1, "tehlike": 2}[what]
+            c = self.ctxs[self.cur]
+            c["V"][k], c["Vn"][k] = float(val), max(c["Vn"][k], 3.0)       # duyulan kural: anlamsal belleğe (güvenle) işlenir
             n += 1
         self.map.target = {}
         return n
@@ -1809,9 +1824,58 @@ def stage_robust(args):
         print("  %-18s %s" % (v, " | ".join(row)))
 
 
+def _rule_job(job):
+    s, cond, steps, T = job
+    nar = Narrator()
+    wA = Universe(seed=s); wA.poison = True
+    A = Mind(seed=s)
+    live(A, wA, steps, window=steps, verbose=False)
+    wN = Universe(seed=s + 50)                                  # normal evrenden bir ajan: YANLIŞ kural verir
+    N = Mind(seed=s + 50)
+    live(N, wN, steps, window=steps, verbose=False)
+    w = Universe(seed=s); w.poison = True
+    B = Mind(seed=1000 + s)
+    heard = 0
+    if cond == "doğru kural":
+        heard = B.hear(" ".join(nar.rules(A)))
+    elif cond == "yanlış kural":
+        heard = B.hear(" ".join(nar.rules(N)))
+    elif cond == "yalnız yerler":
+        heard = B.hear(nar.testimony(A).split("kural:")[0])
+    obs, died = w.observe(), False
+    bites, deaths, starv, emin = 0, 0, 0, 1.0
+    for t in range(1, T + 1):
+        pe = w.e
+        obs, info = w.step(B.act(obs, died))
+        died = info["died"] is not None
+        if died:
+            deaths += 1
+            starv += info["died"] == "açlık"
+        if w.e < pe - 0.2 and not died:
+            bites += 1
+        emin = min(emin, w.e)
+    return cond, s, heard, bites, deaths, starv, emin
+
+
+def stage_rule(args):
+    """KURAL TANIKLIĞI (zehirli yiyecek evreni): A zehirli evrende yaşar ve 'kural: yiyecek -0.35' der; yeni doğan B bunu duyar. Koşullar: yalnız | doğru kural |
+    yanlış kural (normal evrenden ajan: 'yiyecek +0.40') | yalnız yerler. Ölçü: B'nin ilk T adımında zehirli ısırık sayısı, ölüm, en düşük enerji."""
+    from multiprocessing import Pool
+    conds = ["yalnız", "doğru kural", "yanlış kural", "yalnız yerler"]
+    jobs = [(s, c, args.steps, args.window * 4) for c in conds for s in range(args.seed0, args.seed0 + args.seeds)]
+    with Pool(min(len(jobs), os.cpu_count() or 1)) as pool:
+        out = pool.map(_rule_job, jobs)
+    print("kural tanıklığı | zehirli yiyecek evreni | B'nin ilk %d adımı | %d evren" % (args.window * 4, args.seeds))
+    for c in conds:
+        R = [r for r in out if r[0] == c]
+        print("  %-14s ısırık %.2f | ölüm %.2f (açlık %.2f) | en düşük enerji %.2f | duyulan öğe %.1f" %
+              (c, np.mean([r[3] for r in R]), np.mean([r[4] for r in R]), np.mean([r[5] for r in R]), np.mean([r[6] for r in R]), np.mean([r[2] for r in R])))
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", choices=["run", "compare", "shift", "introspect", "narrate", "transfer", "demo", "testimony", "alive", "combo", "lead", "conflict", "robust"], default="run")
+    ap.add_argument("--stage", choices=["run", "compare", "shift", "introspect", "narrate", "transfer", "demo", "testimony", "alive", "combo", "lead", "conflict", "robust", "rule"], default="run")
     ap.add_argument("--mode", choices=["full", "flat", "random"], default="full")
     ap.add_argument("--steps", type=int, default=30000)
     ap.add_argument("--window", type=int, default=5000)
@@ -1823,14 +1887,14 @@ def main():
     ap.add_argument("--arena", type=float, default=24.0)
     ap.add_argument("--log", type=int, default=6000)
     ap.add_argument("--trials", type=int, default=40)
-    ap.add_argument("--kind", choices=["invert", "poison", "layout"], default="invert")
+    ap.add_argument("--kind", choices=["invert", "poison", "layout", "swap"], default="invert")
     ap.add_argument("--no-map", action="store_true")
     ap.add_argument("--seeds", type=int, default=3)
     ap.add_argument("--modes", default="random,flat,full")
     ap.add_argument("--save", default=None)
     ap.add_argument("--resume", default=None)
     args = ap.parse_args()
-    {"run": stage_run, "compare": stage_compare, "shift": stage_shift, "introspect": stage_introspect, "narrate": stage_narrate, "transfer": stage_transfer, "demo": stage_demo, "testimony": stage_testimony, "alive": stage_alive, "combo": stage_combo, "lead": stage_lead, "conflict": stage_conflict, "robust": stage_robust}[args.stage](args)
+    {"run": stage_run, "compare": stage_compare, "shift": stage_shift, "introspect": stage_introspect, "narrate": stage_narrate, "transfer": stage_transfer, "demo": stage_demo, "testimony": stage_testimony, "alive": stage_alive, "combo": stage_combo, "lead": stage_lead, "conflict": stage_conflict, "robust": stage_robust, "rule": stage_rule}[args.stage](args)
 
 
 if __name__ == "__main__":
