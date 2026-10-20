@@ -1162,7 +1162,7 @@ def _one(job):
         kw.update(kc_cap=1.0, kc_thr=(0.0, 0.25))
     kw = dict(kw, ctx=("noctx" not in flags), self_model=("nosm" not in flags), use_map=("nomap" not in flags),
               grow=("nogrow" not in flags), model=("nomodel" not in flags), imag=("noimag" not in flags),
-              replay=("noreplay" not in flags), perc_sem=("nopsem" not in flags), maplayouts=("mapctx" in flags), anchor=("anchor" in flags), landmark=("landmark" in flags))
+              replay=("noreplay" not in flags), perc_sem=("nopsem" not in flags), stakes=(0.3 if "stakes" in flags else 0.0), report_loop=("loop" in flags), maplayouts=("mapctx" in flags), anchor=("anchor" in flags), landmark=("landmark" in flags))
     if WORLD_KW:
         kw["arena"] = WORLD_KW["size"]
     world, mind = Universe(seed=seed, **WORLD_KW), Mind(mode=base, seed=seed, **kw)
