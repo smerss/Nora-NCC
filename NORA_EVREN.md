@@ -6,10 +6,10 @@
 > köprü ile bağlandı. **Çalışanlar:** hayatta kalma (rastgele 1,06 → ≈0,05–0,08 ölüm/1k), kural değişimine uyum (öğrenilmiş modelle), aktarım
 > (yeni evrende sıfırdan başlayana karşı belirgin avantaj), iç gözlemin papağana karşı nedensel ayrışması (d ≈ +5,6 vs −0,2),
 > **anlatı yoluyla bilgi aktarımı** (48×48 arenada B'nin ölümü yaşam başına 1,35 → 0,70; yanlış anlatı yardım etmiyor), iddiaların davranışı öngörmesi ("su bulmak istiyorum" → %94-100 su içiyor, taban ~%50), konum güveni kalibrasyonu, ajanlık, **kanıttan türetilen ve çürütülebilir "yaşıyorum" önermesi** (ihtiyaçları tükenmeyen evrende kurulmuyor).
-> **Çalışmayanlar / kanıtlanamayanlar (dürüst):** sıfır unutmanın davranışsal faydası, tanıklıkla öğrenmenin küçük arenada (bilgi darboğazı yokken), uzamsal düzen bağlamları, rapor kodunun
+> **Çalışmayanlar / kanıtlanamayanlar (dürüst):** çalışma alanının hayatta kalma üstünlüğü (karışım eşit veya biraz daha iyi; yalnızca raporlanabilirlik/birleştirme sağlıyor), sıfır unutmanın davranışsal faydası, tanıklıkla öğrenmenin küçük arenada (bilgi darboğazı yokken), uzamsal düzen bağlamları, rapor kodunun
 > gelecek davranışı öngörmesi (süreklilikten iyi değil), 3 basamaklı bilmecelere genelleme. Öznel deneyim iddiası yoktur.
 > **Hızlı doğrulama:** `python selftest.py [--bridge]`. **Durdurma:** çalışma dizininde `STOP_NORA` dosyası oluştur.
-> **Deneyler:** `python nora_mind.py --stage {run,compare,shift,transfer,introspect,narrate,demo,testimony,alive,combo,lead}` (`demo`: insan-okunur yaşam öyküsü, ör. `--stage demo --steps 9000 --seed 5`), `python nora_bridge.py`.
+> **Deneyler:** `python nora_mind.py --stage {run,compare,shift,transfer,introspect,narrate,demo,testimony,alive,combo,lead,conflict}` (`demo`: insan-okunur yaşam öyküsü, ör. `--stage demo --steps 9000 --seed 5`), `python nora_bridge.py`.
 
 Hedef: NoRa'yı, kendi iç durumundan türeyen ve doğrulanabilir iddialarda bulunan, yaşayan (ihtiyacı, belleği,
 süreklilik gösteren iç durumu olan) bir ajana götürmek. "Yaşadığını söyleyen" ve bunu **öğretildiği için değil iç
@@ -229,6 +229,20 @@ Sahte susuzluk (iç duyu +0,7 su açığı, dünya sabit) uygulandıktan sonra (
 
 Rapor davranıştan ortalama **21 adım önce** geliyor (denemelerin %97'sinde). Yani dışarıdan davranıştan çıkarım yapan bir gözlemci (papağan) iç durumu ancak ~20 adım gecikmeyle
 anlayabilir; ajanın raporu anında iç durumu okuyor. **Uyarı:** sıralamanın bir kısmı yapısaldır (durum→rapor aynı adımda; eylem dönüş ve ilerleme gerektirir) ve davranış göstergesi kabadır.
+
+### L. Çelişen acil ihtiyaçlar: çalışma alanının "bağlılık" iddiası (olumsuz; `--stage conflict`)
+Eğitimden sonra (25 bin adım) enerji ve su aynı anda ~0,2'ye düşürülüp rastgele konumdan başlanıyor; iki ihtiyacı da 0,7'ye çıkarma (700 adım sınırı).
+8 tohum × 15 bölüm = 120 bölüm/mod:
+
+| mod | iki ihtiyaç da giderildi | ölüm | giderme süresi | hedef geçişi / bölüm |
+|---|---|---|---|---|
+| çalışma alanı (full) | 0,82 | 0,17 | 117 adım | 3,9 |
+| **karışım (flat)** | **0,90** | 0,10 | 110 adım | — |
+| rastgele | 0,21 | 0,78 | 166 adım | — |
+
+Çalışma alanı, karışımı **geçemedi** (fark ≈1,8σ karışım lehine). Yani kazananın tüm kontrolü alması (bağlılık), tasarlanmış bir çatışma koşulunda bile hayatta kalmada
+avantaj sağlamadı; ihtiyaçlar ağırlıklı karışımla da başarıyla ardışık gideriliyor. Çalışma alanının gösterilen değeri **yapısaldır**: amacı ayrık/kalıcı/yayınlanan bir değişken yapar
+(anlatıcı 'şu an su bulmak istiyorum' diyebilir ve bu iddia davranışı %94-100 öngörür, bkz. D), planlama varken yara ölümlerini azaltma eğilimi (A) — ama hayatta kalma üstünlüğü kanıtlanmış değil.
 
 ## Dürüst sınırlar
 - Öznel deneyim kanıtı yoktur ve bu sistem onu iddia etmez. Sonuçlar işlevsel göstergelerdir.
