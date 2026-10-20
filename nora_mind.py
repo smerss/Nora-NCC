@@ -108,6 +108,7 @@ class Introspector:
     Kanalın çıktısı (token, güven marjı, devamlı rapor vektörü) iç durumun bir FONKSİYONUDUR; dış dünyayı
     doğrudan okumaz. Anlam atama (token -> insan sözcüğü) yalnızca sonradan, yorum katmanında yapılır."""
     D = 16
+    K_MAX = 12
     NAMES = ("birikim_aç", "birikim_susuz", "birikim_tehlike", "birikim_merak", "ateşleme", "valans", "ruh_hali",
              "açık_enerji", "açık_su", "açık_bütünlük", "öz_model_hatası", "güven", "bağlam_uyumu", "konum_belirsizliği",
              "değer", "deneme_modu")
@@ -522,7 +523,7 @@ class CognitiveMap:
 
 
 class Mind:
-    def __init__(self, mode="full", seed=0, n_kc=3000, n_res=96, gamma=0.95, lr=0.25, self_model=True, shape=2.0, ctx=True, use_map=True, grow=True, model=True, imag=True, replay=True, maplayouts=False, anchor=False, landmark=False, arena=24.0, kc_cap=0.12, kc_thr=(0.04, 0.9), reservoir="random", perc_sem=True):
+    def __init__(self, mode="full", seed=0, n_kc=3000, n_res=96, gamma=0.95, lr=0.25, self_model=True, shape=2.0, ctx=True, use_map=True, grow=True, model=True, imag=True, replay=True, maplayouts=False, anchor=False, landmark=False, arena=24.0, kc_cap=0.12, kc_thr=(0.04, 0.9), reservoir="random", perc_sem=True, report_loop=False, stakes=0.0):
         self.mode, self.rng, self.gamma, self.lr = mode, np.random.default_rng(seed), gamma, lr
         self.use_sm, self.shape, self.ctx, self.use_map = self_model, shape, ctx, use_map
         self.grow, self.use_model, self.use_imag, self.use_replay, self.use_anchor = grow, model, imag, replay, anchor
@@ -534,6 +535,10 @@ class Mind:
         self.map.landmark = landmark
         self.n_ctx = 48
         self.perc_sem = perc_sem
+        self.stakes = stakes                                              # ölümün bedeli: 0=yok; >0 = ölümde yitirilen bilgi oranı (Q değerleri + anılar)
+        self.report_loop, self.rep_mode = report_loop, "on"             # rapor döngüsü: ajanın kendi raporu (token) politika girdisine geri beslenir
+        if report_loop:
+            self.Win_r = (np.random.default_rng(seed + 777).standard_normal((n_res, Introspector.K_MAX)) * 0.8).astype(np.float32)
         n_act = Universe.N_ACT
         # --- nöronsal temel: KC kodu yalnızca duyusal girdiden (iç duyu HARİÇ) -> Q ihtiyaçtan bağımsız
         groups = [np.arange(c, 45, 5) for c in range(5)] + [np.array([48, 49, 50])]   # kanal başına ışınlar | proprio
@@ -909,6 +914,10 @@ class Mind:
             if died:
                 kinds.append(3)
                 evpos = self._prev_pos.copy()                          # yeniden doğuş öncesi konum
+                if self.stakes > 0:                                    # ÖLÜMÜN BEDELİ: öğrenilmiş değerlerin ve anıların bir kısmı silinir
+                    self.ctxs[self.cur]["Wq"] *= (1.0 - self.stakes)
+                    keep = [e for e in self.epi.items if self.rng.random() > self.stakes]
+                    self.epi.items = keep
                 if pobs[I_I] < 0.15:                                   # ölümcül yara da bir 'yaralandı' anısıdır
                     kinds.append(2)
             else:
@@ -929,7 +938,11 @@ class Mind:
             self._sleep(48)
         # ---------- süreklilik: tekrarlayan durum (algı + önceki yayın)
         u = np.concatenate([obs, self.B])
-        self.h = ((1 - self.alpha) * self.h + self.alpha * np.tanh(self.Win @ u + self.Wr @ self.h)).astype(np.float32)
+        drive = self.Win @ u + self.Wr @ self.h
+        if self.report_loop and self.rep_mode != "cut" and self.intro.token >= 0:
+            tok = self.intro.token if self.rep_mode == "on" else int(rr.integers(0, max(1, len(self.intro.P))))   # 'sham': rastgele rapor
+            drive = drive + self.Win_r[:, min(tok, Introspector.K_MAX - 1)]
+        self.h = ((1 - self.alpha) * self.h + self.alpha * np.tanh(drive)).astype(np.float32)
         # ---------- uzmanlar: öneriler + çıkar (salience)
         Q = self._q(idx)                                              # (4, 5)
         urg = self._urgency(obs)
@@ -1945,9 +1958,41 @@ def stage_culture(args):
     return out
 
 
+def _loop_job(job):
+    mode, seed, steps, window = job
+    w = Universe(seed=seed)
+    mind = Mind(seed=seed, report_loop=(mode == "döngü"))
+    q = steps // 5
+    ev = {2 * q: lambda _w: setattr(mind, "rep_mode", "cut"), 3 * q: lambda _w: setattr(mind, "rep_mode", "on"),
+          4 * q: lambda _w: setattr(mind, "rep_mode", "sham")}
+    return mode, seed, live(mind, w, steps, window=window, verbose=False, events=ev)
+
+
+def stage_loop(args):
+    """RAPOR DÖNGÜSÜ: ajanın kendi raporu (token) politikaya geri beslenir. Evreler: öğren | öğren | RAPOR KESİK | geri | SAHTE rapor.
+    Rapor davranışı gerçekten bağlıyorsa kesilince/sahte olunca performans bozulmalı; rapor döngüsüz ajanda bu anahtarın etkisi olmamalı."""
+    from multiprocessing import Pool
+    modes = ["döngü", "döngüsüz"]
+    jobs = [(m, s, args.steps, args.window) for m in modes for s in range(args.seed0, args.seed0 + args.seeds)]
+    with Pool(min(len(jobs), os.cpu_count() or 1)) as pool:
+        out = pool.map(_loop_job, jobs)
+    nw = args.steps // args.window
+    q = nw // 5
+    names = ["öğren-1", "öğren-2", "KESİK", "geri", "SAHTE"]
+    print("rapor döngüsü | ölüm/1k ve konfor, her evrenin son 3 penceresi | %d tohum" % args.seeds)
+    for m in modes:
+        runs = [r for (mm, s, r) in out if mm == m]
+        cells = []
+        for p in range(5):
+            sl = slice((p + 1) * q - 3, (p + 1) * q)
+            cells.append("%s %.2f/%.2f" % (names[p], np.mean([np.mean([x["per1k"] for x in r[sl]]) for r in runs]), np.mean([np.mean([x["comfort"] for x in r[sl]]) for r in runs])))
+        print("  %-9s %s" % (m, " | ".join(cells)), flush=True)
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", choices=["run", "compare", "shift", "introspect", "narrate", "transfer", "demo", "testimony", "alive", "combo", "lead", "conflict", "robust", "rule", "culture"], default="run")
+    ap.add_argument("--stage", choices=["run", "compare", "shift", "introspect", "narrate", "transfer", "demo", "testimony", "alive", "combo", "lead", "conflict", "robust", "rule", "culture", "loop"], default="run")
     ap.add_argument("--mode", choices=["full", "flat", "random"], default="full")
     ap.add_argument("--steps", type=int, default=30000)
     ap.add_argument("--window", type=int, default=5000)
@@ -1968,7 +2013,7 @@ def main():
     ap.add_argument("--save", default=None)
     ap.add_argument("--resume", default=None)
     args = ap.parse_args()
-    {"run": stage_run, "compare": stage_compare, "shift": stage_shift, "introspect": stage_introspect, "narrate": stage_narrate, "transfer": stage_transfer, "demo": stage_demo, "testimony": stage_testimony, "alive": stage_alive, "combo": stage_combo, "lead": stage_lead, "conflict": stage_conflict, "robust": stage_robust, "rule": stage_rule, "culture": stage_culture}[args.stage](args)
+    {"run": stage_run, "compare": stage_compare, "shift": stage_shift, "introspect": stage_introspect, "narrate": stage_narrate, "transfer": stage_transfer, "demo": stage_demo, "testimony": stage_testimony, "alive": stage_alive, "combo": stage_combo, "lead": stage_lead, "conflict": stage_conflict, "robust": stage_robust, "rule": stage_rule, "culture": stage_culture, "loop": stage_loop}[args.stage](args)
 
 
 if __name__ == "__main__":
