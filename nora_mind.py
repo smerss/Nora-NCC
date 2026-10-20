@@ -518,12 +518,97 @@ class CognitiveMap:
             wp = (np.array(best) + 0.5) * self.cell
         return wrap(np.arctan2(wp[1] - self.pos[1], wp[0] - self.pos[0]) - self.th)      # hedef yön hatası (rad)
 
+    def dist_to(self, key):
+        """Etkin hedefe haritada kalan yol uzunluğu (hücre) ya da None."""
+        tg = self.target.get(key)
+        if tg is None:
+            return None
+        v = tg[2][self.cell_of(self.pos)]
+        return float(v) if np.isfinite(v) else None
+
     def state(self):
         return dict(water=self.water, hurt=self.hurt, last=self.last)
 
 
+class SelfForecast:
+    """ÖZ-ÖNGÖRÜ (ileri model) + TAAHHÜT. Ajan bir amaca ATEŞLEDİĞİNDE bir NİYET açar: (amaç, başlangıç, öngörülen süre T̂).
+    T̂, o andaki ölçülebilir iç/harita özelliklerinden (ihtiyaç açığı, haritadaki yol uzunluğu, kaynağın görünürlüğü) çevrimiçi öğrenilen
+    bir ileri modelden gelir (özyinelemeli en küçük kareler, log-süre). Niyet ya SONUÇLANIR (yedi/içti: gerçek süre y; öngörü hatası öğrenir)
+    ya da terk edilir. Süre T̂'yi belirgin aşarsa niyet 'GECİKMİŞ' olur: bu, öz-öngörünün DAVRANIŞI değiştirdiği kapalı çevrimdir
+    (haritadaki hedef sıfırlanır = yeniden planla; merak uzmanı bir süre güçlenir). Rapor (Narrator) aynı niyet nesnesini okur."""
+    GOALS = (0, 1)                                           # sonucu gözlenebilen amaçlar: aç (yedi), susuz (içti)
+    NF = 5
+
+    def __init__(self, correct=True):
+        self.correct = correct
+        self.w = {k: np.r_[np.log(60.0), np.zeros(self.NF - 1)] for k in self.GOALS}
+        self.P = {k: 10.0 * np.eye(self.NF) for k in self.GOALS}
+        self.open = None                                     # dict(goal,t0,T,f)
+        self.records = []                                    # (goal, T̂, y, f)
+        self.overdue = False
+        self.n_overdue = self.n_abandon = 0
+        self.scale = 1.0                                     # müdahale: sahte öngörü çarpanı (nedensel sınama)
+        self.boost = 0
+        self.gap = 0
+
+    @staticmethod
+    def feats(mind, obs, k):
+        need = 1.0 - obs[I_E if k == 0 else I_W]
+        dist = mind.map.dist_to(k) if mind.use_map else None
+        ray = float(obs[:45].reshape(-1, 5)[:, 1 if k == 0 else 2].max())
+        return np.array([1.0, need, (dist if dist is not None else 0.0) / 10.0, float(dist is not None), ray])
+
+    def predict(self, k, f):
+        return float(np.exp(np.clip(self.w[k] @ f, 1.0, 7.0)) * self.scale)
+
+    def learn(self, k, f, y):
+        P, x = self.P[k], f
+        Px = P @ x
+        g = Px / (0.995 + float(x @ Px))
+        self.w[k] = self.w[k] + g * (np.log(y + 1.0) - self.w[k] @ x)
+        self.P[k] = (P - np.outer(g, Px)) / 0.995
+
+    def step(self, mind, obs, pobs):
+        """Her adımda: sonuç oldu mu? niyet açık mı/gecikti mi? Yeni ateşlemede niyet aç."""
+        t = mind.age
+        k = mind.goal
+        self.gap = self.gap + 1 if (self.open is not None and k != self.open["goal"]) else 0
+        if self.open is not None:
+            g = self.open["goal"]
+            hit = pobs is not None and ((g == 0 and obs[I_E] - pobs[I_E] > 0.05) or (g == 1 and obs[I_W] - pobs[I_W] > 0.02))
+            if hit:                                          # SONUÇLANDI: öngörü gerçekle karşılaştırılır, ileri model öğrenir
+                y = t - self.open["t0"]
+                self.records.append((g, self.open["T"], y, self.open["f"]))
+                self.learn(g, self.open["f"], y)
+                self.open, self.overdue = None, False
+            elif k != g and self.gap >= 6:                   # terk edildi (başka amaç 6 adım üst üste kazandı; kısa titreme sayılmaz)
+                self.n_abandon += 1
+                self.open, self.overdue = None, False
+            else:
+                late = (t - self.open["t0"]) > max(40.0, 1.7 * self.open["T"])
+                if late and not self.overdue:                # GECİKMİŞ: öngörü yanlış çıktı -> davranışı düzelt
+                    self.overdue = True
+                    self.n_overdue += 1
+                    if self.correct:
+                        mind.map.target.pop(g, None)         # yeniden planla
+                        self.boost = 40                      # merak: yeni bir yere bak
+        if self.open is None and k in self.GOALS and mind.ignited:
+            f = self.feats(mind, obs, k)
+            self.open = dict(goal=k, t0=t, T=self.predict(k, f), f=f)
+        self.boost = max(0, self.boost - 1)
+
+    def stats(self, last=None):
+        R = self.records[-last:] if last else self.records
+        if len(R) < 5:
+            return None
+        T = np.array([r[1] for r in R]); y = np.array([r[2] for r in R], float)
+        base = np.array([np.mean(y[:i]) if i else y.mean() for i in range(len(y))])
+        return dict(n=len(R), mae=float(np.mean(np.abs(T - y))), mae_base=float(np.mean(np.abs(base[1:] - y[1:]))),
+                    corr=float(np.corrcoef(T, y)[0, 1]) if np.std(T) > 1e-6 and np.std(y) > 1e-6 else float("nan"))
+
+
 class Mind:
-    def __init__(self, mode="full", seed=0, n_kc=3000, n_res=96, gamma=0.95, lr=0.25, self_model=True, shape=2.0, ctx=True, use_map=True, grow=True, model=True, imag=True, replay=True, maplayouts=False, anchor=False, landmark=False, arena=24.0, kc_cap=0.12, kc_thr=(0.04, 0.9), reservoir="random", perc_sem=True, report_loop=False, stakes=0.0):
+    def __init__(self, mode="full", seed=0, n_kc=3000, n_res=96, gamma=0.95, lr=0.25, self_model=True, shape=2.0, ctx=True, use_map=True, grow=True, model=True, imag=True, replay=True, maplayouts=False, anchor=False, landmark=False, arena=24.0, kc_cap=0.12, kc_thr=(0.04, 0.9), reservoir="random", perc_sem=True, report_loop=False, stakes=0.0, forecast=True, self_correct=True):
         self.mode, self.rng, self.gamma, self.lr = mode, np.random.default_rng(seed), gamma, lr
         self.use_sm, self.shape, self.ctx, self.use_map = self_model, shape, ctx, use_map
         self.grow, self.use_model, self.use_imag, self.use_replay, self.use_anchor = grow, model, imag, replay, anchor
@@ -535,6 +620,7 @@ class Mind:
         self.map.landmark = landmark
         self.n_ctx = 48
         self.perc_sem = perc_sem
+        self.fc = SelfForecast(correct=self_correct) if forecast else None
         self.stakes = stakes                                              # ölümün bedeli: 0=yok; >0 = ölümde yitirilen bilgi oranı (Q değerleri + anılar)
         self.report_loop, self.rep_mode = report_loop, "on"             # rapor döngüsü: ajanın kendi raporu (token) politika girdisine geri beslenir
         if report_loop:
@@ -796,6 +882,8 @@ class Mind:
             self.mood = float(value)
         elif kind == "unc":
             self.map.unc = float(value)
+        elif kind == "forecast":                                       # sahte öz-öngörü: öngörülen süreler değer katsayısıyla ölçeklenir
+            self.fc.scale = float(value)
         elif kind == "sensor":                                         # sahte iç duyu: (Δenerji, Δsu, Δbütünlük) eklenir
             self.sensor_bias = [np.asarray(value, np.float32), steps]
         else:
@@ -948,7 +1036,7 @@ class Mind:
         urg = self._urgency(obs)
         opp = np.tanh(np.maximum(Q.max(1), 0.0))
         sal = urg * (0.6 + 0.8 * opp)
-        sal[3] = 0.15 + 0.4 * nov
+        sal[3] = 0.15 + 0.4 * nov + (0.35 if (self.fc is not None and self.fc.boost > 0) else 0.0)
         sal = sal + 0.02 * rr.standard_normal(len(SPEC))
         temp = 1.0 + 0.8 * float(np.clip(-self.mood, 0, 1))
         phi = self._phi_raw(obs)
@@ -986,6 +1074,8 @@ class Mind:
             self.ignited = bool(a[win] > 0.25 and a[win] - a[run] > 0.08)
             self.goal = win if self.ignited else -1
             logits = proposal(win) if self.ignited else PRIOR.copy()
+        if self.fc is not None and self.mode == "full":
+            self.fc.step(self, obs, self.prev[2] if self.prev is not None else None)
         if self.use_map and self.use_anchor and self.map.unc > 0.3 and self.mode != "random":
             # KAYBOLDUM (öz-bilgi davranışı yönlendirir): konumumdan emin değilim -> en yakın duvara yönel, kendimi yeniden çapala
             P0, Lw = self.map.pos, self.map.L
@@ -1162,7 +1252,7 @@ def _one(job):
         kw.update(kc_cap=1.0, kc_thr=(0.0, 0.25))
     kw = dict(kw, ctx=("noctx" not in flags), self_model=("nosm" not in flags), use_map=("nomap" not in flags),
               grow=("nogrow" not in flags), model=("nomodel" not in flags), imag=("noimag" not in flags),
-              replay=("noreplay" not in flags), perc_sem=("nopsem" not in flags), stakes=(0.3 if "stakes" in flags else 0.0), report_loop=("loop" in flags), maplayouts=("mapctx" in flags), anchor=("anchor" in flags), landmark=("landmark" in flags))
+              replay=("noreplay" not in flags), perc_sem=("nopsem" not in flags), stakes=(0.3 if "stakes" in flags else 0.0), self_correct=("nocorrect" not in flags), report_loop=("loop" in flags), maplayouts=("mapctx" in flags), anchor=("anchor" in flags), landmark=("landmark" in flags))
     if WORLD_KW:
         kw["arena"] = WORLD_KW["size"]
     world, mind = Universe(seed=seed, **WORLD_KW), Mind(mode=base, seed=seed, **kw)
@@ -1990,9 +2080,54 @@ def stage_loop(args):
     return out
 
 
+def _forecast_job(job):
+    cond, seed, steps, wkw = job
+    w = Universe(seed=seed, **wkw)
+    kw = dict(arena=wkw["size"]) if wkw else {}
+    mind = Mind(seed=seed, self_correct=(cond == "düzeltmeli"), **kw)
+    rows = live(mind, w, steps, window=steps // 6, verbose=False)
+    fc = mind.fc
+    st_all, st_late = fc.stats(), fc.stats(last=max(5, len(fc.records) // 2))
+    # nedensel sınama: sahte öz-öngörü (süreler 0.3×) -> 'gecikmiş' sayısı artmalı (yalnızca düzeltmeli ajanda davranışa da yansır)
+    o_obs, died = w.observe(), False
+    out = {}
+    for sc in (1.0, 0.3):
+        fc.scale, n0, t0 = sc, fc.n_overdue, mind.age
+        for _ in range(4000):
+            o_obs, info = w.step(mind.act(o_obs, died))
+            died = info["died"] is not None
+        out[sc] = 1000.0 * (fc.n_overdue - n0) / (mind.age - t0)
+    fc.scale = 1.0
+    return cond, seed, rows, st_all, st_late, out, fc.n_overdue, fc.n_abandon, len(fc.records)
+
+
+def stage_forecast(args):
+    """ÖZ-ÖNGÖRÜ + TAAHHÜT: (a) ileri model sabit tabanı yeniliyor mu (MAE, korelasyon)? (b) düzeltme döngüsü hayatta kalmayı/konforu artırıyor mu
+    (zor evren: büyük arena, nadir kaynak)? (c) sahte öngörü müdahalesi 'gecikmiş' oranını nedensel olarak değiştiriyor mu?"""
+    from multiprocessing import Pool
+    wkw = dict(size=float(args.size), n_food=args.nfood) if args.nfood else {}
+    conds = ["düzeltmeli", "düzeltmesiz"]
+    jobs = [(c, s, args.steps, wkw) for c in conds for s in range(args.seed0, args.seed0 + args.seeds)]
+    with Pool(min(len(jobs), os.cpu_count() or 1)) as pool:
+        out = pool.map(_forecast_job, jobs)
+    print("öz-öngörü | dünya %s | %d adım | %d tohum" % (wkw or "varsayılan", args.steps, args.seeds))
+    for c in conds:
+        R = [r for r in out if r[0] == c]
+        last = [np.mean([x["per1k"] for x in r[2][-3:]]) for r in R]
+        conf = [np.mean([x["comfort"] for x in r[2][-3:]]) for r in R]
+        sl = [r[4] for r in R if r[4]]
+        print("  %-12s ölüm/1k %.2f ± %.2f | konfor %.3f | sonuçlanan niyet %.0f | terk %.0f | gecikmiş %.0f" %
+              (c, np.mean(last), np.std(last), np.mean(conf), np.mean([r[8] for r in R]), np.mean([r[7] for r in R]), np.mean([r[6] for r in R])))
+        if sl:
+            print("     öngörü (son yarı): MAE %.1f adım | sabit taban MAE %.1f | korelasyon %.2f | müdahale: gecikmiş/1k adım normal %.2f -> sahte(0.3×) %.2f" %
+                  (np.mean([s["mae"] for s in sl]), np.mean([s["mae_base"] for s in sl]), np.nanmean([s["corr"] for s in sl]),
+                   np.mean([r[5][1.0] for r in R]), np.mean([r[5][0.3] for r in R])))
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", choices=["run", "compare", "shift", "introspect", "narrate", "transfer", "demo", "testimony", "alive", "combo", "lead", "conflict", "robust", "rule", "culture", "loop"], default="run")
+    ap.add_argument("--stage", choices=["run", "compare", "shift", "introspect", "narrate", "transfer", "demo", "testimony", "alive", "combo", "lead", "conflict", "robust", "rule", "culture", "loop", "forecast"], default="run")
     ap.add_argument("--mode", choices=["full", "flat", "random"], default="full")
     ap.add_argument("--steps", type=int, default=30000)
     ap.add_argument("--window", type=int, default=5000)
@@ -2013,7 +2148,7 @@ def main():
     ap.add_argument("--save", default=None)
     ap.add_argument("--resume", default=None)
     args = ap.parse_args()
-    {"run": stage_run, "compare": stage_compare, "shift": stage_shift, "introspect": stage_introspect, "narrate": stage_narrate, "transfer": stage_transfer, "demo": stage_demo, "testimony": stage_testimony, "alive": stage_alive, "combo": stage_combo, "lead": stage_lead, "conflict": stage_conflict, "robust": stage_robust, "rule": stage_rule, "culture": stage_culture, "loop": stage_loop}[args.stage](args)
+    {"run": stage_run, "compare": stage_compare, "shift": stage_shift, "introspect": stage_introspect, "narrate": stage_narrate, "transfer": stage_transfer, "demo": stage_demo, "testimony": stage_testimony, "alive": stage_alive, "combo": stage_combo, "lead": stage_lead, "conflict": stage_conflict, "robust": stage_robust, "rule": stage_rule, "culture": stage_culture, "loop": stage_loop, "forecast": stage_forecast}[args.stage](args)
 
 
 if __name__ == "__main__":
