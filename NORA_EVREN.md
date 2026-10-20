@@ -138,6 +138,22 @@ bu görevde rastgele ağdan daha iyi değil.
   Kontrol ajanı da aynı ölçüde bozuldu (zaman/gündüz-gece etkisi), yani **rapor davranışı bağladığı gösterilemedi**; döngülü ajanda konfor düşüşü biraz büyük (−0,08 vs −0,03) ama anahtar geri açılınca toparlanma yok. Politika raporu kullanmayı öğrenmedi: rapor zaten başka kanallardan erişilebilir bilgi taşıyor (yedekli). Aşama 1 için rapora *özgü* bilgi (ör. uzun vadeli taahhüt) ya da raporun doğrudan politika kapısı olması gerekir.
 - **Ölümün bedeli (`stakes=0.3`: ölümde etkin bağlamın Q değerlerinin %30'u ve anıların %30'u silinir), 4 tohum, 60 bin adım:** ölüm/1k 0,06 (bedelsiz 0,06), konfor 0,682 (0,699): **fark yok** — ajan zaten çok az ölüyor (≈0,06/1k), bedel davranışı etkileyecek kadar sık ödenmiyor. Daha sert bir dünya veya daha ağır bedel gerekir. Bayrak kullanıma açık (`-stakes`); durdurma düzeneği (`STOP_NORA`) ve kayıtlar korunuyor (maliyetsiz).
 
+### B4. Öz-öngörü ileri modeli ve taahhüt döngüsü (`SelfForecast`, `--stage forecast`) — tasarımla kuruldu, tek seferde ölçüldü
+Tasarım: ajan bir amaca *ateşlenince* bir **niyet** açar (amaç, başlangıç, öngörülen süre T̂). T̂ çevrimiçi öğrenilen bir ileri modelden gelir (özyinelemeli en küçük kareler, log-süre;
+özellikler: ihtiyaç açığı, haritadaki yol uzunluğu, kaynağın ışında görünürlüğü). Niyet yedi/içti ile *sonuçlanır* (gerçek süre y, öngörü hatası öğrenir) ya da terk edilir.
+Süre T̂'yi 1,7× aşarsa **gecikmiş** olur; düzeltmeli kipte bu, haritadaki hedefi sıfırlar (yeniden planla) ve merak uzmanını güçlendirir.
+Önceden belirlenen ölçütler ve sonuçlar (4 tohum):
+| | küçük dünya (40 bin adım) | büyük/nadir dünya (80 bin adım) |
+|---|---|---|
+| öngörü MAE (son yarı) / sabit taban MAE | **9,5 / 22,6** (düzeltmesiz 13,5 / 23,6) | **27,5 / 65,2** (22,8 / 56,9) |
+| öngörü–gerçek korelasyonu | 0,76 (0,62) | 0,74 (0,77) |
+| sahte öngörü müdahalesi (süreler 0,3×): gecikmiş/1k adım | 0,31 → **1,31** (0,25 → 1,38) | 0,81 → **2,81** (0,56 → 2,50) |
+| ölüm/1k düzeltmeli vs düzeltmesiz | 0,06 vs 0,04 | 0,45 vs 0,38 |
+| konfor düzeltmeli vs düzeltmesiz | 0,705 vs 0,728 | 0,522 vs 0,539 |
+- **Çalışan:** ajan kendi gelecek süresini sabit tabandan ≈2,4× daha iyi öngörüyor (iki dünyada da); öngörü gerçek iç/harita durumundan geliyor; sahte öngörü müdahalesi 'gecikmiş' durumunu ≈4× artırıyor (nedensel).
+- **Çalışmayan:** gecikme düzeltme döngüsü hayatta kalmayı/konforu **iyileştirmedi** (hafifçe kötü; fark gürültü içinde). Yeniden planlama çoğu zaman zaten doğru hedefe gidildiği için bir şey kazandırmıyor; yavaşlık keşiften geliyor. Varsayılan: `self_correct=False` (öngörü açık, düzeltme kapalı); `-correct` bayrağıyla açılır.
+- Anlamı: planın 2. aşaması (gerçek ileri model) karşılandı; 'rapor davranışı bağlar' (aşama 1) için bu yol da yetmedi — davranışa bağlı bir rapor için raporun *kararı değiştiren* bir bilgi taşıması gerekiyor (ör. öngörünün iki seçenek arasında seçim yaptırması).
+
 ### C. Topraklanmış iç gözlem ve nedensel doğrulama (30 bin adım eğitimli ajan, n=30 deneme)
 Etki d = hedef özelliğin raporlanan kayması / aynı denemenin müdahalesiz kendi sapması. "Papağan" aynı ajanın
 dışarıdan gözlenebilir dünya girdisinden raporu taklit etmeyi öğrenen sınıflandırıcıdır (iç duruma erişimi yok).
