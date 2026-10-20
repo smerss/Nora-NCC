@@ -183,6 +183,17 @@ Hepsinde aynı sinir bütçesi ve aynı TD öğrenme kuralı; **yalnızca bilgi 
 - **Mind'a taşıma (`-modular`, `-nobc`; 8 tohum, 60 bin adım, aynı konjonksiyon evreni):** tam ajanda **kazanç görünmedi**: ölüm/1k tek kod 0,15 | modüler+yayın 0,20 | modüler yayınsız 0,15 (fark gürültü içinde). Neden: Mind'da harita, hayal gücü ve öğrenilmiş modelle yönlendirme zaten birleştirmeyi başka yollardan yapıyor (ölüm oranları tezgâhın ~5×'i kadar düşük). Q-kodu düzeyindeki çalışma alanı etkisini görmek için bu telafi edici bileşenler kapatılmalı (aşağıdaki ablasyon).
 - **Dürüst sınırlar:** (1) Konjonksiyonsuz kontrolde gw ≈ gw_sahte (0,19 vs 0,22) ama ikisi de yalıtıktan iyi (0,46): orada kazancın büyük kısmı içerik-bağımsız (amaç kimliğine koşullu, daha zengin kod) — yani toplam avantajın bir parçası genel kapasite etkisi. (2) Tek kodlu 'monolit' beklenen üst sınır değil, en kötü çıktı: 44 girdiyi tek seyrek koda sıkıştırmak ayrıştırma gücünü düşürüyor; bu yüzden 'gw ≥ monolit' ilkesel bir üstünlük olarak okunmamalı. (3) Bu bir tezgâh: ana ajana (`Mind`) entegre edilmedi; Mind'daki çalışma alanı hâlâ 'karışımdan üstün değil'. Entegrasyon (uzmana özgü kodlar) büyük yeniden yapılandırma, sırada.
 
+### B7. Taahhüt hayatta kalmayı artırıyor mu? Zor dünya (kıt kaynak, 2× metabolizma, kayan düzen) — 8 tohum, 80 bin adım
+Dünya: 36×36 arena, 4 yiyecek, metabolizma ×2, su/tehlike bölgeleri her 4000 adımda yeni düzene taşınır (harita bilgisi eskir). Ölüm/1k, son 3 pencere (`--stage compare --size 36 --nfood 4 --metab-scale 2.0 --relayout-every 4000`):
+| koşul | ölüm/1k | konfor | ölüm nedenleri (toplam, 8 tohum) |
+|---|---|---|---|
+| tam ajan | 1,60 ± 0,16 | 0,455 | açlık 306 · susuzluk 81 · yara 62 |
+| + taahhüt (`-commit`) | **1,20 ± 0,13** | 0,475 | açlık 227 · susuzluk 67 · yara 42 |
+| + taahhüt + paylı öncelik (`-commit-slack`) | 1,35 ± 0,16 | 0,481 | açlık 255 · susuzluk 61 · yara 63 |
+- **Taahhüt hayatta kalmayı artırdı: ölüm/1k −%25** (1,60 → 1,20); 8 tohumun 7'sinde tam ajandan düşük. Kazanç açlık ölümlerinde (306 → 227): kararsızlığın azalması kıt kaynakta ölüme dönüşüyor. Kolay dünyada ölüm düşüşü görülmemesinin nedeni tavan etkisiydi.
+- **Paylı öncelik (ölüme kalan süre − öz-öngörülen ulaşma süresi) ek fayda vermedi** (1,35; yalnız taahhütten kötü). Öz-öngörünün karar verirken *seçim için* kullanımı bu biçimiyle işlemedi; öngörü yalnızca doğruluk ve taahhüt/rapor bütünlüğü açısından değerli.
+- Not: koşu, bekleme süresi (aynı olayı yeniden saymama) eklenmeden önceki taahhüt sürümüyle yapıldı.
+
 ### C. Topraklanmış iç gözlem ve nedensel doğrulama (30 bin adım eğitimli ajan, n=30 deneme)
 Etki d = hedef özelliğin raporlanan kayması / aynı denemenin müdahalesiz kendi sapması. "Papağan" aynı ajanın
 dışarıdan gözlenebilir dünya girdisinden raporu taklit etmeyi öğrenen sınıflandırıcıdır (iç duruma erişimi yok).
