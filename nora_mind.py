@@ -1906,9 +1906,48 @@ def stage_rule(args):
     return out
 
 
+def _culture_job(job):
+    s, cond, gens, life, T = job
+    nar = Narrator()
+    said, rows = "", []
+    for g in range(gens):
+        w = Universe(seed=s); w.poison = True                   # aynı kader: her kuşak aynı zehirli evrende doğar
+        B = Mind(seed=100 * s + g)
+        if cond == "kültür" and said:
+            B.hear(said)
+        obs, died, bites, deaths = w.observe(), False, 0, 0
+        for t in range(1, life + 1):
+            pe = w.e
+            obs, info = w.step(B.act(obs, died))
+            died = info["died"] is not None
+            deaths += died
+            if t <= T and w.e < pe - 0.2 and not died:
+                bites += 1
+        rows.append((g, bites, deaths))
+        said = nar.testimony(B)                                  # anlatı bir sonraki kuşağa (soyundan gelene) aktarılır
+    return cond, s, rows
+
+
+def stage_culture(args):
+    """BİRİKİMLİ KÜLTÜR: kuşaklar zinciri. Her kuşak bir öncekinin anlatısını (yerler + kurallar) duyar, yaşar, kendi anlatısını bırakır.
+    Kontrol: hiç anlatı yok (her kuşak sıfırdan). Ölçü: kuşak başına ilk T adımda zehirli ısırık."""
+    from multiprocessing import Pool
+    gens = 5
+    jobs = [(s, c, gens, args.steps, args.window * 4) for c in ("kültür", "kültürsüz") for s in range(args.seed0, args.seed0 + args.seeds)]
+    with Pool(min(len(jobs), os.cpu_count() or 1)) as pool:
+        out = pool.map(_culture_job, jobs)
+    print("birikimli kültür | zehirli evren | kuşak yaşamı %d adım | ısırık sayısı ilk %d adımda (ortalama %d evren)" % (args.steps, args.window * 4, args.seeds))
+    for c in ("kültür", "kültürsüz"):
+        R = [r for r in out if r[0] == c]
+        print("  %-10s ısırık/kuşak %s | ölüm/kuşak %s" %
+              (c, np.round([np.mean([r[2][g][1] for r in R]) for g in range(gens)], 1).tolist(),
+               np.round([np.mean([r[2][g][2] for r in R]) for g in range(gens)], 1).tolist()))
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", choices=["run", "compare", "shift", "introspect", "narrate", "transfer", "demo", "testimony", "alive", "combo", "lead", "conflict", "robust", "rule"], default="run")
+    ap.add_argument("--stage", choices=["run", "compare", "shift", "introspect", "narrate", "transfer", "demo", "testimony", "alive", "combo", "lead", "conflict", "robust", "rule", "culture"], default="run")
     ap.add_argument("--mode", choices=["full", "flat", "random"], default="full")
     ap.add_argument("--steps", type=int, default=30000)
     ap.add_argument("--window", type=int, default=5000)
@@ -1929,7 +1968,7 @@ def main():
     ap.add_argument("--save", default=None)
     ap.add_argument("--resume", default=None)
     args = ap.parse_args()
-    {"run": stage_run, "compare": stage_compare, "shift": stage_shift, "introspect": stage_introspect, "narrate": stage_narrate, "transfer": stage_transfer, "demo": stage_demo, "testimony": stage_testimony, "alive": stage_alive, "combo": stage_combo, "lead": stage_lead, "conflict": stage_conflict, "robust": stage_robust, "rule": stage_rule}[args.stage](args)
+    {"run": stage_run, "compare": stage_compare, "shift": stage_shift, "introspect": stage_introspect, "narrate": stage_narrate, "transfer": stage_transfer, "demo": stage_demo, "testimony": stage_testimony, "alive": stage_alive, "combo": stage_combo, "lead": stage_lead, "conflict": stage_conflict, "robust": stage_robust, "rule": stage_rule, "culture": stage_culture}[args.stage](args)
 
 
 if __name__ == "__main__":
