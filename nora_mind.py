@@ -539,8 +539,9 @@ class SelfForecast:
     GOALS = (0, 1)                                           # sonucu gözlenebilen amaçlar: aç (yedi), susuz (içti)
     NF = 5
 
-    def __init__(self, correct=True):
-        self.correct = correct
+    def __init__(self, correct=True, commit=0.0):
+        self.correct, self.commit = correct, commit               # commit: açık niyeti koruyan geçiş maliyeti (bazal ganglion histerezisi)
+        self.pin = 0                                           # müdahale: yazılan niyetin kalan adımı
         self.w = {k: np.r_[np.log(60.0), np.zeros(self.NF - 1)] for k in self.GOALS}
         self.P = {k: 10.0 * np.eye(self.NF) for k in self.GOALS}
         self.open = None                                     # dict(goal,t0,T,f)
@@ -608,7 +609,7 @@ class SelfForecast:
 
 
 class Mind:
-    def __init__(self, mode="full", seed=0, n_kc=3000, n_res=96, gamma=0.95, lr=0.25, self_model=True, shape=2.0, ctx=True, use_map=True, grow=True, model=True, imag=True, replay=True, maplayouts=False, anchor=False, landmark=False, arena=24.0, kc_cap=0.12, kc_thr=(0.04, 0.9), reservoir="random", perc_sem=True, report_loop=False, stakes=0.0, forecast=True, self_correct=False):
+    def __init__(self, mode="full", seed=0, n_kc=3000, n_res=96, gamma=0.95, lr=0.25, self_model=True, shape=2.0, ctx=True, use_map=True, grow=True, model=True, imag=True, replay=True, maplayouts=False, anchor=False, landmark=False, arena=24.0, kc_cap=0.12, kc_thr=(0.04, 0.9), reservoir="random", perc_sem=True, report_loop=False, stakes=0.0, forecast=True, self_correct=False, commit=0.0):
         self.mode, self.rng, self.gamma, self.lr = mode, np.random.default_rng(seed), gamma, lr
         self.use_sm, self.shape, self.ctx, self.use_map = self_model, shape, ctx, use_map
         self.grow, self.use_model, self.use_imag, self.use_replay, self.use_anchor = grow, model, imag, replay, anchor
@@ -620,7 +621,7 @@ class Mind:
         self.map.landmark = landmark
         self.n_ctx = 48
         self.perc_sem = perc_sem
-        self.fc = SelfForecast(correct=self_correct) if forecast else None
+        self.fc = SelfForecast(correct=self_correct, commit=commit) if forecast else None
         self.stakes = stakes                                              # ölümün bedeli: 0=yok; >0 = ölümde yitirilen bilgi oranı (Q değerleri + anılar)
         self.report_loop, self.rep_mode = report_loop, "on"             # rapor döngüsü: ajanın kendi raporu (token) politika girdisine geri beslenir
         if report_loop:
@@ -882,6 +883,11 @@ class Mind:
             self.mood = float(value)
         elif kind == "unc":
             self.map.unc = float(value)
+        elif kind == "intent":                                         # niyet nesnesine DOĞRUDAN yazma: (amaç, adım). Rapor ve davranış aynı nesneyi okur.
+            g = int(value)
+            f = self.fc.feats(self, self.last_obs, g)
+            self.fc.open = dict(goal=g, t0=self.age, T=self.fc.predict(g, f), f=f)
+            self.fc.pin = steps
         elif kind == "forecast":                                       # sahte öz-öngörü: öngörülen süreler değer katsayısıyla ölçeklenir
             self.fc.scale = float(value)
         elif kind == "sensor":                                         # sahte iç duyu: (Δenerji, Δsu, Δbütünlük) eklenir
@@ -1038,6 +1044,12 @@ class Mind:
         sal = urg * (0.6 + 0.8 * opp)
         sal[3] = 0.15 + 0.4 * nov + (0.35 if (self.fc is not None and self.fc.boost > 0) else 0.0)
         sal = sal + 0.02 * rr.standard_normal(len(SPEC))
+        if self.fc is not None and self.mode == "full" and self.fc.open is not None:       # TAAHHÜT: açık niyet, yarışmada geçiş maliyetiyle korunur
+            if self.fc.pin > 0:
+                sal[self.fc.open["goal"]] += 1.5                # yazılmış niyet: güçlü taahhüt (müdahale)
+                self.fc.pin -= 1
+            elif self.fc.commit > 0 and urg[2] < 0.8:           # acil tehlike taahhüdü aşar
+                sal[self.fc.open["goal"]] += self.fc.commit
         temp = 1.0 + 0.8 * float(np.clip(-self.mood, 0, 1))
         phi = self._phi_raw(obs)
 
@@ -1252,7 +1264,7 @@ def _one(job):
         kw.update(kc_cap=1.0, kc_thr=(0.0, 0.25))
     kw = dict(kw, ctx=("noctx" not in flags), self_model=("nosm" not in flags), use_map=("nomap" not in flags),
               grow=("nogrow" not in flags), model=("nomodel" not in flags), imag=("noimag" not in flags),
-              replay=("noreplay" not in flags), perc_sem=("nopsem" not in flags), stakes=(0.3 if "stakes" in flags else 0.0), self_correct=("correct" in flags), report_loop=("loop" in flags), maplayouts=("mapctx" in flags), anchor=("anchor" in flags), landmark=("landmark" in flags))
+              replay=("noreplay" not in flags), perc_sem=("nopsem" not in flags), stakes=(0.3 if "stakes" in flags else 0.0), self_correct=("correct" in flags), commit=(0.2 if "commit" in flags else 0.0), report_loop=("loop" in flags), maplayouts=("mapctx" in flags), anchor=("anchor" in flags), landmark=("landmark" in flags))
     if WORLD_KW:
         kw["arena"] = WORLD_KW["size"]
     world, mind = Universe(seed=seed, **WORLD_KW), Mind(mode=base, seed=seed, **kw)
@@ -2128,9 +2140,57 @@ def stage_forecast(args):
     return out
 
 
+def _commit_job(job):
+    cond, seed, steps, wkw = job
+    w = Universe(seed=seed, **wkw)
+    kw = dict(arena=wkw["size"]) if wkw else {}
+    mind = Mind(seed=seed, commit=(0.2 if cond == "taahhütlü" else 0.0), **kw)
+    rows = live(mind, w, steps, window=steps // 6, verbose=False)
+    fc = mind.fc
+    ab, rs = fc.n_abandon, len(fc.records)
+    ttr = float(np.mean([r[2] for r in fc.records])) if fc.records else float("nan")
+    obs, died, agree, nstep = w.observe(), False, 0, 0
+    trials = {True: [], False: []}
+    rng = np.random.default_rng(seed)
+    for tr in range(24):                                          # nedensel sınama: niyet nesnesine YAZ (True) / yazma (False, kontrol)
+        write, g = tr % 2 == 0, int(rng.integers(0, 2))
+        for _ in range(int(rng.integers(100, 200))):
+            obs, info = w.step(mind.act(obs, died)); died = info["died"] is not None
+            if fc.open is not None:
+                agree += fc.open["goal"] == mind.goal; nstep += 1
+        if write:
+            mind.intervene("intent", g, steps=40)
+        hit = 0
+        for _ in range(40):
+            obs, info = w.step(mind.act(obs, died)); died = info["died"] is not None
+            hit += mind.goal == g
+        trials[write].append(hit / 40.0)
+    return cond, seed, rows, ab, rs, ttr, agree / max(1, nstep), np.mean(trials[True]), np.mean(trials[False])
+
+
+def stage_commit(args):
+    """TAAHHÜT: açık niyet geçiş maliyetiyle korunur (bazal ganglion histerezisi). Ölçüler: terk oranı, çözüm süresi, hayatta kalma/konfor; rapor(niyet)-davranış tutarlılığı;
+    NEDENSEL: niyet nesnesine amaç yazılınca ajan 40 adım o amaca gidiyor mu (kontrol: yazmadan)?"""
+    from multiprocessing import Pool
+    wkw = dict(size=float(args.size), n_food=args.nfood) if args.nfood else {}
+    conds = ["taahhütlü", "taahhütsüz"]
+    jobs = [(c, s, args.steps, wkw) for c in conds for s in range(args.seed0, args.seed0 + args.seeds)]
+    with Pool(min(len(jobs), os.cpu_count() or 1)) as pool:
+        out = pool.map(_commit_job, jobs)
+    print("taahhüt | dünya %s | %d adım | %d tohum" % (wkw or "varsayılan", args.steps, args.seeds))
+    for c in conds:
+        R = [r for r in out if r[0] == c]
+        last = [np.mean([x["per1k"] for x in r[2][-3:]]) for r in R]
+        conf = [np.mean([x["comfort"] for x in r[2][-3:]]) for r in R]
+        print("  %-11s ölüm/1k %.2f ± %.2f | konfor %.3f | terk oranı %.2f | çözüm süresi %.1f | niyet=amaç tutarlılığı %.2f | niyete yazma: amaç payı %.2f vs yazmadan %.2f" %
+              (c, np.mean(last), np.std(last), np.mean(conf), np.mean([r[3] / max(1, r[3] + r[4]) for r in R]), np.nanmean([r[5] for r in R]),
+               np.mean([r[6] for r in R]), np.mean([r[7] for r in R]), np.mean([r[8] for r in R])), flush=True)
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", choices=["run", "compare", "shift", "introspect", "narrate", "transfer", "demo", "testimony", "alive", "combo", "lead", "conflict", "robust", "rule", "culture", "loop", "forecast"], default="run")
+    ap.add_argument("--stage", choices=["run", "compare", "shift", "introspect", "narrate", "transfer", "demo", "testimony", "alive", "combo", "lead", "conflict", "robust", "rule", "culture", "loop", "forecast", "commit"], default="run")
     ap.add_argument("--mode", choices=["full", "flat", "random"], default="full")
     ap.add_argument("--steps", type=int, default=30000)
     ap.add_argument("--window", type=int, default=5000)
@@ -2151,7 +2211,7 @@ def main():
     ap.add_argument("--save", default=None)
     ap.add_argument("--resume", default=None)
     args = ap.parse_args()
-    {"run": stage_run, "compare": stage_compare, "shift": stage_shift, "introspect": stage_introspect, "narrate": stage_narrate, "transfer": stage_transfer, "demo": stage_demo, "testimony": stage_testimony, "alive": stage_alive, "combo": stage_combo, "lead": stage_lead, "conflict": stage_conflict, "robust": stage_robust, "rule": stage_rule, "culture": stage_culture, "loop": stage_loop, "forecast": stage_forecast}[args.stage](args)
+    {"run": stage_run, "compare": stage_compare, "shift": stage_shift, "introspect": stage_introspect, "narrate": stage_narrate, "transfer": stage_transfer, "demo": stage_demo, "testimony": stage_testimony, "alive": stage_alive, "combo": stage_combo, "lead": stage_lead, "conflict": stage_conflict, "robust": stage_robust, "rule": stage_rule, "culture": stage_culture, "loop": stage_loop, "forecast": stage_forecast, "commit": stage_commit}[args.stage](args)
 
 
 if __name__ == "__main__":
