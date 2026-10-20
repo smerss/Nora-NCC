@@ -9,7 +9,7 @@
 > **Çalışmayanlar / kanıtlanamayanlar (dürüst):** çalışma alanının hayatta kalma üstünlüğü (karışım eşit veya biraz daha iyi; yalnızca raporlanabilirlik/birleştirme sağlıyor), sıfır unutmanın davranışsal faydası, tanıklıkla öğrenmenin küçük arenada (bilgi darboğazı yokken), uzamsal düzen bağlamları, rapor kodunun
 > gelecek davranışı öngörmesi (süreklilikten iyi değil), 3 basamaklı bilmecelere genelleme. Öznel deneyim iddiası yoktur.
 > **Hızlı doğrulama:** `python selftest.py [--bridge]`. **Durdurma:** çalışma dizininde `STOP_NORA` dosyası oluştur.
-> **Deneyler:** `python nora_mind.py --stage {run,compare,shift,transfer,introspect,narrate,demo,testimony,alive,combo,lead,conflict}` (`demo`: insan-okunur yaşam öyküsü, ör. `--stage demo --steps 9000 --seed 5`), `python nora_bridge.py`.
+> **Deneyler:** `python nora_mind.py --stage {run,compare,shift,transfer,introspect,narrate,demo,testimony,alive,combo,lead,conflict,robust}` (`demo`: insan-okunur yaşam öyküsü, ör. `--stage demo --steps 9000 --seed 5`), `python nora_bridge.py`.
 
 Hedef: NoRa'yı, kendi iç durumundan türeyen ve doğrulanabilir iddialarda bulunan, yaşayan (ihtiyacı, belleği,
 süreklilik gösteren iç durumu olan) bir ajana götürmek. "Yaşadığını söyleyen" ve bunu **öğretildiği için değil iç
@@ -243,6 +243,18 @@ Eğitimden sonra (25 bin adım) enerji ve su aynı anda ~0,2'ye düşürülüp r
 Çalışma alanı, karışımı **geçemedi** (fark ≈1,8σ karışım lehine). Yani kazananın tüm kontrolü alması (bağlılık), tasarlanmış bir çatışma koşulunda bile hayatta kalmada
 avantaj sağlamadı; ihtiyaçlar ağırlıklı karışımla da başarıyla ardışık gideriliyor. Çalışma alanının gösterilen değeri **yapısaldır**: amacı ayrık/kalıcı/yayınlanan bir değişken yapar
 (anlatıcı 'şu an su bulmak istiyorum' diyebilir ve bu iddia davranışı %94-100 öngörür, bkz. D), planlama varken yara ölümlerini azaltma eğilimi (A) — ama hayatta kalma üstünlüğü kanıtlanmış değil.
+
+### M. Evren varyantlarına dayanıklılık (`--stage robust`)
+Aynı ajan, yalnızca varsayılan evrende ayarlanmış hâliyle, farklı evren varyantlarında (6 tohum, 40 bin adım, son yarının ölüm/1k'sı):
+
+| varyant | rastgele | öğrenen ajan (full) |
+|---|---|---|
+| varsayılan | 1,08 ± 0,20 | **0,04 ± 0,04** (konfor 0,73) |
+| yarım yiyecek yoğunluğu | 1,37 ± 0,17 | **0,12 ± 0,07** (0,69) |
+| 1,5× metabolizma | 1,15 ± 0,18 | **0,14 ± 0,05** (0,70) |
+| rüzgârsız | 1,02 ± 0,17 | **0,04 ± 0,05** (0,71) |
+
+Hayatta kalma üstünlüğü her varyantta ≥8 kat; bulgu varsayılan evrenin ince ayarına bağlı değil.
 
 ## Dürüst sınırlar
 - Öznel deneyim kanıtı yoktur ve bu sistem onu iddia etmez. Sonuçlar işlevsel göstergelerdir.

@@ -1774,9 +1774,44 @@ def stage_conflict(args):
                np.mean([r["sw"] for r in R]), len(R)))
 
 
+def _robust_job(job):
+    variant, mode, seed, steps = job
+    kw = dict(seed=seed)
+    if variant == "yarım yiyecek":
+        kw["n_food"] = 7
+    if variant == "rüzgârsız":
+        kw["wind"] = False
+    w = Universe(**kw)
+    if variant == "1.5x metabolizma":
+        w.c_base *= 1.5
+        w.c_move *= 1.5
+    if variant == "güçlü rüzgâr":
+        w.wind_scale = 2.0
+    m = Mind(mode=mode, seed=seed)
+    rows = live(m, w, steps, window=steps // 2, verbose=False)
+    r = rows[-1]
+    return variant, mode, seed, r["per1k"], r["comfort"]
+
+
+def stage_robust(args):
+    """Evren değişkenliğine dayanıklılık: aynı (yalnızca varsayılan evrende ayarlanmış) ajan farklı evren varyantlarında rastgeleyi geçiyor mu?"""
+    from multiprocessing import Pool
+    variants = ["varsayılan", "yarım yiyecek", "1.5x metabolizma", "rüzgârsız"]
+    jobs = [(v, mo, s, args.steps) for v in variants for mo in ("full", "random") for s in range(args.seeds)]
+    with Pool(min(len(jobs), os.cpu_count() or 1)) as pool:
+        out = pool.map(_robust_job, jobs)
+    print("evren varyantları | %d tohum | %d adım (son yarının ölüm/1k ve konforu)" % (args.seeds, args.steps))
+    for v in variants:
+        row = []
+        for mo in ("random", "full"):
+            R = [(d, c) for (vv, mm, s, d, c) in out if vv == v and mm == mo]
+            row.append("%s ölüm %.2f ± %.2f konfor %.2f" % (mo, np.mean([d for d, _ in R]), np.std([d for d, _ in R]), np.mean([c for _, c in R])))
+        print("  %-18s %s" % (v, " | ".join(row)))
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", choices=["run", "compare", "shift", "introspect", "narrate", "transfer", "demo", "testimony", "alive", "combo", "lead", "conflict"], default="run")
+    ap.add_argument("--stage", choices=["run", "compare", "shift", "introspect", "narrate", "transfer", "demo", "testimony", "alive", "combo", "lead", "conflict", "robust"], default="run")
     ap.add_argument("--mode", choices=["full", "flat", "random"], default="full")
     ap.add_argument("--steps", type=int, default=30000)
     ap.add_argument("--window", type=int, default=5000)
@@ -1795,7 +1830,7 @@ def main():
     ap.add_argument("--save", default=None)
     ap.add_argument("--resume", default=None)
     args = ap.parse_args()
-    {"run": stage_run, "compare": stage_compare, "shift": stage_shift, "introspect": stage_introspect, "narrate": stage_narrate, "transfer": stage_transfer, "demo": stage_demo, "testimony": stage_testimony, "alive": stage_alive, "combo": stage_combo, "lead": stage_lead, "conflict": stage_conflict}[args.stage](args)
+    {"run": stage_run, "compare": stage_compare, "shift": stage_shift, "introspect": stage_introspect, "narrate": stage_narrate, "transfer": stage_transfer, "demo": stage_demo, "testimony": stage_testimony, "alive": stage_alive, "combo": stage_combo, "lead": stage_lead, "conflict": stage_conflict, "robust": stage_robust}[args.stage](args)
 
 
 if __name__ == "__main__":
