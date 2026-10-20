@@ -1298,6 +1298,19 @@ def stage_introspect(args):
         base_maj = float(np.bincount(fut[split:] + 1, minlength=5).max() / len(fut[split:]))
         print("\n[2b] öz-öngörü: 10 adım sonraki amacı tahmin — rapor tokeni %.2f | yalnızca dünya gözlemi %.2f | 'amaç sürer' %.2f | çoğunluk tabanı %.2f"
               % (acc_rep, acc_world, acc_cur, base_maj))
+        # zengin öz-durum: şimdiki amaç + rapor tokeni (one-hot) + iç duyu düzeyi ve 10 adımlık eğilimi (tükenme hızı) -> gelecek amaç; yalnızca amacın DEĞİŞTİĞİ yerlerde de ölçülür
+        T = len(tk)
+        lag = 10
+        idx = np.arange(lag, T)
+        intero = ob[:, 45:48]
+        F = np.c_[np.eye(5)[gl[idx] + 1], np.eye(n_tok)[tk[idx]], intero[idx], (intero[idx] - intero[idx - lag]) * 5.0, np.ones(len(idx))]
+        sp = int(0.7 * len(idx))
+        Wr = np.linalg.solve(F[:sp].T @ F[:sp] + 0.5 * np.eye(F.shape[1]), F[:sp].T @ np.eye(5)[fut[idx][:sp] + 1])
+        pr = np.argmax(F[sp:] @ Wr, axis=1) - 1
+        yt, gt = fut[idx][sp:], gl[idx][sp:]
+        chg = gt != yt
+        print("     zengin öz-durum (amaç+rapor+düzey+eğilim) %.2f | 'amaç sürer' %.2f | amacın DEĞİŞTİĞİ %d örnekte: zengin %.2f, 'sürer' 0.00"
+              % (float(np.mean(pr == yt)), float(np.mean(gt == yt)), int(chg.sum()), float(np.mean(pr[chg] == yt[chg])) if chg.any() else float('nan')))
 
     # ---- 3) iç müdahale (dünya sabit): çözülmüş rapor profilinde HEDEF özelliğin kayması / aynı denemenin boş sapması
     def prof_g():
