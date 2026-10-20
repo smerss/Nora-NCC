@@ -615,7 +615,7 @@ class SelfForecast:
 
 
 class Mind:
-    def __init__(self, mode="full", seed=0, n_kc=3000, n_res=96, gamma=0.95, lr=0.25, self_model=True, shape=2.0, ctx=True, use_map=True, grow=True, model=True, imag=True, replay=True, maplayouts=False, anchor=False, landmark=False, arena=24.0, kc_cap=0.12, kc_thr=(0.04, 0.9), reservoir="random", perc_sem=True, report_loop=False, stakes=0.0, forecast=True, self_correct=False, commit=0.0, modular=False, broadcast=True):
+    def __init__(self, mode="full", seed=0, n_kc=3000, n_res=96, gamma=0.95, lr=0.25, self_model=True, shape=2.0, ctx=True, use_map=True, grow=True, model=True, imag=True, replay=True, maplayouts=False, anchor=False, landmark=False, arena=24.0, kc_cap=0.12, kc_thr=(0.04, 0.9), reservoir="random", perc_sem=True, report_loop=False, stakes=0.0, forecast=True, self_correct=False, commit=0.0, modular=False, broadcast=True, slack_arb=False):
         self.mode, self.rng, self.gamma, self.lr = mode, np.random.default_rng(seed), gamma, lr
         self.use_sm, self.shape, self.ctx, self.use_map = self_model, shape, ctx, use_map
         self.grow, self.use_model, self.use_imag, self.use_replay, self.use_anchor = grow, model, imag, replay, anchor
@@ -640,7 +640,7 @@ class Mind:
         self.mb = LobedMushroomBody(groups, n_per=n_kc // len(groups), seed=seed, cap_frac=kc_cap, thr_range=kc_thr)
         n_kc = self.mb.n_kc
         self.n_kc = n_kc
-        self.modular, self.broadcast = modular, broadcast
+        self.modular, self.broadcast, self.slack_arb = modular, broadcast, slack_arb
         if modular:                                              # ÇALIŞMA ALANI MİMARİSİ: uzmana özgü özel girdi + KENDİ kodu; yayın içeriği alıcı kodlarına girer (bkz. nora_gw.py)
             self.n_priv = [Universe.R, Universe.R, Universe.R + 1, 2 * Universe.R + 2]
             self.bc_dim = 3 + Universe.R
@@ -1092,6 +1092,11 @@ class Mind:
         sal = urg * (0.6 + 0.8 * opp)
         sal[3] = 0.15 + 0.4 * nov + (0.35 if (self.fc is not None and self.fc.boost > 0) else 0.0)
         sal = sal + 0.02 * rr.standard_normal(len(SPEC))
+        if self.slack_arb and self.fc is not None and self.age > 3000:          # PAYLI ÖNCELİK: ölüme kalan süre − öz-öngörülen ulaşma süresi en az olan ihtiyaç öne geçer
+            for k, drift in ((0, self.drift_e), (1, self.drift_w)):
+                ttd = obs[I_E if k == 0 else I_W] / max(1e-5, -drift)
+                slack = ttd - self.fc.predict(k, self.fc.feats(self, obs, k))
+                sal[k] += 1.0 / (1.0 + np.exp(np.clip(slack / (0.25 * ttd + 20.0), -20, 20)))
         if self.fc is not None and self.mode == "full" and self.fc.open is not None:       # TAAHHÜT: açık niyet, yarışmada geçiş maliyetiyle korunur
             if self.fc.pin > 0:
                 sal[self.fc.open["goal"]] += 1.5                # yazılmış niyet: güçlü taahhüt (müdahale)
@@ -1293,12 +1298,15 @@ def _world_kw(args):
         kw.update(size=float(args.size), n_food=args.nfood)
     if getattr(args, "food_haz", 0.0) > 0:
         kw.update(food_haz=args.food_haz)
+    if getattr(args, "metab_scale", 1.0) != 1.0:
+        kw.update(metab_scale=args.metab_scale)
     return kw
 
 
 SHIFT = False
 SHIFT_KIND = "invert"
 WORLD_KW = {}
+RELAYOUT_EVERY = 0
 
 
 def _SHIFT_EVENTS(steps):
@@ -1308,6 +1316,13 @@ def _SHIFT_EVENTS(steps):
             return lambda w: w.relayout(1 if v else 0)
         return lambda w: setattr(w, SHIFT_KIND, v)
     return {q + 1: flip(True), 2 * q + 1: flip(False), 3 * q + 1: flip(True)}
+
+
+def _RELAY_EVENTS(steps):
+    """Kayan kaynak: her N adımda su/tehlike bölgeleri yeni düzene taşınır (harita bilgisi eskir)."""
+    if not RELAYOUT_EVERY:
+        return None
+    return {t: (lambda w, k=i: w.relayout(1 + k % 3)) for i, t in enumerate(range(RELAYOUT_EVERY, steps, RELAYOUT_EVERY))}
 
 
 def _one(job):
@@ -1321,17 +1336,18 @@ def _one(job):
         kw.update(kc_cap=1.0, kc_thr=(0.0, 0.25))
     kw = dict(kw, ctx=("noctx" not in flags), self_model=("nosm" not in flags), use_map=("nomap" not in flags),
               grow=("nogrow" not in flags), model=("nomodel" not in flags), imag=("noimag" not in flags),
-              replay=("noreplay" not in flags), perc_sem=("nopsem" not in flags), stakes=(0.3 if "stakes" in flags else 0.0), self_correct=("correct" in flags), modular=("modular" in flags), broadcast=("nobc" not in flags), commit=(0.2 if "commit" in flags else 0.0), report_loop=("loop" in flags), maplayouts=("mapctx" in flags), anchor=("anchor" in flags), landmark=("landmark" in flags))
+              replay=("noreplay" not in flags), perc_sem=("nopsem" not in flags), stakes=(0.3 if "stakes" in flags else 0.0), self_correct=("correct" in flags), modular=("modular" in flags), slack_arb=("slack" in flags), broadcast=("nobc" not in flags), commit=(0.2 if "commit" in flags else 0.0), report_loop=("loop" in flags), maplayouts=("mapctx" in flags), anchor=("anchor" in flags), landmark=("landmark" in flags))
     if WORLD_KW.get("size"):
         kw["arena"] = WORLD_KW["size"]
     world, mind = Universe(seed=seed, **WORLD_KW), Mind(mode=base, seed=seed, **kw)
-    return mode, seed, live(mind, world, steps, window=window, verbose=False, events=_SHIFT_EVENTS(steps) if SHIFT else None)
+    return mode, seed, live(mind, world, steps, window=window, verbose=False, events=_SHIFT_EVENTS(steps) if SHIFT else _RELAY_EVENTS(steps))
 
 
 def stage_compare(args):
     """Aynı evren/tohumlarda modlar yan yana. Son %40 pencerelerin ortalaması (öğrenmenin oturduğu bölge)."""
-    global WORLD_KW
+    global WORLD_KW, RELAYOUT_EVERY
     WORLD_KW = _world_kw(args)
+    RELAYOUT_EVERY = args.relayout_every
     from multiprocessing import Pool
     modes = args.modes.split(",")
     seeds = list(range(args.seeds))
@@ -2254,6 +2270,8 @@ def main():
     ap.add_argument("--size", type=float, default=24.0)
     ap.add_argument("--nfood", type=int, default=0)
     ap.add_argument("--food-haz", type=float, default=0.0)
+    ap.add_argument("--metab-scale", type=float, default=1.0)
+    ap.add_argument("--relayout-every", type=int, default=0)
     ap.add_argument("--no-ctx", action="store_true")
     ap.add_argument("--every", type=int, default=3000)
     ap.add_argument("--seed0", type=int, default=0)

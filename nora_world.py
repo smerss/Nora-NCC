@@ -36,7 +36,7 @@ class Universe:
     OBS_DIM = R * 5 + 3 + 2 + 1 + 1 + 2     # 45 görme | 3 iç duyu | 2 hız | 1 dokunma | 1 ışık | 2 pusula
     I_RAYS, I_INTERO, I_SPEED, I_TOUCH, I_LIGHT, I_COMPASS = 0, 45, 48, 50, 51, 52
 
-    def __init__(self, seed=0, size=24.0, n_food=14, dt=0.25, day_len=600, wind=True, n_term=0, metabolism=True, food_haz=0.0):
+    def __init__(self, seed=0, size=24.0, n_food=14, dt=0.25, day_len=600, wind=True, n_term=0, metabolism=True, food_haz=0.0, metab_scale=1.0):
         self.food_haz = food_haz                              # yiyeceğin tehlike bölgesinin kenarına konma olasılığı (konjonktif görev: yiyeceğe yaklaşma tarafı tehlikeye bağlı)
         self.rng = np.random.default_rng(seed)
         self.L, self.dt, self.day_len, self.wind_on = float(size), dt, day_len, wind
@@ -53,7 +53,7 @@ class Universe:
         self.water_c, self.haz_c = self._layout(lay)
         self.rock = lay.uniform(4, self.L - 4, 2)
         self.rock_v = np.zeros(2)
-        self.metab = 1.0 if metabolism else 0.0                # 0: ihtiyaçlar tükenmez (çürütme testi için 'cansız' evren)
+        self.metab = (1.0 if metabolism else 0.0) * metab_scale                # 0: ihtiyaçlar tükenmez (çürütme testi için 'cansız' evren)
         self.is_term = np.zeros(n_food, bool)                # 'bilmeceli kutu': yiyecek gibi görünür, ancak soru çözülünce enerji verir
         self.is_term[:n_term] = True
         self.food = np.zeros((n_food, 2))
