@@ -522,7 +522,7 @@ class CognitiveMap:
 
 
 class Mind:
-    def __init__(self, mode="full", seed=0, n_kc=3000, n_res=96, gamma=0.95, lr=0.25, self_model=True, shape=2.0, ctx=True, use_map=True, grow=True, model=True, imag=True, replay=True, maplayouts=False, anchor=False, landmark=False, arena=24.0, kc_cap=0.12, kc_thr=(0.04, 0.9), reservoir="random"):
+    def __init__(self, mode="full", seed=0, n_kc=3000, n_res=96, gamma=0.95, lr=0.25, self_model=True, shape=2.0, ctx=True, use_map=True, grow=True, model=True, imag=True, replay=True, maplayouts=False, anchor=False, landmark=False, arena=24.0, kc_cap=0.12, kc_thr=(0.04, 0.9), reservoir="random", perc_sem=True):
         self.mode, self.rng, self.gamma, self.lr = mode, np.random.default_rng(seed), gamma, lr
         self.use_sm, self.shape, self.ctx, self.use_map = self_model, shape, ctx, use_map
         self.grow, self.use_model, self.use_imag, self.use_replay, self.use_anchor = grow, model, imag, replay, anchor
@@ -533,6 +533,7 @@ class Mind:
         self.map = CognitiveMap(L=arena, G=int(arena // 2), multi=maplayouts)
         self.map.landmark = landmark
         self.n_ctx = 48
+        self.perc_sem = perc_sem
         n_act = Universe.N_ACT
         # --- nöronsal temel: KC kodu yalnızca duyusal girdiden (iç duyu HARİÇ) -> Q ihtiyaçtan bağımsız
         groups = [np.arange(c, 45, 5) for c in range(5)] + [np.array([48, 49, 50])]   # kanal başına ışınlar | proprio
@@ -588,7 +589,7 @@ class Mind:
     def _new_ctx(self, src=None):
         c = dict(Wq=np.zeros((len(SPEC), Universe.N_ACT, self.n_kc), np.float32),
                  Wsm=np.zeros((self.n_body, self.nz), np.float32), Wc=np.zeros(self.nz, np.float32),
-                 good=False, n=0, ok=0, V=np.full(3, np.nan), Vn=np.zeros(3),
+                 good=False, n=0, ok=0, V=np.full(3, np.nan), Vn=np.zeros(3), S=np.zeros((3, 3)),
                  Wm=np.zeros((Universe.N_ACT, 48, 45), np.float32), Pm=np.zeros((Universe.N_ACT, 48, 48), np.float32))
         for a in range(Universe.N_ACT):                                 # dünya modeli: kalıcılıkla başla, RLS ile öğren
             c["Wm"][a][:45, :45] = np.eye(45, dtype=np.float32)
@@ -642,6 +643,10 @@ class Mind:
                 def same_world(i):                                      # anlamsal imza (V işaretleri) aday ile örtüşüyor mu?
                     o = self.ctxs[i]
                     ks = [k for k in range(3) if np.isfinite(o["V"][k]) and np.isfinite(cand["V"][k]) and o["Vn"][k] >= 3 and cand["Vn"][k] >= 2]
+                    if self.perc_sem:                                   # algısal anlambilim de aynı olmalı (aynı gözlük)
+                        for k in range(3):
+                            if o["S"][:, k].sum() >= 6 and cand["S"][:, k].sum() >= 4 and int(np.argmax(o["S"][:, k])) != int(np.argmax(cand["S"][:, k])):
+                                return False
                     return len(ks) >= 1 and all(o["V"][k] * cand["V"][k] > 0 for k in ks) and self.cerr[i] < 1.0
                 others = [i for i in range(len(self.ctxs)) if i != self.cur and self.ctxs[i]["good"] and same_world(i)]
                 o = min(others, key=lambda i: score[i]) if others else None
@@ -839,6 +844,8 @@ class Mind:
                 evs.append((1, float(d[1])))                           # içtim
             if d[2] < -0.02:
                 evs.append((2, float(d[2])))                           # yaralandım
+            chv = self.last_obs[:45].reshape(-1, 5)[:, 1:4].max(0)        # olaydan hemen önce hangi algı kanalı baskındı (food/su/tehlike görünümü)
+            ch = int(np.argmax(chv)) if chv.max() > 0.5 else -1
             for ci, c in enumerate(self.ctxs):
                 pd = c["Wsm"] @ self.z
                 en_c = np.abs(d - pd) / sc
@@ -847,8 +854,16 @@ class Mind:
                     v = c["V"][k]
                     if np.isfinite(v) and c["Vn"][k] >= 3:
                         self.oerr[ci] = 0.6 * self.oerr[ci] + 0.4 * (1.0 if v * dv < 0 else 0.0)
+                    if ch >= 0 and self.perc_sem:                       # algısal anlambilim: 'bu görünüm hangi sonucu getirir' (dünyanın gözlükleri)
+                        S = c["S"]
+                        if S[:, k].sum() >= 6 and S[:, k].max() >= 0.6 * S[:, k].sum():
+                            self.oerr[ci] = 0.6 * self.oerr[ci] + 0.4 * (1.0 if int(np.argmax(S[:, k])) != ch else 0.0)
             cc = self.ctxs[self.cur]
             if not self.freeze:
+                if ch >= 0:
+                    for k, dv in evs:
+                        if cc["S"][:, k].sum() < 6 or int(np.argmax(cc["S"][:, k])) == ch or not cc["good"]:
+                            cc["S"][ch, k] += 1.0
                 for k, dv in evs:                                       # çelişen olay olgun bağlamın belleğini KİRLETMEZ
                     v = cc["V"][k]
                     if not np.isfinite(v):
@@ -1005,7 +1020,7 @@ class Mind:
         z = np.load(path)
         for k in ("scale", "h", "Wr", "Win"):
             setattr(self, k, z[k])
-        self.ctxs = [dict(Wq=z["Wq"][i], Wsm=z["Wsm"][i], Wc=z["Wc"][i], good=bool(z["good"][i]), n=0, ok=0, V=z["V"][i], Vn=z["Vn"][i], Wm=z["Wm"][i], Pm=z["Pm"][i]) for i in range(len(z["Wq"]))]
+        self.ctxs = [dict(Wq=z["Wq"][i], Wsm=z["Wsm"][i], Wc=z["Wc"][i], good=bool(z["good"][i]), n=0, ok=0, V=z["V"][i], Vn=z["Vn"][i], Wm=z["Wm"][i], Pm=z["Pm"][i], S=np.zeros((3, 3))) for i in range(len(z["Wq"]))]
         self.cerr, self.oerr, self.cur = list(z["cerr"]), list(z["oerr"]), int(z["cur"])
         self.mb.w_nov, self.mb.claw, self.mb.thr = z["w_nov"], list(z["claw"]), list(z["thr"])
         self.mood, self.age = float(z["mood"]), int(z["age"])
@@ -1133,7 +1148,7 @@ def _one(job):
         kw.update(kc_cap=1.0, kc_thr=(0.0, 0.25))
     kw = dict(kw, ctx=("noctx" not in flags), self_model=("nosm" not in flags), use_map=("nomap" not in flags),
               grow=("nogrow" not in flags), model=("nomodel" not in flags), imag=("noimag" not in flags),
-              replay=("noreplay" not in flags), maplayouts=("mapctx" in flags), anchor=("anchor" in flags), landmark=("landmark" in flags))
+              replay=("noreplay" not in flags), perc_sem=("nopsem" not in flags), maplayouts=("mapctx" in flags), anchor=("anchor" in flags), landmark=("landmark" in flags))
     world, mind = Universe(seed=seed), Mind(mode=base, seed=seed, **kw)
     return mode, seed, live(mind, world, steps, window=window, verbose=False, events=_SHIFT_EVENTS(steps) if SHIFT else None)
 
