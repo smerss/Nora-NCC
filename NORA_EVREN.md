@@ -154,6 +154,20 @@ Süre T̂'yi 1,7× aşarsa **gecikmiş** olur; düzeltmeli kipte bu, haritadaki 
 - **Çalışmayan:** gecikme düzeltme döngüsü hayatta kalmayı/konforu **iyileştirmedi** (hafifçe kötü; fark gürültü içinde). Yeniden planlama çoğu zaman zaten doğru hedefe gidildiği için bir şey kazandırmıyor; yavaşlık keşiften geliyor. Varsayılan: `self_correct=False` (öngörü açık, düzeltme kapalı); `-correct` bayrağıyla açılır.
 - Anlamı: planın 2. aşaması (gerçek ileri model) karşılandı; 'rapor davranışı bağlar' (aşama 1) için bu yol da yetmedi — davranışa bağlı bir rapor için raporun *kararı değiştiren* bir bilgi taşıması gerekiyor (ör. öngörünün iki seçenek arasında seçim yaptırması).
 
+### B5. Taahhüt: niyet nesnesi hem raporu hem davranışı belirler (`--stage commit`, `-commit` bayrağı)
+Tasarım: açık niyet, çalışma alanı yarışmasında bir **geçiş maliyetiyle** korunur (bazal ganglion histerezisi; acil tehlike taahhüdü aşar). Rapor ve davranış aynı niyet nesnesini okur; bu nesneye doğrudan amaç *yazılabilir* (`intervene("intent", amaç)`).
+| | varsayılan dünya (40 bin) | büyük/nadir dünya (80 bin) |
+|---|---|---|
+| terk oranı taahhütlü / taahhütsüz | **0,28 / 0,47** | **0,26 / 0,42** |
+| çözüm süresi (adım) | **12,2 / 17,6** | **32,3 / 46,2** |
+| niyet=amaç tutarlılığı | 0,85 / 0,77 | 0,94 / 0,92 |
+| ölüm/1k | 0,08 / 0,04 | 0,36 / 0,38 |
+| konfor | 0,733 / 0,728 | 0,552 / 0,539 |
+| niyete amaç yazınca ilk 40 adımda o amaçta kalma payı (yazmadan kontrol) | 0,98 (0,07) | 0,99 (0,12) |
+- **Çalışan:** (1) kararsızlık azalıyor (terk oranı ≈−%40, çözüm süresi ≈−%30; iki dünyada tutarlı); (2) **nedensel bağ**: niyet nesnesine yazılan amaç davranışı değiştiriyor (0,98 vs 0,07) — rapor ve davranış aynı nesne; (3) niyet-amaç tutarlılığı yüksek.
+- **Çalışmayan:** hayatta kalma farkı yok (ölüm/1k eşit düzeyde), yani verimlilik kazancı henüz ölümlere yansımıyor. Plan kriteri (3) 'rapor sonraki davranışı bağlar' **mimari olarak** sağlandı ve nedensel olarak doğrulandı; 'rapora bağlı davranışın işlevsel üstünlüğü' ise hâlâ kanıtlanmadı.
+- Sonuçlar 4 tohum. Taahhüt varsayılan değil (`-commit`).
+
 ### C. Topraklanmış iç gözlem ve nedensel doğrulama (30 bin adım eğitimli ajan, n=30 deneme)
 Etki d = hedef özelliğin raporlanan kayması / aynı denemenin müdahalesiz kendi sapması. "Papağan" aynı ajanın
 dışarıdan gözlenebilir dünya girdisinden raporu taklit etmeyi öğrenen sınıflandırıcıdır (iç duruma erişimi yok).
