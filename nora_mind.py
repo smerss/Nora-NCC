@@ -1261,6 +1261,9 @@ def _one(job):
 
 def stage_compare(args):
     """Aynı evren/tohumlarda modlar yan yana. Son %40 pencerelerin ortalaması (öğrenmenin oturduğu bölge)."""
+    global WORLD_KW
+    if args.nfood:
+        WORLD_KW = dict(size=float(args.size), n_food=args.nfood)
     from multiprocessing import Pool
     modes = args.modes.split(",")
     seeds = list(range(args.seeds))
