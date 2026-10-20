@@ -115,6 +115,16 @@ bu görevde rastgele ağdan daha iyi değil.
   öğrenilebiliyor veya bağlamdan bağımsız; bağlamlar yalnızca *yeniden öğrenmesi pahalı* bilgi için anlamlı olur.
   Bu nedenle sıfır unutma iddiası **kanıtlanmış değil**; mekanizma ileride daha zor evrenlerde sınanmalı.
 
+
+### B2. Kural tanıklığı (zehirli yiyecek, kazanılabilir sürüm) ve algısal yeniden eşleme (ters gözlük)
+- **Kural tanıklığı (12 evren, yeni doğan B'nin ilk 3000 adımı):** zehirli evrende (su bölgesi az enerji verir, yani kazanılabilir) A "kural: yiyecek -0.35" der.
+  Zehirli ısırık: tanıksız **15,25** | doğru kural **9,75** | yanlış kural (normal evrenli ajan) 13,75 | yalnız yer tanıklığı 14,67. Ölüm: 9,25 | 7,42 | 8,25 | 8,75.
+  Yani doğru kural ısırığı ≈%36 azaltıyor, yanlış kural yardım etmiyor (yön doğru); ölüm azalması küçük ve gürültülü (açlık hâlâ baskın). Kural testi `--stage rule`.
+- **Algısal yeniden eşleme (`--stage shift --kind swap`, yiyecek/su/tehlike ışın kanalları döner):** sıfır unutmayı davranışa dökme denemesi **olumsuz**.
+  Anlamsal bellek V beden sonucuna bağlı olduğundan gözlük onu değiştirmiyor; bu yüzden bağlam hiç açılmıyordu (1,2 bağlam). Kanal→sonuç algısal anlambilim (`perc_sem`) eklendi:
+  gevşek sürümde sahte bağlam (6,8), sıkı sürümde 2,2 bağlam; ama davranışsal fayda yok: B' evresi ölüm/1k son pencereler: bağlamlı 1,17 | bağlamsız (`nogrow`) **0,67**; A' dönüşünde bağlamlı 0,17 (bağlamsız 0,00).
+  Yorum: ajan gözlüğü zaten birkaç yüz adımda yeniden öğreniyor (Q hızlı), dolayısıyla bağlam kapılaması bu evrende yeniden öğrenmeden daha pahalı. Sıfır unutma yine **kanıtlanmadı**. Gerçekten pahalı bilgi (çok yavaş öğrenilen, nadir ödüllü) gerekiyor.
+
 ### C. Topraklanmış iç gözlem ve nedensel doğrulama (30 bin adım eğitimli ajan, n=30 deneme)
 Etki d = hedef özelliğin raporlanan kayması / aynı denemenin müdahalesiz kendi sapması. "Papağan" aynı ajanın
 dışarıdan gözlenebilir dünya girdisinden raporu taklit etmeyi öğrenen sınıflandırıcıdır (iç duruma erişimi yok).
