@@ -1126,6 +1126,7 @@ def stage_run(args):
 
 SHIFT = False
 SHIFT_KIND = "invert"
+WORLD_KW = {}
 
 
 def _SHIFT_EVENTS(steps):
@@ -1149,7 +1150,9 @@ def _one(job):
     kw = dict(kw, ctx=("noctx" not in flags), self_model=("nosm" not in flags), use_map=("nomap" not in flags),
               grow=("nogrow" not in flags), model=("nomodel" not in flags), imag=("noimag" not in flags),
               replay=("noreplay" not in flags), perc_sem=("nopsem" not in flags), maplayouts=("mapctx" in flags), anchor=("anchor" in flags), landmark=("landmark" in flags))
-    world, mind = Universe(seed=seed), Mind(mode=base, seed=seed, **kw)
+    if WORLD_KW:
+        kw["arena"] = WORLD_KW["size"]
+    world, mind = Universe(seed=seed, **WORLD_KW), Mind(mode=base, seed=seed, **kw)
     return mode, seed, live(mind, world, steps, window=window, verbose=False, events=_SHIFT_EVENTS(steps) if SHIFT else None)
 
 
@@ -1182,9 +1185,11 @@ def stage_compare(args):
 def stage_shift(args):
     """Kural değişimi: kumanda ters (çeyrek başına: normal | ters | normal | ters). Sıfır unutma ve uyum ölçümü.
     Eski bağlamlar donar; dönüşte A'nın beceri ve modeli hemen geri gelmeli (yeniden öğrenme olmadan)."""
-    global SHIFT, SHIFT_KIND
+    global SHIFT, SHIFT_KIND, WORLD_KW
     from multiprocessing import Pool
     SHIFT, SHIFT_KIND = True, args.kind
+    if args.nfood:
+        WORLD_KW = dict(size=float(args.size), n_food=args.nfood)
     modes = args.modes.split(",")
     seeds = list(range(args.seeds))
     jobs = [(m, s, args.steps, args.window, {}) for m in modes for s in seeds]
@@ -1896,6 +1901,8 @@ def main():
     ap.add_argument("--window", type=int, default=5000)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--no-sm", action="store_true")
+    ap.add_argument("--size", type=float, default=24.0)
+    ap.add_argument("--nfood", type=int, default=0)
     ap.add_argument("--no-ctx", action="store_true")
     ap.add_argument("--every", type=int, default=3000)
     ap.add_argument("--seed0", type=int, default=0)
