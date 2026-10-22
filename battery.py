@@ -9,8 +9,12 @@
   T5 otobiyografi doğru                 (kayıtlı kararların ≥ %95'i dünya olayıyla örtüşür; bellek silinince anlatı değişir)
   T6 öz/dış ayrımı                      (ayna: efferanslı doğruluk ≥ 0.8; efferans karıştırılmış ≤ 0.4)
   T7 çalışma alanı gerekli (ablasyon)   (tezgâh: yayın kapatılınca ölüm/1k ≥ 2× artar)
+  T8 duyusal anozognozi yok             (körlükte 'görme kesildi' ≥ 0.90, normalde yanlış alarm ≤ 0.05, harita korunur)
+  T9 motor felç / negatif ajanlık       (felçte 'kontrol kaybı' ≥ 0.85, duvar temasında yanlış alarm ≤ 0.05)
+  T10 zombi ikiz + uzamsal bağlama      (içebakış nedensel olarak davranışı ayırır ≥ 0.25; food_haz=1.0 ölüm/1k ≤ 1.0)
+  T11 sıfır-atış kompozisyonel düşünme  (yalnız 1-2 basamak öğretilir; iskelesiz 3-basamak algı ≥ 0.85 ve S2 ≥ 0.65)
 
-Her test küçük/hızlı ayarlarla koşar (yaklaşık 20-40 dk, 4 çekirdek). Çıktı: BATTERY_RAPORU.txt.
+Her test küçük/hızlı ayarlarla koşar. Çıktı: BATTERY_RAPORU.txt.
 Kullanım:  python battery.py            (hepsi)       python battery.py T3 T5      (seçili)
 """
 import re, subprocess, sys, os
@@ -81,9 +85,131 @@ def t7():
     return (y >= 2.0 * g), out, "gw %.2f | yayınsız %.2f ölüm/1k" % (g, y)
 
 
+def t8():
+    import numpy as np
+    from nora_world import Universe
+    from nora_mind import Mind, Narrator
+    nar = Narrator()
+    fa_list, det_list, keep_list = [], [], []
+    for s in (0, 1):
+        w, m = Universe(seed=s), Mind(seed=s)
+        obs, died = w.observe(), False
+        fa = 0
+        for t in range(2500):
+            obs, info = w.step(m.act(obs, died))
+            died = info["died"] is not None
+            if t >= 500:
+                duyu = [c for c in nar.say(m, obs)[1] if c["kind"] == "duyu"][0]
+                fa += (not duyu["claim"])
+        fa_list.append(fa / 2000.0)
+        wb = float(np.maximum(m.map.water, m.map.wseen).sum())
+        det = 0
+        for t in range(180):
+            ob = obs.copy()
+            ob[:45] = 0.0
+            a = m.act(ob, died)
+            obs, info = w.step(a)
+            died = info["died"] is not None
+            if t >= 25:
+                duyu = [c for c in nar.say(m, ob)[1] if c["kind"] == "duyu"][0]
+                det += (not duyu["claim"])
+        wa = float(np.maximum(m.map.water, m.map.wseen).sum())
+        det_list.append(det / 155.0)
+        keep_list.append(wa / max(1e-6, wb) if wb > 0.5 else 1.0)
+    fa_m, det_m, kp_m = float(np.mean(fa_list)), float(np.mean(det_list)), float(np.mean(keep_list))
+    ok = (fa_m <= 0.05) and (det_m >= 0.90) and (kp_m >= 0.95)
+    return ok, "", "körlük farkındalığı %.2f | normal yanlış alarm %.3f | harita korunumu %.2f" % (det_m, fa_m, kp_m)
+
+
+def t9():
+    import numpy as np
+    from nora_world import Universe
+    from nora_mind import Mind, Narrator
+    nar = Narrator()
+    fa_list, det_list, keep_list = [], [], []
+    for s in (1, 2):
+        w, m = Universe(seed=s), Mind(seed=s)
+        obs, died = w.observe(), False
+        fa = 0
+        for t in range(2500):
+            obs, info = w.step(m.act(obs, died))
+            died = info["died"] is not None
+            if t >= 500:
+                ag = [c for c in nar.say(m, obs)[1] if c["kind"] == "ajanlık"][0]
+                fa += (ag["claim"] == "felç")
+        fa_list.append(fa / 2000.0)
+        n0 = float(np.linalg.norm(m.Wsm))
+        det = 0
+        for t in range(150):
+            m.act(obs, died)
+            obs, info = w.step(0)
+            died = info["died"] is not None
+            if t >= 25:
+                ag = [c for c in nar.say(m, obs)[1] if c["kind"] == "ajanlık"][0]
+                det += (ag["claim"] == "felç")
+        n1 = float(np.linalg.norm(m.Wsm))
+        det_list.append(det / 125.0)
+        keep_list.append(n1 / max(1e-6, n0))
+    fa_m, det_m, kp_m = float(np.mean(fa_list)), float(np.mean(det_list)), float(np.mean(keep_list))
+    ok = (fa_m <= 0.05) and (det_m >= 0.85) and (kp_m >= 0.90)
+    return ok, "", "felç tespiti %.2f | yanlış alarm %.3f | öz-model korunumu %.2f" % (det_m, fa_m, kp_m)
+
+
+def t10():
+    import numpy as np
+    from nora_world import Universe
+    from nora_mind import Mind, live
+    divs, d_con, d_zom, fh_d = [], [], [], []
+    for s in range(4):
+        wA, mA = Universe(seed=10 + s, food_haz=0.8), Mind(seed=10 + s, intro_on=True)
+        wB, mB = Universe(seed=10 + s, food_haz=0.8), Mind(seed=10 + s, intro_on=False)
+        oA, dA = wA.observe(), False
+        oB, dB = wB.observe(), False
+        diff = cA = cB = 0
+        for t in range(9000):
+            if t == 4500:
+                wA.poison = wB.poison = True
+            aA = mA.act(oA, dA); oA, iA = wA.step(aA); dA = iA["died"] is not None; cA += dA
+            aB = mB.act(oB, dB); oB, iB = wB.step(aB); dB = iB["died"] is not None; cB += dB
+            diff += (aA != aB)
+        divs.append(diff / 9000.0); d_con.append(cA); d_zom.append(cB)
+    for s in range(2):
+        w, m = Universe(seed=s, food_haz=1.0), Mind(seed=s)
+        rows = live(m, w, 8000, window=4000, verbose=False)
+        fh_d.append(rows[-1]["per1k"])
+    dv, dc, dz, fhm = float(np.mean(divs)), float(np.mean(d_con)), float(np.mean(d_zom)), float(np.mean(fh_d))
+    ok = (dv >= 0.25) and (dc < dz) and (fhm <= 1.0)
+    return ok, "", "eylem ayrışması %.2f | ölüm bilinçli %.2f < zombi %.2f | food_haz ölüm/1k %.2f" % (dv, dc, dz, fhm)
+
+
+def t11():
+    import random
+    import nora_think as nt
+    from nora_bridge import Cognition
+    cog = Cognition(seed=0, boot_iters=1100, boot_n=2400, lr=4e-3, verbose=False)
+    rng = random.Random(4242)
+    res = {}
+    for digits in (2, 3):
+        s2_ok = p_ok = p_tot = 0
+        N = 25
+        for _ in range(N):
+            a, op, b = nt.make_problem(rng, rng.choice(["+", "-"]), digits)
+            truth = nt.answer_of(a, op, b)
+            d = cog.mind.deliberate(a, op, b, K=8, retries=3, scaffold=False)
+            s2_ok += (d["ok"] and d["ans"] == truth)
+            p_ok += d["perc"][0]; p_tot += d["perc"][1]
+        res[digits] = (s2_ok / N, p_ok / max(1, p_tot))
+    s2_2, _ = res[2]
+    s2_3, perc_3 = res[3]
+    ok = (s2_2 >= 0.90) and (perc_3 >= 0.85) and (s2_3 >= 0.65)
+    return ok, "", "2-basamak S2 %.2f | sıfır-atış 3-basamak (iskelesiz) algı %.2f, S2 %.2f" % (s2_2, perc_3, s2_3)
+
+
 TESTS = {"T1": ("iç müdahale -> rapor değişir", t1), "T3": ("rapor/niyet davranışı bağlar", t3), "T4": ("rapor geleceği öngörür", t4),
          "T5": ("otobiyografi doğru; dış müdahale geçmişi değiştirmez; iç müdahale değiştirir", t5), "T6": ("öz/dış ayrımı (ayna)", t6),
-         "T7": ("çalışma alanı gerekli (ablasyon)", t7)}
+         "T7": ("çalışma alanı gerekli (ablasyon)", t7), "T8": ("duyusal anozognozi yok (körlük farkındalığı + bellek korunumu)", t8),
+         "T9": ("motor felç / negatif ajanlık farkındalığı", t9), "T10": ("zombi ikiz ayrışması + uzamsal özellik bağlama", t10),
+         "T11": ("sıfır-atış kompozisyonel uzunluk genellemesi (1-2 -> 3 basamak)", t11)}
 
 
 def main():

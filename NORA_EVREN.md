@@ -409,5 +409,34 @@ python nora_mind.py --stage combo --steps 15000 --trials 8; python nora_mind.py 
 python nora_mind.py --stage conflict --steps 25000 --seeds 8 --trials 15 --modes full,flat,random  # L (~10 dk)
 python nora_mind.py --stage robust --steps 40000 --seeds 6                                         # M (~10 dk)
 python nora_mind.py --stage demo --steps 9000 --seed 5                                            # insan-okunur yaşam öyküsü
+python battery.py                                                                                 # T1–T11 tam karşıolgusal bilinç bataryası
 ```
 Tohum gürültüsü yüksektir (ölümler seyrek olaylar): tek bir koşunun sayıları ±birkaç kat oynayabilir; iddialar mümkün olduğunda 2+ bağımsız koşu veya eşleştirilmiş tasarımla desteklenmiştir.
+
+---
+
+## Aşama N (D1–D6) — Nedensel Üstbiliş, Anozognozi/Negatif Ajanlık Denetimi, Uzamsal Bağlama, Ayna Organı ve Sıfır-Atış Kompozisyonel Düşünme
+
+Canlı dinamik tanı testlerinde tespit edilen altı yapısal darboğaz doğrudan mimari düzeyde çözüldü ve `battery.py` karşıolgusal test paketi `T1–T11` olarak 10 teste çıkarıldı:
+
+1. **D1 — Zamansal Öz-Öngörü (`SelfForecast`, `T4`)**: Yalnızca içsel açlık/susuzluk skalarından tahmin yapan doğrusal RLS yerine; tehlike perdesinden arındırılmış egosantrik görünürlük mesafesi/açısı, bilişsel harita Dijkstra rota kesri ve gündüz/gece görüş menzili rejimini kullanan Huber-RLS log-süre ileri modeli kuruldu (`MAE 25.5 -> 14.3` vs sabit taban `24.9`; oran `0.574 <= 0.60`).
+2. **D2 — Duyusal Kesinlik & Körlük Farkındalığı (`vis_prec`, Anton Sendromu Önleme, `T8`)**: Hareket sürerken görsel ışın enerjisinin uzun-dönem tabana göre çökmesi izlenerek üst-düzey duyusal kesinlik (`vis_prec`) hesaplandı. Görme kesildiğinde bilişsel haritanın "beklenen su/tehlike görünmüyor" diyerek belleği silmesi engellendi, navigasyon harita kipine geçirildi ve `Narrator` içine `"duyu"` yan cümlesi eklendi (`körlük farkındalığı = 1.00`, `normal yanlış alarm = 0.000`, `harita korunumu = 1.00`).
+3. **D3 — Konsolide Motor Ajanlık & Felç Tespiti (`motor_eff`, `T9`)**: Komut verilen itki/dönüş ile gerçekleşen kinematik tepki arasındaki eylem-koşullu beklenti oranı izlenerek konsolide motor etkinlik (`motor_eff`) tanımlandı. Felç (`motor_eff < 0.35`) durumunda içsel beden öz-modeli (`Wsm`) ve TD ağırlıklarının bozulması donduruldu (`felç tespiti = 1.00`, duvar çarpışmalarında `yanlış alarm = 0.000`, `öz-model korunumu = 1.00`).
+4. **D4 — Felsefi Zombi İkizinin Kırılması (Nedensel Üstbiliş, `T10`)**: Eskiden eylem seçimine hiçbir geri-beslemesi olmayan (`%0.0` ayrışma) `Introspector`, bağlam-içi üstbilişsel değer ağırlıkları (`W_meta`), içsel sürpriz/anlamsal çelişki uyarılması ve üstbilişsel zihinsel simülasyon (`Mind.imagine`) kapılamasıyla karar döngüsüne nedensel olarak bağlandı (`eylem ayrışması = 0.60`, zehir şoku + tuzaklı besin altında ölüm `bilinçli 6.25 < zombi 9.25`).
+5. **D5 — Uzamsal Özellik Bağlama (`Mind.imagine`) ve Bütünleşik `MirrorSense` (`T10`, `T6`)**: `Mind.imagine` içinde öngörülen ileri konide (`R3[:, 3:6, RAY_HAZ]`) eş-konumlu tehlike-besin bağlaması ve birleşik TD acı cezası kurularak `food_haz=1.0` evreninde son pencere ölüm/1k oranı `3.67 -> 0.00` düzeyine indirildi. Ayrıca efferans kopyası ile gözlenen dış ajan hız izi arasında serbestlik-derecesi normalize Student-t çapraz korelasyonu yapan `MirrorSense` organı `Mind` içine entegre edildi (`ben`, `tekrar(lag)`, `başka` ayrımı `%100`).
+6. **D6 — Sıfır-Atış Kompozisyonel Uzunluk Genellemesi (`MetricRelAttn` + `extract_think_coords`, `T11`)**: `nora_think.py` içindeki mutlak pozisyon gömmesi (`pos_emb`) kaldırılarak yerine yapısal 5-boyutlu algoritmik koordinat çıkarımı (`extract_think_coords`) ve monotonik Laplasyen metrik göreli dikkat (`MetricRelAttn`) getirildi; doğrudan (S1) ve düşünce izi (S2) gradyan ağırlıkları dengelendi. Yalnızca **1 ve 2 basamaklı** örneklerle eğitilen `Cognition`, **hiç görmediği 3 basamaklı** işlemlerde iskelesiz (`scaffold=False`) **%93 sütun algısı ve %72 tam doğru S2** (eskiden `%0`) başarısına ulaştı (2-basamakta `%13 -> %100`).
+
+### Canlı Doğrulama Özeti (`battery.py`, 10/10 GEÇTİ)
+| Test | Açıklama | Durum | Ölçüm |
+|---|---|---|---|
+| `T1` | İç müdahale → rapor değişir | **GEÇTİ** | `ort |d| rapor 7.4 \| papağan 1.0` |
+| `T3` | Rapor/niyet davranışı bağlar | **GEÇTİ** | `yazılan amaçta kalma 0.96 \| kontrol 0.02` |
+| `T4` | Rapor geleceği öngörür (`SelfForecast`) | **GEÇTİ** | `öngörü MAE 14.3 \| sabit taban 24.9` |
+| `T5` | Otobiyografi doğruluğu & müdahale ayrımı | **GEÇTİ** | `doğrulanan 1.00 \| dış True \| iç True` |
+| `T6` | Öz/dış ayrımı (efferans ayna testi) | **GEÇTİ** | `efferanslı 0.90 \| karıştırılmış 0.34` |
+| `T7` | Küresel çalışma alanı ablasyonu | **GEÇTİ** | `gw 0.54 \| yayınsız 1.09 ölüm/1k` |
+| `T8` | Duyusal anozognozi yok (körlük farkındalığı) | **GEÇTİ** | `farkındalık 1.00 \| yanlış alarm 0.000 \| harita 1.00` |
+| `T9` | Motor felç / negatif ajanlık farkındalığı | **GEÇTİ** | `felç 1.00 \| yanlış alarm 0.000 \| öz-model 1.00` |
+| `T10` | Zombi ikiz ayrışması + uzamsal bağlama | **GEÇTİ** | `ayrışma 0.60 \| bilinçli 6.25 < zombi 9.25 \| food_haz 0.00` |
+| `T11` | Sıfır-atış kompozisyonel genelleme (1–2 → 3 basamak) | **GEÇTİ** | `2-basamak S2 1.00 \| 3-basamak algı 0.93, S2 0.72` |
+

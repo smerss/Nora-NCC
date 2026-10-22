@@ -58,11 +58,21 @@ def main():
         died = info["died"] is not None
     err = float(np.hypot(*(m.map.pos - w.pos)))
     check("kaçırıldıktan 120 adım sonra yeniden konumlandı", err < 4.0, "hata %.2f" % err)
+    # körlük (anozognozi) ve motor felç hızlı duman kontrolü
+    for _ in range(30):
+        ob = obs.copy(); ob[:45] = 0.0
+        a = m.act(ob, died); obs, info = w.step(a); died = info["died"] is not None
+    check("körlük farkındalığı (anozognozi yok)", m.vis_prec < 0.35, "vis_prec %.2f" % m.vis_prec)
+    for _ in range(10):
+        obs, info = w.step(m.act(obs, died)); died = info["died"] is not None
+    for _ in range(35):
+        m.act(obs, died); obs, info = w.step(0); died = info["died"] is not None
+    check("motor felç (negatif ajanlık) tespiti", m.motor_eff < 0.35, "motor_eff %.2f" % m.motor_eff)
     if "--bridge" in sys.argv:
         print("[4] köprü (torch)")
         try:
             import nora_bridge as nb
-            cog = nb.Cognition(seed=0, boot_iters=150, boot_n=600, verbose=False)
+            cog = nb.Cognition(seed=0, boot_iters=300, boot_n=800, lr=4e-3, verbose=False)
             (a, op, b), n = cog.new_problem()
             ans, cost, rec = cog.solve(a, op, b, n)
             check("düşünce sütunu bilmece çözüyor", isinstance(ans, int) and cost >= 1, "%d %s %d -> %s (%s)" % (a, op, b, ans, rec["mode"]))
