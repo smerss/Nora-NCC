@@ -81,7 +81,8 @@ def evalloss(fn, ids, chars, block, batch, n=20):
         ix = torch.randint(0, len(ids) - block - 1, (batch,), generator=rng)
         x = torch.stack([ids[i:i + block] for i in ix]).long()
         y = torch.stack([ids[i + 1:i + block + 1] for i in ix]).long()
-        tot += FF.cross_entropy(fn(x).view(-1, fn(x).size(-1)), y.view(-1)).item()
+        lo = fn(x)
+        tot += FF.cross_entropy(lo.view(-1, lo.size(-1)), y.view(-1)).item()
     return tot / n
 
 
@@ -949,7 +950,7 @@ def main():
             cands = [gen_from(ctx, args.cand_len, temp) for _ in range(args.topk)]
             scored = sorted(((score_of(ctx, c), c) for c in cands), key=lambda t: t[0])
             for rank, (sc, c) in enumerate(scored):
-                print(f"    tur{st} aday{rank}: skor={sc:+.3f} «{"".join(allc[t] for t in c)}»")
+                print(f"    tur{st} aday{rank}: skor={sc:+.3f} «{''.join(allc[t] for t in c)}»")
             rmin = scored[0][0]
             if prev_min is not None and rmin > prev_min + 0.3 and backtracks < 2:
                 ctx, temp, backtracks = hist[-1], round(temp + 0.2, 2), backtracks + 1
