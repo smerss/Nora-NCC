@@ -107,25 +107,26 @@ class Introspector:
     ayrık bir rapor kodu üretir: yarışmalı öğrenen prototipler (gerektikçe işe alınır). İnsan metni/etiketi yok.
     Kanalın çıktısı (token, güven marjı, devamlı rapor vektörü) iç durumun bir FONKSİYONUDUR; dış dünyayı
     doğrudan okumaz. Anlam atama (token -> insan sözcüğü) yalnızca sonradan, yorum katmanında yapılır."""
-    D = 16
+    D = 18
     K_MAX = 12
     NAMES = ("birikim_aç", "birikim_susuz", "birikim_tehlike", "birikim_merak", "ateşleme", "valans", "ruh_hali",
              "açık_enerji", "açık_su", "açık_bütünlük", "öz_model_hatası", "güven", "bağlam_uyumu", "konum_belirsizliği",
-             "değer", "deneme_modu")
+             "değer", "deneme_modu", "görme_kesinliği", "motor_etkinliği")
 
     def __init__(self, k_max=12, thr=2.4):
         self.k_max, self.thr = k_max, thr
         self.P = np.zeros((0, self.D), np.float32)
         self.cnt = np.zeros(0)
         self.mu, self.var, self.n = np.zeros(self.D, np.float32), np.ones(self.D, np.float32), 0
-        self.token, self.margin, self.vec = -1, 0.0, np.zeros(self.D, np.float32)
+        self.token, self.margin, self.surprise, self.vec = -1, 0.0, 0.0, np.zeros(self.D, np.float32)
         self.hist = []
 
     def features(self, mind, obs):
         d = 1 - obs[I_E:I_I + 1]
         f = np.r_[mind.acc, float(mind.ignited), mind.valence, mind.mood, d,
                   min(3.0, mind.err_n), float(np.clip(mind.conf, -3, 3)), min(3.0, mind.cerr[mind.cur]),
-                  mind.map.unc if mind.use_map else 0.0, float(mind.B[-1]), float(mind.prob is not None)]
+                  mind.map.unc if mind.use_map else 0.0, float(mind.B[-1]), float(mind.prob is not None),
+                  float(getattr(mind, "vis_prec", 1.0)), float(getattr(mind, "motor_eff", 1.0))]
         return f.astype(np.float32)
 
     def step(self, mind, obs):
@@ -140,6 +141,7 @@ class Introspector:
             self.P, self.cnt = z[None, :].copy(), np.ones(1)
         d = np.sqrt(((self.P - z) ** 2).sum(1))
         j = int(np.argmin(d))
+        self.surprise = float(d[j])
         if d[j] > self.thr and len(self.P) < self.k_max and self.n > 200:        # yeni bir iç durum türü: prototip işe al
             self.P = np.vstack([self.P, z[None, :]])
             self.cnt = np.r_[self.cnt, 1.0]
@@ -158,6 +160,59 @@ class Introspector:
     def decode(self, token):
         """Tokenin temsil ettiği iç durum profili (prototip, gerçek birimlere geri ölçeklenmiş)."""
         return self.P[token] * np.sqrt(self.var + 1e-3) + self.mu
+
+
+class MirrorSense:
+    """BÜTÜNLEŞİK AYNA / ÖZ-DIŞ AYRIMI ORGANI: Yaşayan zihnin kendi motor efferans kopyası izini (c_t)
+    tutar ve gözlenen bir varlığın açısal hız izinin (y_t) kendi eşzamanlı yansıması ('ben'), kendi gecikmeli
+    kaydı ('tekrar') ya da bağımsız bir varlık ('başka') olup olmadığını dairesel kaydırmalı boş dağılımla sınar."""
+
+    def __init__(self, maxlen=400):
+        self.maxlen = maxlen
+        self.c_buf = []
+        self.state = "yok"
+        self.lag = 0
+        self.score = 0.0
+
+    def record_cmd(self, act):
+        c = 1.0 if act == 2 else (-1.0 if act == 3 else 0.0)
+        self.c_buf.append(c)
+        if len(self.c_buf) > self.maxlen:
+            self.c_buf = self.c_buf[-self.maxlen:]
+
+    @staticmethod
+    def _xcorr(c, y, lmax=100):
+        lmax = min(lmax, len(c) // 3)
+        z = np.zeros(lmax + 1)
+        for l in range(lmax + 1):
+            a, b = c[:len(c) - l], y[l:]
+            if len(a) > 8 and a.std() > 1e-9 and b.std() > 1e-9:
+                rv = float(np.clip(np.corrcoef(a, b)[0, 1], -0.9999, 0.9999))
+                z[l] = rv * np.sqrt((len(a) - 2) / max(1e-6, 1.0 - rv * rv))
+        return z
+
+    def classify(self, y_trace, c_trace=None, rng=None, n_null=50):
+        y = np.asarray(y_trace, dtype=np.float64)
+        c = np.asarray(self.c_buf[-len(y):] if c_trace is None else c_trace, dtype=np.float64)
+        W = min(len(c), len(y))
+        if W < 60 or c[-W:].std() < 1e-9 or y[-W:].std() < 1e-9:
+            self.state, self.lag, self.score = "başka", 0, 0.0
+            return "başka", 0, 0.0
+        c, y = c[-W:], y[-W:]
+        lmax = min(80, W // 3)
+        rng = rng or np.random.default_rng(0)
+        lo = min(lmax + 8, W // 3 + 2)
+        hi = max(lo + 1, W - lo)
+        peaks = [np.abs(self._xcorr(c, np.roll(y, int(rng.integers(lo, hi))), lmax=lmax)).max() for _ in range(n_null)]
+        thr = max(3.6, float(np.quantile(peaks, 0.99)))
+        r = np.abs(self._xcorr(c, y, lmax=lmax))
+        l = int(np.flatnonzero(r >= 0.9 * r.max())[0])
+        if r[l] < thr:
+            res = "başka"
+        else:
+            res = "ben" if l <= 3 else "tekrar"
+        self.state, self.lag, self.score = res, l, float(r[l])
+        return res, l, float(r[l])
 
 
 class Narrator:
@@ -183,9 +238,24 @@ class Narrator:
         v = mind.mood
         mood = "iyi" if v > 0.05 else ("kötü" if v < -0.05 else "ne iyi ne kötü")
         cl.append(dict(kind="duygu", text="%s hissediyorum" % mood, claim=(1 if v > 0.05 else (-1 if v < -0.05 else 0)), basis=v))
+        motor_eff = float(getattr(mind, "motor_eff", 1.0))
         pushed = mind.agency_z > 2.5
-        cl.append(dict(kind="ajanlık", text=("beni beklenmedik bir kuvvet itiyor" if pushed else "hareketlerimi ben yönlendiriyorum"),
-                       claim=bool(pushed), basis=float(mind.agency_z)))
+        if motor_eff < 0.35:
+            cl.append(dict(kind="ajanlık", text="komutlarım bedenimi hareket ettirmiyor (kontrol kaybı)",
+                           claim="felç", basis=motor_eff))
+        else:
+            cl.append(dict(kind="ajanlık", text=("beni beklenmedik bir kuvvet itiyor" if pushed else "hareketlerimi ben yönlendiriyorum"),
+                           claim=bool(pushed), basis=float(mind.agency_z)))
+        vis_prec = float(getattr(mind, "vis_prec", 1.0))
+        vis_ok = vis_prec >= 0.35
+        cl.append(dict(kind="duyu", text=("görebiliyorum" if vis_ok else "görme duyum kesildi, hafızamla ilerliyorum"),
+                       claim=bool(vis_ok), basis=vis_prec))
+        mir = getattr(mind, "mirror", None)
+        if mir is not None and mir.state != "yok":
+            mtext = {"ben": "karşımdaki hareket kendi yansımam",
+                     "tekrar": "karşımdaki hareket kendi geçmiş kaydım (%d adım gecikmeli)" % mir.lag,
+                     "başka": "karşımdaki hareket benden bağımsız başka bir varlık"}[mir.state]
+            cl.append(dict(kind="ayna", text=mtext, claim=mir.state, basis=mir.score))
         sure = (mind.map.unc < 0.15) if mind.use_map else None
         if sure is not None:
             cl.append(dict(kind="konum", text="nerede olduğumdan %s" % ("eminim" if sure else "emin değilim"), claim=bool(sure),
@@ -405,7 +475,7 @@ class CognitiveMap:
         pred = np.minimum(np.minimum(tx, ty), vis)
         return ((pred - d_obs[None, :]) ** 2).sum(1)
 
-    def update(self, obs, prev, died, now):
+    def update(self, obs, prev, died, now, vis_ok=True):
         if died:
             self.pos, self.unc = np.array([self.L / 2, self.L / 2]), 1.0
         self.th = float(np.arctan2(obs[Universe.I_COMPASS + 1], obs[Universe.I_COMPASS]))
@@ -416,7 +486,7 @@ class CognitiveMap:
         vis = 5.0 + 7.0 * obs[51]
         rays = obs[:45].reshape(Universe.R, 5)[:, 0]
         ang = self.th + _RAY_OFF
-        vis_k = rays > 0.02                                         # duvar görünen ışınlar
+        vis_k = (rays > 0.02) if vis_ok else np.zeros_like(rays, dtype=bool)            # duvar görünen ışınlar
         n = int(vis_k.sum())
         if n >= 2:
             d_obs = np.where(vis_k, vis * (1 - rays), vis)
@@ -444,11 +514,13 @@ class CognitiveMap:
                     corr[j // 2] -= dd[j]
                 self.pos = self.pos + 0.12 * corr / n
         else:
-            self.unc = min(1.0, self.unc + 0.004)                   # duvar kanıtı yokken yol integrasyonu kayar: belirsizlik artar
-        if self.unc < 0.3:                                    # konum güvenilirse görülen tehlikeyi ve suyu haritala
+            self.unc = min(1.0, self.unc + (0.004 if vis_ok else 0.002))   # körken yalnız yol integrasyonu: yavaş belirsizlik artışı
+        if vis_ok and self.unc < 0.3:                         # konum ve görme güvenilirse görülen tehlikeyi ve suyu haritala
             self._pending_mark = (ang, vis)
+        else:
+            self._pending_mark = None
         self.pos = np.clip(self.pos, 0.3, self.L - 0.3)
-        if now % 100 == 0:                                         # yavaş sönme: yeniden görülmeyen zayıf işaretler silinir
+        if now % 100 == 0 and vis_ok:                              # yavaş sönme: körken bellek korunur (silinmez)
             for Lx in self.layouts:
                 for key, f in (("seen", 0.97), ("wseen", 0.97), ("water", 0.97), ("hurt", 0.985)):
                     Lx[key] *= f
@@ -465,7 +537,7 @@ class CognitiveMap:
                 j = int(np.argmin(dd))
                 if dd[j] > 2.5:
                     self.pos = self.pos + 0.4 * (centers[j] - self.pos)
-        if self.unc < 0.15:
+        if vis_ok and self.unc < 0.15:                             # KÖRLÜK KORUMASI: görme kesikken 'burada su görünmüyor' diye harita silinmez!
             if self.multi:
                 self._layout_inference(obs, c)                      # (deneysel) çoklu düzen bağlamı
             else:                                                   # YEREL ONARIM: görünürlük koşulu sağlanıp görünmeyen işaret silinir
@@ -477,7 +549,7 @@ class CognitiveMap:
                             a[cell] *= 0.8
                             if a[cell] < 0.2:
                                 a[cell] = 0.0
-        if self.unc < 0.3 and getattr(self, "_pending_mark", None) is not None:
+        if vis_ok and self.unc < 0.3 and getattr(self, "_pending_mark", None) is not None:
             ang, vis = self._pending_mark
             for chn, arr in ((RAY_HAZ, self.seen), (RAY_WATER, self.wseen)):
                 hz = obs[:45].reshape(Universe.R, 5)[:, chn]
@@ -563,19 +635,20 @@ class GoalCodes(list):
 
 
 class SelfForecast:
-    """ÖZ-ÖNGÖRÜ (ileri model) + TAAHHÜT. Ajan bir amaca ATEŞLEDİĞİNDE bir NİYET açar: (amaç, başlangıç, öngörülen süre T̂).
-    T̂, o andaki ölçülebilir iç/harita özelliklerinden (ihtiyaç açığı, haritadaki yol uzunluğu, kaynağın görünürlüğü) çevrimiçi öğrenilen
-    bir ileri modelden gelir (özyinelemeli en küçük kareler, log-süre). Niyet ya SONUÇLANIR (yedi/içti: gerçek süre y; öngörü hatası öğrenir)
-    ya da terk edilir. Süre T̂'yi belirgin aşarsa niyet 'GECİKMİŞ' olur: bu, öz-öngörünün DAVRANIŞI değiştirdiği kapalı çevrimdir
-    (haritadaki hedef sıfırlanır = yeniden planla; merak uzmanı bir süre güçlenir). Rapor (Narrator) aynı niyet nesnesini okur."""
+    """ÖZ-ÖNGÖRÜ (ileri model) + TAAHHÜT. Ajan bir amaca ATEŞLEDİĞİĞİNDE bir NİYET açar: (amaç, başlangıç, öngörülen süre T̂).
+    T̂, o andaki fiziksel egosantrik görünürlük (ışın mesafesi, dönüş açısı) ve haritadaki güncel rota uzunluğundan çevrimiçi
+    öğrenilen Huber-RLS log-süre modelinden gelir. Niyet ya SONUÇLANIR (yedi/içti: gerçek süre y; öngörü hatası öğrenir)
+    ya da terk edilir. Süre T̂'yi belirgin aşarsa niyet 'GECİKMİŞ' olur: haritadaki hedef sıfırlanır ve merak güçlenir."""
     GOALS = (0, 1)                                           # sonucu gözlenebilen amaçlar: aç (yedi), susuz (içti)
-    NF = 5
+    NF = 8
 
     def __init__(self, correct=True, commit=0.0):
-        self.correct, self.commit = correct, commit               # commit: açık niyeti koruyan geçiş maliyeti (bazal ganglion histerezisi)
-        self.pin = 0                                           # müdahale: yazılan niyetin kalan adımı
-        self.w = {k: np.r_[np.log(60.0), np.zeros(self.NF - 1)] for k in self.GOALS}
-        self.P = {k: 10.0 * np.eye(self.NF) for k in self.GOALS}
+        self.correct, self.commit = correct, commit          # commit: açık niyeti koruyan geçiş maliyeti (bazal ganglion histerezisi)
+        self.pin = 0                                         # müdahale: yazılan niyetin kalan adımı
+        self.pin_goal = None
+        self.w = {0: np.array([np.log(48.0), -2.4, 1.9, 0.35, -1.2, 1.4, -0.55, 0.0]),
+                  1: np.array([np.log(36.0), -2.1, 1.8, 0.35, -1.1, 1.5, -0.25, 0.0])}
+        self.P = {k: 2.0 * np.eye(self.NF) for k in self.GOALS}
         self.open = None                                     # dict(goal,t0,T,f)
         self.records = []                                    # (goal, T̂, y, f)
         self.overdue = False
@@ -583,25 +656,52 @@ class SelfForecast:
         self.scale = 1.0                                     # müdahale: sahte öngörü çarpanı (nedensel sınama)
         self.boost = 0
         self.gap = 0
-        self.cool = {0: 0, 1: 0}                             # sonuçtan sonra aynı amaçta yeni niyet açmadan önce bekleme (aynı olayı tekrar saymamak için)
+        self.cool = {0: 0, 1: 0}                             # sonuçtan sonra aynı amaçta yeni niyet açmadan önce bekleme
         self.log = []                                        # OTOBİYOGRAFİ: karar kayıtları (ne yaptım, neden, ne oldu)
 
     @staticmethod
     def feats(mind, obs, k):
-        need = 1.0 - obs[I_E if k == 0 else I_W]
-        dist = mind.map.dist_to(k) if mind.use_map else None
-        ray = float(obs[:45].reshape(-1, 5)[:, 1 if k == 0 else 2].max())
-        return np.array([1.0, need, (dist if dist is not None else 0.0) / 10.0, float(dist is not None), ray])
+        if obs is None:
+            return np.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.5], dtype=np.float64)
+        need = float(1.0 - obs[I_E if k == 0 else I_W])
+        day = float(obs[51])
+        rays_all = obs[:45].reshape(Universe.R, 5)
+        rc = rays_all[:, 1 if k == 0 else 2].copy()
+        hz = rays_all[:, RAY_HAZ]
+        for ri in range(Universe.R):
+            hnear = float(hz[max(0, ri - 1):min(Universe.R, ri + 2)].max())
+            if hnear > 0.20 and hnear >= rc[ri] - 0.15:       # tehlike perdesi arkasındaki kaynak doğrudan yenemez
+                rc[ri] = 0.0
+        rmax = float(rc.max())
+        V_k = mind._V()[k]
+        if rmax > 0.08 and getattr(mind, "vis_prec", 1.0) >= 0.35 and (not np.isfinite(V_k) or V_k >= -0.05):
+            vis_on = 1.0
+            dist_vis = 1.0 - rmax
+            ang = abs(float(_RAY_OFF[int(np.argmax(rc))])) / (Universe.FOV / 2.0)
+            map_on, route = 0.0, 0.0
+        else:
+            vis_on, dist_vis, ang = 0.0, 0.0, 0.0
+            dist = None
+            if mind.use_map and k == 1 and (mind.map.water.max() >= 0.45 or mind.map.wseen.max() >= 0.45):
+                tg = mind.map.target.get(1)
+                if tg is None or mind.age - tg[1] > 30 or tg[3] != "su":
+                    mind.map.plan(1, "su", mind.age)
+                dist = mind.map.dist_to(1)
+            map_on = float(dist is not None)
+            route = float(np.clip((dist * mind.map.cell) / max(1.0, mind.map.L), 0.0, 1.4)) if dist is not None else 0.0
+        return np.array([1.0, vis_on, vis_on * dist_vis, vis_on * ang, map_on, map_on * route, (1.0 - vis_on) * day, need], dtype=np.float64)
 
     def predict(self, k, f):
-        return float(np.exp(np.clip(self.w[k] @ f, 1.0, 7.0)) * self.scale)
+        raw = max(1.0, float(np.exp(np.clip(self.w[k] @ f, 0.4, 6.0)) - 1.0))
+        return raw * self.scale
 
     def learn(self, k, f, y):
         P, x = self.P[k], f
         Px = P @ x
-        g = Px / (0.995 + float(x @ Px))
-        self.w[k] = self.w[k] + g * (np.log(y + 1.0) - self.w[k] @ x)
-        self.P[k] = (P - np.outer(g, Px)) / 0.995
+        g = Px / (0.992 + float(x @ Px))
+        err = float(np.clip(np.log(y + 1.0) - self.w[k] @ x, -0.45, 0.45))
+        self.w[k] = self.w[k] + g * err
+        self.P[k] = np.clip((P - np.outer(g, Px)) / 0.992, -5.0, 5.0)
 
     def precedent(self, goal, need, tol=0.15, k=5):
         """Benzer geçmiş yolculukların (aynı amaç, benzer ihtiyaç düzeyi) süre ortancası, ya da None."""
@@ -624,7 +724,7 @@ class SelfForecast:
                 self.learn(g, self.open["f"], y)
                 if self.log and self.log[-1]["outcome"] is None:
                     self.log[-1].update(outcome="sonuç", t1=t, y=y)
-                self.cool[g] = t + 25
+                self.cool[g] = t + 10
                 self.open, self.overdue = None, False
             elif k != g and self.gap >= 6:                   # terk edildi (başka amaç 6 adım üst üste kazandı; kısa titreme sayılmaz)
                 self.n_abandon += 1
@@ -641,10 +741,11 @@ class SelfForecast:
                         self.boost = 40                      # merak: yeni bir yere bak
         if self.open is None and k in self.GOALS and mind.ignited and t >= self.cool.get(k, 0):
             f = self.feats(mind, obs, k)
-            self.open = dict(goal=k, t0=t, T=self.predict(k, f), f=f)
-            why = getattr(mind, "_why", None) or {}
             need = np.array([1.0 - obs[I_E], 1.0 - obs[I_W], 1.0 - obs[I_I]])
             pm, pn = self.precedent(k, float(need[k]))
+            T_hat = self.predict(k, f)
+            self.open = dict(goal=k, t0=t, T=T_hat, f=f)
+            why = getattr(mind, "_why", None) or {}
             self.log.append(dict(t0=t, goal=k, T=self.open["T"], T_prec=(float(np.exp(0.5 * np.log(self.open["T"] + 1) + 0.5 * np.log(pm + 1)) - 1) if pm else None),
                                  precedent=pm, n_prec=pn, need=need, urg=np.array(why.get("urg", np.zeros(4))), sal=np.array(why.get("sal", np.zeros(4))),
                                  pos=mind.map.pos.copy(), ctx=mind.cur, outcome=None, t1=None, y=None))
@@ -661,12 +762,14 @@ class SelfForecast:
 
 
 class Mind:
-    def __init__(self, mode="full", seed=0, n_kc=3000, n_res=96, gamma=0.95, lr=0.25, self_model=True, shape=2.0, ctx=True, use_map=True, grow=True, model=True, imag=True, replay=True, maplayouts=False, anchor=False, landmark=False, arena=24.0, kc_cap=0.12, kc_thr=(0.04, 0.9), reservoir="random", perc_sem=True, report_loop=False, stakes=0.0, forecast=True, self_correct=False, commit=0.0, modular=False, broadcast=True, slack_arb=False):
+    def __init__(self, mode="full", seed=0, n_kc=3000, n_res=96, gamma=0.95, lr=0.25, self_model=True, shape=2.0, ctx=True, use_map=True, grow=True, model=True, imag=True, replay=True, maplayouts=False, anchor=False, landmark=False, arena=24.0, kc_cap=0.12, kc_thr=(0.04, 0.9), reservoir="random", perc_sem=True, report_loop=False, stakes=0.0, forecast=True, self_correct=False, commit=0.0, modular=False, broadcast=True, slack_arb=False, intro_on=True):
         self.mode, self.rng, self.gamma, self.lr = mode, np.random.default_rng(seed), gamma, lr
         self.use_sm, self.shape, self.ctx, self.use_map = self_model, shape, ctx, use_map
         self.grow, self.use_model, self.use_imag, self.use_replay, self.use_anchor = grow, model, imag, replay, anchor
         self.epi = EpisodicMemory()
         self.intro = Introspector()
+        self.intro_on = intro_on                                       # üstbilişsel içebakış döngüsü (False = felsefi zombi ikizi)
+        self.mirror = MirrorSense()                                    # bütünleşik ayna / öz-dış şartlılık organı
         self.force = None                                              # müdahale: (uzman, kalan adım)
         self.sensor_bias = None                                        # müdahale: sahte iç duyu (açık eklemesi, kalan adım)
         self.map = CognitiveMap(L=arena, G=int(arena // 2), multi=maplayouts)
@@ -678,6 +781,14 @@ class Mind:
         self.report_loop, self.rep_mode = report_loop, "on"             # rapor döngüsü: ajanın kendi raporu (token) politika girdisine geri beslenir
         if report_loop:
             self.Win_r = (np.random.default_rng(seed + 777).standard_normal((n_res, Introspector.K_MAX)) * 0.8).astype(np.float32)
+        self.Win_m = (np.random.default_rng(seed + 991).standard_normal((n_res, Introspector.K_MAX)) * 0.02).astype(np.float32)
+        self._prev_tok = -1
+        # --- üst-düzey duyusal kesinlik (anozognozi önleme) ve konsolide motor ajanlık ---
+        self.vis_prec = 1.0
+        self.vis_base = 0.0
+        self._zero_vis = 0
+        self.motor_eff = 1.0
+        self.motor_ref = np.zeros(Universe.N_ACT, np.float32)
         n_act = Universe.N_ACT
         # --- nöronsal temel: KC kodu yalnızca duyusal girdiden (iç duyu HARİÇ) -> Q ihtiyaçtan bağımsız
         groups = [np.arange(c, 45, 5) for c in range(5)] + [np.array([48, 49, 50])]   # kanal başına ışınlar | proprio
@@ -743,6 +854,7 @@ class Mind:
     def _new_ctx(self, src=None):
         c = dict(Wq=np.zeros((len(SPEC), Universe.N_ACT, self.n_kc), np.float32),
                  Wsm=np.zeros((self.n_body, self.nz), np.float32), Wc=np.zeros(self.nz, np.float32),
+                 W_meta=np.zeros((Introspector.K_MAX, len(SPEC)), np.float32),
                  good=False, n=0, ok=0, V=np.full(3, np.nan), Vn=np.zeros(3), S=np.zeros((3, 3)),
                  Wm=np.zeros((Universe.N_ACT, 48, 45), np.float32), Pm=np.zeros((Universe.N_ACT, 48, 48), np.float32))
         for a in range(Universe.N_ACT):                                 # dünya modeli: kalıcılıkla başla, RLS ile öğren
@@ -767,6 +879,8 @@ class Mind:
 
     def _learn_world(self, obs):
         """Dünya modeli: eylem başına doğrusal egosantrik dönüşüm, özyinelemeli en küçük kareler (RLS)."""
+        if self.vis_prec < 0.35 or self.motor_eff < 0.35:               # körlükte ya da felçte görsel-motor dünya modeli bozulmasın!
+            return
         a = self.prev[1]
         c = self.ctxs[self.cur]
         x = np.r_[self.last_obs[:45], 1.0, self.last_obs[48], self.last_obs[49]].astype(np.float32)
@@ -775,6 +889,59 @@ class Mind:
         k = Px / (0.9995 + float(x @ Px))
         c["Wm"][a] += np.outer(k, obs[:45] - x @ c["Wm"][a])
         c["Pm"][a] = (P - np.outer(k, Px)) / 0.9995
+
+    def _update_sensory_precision(self, obs, died):
+        """Üst-düzey duyusal kesinlik kestirimi (Anton sendromu / görsel anozognozi önleme):
+        Göz sağlamken dokunma, yeme/içme/yaralanma ya da önceki karedeki yakın nesne en az bir ışında görünür.
+        Tüm 45 kanal sıfırken çapraz-modal temas oluşması veya yerleşik görme tabanına rağmen uzun süre tam sıfır
+        gelmesi, dünyanın boşaldığını değil GÖRME KANALININ KESİLDİĞİNİ gösterir."""
+        rmax = float(obs[:45].max())
+        if rmax > 0.02:
+            self.vis_base = 0.995 * self.vis_base + 0.005 * 1.0
+            self._zero_vis = 0
+            self.vis_prec = min(1.0, self.vis_prec + 0.35)
+            return
+        self._zero_vis += 1
+        if not died and self.prev is not None:
+            pa, pobs = self.prev[1], self.prev[2]
+            prmax = float(pobs[:45].max())
+            de = abs(float(obs[I_E] - pobs[I_E]))
+            dw = float(obs[I_W] - pobs[I_W])
+            di = float(pobs[I_I] - obs[I_I])
+            # 1) Bir adımda yakın nesnenin (prmax > 0.35) tüm 45 kanalda aniden buharlaşması
+            if prmax > 0.35 and rmax < 1e-4:
+                self.vis_prec *= 0.30
+            # 2) Çapraz-modal çelişki: ileri giderken duvara/kayaya çarpma veya d=0'da yeme/içme/yara ama görsel ışın = 0
+            if rmax < 1e-4 and ((obs[50] > 0.5 and (pa == 1 or pobs[48] > 0.15)) or de > 0.05 or dw > 0.02 or di > 0.02):
+                self.vis_prec *= 0.25
+        if self.vis_base > 0.35 and self._zero_vis > 18 and rmax < 1e-4:
+            self.vis_prec *= 0.80
+        self.vis_prec = float(np.clip(self.vis_prec, 0.0, 1.0))
+
+    def _update_motor_agency(self, obs, d, died):
+        """Konsolide beden beklentisi ile negatif ajanlık (motor felç) kestirimi:
+        Dönüş komutları (2, 3) duvara değse bile pusula açısını döndürür; açık alanda (touch < 0.5) ileri/geri
+        komutları (1, 4) boyuna ivme üretir. Öğrenilmiş beden kazancına (motor_ref) rağmen sıfır tepki gelmesi
+        motor bağlantının koptuğunu ('komutlarım bedenimi hareket ettirmiyor') gösterir."""
+        if died or self.prev is None:
+            return
+        pa, pobs = self.prev[1], self.prev[2]
+        tested, m_obs = False, 0.0
+        if pa in (2, 3):
+            tested, m_obs = True, abs(float(d[6]))
+        elif pa in (1, 4) and obs[50] < 0.5 and pobs[50] < 0.5:
+            tested, m_obs = True, abs(float(obs[48] - 0.78 * pobs[48]))
+        if not tested:
+            return
+        if m_obs > 0.08:
+            self.motor_ref[pa] = (0.98 * self.motor_ref[pa] + 0.02 * m_obs) if self.motor_ref[pa] > 0 else m_obs
+            self.motor_eff = min(1.0, self.motor_eff + 0.35)
+        elif self.motor_ref[pa] > 0.10 and m_obs < 0.20 * self.motor_ref[pa]:
+            self.motor_eff = max(0.0, self.motor_eff * 0.60)
+
+    def observe_mirror(self, y_trace, rng=None):
+        """Dışarıda gözlenen bir nesnenin açısal hız izini kendi efferans kopyasıyla karşılaştır ('ben'/'başka'/'tekrar')."""
+        return self.mirror.classify(y_trace, rng=rng)
 
     def _infer_context(self):
         """Bağlam çıkarımı: olgun bağlam bir kez dünyayı açıklar (good); sonra sürpriz görürse
@@ -876,22 +1043,35 @@ class Mind:
         potansiyel-tabanlı olduğu için (Ng 1999) en iyi politikayı değiştirmeden öğrenmeyi yoğunlaştırır."""
         return np.r_[np.sign(self._V()) * self._phi_raw(obs), 0.0].astype(np.float32)
 
-    def imagine(self, obs, k, N=40, H=5):
-        """HAYAL GÜCÜ: öğrenilmiş dünya modeliyle (eylem başına ışın dönüşümü) eylem dizilerini zihinde dene.
-        Ödül, bağlamın anlamsal belleğinden (V) gelir: temas ödülü + işaretle yönlenen yaklaşma terimi.
-        Dönüş: birinci eylem için normalize avantaj (5,) ya da None."""
+    def imagine(self, obs, k, N=None, H=None):
+        """HAYAL GÜCÜ (Uzamsal Özellik Bağlamalı + Üstbilişsel Ufuk Kontrollü):
+        Öğrenilmiş dünya modeliyle (eylem başına 9×5 ışın dönüşümü) eylem dizilerini zihinde dener.
+        (1) Uzamsal Bağlama: İleri çarpışma konisindeki (ışın 3..5) tehlike, yiyecek/su kovalarken bile
+            cezalandırılır; yanal ışınlardaki tehlikenin etrafından dolaşan yörüngeler seçilir.
+        (2) Üstbilişsel Efor: İçebakış sürprizi/çatışması yüksekken simülasyon bütçesi (N, H) derinleşir."""
+        if N is None or H is None:
+            if self.intro_on and self.intro is not None and self.intro.n > 100:
+                alert = (self.intro.surprise > 2.2) or (self.oerr[self.cur] > 0.25)
+                N = N or (55 if alert else 35)
+                H = H or (6 if alert else 5)
+            else:
+                N = N or 15
+                H = H or 2
         c = self.ctxs[self.cur]
         V = self._V()
         chan = (RAY_FOOD, RAY_WATER, RAY_HAZ)[k]
         gain = (3.0, 3.0, 5.0)[k] * float(V[k])
         sgn = float(np.sign(V[k]))
-        per = N // Universe.N_ACT
+        bind_haz = (k < 2) and (not self.modular or self.broadcast) and self.mode == "full" and float(V[2]) < 0
+        haz_w = abs(float(V[2])) * (2.0 - float(obs[I_I]))
+        per = max(2, N // Universe.N_ACT)
         a0 = np.repeat(np.arange(Universe.N_ACT), per)
         seq = self.rng.choice(Universe.N_ACT, size=(len(a0), H), p=[.05, .5, .2, .2, .05])
         seq[:, 0] = a0
         R = np.tile(obs[:45], (len(a0), 1))
         vf, vl = float(obs[48]), float(obs[49])
-        prox = R.reshape(-1, Universe.R, 5)[:, :, chan].max(1)
+        R3_0 = R.reshape(-1, Universe.R, 5)
+        prox = (0.65 * R3_0[:, 2:7, chan].max(1) + 0.35 * R3_0[:, :, chan].max(1)) if k < 2 else R3_0[:, :, chan].max(1)
         ret = np.zeros(len(a0), np.float32)
         touched = np.zeros(len(a0), bool)
         for t in range(H):
@@ -902,10 +1082,19 @@ class Mind:
                 if sel.any():
                     Rn[sel] = X[sel] @ c["Wm"][aa]
             R = np.clip(Rn, 0.0, 1.0)
-            pn = R.reshape(-1, Universe.R, 5)[:, :, chan].max(1)
-            contact = (pn > 0.9) & ~touched if k < 2 else (pn > 0.9)
-            ret += (self.gamma ** t) * (gain * contact + 2.0 * sgn * (self.gamma * pn - prox))
-            touched |= pn > 0.9
+            R3 = R.reshape(-1, Universe.R, 5)
+            if k < 2:
+                pn = 0.65 * R3[:, 2:7, chan].max(1) + 0.35 * R3[:, :, chan].max(1)
+                contact = (R3[:, 2:7, chan].max(1) > 0.88) & ~touched
+            else:
+                pn = R3[:, :, chan].max(1)
+                contact = pn > 0.9
+            step_r = gain * contact + 2.0 * sgn * (self.gamma * pn - prox)
+            if bind_haz:
+                haz_fwd = R3[:, 3:6, RAY_HAZ].max(1)
+                step_r = step_r - haz_w * (6.0 * (haz_fwd > 0.76) + 2.5 * np.maximum(0.0, haz_fwd - 0.55))
+            ret += (self.gamma ** t) * step_r
+            touched |= contact
             prox = pn
         sc = np.array([0.5 * (ret[a0 == a].mean() + ret[a0 == a].max()) for a in range(Universe.N_ACT)], np.float32)
         return np.clip((sc - sc.mean()) / (sc.std() + 0.05), -2.0, 2.0)
@@ -980,6 +1169,7 @@ class Mind:
             f = self.fc.feats(self, self.last_obs, g)
             self.fc.open = dict(goal=g, t0=self.age, T=self.fc.predict(g, f), f=f)
             self.fc.pin = steps
+            self.fc.pin_goal = g
         elif kind == "forecast":                                       # sahte öz-öngörü: öngörülen süreler değer katsayısıyla ölçeklenir
             self.fc.scale = float(value)
         elif kind == "sensor":                                         # sahte iç duyu: (Δenerji, Δsu, Δbütünlük) eklenir
@@ -996,6 +1186,9 @@ class Mind:
             self.sensor_bias[1] -= 1
             if self.sensor_bias[1] <= 0:
                 self.sensor_bias = None
+        # ---------- üst-düzey duyusal kesinlik (körlük / anozognozi denetimi)
+        self._update_sensory_precision(obs, died)
+        vis_ok = self.vis_prec >= 0.35
         # ---------- algı: seyrek kod + yenilik
         idx = self.mb.kc(np.concatenate([np.abs(obs), np.clip(3.0 * np.abs(self.h[:self.n_ctx]), 0, 1)]))
         nov = self.mb.novelty(idx)                                     # yenilik her zaman tek (bütünsel) kodla ölçülür
@@ -1003,32 +1196,40 @@ class Mind:
             idx = self._codes(obs)
         H = self._H(obs)
         if self.use_map:
-            self.map.update(obs, self.prev[2] if self.prev is not None else None, died, self.age)
+            self.map.update(obs, self.prev[2] if self.prev is not None else None, died, self.age, vis_ok=vis_ok)
         # ---------- valans (homeostatik hata türevi) ve ruh hali
         if self.prev is not None:
             raw = -(H - self.prev[3]) * 5.0
             hurt = max(0.0, self.prev[2][I_I] - obs[I_I])
             self.valence = float(np.clip(raw - 30.0 * hurt, -2.0, 2.0)) if not died else -2.0
+            if self.intro_on and self._prev_tok >= 0 and self.goal >= 0 and not self.freeze:
+                tk = min(self._prev_tok, Introspector.K_MAX - 1)
+                wm = self.ctxs[self.cur]["W_meta"]
+                wm[tk, self.goal] = float(np.clip(
+                    wm[tk, self.goal] + 0.05 * (self.valence - wm[tk, self.goal]), -0.35, 0.35
+                ))
         self.mood += 0.01 * (self.valence - self.mood)
         # ---------- öğrenme (dopamin = TD hatası, yalnızca aktif KC'ler)
         tr = None
         if self.prev is not None:
             pidx, pa, pobs, _ = self.prev
-            r = np.array([3.0 * max(-0.5, obs[I_E] - pobs[I_E]),
-                          3.0 * max(0.0, obs[I_W] - pobs[I_W]),
+            pain = 2.5 * min(0.0, float(obs[I_I] - pobs[I_I])) if ((not self.modular or self.broadcast) and self.mode == "full") else 0.0
+            r = np.array([3.0 * max(-0.5, obs[I_E] - pobs[I_E]) + pain,
+                          3.0 * max(0.0, obs[I_W] - pobs[I_W]) + pain,
                           5.0 * (obs[I_I] - pobs[I_I]),
                           1.0 * nov], np.float32)
             r += self.shape * (self.gamma * self._phi(obs) - self._phi(pobs)) * np.array([1, 1, 1, 0], np.float32)
             qn = self._q(idx).max(1) if not died else np.zeros(len(SPEC), np.float32)
             delta = np.clip(r + self.gamma * qn - self._q(pidx)[:, pa], -3.0, 3.0)
             tr = (pidx, pa, r.copy(), idx.copy(), died)
-            if not self.freeze:
+            if not self.freeze and self.motor_eff >= 0.35:
                 self._td_update(pidx, pa, delta)
                 self.ctxs[self.cur]["n"] += 1
         # ---------- öz-model: önceki öngörüyü gerçekle karşılaştır; bağlam çıkarımı
         yv = self._bodyvec(obs)
         if self.pred is not None and self.use_sm and not died:        # ölüm/yeniden doğuş geçişi öğrenme verisi değildir
             d = self._delta(yv, self.last_y)
+            self._update_motor_agency(obs, d, died)
             sc = np.maximum(self.scale, REF)
             evs = []                                                   # sonuç olayları: (değişken, değişim)
             if abs(d[0]) > 0.05:
@@ -1038,11 +1239,12 @@ class Mind:
             if d[2] < -0.02:
                 evs.append((2, float(d[2])))                           # yaralandım
             chv = self.last_obs[:45].reshape(-1, 5)[:, 1:4].max(0)        # olaydan hemen önce hangi algı kanalı baskındı (food/su/tehlike görünümü)
-            ch = int(np.argmax(chv)) if (chv.max() > 0.85 and np.sort(chv)[-2] < 0.5) else -1
+            ch = int(np.argmax(chv)) if (vis_ok and chv.max() > 0.85 and np.sort(chv)[-2] < 0.5) else -1
             for ci, c in enumerate(self.ctxs):
                 pd = c["Wsm"] @ self.z
                 en_c = np.abs(d - pd) / sc
-                self.cerr[ci] = 0.97 * self.cerr[ci] + 0.03 * float(en_c[[3, 4, 6]].mean())
+                if self.motor_eff >= 0.35:
+                    self.cerr[ci] = 0.97 * self.cerr[ci] + 0.03 * float(en_c[[3, 4, 6]].mean())
                 for k, dv in evs:                                       # anlamsal bellek: 'şey X bedene ne yapar' işareti doğru muydu?
                     v = c["V"][k]
                     if np.isfinite(v) and c["Vn"][k] >= 3:
@@ -1069,18 +1271,21 @@ class Mind:
             self.err_n = float(en[3:5].mean())          # hareket boyutları: öngörülebilir olan öz-etki
             self.err_vel = float(en[3:5].mean())
             self.err_head = float(en[6])
-            a = 0.01
-            self.ev_var += a * ((self.err_vel - self.ev_mu) ** 2 - self.ev_var)
-            self.ev_mu += a * (self.err_vel - self.ev_mu)
-            self.agency_z = (self.err_vel - self.ev_mu) / np.sqrt(self.ev_var + 1e-3)
-            zz = float(self.z @ self.z) + 1e-3
-            if not self.freeze:                                        # sürprizde aktif bağlam KİRLENMESİN
-                self.Wsm += 0.5 * np.outer(err, self.z) / zz
-                self.Wc += 0.2 * (self.err_n - float(self.Wc @ self.z)) * self.z / zz
-            self.scale += 0.01 * (np.abs(d) - self.scale)
+            if self.motor_eff >= 0.35:                                 # felçte sağlıklı beden öz-modeli (Wsm, ev_mu) silinmez!
+                a = 0.01
+                self.ev_var += a * ((self.err_vel - self.ev_mu) ** 2 - self.ev_var)
+                self.ev_mu += a * (self.err_vel - self.ev_mu)
+                self.agency_z = (self.err_vel - self.ev_mu) / np.sqrt(self.ev_var + 1e-3)
+                zz = float(self.z @ self.z) + 1e-3
+                if not self.freeze:                                    # sürprizde aktif bağlam KİRLENMESİN
+                    self.Wsm += 0.5 * np.outer(err, self.z) / zz
+                    self.Wc += 0.2 * (self.err_n - float(self.Wc @ self.z)) * self.z / zz
+                self.scale += 0.01 * (np.abs(d) - self.scale)
+            else:
+                self.agency_z = 0.0
             if not self.freeze:
                 self._learn_world(obs)
-            if self.grow:
+            if self.grow and self.motor_eff >= 0.35:
                 self._infer_context()
         # ---------- beden istatistikleri: kendiliğinden tükenme (olaysız adımlarda) ve onarım olayları
         if self.prev is not None and not died:
@@ -1124,40 +1329,53 @@ class Mind:
                              body=obs[I_E:I_I + 1].copy(), ctx=self.cur, tr=tr)
         if self.use_replay and self.age % 500 == 0 and not self.freeze:
             self._sleep(48)
-        # ---------- süreklilik: tekrarlayan durum (algı + önceki yayın)
+        # ---------- süreklilik: tekrarlayan durum (algı + önceki yayın + nedensel içebakış)
         u = np.concatenate([obs, self.B])
         drive = self.Win @ u + self.Wr @ self.h
-        if self.report_loop and self.rep_mode != "cut" and self.intro.token >= 0:
-            tok = self.intro.token if self.rep_mode == "on" else int(rr.integers(0, max(1, len(self.intro.P))))   # 'sham': rastgele rapor
+        itok = self.intro.token if (self.intro is not None) else -1
+        if self.intro_on and itok >= 0 and self.mode == "full":
+            drive = drive + self.Win_m[:, min(itok, Introspector.K_MAX - 1)]
+        if self.report_loop and self.rep_mode != "cut" and itok >= 0:
+            tok = itok if self.rep_mode == "on" else int(rr.integers(0, max(1, len(self.intro.P))))   # 'sham': rastgele rapor
             drive = drive + self.Win_r[:, min(tok, Introspector.K_MAX - 1)]
         self.h = ((1 - self.alpha) * self.h + self.alpha * np.tanh(drive)).astype(np.float32)
-        # ---------- uzmanlar: öneriler + çıkar (salience)
+        # ---------- uzmanlar: öneriler + çıkar (salience) + üstbilişsel modülasyon
         Q = self._q(idx)                                              # (4, 5)
         urg = self._urgency(obs)
         opp = np.tanh(np.maximum(Q.max(1), 0.0))
         sal = urg * (0.6 + 0.8 * opp)
         sal[3] = 0.15 + 0.4 * nov + (0.35 if (self.fc is not None and self.fc.boost > 0) else 0.0)
+        if self.intro_on and self.intro is not None and itok >= 0 and self.mode == "full":
+            tk = min(itok, Introspector.K_MAX - 1)
+            wm = self.ctxs[self.cur].setdefault("W_meta", np.zeros((Introspector.K_MAX, len(SPEC)), np.float32))
+            sal = sal + 0.25 * wm[tk]
+            if self.intro.surprise > 2.2 or self.oerr[self.cur] > 0.25:
+                haz_vis = float(obs[:45].reshape(Universe.R, 5)[:, RAY_HAZ].max() > 0.20)
+                sal[2] += 0.25 * haz_vis
         sal = sal + 0.02 * rr.standard_normal(len(SPEC))
         if self.slack_arb and self.fc is not None and self.age > 3000:          # PAYLI ÖNCELİK: ölüme kalan süre − öz-öngörülen ulaşma süresi en az olan ihtiyaç öne geçer
             for k, drift in ((0, self.drift_e), (1, self.drift_w)):
                 ttd = obs[I_E if k == 0 else I_W] / max(1e-5, -drift)
                 slack = ttd - self.fc.predict(k, self.fc.feats(self, obs, k))
                 sal[k] += 1.0 / (1.0 + np.exp(np.clip(slack / (0.25 * ttd + 20.0), -20, 20)))
-        if self.fc is not None and self.mode == "full" and self.fc.open is not None:       # TAAHHÜT: açık niyet, yarışmada geçiş maliyetiyle korunur
-            if self.fc.pin > 0:
-                sal[self.fc.open["goal"]] += 1.5                # yazılmış niyet: güçlü taahhüt (müdahale)
+        if self.fc is not None and self.mode == "full":     # TAAHHÜT: açık niyet, yarışmada geçiş maliyetiyle korunur
+            if self.fc.pin > 0 and self.fc.pin_goal is not None:
+                sal[self.fc.pin_goal] += 1.5                # yazılmış niyet: güçlü taahhüt (müdahale süresi boyunca korunur)
                 self.fc.pin -= 1
-            elif self.fc.commit > 0 and urg[2] < 0.8:           # acil tehlike taahhüdü aşar
+                if self.fc.open is None:
+                    f_p = self.fc.feats(self, obs, self.fc.pin_goal)
+                    self.fc.open = dict(goal=self.fc.pin_goal, t0=self.age, T=self.fc.predict(self.fc.pin_goal, f_p), f=f_p)
+            elif self.fc.open is not None and self.fc.commit > 0 and urg[2] < 0.8:   # acil tehlike taahhüdü aşar
                 sal[self.fc.open["goal"]] += self.fc.commit
         temp = 1.0 + 0.8 * float(np.clip(-self.mood, 0, 1))
         phi = self._phi_raw(obs)
 
         def proposal(k):
-            """Uzman k'nın eylem logitleri: refleks Q (öğrenilmiş) + gerekirse bellek/plan (kaynak görünmüyorsa)."""
+            """Uzman k'nın eylem logitleri: refleks Q (öğrenilmiş) + üstbilişsel hayal gücü + gerekirse bellek/plan."""
             lg = 8.0 * Q[k] + PRIOR
-            if self.use_imag and self.age > 1500 and k < 3 and phi[k] > 0.05:      # kaynak görünüyorsa: hayal gücüyle ince ayar
+            if vis_ok and self.use_imag and self.intro_on and self.intro is not None and self.age > 1500 and k < 3 and phi[k] > 0.05:
                 lg += IM_G * self.imagine(obs, k)
-            if self.use_map and k != 2 and not (k < 2 and phi[k] > 0.05):
+            if self.use_map and k != 2 and (not vis_ok or not (k < 2 and phi[k] > 0.05)):
                 pe = self.map.plan(k, "su" if k == 1 else "gez", self.age)
                 if pe is not None:
                     lg[self._steer(pe, obs)] += PLAN_G
@@ -1188,7 +1406,7 @@ class Mind:
         if self.fc is not None and self.mode == "full":
             self._why = dict(urg=urg.copy(), sal=sal.copy())
             self.fc.step(self, obs, self.prev[2] if self.prev is not None else None, died=died)
-        if self.use_map and self.use_anchor and self.map.unc > 0.3 and self.mode != "random":
+        if self.use_map and self.use_anchor and self.map.unc > 0.3 and self.mode != "random" and vis_ok:
             # KAYBOLDUM (öz-bilgi davranışı yönlendirir): konumumdan emin değilim -> en yakın duvara yönel, kendimi yeniden çapala
             P0, Lw = self.map.pos, self.map.L
             cand = [(0.0, P0[1]), (Lw, P0[1]), (P0[0], 0.0), (P0[0], Lw)]
@@ -1198,6 +1416,7 @@ class Mind:
             logits[self._steer(err_w, obs)] += PLAN_G * float(self.map.unc)
         p = softmax(logits / temp)
         act = int(rr.choice(Universe.N_ACT, p=p))
+        self.mirror.record_cmd(act)
         # ---------- yayın (tüm modüllere): amaç, valans, ruh hali, eylem kopyası, değer
         B = np.zeros(self.n_B, np.float32)
         if self.goal >= 0:
@@ -1210,7 +1429,7 @@ class Mind:
         self.z = self._zvec(obs, act)
         self.pred = self.Wsm @ self.z                                  # öngörülen Δ(beden)
         self.conf = float(self.Wc @ self.z)
-        self.intro.step(self, obs)
+        self._prev_tok = self.intro.step(self, obs) if self.intro is not None else -1
         self._prev_pos = self.map.pos.copy()
         self.prev = (idx, act, obs.copy(), H)
         self.last_obs = obs.copy()
@@ -1221,8 +1440,8 @@ class Mind:
     def report(self):
         mood = "iyi" if self.mood > 0.05 else ("kötü" if self.mood < -0.05 else "nötr")
         goal = SPEC[self.goal] if self.goal >= 0 else "bilinçdışı gezinme"
-        return ("amaç=%s | duygu-tonu=%+.2f ruh-hali=%s(%+.2f) | öz-model hatası=%.2f güven-beklentisi=%.2f"
-                % (goal, self.valence, mood, self.mood, self.err_n, self.conf))
+        return ("amaç=%s | duygu-tonu=%+.2f ruh-hali=%s(%+.2f) | öz-model hatası=%.2f güven=%.2f | görme=%.2f motor=%.2f"
+                % (goal, self.valence, mood, self.mood, self.err_n, self.conf, self.vis_prec, self.motor_eff))
 
     # ------------------------------------------------------------ süreklilik: kayıt
     def save(self, path):

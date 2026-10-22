@@ -148,35 +148,274 @@ def make_problem(rng, op, n):
 
 
 # ---------------------------------------------------------------- beyin
-class ThinkColumn(nn.Module):
-    """KORTEKS SÜTUNU (Progressive Nets tarzı): adaptör kapasitesi yetmediğinde büyütülen,
-    SIFIRDAN eğitilen küçük transformer. Donuk omurgayı YANAL bağla okur (sıfır-init:
-    başta hiç etkisi yok; işe yararsa öğrenilir). Omurga ve eski segmentler donuk kalır."""
+_DEFAULT_THINK_CHARS = list("0123456789+-=[]|>\n ")
 
-    def __init__(self, V, block, d=128, n_layer=3, n_head=4, d_lat=256, lateral=True):
+
+def extract_think_coords(idx, stoi):
+    """Çok satırlı ve nedensel sözdizimsel koordinat çıkarıcı (hiçbir aritmetik kuralı bilmez):
+    Mutlak dizi indeksi yerine basamak/adım göreli koordinatlar üretir; böylece yalnızca 1-2 basamakta
+    eğitilen sütun, daha önce hiç görmediği 3, 4, 5+ basamaklı işlemlere sıfır-atış genelleme yapar."""
+    digits = {stoi[c] for c in "0123456789" if c in stoi}
+    id_plus, id_minus = stoi.get("+", -1), stoi.get("-", -1)
+    id_eq, id_lb, id_rb = stoi.get("=", -1), stoi.get("[", -1), stoi.get("]", -1)
+    id_pipe, id_gt, id_sp, id_nl = stoi.get("|", -1), stoi.get(">", -1), stoi.get(" ", -1), stoi.get("\n", -1)
+
+    B, T = idx.shape
+    dev = idx.device
+    arr = idx.tolist()
+    tok_canon = idx.clone()
+    phase = torch.zeros((B, T), dtype=torch.long, device=dev)
+    q_col = torch.zeros((B, T), dtype=torch.long, device=dev)
+    k_col = torch.zeros((B, T), dtype=torch.long, device=dev)
+    line_id = torch.zeros((B, T), dtype=torch.long, device=dev)
+    q_step = torch.zeros((B, T), dtype=torch.long, device=dev)
+    k_step = torch.full((B, T), -10, dtype=torch.long, device=dev)
+    step_u = torch.zeros((B, T), dtype=torch.long, device=dev)
+    flags = torch.zeros((B, T), dtype=torch.long, device=dev)
+
+    for b in range(B):
+        row = arr[b]
+        s, lid = 0, 0
+        while s < T:
+            try:
+                end = row.index(id_nl, s) + 1
+            except ValueError:
+                end = T
+            eq0 = end
+            for p in range(s, end):
+                if row[p] == id_eq:
+                    eq0 = p
+                    break
+            seen_op = False
+            has_a, has_b = set(), set()
+            i = s
+            while i < eq0:
+                line_id[b, i] = lid
+                if row[i] in digits:
+                    j = i
+                    while j < eq0 and row[j] in digits:
+                        j += 1
+                    for p in range(i, j):
+                        line_id[b, p] = lid
+                        cv = (j - 1) - p
+                        phase[b, p] = 2 if seen_op else 0
+                        k_col[b, p] = cv
+                        q_col[b, p] = cv
+                        k_step[b, p] = -10
+                        (has_b if seen_op else has_a).add(cv)
+                    i = j
+                else:
+                    if row[i] in (id_plus, id_minus) and i > s and not seen_op:
+                        seen_op = True
+                        phase[b, i] = 1
+                    else:
+                        phase[b, i] = 3
+                    k_step[b, i] = -10
+                    i += 1
+
+            max_col = max(has_a | has_b) if (has_a or has_b) else 0
+            st, k, su, ns_toks, head_rem, c_rem, cur_p, last_p = 3, 0, 0, 0, 0, 0, 0, 0
+            for t in range(eq0, end):
+                line_id[b, t] = lid
+                tok = row[t]
+                more = 1 if k < max_col else 0
+                in_a, in_b = int(k in has_a), int(k in has_b)
+                if st == 3:
+                    phase[b, t] = 3
+                    k_step[b, t] = 0
+                    q_step[b, t] = -10
+                    step_u[b, t] = min(su, 15)
+                    su += 1
+                    if tok == id_lb:
+                        st, k, su = 4, 0, 1
+                        phase[b, t] = 4
+                        q_col[b, t] = 0
+                        k_col[b, t] = 0
+                        k_step[b, t] = 1
+                        q_step[b, t] = 0
+                        step_u[b, t] = 0
+                        flags[b, t] = int(0 in has_a) + 2 * int(0 in has_b)
+                elif st == 4:
+                    k_step[b, t] = k + 1
+                    q_step[b, t] = k
+                    q_col[b, t] = k
+                    k_col[b, t] = k
+                    step_u[b, t] = min(su, 15)
+                    su += 1
+                    if tok == id_eq:
+                        phase[b, t] = 5
+                        ns_toks = 0
+                        flags[b, t] = 0
+                        st = 5
+                    else:
+                        phase[b, t] = 4
+                        flags[b, t] = in_a + 2 * in_b
+                elif st == 5:
+                    k_step[b, t] = k + 1
+                    q_step[b, t] = k
+                    q_col[b, t] = k
+                    k_col[b, t] = k
+                    step_u[b, t] = min(su, 15)
+                    su += 1
+                    if tok == id_gt:
+                        head_rem = ns_toks if more == 0 else 1
+                        c_rem = head_rem + k - 1
+                        cur_p = 0
+                        phase[b, t] = 6
+                        k_col[b, t] = k
+                        q_col[b, t] = max(0, c_rem)
+                        flags[b, t] = int(head_rem >= 2)
+                        st = 6
+                    else:
+                        ns_toks += 1
+                        phase[b, t] = 5
+                        flags[b, t] = min(ns_toks, 3)
+                elif st == 6:
+                    if tok == id_pipe:
+                        if id_lb >= 0:
+                            tok_canon[b, t] = id_lb
+                        last_p = cur_p
+                        k += 1
+                        su = 1
+                        st = 4
+                        phase[b, t] = 4
+                        k_col[b, t] = k
+                        q_col[b, t] = k
+                        k_step[b, t] = k + 1
+                        q_step[b, t] = k
+                        step_u[b, t] = 0
+                        flags[b, t] = int(k in has_a) + 2 * int(k in has_b)
+                    elif tok == id_rb:
+                        last_p = cur_p
+                        phase[b, t] = 7
+                        k_step[b, t] = k + 1
+                        q_step[b, t] = k + 1
+                        k_col[b, t] = 0
+                        q_col[b, t] = max(0, last_p - 1)
+                        step_u[b, t] = 0
+                        flags[b, t] = 0
+                        st = 7
+                    else:
+                        k_step[b, t] = k + 1
+                        q_step[b, t] = k
+                        mc = max(0, c_rem)
+                        cur_p += 1
+                        if head_rem > 0:
+                            head_rem -= 1
+                        c_rem -= 1
+                        phase[b, t] = 6
+                        k_col[b, t] = mc
+                        q_col[b, t] = max(0, c_rem)
+                        step_u[b, t] = 15
+                        flags[b, t] = 0 if head_rem >= 1 else (2 if c_rem >= 0 else (4 if more == 1 else 3))
+                else:
+                    k_step[b, t] = k + 2
+                    q_step[b, t] = k + 1
+                    step_u[b, t] = 15
+                    if tok == id_sp:
+                        c_rem = last_p - 1
+                        phase[b, t] = 8
+                        k_col[b, t] = 0
+                        q_col[b, t] = max(0, c_rem)
+                        flags[b, t] = int(c_rem < 0)
+                    elif tok != id_nl:
+                        mc = max(0, c_rem)
+                        c_rem -= 1
+                        phase[b, t] = 8
+                        k_col[b, t] = mc
+                        q_col[b, t] = max(0, c_rem)
+                        flags[b, t] = int(c_rem < 0)
+                    else:
+                        phase[b, t] = 9
+                        flags[b, t] = 0
+            s = end
+            lid += 1
+    return tok_canon, phase, q_col, k_col, line_id, q_step, k_step, step_u, flags
+
+
+class MetricRelAttn(nn.Module):
+    """4 uzmanlaşmış metrik göreli dikkat kafası (monotonik üstel sönüm, sıfır periyodik taşma):
+    Kafa 0: soru basamak okuyucu (k_step == -10, k_col == q_col)
+    Kafa 1: önceki adım elde/ödünç okuyucu (k_step == q_step)
+    Kafa 2: basamak-hizalı kısmi/nihai sonuç kopyalayıcı (k_step == q_step ve k_col == q_col)
+    Kafa 3: adım-içi yerel tek-basamak aritmetik (aynı adım k_step_i == k_step_j)"""
+
+    def __init__(self, d, n_head=4):
         super().__init__()
+        assert n_head == 4 and d % 4 == 0
+        self.hd = d // 4
+        self.qkv = nn.Linear(d, 3 * d, bias=False)
+        self.proj = nn.Linear(d, d, bias=False)
+        self.raw_col = nn.Parameter(torch.tensor([3.5, 0.0, 3.5, 0.5]))
+        self.raw_step = nn.Parameter(torch.tensor([3.0, 3.5, 3.5, 3.5]))
+
+    def forward(self, x, q_col, k_col, q_step, k_step, step_u, mask):
+        B, T, D = x.shape
+        hd = self.hd
+        q, k, v = [t.view(B, T, 4, hd).transpose(1, 2) for t in self.qkv(x).chunk(3, dim=-1)]
+        att = (q @ k.transpose(-2, -1)) / math.sqrt(hd)
+        d_col = (q_col.unsqueeze(2) - k_col.unsqueeze(1)).abs().float()
+        d_qstep = (q_step.unsqueeze(2) - k_step.unsqueeze(1)).abs().float()
+        d_same = (k_step.unsqueeze(2) - k_step.unsqueeze(1)).abs().float()
+        k_np = (k_step != -10).float().unsqueeze(1).expand(B, T, T)
+        ac, bs = FF.softplus(self.raw_col), FF.softplus(self.raw_step)
+        rel = torch.stack([
+            -ac[0] * d_col - bs[0] * k_np,
+            -bs[1] * d_qstep,
+            -ac[2] * d_col - bs[2] * d_qstep,
+            -bs[3] * d_same - 0.1 * ac[3] * (step_u.unsqueeze(2) - step_u.unsqueeze(1)).abs().float(),
+        ], dim=1)
+        out = (FF.softmax(att + rel + mask, dim=-1) @ v).transpose(1, 2).contiguous().view(B, T, D)
+        return self.proj(out)
+
+
+class ThinkColumn(nn.Module):
+    """KORTEKS SÜTUNU (Progressive Nets + Kompozisyonel Göreli Dikkat): adaptör kapasitesi yetmediğinde
+    büyütülen, SIFIRDAN eğitilen küçük transformer. Mutlak pozisyon gömmesi yerine göreli basamak/adım
+    metrik dikkati kullanır; böylece 1-2 basamaktan öğrenilen sütun kuralı 3+ basamağa sıfır-atış taşınır."""
+
+    def __init__(self, V, block, d=128, n_layer=3, n_head=4, d_lat=256, lateral=True, stoi=None):
+        super().__init__()
+        self.block = block
+        self.stoi = stoi if stoi is not None else {c: i for i, c in enumerate(_DEFAULT_THINK_CHARS[:V])}
         self.tok = nn.Embedding(V, d)
-        self.pos = nn.Embedding(block, d)
+        self.phase_emb = nn.Embedding(12, d)
+        self.su_emb = nn.Embedding(16, d)
+        self.flag_emb = nn.Embedding(8, d)
         self.lateral = lateral
         if lateral:
             self.lat = nn.Linear(d_lat, d)
             nn.init.zeros_(self.lat.weight)
             nn.init.zeros_(self.lat.bias)
-        self.layers = nn.ModuleList([Block(d, n_head) for _ in range(n_layer)])
+        self.lns1 = nn.ModuleList([nn.LayerNorm(d, bias=False) for _ in range(n_layer)])
+        self.attns = nn.ModuleList([MetricRelAttn(d, n_head) for _ in range(n_layer)])
+        self.lns2 = nn.ModuleList([nn.LayerNorm(d, bias=False) for _ in range(n_layer)])
+        self.mlps = nn.ModuleList([nn.Sequential(
+            nn.Linear(d, 4 * d, bias=False), nn.GELU(), nn.Linear(4 * d, d, bias=False)
+        ) for _ in range(n_layer)])
         self.ln = nn.LayerNorm(d, bias=False)
         self.head = nn.Linear(d, V, bias=False)
         for m in self.modules():
             if isinstance(m, (nn.Linear, nn.Embedding)) and m is not getattr(self, "lat", None):
                 nn.init.normal_(m.weight, 0, 0.02)
 
-    def forward(self, idx, lat=None):
-        T = idx.shape[1]
-        x = self.tok(idx) + self.pos(torch.arange(T))
+    def precompute_coords(self, idx):
+        return extract_think_coords(idx, self.stoi)
+
+    def forward(self, idx, lat=None, coords=None):
+        B, T = idx.shape
+        tok_c, phase, q_col, k_col, line_id, q_step, k_step, step_u, flags = (
+            coords if coords is not None else extract_think_coords(idx, self.stoi)
+        )
+        x = self.tok(tok_c) + self.phase_emb(phase) + self.su_emb(step_u) + self.flag_emb(flags)
         if self.lateral and lat is not None:
             x = x + self.lat(lat)
-        mask = torch.triu(torch.full((T, T), float("-inf")), 1)
-        for l in self.layers:
-            x = l(x, mask)
+        causal = torch.triu(torch.full((T, T), float("-inf"), device=idx.device), 1).unsqueeze(0)
+        same_line = line_id.unsqueeze(2) == line_id.unsqueeze(1)
+        mask = torch.where(same_line, causal, torch.full_like(causal, float("-inf"))).unsqueeze(1)
+        for ln1, attn, ln2, mlp in zip(self.lns1, self.attns, self.lns2, self.mlps):
+            x = x + attn(ln1(x), q_col, k_col, q_step, k_step, step_u, mask)
+            x = x + mlp(ln2(x))
         return self.head(self.ln(x))
 
 
@@ -194,7 +433,7 @@ class Mind:
         self.cortex = cortex
         if cortex == "column":
             self.col_cfg = col_cfg or {}
-            self.col = ThinkColumn(len(self.allc), self.block, **self.col_cfg)
+            self.col = ThinkColumn(len(self.allc), self.block, stoi=self.stoi, **self.col_cfg)
             if src.get("think_column") is not None:
                 self.col.load_state_dict(src["think_column"])
             for p in self.col.parameters():
@@ -205,9 +444,16 @@ class Mind:
 
     @torch.no_grad()
     def lateral(self, idx):
-        """Donuk omurga gizli durumu; omurganın bilmediği semboller boşluğa eşlenir."""
+        """Donuk omurga gizli durumu; omurganın bilmediği semboller boşluğa eşlenir (T > block ise sağdan hizalanır)."""
         sp = self.stoi[" "]
-        return self.brain.frozen_features(torch.where(idx >= self.V0, torch.full_like(idx, sp), idx))
+        B, T = idx.shape
+        sub = idx[:, -self.block:]
+        clean = torch.where(sub >= self.V0, torch.full_like(sub, sp), sub)
+        feat = self.brain.frozen_features(clean)
+        if T <= self.block:
+            return feat
+        pad = torch.zeros((B, T - self.block, feat.shape[-1]), dtype=feat.dtype, device=feat.device)
+        return torch.cat([pad, feat], dim=1)
 
     def fwd(self, idx):
         if self.col is not None:
@@ -230,6 +476,7 @@ class Mind:
         self.brain.eval()
         if self.col is not None:
             self.col.eval()
+        max_ctx = max(self.block, 256) if self.col is not None else self.block
         idx = torch.tensor([self.enc(ctx)], dtype=torch.long).repeat(K, 1)
         outs = [[] for _ in range(K)]
         lps = [[] for _ in range(K)]
@@ -238,7 +485,7 @@ class Mind:
         stop_ids = {self.stoi[c] for c in stops if c in self.stoi}
         ban_ids = [self.stoi[c] for c in ban if c in self.stoi]
         for _ in range(max_new):
-            lo = self.fwd(idx[:, -self.block:])[:, -1, :]
+            lo = self.fwd(idx[:, -max_ctx:])[:, -1, :]
             logp = FF.log_softmax(lo, -1)
             ls = lo.clone()
             if ban_ids:
@@ -264,7 +511,7 @@ class Mind:
     def intuition(self, a, op, b):
         """SİSTEM-1: doğrudan cevap + güven. '[' (düşünmeye kaçış) seçimde yasak; ama güven
         yasaksız olasılıktan ölçülür → modelin 'düşünmek istiyorum' eğilimi güveni düşürür."""
-        txt, st, _, lps = self.sample(prompt_of(a, op, b), 1, 1.0, "\n", 8, ban="[")[0]
+        txt, st, _, lps = self.sample(prompt_of(a, op, b), 1, 1.0, "\n", max(8, n_cols(a, b) + 4), ban="[")[0]
         m = re.match(r"\s*(-?\d+)", txt)
         if not m:
             return None, 0.0
@@ -292,9 +539,9 @@ class Mind:
             for att in range(retries):
                 temp = 0.6 + 0.4 * att
                 if scaffold:
-                    cands = [(pre + t, st, lp, l) for t, st, lp, l in self.sample(ctx + pre, K, temp, "|]\n", 12)]
+                    cands = [(pre + t, st, lp, l) for t, st, lp, l in self.sample(ctx + pre, K, temp, "|]\n", max(12, n + 6))]
                 else:
-                    cands = self.sample(ctx, K, temp, "|]\n", 18)
+                    cands = self.sample(ctx, K, temp, "|]\n", max(18, n + 12))
                 samples += K
                 scored = []
                 for txt, st, lp, _ in cands:
@@ -322,7 +569,7 @@ class Mind:
             steps.append(txt)
             ctx += txt + ("]" if k == n - 1 else "|")
         ans = int(partial)  # sonuç akıl yürütmeden çıkar
-        tail, _, _, _ = self.sample(ctx, 1, 1.0, "\n", 8)[0]
+        tail, _, _, _ = self.sample(ctx, 1, 1.0, "\n", max(8, n + 4))[0]
         m = re.match(r"\s*(-?\d+)", tail)
         copy_ok = bool(m) and int(m.group(1)) == ans
         return {"ok": True, "ans": ans, "steps": steps, "samples": samples,
@@ -351,22 +598,50 @@ class Mind:
         return grew, len(units)
 
     def train_lines(self, lines, iters, batch, lr, seed, log_every=50, win=64):
-        text = "\n".join(lines) + "\n"
-        ids = torch.tensor(self.enc(text), dtype=torch.long)
         opt = torch.optim.AdamW(self.params(), lr=lr)
         sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=lr, total_steps=iters, pct_start=0.1)
         rng = torch.Generator().manual_seed(seed)
         (self.col or self.brain).train()
         t0, loss = time.time(), None
-        for it in range(1, iters + 1):
-            x, y = batchify(ids, win, batch, rng)  # düşünce satırı ~40 karakter: 64'lük pencere yeter
-            loss = FF.cross_entropy(self.fwd(x).view(-1, len(self.allc)), y.view(-1))
-            opt.zero_grad()
-            loss.backward()
-            opt.step()
-            sched.step()
-            if it % log_every == 0 or it == iters:
-                print(f"      iter {it}/{iters} kayıp={loss.item():.3f} {time.time() - t0:.0f}sn", flush=True)
+        if self.col is not None:
+            enc = [self.enc(l + "\n")[:max(win, 160)] for l in lines]
+            L = max(len(e) for e in enc)
+            X = torch.zeros(len(enc), L, dtype=torch.long)
+            M = torch.zeros(len(enc), L, dtype=torch.bool)
+            Wt = torch.ones(len(enc), L)
+            for i, (e, l) in enumerate(zip(enc, lines)):
+                X[i, :len(e)] = torch.tensor(e, dtype=torch.long)
+                eq = l.index("=") if "=" in l else 0
+                M[i, eq:len(e) - 1] = True
+                if "[" not in l:
+                    Wt[i] = 1.2
+            all_coords = self.col.precompute_coords(X[:, :-1])
+            for it in range(1, iters + 1):
+                ix = torch.randint(0, len(enc), (batch,), generator=rng)
+                inp, tgt, m, wt = X[ix, :-1], X[ix, 1:], M[ix, :-1], Wt[ix, :-1]
+                sub_c = tuple(t[ix] for t in all_coords)
+                lat = self.lateral(inp) if self.col.lateral else None
+                logits = self.col(inp, lat=lat, coords=sub_c)
+                ce = FF.cross_entropy(logits[m], tgt[m], reduction="none")
+                loss = (ce * wt[m]).sum() / wt[m].sum().clamp(min=1.0)
+                opt.zero_grad()
+                loss.backward()
+                opt.step()
+                sched.step()
+                if it % log_every == 0 or it == iters:
+                    print(f"      iter {it}/{iters} kayıp={loss.item():.3f} {time.time() - t0:.0f}sn", flush=True)
+        else:
+            text = "\n".join(lines) + "\n"
+            ids = torch.tensor(self.enc(text), dtype=torch.long)
+            for it in range(1, iters + 1):
+                x, y = batchify(ids, win, batch, rng)
+                loss = FF.cross_entropy(self.fwd(x).view(-1, len(self.allc)), y.view(-1))
+                opt.zero_grad()
+                loss.backward()
+                opt.step()
+                sched.step()
+                if it % log_every == 0 or it == iters:
+                    print(f"      iter {it}/{iters} kayıp={loss.item():.3f} {time.time() - t0:.0f}sn", flush=True)
         (self.col or self.brain).eval()
         for p in list(self.brain.parameters()) + (list(self.col.parameters()) if self.col else []):
             p.requires_grad = False

@@ -35,7 +35,7 @@ class _NullBrain:
     def parameters(self): return []
 
 
-def make_thinker(seed=0, d=128, layers=3, block=64):
+def make_thinker(seed=0, d=96, layers=3, block=160):
     """Donuk omurgasız, sıfırdan eğitilen küçük düşünce sütunu (nora_think.Mind arayüzü)."""
     torch.manual_seed(seed)
     m = object.__new__(nt.Mind)
@@ -43,13 +43,13 @@ def make_thinker(seed=0, d=128, layers=3, block=64):
     m.brain = _NullBrain()
     m.allc, m.stoi, m.block, m.V0 = CHARS, {c: i for i, c in enumerate(CHARS)}, block, len(CHARS)
     m.cortex, m.col_cfg = "column", {}
-    m.col = nt.ThinkColumn(len(CHARS), block, d=d, n_layer=layers, lateral=False)
+    m.col = nt.ThinkColumn(len(CHARS), block, d=d, n_layer=layers, lateral=False, stoi=m.stoi)
     return m
 
 
-def train_masked(mind, lines, iters, batch, lr, seed, block=64):
+def train_masked(mind, lines, iters, batch, lr, seed, block=160):
     """Satır bazlı, MASKELİ eğitim: kayıp yalnızca '=' sonrası karakterlere (sezgi cevabı / düşünce izi) uygulanır.
-    Soru kısmı (rastgele sayılar) öğrenilemez gürültüdür; pencere yerine tüm satırlar toplu verilir."""
+    Soru kısmı (rastgele sayılar) öğrenilemez gürültüdür; sözdizimsel göreli koordinatlar bir kez önceden hesaplanır."""
     import torch.nn.functional as F
     g = torch.Generator().manual_seed(seed)
     enc = [[mind.stoi[c] for c in (l + "\n")][:block] for l in lines]
@@ -62,7 +62,8 @@ def train_masked(mind, lines, iters, batch, lr, seed, block=64):
         eq = l.index("=")
         M[i, eq:len(e) - 1] = True                      # t konumundaki girdi t+1'i öngörür
         if "[" not in l:
-            Wt[i] = 4.0                                 # doğrudan cevap (sezgi) satırları daha ağır: asıl öğrenilmesi zor olan
+            Wt[i] = 1.2                                 # doğrudan cevap (sezgi) satırları dengeli ağırlıkta (S2 izini boğmadan)
+    all_coords = mind.col.precompute_coords(X[:, :-1]) if hasattr(mind.col, "precompute_coords") else None
     for p in mind.col.parameters():
         p.requires_grad = True
     opt = torch.optim.AdamW(mind.col.parameters(), lr=lr)
@@ -72,7 +73,8 @@ def train_masked(mind, lines, iters, batch, lr, seed, block=64):
     for it in range(iters):
         idx = torch.randint(0, len(enc), (batch,), generator=g)
         inp, tgt, m, wt = X[idx, :-1], X[idx, 1:], M[idx, :-1], Wt[idx, :-1]
-        logits = mind.col(inp, None)
+        sub_c = tuple(t[idx] for t in all_coords) if all_coords is not None else None
+        logits = mind.col(inp, None, coords=sub_c) if sub_c is not None else mind.col(inp, None)
         ce = F.cross_entropy(logits[m], tgt[m], reduction="none")
         loss = (ce * wt[m]).sum() / wt[m].sum()
         opt.zero_grad()
@@ -102,12 +104,12 @@ class Cognition:
         self.n_puz = self.n_ok = self.n_int = self.n_think = self.n_int_ok = 0
         self.teach, self.lr, self.batch = [], lr, batch
         trng = random.Random(7)
-        # gün-0 öğretmen gösterimi: ağırlıklı 1 basamak (ezberlenebilir), az 2 basamak (nora_think: yalnızca 1-2 basamak gösterilir)
+        # gün-0 öğretmen gösterimi: yalnızca 1-2 basamak (3+ basamak HİÇ gösterilmez; sıfır-atış genelleme)
         for i in range(boot_n):
-            n = 1 if i < int(0.8 * boot_n) else 2
+            n = 1 if i < int(0.45 * boot_n) else 2
             a, op, b = nt.make_problem(trng, nt.OPS[i % 2], n)
             self.teach.append(nt.think_line(a, op, b, nt.teacher_steps(a, op, b), nt.answer_of(a, op, b)))
-            if i % direct_every == 0:
+            if (n == 1 and i % direct_every == 0) or (n == 2 and i % max(4, direct_every) == 0):
                 self.teach.append(nt.direct_line(a, op, b, nt.answer_of(a, op, b)))
         t0 = time.time()
         self.mind.grow(5)
