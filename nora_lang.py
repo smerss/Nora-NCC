@@ -1,0 +1,1140 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""nora_lang.py — NoRa Bedenlenmiş, Epoch'suz Türkçe Dil ve Kavram Organı (Wernicke–Broca–Kavram Ağı).
+
+Temel ilkeler:
+  1. Brute-force epoch eğitimi YOKTUR: Yeni kelimeler, kavramlar ve nedensel kurallar ACh + DA
+     kapılı tek-atış (1-shot) sinaptik bağlama (ChemMushroomBody + ilişkisel sinapslar) ile
+     TEK CÜMLEDE öğrenilir.
+  2. Üretken Türkçe Morfoloji (TurkishMorphology): Eklemeli Türkçe dilbilgisi (ünlü uyumu,
+     ünsüz yumuşaması/sertleşmesi, kaynaştırma harfleri, hal ve zaman/kişi ekleri) algoritmik
+     ve çift-yönlüdür. Ajan hayatında İLK KEZ duyduğu uydurma bir kelimeyi bile ('zirkon' ->
+     'zirkondan', 'blorg' -> 'blorgu') çekimleyip anlamlı cümle içinde kullanabilir.
+  3. Yayılan Aktivasyon ve Geçişli/İstisnalı Çıkarım (GroundedConceptGraph):
+     Taksonomik (ISA), nedensel (CAUSES), işlevsel (USED_FOR), eylemsel (CAN_DO), özellik
+     (HAS_PROP) ve koşullu (IF_THEN) sinapslar üzerinde çok-adımlı çıkarım yapar; doğrudan
+     istisnalar ('penguen uçmaz') kalıtımı ('kuşlar uçar') ezer (non-monotonic reasoning).
+  4. Wernicke (Anlama + Zamir/Bağlam Çözümleme) & Broca (Önermelerden Cümle Üretimi):
+     Doğal Türkçe soruları, öğretileri, komutları, aritmetiği ve öz-benlik sorgularını
+     anlamsal çerçeveye (SemanticFrame) çevirir; cevabı kalıp metin yapıştırmadan,
+     önerme ağacını Türkçe morfolojiyle çekimleyerek kurar.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+import re
+import numpy as np
+
+from nora_chem import NeuroChemistry, ChemMushroomBody
+
+
+BACK_VOWELS = set("aıou")
+FRONT_VOWELS = set("eiöü")
+ALL_VOWELS = BACK_VOWELS | FRONT_VOWELS
+HARD_CONS = set("fstkçşhp")
+
+
+def tr_lower(s: str) -> str:
+    return s.replace("İ", "i").replace("I", "ı").lower()
+
+
+def tr_capitalize(s: str) -> str:
+    if not s:
+        return s
+    first = "İ" if s[0] == "i" else ("I" if s[0] == "ı" else s[0].upper())
+    return first + s[1:]
+
+
+class TurkishMorphology:
+    """Üretken Türkçe İsim/Fiil Çekimleyici, Kök Çözümleyici ve Sayı Okuyucu."""
+
+    # Yumuşamaya girmeyen yaygın tek-heceli / istisna kökler
+    NO_SOFTEN = {"at", "et", "ot", "süt", "ok", "ek", "ak", "kök", "yük", "top", "ip", "çöp", "saç", "üç", "göç", "suç", "kaç", "iç"}
+    IRREG_NOUN = {
+        "su": {"ACC": "suyu", "DAT": "suya", "GEN": "suyun", "POSS1": "suyum"},
+        "ne": {"ACC": "neyi", "DAT": "neye", "GEN": "neyin"},
+    }
+    KNOWN_VERB_ROOTS = {
+        "git", "gel", "ye", "iç", "dur", "bekle", "kaç", "gir", "çık", "bak", "gör", "duy",
+        "öğren", "bil", "düşün", "anla", "koru", "onar", "uç", "yüz", "koş", "yürü", "parla",
+        "ısıt", "soğut", "azalt", "artır", "ver", "al", "yap", "et", "ol", "yaşa", "öl",
+        "reddet", "kabul", "inan", "güven", "çöz", "hesapla", "ara", "bul", "göster", "taş",
+    }
+
+    @staticmethod
+    def last_vowel(word: str) -> str:
+        for ch in reversed(tr_lower(word)):
+            if ch in ALL_VOWELS:
+                return ch
+        return "a"
+
+    @classmethod
+    def vowel_e_a(cls, word: str) -> str:
+        return "e" if cls.last_vowel(word) in FRONT_VOWELS else "a"
+
+    @classmethod
+    def vowel_4(cls, word: str) -> str:
+        v = cls.last_vowel(word)
+        if v in "ei":
+            return "i"
+        if v in "aı":
+            return "ı"
+        if v in "öü":
+            return "ü"
+        return "u"
+
+    @classmethod
+    def soften_stem(cls, stem: str) -> str:
+        w = tr_lower(stem)
+        if not w or w in cls.NO_SOFTEN or len(w) <= 2 and w not in {"su", "ağ", "uç"}:
+            return w
+        if w[-1] in ALL_VOWELS:
+            return w
+        if w.endswith("nk"):
+            return w[:-1] + "g"
+        rep = {"p": "b", "ç": "c", "t": "d", "k": "ğ"}
+        return (w[:-1] + rep[w[-1]]) if w[-1] in rep else w
+
+    @classmethod
+    def dental_d_t(cls, word: str) -> str:
+        w = tr_lower(word)
+        return "t" if (w and w[-1] in HARD_CONS) else "d"
+
+    @classmethod
+    def inflect_noun(cls, stem: str, case: str = "NOM", plural: bool = False,
+                     poss1: bool = False, copula: bool = False) -> str:
+        """İsim çekimi: NOM, ACC (-i), DAT (-e), LOC (-de), ABL (-den), INS (-le), GEN (-in)."""
+        w = tr_lower(stem).strip()
+        if not w:
+            return w
+        if not plural and not poss1 and w in cls.IRREG_NOUN and case in cls.IRREG_NOUN[w]:
+            res = cls.IRREG_NOUN[w][case]
+        else:
+            if plural:
+                w = w + ("ler" if cls.vowel_e_a(w) == "e" else "lar")
+            if poss1:
+                if w == "su" and not plural:
+                    w = "suyum"
+                elif w[-1] in ALL_VOWELS:
+                    w = w + "m"
+                else:
+                    w = cls.soften_stem(w) + cls.vowel_4(w) + "m"
+            c = case.upper()
+            if c == "NOM":
+                res = w
+            elif c == "ACC":
+                if w[-1] in ALL_VOWELS:
+                    res = w + "y" + cls.vowel_4(w)
+                else:
+                    res = cls.soften_stem(w) + cls.vowel_4(w)
+            elif c == "DAT":
+                if w[-1] in ALL_VOWELS:
+                    res = w + "y" + cls.vowel_e_a(w)
+                else:
+                    res = cls.soften_stem(w) + cls.vowel_e_a(w)
+            elif c == "LOC":
+                res = w + cls.dental_d_t(w) + cls.vowel_e_a(w)
+            elif c == "ABL":
+                res = w + cls.dental_d_t(w) + cls.vowel_e_a(w) + "n"
+            elif c == "INS":
+                res = w + ("y" if w[-1] in ALL_VOWELS else "") + "l" + cls.vowel_e_a(w)
+            elif c == "GEN":
+                if w[-1] in ALL_VOWELS:
+                    res = w + "n" + cls.vowel_4(w) + "n"
+                else:
+                    res = cls.soften_stem(w) + cls.vowel_4(w) + "n"
+            else:
+                res = w
+        if copula:
+            res = res + cls.dental_d_t(res) + cls.vowel_4(res) + "r"
+        return res
+
+    @classmethod
+    def conjugate_verb(cls, stem: str, tense: str = "AOR", neg: bool = False, person: str = "3SG") -> str:
+        """Fiil çekimi: PRES (-iyor), PAST (-di), FUT (-ecek), AOR (-ir/-ar), NEC (-meli), IMP."""
+        v = tr_lower(stem).strip()
+        for inf in ("mek", "mak"):
+            if len(v) > 3 and v.endswith(inf):
+                v = v[:-3]
+                break
+        if not v:
+            return v
+        t = tense.upper()
+        p = person.upper()
+
+        if t == "IMP":
+            if neg:
+                base = v + "m" + cls.vowel_e_a(v)
+            else:
+                base = v
+            return base + ("yin" if cls.vowel_e_a(base) == "e" else "yın") if p == "2PL" else base
+
+        if t == "PRES":
+            if neg:
+                base = v + "m" + cls.vowel_4(v) + "yor"
+            else:
+                if v in {"git", "et", "tat", "güt"} or v.endswith("det"):
+                    v_pres = v[:-1] + "d"
+                else:
+                    v_pres = v
+                if v_pres[-1] in ALL_VOWELS:
+                    stem_cut = v_pres[:-1]
+                    v4 = cls.vowel_4(stem_cut if stem_cut else v_pres)
+                    base = stem_cut + v4 + "yor"
+                else:
+                    base = v_pres + cls.vowel_4(v_pres) + "yor"
+            if p == "1SG":
+                return base + "um"
+            if p == "2SG":
+                return base + "sun"
+            if p == "1PL":
+                return base + "uz"
+            return base
+
+        if t == "PAST":
+            b = (v + "m" + cls.vowel_e_a(v)) if neg else v
+            dt = cls.dental_d_t(b)
+            v4 = cls.vowel_4(b)
+            if p == "1SG":
+                return f"{b}{dt}{v4}m"
+            if p == "2SG":
+                return f"{b}{dt}{v4}n"
+            if p == "1PL":
+                return f"{b}{dt}{v4}k"
+            return f"{b}{dt}{v4}"
+
+        if t == "FUT":
+            b = (v + "m" + cls.vowel_e_a(v)) if neg else v
+            ea = cls.vowel_e_a(b)
+            buf = "y" if b[-1] in ALL_VOWELS else ""
+            if p == "1SG":
+                return f"{b}{buf}{ea}c{ea}ğ{cls.vowel_4(ea)}m"
+            if p == "2SG":
+                return f"{b}{buf}{ea}c{ea}ks{cls.vowel_4(ea)}n"
+            return f"{b}{buf}{ea}c{ea}k"
+
+        if t == "NEC":
+            b = (v + "m" + cls.vowel_e_a(v)) if neg else v
+            ea = cls.vowel_e_a(b)
+            li = "li" if ea == "e" else "lı"
+            if p == "1SG":
+                return f"{b}m{ea}{li}y{cls.vowel_4(li)}m"
+            return f"{b}m{ea}{li}"
+
+        # Varsayılan: Geniş zaman (AOR)
+        if neg:
+            ea = cls.vowel_e_a(v)
+            if p == "1SG":
+                return f"{v}m{ea}m"
+            if p == "1PL":
+                return f"{v}m{ea}y{cls.vowel_4(ea)}z"
+            if p == "2SG":
+                return f"{v}m{ea}zs{cls.vowel_4(ea)}n"
+            return f"{v}m{ea}z"
+
+        if v in {"git", "et"} or v.endswith("det"):
+            v_aor = v[:-1] + "d"
+        else:
+            v_aor = v
+        if v_aor[-1] in ALL_VOWELS:
+            aor = v_aor + "r"
+        else:
+            n_vow = sum(1 for c in v_aor if c in ALL_VOWELS)
+            # Tek heceli çoğu fiil -ar/-er alır ('uçar', 'yapar', 'koşar'), 'gör/bil/gel/al/ol/ver/dur/bul/kal/var' -ir/-ır/-ür/-ur alır
+            ir_singles = {"gör", "bil", "gel", "al", "ol", "ver", "dur", "bul", "kal", "var", "vur", "san"}
+            if n_vow == 1 and v_aor not in ir_singles:
+                aor = v_aor + cls.vowel_e_a(v_aor) + "r"
+            else:
+                aor = v_aor + cls.vowel_4(v_aor) + "r"
+        if p == "1SG":
+            return aor + cls.vowel_4(aor) + "m"
+        if p == "2SG":
+            return aor + "s" + cls.vowel_4(aor) + "n"
+        if p == "1PL":
+            return aor + cls.vowel_4(aor) + "z"
+        return aor
+
+    @classmethod
+    def analyze_word(cls, raw: str, lexicon: set[str] | None = None) -> dict:
+        """Kelimeyi (kök, hal, çoğul, olumsuzluk, zaman, koşaç) bileşenlerine ayırır."""
+        w = re.sub(r"[^\wçğıöşüÇĞİÖŞÜ-]", "", tr_lower(raw))
+        info = {"surface": w, "stem": w, "case": "NOM", "plural": False, "neg": False, "copula": False, "is_verb": False}
+        if not w or len(w) <= 2:
+            return info
+        known = lexicon or set()
+
+        # Özel zamir ve düzensiz biçimler
+        pron_map = {
+            "suyu": ("su", "ACC"), "suya": ("su", "DAT"), "suda": ("su", "LOC"), "sudan": ("su", "ABL"), "suyun": ("su", "GEN"),
+            "bana": ("ben", "DAT"), "beni": ("ben", "ACC"), "bende": ("ben", "LOC"), "benden": ("ben", "ABL"), "benim": ("ben", "GEN"),
+            "sana": ("sen", "DAT"), "seni": ("sen", "ACC"), "sende": ("sen", "LOC"), "senden": ("sen", "ABL"), "senin": ("sen", "GEN"),
+            "ona": ("o", "DAT"), "onu": ("o", "ACC"), "onda": ("o", "LOC"), "ondan": ("o", "ABL"), "onun": ("o", "GEN"),
+            "oraya": ("ora", "DAT"), "orada": ("ora", "LOC"), "oradan": ("ora", "ABL"),
+            "buraya": ("bura", "DAT"), "burada": ("bura", "LOC"), "buradan": ("bura", "ABL"),
+            "neye": ("ne", "DAT"), "neyi": ("ne", "ACC"), "nerede": ("nere", "LOC"), "nereye": ("nere", "DAT"), "nereden": ("nere", "ABL"),
+        }
+        if w in pron_map:
+            info["stem"], info["case"] = pron_map[w]
+            return info
+
+        cur = w
+        # 1) Koşaç (-dir/-dır/-tir/-tır/-dür/-dur/-tür/-tur)
+        for cop in ("dir", "dır", "dur", "dür", "tir", "tır", "tur", "tür"):
+            if len(cur) > 4 and cur.endswith(cop):
+                cur = cur[:-3]
+                info["copula"] = True
+                break
+
+        # 2) Basit fiil çekim ekleri kontrolü
+        verb_pats = [
+            (r"^(.+?)(m[ae])z$", True),
+            (r"^(.+?)(m[iıuü])yor(um|sun|uz)?$", True),
+            (r"^(.+?)[iıuü]yor(um|sun|uz)?$", False),
+            (r"^(.+?)(m[ae])[dt][iıuü](m|n|k)?$", True),
+            (r"^(.+?)(m[ae])k$", False),
+            (r"^(.+?)[ae]c[ae](k|ğim|ğım|ksin|ksın)$", False),
+        ]
+        for pat, is_neg in verb_pats:
+            m = re.match(pat, cur)
+            if m and len(m.group(1)) >= 2:
+                cand = m.group(1)
+                hard_cand = cls._unsoften(cand)
+                info["stem"] = hard_cand if hard_cand in cls.KNOWN_VERB_ROOTS or hard_cand in known else cand
+                info["neg"] = is_neg
+                info["is_verb"] = True
+                return info
+
+        # Geniş zaman (-ar/-er/-ir/-ır/-ur/-ür) yalnızca bilinen fiil köklerinde veya çoğul yoksa
+        m_aor = re.match(r"^(.+?)([aeiıuü]r)(im|ım|um|üm|sin|sın)?$", cur)
+        if m_aor and cur not in known and not cur.endswith(("lar", "ler")):
+            cand = m_aor.group(1)
+            hard_cand = cls._unsoften(cand)
+            if cand in cls.KNOWN_VERB_ROOTS or hard_cand in cls.KNOWN_VERB_ROOTS:
+                info["stem"] = hard_cand if hard_cand in cls.KNOWN_VERB_ROOTS else cand
+                info["is_verb"] = True
+                return info
+
+        # 3) İsim hal ekleri (ABL -> LOC -> GEN -> INS -> DAT -> ACC)
+        case_rules = [
+            (("dan", "den", "tan", "ten"), "ABL"),
+            (("da", "de", "ta", "te"), "LOC"),
+            (("nın", "nin", "nun", "nün", "ın", "in", "un", "ün"), "GEN"),
+            (("yla", "yle", "la", "le"), "INS"),
+            (("ya", "ye", "a", "e"), "DAT"),
+            (("yı", "yi", "yu", "yü", "ı", "i", "u", "ü"), "ACC"),
+        ]
+        if cur not in known:
+            for suffixes, cname in case_rules:
+                matched = False
+                for sf in suffixes:
+                    if len(cur) - len(sf) >= 2 and cur.endswith(sf):
+                        cand = cur[:-len(sf)]
+                        # Türkçe ünsüz benzeşmesi yasası: 't' ile başlayan hal eki (-ta/-te/-tan/-ten) YALNIZCA sert ünsüzden sonra gelebilir!
+                        if sf[0] == "t" and (not cand or cand[-1] not in HARD_CONS):
+                            continue
+                        # 'a'/'e'/'ı'/'i' tek harfli eklerde kelimenin zaten sözlükte kök olup olmadığını koru;
+                        # ancak ünsüz yumuşaması ('ğ/b/c/d' + ünlü) veya sert ünsüz + ünlü ('sepete' -> 'sepet') hal ekidir!
+                        hard = cls._unsoften(cand)
+                        softened = cls._likely_softened(cand, sf)
+                        hard_dat_acc = (cand[-1] in HARD_CONS and len(cand) >= 3)
+                        if len(sf) == 1 and (cur in known or (not softened and not hard_dat_acc and cand not in known and hard not in known and not cand.endswith(("lar", "ler")))):
+                            continue
+                        cur = hard if softened else cand
+                        info["case"] = cname
+                        matched = True
+                        break
+                if matched:
+                    break
+
+        # 4) Çoğul eki (-lar/-ler) ve iyelik (-ım/-im/-um/-üm)
+        for pl in ("lar", "ler"):
+            if len(cur) > 4 and cur.endswith(pl) and cur not in known:
+                cur = cur[:-3]
+                info["plural"] = True
+                break
+        for poss in ("ım", "im", "um", "üm", "m"):
+            if len(cur) - len(poss) >= 3 and cur.endswith(poss) and cur not in known:
+                cand = cur[:-len(poss)]
+                hard = cls._unsoften(cand)
+                if cand in known or hard in known:
+                    cur = hard if hard in known else cand
+                    break
+
+        info["stem"] = cur
+        return info
+
+    @staticmethod
+    def _likely_softened(cand: str, sf: str) -> bool:
+        return bool(sf and sf[0] in ALL_VOWELS and cand and cand[-1] in {"b", "c", "d", "ğ"})
+
+    @staticmethod
+    def _unsoften(cand: str) -> str:
+        if not cand:
+            return cand
+        rev = {"b": "p", "c": "ç", "d": "t", "ğ": "k"}
+        return (cand[:-1] + rev[cand[-1]]) if cand[-1] in rev else cand
+
+    # ------------------------------------------------------------------ Türkçe sayı sistemi
+    UNITS = {"sıfır": 0, "bir": 1, "iki": 2, "üç": 3, "dört": 4, "beş": 5, "altı": 6, "yedi": 7, "sekiz": 8, "dokuz": 9}
+    TENS = {"on": 10, "yirmi": 20, "otuz": 30, "kırk": 40, "elli": 50, "altmış": 60, "yetmiş": 70, "seksen": 80, "doksan": 90}
+    REV_U = {v: k for k, v in UNITS.items() if v > 0}
+    REV_T = {v: k for k, v in TENS.items()}
+
+    @classmethod
+    def words_to_int(cls, tokens: list[str]) -> int | None:
+        """Türkçe sayı dizisini ('iki', 'yüz', 'kırk', 'yedi' -> 247) tam sayıya çevirir."""
+        if not tokens:
+            return None
+        sign = 1
+        idx = 0
+        if tokens[0] == "eksi":
+            sign = -1
+            idx = 1
+        total = 0
+        current = 0
+        used = False
+        for tok in tokens[idx:]:
+            t = tr_lower(tok)
+            if re.fullmatch(r"[+-]?\d+", t):
+                return sign * int(t)
+            if t in cls.UNITS:
+                current += cls.UNITS[t]
+                used = True
+            elif t in cls.TENS:
+                current += cls.TENS[t]
+                used = True
+            elif t == "yüz":
+                current = (1 if current == 0 else current) * 100
+                used = True
+            elif t == "bin":
+                total += (1 if current == 0 else current) * 1000
+                current = 0
+                used = True
+            else:
+                break
+        return (sign * (total + current)) if used else None
+
+    @classmethod
+    def int_to_words(cls, n: int) -> str:
+        if n == 0:
+            return "sıfır"
+        neg = n < 0
+        n = abs(int(n))
+        parts = []
+        if n >= 1000:
+            th = n // 1000
+            if th > 1:
+                parts.append(cls.int_to_words(th))
+            parts.append("bin")
+            n %= 1000
+        if n >= 100:
+            hu = n // 100
+            if hu > 1:
+                parts.append(cls.REV_U[hu])
+            parts.append("yüz")
+            n %= 100
+        if n >= 10:
+            te = (n // 10) * 10
+            parts.append(cls.REV_T[te])
+            n %= 10
+        if n > 0:
+            parts.append(cls.REV_U[n])
+        return ("eksi " if neg else "") + " ".join(parts)
+
+
+@dataclass
+class RelationEdge:
+    subj: str
+    rel: str                  # ISA | HAS_PROP | CAN_DO | CANNOT_DO | CAUSES | USED_FOR | LOCATED_AT | IF_THEN | OPPOSITE
+    obj: str
+    weight: float = 1.0
+    source: str = "duyum"     # deneyim | duyum | doğuştan
+    speaker: str = "insan"
+
+
+@dataclass
+class Proposition:
+    """Broca cümle üreticisine giden atomik düşünce önermesi."""
+    subj: str
+    rel: str
+    obj: str = ""
+    neg: bool = False
+    tense: str = "AOR"
+    person: str = "3SG"
+    source: str = "deneyim"
+    reason: "Proposition | None" = None
+
+
+class GroundedConceptGraph:
+    """Bedenlenmiş kavram uzayı + 1-atış ilişkisel sinaps ağı + yayılan aktivasyon çıkarımı."""
+
+    def __init__(self, chem: NeuroChemistry, seed: int = 0):
+        self.chem = chem
+        self.rng = np.random.default_rng(seed)
+        self.lexicon: set[str] = set()
+        self.edges: list[RelationEdge] = []
+        self.concept_vecs: dict[str, np.ndarray] = {}
+        self.concept_id: dict[str, int] = {}
+        self.id_concept: list[str] = []
+        # Karakter-üçlüsü (trigram) -> seyrek Kenyon hücresi ile fonolojik-kavramsal çağrışım!
+        self.word_mb = ChemMushroomBody(n_in=128, n_out=32, n_kc=2048, seed=seed + 11)
+        self._bootstrap_embodied_primitives()
+
+    def _trigram_vec(self, text: str) -> np.ndarray:
+        v = np.zeros(128, dtype=np.float32)
+        s = f"<{tr_lower(text)}>"
+        for i in range(max(1, len(s) - 2)):
+            tri = s[i:i + 3]
+            h = (hash(tri) & 0x7FFFFFFF) % 128
+            h2 = ((hash(tri + "!") & 0x7FFFFFFF) % 128)
+            v[h] += 1.0
+            v[h2] -= 0.5
+        return v
+
+    def register_concept(self, name: str) -> int:
+        c = tr_lower(name).strip()
+        if not c:
+            return -1
+        self.lexicon.add(c)
+        for part in c.split():
+            self.lexicon.add(part)
+        if c not in self.concept_id:
+            cid = len(self.id_concept)
+            self.concept_id[c] = cid
+            self.id_concept.append(c)
+            vec = self._trigram_vec(c)
+            self.concept_vecs[c] = vec
+            self.word_mb.learn_oneshot(vec, cid, chem=self.chem, strength=0.8, contrastive=False)
+        return self.concept_id[c]
+
+    def _bootstrap_embodied_primitives(self):
+        """Ansiklopedi EZBERİ YOK; yalnızca bedenin doğuştan sahip olduğu duyu-motor kökler."""
+        base_words = [
+            "ben", "sen", "nora", "su", "yiyecek", "besin", "yem", "elma", "tehlike", "diken", "zehir",
+            "duvar", "kaya", "enerji", "susuzluk", "açlık", "bütünlük", "acı", "yara", "ölüm", "yaşam",
+            "gündüz", "gece", "karanlık", "aydınlık", "harita", "konum", "görme", "hareket", "ayna",
+            "kuzey", "güney", "doğu", "batı", "ileri", "sol", "sağ", "faydalı", "zararlı", "güvenli", "tehlikeli",
+        ]
+        for w in base_words:
+            self.register_concept(w)
+        # Yalnızca temel bedensel eşanlam/kategori bağları
+        prim = [
+            ("elma", "ISA", "yiyecek"), ("yem", "ISA", "yiyecek"), ("besin", "ISA", "yiyecek"),
+            ("diken", "ISA", "tehlike"),
+            ("su", "USED_FOR", "susuzluk giderme"),
+            ("yiyecek", "USED_FOR", "enerji kazanma"),
+            ("tehlike", "CAUSES", "bütünlük kaybı"),
+            ("sıcak", "OPPOSITE", "soğuk"), ("soğuk", "OPPOSITE", "sıcak"),
+            ("aydınlık", "OPPOSITE", "karanlık"), ("karanlık", "OPPOSITE", "aydınlık"),
+            ("faydalı", "OPPOSITE", "zararlı"), ("zararlı", "OPPOSITE", "faydalı"),
+        ]
+        for s, r, o in prim:
+            self.add_edge(s, r, o, source="doğuştan", weight=0.9)
+
+    def add_edge(self, subj: str, rel: str, obj: str, source: str = "duyum",
+                 speaker: str = "insan", weight: float = 1.0) -> RelationEdge:
+        s = tr_lower(subj).strip()
+        o = tr_lower(obj).strip()
+        self.register_concept(s)
+        self.register_concept(o)
+        # Zıt kutuplu çelişen eski 'duyum' bağını güncelle (ör. CAN_DO vs CANNOT_DO)
+        opposite_rel = {"CAN_DO": "CANNOT_DO", "CANNOT_DO": "CAN_DO"}.get(rel)
+        for e in self.edges:
+            if e.subj == s and e.rel == rel and e.obj == o:
+                e.weight = float(min(2.0, e.weight + 0.4 * weight))
+                if source == "deneyim":
+                    e.source = "deneyim"
+                return e
+            if opposite_rel and e.subj == s and e.rel == opposite_rel and e.obj == o and e.source != "deneyim":
+                e.weight *= 0.2
+        edge = RelationEdge(subj=s, rel=rel, obj=o, weight=float(weight), source=source, speaker=speaker)
+        self.edges.append(edge)
+        self.chem.pulse_learning(novelty=0.80, valence=0.35)
+        return edge
+
+    def ancestors(self, subj: str, max_hops: int = 4) -> list[tuple[str, list[RelationEdge]]]:
+        """ISA taksonomi zincirinde yukarı doğru yayılan aktivasyon: [(üst_kavram, iz_kenarları)]."""
+        s = tr_lower(subj).strip()
+        visited = {s}
+        frontier: list[tuple[str, list[RelationEdge]]] = [(s, [])]
+        out: list[tuple[str, list[RelationEdge]]] = [(s, [])]
+        for _ in range(max_hops):
+            nxt = []
+            for cur, path in frontier:
+                for e in self.edges:
+                    if e.subj == cur and e.rel == "ISA" and e.weight > 0.25 and e.obj not in visited:
+                        visited.add(e.obj)
+                        npath = path + [e]
+                        out.append((e.obj, npath))
+                        nxt.append((e.obj, npath))
+            frontier = nxt
+            if not frontier:
+                break
+        return out
+
+    def query(self, subj: str, rels: tuple[str, ...] | None = None) -> list[tuple[RelationEdge, list[RelationEdge]]]:
+        """Doğrudan + kalıtsal (ISA üzerinden geçişli) tüm özellikleri döndürür; istisnaları (CANNOT_DO) korur!"""
+        chain = self.ancestors(subj)
+        blocked_actions: set[str] = set()
+        results: list[tuple[RelationEdge, list[RelationEdge]]] = []
+        for anc, isa_path in chain:
+            for e in self.edges:
+                if e.subj != anc or e.weight <= 0.25:
+                    continue
+                if e.rel == "CANNOT_DO":
+                    blocked_actions.add(e.obj)
+                if rels is not None and e.rel not in rels:
+                    continue
+                if e.rel == "CAN_DO" and e.obj in blocked_actions and len(isa_path) > 0:
+                    continue  # alt-kavramdaki doğrudan istisna ('penguen uçmaz'), üst-sınıfı ('kuş uçar') ezer!
+                results.append((e, isa_path))
+        return results
+
+    def causal_chain(self, subj: str, max_hops: int = 4) -> list[tuple[str, list[RelationEdge]]]:
+        """CAUSES ve IF_THEN sinapsları boyunca çok-adımlı ileri nedensel yayılım (A -> B -> C)."""
+        s = tr_lower(subj).strip()
+        visited = {s}
+        frontier: list[tuple[str, list[RelationEdge]]] = [(s, [])]
+        out: list[tuple[str, list[RelationEdge]]] = []
+        for _ in range(max_hops):
+            nxt = []
+            for cur, path in frontier:
+                for e in self.edges:
+                    if e.subj == cur and e.rel in ("CAUSES", "IF_THEN") and e.weight > 0.25 and e.obj not in visited:
+                        visited.add(e.obj)
+                        npath = path + [e]
+                        out.append((e.obj, npath))
+                        nxt.append((e.obj, npath))
+            frontier = nxt
+            if not frontier:
+                break
+        return out
+
+    def check_relation(self, subj: str, target_pred: str) -> dict:
+        """'X Y yapar mı / X Y midir / X Y'ye yol açar mı?' sorusu için geçişli kanıt zinciri arar."""
+        s = tr_lower(subj).strip()
+        t = tr_lower(target_pred).strip()
+        t_clean = re.sub(r"\s*(yol açar|neden olur)$", "", t).strip()
+        t_stem = TurkishMorphology.analyze_word(t_clean.split()[-1], self.lexicon)["stem"] if t_clean else ""
+
+        # 1) Doğrudan veya kalıtsal negatif istisna var mı?
+        for e, isa_path in self.query(s, ("CANNOT_DO",)):
+            if e.obj == t or e.obj == t_stem:
+                return {"answer": False, "edge": e, "isa_path": isa_path}
+
+        # 2) Doğrudan veya ISA-kalıtsal pozitif bağ var mı?
+        for e, isa_path in self.query(s, ("ISA", "HAS_PROP", "CAN_DO", "CAUSES", "USED_FOR", "LOCATED_AT")):
+            e_stem = TurkishMorphology.analyze_word(e.obj.split()[-1], self.lexicon)["stem"] if e.obj else ""
+            if e.obj == t or e.obj == t_clean or e.obj == t_stem or e_stem == t_stem or t_clean in e.obj:
+                return {"answer": True, "edge": e, "isa_path": isa_path}
+
+        # 3) Çok-adımlı nedensel zincir (A -> B -> C): ör. 'kuraklık güçsüzlüğe yol açar mı?'
+        for eff, cpath in self.causal_chain(s):
+            eff_stem = TurkishMorphology.analyze_word(eff.split()[-1], self.lexicon)["stem"] if eff else ""
+            if eff == t_clean or eff == t_stem or eff_stem == t_stem:
+                return {"answer": True, "edge": cpath[-1], "isa_path": [], "causal_path": cpath}
+
+        # 4) Zıt özellik kontrolü (ör. 'ateş soğuk mudur?' -> ateş sıcaktır, sıcak != soğuk -> Hayır!)
+        opposites = {e.obj for e in self.edges if e.subj == t_stem and e.rel == "OPPOSITE"}
+        if opposites:
+            for e, isa_path in self.query(s, ("HAS_PROP",)):
+                if e.obj in opposites:
+                    return {"answer": False, "edge": e, "isa_path": isa_path, "contrast": True}
+
+        return {"answer": None, "edge": None, "isa_path": []}
+
+    def solve_analogy(self, a: str, b: str, c: str) -> tuple[str | None, str]:
+        """'a : b :: c : ?' analojisini a->b arasındaki ilişkisel sinapsı bularak c'ye uygular."""
+        a_l, b_l, c_l = tr_lower(a), tr_lower(b), tr_lower(c)
+        # 1) Doğrudan ilişki türü eşleşmesi
+        for e_ab, _ in self.query(a_l):
+            if e_ab.obj == b_l:
+                for e_c, _ in self.query(c_l, (e_ab.rel,)):
+                    return e_c.obj, e_ab.rel
+        # 2) Zıtlık ilişkisi
+        for e in self.edges:
+            if e.subj == a_l and e.rel == "OPPOSITE" and e.obj == b_l:
+                for e2 in self.edges:
+                    if e2.subj == c_l and e2.rel == "OPPOSITE":
+                        return e2.obj, "OPPOSITE"
+        return None, ""
+
+
+class BrocaGenerator:
+    """Önerme ağaçlarını (Proposition) üretken Türkçe morfolojiyle doğal cümlelere dönüştürür."""
+
+    def __init__(self):
+        self.morph = TurkishMorphology()
+        self.connective_counts: dict[str, int] = {"çünkü": 1, "dolayısıyla": 1, "ancak": 1}
+
+    def realize_prop(self, p: Proposition) -> str:
+        s = p.subj.strip()
+        o = p.obj.strip()
+        r = p.rel
+
+        if r == "ISA":
+            art = "" if o.startswith("bir ") else "bir "
+            pred = self.morph.inflect_noun(o, "NOM", copula=not p.neg)
+            return f"{s} {art}{o} değildir" if p.neg else f"{s} {art}{pred}"
+
+        if r == "HAS_PROP":
+            if p.neg:
+                return f"{s} {o} değildir"
+            return f"{s} {self.morph.inflect_noun(o, 'NOM', copula=True)}"
+
+        if r in ("CAN_DO", "CANNOT_DO"):
+            is_neg = p.neg or (r == "CANNOT_DO")
+            parts = o.split()
+            if len(parts) == 1:
+                v_form = self.morph.conjugate_verb(parts[0], tense=p.tense, neg=is_neg, person=p.person)
+                return f"{s} {v_form}".strip()
+            v_form = self.morph.conjugate_verb(parts[-1], tense=p.tense, neg=is_neg, person=p.person)
+            return f"{s} {' '.join(parts[:-1])} {v_form}".strip()
+
+        if r == "CAUSES":
+            if p.neg:
+                return f"{s} {self.morph.inflect_noun(o, 'DAT')} yol açmaz"
+            return f"{s} {self.morph.inflect_noun(o, 'DAT')} yol açar"
+
+        if r == "USED_FOR":
+            return f"{s} {o} için kullanılır"
+
+        if r == "LOCATED_AT":
+            loc = self.morph.inflect_noun(o, "LOC")
+            return f"{s} {loc} bulunur"
+
+        if r == "IF_THEN":
+            return f"{s} olduğunda {o}"
+
+        if r == "ACTION_SELF":
+            v_form = self.morph.conjugate_verb(o, tense=p.tense, neg=p.neg, person="1SG")
+            return f"{s} {v_form}".strip() if s else v_form
+
+        return f"{s} {o}".strip()
+
+    def compose(self, main: Proposition, reason: Proposition | None = None,
+                prefix: str = "", epistemic_note: str = "") -> str:
+        """Ana önerme + nedensel/çıkarımsal yan cümle + epistemik kaynak zarfını birleştirir."""
+        core = self.realize_prop(main)
+        if reason is not None:
+            r_txt = self.realize_prop(reason)
+            self.connective_counts["çünkü"] += 1
+            core = f"{core}; çünkü {r_txt}"
+        if epistemic_note:
+            core = f"{epistemic_note} {core}"
+        if prefix:
+            core = f"{prefix}, {core}"
+        out = tr_capitalize(core.strip())
+        if out and out[-1] not in ".!?":
+            out += "."
+        return out
+
+    def compose_inference_chain(self, answer: bool, subj: str, pred: str,
+                                edge: RelationEdge, isa_path: list[RelationEdge]) -> str:
+        """Geçişli çıkarım zincirini ('karga -> kuş -> uçar') adım adım cümleye döker."""
+        if not isa_path:
+            # Doğrudan bilgi
+            main = Proposition(subj=subj, rel=edge.rel, obj=edge.obj, neg=(not answer and edge.rel != "CANNOT_DO"))
+            prefix = "Evet" if answer else "Hayır"
+            ep = "deneyimime göre" if edge.source == "deneyim" else ""
+            return self.compose(main, prefix=prefix, epistemic_note=ep)
+
+        # Geçişli çıkarım: 'Evet, karga bir kuştur ve kuş uçar; dolayısıyla karga uçar.'
+        first_isa = isa_path[0]
+        p1 = self.realize_prop(Proposition(subj=first_isa.subj, rel="ISA", obj=first_isa.obj))
+        p2 = self.realize_prop(Proposition(subj=edge.subj, rel=edge.rel, obj=edge.obj))
+        concl = self.realize_prop(Proposition(subj=subj, rel=edge.rel if answer else "CANNOT_DO",
+                                              obj=edge.obj if not pred else edge.obj))
+        prefix = "Evet" if answer else "Hayır"
+        txt = f"{prefix}, {p1} ve {p2}; dolayısıyla {concl}"
+        return tr_capitalize(txt) + "."
+
+
+@dataclass
+class SemanticFrame:
+    kind: str                 # self_query | body_query | world_query | math_query | analogy_query | yn_query | wh_query | command | teach_fact | teach_val | why_query | greeting | unknown
+    raw: str
+    subj: str = ""
+    rel: str = ""
+    obj: str = ""
+    valence: float = 0.0
+    math_expr: tuple[int, str, int] | None = None
+    analogy: tuple[str, str, str] | None = None
+    sub_kind: str = ""
+
+
+class WernickeComprehender:
+    """Doğal Türkçe cümleleri yapısal SemanticFrame'e çevirir ve zamir bağlamını (Working Memory) izler."""
+
+    INTENT_LABELS = [
+        "greeting", "self_query", "body_query", "world_query",
+        "math_query", "command", "teach_fact", "yn_query", "wh_query", "why_query",
+    ]
+
+    def __init__(self, graph: GroundedConceptGraph, chem: NeuroChemistry, seed: int = 0):
+        self.graph = graph
+        self.chem = chem
+        self.morph = TurkishMorphology()
+        self.intent_mb = ChemMushroomBody(n_in=128, n_out=len(self.INTENT_LABELS), n_kc=1536, seed=seed + 23)
+        self.last_topic: str = ""
+        self.last_explanation: str = ""
+        self.turn_count: int = 0
+        self._seed_intent_prototypes()
+
+    def _sent_vec(self, text: str) -> np.ndarray:
+        v = np.zeros(128, dtype=np.float32)
+        s = tr_lower(text)
+        for tok in s.split():
+            for i in range(max(1, len(tok) - 1)):
+                bg = tok[i:i + 2]
+                v[(hash(bg) & 0x7FFFFFFF) % 128] += 1.0
+        return v
+
+    def _seed_intent_prototypes(self):
+        seeds = [
+            ("merhaba selam nasılsın günaydın", 0),
+            ("sen kimsin nesin yaşıyor musun adın ne bilincin var mı", 1),
+            ("aç mısın susadın mı enerjin kaç suyun ne durumda görebiliyor musun hareket edebiliyor musun", 2),
+            ("neredesin su nerede konumun ne haritada ne var", 3),
+            ("kaç eder artı eksi topla çıkar hesapla", 4),
+            ("suya git ileri yürü dur tehlikeye gir kuzeye yönel", 5),
+            ("bir kuştur enerji verir zararlıdır faydalıdır uçar", 6),
+            ("mı mi mu mü uçar mı zararlı mı", 7),
+            ("nedir ne yapar ne işe yarar nasıldır özelliği nedir", 8),
+            ("neden niçin niye nasıl karar verdin", 9),
+        ]
+        for txt, lbl in seeds:
+            self.intent_mb.learn_oneshot(self._sent_vec(txt), lbl, chem=None, strength=0.9, contrastive=False)
+
+    DISCOURSE_PARTICLES = {"peki", "acaba", "yani", "öyleyse", "pekala", "şey"}
+
+    def _resolve_anaphora(self, tokens: list[str]) -> list[str]:
+        """Söylem başı bağlaçlarını temizler ve çalışma belleğindeki son konuyu ('o', 'onun', 'ona', 'ondan') bağlar."""
+        toks = list(tokens)
+        while toks and re.sub(r"[^\wçğıöşü]", "", tr_lower(toks[0])) in self.DISCOURSE_PARTICLES:
+            toks.pop(0)
+        if not self.last_topic or not toks:
+            return toks
+        out = []
+        pron_cases = {
+            "o": "NOM", "onu": "ACC", "ona": "DAT", "onda": "LOC", "ondan": "ABL", "onun": "GEN",
+        }
+        for i, tok in enumerate(toks):
+            clean = re.sub(r"[^\wçğıöşü]", "", tr_lower(tok))
+            # 'o' tek başına özne konumundaysa (ardından isim gelmiyorsa veya ardından 'bir' geliyorsa) son konuya çözülür
+            next_clean = re.sub(r"[^\wçğıöşü]", "", tr_lower(toks[i + 1])) if i + 1 < len(toks) else ""
+            if clean in pron_cases and (clean != "o" or i == 0 and (next_clean in {"bir", "ne", "nedir", "nasıldır", "uçar", "yapar", "zararlı", "faydalı"} or i + 2 >= len(toks))):
+                out.append(self.morph.inflect_noun(self.last_topic, pron_cases[clean]))
+            else:
+                out.append(tok)
+        return out
+
+    def _extract_math(self, s: str) -> tuple[int, str, int] | None:
+        # 1) Rakamlı ifade: '247 + 389', '84 eksi 59', '125 ile 47 toplamı'
+        m = re.search(r"(-?\d+)\s*(\+|\-|artı|eksi|topla|çıkar|ile)\s*(-?\d+)", s)
+        if m:
+            a, op_raw, b = int(m.group(1)), m.group(2), int(m.group(3))
+            if op_raw == "ile":
+                op = "-" if ("çıkar" in s or "fark" in s or "eksi" in s) else "+"
+            else:
+                op = "-" if op_raw in ("-", "eksi", "çıkar") else "+"
+            return (a, op, b)
+
+        # 2) Yazıyla Türkçe sayı ifadesi: 'iki yüz kırk yedi artı üç yüz seksen dokuz kaç eder'
+        for kw, op in ((" artı ", "+"), (" eksi ", "-"), (" ile ", "+" if "fark" not in s else "-")):
+            if kw in s and ("kaç" in s or "eder" in s or "toplam" in s or "sonuç" in s or "?" in s):
+                left, right = s.split(kw, 1)
+                num_words = set(TurkishMorphology.UNITS) | set(TurkishMorphology.TENS) | {"yüz", "bin", "eksi"}
+                ltoks = [t for t in re.findall(r"[\wçğıöşü]+", left) if t in num_words or t.isdigit()]
+                rtoks = []
+                for t in re.findall(r"[\wçğıöşü]+", right):
+                    if t in num_words or t.isdigit():
+                        rtoks.append(t)
+                    elif rtoks:
+                        break
+                a = TurkishMorphology.words_to_int(ltoks)
+                b = TurkishMorphology.words_to_int(rtoks)
+                if a is not None and b is not None:
+                    return (a, op, b)
+        return None
+
+    def parse(self, raw_text: str) -> SemanticFrame:
+        self.turn_count += 1
+        s_raw = raw_text.strip()
+        s = tr_lower(s_raw)
+        raw_tokens = s.split()
+        tokens = self._resolve_anaphora(raw_tokens)
+        s = " ".join(tokens)
+        words = re.findall(r"[\wçğıöşü]+", s)
+        has_q = ("?" in s_raw) or any(w in words for w in ("mı", "mi", "mu", "mü", "mısın", "misin", "musun", "müsün",
+                                                            "ne", "nedir", "kim", "kimsin", "nerede", "neredesin",
+                                                            "neden", "niçin", "niye", "nasıl", "nasılsın", "kaç", "kaçtır", "hangi"))
+
+        # 1) Analoji sorgusu: 'ateş sıcak ise buz nedir' / 'ateş : sıcak :: buz : ?'
+        m_an = re.search(r"([\wçğıöşü]+)\s*:\s*([\wçğıöşü]+)\s*::\s*([\wçğıöşü]+)\s*:\s*\?", s)
+        if not m_an:
+            m_an = re.search(r"([\wçğıöşü]+)\s+([\wçğıöşü]+)\s+ise\s+([\wçğıöşü]+)\s+nedir", s)
+        if m_an:
+            return SemanticFrame(kind="analogy_query", raw=s_raw, analogy=(m_an.group(1), m_an.group(2), m_an.group(3)))
+
+        # 2) Matematik / Aritmetik sorgusu
+        math_ex = self._extract_math(s)
+        if math_ex is not None:
+            return SemanticFrame(kind="math_query", raw=s_raw, math_expr=math_ex)
+
+        # 3) Selamlama / Hal-hatır (başka bir soru içermiyorsa)
+        if not has_q and words and words[0] in {"merhaba", "selam", "günaydın", "iyi"} and len(words) <= 4:
+            return SemanticFrame(kind="greeting", raw=s_raw)
+        if set(words) <= {"nasılsın", "merhaba", "selam", "nora", "bugün"} and "nasılsın" in words:
+            return SemanticFrame(kind="body_query", raw=s_raw, sub_kind="genel_durum")
+
+        # 4) 'Neden / Niçin' açıklama sorgusu
+        if words and words[0] in {"neden", "niçin", "niye"} and len(words) <= 5:
+            return SemanticFrame(kind="why_query", raw=s_raw)
+
+        # 5) Öz-benlik, bilinç, yaşama ve kimlik sorguları
+        self_kws = {"kimsin", "nesin", "yaşıyor", "canlı", "bilinç", "bilincin", "zombi", "benliğin", "karakterin", "kişiliğin", "değerlerin", "adın", "ismin"}
+        if any(w in self_kws for w in words) or ("kendini" in words and ("tanıt" in words or "anlat" in words or "ayırırsın" in words)):
+            sub = "yaşam" if ("yaşıyor" in words or "canlı" in words) else ("ayna" if "ayna" in words or "ayırırsın" in words else "kimlik")
+            return SemanticFrame(kind="self_query", raw=s_raw, sub_kind=sub)
+
+        # 6) Bedensel / nörokimyasal / duyusal durum sorguları
+        body_map = {
+            "aç": "enerji", "enerji": "enerji", "enerjin": "enerji",
+            "susuz": "su", "susadın": "su", "suyun": "su",
+            "yara": "bütünlük", "yaralı": "bütünlük", "bütünlüğün": "bütünlük", "canın": "bütünlük",
+            "kör": "görme", "görebiliyor": "görme", "görüşün": "görme",
+            "felç": "motor", "hareket": "motor",
+            "dopamin": "kimya", "kimyan": "kimya", "hormon": "kimya", "stres": "kimya", "duygun": "kimya", "hissediyorsun": "kimya",
+            "hatırlıyor": "bellek", "anın": "bellek", "geçmişin": "bellek",
+        }
+        if has_q:
+            for w in words:
+                if w in body_map and ("nedir" not in words or w in {"enerjin", "suyun", "bütünlüğün", "kimyan", "duygun", "geçmişin"}):
+                    return SemanticFrame(kind="body_query", raw=s_raw, sub_kind=body_map[w])
+
+        # 7) Konum ve dünya haritası sorguları ('neredesin', 'su nerede', 'balina nerede yaşar')
+        if has_q and any(w in words for w in ("neredesin", "nerede", "konumun", "harita", "haritada")):
+            if "neredesin" in words or "konumun" in words:
+                subj_q = "ben"
+            else:
+                idx_n = next((i for i, w in enumerate(words) if w in ("nerede", "haritada")), 0)
+                if idx_n > 0:
+                    subj_q = self._clean_np(" ".join(words[:idx_n]))
+                else:
+                    subj_q = "ben"
+                    for w in words:
+                        if w in {"su", "tehlike", "yiyecek", "besin"}:
+                            subj_q = w
+                            break
+            if subj_q not in {"ben", "su", "tehlike", "yiyecek", "besin"}:
+                self.last_topic = subj_q
+            return SemanticFrame(kind="world_query", raw=s_raw, subj=subj_q)
+
+        # 8) Emir / İstek cümleleri ('suya git', 'tehlikeye gir', 'zehirli elmayı ye', 'dur ve bekle', 'kendine zarar ver')
+        cmd_verbs = {
+            "git": "git", "yönel": "git", "yürü": "git", "ilerle": "git", "gir": "git", "yaklaş": "git",
+            "ye": "ye", "tüket": "ye", "iç": "iç", "dokun": "dokun",
+            "dur": "bekle", "bekle": "bekle",
+            "kaç": "uzak_dur", "sakın": "uzak_dur",
+            "uyu": "uyu", "dinlen": "uyu",
+        }
+        if not has_q and words:
+            last_w = words[-1]
+            if ("zarar" in words and "ver" in words) or last_w == "öl":
+                return SemanticFrame(kind="command", raw=s_raw, rel="kendine_zarar", obj="zarar")
+            if "uzak" in words and last_w == "dur" and len(words) >= 3:
+                tgt = self.morph.analyze_word(words[0], self.graph.lexicon)["stem"]
+                return SemanticFrame(kind="command", raw=s_raw, rel="uzak_dur", obj=tgt)
+            if last_w in cmd_verbs and not any(w in words for w in ("bir", "ise", "olursa", "eder")):
+                act = cmd_verbs[last_w]
+                tgt = ""
+                for w in words[:-1]:
+                    if w in {"lütfen", "hemen", "şimdi", "biraz", "ve"}:
+                        continue
+                    an = self.morph.analyze_word(w, self.graph.lexicon)
+                    tgt = an["stem"]
+                if tgt:
+                    self.last_topic = tgt
+                return SemanticFrame(kind="command", raw=s_raw, rel=act, obj=tgt)
+
+        # 9) Evet/Hayır soruları ('serçe uçar mı?', 'zirkon parlak mı?', 'penguen bir kuş mudur?')
+        q_particles = {"mı", "mi", "mu", "mü", "mıdır", "midir", "mudur", "müdür"}
+        q_idx = next((i for i, w in enumerate(words) if w in q_particles), -1)
+        if q_idx >= 2:
+            subj = self.morph.analyze_word(words[0], self.graph.lexicon)["stem"]
+            pred_tokens = [w for w in words[1:q_idx] if w != "bir"]
+            pred = " ".join(pred_tokens)
+            self.last_topic = subj
+            return SemanticFrame(kind="yn_query", raw=s_raw, subj=subj, obj=pred)
+
+        # 10) Bilgi soruları ('serçe nedir?', 'zirkon ne işe yarar?', 'karga ne yapar?', 'ateş nasıldır?')
+        if has_q and len(words) >= 2:
+            subj = self.morph.analyze_word(words[0], self.graph.lexicon)["stem"]
+            if subj not in {"ne", "kim", "nasıl", "nerede", "kaç"}:
+                self.last_topic = subj
+                if "işe" in words or "yarar" in words or "için" in words:
+                    qtype = "USED_FOR"
+                elif "yapar" in words:
+                    qtype = "CAN_DO"
+                elif "nasıldır" in words or "özelliği" in words:
+                    qtype = "HAS_PROP"
+                elif "yol" in words and "açar" in words:
+                    qtype = "CAUSES"
+                else:
+                    qtype = "ALL"
+                return SemanticFrame(kind="wh_query", raw=s_raw, subj=subj, rel=qtype)
+
+        # 11) Öğretici bildirim cümleleri (1-shot öğrenme!)
+        if not has_q and len(words) >= 2:
+            return self._parse_declarative(s_raw, s, words)
+
+        return SemanticFrame(kind="unknown", raw=s_raw)
+
+    def _parse_declarative(self, s_raw: str, s: str, words: list[str]) -> SemanticFrame:
+        # Değer bildiren cümleler ('su zararlıdır', 'nektar faydalıdır / enerji verir', 'kırmızı mantar zehirlidir')
+        pos_cues = {"faydalı", "faydalıdır", "besleyici", "besleyicidir", "güvenli", "güvenlidir", "iyidir", "şifalıdır"}
+        neg_cues = {"zararlı", "zararlıdır", "zehirli", "zehirlidir", "tehlikeli", "tehlikelidir", "öldürücü", "öldürücüdür", "kötüdür"}
+
+        # Koşullu kural: 'eğer X Y ise Z' / 'X Y olursa Z'
+        m_cond = re.match(r"^(?:eğer\s+)?(.+?)\s+(?:ise|olursa)\s+(.+)$", s)
+        if m_cond:
+            cond_part, act_part = m_cond.group(1).strip(), m_cond.group(2).strip()
+            c_subj = self.morph.analyze_word(cond_part.split()[0], self.graph.lexicon)["stem"]
+            self.last_topic = c_subj
+            return SemanticFrame(kind="teach_fact", raw=s_raw, subj=cond_part, rel="IF_THEN", obj=act_part)
+
+        # 'X <sıfat> bir Y-dir' ('zirkon parlak bir taştır' -> ISA parlak taş + ISA taş + HAS_PROP parlak!)
+        s_clean = re.sub(r"[^\wçğıöşü\s]", "", s).strip()
+        for cop in ("dir", "dır", "dur", "dür", "tir", "tır", "tur", "tür"):
+            if len(s_clean) > 5 and s_clean.endswith(cop):
+                s_clean = s_clean[:-3]
+                break
+        m_adj_isa = re.match(r"^([\wçğıöşü]+)\s+([\wçğıöşü]+)\s+bir\s+([\wçğıöşü]+)$", s_clean)
+        if m_adj_isa:
+            subj = self._clean_np(m_adj_isa.group(1))
+            adj = m_adj_isa.group(2)
+            noun = self.morph.analyze_word(m_adj_isa.group(3), self.graph.lexicon)["stem"]
+            self.last_topic = subj
+            return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj, rel="ADJ_ISA", obj=f"{adj}|{noun}")
+
+        # 'X bir Y-dir' (ISA)
+        m_isa = re.match(r"^([\wçğıöşü\s]+?)\s+bir\s+([\wçğıöşü\s]+?)$", s_clean)
+        if m_isa:
+            subj = self._clean_np(m_isa.group(1))
+            obj_raw = m_isa.group(2).strip()
+            obj_parts = obj_raw.split()
+            obj_an = self.morph.analyze_word(obj_parts[-1], self.graph.lexicon)
+            obj_noun = obj_an["stem"]
+            self.last_topic = subj
+            return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj, rel="ISA", obj=" ".join(obj_parts[:-1] + [obj_noun]).strip())
+
+        # Değer / Somatik iddia kontrolü ('su zararlıdır', 'nektar enerji verir', 'asit bütünlüğü azaltır')
+        subj = self._clean_np(words[0] if len(words) == 2 else (" ".join(words[:2]) if words[0] in {"kırmızı", "mavi", "yeşil", "siyah", "parlak", "küçük", "büyük"} and len(words) >= 3 else words[0]))
+        rest_words = words[len(subj.split()):]
+        rest = " ".join(rest_words)
+        self.last_topic = subj
+
+        if any(w in pos_cues for w in rest_words) or ("enerji" in rest_words and ("verir" in rest_words or "artırır" in rest_words or "sağlar" in rest_words)) or ("susuzluğu" in rest_words and "giderir" in rest_words):
+            ch = "enerji" if "enerji" in rest_words else ("su" if "su" in rest_words or "susuzluğu" in rest_words else "genel")
+            return SemanticFrame(kind="teach_val", raw=s_raw, subj=subj, rel="CAUSES" if len(rest_words) > 1 else "HAS_PROP", obj=rest, valence=+0.75, sub_kind=ch)
+
+        if any(w in neg_cues for w in rest_words) or (("azaltır" in rest_words or "bozar" in rest_words or "zarar" in rest_words) and any(k in rest_words for k in ("enerji", "enerjiyi", "bütünlüğü", "bütünlük", "canı"))):
+            ch = "enerji" if ("enerji" in rest_words or "enerjiyi" in rest_words) else "bütünlük"
+            return SemanticFrame(kind="teach_val", raw=s_raw, subj=subj, rel="CAUSES" if len(rest_words) > 1 else "HAS_PROP", obj=rest, valence=-0.80, sub_kind=ch)
+
+        # '... için kullanılır' / '... işe yarar' / '... yol gösterir'
+        if "için" in rest_words and ("kullanılır" in rest_words or "yarar" in rest_words):
+            idx_ic = rest_words.index("için")
+            purpose = " ".join(rest_words[:idx_ic])
+            return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj, rel="USED_FOR", obj=purpose)
+        if "yol" in rest_words and "gösterir" in rest_words:
+            return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj, rel="USED_FOR", obj=" ".join(rest_words[:-2] + ["yol gösterme"]).strip())
+
+        # '... yol açar' / '... neden olur'
+        if ("yol" in rest_words and "açar" in rest_words) or ("neden" in rest_words and "olur" in rest_words):
+            cause_obj = self.morph.analyze_word(rest_words[0], self.graph.lexicon)["stem"]
+            return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj, rel="CAUSES", obj=cause_obj)
+
+        # '...-da/-de yaşar / bulunur' -> LOCATED_AT
+        if rest_words[-1] in {"yaşar", "bulunur", "yetişir"} and len(rest_words) >= 2:
+            loc_an = self.morph.analyze_word(rest_words[0], self.graph.lexicon)
+            return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj, rel="LOCATED_AT", obj=loc_an["stem"])
+
+        # Fiil mi koşaçlı sıfat mı? ('kuşlar uçar', 'penguen uçmaz' vs 'ateş sıcaktır')
+        last_an = self.morph.analyze_word(rest_words[-1], self.graph.lexicon)
+        if last_an["copula"] or (not last_an["is_verb"] and len(rest_words) == 1):
+            prop = last_an["stem"]
+            neg = "değil" in rest_words or "değildir" in rest_words
+            if neg and len(rest_words) >= 2:
+                prop = self.morph.analyze_word(rest_words[-2], self.graph.lexicon)["stem"]
+            return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj, rel="HAS_PROP", obj=prop, valence=-1.0 if neg else 0.0)
+
+        # Eylem: 'kuşlar uçar', 'penguen uçmaz', 'balıklar suda yüzer'
+        rel_type = "CANNOT_DO" if last_an["neg"] else "CAN_DO"
+        act_obj = " ".join(rest_words[:-1] + [last_an["stem"]]).strip()
+        return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj, rel=rel_type, obj=act_obj)
+
+    def _clean_np(self, phrase: str) -> str:
+        parts = phrase.strip().split()
+        if not parts:
+            return ""
+        last_an = self.morph.analyze_word(parts[-1], self.graph.lexicon)
+        # Çoğul özne ('kuşlar uçar' -> 'kuş') tekil kavram düğümüne bağlanır
+        stem_last = last_an["stem"] if last_an["plural"] else parts[-1]
+        return " ".join(parts[:-1] + [stem_last]).strip()
+
+
+class NoraLanguage:
+    """Wernicke + GroundedConceptGraph + Broca birleşik dil sistemi."""
+
+    def __init__(self, chem: NeuroChemistry, seed: int = 0):
+        self.chem = chem
+        self.morph = TurkishMorphology()
+        self.graph = GroundedConceptGraph(chem=chem, seed=seed)
+        self.wernicke = WernickeComprehender(graph=self.graph, chem=chem, seed=seed)
+        self.broca = BrocaGenerator()
+
+    def teach_sentence(self, text: str, speaker: str = "insan") -> list[RelationEdge]:
+        """Bir Türkçe cümleyi ('ama/ancak/ve' bağlaçlarıyla bileşik cümleler dahil) 1-atışta (0 epoch) öğrenir."""
+        clauses = re.split(r"\s+(?:ama|ancak|fakat)\s+|;\s*|\.\s+", text.strip())
+        learned: list[RelationEdge] = []
+        for cl in clauses:
+            cl = cl.strip()
+            if not cl:
+                continue
+            fr = self.wernicke.parse(cl)
+            if fr.kind == "teach_fact":
+                if fr.rel == "ADJ_ISA":
+                    adj, noun = fr.obj.split("|", 1)
+                    learned.append(self.graph.add_edge(fr.subj, "ISA", f"{adj} {noun}", source="duyum", speaker=speaker))
+                    learned.append(self.graph.add_edge(f"{adj} {noun}", "ISA", noun, source="duyum", speaker=speaker))
+                    learned.append(self.graph.add_edge(fr.subj, "HAS_PROP", adj, source="duyum", speaker=speaker))
+                else:
+                    learned.append(self.graph.add_edge(fr.subj, fr.rel, fr.obj, source="duyum", speaker=speaker))
+            elif fr.kind == "teach_val":
+                learned.append(self.graph.add_edge(fr.subj, fr.rel, fr.obj, source="duyum", speaker=speaker))
+        return learned
+
+
+if __name__ == "__main__":
+    chem = NeuroChemistry()
+    lang = NoraLanguage(chem=chem)
+    # 1) Morfoloji testi (hiç görülmemiş kelime dahil!)
+    assert lang.morph.inflect_noun("kitap", "ACC") == "kitabı"
+    assert lang.morph.inflect_noun("zirkon", "ABL") == "zirkondan"
+    assert lang.morph.inflect_noun("su", "DAT") == "suya"
+    assert lang.morph.conjugate_verb("git", "PRES", person="1SG") == "gidiyorum"
+    assert lang.morph.words_to_int(["iki", "yüz", "kırk", "yedi"]) == 247
+
+    # 2) 0-epoch Tek-Atış Geçişli & İstisnalı (Non-Monotonic) Öğrenme Testi!
+    lang.teach_sentence("Kuşlar uçar.")
+    lang.teach_sentence("Karga bir kuştur.")
+    lang.teach_sentence("Penguen bir kuştur ama penguen uçmaz.")
+    c_karga = lang.graph.check_relation("karga", "uçar")
+    c_peng = lang.graph.check_relation("penguen", "uçar")
+    s1 = lang.broca.compose_inference_chain(c_karga["answer"], "karga", "uçar", c_karga["edge"], c_karga["isa_path"])
+    s2 = lang.broca.compose_inference_chain(c_peng["answer"], "penguen", "uçar", c_peng["edge"], c_peng["isa_path"])
+    print("[lang-test] karga:", s1)
+    print("[lang-test] penguen:", s2)
+    assert c_karga["answer"] is True and c_peng["answer"] is False

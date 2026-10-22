@@ -440,3 +440,23 @@ Canlı dinamik tanı testlerinde tespit edilen altı yapısal darboğaz doğruda
 | `T10` | Zombi ikiz ayrışması + uzamsal bağlama | **GEÇTİ** | `ayrışma 0.60 \| bilinçli 6.25 < zombi 9.25 \| food_haz 0.00` |
 | `T11` | Sıfır-atış kompozisyonel genelleme (1–2 → 3 basamak) | **GEÇTİ** | `2-basamak S2 1.00 \| 3-basamak algı 0.93, S2 0.72` |
 
+---
+
+## Aşama O — Nora-AGI: Endojen Nörokimya, Epoch'suz Doğal Türkçe Dil, Öz-Benlik ve Evrensel Hızlı Öğrenme (`A1–A13`)
+
+Klasik veri ezberleyen çoklu-epoch (brute-force SGD) yaklaşımı yerine, biyolojik beynin **elektro-kimyasal modülasyon + seyrek Kenyon hücreleri + hipokampal-neokortikal uyku konsolidasyonu + somatik öz-benlik** ilkeleriyle çalışan modüller eklendi:
+
+- **`nora_chem.py` (`NeuroChemistry` + `ChemMushroomBody`)**:
+  - 6 dinamik endojen nöromodülatör: **Dopamin (`DA` — RPE ve uygunluk izi damgalama)**, **Asetilkolin (`ACh` — 1-shot tek-atış hipokampal kodlama kapısı)**, **Noradrenalin (`NE` — sürpriz/şok ve yapısal nörogenez)**, **Serotonin (`5-HT` — zaman ufku $\gamma$ ve sabır)**, **Kortizol (`CORT` — allostatik stres yükü)** ve **Oksitosin (`OXY` — konuşmacı bazlı epistemik güven)**.
+  - Tamamlayıcı Öğrenme Sistemi (`W_fast` hipokampal tek-atış + `W_slow` neokortikal uyku konsolidasyonu + sinaptik sertlik `stiff` + kapasite dolduğunda `grow_neurogenesis`): Ardışık 5 görev dalgasında örnek başına tek geçişle (`0 epoch`) **%100 1. dalga korunumu** (sıfır yıkıcı unutma).
+- **`nora_self.py` (`CoreSelf` — Öz-Benlik ve Özerk İrade)**:
+  - **Somatik İşaretleyiciler & Kaynak İzleme (`deneyim` vs `duyum`)**: Ajan kendi bedeniyle yaşadığı gerçeğe (*"su susuzluğu giderir"*) aykırı yalan söylendiğinde (*"su zararlıdır"*) belleğini ezdirmez, çelişkiyi yakalar, konuşmacı güvenini (`OXY`) düşürür ve deneyimini savunur.
+  - **Özerk İrade (`evaluate_volition` — Zombi Olmama)**: Güvenli/uyumlu istekleri kabul edip `SelfForecast` niyetine bağlarken, öz-yıkıcı komutları (*"Tehlikeye gir"*, *"Kendine zarar ver"*, Truva-atı makrolar) bedensel simülasyonla öngörüp **özerk biçimde reddeder**.
+  - **Yaşantıdan Doğan Karakter**: Güvenli/dürüst ve tehlikeli/aldatıcı evrenlerde büyüyen özdeş ikizler farklı `temkinlilik`, `meraklılık`, `özgüven`, `sosyal_güven` ve `düşünsellik` profilleri geliştirir.
+- **`nora_lang.py` (`TurkishMorphology` + `GroundedConceptGraph` + `Wernicke` + `Broca`)**:
+  - Çift-yönlü üretken Türkçe morfoloji (ünlü uyumu, ünsüz yumuşaması/sertleşmesi, hal/zaman/kişi ekleri ve Türkçe sayı okuma/yazma — uydurma kelimeler dahil).
+  - Tek cümlede (`0 epoch`) taksonomi (`ISA`), istisnalı kalıtım (`CANNOT_DO` > `CAN_DO`), çok-adımlı nedensel zincir (`CAUSES`), mekânsal bağ (`LOCATED_AT`) ve çalışma belleği zamir çözümleme (`o / onun / ona`).
+- **`nora_agi.py`, `agi_battery.py` & `nora_studio.py`**:
+  - Beden, kimya, öz-benlik, Türkçe dil, `ThinkColumn` Sistem-2 muhakemesi, **Sally-Anne Zihin Kuramı (yanlış-inanç ayrımı)**, geçişli büyüklük çıkarımı, 1-atış prosedürel makro-beceri öğrenme ve MDL dizi/fonksiyon keşfini tek organizmada birleştirir (`python agi_battery.py` **13/13 GEÇTİ**, canlı gözlemevi `python nora_studio.py`).
+
+
