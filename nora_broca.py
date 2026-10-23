@@ -23,6 +23,8 @@ tahminiyle doğrudan modeller:
 """
 from __future__ import annotations
 
+import re
+
 from collections import deque
 from dataclasses import dataclass, field
 import re
@@ -37,6 +39,42 @@ from nora_knowledge import VOWEL_DROP_STEMS, NO_SOFTEN_EXTENDED
 # 1. TAM ÜRETKEN TÜRKÇE SÖZDİZİMİ VE FİİLİMSİ BİRLEŞTİRİCİSİ (BA44/BA45)
 # ============================================================================
 
+_PROPER_RE = re.compile(r"[A-ZÇĞİÖŞÜ]{2,}|\d")
+
+
+def _looks_proper(text: str) -> bool:
+    """Kısaltma ya da sayı içeren ad ('COVID-19', 'TBMM', 'F-16') özel yazımla korunur."""
+    return bool(_PROPER_RE.search(text or ""))
+
+
+_DIGIT_WORDS = ("sıfır", "bir", "iki", "üç", "dört", "beş", "altı", "yedi", "sekiz", "dokuz")
+_LETTER_NAMES = {
+    "A": "a", "B": "be", "C": "ce", "Ç": "çe", "D": "de", "E": "e", "F": "fe", "G": "ge",
+    "Ğ": "yumuşak ge", "H": "he", "I": "ı", "İ": "i", "J": "je", "K": "ke", "L": "le", "M": "me",
+    "N": "ne", "O": "o", "Ö": "ö", "P": "pe", "R": "re", "S": "se", "Ş": "şe", "T": "te", "U": "u",
+    "Ü": "ü", "V": "ve", "Y": "ye", "Z": "ze", "Q": "kü", "W": "dabılyu", "X": "iks",
+}
+
+
+def _spoken_tail(word: str) -> str:
+    """Yazıdaki son sesi Türkçe OKUNUŞUYLA verir: 'COVID-19' -> 'dokuz', 'TBMM' -> 'me'.
+    Ek uyumu yazıya değil kulağa göre kurulur ('COVID-19'un', 'TBMM'ye')."""
+    tail = word.split("-")[-1].strip()
+    if not tail:
+        tail = word.strip()
+    if tail[-1].isdigit():
+        return _DIGIT_WORDS[int(tail[-1])]
+    if tail.isupper() and len(tail) >= 2:
+        # Kısaltma okunuşu: son harfin Türkçe adı (TBMM -> 'me', TBMM'ye)
+        return _LETTER_NAMES.get(tail[-1].upper(), tr_lower(tail))
+    return tr_lower(tail)
+
+
+def _needs_apostrophe(word: str) -> bool:
+    """TDK: kısaltmalara ve sayı eki alan adlara gelen çekim eki kesme işaretiyle ayrılır."""
+    return bool(re.search(r"\d", word) or re.search(r"[A-ZÇĞİÖŞÜ]{2,}", word))
+
+
 @dataclass
 class NP:
     """İsim Öbeği (Noun Phrase) soyut düğümü — yalnızca çıplak kökler ve çekim özellikleri taşır."""
@@ -46,6 +84,7 @@ class NP:
     plural: bool = False
     case: str = "NOM"             # NOM | ACC | DAT | LOC | ABL | INS | GEN
     gen_owner: "NP | None" = None
+    proper: bool = False          # özel ad/kısaltma: büyük harf ve kesme işareti korunur (COVID-19'un)
 
 
 @dataclass
@@ -98,6 +137,8 @@ class TurkishSyntaxEngine:
             return ""
         if isinstance(np_node, str):
             return np_node
+        orig_head = np_node.head.strip()
+        proper = bool(np_node.proper) or _looks_proper(orig_head)
         head_raw = tr_lower(np_node.head).strip()
         if not head_raw:
             return ""
@@ -126,6 +167,20 @@ class TurkishSyntaxEngine:
         for m in np_node.mods:
             if m:
                 pieces.append(tr_lower(m).strip())
+        if proper:
+            # Özel ad/kısaltma: yüzey biçimi korunur, ek OKUNUŞA göre ve kesme işaretiyle bağlanır (TDK)
+            orig_parts = orig_head.split()
+            stem_orig = orig_parts[-1]
+            spoken = _spoken_tail(stem_orig)
+            spoken_infl = cls._inflect_full_noun(spoken, poss=np_node.poss, plural=np_node.plural, case=np_node.case)
+            suffix = spoken_infl[len(spoken):] if spoken_infl.startswith(spoken) else ""
+            if suffix:
+                single_word = len(orig_parts) == 1
+                apostrophe = _looks_proper(stem_orig) or (single_word and stem_orig[:1].isupper())
+                inflected = stem_orig + ("'" if apostrophe else "") + suffix
+            else:
+                inflected = stem_orig
+            prefix_words = orig_parts[:-1]
         pieces.extend(prefix_words)
         pieces.append(inflected)
         return " ".join(p for p in pieces if p)

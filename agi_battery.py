@@ -1108,6 +1108,141 @@ def a35_self_built_logic_persistence():
     return ok, f"kural {n_before}->{n_after} | etiket-kalıcılığı={tags_after == tags_before} | kendi mantığını hatırlama={ok_recall}"
 
 
+def a36_no_blind_acceptance_two_hypotheses():
+    """A36: Aynı yıl iki farklı ad -> kör kabul YOK. İki yarışan hipotez kurulur, güven kaynaktan gelir,
+    ikinci adım kaydı sessizce 'kaydettim' diye yutturulmaz; kanıt istenir."""
+    from nora_episteme import EpistemicEngine
+    from nora_lang import TurkishMorphology as TM
+    e = EpistemicEngine(TM())
+    r1 = e.absorb("Korona virüs 2020'de çıktı.", source_id="insan:ali", speaker_trust=0.6)
+    r2 = e.absorb("COVID-19 2020'de çıktı.", source_id="insan:ali", speaker_trust=0.6)
+    rep = e.contradiction_report()
+    speech1 = e.speech.speak_store(r1)
+    speech2 = e.speech.speak_store(r2)
+    ok_status = (r1.get("status") == "stored" and r2.get("status") == "ambiguous")
+    ok_hyp = rep is not None and len(rep["hypotheses"]) == 2
+    ok_cred = abs(float(r1.get("credence", 0)) - 0.683) < 0.02
+    ok_honest = ("kaydettim" in speech1) and ("güvenim" in speech1) and ("tek kayna" in speech1)
+    ok_ask = ("kaynak" in speech2) and ("olasılık" in speech2)
+    single = e.answer("covid 19 ne zaman çıktı")
+    ok_answer = single is not None and single.get("query_type") == "event" and single.get("credence", 1) < 0.8
+    ok = ok_status and ok_hyp and ok_cred and ok_honest and ok_ask and ok_answer
+    return ok, (f"durum={r1.get('status')}/{r2.get('status')} hipotez={len(rep['hypotheses']) if rep else 0} "
+                f"güven={r1.get('credence')} dürüst-beyan={ok_honest} kanıt-isteği={ok_ask} anlık-yanıt={ok_answer}")
+
+
+def a37_reliability_weighted_learning_and_system1():
+    """A37: Güvenilir iki bağımsız kaynak güveni yükseltir -> bilgi System-1'e (otomatik) terfi eder;
+    güvenilmez kaynak çelişkisi kaydı ezmez, yalnızca güven düşürür ve otomatikliği iptal eder."""
+    from nora_episteme import EpistemicEngine
+    from nora_lang import TurkishMorphology as TM
+    e = EpistemicEngine(TM())
+    a = e.absorb("Su 100 derecede kaynar.", source_id="web:tr.wikipedia.org")
+    b = e.absorb("Su 100 derecede kaynar.", source_id="web:tr.tubitak.gov.tr")
+    ok_rise = float(b.get("credence", 0)) > float(a.get("credence", 0)) >= 0.70
+    promoted = bool(b.get("promoted")) or e.answer("su kaç derecede kaynar")["path"] == "system1"
+    before = e.answer("su kaç derecede kaynar")
+    c = e.absorb("Su 50 derecede kaynar.", source_id="web:blogspot.com")
+    after = e.answer("su kaç derecede kaynar")
+    ok_contra = c.get("status") == "contradiction" and c["mine"]["value"] == 100.0
+    ok_not_overwritten = after["value"] == 100.0
+    ok_trust_gap = float(b.get("credence", 0)) > float(e.store.beliefs[c["belief"].key].credence)
+    e.absorb("Su 100 derecede kaynar.", source_id="web:tr.tubitak.gov.tr")
+    e.absorb("Su 100 derecede kaynar.", source_id="web:tr.wikipedia.org")
+    ok = ok_rise and promoted and ok_contra and ok_not_overwritten and ok_trust_gap
+    return ok, (f"güven {a.get('credence')}->{b.get('credence')} | System-1={promoted} | çelişki={ok_contra} "
+                f"| ezilmedi={ok_not_overwritten} | blog güveni düşük={ok_trust_gap} | {before['path']}->{after['path']}")
+
+
+def a38_trusted_sources_only():
+    """A38: İnternet yalnızca güvenilir kaynaklara açık: allowlist dışı alan adı reddedilir ve
+    oradan HİÇBİR iddia öğrenilmez; güvenilir kaynaktan gelen iddia ise kaynak iziyle girer."""
+    from nora_episteme import EpistemicEngine, TrustedResearcher
+    from nora_lang import TurkishMorphology as TM
+    e = EpistemicEngine(TM())
+    fetched: list[str] = []
+
+    def fake_fetch(url: str) -> str:
+        fetched.append(url)
+        return "Su 100 derecede kaynar. Suyun yoğunluğu 1 gram bölü santimetreküptür."
+
+    r = TrustedResearcher(e, fetcher=fake_fetch)
+    bad = r.fetch("https://kotu-blogspot.example.com/su")
+    n_before = len(e.store.beliefs)
+    bad_learn = r.learn_from_text("Su 50 derecede kaynar.", source_id="web:kotu-blog.example.com")
+    ok_bad_learn = bad_learn.get("n", -1) == 0 and bad_learn.get("refused") is True
+    n_after = len(e.store.beliefs)
+    good = r.fetch("https://tr.wikipedia.org/wiki/Su")
+    good_learn = r.learn_from_text("Su 100 derecede kaynar.", source_id="web:tr.wikipedia.org")
+    trusted_marked = [b for b in e.store.beliefs.values()
+                      if any("tr.wikipedia.org" in k for k in b.sources)]
+    ok_refuse = (bad.get("ok") is False) and any("kotu-blogspot" in u for u in r.refused)
+    ok_fetch = bool(good.get("ok"))
+    ok_no_leak = n_after == n_before and not fetched[0].startswith("https://kotu-blogspot")
+    ok_learn = good_learn.get("n", 0) >= 1 and len(trusted_marked) >= 1
+    ok = ok_refuse and ok_fetch and ok_no_leak and ok_learn and ok_bad_learn
+    return ok, (f"allowlist-dışı red={ok_refuse} | güvenilir getirme={ok_fetch} | sızıntı-yok={ok_no_leak} "
+                f"| kaynak-izli öğrenme={ok_learn} | güvenilmezden öğrenmeme={ok_bad_learn}")
+
+
+def a39_python_code_synthesis_verified():
+    """A39: Nora tek satır Python kodunu KENDİSİ üretir; program gerçekten çalıştırılıp çıktısı
+    birebir doğrulanmadan söylenmez. Doğrulanmış niyet ikinci kez System-1'den anında gelir.
+    Belirsiz istekte dürüstçe sorar; uydurma yolu yoktur."""
+    from nora_code import CodeSynthesisCortex
+    cc = CodeSynthesisCortex(seed=11)
+    t0 = time.perf_counter()
+    r1 = cc.handle('"Merhaba! Ey Ahali!" yazdıracak bir Python satırı ver')
+    dt1 = (time.perf_counter() - t0) * 1000
+    t0 = time.perf_counter()
+    r2 = cc.handle('"Merhaba! Ey Ahali!" yazdıracak bir Python satırı ver')
+    dt2 = (time.perf_counter() - t0) * 1000
+    r3 = cc.handle("bana bir python satırı ver")
+    ok_exact = r1.get("ok") and r1.get("program") == 'print("Merhaba! Ey Ahali!")'
+    ok_exec = r1.get("stdout", "").strip() == "Merhaba! Ey Ahali!" and r1.get("verified") is True
+    ok_s1 = r2.get("path") == "system1" and r2.get("program") == r1.get("program")
+    ok_faster = dt2 <= max(30.0, dt1)
+    ok_abstain = (r3.get("ok") is False) and r3.get("path") == "abstain" and r3.get("program") == ""
+    ok = ok_exact and ok_exec and ok_s1 and ok_faster and ok_abstain
+    return ok, (f"kod={r1.get('program')!r} | çalıştırma+doğrulama={ok_exec} | System-1={ok_s1} "
+                f"| {dt1:.1f}->{dt2:.1f} ms | belirsizde dürüst={ok_abstain}")
+
+
+def a40_epistemic_persistence_and_mortal_memory():
+    """A40: İnançlar, eş adlar, hipotez kararları ve doğrulanmış kod becerisi tek yaşam belleğinde kalır:
+    kaydet/yükle sonrası aynı güven, aynı otomatiklik ve aynı kod satırı geri gelir."""
+    agi = NoraAGI(seed=109, boot_thinker=False)
+    agi.converse("Korona virüs 2020'de çıktı.")
+    agi.converse("COVID-19 2020'de çıktı.")
+    agi.converse('"Merhaba! Ey Ahali!" yazdıracak bir Python satırı ver')
+    agi.episteme.absorb("COVID-19 (koronavirüs) 2020'de ortaya çıktı.", source_id="web:tr.wikipedia.org")
+    agi.episteme.absorb("Koronavirüs ile COVID-19 aynı hastalıktır.", source_id="web:tr.who.int")
+    agi.episteme.absorb("COVID-19 2020 yılında ortaya çıktı.", source_id="web:tr.tubitak.gov.tr")
+    n_beliefs = len(agi.episteme.store.beliefs)
+    aliases = dict(agi.episteme.store.aliases)
+    answer_before = agi.episteme.answer("covid 19 ne zaman çıktı")
+    prog_before = (agi.last_code or {}).get("program")
+
+    with tempfile.TemporaryDirectory() as td:
+        path = os.path.join(td, "nora")
+        agi.save(path)
+        agi2 = NoraAGI.load(path)
+        n_after = len(agi2.episteme.store.beliefs)
+        aliases_after = dict(agi2.episteme.store.aliases)
+        answer_after = agi2.episteme.answer("covid 19 ne zaman çıktı")
+        r = agi2.code_cortex.handle('"Merhaba! Ey Ahali!" yazdıracak bir Python satırı ver')
+
+    ok_counts = n_after == n_beliefs and aliases_after == aliases
+    ok_cred = (answer_before is not None and answer_after is not None
+               and abs(answer_before["credence"] - answer_after["credence"]) < 1e-6)
+    ok_auto = bool(answer_before and answer_after and answer_after["path"] == answer_before["path"])
+    ok_code = (r.get("ok") and r.get("program") == prog_before == 'print("Merhaba! Ey Ahali!")')
+    ok = ok_counts and ok_cred and ok_auto and ok_code
+    return ok, (f"inanç {n_beliefs}->{n_after} | eş ad kalıcı={aliases_after == aliases} "
+                f"| güven={answer_before['credence'] if answer_before else None}->{answer_after['credence'] if answer_after else None} "
+                f"| yol={answer_before['path'] if answer_before else None}->{answer_after['path'] if answer_after else None} | kod={ok_code}")
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -1144,6 +1279,11 @@ TESTS = {
     "A33": ("kuantum alanında otonom öz-etiketleme ve kendi mantığıyla genelleme", a33_autonomous_quantum_logic_self_labeling),
     "A34": ("orta-ileri Türkçe: tam kip/kişi, çatı, ulaç ve tüm günlük durumlar", a34_intermediate_turkish_full_paradigm),
     "A35": ("kendi kurduğu mantık ve etiketlerin tek-yaşam kalıcılığı", a35_self_built_logic_persistence),
+    "A36": ("kör kabul yok: aynı yıl iki ad -> iki yarışan hipotez ve kanıt isteği", a36_no_blind_acceptance_two_hypotheses),
+    "A37": ("kaynak güvenilirliğiyle öğrenme, doğrulama ve System-1 terfi/iptal", a37_reliability_weighted_learning_and_system1),
+    "A38": ("yalnızca güvenilir kaynaklara erişim (allowlist, sızıntısız)", a38_trusted_sources_only),
+    "A39": ("çalıştırarak doğrulanan Python sentezi (uydurma imkânsız)", a39_python_code_synthesis_verified),
+    "A40": ("epistemik + kod becerisinin tek-yaşam belleğinde kalıcılığı", a40_epistemic_persistence_and_mortal_memory),
 }
 
 

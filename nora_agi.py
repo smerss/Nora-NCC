@@ -59,6 +59,8 @@ from nora_nervous import (
     AutonomousConsciousnessNetwork,
     MetaConsciousReflector,
 )
+from nora_episteme import EpistemicEngine, BeliefSpeech, TrustedResearcher
+from nora_code import CodeSynthesisCortex
 
 
 @dataclass
@@ -322,6 +324,14 @@ class NoraAGI:
         self.utter_cortex = NeuralUtteranceCortex(chem=self.chem, morph=self.lang.morph, seed=seed + 47)
         self.logic = AutonomousLogicAndLabelEngine(self.lang.morph, self.utter_cortex)
         self.situational = SituationalTurkishCortex(self.lang.morph, self.utter_cortex)
+        # --- EPİSTEMİK KATMAN: kör kabul yok, kaynak güvenilirliği, yarışan hipotezler, System-1 ---
+        self.episteme = EpistemicEngine(self.lang.morph, graph=self.lang.graph, chem=self.chem)
+        self.epi_speech = BeliefSpeech(self.episteme)
+        self.researcher = TrustedResearcher(self.episteme)
+        # --- KOD SENTEZİ: çalıştırıp doğrulamadan tek satır bile vermez ---
+        self.code_cortex = CodeSynthesisCortex(seed=seed + 61)
+        self.last_epistemic: dict = {}
+        self.last_code: dict = {}
         self.last_utterance_class: dict = {}
         self._turn_mint_label: str = ""
         self.user_profiles: dict[str, dict[str, str]] = {}
@@ -673,6 +683,9 @@ class NoraAGI:
             "associative_semantic": 0.92 + 0.14 * self.chem.ach + 0.10 * self.self_model.traits["meraklılık"],
             "prefrontal_autonomous_logic": 1.02 + 0.16 * self.chem.ne + 0.10 * self.self_model.traits["düşünsellik"],
             "social_phatic": 0.98 + 0.14 * self.chem.oxy + 0.12 * self.self_model.traits["sosyal_güven"],
+            "epistemic_prefrontal": 1.05 + 0.16 * self.chem.ne + 0.10 * self.self_model.traits["düşünsellik"]
+                                    + 0.08 * self.self_model.traits["temkinlilik"],
+            "python_motor_cortex": 1.10 + 0.12 * self.chem.da_tonic + 0.10 * self.self_model.traits["meraklılık"],
         }
         raw_scores = np.array(
             [b.salience * b.precision * mod_gains.get(b.module, 1.0) for b in bids],
@@ -777,6 +790,28 @@ class NoraAGI:
                 trace=str(ded_res["trace"]),
                 used_s2=True,
             ))
+        # --- SÜTUN 0B: Epistemik katman (kör kabul yok) ve çalıştırarak doğrulayan kod korteksi ---
+        epi_txt, epi_trace, epi_sal = self._epistemic_channel(raw, speaker, utt_cls)
+        if epi_txt:
+            bids.append(CorticalBid(
+                module="epistemic_prefrontal",
+                salience=epi_sal,
+                precision=0.96,
+                reply=epi_txt,
+                trace=epi_trace,
+                used_s2=(epi_sal < 0.97),
+            ))
+        code_txt, code_trace, code_sal = self._code_channel(raw)
+        if code_txt:
+            bids.append(CorticalBid(
+                module="python_motor_cortex",
+                salience=code_sal,
+                precision=0.99 if code_sal > 0.95 else 0.9,
+                reply=code_txt,
+                trace=code_trace,
+                used_s2=True,
+            ))
+
         sit_res = self.situational.try_respond_situation(raw, self, speaker=speaker)
         if sit_res is not None:
             bids.append(CorticalBid(
@@ -1061,6 +1096,59 @@ class NoraAGI:
 
         winner = self._compete_workspace(bids)
         return winner.reply
+
+    # ------------------------------------------------------------------ epistemik + kod kanalları
+    def _speaker_trust(self, speaker: str) -> float:
+        try:
+            return float(self.chem.trust_of(speaker))
+        except Exception:
+            return 0.6
+
+    def _epistemic_channel(self, raw: str, speaker: str, utt_cls: dict) -> tuple[str | None, str, float]:
+        """Soru ise inanç deposundan KANITLA yanıtlar; bildirim ise KARŞILAŞTIRARAK öğrenir.
+        Hiçbir iddia 'kaydettim' diye kör kabul edilmez: çelişki/eksik ad -> yarışan hipotezler."""
+        try:
+            # Soruysa önce kanıt deposundan yanıtla; değilse öğren. (Soru asla 'iddia' diye kaydedilmez.)
+            ans = self.episteme.answer(raw)
+            if ans is not None:
+                return self.epi_speech.speak_query(ans), f"epi_q:{ans.get('path')}", 0.962
+            if utt_cls.get("is_question") and not self.episteme.is_question(raw):
+                return None, "", 0.0
+            res = self.episteme.absorb(raw, source_id=f"insan:{speaker}", speaker_trust=self._speaker_trust(speaker))
+            self.last_epistemic = res
+            st = res.get("status")
+            if st in ("ambiguous", "contradiction", "alias"):
+                return self.epi_speech.speak_store(res), f"epi:{st}", 0.972
+            if st == "stored" and res.get("kind") in ("event", "scalar"):
+                return self.epi_speech.speak_store(res), f"epi:{res.get('kind')}", 0.966
+        except Exception:
+            return None, "", 0.0
+        return None, "", 0.0
+
+    def _code_channel(self, raw: str) -> tuple[str | None, str, float]:
+        """Plastik operatör korteksi kod isteğini kendi ağırlıklarıyla seçerse devreye girer.
+        Program yalnızca çalıştırılıp çıktısı doğrulandıktan sonra söylenir."""
+        try:
+            if not self.code_cortex.is_requested(raw):
+                return None, "", 0.0
+            res = self.code_cortex.handle(raw)
+            self.last_code = res
+            if res.get("ok"):
+                self.chem.pulse_learning(novelty=0.5, valence=0.35)
+                return self.code_cortex.speak(res), f"code:{res.get('path')}", 0.988
+            if res.get("reason") in ("metin_yok", "belirsiz_niyet"):
+                return self.code_cortex.speak(res), f"code:{res.get('reason')}", 0.958
+        except Exception:
+            return None, "", 0.0
+        return None, "", 0.0
+
+    def research_topic(self, topic: str, urls: list[str] | None = None) -> str:
+        """Yalnızca allowlist'teki güvenilir kaynaklardan öğrenir; her iddia güvenilirlik ağırlığıyla girer."""
+        out = self.researcher.research(topic, urls=urls)
+        if not out.get("fetched"):
+            self.last_epistemic = {"status": "research_failed", "refused": out.get("refused")}
+            return "Güvenilir kaynak listemdeki hiçbir adrese ulaşamadım; uydurmak yerine bilmediğimi söylüyorum."
+        return out.get("summary", "")
 
     # ------------------------------------------------------------------ alt yanıtlayıcılar
     def _answer_self_query(self, sub_kind: str) -> str:
@@ -1518,6 +1606,8 @@ class NoraAGI:
             "episodic_dialogue": self.broca_organ.episodic.state_dict(),
             "monologue": self.monologue.state_dict(),
             "autonomous_logic": self.logic.state_dict(),
+            "episteme": self.episteme.state_dict(),
+            "python_cortex": self.code_cortex.state_dict(),
         }
         with open(path_prefix + ".agi.json", "w", encoding="utf-8") as f:
             json.dump(meta, f, ensure_ascii=False, indent=2)
@@ -1546,6 +1636,14 @@ class NoraAGI:
         agi.broca_organ.episodic.load_state_dict(meta.get("episodic_dialogue", []))
         agi.monologue.load_state_dict(meta.get("monologue", {}))
         agi.logic.load_state_dict(meta.get("autonomous_logic", {}))
+        try:
+            agi.episteme.load_state_dict(meta.get("episteme") or {})
+        except Exception:
+            pass
+        try:
+            agi.code_cortex.load_state_dict(meta.get("python_cortex") or {})
+        except Exception:
+            pass
         z = np.load(path_prefix + ".agi_mb.npz")
         agi.fast.class_names = list(meta["fast_classes"])
         agi.fast.name_to_id = {n: i for i, n in enumerate(agi.fast.class_names)}

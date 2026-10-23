@@ -372,11 +372,23 @@ function renderState(st) {
   const al = st.autonomous_logic || {};
   const alTags = (al.logic_tags || []).map(t => `<span class="pill" style="border-color:#a78bfa;color:#ede9fe">${t}</span>`).join(' ');
   const alClusters = Object.keys(al.clusters || {}).map(k => `<span class="pill" style="border-color:#34d399;color:#d1fae5">${k}</span>`).join(' ');
+  const epi = st.episteme || {};
+  const epiRows = (epi.beliefs || []).map(b =>
+    `<span class="pill" style="border-color:${b.automatic ? '#51cf66' : '#4dabf7'};color:#e6fffa">` +
+    `${b.subject} ${b.relation.toLowerCase()} ${b.obj} · güven ${b.credence} · ${b.sources} kaynak${b.automatic ? ' · OTOMATİK' : ''}</span>`).join(' ');
+  const amb = epi.ambiguity;
+  const ambTxt = amb ? `<br/><span style="color:#fcc419">Açık Hipotez [${amb.slot}]:</span> ` +
+    amb.hypotheses.map(h => `<span class="pill" style="border-color:#fcc419;color:#fff3bf">${h.desc} · ${h.credence}</span>`).join(' ') : '';
+  const py = st.python_cortex || {};
+  const pyLast = py.last || {};
+  const pyTxt = pyLast.program ? `<br/><span style="color:#34d399">Python Korteksi (${pyLast.verified ? 'DOĞRULANDI' : 'DOĞRULANMADI'}, ${pyLast.path}, ${pyLast.ms} ms):</span> <code style="color:#e6fffa">${pyLast.program}</code>` : '';
+  const epiBox = `<br/><span style="color:#4dabf7">Epistemik Defter:</span> ${epi.count || 0} inanç, ${epi.automatic || 0} otomatik, ${epi.aliases || 0} eş ad, System-1 isabeti ${epi.system1_hits || 0} | son durum: ${epi.last_status || '—'}` +
+    (epiRows ? `<br/>${epiRows}` : '') + ambTxt + pyTxt;
   const alBox =
     `<br/><span style="color:#38bdf8">Öz-Sınıflandırma:</span> ${al.utterance_label || '—'} (soru: ${al.utterance_is_question ? 'EVET' : 'HAYIR'}, güven: ${al.utterance_confidence || 0}) ` +
     `| <span style="color:#a78bfa">Kendi Kurduğu Mantık:</span> ${al.logic_rules || 0} kural, ${al.utterance_classes || 0} sözce sınıfı` +
     (alTags ? `<br/><span style="color:#a78bfa">Öz-Etiketler:</span> ${alTags}` : '') +
-    (alClusters ? `<br/><span style="color:#34d399">Kendi Keşfettiği Kümeler:</span> ${alClusters}` : '');
+    (alClusters ? `<br/><span style="color:#34d399">Kendi Keşfettiği Kümeler:</span> ${alClusters}` : '') + epiBox;
   if (monoList.length) {
     const lastM = monoList[monoList.length - 1];
     const recentSc = (scStats.recent_schemas || []).slice(-4).join(' &rarr; ') || '—';
@@ -530,6 +542,34 @@ class StudioRuntime:
             self.agi.self_model.sync_from_mind(self.agi.mind, self.agi.obs, died=self.agi.died)
             self.agi.monologue.spontaneous_tick(self.agi)
 
+    def _episteme_snapshot(self) -> dict:
+        """İnanç defteri: her önerme, güveni, kaç bağımsız kaynağa dayandığı ve otomatik olup olmadığı."""
+        store = self.agi.episteme.store
+        rows = sorted(store.beliefs.values(), key=lambda b: (-b.credence, -b.last_used))[:8]
+        beliefs = [{
+            "subject": b.subject, "relation": b.relation, "obj": b.obj,
+            "credence": round(b.credence, 3), "sources": b.independent_sources,
+            "automatic": bool(b.automatic), "kind": b.kind,
+        } for b in rows]
+        rep = self.agi.episteme.contradiction_report()
+        return {
+            "count": len(store.beliefs), "automatic": sum(1 for b in store.beliefs.values() if b.automatic),
+            "aliases": len(store.aliases), "beliefs": beliefs,
+            "ambiguity": rep,
+            "last_status": (self.agi.last_epistemic or {}).get("status", "—"),
+            "system1_hits": int(self.agi.episteme.system1.hits),
+        }
+
+    def _python_snapshot(self) -> dict:
+        cc = self.agi.code_cortex
+        snap = cc.snapshot()
+        last = self.agi.last_code or {}
+        snap["last"] = {
+            "program": last.get("program", ""), "verified": bool(last.get("verified")),
+            "path": last.get("path", "—"), "ms": last.get("ms", 0.0),
+        }
+        return snap
+
     def snapshot(self) -> dict:
         w = self.agi.world
         m = self.agi.mind
@@ -586,6 +626,8 @@ class StudioRuntime:
                 "single_life": bool(self.agi.mortality.single_life),
                 "cause": self.agi.mortality.cause_of_death,
             },
+            "episteme": self._episteme_snapshot(),
+            "python_cortex": self._python_snapshot(),
             "auto_net": {
                 "assemblies": len(self.agi.auto_net.assemblies),
                 "curiosity": list(self.agi.auto_net.curiosity_queue)[-4:],
