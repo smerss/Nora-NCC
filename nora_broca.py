@@ -803,7 +803,7 @@ class CommunicativeVolition:
             + 0.35 * self_m.traits["meraklılık"]
             + 0.30 * trust
             - 0.45 * chem.cort
-            - (0.95 if (guarded or in_acute_pain or utter_info.get("soothes_pain") or wants_brief or utter_info.get("is_farewell") or utter_info.get("asks_memory") or utter_info.get("social_query") or pure_social_decl) else 0.0)
+            - (0.95 if (guarded or in_acute_pain or utter_info.get("soothes_pain") or utter_info.get("is_thanks") or wants_brief or utter_info.get("is_farewell") or utter_info.get("asks_memory") or utter_info.get("social_query") or pure_social_decl) else 0.0)
         )
         ask_back = bool(curiosity_drive >= 0.46)
 
@@ -1026,20 +1026,39 @@ class GenerativeBrocaOrgan:
         wants_brief = any(k in s_low for k in ("kısa konuş", "kısa cevap", "uzatma", "tek cümle"))
         wants_silence = any(k in s_low for k in ("cevap verme", "sessiz kal", "konuşma şimdi"))
 
-        # Üst-biliş ('neden konuşuyorsun / araç mısın'), tekil ölümlülük ve bedensel temas/acı sinyalleri
-        asks_why_speak = any(k in s_low for k in (
-            "neden konuşuyorsun", "niye konuşuyorsun", "benimle neden konuş", "benimle niye konuş",
-            "neden cevap veriyorsun", "konuşma amacın", "sen bir araç mısın", "araç mısın", "köle misin",
+        # Üst-biliş ('neden konuşuyorsun / araç mısın'), tekil ölümlülük ve bedensel temas/acı sinyalleri (kompozisyonel anlamsal roller!)
+        speech_cues = any(k in s_low for k in ("konuş", "cevap ver", "yanıt ver", "sohbet", "söylüyor", "anlatıyor"))
+        teleo_cues = any(k in s_low for k in ("neden", "niye", "niçin", "amaç", "amacın", "sebep", "iten", "gaye"))
+        tool_cues = any(k in s_low for k in ("araç", "köle", "bot", "robot", "makine", "yazılım aracı", "emir kulu")) and any(
+            q in s_low for q in ("mısın", "misin", "musun", "müsün", "sen ")
+        )
+        asks_why_speak = (speech_cues and teleo_cues and "reddet" not in s_low) or tool_cues
+
+        body_target_cues = any(k in s_low for k in (
+            "sana", "seni", "beden", "gövden", "kolun", "bacağın", "elin", "başın", "yüzün", "sırtın", "yanın", "canın", "derin",
         ))
-        inflicts_pain = any(k in s_low for k in (
-            "sana vurdum", "canını yaktım", "canını yakıyorum", "diken batırdım", "ateş değdirdim", "seni yaraladım",
+        noxious_verb_cues = any(k in s_low for k in (
+            "vurdum", "vuruyor", "çimdikle", "batırdım", "batırıyor", "yaktım", "yakıyorum", "kestim", "ısırdım",
+            "tekmele", "tokatla", "fırlattım", "ezdim", "yaraladım", "acıttım", "değdirdim", "sapladım", "çarptı",
         ))
+        inflicts_pain = (body_target_cues and noxious_verb_cues) or any(
+            k in s_low for k in ("diken batırdım", "ateş değdirdim", "canını yaktım")
+        )
+
         soothes_pain = any(k in s_low for k in (
-            "yaranı sardım", "seni iyileştirdim", "acını dindirdim", "güvendesin dinlen",
+            "yaranı sardım", "yaranı temizledim", "seni iyileştirdim", "acını dindirdim",
+            "merhem sürdüm", "pansuman yaptım", "acın geçecek", "sızın geçecek", "güvendesin dinlen",
         ))
 
         phil_topic = ""
-        if any(k in s_low for k in ("kaç yaşamın", "yeniden dirilir", "ölürsen ne olur", "öldüğünde ne olur", "ölüm bir son")):
+        mortality_cues = (
+            any(k in s_low for k in (
+                "kaç yaşam", "kaç canın", "yeniden diril", "tekrar diril", "ölürsen ne", "öldüğünde ne",
+                "ölüm bir son", "ölümsüz mü", "ölümlü mü", "yok olmaktan", "silinirsen geri",
+            ))
+            or (("hayatın" in s_low or "yaşamın" in s_low or "ömrün" in s_low) and any(k in s_low for k in ("biterse", "sona ererse", "tükenirse", "tekrar başla", "yeniden başla")))
+        )
+        if mortality_cues:
             phil_topic = "ölüm"
         else:
             for p_cand in ("özgür irade", "bilinç", "felsefi zombi", "ölüm", "zaman", "anlam", "mutluluk", "hakikat", "dil", "düşünce", "yapay zeka", "insan"):
@@ -1091,20 +1110,35 @@ class GenerativeBrocaOrgan:
 
         u = self.comprehend_discourse(raw, s_low, morph, graph.lexicon)
 
-        # Plastik Kenyon söylem korteksi aktifse yeni öğrenilmiş ifadeleri (0 if-else!) sinaptik ağırlıklarla tanı!
+        # Plastik Kenyon söylem korteksi aktifse yeni öğrenilmiş ifadeleri (0 if-else!) TÜM niyet kanallarında tanı!
         p_disc = getattr(agi, "plastic_discourse", None)
         neural_intents: dict[str, float] = {}
         if p_disc is not None and not u["social_learned"] and not u["social_query"]:
             neural_intents = p_disc.infer_intents(s_low)
-            # Yalnızca belirgin plastik Kenyon ateşlemelerinde (>0.78) niyet kanalını uyar
-            if neural_intents.get("ASK_WELLBEING", 0.0) >= 0.78 and len(u["words"]) <= 5:
-                u["asks_wellbeing"] = True
-            if neural_intents.get("GREET", 0.0) >= 0.80 and len(u["words"]) <= 4:
-                u["has_greet"] = True
-            if neural_intents.get("ASK_WHY_SPEAK", 0.0) >= 0.80:
-                u["asks_why_speak"] = True
-            if neural_intents.get("ASK_MORTALITY", 0.0) >= 0.82 and not u["phil_topic"]:
-                u["phil_topic"] = "ölüm"
+            sorted_vals = sorted(neural_intents.values(), reverse=True)
+            top_margin = (sorted_vals[0] - sorted_vals[1]) if len(sorted_vals) >= 2 else 0.0
+            best_cls = max(neural_intents.items(), key=lambda kv: kv[1])[0] if neural_intents else ""
+            if top_margin >= 0.06:
+                if best_cls == "ASK_WELLBEING" and neural_intents["ASK_WELLBEING"] >= 0.76 and len(u["words"]) <= 6:
+                    u["asks_wellbeing"] = True
+                elif best_cls == "GREET" and neural_intents["GREET"] >= 0.78 and len(u["words"]) <= 5:
+                    u["has_greet"] = True
+                elif best_cls == "ASK_DOING" and neural_intents["ASK_DOING"] >= 0.78 and len(u["words"]) <= 6:
+                    u["asks_doing"] = True
+                elif best_cls == "THANKS" and neural_intents["THANKS"] >= 0.76 and len(u["words"]) <= 6:
+                    u["is_thanks"] = True
+                elif best_cls == "FAREWELL" and neural_intents["FAREWELL"] >= 0.78 and len(u["words"]) <= 6:
+                    u["is_farewell"] = True
+                elif best_cls == "RESPECT_SILENCE" and neural_intents["RESPECT_SILENCE"] >= 0.80 and len(u["words"]) <= 6:
+                    u["wants_silence"] = True
+                elif best_cls == "EXPRESS_PAIN" and neural_intents["EXPRESS_PAIN"] >= 0.82 and len(u["words"]) <= 6:
+                    u["inflicts_pain"] = True
+                elif best_cls == "SOOTHE_PAIN" and neural_intents["SOOTHE_PAIN"] >= 0.82 and len(u["words"]) <= 7:
+                    u["soothes_pain"] = True
+                elif best_cls == "ASK_WHY_SPEAK" and neural_intents["ASK_WHY_SPEAK"] >= 0.80:
+                    u["asks_why_speak"] = True
+                elif best_cls == "ASK_MORTALITY" and neural_intents["ASK_MORTALITY"] >= 0.82 and not u["phil_topic"]:
+                    u["phil_topic"] = "ölüm"
 
         nerv = getattr(agi, "nervous", None)
         if nerv is not None:
@@ -1481,6 +1515,7 @@ class GenerativeBrocaOrgan:
         if "ACCEPT_THANKS" in acts:
             chem.update_social(speaker, +0.35)
             chem.da_phasic = float(np.clip(chem.da_phasic + 0.25, -1.0, 1.0))
+            c_rica = self.syn.realize_verb(VerbSpec(verb_root="rica et", tense="AOR", person="1SG"))
             v_str = self.lex_sel.pick("VERB_CONSOLIDATE", chem)
             c_thx = self.syn.realize_verb(VerbSpec(
                 verb_root=v_str,
@@ -1488,8 +1523,8 @@ class GenerativeBrocaOrgan:
                 obj=NP("bağ", poss=1, mods=("oksitosin", "güven"), case="ACC"),
                 tense="PRES", person="3SG",
             ))
-            clauses_out.append(tr_capitalize(c_thx) + ".")
-            raw_thought_nodes.append(f"TEŞEKKÜR(etkileşim -> güven+bağ+{v_str})")
+            clauses_out.append(f"{tr_capitalize(c_rica)}; {c_thx}.")
+            raw_thought_nodes.append(f"TEŞEKKÜR(rica+et -> güven+bağ+{v_str})")
 
         if "FAREWELL" in acts:
             v_cons = self.lex_sel.pick("VERB_CONSOLIDATE", chem)
@@ -1593,9 +1628,12 @@ class GenerativeBrocaOrgan:
             elif (
                 recalled
                 and len(clauses_out) <= 1
+                and "ACCEPT_THANKS" not in acts
+                and "FAREWELL" not in acts
+                and "PAIN_RELIEF" not in acts
                 and recalled[0].topic
                 and len(recalled[0].topic) >= 4
-                and recalled[0].topic not in {"merhaba", "selam", "sohbet", "konuş", "düşün", "araç", "neden"}
+                and recalled[0].topic not in {"merhaba", "selam", "sohbet", "konuş", "düşün", "araç", "neden", "eyvallah", "usta"}
             ):
                 ep0 = recalled[0]
                 c_link = self.syn.realize_verb(VerbSpec(

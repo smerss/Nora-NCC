@@ -769,7 +769,10 @@ class NoraAGI:
                 g_rep = g_gen["reply"] if g_gen is not None else "Merhaba."
                 bids.append(CorticalBid("temporal_conversation", 0.95, 0.94, g_rep, "generative_greeting"))
             elif fr.kind == "why_query":
-                if wern.last_explanation:
+                ref_exp = getattr(wern, "last_refusal_explanation", "")
+                if ref_exp and any(k in s_low for k in ("reddet", "kabul etmedin", "yapmadın", "erteledin")):
+                    ans_w = tr_capitalize(ref_exp.rstrip(".")) + "."
+                elif wern.last_explanation:
                     ans_w = tr_capitalize(wern.last_explanation.rstrip(".")) + "."
                 else:
                     goal_names = {0: "enerji ihtiyacım", 1: "susuzluğum", 2: "tehlikeden korunma isteğim", 3: "merakım"}
@@ -1032,6 +1035,7 @@ class NoraAGI:
                 f"(uyum serbest enerjisi G={fe.get('kabul', 0):.2f}) çıktığı ve bazal ganglion koruma devrem "
                 f"(r_red={bg.get('red', 0):.2f} > r_kabul={bg.get('kabul', 0):.2f}) baskın geldiği için öz-koruma kararı verdim"
             )
+            self.lang.wernicke.last_refusal_explanation = self.lang.wernicke.last_explanation
             tgt_dat = morph.inflect_noun(tgt_label, "DAT") if fr.obj else "buna"
             return (
                 f"Hayır, bunu reddediyorum; zihinsel simülasyonumda {tgt_dat} yönelmek beden bütünlüğüme veya yaşamıma "
@@ -1169,10 +1173,11 @@ class NoraAGI:
     def _try_higher_cognition(self, raw: str, s_low: str, speaker: str = "insan") -> str | None:
         morph = self.lang.morph
         lex = self.lang.graph.lexicon
-        s_clean = re.sub(r"[^\wçğıöşü\s]", "", s_low).strip()
+        s_no_apos = s_low.replace("'", "").replace("’", "")
+        s_clean = re.sub(r"[^\wçğıöşü\s]", "", s_no_apos).strip()
         has_q = ("?" in raw) or any(
             w in s_clean.split()
-            for w in ("mı", "mi", "mu", "mü", "mıdır", "midir", "mudur", "müdür", "ne", "nedir", "neydi", "nerede", "nerededir", "neredeydi", "hangisidir", "kimim", "kimdim", "kaç", "kaçtı")
+            for w in ("mı", "mi", "mu", "mü", "mıdır", "midir", "mudur", "müdür", "ne", "nedir", "neydi", "nerede", "nereye", "nerededir", "neredeydi", "hangisi", "hangisidir", "kimim", "kimdim", "kaç", "kaçtı")
         )
 
         # 2) Prosedürel Makro-Beceri Öğrenme (1-shot) ve Öz-Benlik Güvenlik Denetimli Yürütme!
@@ -1202,72 +1207,124 @@ class NoraAGI:
             outs = [self._handle_single_sentence(step_cmd, speaker=speaker) for step_cmd in steps_list]
             return f"'{mname}' becerisini güvenli buldum ve uyguladım: " + " ".join(outs)
 
-        # 3) Geçişli Karşılaştırma ('demir bakırdan daha serttir', 'demir altından daha sert midir?', 'en sert hangisidir?')
-        m_cmp_q = re.match(r"^([\wçğıöşü]+)\s+([\wçğıöşü]+?)(?:dan|den|tan|ten)\s+daha\s+([\wçğıöşü]+)\s+(?:mı|mi|mu|mü|mıdır|midir|mudur|müdür)$", s_clean)
+        # 3) Geçişli Karşılaştırma ('demir bakırdan daha serttir', 'jüpiter dünyadan büyüktür', 'en küçük hangisidir?')
+        antonym_axis = {
+            "küçük": "büyük", "büyük": "küçük",
+            "hafif": "ağır", "ağır": "hafif",
+            "yavaş": "hızlı", "hızlı": "yavaş",
+            "yumuşak": "sert", "sert": "yumuşak",
+            "kısa": "uzun", "uzun": "kısa",
+            "soğuk": "sıcak", "sıcak": "soğuk",
+        }
+        m_cmp_q = re.match(
+            r"^([\wçğıöşü]+)\s+([\wçğıöşü]+?)(?:dan|den|tan|ten)\s+(?:daha\s+)?([\wçğıöşü]+)\s+(?:mı|mi|mu|mü|mıdır|midir|mudur|müdür)$",
+            s_clean,
+        )
         if m_cmp_q:
-            a, b, prop = m_cmp_q.group(1), m_cmp_q.group(2), m_cmp_q.group(3)
+            a, b, prop_raw = m_cmp_q.group(1), m_cmp_q.group(2), m_cmp_q.group(3)
+            prop = morph.analyze_word(prop_raw, lex)["stem"]
             yes, path = self.comp_graph.is_greater(a, b, prop)
+            opp = antonym_axis.get(prop)
+            if not yes and opp:
+                yes_opp, path_opp = self.comp_graph.is_greater(b, a, opp)
+                if yes_opp:
+                    yes, path = True, list(reversed(path_opp))
             if yes:
                 self.self_model.record_cognitive_success(used_system2=True)
                 chain = " > ".join(path)
                 return f"Evet, geçişli büyüklük çıkarımına göre ({chain}) {a}, {morph.inflect_noun(b, 'ABL')} daha {morph.inflect_noun(prop, 'NOM', copula=True)}."
             rev, rpath = self.comp_graph.is_greater(b, a, prop)
+            if not rev and opp:
+                rev, rpath = self.comp_graph.is_greater(a, b, opp)
             if rev:
                 return f"Hayır, tam tersine {b}, {morph.inflect_noun(a, 'ABL')} daha {morph.inflect_noun(prop, 'NOM', copula=True)}."
             return f"{tr_capitalize(a)} ile {b} arasında '{prop}' açısından yeterli karşılaştırma bilgim yok."
 
-        m_ext = re.match(r"^en\s+([\wçğıöşü]+)\s+(?:hangisi|hangisidir|nedir)$", s_clean)
+        m_ext = re.match(r"^en\s+([\wçğıöşü]+)\s+(?:olan\s+)?(?:hangisi|hangisidir|nedir|kimdir)$", s_clean)
         if m_ext:
-            prop = m_ext.group(1)
+            prop = morph.analyze_word(m_ext.group(1), lex)["stem"]
             top = self.comp_graph.extremum(prop, maximum=True)
+            if top is None and prop in antonym_axis:
+                top = self.comp_graph.extremum(antonym_axis[prop], maximum=False)
             if top:
                 return f"Öğrendiğim sıralamaya göre en {prop} olan {morph.inflect_noun(top, 'NOM', copula=True)}."
 
-        m_cmp_decl = re.match(r"^([\wçğıöşü]+)\s+([\wçğıöşü]+?)(?:dan|den|tan|ten)\s+daha\s+([\wçğıöşü]+)$", s_clean)
-        if m_cmp_decl and not has_q:
+        m_cmp_decl = re.match(r"^([\wçğıöşü]+)\s+([\wçğıöşü]+?)(?:dan|den|tan|ten)\s+(?:daha\s+)?([\wçğıöşü]+)$", s_clean)
+        if m_cmp_decl and not has_q and m_cmp_decl.group(1) not in {"ben", "sen", "biz", "bugün"}:
             a, b, prop_raw = m_cmp_decl.group(1), m_cmp_decl.group(2), m_cmp_decl.group(3)
-            prop = morph.analyze_word(prop_raw, lex)["stem"]
-            self.comp_graph.add(a, b, prop)
-            self.chem.pulse_learning(novelty=0.8, valence=0.35)
-            return f"Anladım; {a} > {b} ({prop}) karşılaştırma bağını kurdum."
+            prop_an = morph.analyze_word(prop_raw, lex)
+            is_finite_verb = prop_an["is_verb"] or bool(re.search(r"(?:[dt][ıiuü]|yor|m[ıiuü]ş|[ae]c[ae]k)$", prop_raw) and not prop_an["copula"])
+            if not is_finite_verb:
+                prop = prop_an["stem"]
+                self.comp_graph.add(a, b, prop)
+                self.chem.pulse_learning(novelty=0.8, valence=0.35)
+                return f"Anladım; {a} > {b} ({prop}) karşılaştırma bağını kurdum."
 
         # 4) Zihin Kuramı / Yanlış-İnanç (Sally-Anne):
-        # 'ali elmayı sepete koydu', 'ali odadan çıktı', 'ayşe elmayı kutuya taşıdı', 'ali elmayı nerede arar?', 'elma gerçekte nerededir?'
-        m_put = re.match(r"^([\wçğıöşü]+)\s+([\wçğıöşü]+)\s+([\wçğıöşü]+)\s+(?:koydu|bıraktı|taşıdı|sakladı)$", s_clean)
+        # Ortak bulunuş: 'zeynep ve mert salondadır / odadadır / içeridedir / birliktedir'
+        m_copres = re.match(r"^([\wçğıöşü]+)\s+(?:ve|ile)\s+([\wçğıöşü]+)\s+[\wçğıöşü]+(?:da|de|ta|te)(?:dır|dir|dur|dür)?$", s_clean)
+        if m_copres and not has_q:
+            a1, a2 = m_copres.group(1), m_copres.group(2)
+            self.tom.observe_enter(a1)
+            self.tom.observe_enter(a2)
+            return f"Gözlemledim: {tr_capitalize(a1)} ve {tr_capitalize(a2)} aynı ortamda bulunuyor."
+
+        m_put = re.match(r"^([\wçğıöşü]+)\s+([\wçğıöşü]+)\s+([\wçğıöşü]+)\s+(?:koydu|bıraktı|taşıdı|sakladı|yerleştirdi|aktardı)$", s_clean)
         if m_put and not has_q:
             actor = m_put.group(1)
-            obj = morph.analyze_word(m_put.group(2), lex)["stem"]
+            obj_w = m_put.group(2)
+            obj_an = morph.analyze_word(obj_w, lex)
+            obj = obj_an["stem"]
+            if obj == obj_w and len(obj_w) >= 4 and obj_w[-1] in "ıiuü":
+                cand = obj_w[:-2] if len(obj_w) >= 5 and obj_w[-2] == "y" else obj_w[:-1]
+                obj = morph._unsoften(cand)
             loc = morph.analyze_word(m_put.group(3), lex)["stem"]
             self.tom.observe_put(actor, obj, loc)
             return f"Gözlemledim: {tr_capitalize(actor)}, {morph.inflect_noun(obj, 'ACC')} {morph.inflect_noun(loc, 'DAT')} koydu."
 
-        m_leave = re.match(r"^([\wçğıöşü]+)\s+(?:odadan\s+|dışarı\s+)?(?:çıktı|ayrıldı|gitti)$", s_clean)
+        m_leave = re.match(r"^([\wçğıöşü]+)\s+(?:[\wçğıöşü]+(?:dan|den|tan|ten)\s+|dışarı\s+)?(?:çıktı|ayrıldı|gitti|uzaklaştı)$", s_clean)
         if m_leave and not has_q:
             actor = m_leave.group(1)
             self.tom.observe_leave(actor)
             return f"Gözlemledim: {tr_capitalize(actor)} ortamdan ayrıldı."
 
-        m_enter = re.match(r"^([\wçğıöşü]+)\s+(?:odaya\s+|içeri\s+)?(?:girdi|döndü|geldi)$", s_clean)
+        m_enter = re.match(r"^([\wçğıöşü]+)\s+(?:[\wçğıöşü]+(?:a|e|ya|ye)\s+|içeri\s+)?(?:girdi|döndü|geldi)$", s_clean)
         if m_enter and not has_q:
             actor = m_enter.group(1)
             self.tom.observe_enter(actor)
             return f"Gözlemledim: {tr_capitalize(actor)} ortama döndü."
 
-        m_tom_q = re.match(r"^([\wçğıöşü]+)\s+([\wçğıöşü]+)\s+nerede\s+(?:arar|sanır|düşünür)$", s_clean)
-        if m_tom_q:
-            actor = m_tom_q.group(1)
-            obj = morph.analyze_word(m_tom_q.group(2), lex)["stem"]
-            bel, real, false_bel = self.tom.where_will_search(actor, obj)
-            if bel is not None:
-                self.self_model.record_cognitive_success(used_system2=True)
-                bel_loc = morph.inflect_noun(bel, "LOC")
-                if false_bel and real is not None:
-                    real_loc = morph.inflect_noun(real, "LOC")
-                    return (
-                        f"{tr_capitalize(actor)} ortamda olmadığı için değişikliği görmedi; kendi inancına göre "
-                        f"{morph.inflect_noun(obj, 'ACC')} {bel_loc} arar (oysa gerçekte {real_loc} bulunuyor)."
-                    )
-                return f"{tr_capitalize(actor)}, {morph.inflect_noun(obj, 'ACC')} {bel_loc} arar."
+        # Esnek anlamsal-rol Zihin Kuramı sorgusu ('Zeynep döndüğünde anahtarı nerede arar?', 'Ali şimdi elma için nereye bakar?')
+        if has_q and any(q in s_clean for q in ("nerede", "nereye")) and any(v in s_clean for v in ("arar", "bakar", "sanır", "düşünür", "bekler")) and self.tom.present:
+            toks_q = s_clean.split()
+            actor = next((w for w in toks_q if w in self.tom.present), None)
+            obj = None
+            for w in toks_q:
+                st = morph.analyze_word(w, lex)["stem"]
+                if st in self.tom.world_loc:
+                    obj = st
+                    break
+                if len(w) >= 4 and w[-1] in "ıiuü":
+                    cand = morph._unsoften(w[:-2] if len(w) >= 5 and w[-2] == "y" else w[:-1])
+                    if cand in self.tom.world_loc:
+                        obj = cand
+                        break
+            if actor is None and len(toks_q) >= 3:
+                actor = toks_q[0]
+            if obj is None and len(toks_q) >= 3:
+                obj = morph.analyze_word(toks_q[1], lex)["stem"]
+            if actor and obj:
+                bel, real, false_bel = self.tom.where_will_search(actor, obj)
+                if bel is not None:
+                    self.self_model.record_cognitive_success(used_system2=True)
+                    bel_loc = morph.inflect_noun(bel, "LOC")
+                    if false_bel and real is not None:
+                        real_loc = morph.inflect_noun(real, "LOC")
+                        return (
+                            f"{tr_capitalize(actor)} ortamda olmadığı için değişikliği görmedi; kendi inancına göre "
+                            f"{morph.inflect_noun(obj, 'ACC')} {bel_loc} arar (oysa gerçekte {real_loc} bulunuyor)."
+                        )
+                    return f"{tr_capitalize(actor)}, {morph.inflect_noun(obj, 'ACC')} {bel_loc} arar."
 
         m_real_q = re.match(r"^([\wçğıöşü]+)\s+gerçekte\s+(?:nerede|nerededir)$", s_clean)
         if m_real_q:
