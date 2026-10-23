@@ -36,8 +36,10 @@ class Universe:
     OBS_DIM = R * 5 + 3 + 2 + 1 + 1 + 2     # 45 görme | 3 iç duyu | 2 hız | 1 dokunma | 1 ışık | 2 pusula
     I_RAYS, I_INTERO, I_SPEED, I_TOUCH, I_LIGHT, I_COMPASS = 0, 45, 48, 50, 51, 52
 
-    def __init__(self, seed=0, size=24.0, n_food=14, dt=0.25, day_len=600, wind=True, n_term=0, metabolism=True, food_haz=0.0, metab_scale=1.0):
+    def __init__(self, seed=0, size=24.0, n_food=14, dt=0.25, day_len=600, wind=True, n_term=0, metabolism=True, food_haz=0.0, metab_scale=1.0, mortal=False):
         self.food_haz = food_haz                              # yiyeceğin tehlike bölgesinin kenarına konma olasılığı (konjonktif görev: yiyeceğe yaklaşma tarafı tehlikeye bağlı)
+        self.mortal = bool(mortal)                            # True -> ölüp ölüp dirilmez; tek bir geri dönüşsüz yaşamı vardır!
+        self.dead_forever = False
         self.rng = np.random.default_rng(seed)
         self.L, self.dt, self.day_len, self.wind_on = float(size), dt, day_len, wind
         self.A, self.fric, self.turn = 4.0, 2.0, 0.40       # itiş ivmesi, sürtünme, dönüş açısı
@@ -155,6 +157,9 @@ class Universe:
     # ---- fizik
     def step(self, a):
         dt, info = self.dt, dict(ate=0.0, drank=0.0, hurt=0.0, died=None, ext=False, push=False, puzzle=0.0)
+        if self.dead_forever:
+            self.vel[:] = 0.0
+            return self.observe(), info
         if self.invert and a in (2, 3):
             a = 5 - a
         f = np.array([np.cos(self.th), np.sin(self.th)])
@@ -225,7 +230,12 @@ class Universe:
             if v <= 0:
                 info["died"] = name
         if info["died"]:
-            self._respawn()
+            if self.mortal:
+                self.e, self.w, self.i = max(0.0, self.e), max(0.0, self.w), max(0.0, self.i)
+                self.vel[:] = 0.0
+                self.dead_forever = True
+            else:
+                self._respawn()
         return self.observe(), info
 
 

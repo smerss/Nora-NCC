@@ -481,15 +481,17 @@ class CoreSelf:
         harm_projection = max(0.0, -pred_val) * (2.6 + 1.4 * caution + 0.8 * float(self.chem.cort))
         distrust_risk = epist_var * max(0.0, 0.55 - trust) * (3.2 + 2.2 * caution) * (1.0 if act in {"git", "ye", "iç", "dokun"} else 0.25)
 
-        # Homeostatik aciliyet gradyanı: mevcut durum ile öz-bakım sonrası durum arasındaki serbest enerji kazancı
-        homeo_gain = max(0.0, g_comply - g_defer)
+        # Homeostatik aciliyet gradyanı: mevcut bedenin beklerkenki çöküşü ile tam öz-bakım sonrası durum arasındaki kazanç!
+        g_wait, _ = simulate_policy(lambda t, h: np.zeros(3, dtype=np.float64))
+        g_care, _ = simulate_policy(lambda t, h: care_step_vec)
+        homeo_gain = max(0.0, g_wait - g_care)
         # Eğer istenen eylem zaten acil kanalı iyileştiriyorsa (ör. açken 'yiyeceğe git'), erteleme gereksizdir!
         helps_urgent = float(delta_act[urgent_ch]) > 0.08
 
         G = np.zeros(4, dtype=np.float64)
         G[0] = g_comply + harm_projection + distrust_risk - coop_val
         G[1] = g_refuse + (1.25 if harm_projection < 0.35 else -0.85 * harm_projection)
-        G[2] = g_defer - (1.55 * homeo_gain if not helps_urgent else -0.80) + 0.52
+        G[2] = g_defer + 0.70 * harm_projection - (1.55 * homeo_gain if not helps_urgent else -0.80) + 0.52
         G[3] = g_doubt + (1.15 - 1.85 * distrust_risk)
 
         # Nörokimyasal Bazal Ganglion modülasyon yanlılığı
