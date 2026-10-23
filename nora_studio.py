@@ -191,6 +191,10 @@ HTML_PAGE = r"""<!DOCTYPE html>
       <button class="chip" onclick="quickAsk('insan','kanka naber')">Öğrendiği Argoyu Dene</button>
       <button class="chip" onclick="quickAsk('saldırgan','Sana diken batırdım!')">Acı Refleksi (A-delta)</button>
       <button class="chip" onclick="quickAsk('insan','Yaranı sardım, güvendesin.')">Yatıştırıcı Bakım (Kapı-Kontrol)</button>
+      <button class="chip" onclick="quickAsk('insan','Elektron gözlemlenmeden önce hem dalga hem parçacık durumundadır.')">Kuantum Öğret (Çift-Durum)</button>
+      <button class="chip" onclick="quickAsk('insan','Ölçüm dalga fonksiyonunu tek bir özduruma çökertir.')">Kuantum Öğret (Ölçüm)</button>
+      <button class="chip" onclick="quickAsk('insan','konum belirsizliği artarsa momentum belirsizliği ne olur')">Noktalamasız Soru → Öz-Mantık</button>
+      <button class="chip" onclick="quickAsk('insan','kendi oluşturduğun etiketler ve mantık kuralları neler')">Kendi Etiketlerini Göster</button>
       <button class="chip" onclick="quickAsk('insan','3x^3 - 4x^2 + 5x - 2 fonksiyonunun türevi nedir?')">Kalkülüs (Türev)</button>
       <button class="chip" onclick="quickAsk('insan','19.6 metre yükseklikten serbest bırakılan cisim yere hangi hızla çarpar?')">Fizik + RK4 Simülasyon</button>
     </div>
@@ -365,6 +369,14 @@ function renderState(st) {
 
   const monoList = st.inner_monologue || [];
   const scStats = st.schema_stats || {};
+  const al = st.autonomous_logic || {};
+  const alTags = (al.logic_tags || []).map(t => `<span class="pill" style="border-color:#a78bfa;color:#ede9fe">${t}</span>`).join(' ');
+  const alClusters = Object.keys(al.clusters || {}).map(k => `<span class="pill" style="border-color:#34d399;color:#d1fae5">${k}</span>`).join(' ');
+  const alBox =
+    `<br/><span style="color:#38bdf8">Öz-Sınıflandırma:</span> ${al.utterance_label || '—'} (soru: ${al.utterance_is_question ? 'EVET' : 'HAYIR'}, güven: ${al.utterance_confidence || 0}) ` +
+    `| <span style="color:#a78bfa">Kendi Kurduğu Mantık:</span> ${al.logic_rules || 0} kural, ${al.utterance_classes || 0} sözce sınıfı` +
+    (alTags ? `<br/><span style="color:#a78bfa">Öz-Etiketler:</span> ${alTags}` : '') +
+    (alClusters ? `<br/><span style="color:#34d399">Kendi Keşfettiği Kümeler:</span> ${alClusters}` : '');
   if (monoList.length) {
     const lastM = monoList[monoList.length - 1];
     const recentSc = (scStats.recent_schemas || []).slice(-4).join(' &rarr; ') || '—';
@@ -373,7 +385,8 @@ function renderState(st) {
       `<strong>Sessiz İç Ses [Adım ${lastM.step} | Şema: <span style="color:#38bdf8">${lastM.schema_id}</span> | Duruş: ${lastM.stance}]:</strong> ` +
       `<span style="color:#e6fffa;font-style:italic">"${lastM.text}"</span>` +
       (prevThoughts ? `<br/>${prevThoughts}` : '') +
-      `<br/><span style="color:#94a3b8">Şema Akışı (Tekrarsız): ${recentSc} | Keşfedilen İnsan Kalıbı: ${scStats.discovered_count || 0}</span>`;
+      `<br/><span style="color:#94a3b8">Şema Akışı (Tekrarsız): ${recentSc} | Keşfedilen İnsan Kalıbı: ${scStats.discovered_count || 0}</span>` +
+      alBox;
   }
 
   const sp = st.speech_plan || {};
@@ -550,6 +563,16 @@ class StudioRuntime:
                 "observed_human_styles": dict(self.agi.schema_cortex.observed_human_styles),
                 "user_brevity_ema": round(float(self.agi.schema_cortex.user_brevity_ema), 3),
                 "discovered_count": len(self.agi.schema_cortex.discovered_combos),
+            },
+            "autonomous_logic": {
+                "utterance_label": (self.agi.last_utterance_class or {}).get("label", "—"),
+                "utterance_confidence": (self.agi.last_utterance_class or {}).get("confidence", 0.0),
+                "utterance_is_question": bool((self.agi.last_utterance_class or {}).get("is_question", False)),
+                "utterance_classes": len(self.agi.utter_cortex.labels),
+                "minted_labels": list(self.agi.utter_cortex.self_minted_labels)[-4:],
+                "logic_rules": len(self.agi.logic.dual_rules) + len(self.agi.logic.transition_rules) + len(self.agi.logic.variation_rules),
+                "logic_tags": list(self.agi.logic.self_minted_tags.keys())[-5:],
+                "clusters": {k: sorted(v)[:6] for k, v in list(self.agi.logic.emergent_clusters.items())[:4]},
             },
             "nervous": {
                 "adelta": round(float(self.agi.nervous.adelta_pain), 3),
