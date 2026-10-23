@@ -45,6 +45,7 @@ from nora_self import CoreSelf
 from nora_lang import NoraLanguage, Proposition, tr_lower, tr_capitalize
 from nora_stem import MathCortex, PhysicsCortex
 from nora_knowledge import ConversationalResonanceCortex, SYNONYMS
+from nora_broca import GenerativeBrocaOrgan
 
 
 @dataclass
@@ -55,6 +56,7 @@ class CorticalBid:
     reply: str
     trace: str = ""
     used_s2: bool = False
+    speech_plan: dict | None = None
 
 
 class UniversalFastLearner:
@@ -293,9 +295,11 @@ class NoraAGI:
         self.math_cortex = MathCortex()
         self.physics_cortex = PhysicsCortex()
         self.conv_cortex = ConversationalResonanceCortex()
+        self.broca_organ = GenerativeBrocaOrgan()
         self.user_profiles: dict[str, dict[str, str]] = {}
         self.macros: dict[str, list[str]] = {}
         self.last_gw_trace: dict = {}
+        self.last_turn_latency_ms: float = 0.0
 
         self._thinker_iters = int(thinker_iters)
         self.cognition = None
@@ -387,14 +391,15 @@ class NoraAGI:
     # ------------------------------------------------------------------ 3) Doğal Türkçe Diyalog & Düşünme
     def converse(self, text: str, speaker: str = "insan") -> str:
         """Gelen Türkçe cümleyi algılar, öz-benlik ve nörokimya süzgecinden geçirir, düşünür ve yanıt üretir."""
+        t0 = time.perf_counter()
         raw = text.strip()
         if not raw:
-            return "Seni dinliyorum."
+            return "..."
 
         # Önce dizi veya fonksiyon kuralı sorusu mu kontrol et ('2, 5, 8, 11 dizisinin...' / '2 -> 5, 4 -> 9...')
         seq_ans = self._try_sequence_or_mapping_query(raw)
         if seq_ans is not None:
-            self._log_turn(speaker, raw, seq_ans)
+            self._log_turn(speaker, raw, seq_ans, t0)
             return seq_ans
 
         # Çok-cümleli öğreti + soru kombinasyonu kontrolü ('Kuşlar uçar. Karga bir kuştur. Karga uçar mı?')
@@ -414,20 +419,23 @@ class NoraAGI:
                 taught_msgs.append(r_msg)
             if is_last_q:
                 q_ans = self._handle_single_sentence(last_part, speaker=speaker)
-                self._log_turn(speaker, raw, q_ans)
+                self._log_turn(speaker, raw, q_ans, t0)
                 return q_ans
             joined = " ".join(taught_msgs)
-            self._log_turn(speaker, raw, joined)
+            self._log_turn(speaker, raw, joined, t0)
             return joined
 
         reply = self._handle_single_sentence(raw, speaker=speaker)
-        self._log_turn(speaker, raw, reply)
+        self._log_turn(speaker, raw, reply, t0)
         return reply
 
-    def _log_turn(self, speaker: str, user_txt: str, reply: str):
+    def _log_turn(self, speaker: str, user_txt: str, reply: str, t0: float | None = None):
+        if t0 is not None:
+            self.last_turn_latency_ms = round((time.perf_counter() - t0) * 1000.0, 3)
         if len(self.dialogue_log) >= 200:
             self.dialogue_log.pop(0)
         self.dialogue_log.append((speaker, user_txt, reply))
+        self.broca_organ.record_turn_episode(speaker, user_txt, reply, self)
 
     def _try_sequence_or_mapping_query(self, raw: str) -> str | None:
         s = tr_lower(raw)
@@ -493,88 +501,32 @@ class NoraAGI:
             "trace": win.trace,
             "bids": {bids[i].module: round(float(raw_scores[i]), 3) for i in range(len(bids))},
         }
+        if win.speech_plan is not None:
+            self.broca_organ.last_speech_plan = win.speech_plan
+        else:
+            self.broca_organ.last_speech_plan = {
+                "parsed_stems": [],
+                "volition_acts": [win.module.upper()],
+                "ask_back_chosen": "?" in win.reply,
+                "guarded": False,
+                "thought_tree": [f"{win.module}: {win.trace}"],
+                "surface_tr": win.reply,
+                "latency_ms": self.last_turn_latency_ms,
+            }
         if win.used_s2:
             self.self_model.record_cognitive_success(used_system2=True)
         return win
 
     def _synthesize_associative_dialogue(self, raw: str, s_low: str, speaker: str = "insan") -> CorticalBid:
-        """Açık-uçlu Türkçe cümleler için kavram ağı yayılan aktivasyonu + duygu empatisi + canlı kimya sentezi."""
-        morph = self.lang.morph
-        broca = self.lang.broca
-        graph = self.lang.graph
-        aff = self.conv_cortex.analyze_affect(s_low)
-
-        stop_words = {
-            "ve", "ile", "ama", "fakat", "ancak", "çünkü", "için", "gibi", "kadar", "daha", "çok", "az",
-            "bir", "bu", "şu", "o", "ben", "sen", "biz", "siz", "de", "da", "ki", "mi", "mı", "mu", "mü",
-            "ne", "nasıl", "neden", "sence", "acaba", "bence", "gerçekten", "bugün", "şimdi", "her", "şey",
-        }
-        words = re.findall(r"[\wçğıöşü]+", s_low)
-        stems = []
-        for w in words:
-            if w in stop_words or len(w) <= 2:
-                continue
-            st = morph.analyze_word(w, graph.lexicon)["stem"]
-            if st not in stems:
-                stems.append(st)
-            if st in SYNONYMS and SYNONYMS[st] not in stems:
-                stems.append(SYNONYMS[st])
-
-        # Kavram ağında 2-adımlı yayılan aktivasyonla rezonansa giren bilgileri topla
-        resonances: list[str] = []
-        focus_concept = ""
-        for st in stems:
-            hits = graph.query(st, None)
-            if hits:
-                if not focus_concept:
-                    focus_concept = st
-                for edge, isa_path in hits[:2]:
-                    txt = broca.realize_prop(Proposition(subj=st, rel=edge.rel, obj=edge.obj))
-                    if isa_path:
-                        txt = f"{st} bir {isa_path[0].obj} olduğu için {txt}"
-                    if txt not in resonances:
-                        resonances.append(txt)
-            if len(resonances) >= 2:
-                break
-
-        chem_desc = self.chem.dominant_state_tr()
-        uname = self.user_profiles.get(speaker, {}).get("ad", "")
-        addr = f" {uname}" if uname else ""
-
-        if aff["valence"] < -0.25:
-            tone_open = f"Seni dikkatle dinliyorum{addr}; paylaştığın durumdaki ağırlığı hissedebiliyorum."
-        elif aff["valence"] > 0.30:
-            tone_open = f"Paylaştığın olumlu enerji benim dopamin dengemi de canlandırdı{addr}."
-        else:
-            tone_open = ""
-
-        if resonances:
-            core_thought = tr_capitalize(" ve ".join(resonances[:2])) + "."
-            follow = ""
-            if self.self_model.traits["meraklılık"] >= 0.50 and "?" not in raw:
-                follow = f" Bu konuda senin gözlemin veya eklemek istediğin bir yön var mı?"
-            reply = (f"{tone_open} {core_thought}{follow}").strip()
-            return CorticalBid(
-                module="associative_semantic",
-                salience=0.80,
-                precision=0.84,
-                reply=reply,
-                trace=f"spreading_activation({focus_concept})",
-            )
-
-        # Tamamen yeni açık-uçlu düşünce paylaşımı -> merak + tek-atış öğrenmeye açık doğal sohbet yanıtı
-        topic_hint = f"'{stems[0]}' ekseninde " if stems else ""
-        reply = (
-            f"{tone_open + ' ' if tone_open else ''}Şu an {chem_desc} bir zihin durumundayım{addr}; "
-            f"{topic_hint}söylediklerini çalışma belleğime aldım. İstersen bu konuyu biraz daha açabilir ya da "
-            f"aralarındaki nedensel bağı tek bir cümleyle bana öğretebilirsin."
-        )
+        """Açık-uçlu Türkçe cümleler için kavram ağı yayılan aktivasyonu + sıfır-kalıp Broca kök çekimi."""
+        assoc = self.broca_organ.synthesize_associative_bid(raw, s_low, self, speaker=speaker)
         return CorticalBid(
             module="associative_semantic",
-            salience=0.58,
-            precision=0.72,
-            reply=reply,
-            trace="open_reflective_dialogue",
+            salience=float(assoc["salience"]),
+            precision=float(assoc["precision"]),
+            reply=assoc["reply"],
+            trace=assoc["trace"],
+            speech_plan=assoc.get("speech_plan"),
         )
 
     def _handle_single_sentence(self, raw: str, speaker: str = "insan") -> str:
@@ -665,6 +617,7 @@ class NoraAGI:
                 precision=float(conv_res["confidence"]),
                 reply=conv_res["reply"],
                 trace=conv_res["trace"],
+                speech_plan=conv_res.get("speech_plan"),
             ))
 
         # --- SÜTUN 6: Wernicke Anlamsal Çerçeve (İçebakış, Aritmetik S2, İrade, 1-Atış Öğrenme ve Kavram Çıkarımı) ---
@@ -672,14 +625,9 @@ class NoraAGI:
             fr = wern.parse(raw)
 
             if fr.kind == "greeting":
-                st = self.chem.dominant_state_tr()
-                uname = self.user_profiles.get(speaker, {}).get("ad", "")
-                addr = f" {uname}" if uname else ""
-                bids.append(CorticalBid(
-                    "temporal_conversation", 0.95, 0.94,
-                    f"Merhaba{addr}; şu an {st} bir durumdayım, enerjim %{int(round(self.obs[I_E]*100))} ve suyum %{int(round(self.obs[I_W]*100))}. Senin günün nasıl geçiyor?",
-                    "greeting",
-                ))
+                g_gen = self.broca_organ.generate_response(raw, s_low, self, speaker=speaker, allow_open_fallback=True)
+                g_rep = g_gen["reply"] if g_gen is not None else "Merhaba."
+                bids.append(CorticalBid("temporal_conversation", 0.95, 0.94, g_rep, "generative_greeting"))
             elif fr.kind == "why_query":
                 if wern.last_explanation:
                     ans_w = tr_capitalize(wern.last_explanation.rstrip(".")) + "."
@@ -1217,6 +1165,8 @@ class NoraAGI:
             "self_model": self.self_model.state_dict(),
             "edges": [[e.subj, e.rel, e.obj, e.weight, e.source, e.speaker] for e in self.lang.graph.edges],
             "fast_classes": self.fast.class_names,
+            "user_profiles": self.user_profiles,
+            "episodic_dialogue": self.broca_organ.episodic.state_dict(),
         }
         with open(path_prefix + ".agi.json", "w", encoding="utf-8") as f:
             json.dump(meta, f, ensure_ascii=False, indent=2)
@@ -1238,9 +1188,11 @@ class NoraAGI:
         agi.mind.load(path_prefix + ".mind.npz")
         agi.chem.load_state_dict(meta["chem"])
         agi.self_model.load_state_dict(meta["self_model"])
-        agi.lang.graph.edges.clear()
+        agi.lang.graph.clear_all_edges()
         for s, r, o, w, src, spk in meta["edges"]:
             agi.lang.graph.add_edge(s, r, o, source=src, speaker=spk, weight=float(w))
+        agi.user_profiles = dict(meta.get("user_profiles", {}))
+        agi.broca_organ.episodic.load_state_dict(meta.get("episodic_dialogue", []))
         z = np.load(path_prefix + ".agi_mb.npz")
         agi.fast.class_names = list(meta["fast_classes"])
         agi.fast.name_to_id = {n: i for i, n in enumerate(agi.fast.class_names)}
