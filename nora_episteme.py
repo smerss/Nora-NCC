@@ -1176,8 +1176,9 @@ class BeliefSpeech:
         if ans.get("query_type") == "ambiguity":
             ents = ans.get("entities") or []
             hyps = ans.get("hypotheses") or []
-            c0 = self._v("duy", obj=NP("ad", plural=True, mods=(str(len(ents)), "ayrı"), case="ACC"),
-                         advs=("aynı yıl için",), tense="PAST", person="1SG")
+            sayi = {2: "iki", 3: "üç", 4: "dört"}.get(len(ents), str(len(ents)))
+            c0 = self._v("duy", obj=NP("ad", mods=(sayi, "ayrı")),
+                         pre_clause="aynı yıl için", tense="PAST", person="1SG")
             c1 = self._v("bil", obj="hangisinin doğru olduğunu", neg=True, tense="PRES", person="1SG")
             head = f"{tr_capitalize(c0)}, ama {c1}" + (f"; {' ile '.join(ents)} aynı varlık mı, bilmiyorum." if ents else ".")
             parts = [head, "İki olasılık görüyorum:"]
