@@ -728,8 +728,17 @@ class CommunicativeVolition:
         guarded = (trust < 0.32)  # Güven yıkılmışsa Nora kendi iradesiyle ketum ve mesafeli konuşur!
 
         if utter_info.get("has_greet"):
-            act_scores["GREET"] = 0.90
-        if utter_info.get("asks_wellbeing") or (utter_info.get("has_greet") and not concept_hits and not utter_info.get("affect_tags")):
+            act_scores["GREET"] = 0.96
+        if utter_info.get("social_learned"):
+            act_scores["SOCIAL_LEARN"] = 0.98
+        if utter_info.get("social_query"):
+            act_scores["SOCIAL_RECALL"] = 0.99
+        if utter_info.get("asks_wellbeing") or (
+            utter_info.get("has_greet")
+            and not concept_hits
+            and not utter_info.get("affect_tags")
+            and not utter_info.get("social_query")
+        ):
             act_scores["SELF_STATE"] = 0.92
         if utter_info.get("asks_doing"):
             act_scores["SELF_ACTIVITY"] = 0.94
@@ -746,8 +755,11 @@ class CommunicativeVolition:
         if utter_info.get("affect_tags") and not guarded:
             act_scores["EMPATHIZE"] = 0.72 + 0.45 * aff_mag + 0.22 * trust
 
-        # Hipokampal geçmiş anı rezonansı
-        if utter_info.get("asks_memory") or (recalled_eps and not utter_info.get("has_greet") and not utter_info.get("asks_wellbeing") and not has_strong_affect):
+        # Hipokampal geçmiş anı rezonansı (sosyal kimlik sorgularıyla çakışmaz)
+        if not utter_info.get("social_query") and (
+            utter_info.get("asks_memory")
+            or (recalled_eps and not utter_info.get("has_greet") and not utter_info.get("asks_wellbeing") and not has_strong_affect and not utter_info.get("social_learned"))
+        ):
             act_scores["RECALL_EPISODE"] = 0.97 if utter_info.get("asks_memory") else (0.58 + 0.20 * chem.ach)
 
         # Kavramsal / Felsefi / Bilimsel yayılan aktivasyon (duygusal dertleşmede ansiklopedi tanımı araya girmez!)
@@ -772,12 +784,13 @@ class CommunicativeVolition:
             act_scores["GUARDED_STANCE"] = 0.93
 
         # Karşı tarafa soru yöneltme iradesi: YALNIZCA güven yüksek, stres düşük, merak aktif ve bellek/veda değilse!
+        pure_social_decl = bool(utter_info.get("social_learned")) and not utter_info.get("has_greet") and not utter_info.get("asks_wellbeing")
         curiosity_drive = (
             0.42 * chem.ach
             + 0.35 * self_m.traits["meraklılık"]
             + 0.30 * trust
             - 0.45 * chem.cort
-            - (0.85 if (guarded or wants_brief or utter_info.get("is_farewell") or utter_info.get("asks_memory")) else 0.0)
+            - (0.85 if (guarded or wants_brief or utter_info.get("is_farewell") or utter_info.get("asks_memory") or utter_info.get("social_query") or pure_social_decl) else 0.0)
         )
         ask_back = bool(curiosity_drive >= 0.46)
 
@@ -786,6 +799,8 @@ class CommunicativeVolition:
             ordered = ["REFLECT_OPEN"]
         if wants_brief:
             ordered = ordered[:1]
+        elif "GREET" in ordered and "SOCIAL_LEARN" in ordered:
+            ordered = ordered[:4]
         else:
             ordered = ordered[:3]
 
@@ -830,7 +845,19 @@ class GenerativeBrocaOrgan:
         "ve", "ile", "ama", "fakat", "ancak", "çünkü", "için", "gibi", "kadar", "daha", "çok", "az",
         "bir", "bu", "şu", "ben", "sen", "biz", "siz", "de", "da", "ki", "mi", "mı", "mu", "mü",
         "ne", "nasıl", "neden", "sence", "acaba", "bence", "gerçekten", "bugün", "şimdi", "her", "şey",
-        "nora", "peki", "zaten", "yeni", "az", "önce", "daha", "var", "yok", "olarak", "nedir",
+        "nora", "peki", "zaten", "yeni", "az", "önce", "daha", "var", "yok", "olarak", "nedir", "neydi",
+    }
+
+    NON_PERSON_NAMES = {
+        "iyi", "iyiyim", "kötü", "kötüyüm", "yorgun", "yorgunum", "mutlu", "mutluyum", "üzgün", "üzgünüm",
+        "hazır", "hazırım", "aç", "açım", "tok", "tokum", "susuz", "susuzum", "hasta", "hastayım",
+        "fena", "süper", "süperim", "harika", "harikayım", "haklı", "haklıyım", "emin", "eminim",
+        "yalnız", "yalnızım", "meşgul", "meşgulüm", "meraklı", "meraklıyım", "sakin", "sakinim",
+        "burada", "buradayım", "orada", "oradayım", "evde", "evdeyim", "okulda", "okuldayım",
+        "insan", "insanım", "öğrenci", "öğrenciyim", "öğretmen", "öğretmenim", "mühendis", "mühendisim",
+        "doktor", "doktorum", "yazılımcı", "yazılımcıyım", "değil", "değilim", "var", "varım", "yok", "yokum",
+        "kim", "kimim", "kimdim", "ne", "neyim", "nasıl", "nerede", "nora", "sen", "ben", "biz", "siz",
+        "çok", "biraz", "gayet", "bugün", "şimdi", "yeni", "sadece", "yalnızca", "gerçekten",
     }
 
     def __init__(self):
@@ -839,6 +866,97 @@ class GenerativeBrocaOrgan:
         self.volition = CommunicativeVolition()
         self.episodic = EpisodicDialogueCortex()
         self.last_speech_plan: dict = {}
+
+    def _parse_social_autobiography(self, raw: str, s_low: str, morph: TurkishMorphology, lexicon: set[str]) -> tuple[dict[str, str], str]:
+        """Doğal Türkçe cümlelerin içinden ('merhaba! Ben baran', 'benim adım Deniz', 'ismim Ali',
+        'Antalya'da yaşıyorum', 'benim adım neydi' vb. soru işareti olmasa bile!) kişi bilgilerini ve
+        sosyal bellek sorularını çıkarır."""
+        s_clean = re.sub(r"[^\wçğıöşü'\s]", " ", s_low)
+        s_clean = re.sub(r"\s+", " ", s_clean).strip()
+        s_plain = s_clean.replace("'", "")
+        toks = s_plain.split()
+
+        q_words = {
+            "mı", "mi", "mu", "mü", "mıdır", "midir", "mudur", "müdür", "musun", "müsün", "misin", "mısın",
+            "ne", "nedir", "neydi", "nerede", "nerededir", "neredeydi", "kim", "kimim", "kimdim", "kaç", "kaçtı",
+        }
+        has_q = ("?" in raw) or any(w in q_words for w in toks)
+
+        # 1) Sosyal kimlik / kişi belleği SORULARI ('benim adım neydi', 'ismim ne', 'adımı biliyor musun', 'ben kimim')
+        social_query = ""
+        if (
+            any(p in s_plain for p in (
+                "adım ne", "adım nedir", "adım neydi", "ismim ne", "ismim nedir", "ismim neydi",
+                "adımı biliyor", "adımı hatırlıyor", "adımı hatırla", "ismimi biliyor", "ismimi hatırlıyor",
+            ))
+            or s_plain in {"ben kimim", "ben kimdim", "kimim ben", "adım", "ismim"}
+        ):
+            social_query = "ad"
+        elif any(p in s_plain for p in ("nerede yaşıyorum", "nerede yaşıyordum", "nerede oturuyorum", "hangi şehirde yaşıyorum")):
+            social_query = "konum"
+        elif any(p in s_plain for p in ("kaç yaşındayım", "yaşım kaç", "yaşım kaçtı")):
+            social_query = "yaş"
+        elif any(p in s_plain for p in ("neyi severim", "ne severim", "neyi seviyordum", "ne seviyorum")):
+            social_query = "sevdiği"
+        elif any(p in s_plain for p in ("benim hakkımda ne biliyorsun", "beni tanıyor musun")):
+            social_query = "özet"
+
+        if social_query:
+            return {}, social_query
+
+        # 2) Sosyal kimlik ÖĞRENME ('merhaba! Ben baran', 'Benim adım Emre', 'İsmim Deniz', 'Bana Mert diyebilirsin')
+        learned: dict[str, str] = {}
+        if not has_q or any(g in toks for g in ("nasılsın", "naber")):
+            # A) Açık 'adım / ismim X' veya 'bana X diyebilirsin / derler'
+            m_exp = re.search(r"\b(?:benim\s+)?(?:adım|ismim)\s+([\wçğıöşü']+)\b", s_clean)
+            if not m_exp:
+                m_exp = re.search(r"\bbana\s+([\wçğıöşü']+)\s+(?:diyebilirsin|de|derler|diyorlar)\b", s_clean)
+            cand_name = ""
+            if m_exp:
+                cand_name = m_exp.group(1).split("'")[0]
+            else:
+                # B) Doğal Türkçe koşaçsız tanışma: 'merhaba! Ben baran', 'selam nora, ben deniz', 'ben baran'ım'
+                for sub_cl in re.split(r"[.!?,;]+", s_low):
+                    sub_s = re.sub(r"\s+", " ", sub_cl).strip()
+                    sub_s = re.sub(
+                        r"^(?:merhaba|selam|selamlar|hey|günaydın|iyi\s+günler|iyi\s+akşamlar)(?:\s+nora)?\s+",
+                        "",
+                        sub_s,
+                    ).strip()
+                    m_ben = re.match(r"^ben\s+([\wçğıöşü']+)$", sub_s)
+                    if m_ben:
+                        raw_tok = m_ben.group(1)
+                        if "'" in raw_tok:
+                            raw_tok = raw_tok.split("'")[0]
+                        if (
+                            len(raw_tok) >= 2
+                            and not raw_tok.isdigit()
+                            and raw_tok not in self.NON_PERSON_NAMES
+                            and not raw_tok.endswith((
+                                "yorum", "eceğim", "acağım", "dim", "dım", "dum", "düm", "tim", "tım", "tum", "tüm",
+                                "dayım", "deyim", "tayım", "teyim", "danım", "denim", "mem", "mam", "rım", "rim",
+                            ))
+                        ):
+                            cand_name = raw_tok
+                            break
+
+            if cand_name and cand_name not in self.NON_PERSON_NAMES and cand_name not in q_words:
+                learned["ad"] = tr_capitalize(cand_name)
+
+        if not has_q:
+            m_live = re.search(r"\b(?:ben\s+)?([\wçğıöşü]+?)(?:'?(?:da|de|ta|te))\s+(?:yaşıyorum|oturuyorum)\b", s_clean)
+            if m_live and m_live.group(1) not in {"burada", "orada", "nerede", "ev", "okul"}:
+                learned["konum"] = tr_capitalize(m_live.group(1))
+
+            m_age = re.search(r"\b(?:ben\s+)?(\d{1,3})\s+yaşındayım\b", s_clean)
+            if m_age:
+                learned["yaş"] = m_age.group(1)
+
+            m_like = re.search(r"\bben\s+([\wçğıöşü]+)\s+(?:çok\s+)?(?:severim|seviyorum)\b", s_clean)
+            if m_like and m_like.group(1) not in {"seni", "bunu", "şunu", "onu", "ne", "neyi"}:
+                learned["sevdiği"] = morph.analyze_word(m_like.group(1), lexicon)["stem"]
+
+        return learned, ""
 
     # ------------------------------------------------------------------ 1) Derin Söylem Çözümleme
     def comprehend_discourse(self, raw: str, s_low: str, morph: TurkishMorphology, lexicon: set[str]) -> dict:
@@ -904,6 +1022,7 @@ class GenerativeBrocaOrgan:
         # En baskın duygu kökünü öne al (nötr 'okul'/'ders' gibi bağlam köklerinin duygu şiddetini seyreltmesini önle)
         aff_tags.sort(key=lambda pair: abs(next((v for _, (v, nr, _) in self.AFFECT_ROOTS.items() if nr == pair[0]), 0.0)), reverse=True)
         dom_affect = float(max(aff_vals, key=abs)) if aff_vals else 0.0
+        social_learned, social_query = self._parse_social_autobiography(raw, s_low, morph, lexicon)
 
         return {
             "words": words,
@@ -912,7 +1031,9 @@ class GenerativeBrocaOrgan:
             "loc_nouns": loc_nouns,
             "affect_val": dom_affect,
             "affect_tags": aff_tags,
-            "is_question": "?" in raw,
+            "social_learned": social_learned,
+            "social_query": social_query,
+            "is_question": "?" in raw or bool(social_query),
             "urgency_habituation": self.lex_sel.habituation.get("act:bodily_urgency", 0.0),
             "has_greet": has_greet,
             "asks_wellbeing": asks_wellbeing,
@@ -938,16 +1059,24 @@ class GenerativeBrocaOrgan:
 
         u = self.comprehend_discourse(raw, s_low, morph, graph.lexicon)
 
-        # Bu tur konuşma/felsefe/sohbet katmanına mı ait, yoksa saf dar bilgi/komut sorgusu mu?
+        # Bu tur konuşma/felsefe/sohbet/sosyal-kimlik katmanına mı ait?
         is_conversational = any([
             u["has_greet"], u["asks_wellbeing"], u["asks_doing"], u["recip_wellbeing"],
             u["is_thanks"], u["is_farewell"], u["asks_memory"], u["wants_silence"],
+            bool(u["social_learned"]), bool(u["social_query"]),
             bool(u["phil_topic"]), u["asks_curiosity_prompt"],
             (bool(u["affect_tags"]) and "?" not in raw),
             allow_open_fallback,
         ])
         if not is_conversational:
             return None
+
+        # Sosyal kişi belleği öğrenildiyse hemen kaydet (böylece 'merhaba! Ben baran' aynı yanıt içinde 'Baran' diye hitap eder!)
+        prof = agi.user_profiles.setdefault(speaker, {})
+        if u["social_learned"]:
+            prof.update(u["social_learned"])
+            chem.pulse_learning(novelty=0.75, valence=0.35)
+            chem.update_social(speaker, +0.18)
 
         # O(1) Hipokampal anı geri çağırma ve O(1) Kavram Ağı yayılımı
         recalled = self.episodic.recall(u["stems"], speaker=speaker, exclude_last=0, top_k=2)
@@ -957,7 +1086,7 @@ class GenerativeBrocaOrgan:
         plan = self.volition.select_speech_plan(u, agi, speaker, recalled, concept_hits)
         acts: list[str] = plan["acts"]
 
-        uname = agi.user_profiles.get(speaker, {}).get("ad", "")
+        uname = prof.get("ad", "")
         clauses_out: list[str] = []
         raw_thought_nodes: list[str] = []
 
@@ -980,6 +1109,152 @@ class GenerativeBrocaOrgan:
             gw = self.lex_sel.pick("GREET_WORD", chem)
             vocative_prefix = f"{tr_capitalize(gw)}{' ' + uname if uname else ''}! "
             raw_thought_nodes.append(f"SELAM({gw})")
+
+        # --- EDİM 1B: Sosyal Kimlik / Kişi Belleği Öğrenme ve Hatırlama (Sıfır Kalıp!) ---
+        if "SOCIAL_LEARN" in acts and u["social_learned"]:
+            sl = u["social_learned"]
+            sub_clauses = []
+            if "ad" in sl:
+                c_meet = self.syn.realize_verb(VerbSpec(
+                    verb_root="sevin",
+                    dat=self.syn.nominalize_dik("tanış", poss=4, case="DAT"),
+                    tense="PAST", person="1SG",
+                ))
+                if not vocative_prefix:
+                    c_meet = f"{c_meet} {sl['ad']}"
+                c_save_n = self.syn.realize_verb(VerbSpec(
+                    verb_root="kaydet",
+                    obj=NP("ad", poss=2, case="ACC"),
+                    dat=NP("bellek", poss=1, mods=("sosyal",), case="DAT"),
+                    tense="PAST", person="1SG",
+                ))
+                sub_clauses.append(f"{tr_capitalize(c_meet)}; {c_save_n}")
+                raw_thought_nodes.append(f"SOSYAL_ÖĞREN(ad={sl['ad']} -> bellek+kaydet)")
+            if "konum" in sl:
+                city_low = tr_lower(sl["konum"])
+                loc_suf = morph.inflect_noun(city_low, "LOC")[len(city_low):]
+                proper_loc = f"{sl['konum']}'{loc_suf}"
+                c_loc = self.syn.realize_verb(VerbSpec(
+                    verb_root="işle",
+                    obj=self.syn.nominalize_dik("yaşa", poss=2, case="ACC", advs=(proper_loc,)),
+                    dat=NP("bellek", poss=1, case="DAT"),
+                    tense="PAST", person="1SG",
+                ))
+                c_loc = c_loc.replace(tr_lower(proper_loc), proper_loc, 1)
+                sub_clauses.append(tr_capitalize(c_loc))
+                raw_thought_nodes.append(f"SOSYAL_ÖĞREN(konum={sl['konum']})")
+            if "yaş" in sl:
+                c_age = self.syn.realize_verb(VerbSpec(
+                    verb_root="kaydet",
+                    obj=NP(f"{sl['yaş']} yaş", poss=2, case="ACC"),
+                    dat=NP("bellek", poss=1, case="DAT"),
+                    tense="PAST", person="1SG",
+                ))
+                sub_clauses.append(tr_capitalize(c_age))
+                raw_thought_nodes.append(f"SOSYAL_ÖĞREN(yaş={sl['yaş']})")
+            if "sevdiği" in sl:
+                c_lk = self.syn.realize_verb(VerbSpec(
+                    verb_root="kaydet",
+                    obj=self.syn.nominalize_dik("sev", poss=2, case="ACC", obj=NP(sl["sevdiği"], case="ACC")),
+                    dat=NP("bellek", poss=1, case="DAT"),
+                    tense="PAST", person="1SG",
+                ))
+                sub_clauses.append(tr_capitalize(c_lk))
+                raw_thought_nodes.append(f"SOSYAL_ÖĞREN(sevdiği={sl['sevdiği']})")
+            if sub_clauses:
+                clauses_out.append(". ".join(sub_clauses) + ".")
+
+        if "SOCIAL_RECALL" in acts and u["social_query"]:
+            sq = u["social_query"]
+            if sq == "ad":
+                if "ad" in prof:
+                    v_keep = self.lex_sel.pick("VERB_RECALL", chem)
+                    c_keep = self.syn.realize_verb(VerbSpec(
+                        verb_root=v_keep,
+                        obj=NP("ad", poss=2, case="ACC"),
+                        loc=NP("bellek", poss=1, mods=("sosyal",), case="LOC"),
+                        tense="PRES", person="1SG",
+                    ))
+                    subj_np = self.syn.realize_np(NP("sen", case="GEN")) + " " + self.syn.realize_np(NP("ad", poss=2))
+                    clauses_out.append(f"{tr_capitalize(subj_np)} {prof['ad']}; {c_keep}.")
+                    raw_thought_nodes.append(f"SOSYAL_HATIRLA(ad={prof['ad']})")
+                else:
+                    c_unk = self.syn.realize_verb(VerbSpec(
+                        verb_root="söyle",
+                        subj=NP("sen"),
+                        dat=NP("ben", case="DAT"),
+                        obj=NP("ad", poss=2, case="ACC"),
+                        advs=("henüz",),
+                        neg=True, tense="PAST", person="2SG",
+                    ))
+                    clauses_out.append(tr_capitalize(c_unk) + ".")
+                    raw_thought_nodes.append("SOSYAL_HATIRLA(ad=bilinmiyor)")
+            elif sq == "konum":
+                if "konum" in prof:
+                    city_low = tr_lower(prof["konum"])
+                    loc_suf = morph.inflect_noun(city_low, "LOC")[len(city_low):]
+                    loc_cap = f"{prof['konum']}'{loc_suf}"
+                    c_lv = self.syn.realize_verb(VerbSpec(
+                        verb_root="yaşa",
+                        subj=NP("sen"),
+                        tense="PRES", person="2SG",
+                    ))
+                    clauses_out.append(f"{tr_capitalize(c_lv.replace('sen ', 'sen ' + loc_cap + ' '))}.")
+                    raw_thought_nodes.append(f"SOSYAL_HATIRLA(konum={prof['konum']})")
+                else:
+                    c_ul = self.syn.realize_verb(VerbSpec(
+                        verb_root="bil",
+                        obj=self.syn.nominalize_dik("yaşa", poss=2, case="ACC", advs=("nerede",)),
+                        advs=("henüz",),
+                        neg=True, tense="PRES", person="1SG",
+                    ))
+                    clauses_out.append(tr_capitalize(c_ul) + ".")
+            elif sq == "yaş":
+                if "yaş" in prof:
+                    clauses_out.append(f"Sen {prof['yaş']} yaşındasın.")
+                    raw_thought_nodes.append(f"SOSYAL_HATIRLA(yaş={prof['yaş']})")
+                else:
+                    c_ua = self.syn.realize_verb(VerbSpec(
+                        verb_root="söyle", dat=NP("ben", case="DAT"), obj=NP("yaş", poss=2, case="ACC"),
+                        advs=("henüz",), neg=True, tense="PAST", person="2SG",
+                    ))
+                    clauses_out.append(tr_capitalize(c_ua) + ".")
+            elif sq == "sevdiği":
+                if "sevdiği" in prof:
+                    c_slk = self.syn.realize_verb(VerbSpec(
+                        verb_root="sev", subj=NP("sen"), obj=NP(prof["sevdiği"], case="ACC"), tense="AOR", person="2SG",
+                    ))
+                    clauses_out.append(tr_capitalize(c_slk) + ".")
+                    raw_thought_nodes.append(f"SOSYAL_HATIRLA(sevdiği={prof['sevdiği']})")
+                else:
+                    c_ulk = self.syn.realize_verb(VerbSpec(
+                        verb_root="söyle", dat=NP("ben", case="DAT"),
+                        obj=self.syn.nominalize_dik("sev", poss=2, case="ACC", obj="ne"),
+                        advs=("henüz",), neg=True, tense="PAST", person="2SG",
+                    ))
+                    clauses_out.append(tr_capitalize(c_ulk) + ".")
+            elif sq == "özet":
+                if prof:
+                    bits = []
+                    if "ad" in prof:
+                        bits.append(f"adın {prof['ad']}")
+                    if "konum" in prof:
+                        city_low = tr_lower(prof["konum"])
+                        loc_suf = morph.inflect_noun(city_low, "LOC")[len(city_low):]
+                        bits.append(f"{prof['konum']}'{loc_suf} yaşıyorsun")
+                    if "yaş" in prof:
+                        bits.append(f"{prof['yaş']} yaşındasın")
+                    if "sevdiği" in prof:
+                        bits.append(f"{morph.inflect_noun(prof['sevdiği'], 'ACC')} seviyorsun")
+                    clauses_out.append(tr_capitalize(", ".join(bits)) + ".")
+                    raw_thought_nodes.append("SOSYAL_HATIRLA(özet)")
+                else:
+                    c_un = self.syn.realize_verb(VerbSpec(
+                        verb_root="paylaş", subj=NP("sen"), ins=NP("ben", case="INS"),
+                        obj=NP("bilgi", mods=("kişisel",), case="NOM"), advs=("henüz",),
+                        neg=True, tense="PAST", person="2SG",
+                    ))
+                    clauses_out.append(tr_capitalize(c_un) + ".")
 
         # --- EDİM 2: Ketum / Güvensiz Sınır (OXY düşükse kendi iradesiyle mesafe koyar!) ---
         if "GUARDED_STANCE" in acts:
@@ -1236,7 +1511,9 @@ class GenerativeBrocaOrgan:
         plan_dict = self._build_plan_dict(t0, u, plan, raw_thought_nodes, full_text)
         self.last_speech_plan = plan_dict
         return {
-            "confidence": 0.96 if (u["has_greet"] or u["asks_wellbeing"] or u["asks_doing"] or u["asks_memory"] or u["phil_topic"]) else 0.91,
+            "confidence": 0.98 if (u["social_learned"] or u["social_query"]) else (
+                0.96 if (u["has_greet"] or u["asks_wellbeing"] or u["asks_doing"] or u["asks_memory"] or u["phil_topic"]) else 0.91
+            ),
             "reply": full_text,
             "trace": " -> ".join(raw_thought_nodes[:3]),
             "speech_plan": plan_dict,
@@ -1248,7 +1525,7 @@ class GenerativeBrocaOrgan:
         s_low = tr_lower(raw)
         u = self.comprehend_discourse(raw, s_low, agi.lang.morph, agi.lang.graph.lexicon)
         # Bellek sorgusu turlarının kendisi bir önceki konu anısını ezmesin diye yalnızca anlamlı içerik turlarını kodla
-        if u["asks_memory"]:
+        if u["asks_memory"] or u["social_query"]:
             return
         topic_tag = u["phil_topic"] or (u["stems"][0] if u["stems"] else "sohbet")
         acts = self.last_speech_plan.get("volition_acts", ["COGNITIVE_TURN"])
