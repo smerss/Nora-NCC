@@ -177,6 +177,9 @@ HTML_PAGE = r"""<!DOCTYPE html>
   <!-- SAĞ PANEL: TÜRKÇE DİYALOG -->
   <div class="card">
     <h2><span>4. Sıfır-Kalıp Üretken Broca Sohbeti, Matematik &amp; Fizik</span><span id="lat-lbl">O(1) Gecikme: —</span></h2>
+    <div class="narr-box" id="mono-box" style="border-left-color:#38bdf8;font-size:11px">
+      <strong>Canlı İçsel Monolog (Vygotsky İç Sesi &amp; Plastik Şema):</strong> Dinleniyor...
+    </div>
     <div class="narr-box" id="broca-box" style="border-left-color:#b197fc;font-size:11px">
       <strong>İçsel Düşünce Ağacı &rarr; Broca Kök Sentezi (0 Hazır Kalıp):</strong> Henüz sözce üretilmedi.
     </div>
@@ -360,6 +363,19 @@ function renderState(st) {
   const curPills = (anet.curiosity || []).map(c => `<span class="pill" style="border-color:#fcc419;color:#fff3bf">Merak: ${c}</span>`);
   document.getElementById('concept-pills').innerHTML = curPills.concat(gwPills).concat(st.edges.slice(-7).map(e => `<span class="pill">${e}</span>`)).join('');
 
+  const monoList = st.inner_monologue || [];
+  const scStats = st.schema_stats || {};
+  if (monoList.length) {
+    const lastM = monoList[monoList.length - 1];
+    const recentSc = (scStats.recent_schemas || []).slice(-4).join(' &rarr; ') || '—';
+    const prevThoughts = monoList.slice(-3, -1).map(m => `<span style="color:#8b9bb4">[Adım ${m.step}] ${m.text}</span>`).join('<br/>');
+    document.getElementById('mono-box').innerHTML =
+      `<strong>Sessiz İç Ses [Adım ${lastM.step} | Şema: <span style="color:#38bdf8">${lastM.schema_id}</span> | Duruş: ${lastM.stance}]:</strong> ` +
+      `<span style="color:#e6fffa;font-style:italic">"${lastM.text}"</span>` +
+      (prevThoughts ? `<br/>${prevThoughts}` : '') +
+      `<br/><span style="color:#94a3b8">Şema Akışı (Tekrarsız): ${recentSc} | Keşfedilen İnsan Kalıbı: ${scStats.discovered_count || 0}</span>`;
+  }
+
   const sp = st.speech_plan || {};
   const latStr = (st.latency_ms !== undefined && st.latency_ms > 0) ? (st.latency_ms.toFixed(2) + ' ms | CA3 Anı: ' + (st.episodic_count || 0)) : ('CA3 Anı: ' + (st.episodic_count || 0));
   document.getElementById('lat-lbl').textContent = 'O(1) ' + latStr;
@@ -367,7 +383,7 @@ function renderState(st) {
     const actsTxt = (sp.volition_acts || []).join(' + ');
     document.getElementById('broca-box').innerHTML =
       `<strong>İrade Edimleri:</strong> <span style="color:#4fd1c5">${actsTxt}</span> ` +
-      `(Soru İradesi: ${sp.ask_back_chosen ? 'EVET' : 'HAYIR'}, Ketumluk: ${sp.guarded ? 'AKTİF' : 'AÇIK'})<br/>` +
+      `(Şema: <span style="color:#38bdf8">${sp.schema_id || '—'}</span>, Soru İradesi: ${sp.ask_back_chosen ? 'EVET' : 'HAYIR'}, Ketumluk: ${sp.guarded ? 'AKTİF' : 'AÇIK'})<br/>` +
       `<strong>Düşünce Ağacı &rarr; Kök Çekimi:</strong> <span style="color:#fcc419">${sp.thought_tree.join(' &rarr; ')}</span>`;
   }
 
@@ -499,6 +515,7 @@ class StudioRuntime:
                 vis_prec=float(self.agi.mind.vis_prec), motor_eff=float(self.agi.mind.motor_eff), died=self.agi.died,
             )
             self.agi.self_model.sync_from_mind(self.agi.mind, self.agi.obs, died=self.agi.died)
+            self.agi.monologue.spontaneous_tick(self.agi)
 
     def snapshot(self) -> dict:
         w = self.agi.world
@@ -527,6 +544,13 @@ class StudioRuntime:
             "volition_trace": dict(self.agi.self_model.last_volition_trace),
             "gw_trace": dict(self.agi.last_gw_trace),
             "speech_plan": dict(self.agi.broca_organ.last_speech_plan),
+            "inner_monologue": self.agi.monologue.recent_dicts(6),
+            "schema_stats": {
+                "recent_schemas": list(self.agi.schema_cortex.recent_schemas),
+                "observed_human_styles": dict(self.agi.schema_cortex.observed_human_styles),
+                "user_brevity_ema": round(float(self.agi.schema_cortex.user_brevity_ema), 3),
+                "discovered_count": len(self.agi.schema_cortex.discovered_combos),
+            },
             "nervous": {
                 "adelta": round(float(self.agi.nervous.adelta_pain), 3),
                 "cfiber": round(float(self.agi.nervous.cfiber_ache), 3),
