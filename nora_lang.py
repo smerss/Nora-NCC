@@ -26,6 +26,13 @@ import re
 import numpy as np
 
 from nora_chem import NeuroChemistry, ChemMushroomBody
+from nora_knowledge import (
+    VOWEL_DROP_STEMS,
+    REVERSE_VOWEL_DROP,
+    NO_SOFTEN_EXTENDED,
+    ANTONYMS,
+    FOUNDATIONAL_PROPOSITIONS,
+)
 
 
 BACK_VOWELS = set("aıou")
@@ -48,8 +55,10 @@ def tr_capitalize(s: str) -> str:
 class TurkishMorphology:
     """Üretken Türkçe İsim/Fiil Çekimleyici, Kök Çözümleyici ve Sayı Okuyucu."""
 
-    # Yumuşamaya girmeyen yaygın tek-heceli / istisna kökler
-    NO_SOFTEN = {"at", "et", "ot", "süt", "ok", "ek", "ak", "kök", "yük", "top", "ip", "çöp", "saç", "üç", "göç", "suç", "kaç", "iç"}
+    # Yumuşamaya girmeyen tek-heceli ve alıntı/istisna kökler + orta hece ünlü düşmesi sözlüğü
+    NO_SOFTEN = NO_SOFTEN_EXTENDED
+    VOWEL_DROP = VOWEL_DROP_STEMS
+    REV_VOWEL_DROP = REVERSE_VOWEL_DROP
     IRREG_NOUN = {
         "su": {"ACC": "suyu", "DAT": "suya", "GEN": "suyun", "POSS1": "suyum"},
         "ne": {"ACC": "neyi", "DAT": "neye", "GEN": "neyin"},
@@ -58,7 +67,7 @@ class TurkishMorphology:
         "git", "gel", "ye", "iç", "dur", "bekle", "kaç", "gir", "çık", "bak", "gör", "duy",
         "öğren", "bil", "düşün", "anla", "koru", "onar", "uç", "yüz", "koş", "yürü", "parla",
         "ısıt", "soğut", "azalt", "artır", "ver", "al", "yap", "et", "ol", "yaşa", "öl",
-        "reddet", "kabul", "inan", "güven", "çöz", "hesapla", "ara", "bul", "göster", "taş",
+        "reddet", "kabul", "inan", "güven", "çöz", "hesapla", "ara", "bul", "göster", "taş", "yayıl", "üret",
     }
 
     @staticmethod
@@ -86,7 +95,11 @@ class TurkishMorphology:
     @classmethod
     def soften_stem(cls, stem: str) -> str:
         w = tr_lower(stem)
-        if not w or w in cls.NO_SOFTEN or len(w) <= 2 and w not in {"su", "ağ", "uç"}:
+        if not w:
+            return w
+        if w in cls.VOWEL_DROP and cls.VOWEL_DROP[w] != w:
+            return cls.VOWEL_DROP[w]
+        if w in cls.NO_SOFTEN or (len(w) <= 2 and w not in {"su", "ağ", "uç"}):
             return w
         if w[-1] in ALL_VOWELS:
             return w
@@ -94,6 +107,26 @@ class TurkishMorphology:
             return w[:-1] + "g"
         rep = {"p": "b", "ç": "c", "t": "d", "k": "ğ"}
         return (w[:-1] + rep[w[-1]]) if w[-1] in rep else w
+
+    @classmethod
+    def derive_word(cls, stem: str, deriv: str) -> str:
+        """Üretken Türkçe yapım ekleri: LI (-lı/-li/-lu/-lü), SIZ (-sız/-siz/-suz/-süz),
+        LIK (-lık/-lik/-luk/-lük), CI (-cı/-ci/-cu/-cü)."""
+        w = tr_lower(stem).strip()
+        if not w:
+            return w
+        v4 = cls.vowel_4(w)
+        d = deriv.upper()
+        if d == "LI":
+            return f"{w}l{v4}"
+        if d == "SIZ":
+            return f"{w}s{v4}z"
+        if d == "LIK":
+            return f"{w}l{v4}k"
+        if d == "CI":
+            ch = "ç" if w[-1] in HARD_CONS else "c"
+            return f"{w}{ch}{v4}"
+        return w
 
     @classmethod
     def dental_d_t(cls, word: str) -> str:
@@ -336,8 +369,9 @@ class TurkishMorphology:
                         # ancak ünsüz yumuşaması ('ğ/b/c/d' + ünlü) veya sert ünsüz + ünlü ('sepete' -> 'sepet') hal ekidir!
                         hard = cls._unsoften(cand)
                         softened = cls._likely_softened(cand, sf)
+                        vdrop = (cand in cls.REV_VOWEL_DROP)
                         hard_dat_acc = (cand[-1] in HARD_CONS and len(cand) >= 3)
-                        if len(sf) == 1 and (cur in known or (not softened and not hard_dat_acc and cand not in known and hard not in known and not cand.endswith(("lar", "ler")))):
+                        if len(sf) == 1 and (cur in known or (not softened and not vdrop and not hard_dat_acc and cand not in known and hard not in known and not cand.endswith(("lar", "ler")))):
                             continue
                         cur = hard if softened else cand
                         info["case"] = cname
@@ -346,22 +380,89 @@ class TurkishMorphology:
                 if matched:
                     break
 
-        # 4) Çoğul eki (-lar/-ler) ve iyelik (-ım/-im/-um/-üm)
+        # 4) Çoğul eki (-lar/-ler) ve iyelik (-ım/-im/-um/-üm / -ı/-i/-u/-ü) + Ünlü Düşmesi geri kazanımı
         for pl in ("lar", "ler"):
             if len(cur) > 4 and cur.endswith(pl) and cur not in known:
                 cur = cur[:-3]
                 info["plural"] = True
                 break
-        for poss in ("ım", "im", "um", "üm", "m"):
+        for poss in ("ımız", "imiz", "umuz", "ümüz", "ım", "im", "um", "üm", "ın", "in", "un", "ün", "m"):
             if len(cur) - len(poss) >= 3 and cur.endswith(poss) and cur not in known:
                 cand = cur[:-len(poss)]
+                if cand in cls.REV_VOWEL_DROP:
+                    cur = cls.REV_VOWEL_DROP[cand]
+                    info["poss1"] = True
+                    info["vowel_drop"] = True
+                    break
                 hard = cls._unsoften(cand)
                 if cand in known or hard in known:
                     cur = hard if hard in known else cand
+                    info["poss1"] = True
                     break
+
+        if cur in cls.REV_VOWEL_DROP:
+            cur = cls.REV_VOWEL_DROP[cur]
+            info["vowel_drop"] = True
 
         info["stem"] = cur
         return info
+
+    @classmethod
+    def explain_morphology_tr(cls, raw: str, lexicon: set[str] | None = None) -> str:
+        """Bir Türkçe sözcüğü kök, ses olayı ve çekim/yapım eklerine ayırarak uzman düzeyde açıklar."""
+        w = re.sub(r"[^\wçğıöşüÇĞİÖŞÜ]", "", tr_lower(raw))
+        if not w:
+            return "Çözümlenecek geçerli bir sözcük bulamadım."
+
+        # Birleşik/modal fiil çözümlemesi (ör. 'görebiliyordum', 'öğretmeliyiz', 'anlayamayacak')
+        m_comp = re.match(
+            r"^(.+?)(?:([ae]bil)[iıuü]?|([ae]m[ae])y?)?(?:(m[ae]|m[iıuü]))?(?:[iıuü])?(yor|[ae]c[ae][kğ]|m[ae]l[iı]|[dt][iıuü]|m[iıuü]ş)(?:([dt][iıuü]|s[ae]))?(m|n|k|uz|üz|ız|iz|sun|sün|sın|sin|yım|yim|yum|yüm|yız|yiz)?$",
+            w,
+        )
+        if m_comp and len(m_comp.group(1)) >= 2:
+            root_cand = m_comp.group(1)
+            hard_root = cls._unsoften(root_cand)
+            if root_cand in cls.KNOWN_VERB_ROOTS or hard_root in cls.KNOWN_VERB_ROOTS or m_comp.group(2) or m_comp.group(5) in ("yor", "meli", "malı"):
+                vroot = hard_root if hard_root in cls.KNOWN_VERB_ROOTS else root_cand
+                morphemes = [f"'{vroot}' (fiil kökü)"]
+                if m_comp.group(2):
+                    morphemes.append(f"'-{m_comp.group(2)}' (yeterlilik kurallı birleşik fiili)")
+                if m_comp.group(3):
+                    morphemes.append(f"'-{m_comp.group(3)}' (olumsuz yeterlilik)")
+                if m_comp.group(4):
+                    morphemes.append(f"'-{m_comp.group(4)}' (olumsuzluk eki)")
+                tense_s = m_comp.group(5)
+                tense_map = {"yor": "şimdiki zaman", "meli": "gereklilik kipi", "malı": "gereklilik kipi"}
+                t_lbl = tense_map.get(tense_s, "gelecek zaman" if "c" in tense_s else ("duyulan geçmiş zaman" if "ş" in tense_s else "görülen geçmiş zaman"))
+                morphemes.append(f"'-{tense_s}' ({t_lbl})")
+                if m_comp.group(6):
+                    sec_lbl = "hikaye birleşik zaman" if m_comp.group(6)[0] in "dt" else "şart birleşik zaman"
+                    morphemes.append(f"'-{m_comp.group(6)}' ({sec_lbl})")
+                if m_comp.group(7):
+                    morphemes.append(f"'-{m_comp.group(7)}' (kişi eki)")
+                return f"'{w}' sözcüğünün morfolojik çözümlemesi: " + " + ".join(morphemes) + "."
+
+        info = cls.analyze_word(w, lexicon=lexicon)
+        parts = [f"'{info['stem']}' ({'fiil' if info.get('is_verb') else 'isim'} kökü)"]
+        if info.get("vowel_drop"):
+            parts.append("[orta hece ünlü düşmesi]")
+        elif info["stem"] != w and info["stem"] and info["stem"][-1] in {"p", "ç", "t", "k"} and any(c in w for c in ("b", "c", "d", "ğ")):
+            parts.append("[ünsüz yumuşaması]")
+        if info.get("plural"):
+            parts.append("çoğul eki (-lar/-ler)")
+        if info.get("poss1"):
+            parts.append("iyelik eki")
+        case_names = {
+            "ACC": "belirtme hali (-i)", "DAT": "yönelme hali (-e)", "LOC": "bulunma hali (-de)",
+            "ABL": "ayrılma/çıkma hali (-den)", "INS": "vasıta hali (-le)", "GEN": "tamlayan/ilgi hali (-in)",
+        }
+        if info.get("case", "NOM") != "NOM":
+            parts.append(case_names[info["case"]])
+        if info.get("copula"):
+            parts.append("bildirme/ek-eylem (-dir)")
+        if info.get("neg"):
+            parts.append("olumsuzluk eki (-ma/-me)")
+        return f"'{w}' sözcüğünün morfolojik çözümlemesi: " + " + ".join(parts) + "."
 
     @staticmethod
     def _likely_softened(cand: str, sf: str) -> bool:
@@ -530,6 +631,10 @@ class GroundedConceptGraph:
         ]
         for s, r, o in prim:
             self.add_edge(s, r, o, source="doğuştan", weight=0.9)
+        for s, r, o in FOUNDATIONAL_PROPOSITIONS:
+            self.add_edge(s, r, o, source="doğuştan", weight=0.88)
+        for k_ant, v_ant in ANTONYMS.items():
+            self.add_edge(k_ant, "OPPOSITE", v_ant, source="doğuştan", weight=0.85)
 
     def add_edge(self, subj: str, rel: str, obj: str, source: str = "duyum",
                  speaker: str = "insan", weight: float = 1.0) -> RelationEdge:
@@ -549,7 +654,8 @@ class GroundedConceptGraph:
                 e.weight *= 0.2
         edge = RelationEdge(subj=s, rel=rel, obj=o, weight=float(weight), source=source, speaker=speaker)
         self.edges.append(edge)
-        self.chem.pulse_learning(novelty=0.80, valence=0.35)
+        if source != "doğuştan":
+            self.chem.pulse_learning(novelty=0.80, valence=0.35)
         return edge
 
     def ancestors(self, subj: str, max_hops: int = 4) -> list[tuple[str, list[RelationEdge]]]:
@@ -615,11 +721,14 @@ class GroundedConceptGraph:
         s = tr_lower(subj).strip()
         t = tr_lower(target_pred).strip()
         t_clean = re.sub(r"\s*(yol açar|neden olur)$", "", t).strip()
-        t_stem = TurkishMorphology.analyze_word(t_clean.split()[-1], self.lexicon)["stem"] if t_clean else ""
+        t_parts = t_clean.split() if t_clean else []
+        t_stem = TurkishMorphology.analyze_word(t_parts[-1], self.lexicon)["stem"] if t_parts else ""
+        t_phrase_stem = (" ".join(t_parts[:-1] + [t_stem])).strip() if len(t_parts) > 1 else t_stem
 
         # 1) Doğrudan veya kalıtsal negatif istisna var mı?
         for e, isa_path in self.query(s, ("CANNOT_DO",)):
-            if e.obj == t or e.obj == t_stem:
+            e_last = TurkishMorphology.analyze_word(e.obj.split()[-1], self.lexicon)["stem"] if e.obj else ""
+            if e.obj in (t, t_stem, t_phrase_stem) or (len(t_parts) >= 1 and e_last == t_stem and e.obj.split()[0] == t_parts[0]):
                 return {"answer": False, "edge": e, "isa_path": isa_path}
 
         # 2) Doğrudan veya ISA-kalıtsal pozitif bağ var mı?

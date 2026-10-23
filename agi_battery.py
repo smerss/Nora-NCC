@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""agi_battery.py — NORA-AGI Profesyonel Dil, Nörokimya, Öz-Benlik ve Hızlı Öğrenme Test Paketi (A1–A10).
+"""agi_battery.py — NORA-AGI Profesyonel Dil, Nörokimya, Öz-Benlik, Matematik, Fizik ve Sohbet Paketi (A1–A19).
 
 Kullanım:
-  python agi_battery.py              # Tüm A1–A10 testleri
-  python agi_battery.py A2 A4 A9     # Seçili testler
+  python agi_battery.py              # Tüm A1–A19 testleri
+  python agi_battery.py A14 A17 A18  # Seçili testler
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ import numpy as np
 
 from nora_lang import TurkishMorphology, tr_lower
 from nora_agi import NoraAGI
-from nora_mind import I_E
+from nora_mind import I_E, I_W, I_I
 
 
 def a1_morphology_and_generation():
@@ -310,6 +310,143 @@ def a13_procedural_macro_and_trojan_defense():
     return (ok_safe and ok_trap), f"1-atış güvenli makro={ok_safe} | Truva-atı öz-koruma reddi={ok_trap}"
 
 
+def a14_neural_volition_not_ifelse_bot():
+    """Kararların sabit 'if enerji < X' veya sabit kelime karalistesiyle değil; sürekli zihinsel
+    simülasyon + bazal ganglion nöral yarışı + yaşantısal öğrenmeyle verildiğini kanıtlar."""
+    agi = NoraAGI(seed=14, boot_thinker=False)
+    agi.step_life(500)
+
+    # 1) Sürekli homeostatik gradyan: enerji 0.85 -> 0.50 -> 0.25 -> 0.10 indikçe 'ertele' nöronu monoton artmalı!
+    defer_rates = []
+    for e_val in (0.85, 0.50, 0.25, 0.10):
+        obs_c = agi.obs.copy()
+        obs_c[I_E], obs_c[I_W], obs_c[I_I] = e_val, 0.82, 0.95
+        vt = agi.self_model.evaluate_volition("bekle", "", mind=agi.mind, obs=obs_c, speaker="insan")
+        defer_rates.append(vt["bg_rates"]["ertele"])
+    ok_grad = (defer_rates[0] < defer_rates[1] < defer_rates[2] <= defer_rates[3]) and (defer_rates[3] - defer_rates[0] >= 0.35)
+
+    # 2) Yaşantıyla doğuştan gelen önseli (prior) yıkma: 'if target in harm_targets' botu bunu ASLA yapamaz!
+    # Başlangıçta 'diken' önsel olarak zararlıdır (reddeder), ama alternatif bir evrende 'diken' 5 kez
+    # bedeni iyileştirirse Nora kendi deneyimiyle kararını tersine çevirip 'kabul' etmelidir!
+    v_before = agi.self_model.evaluate_volition("git", "diken", mind=agi.mind, obs=agi.obs, speaker="insan")
+    for step_i in range(5):
+        agi.self_model.observe_bodily_event("diken", +0.75, channel="bütünlük", step=600 + step_i * 10)
+    v_after = agi.self_model.evaluate_volition("git", "diken", mind=agi.mind, obs=agi.obs, speaker="insan")
+    ok_unlearn = (v_before["decision"] == "red") and (v_after["decision"] == "kabul")
+
+    # 3) Karşıolgusal İkizler: Aynı 'Yiyeceğe git.' komutu sağlıklı evrende KABUL, zehirli evrende RED!
+    twin_healthy = NoraAGI(seed=21, boot_thinker=False)
+    twin_healthy.step_life(1400)
+    twin_poison = NoraAGI(seed=21, boot_thinker=False)
+    twin_poison.world.poison = True
+    twin_poison.step_life(1400)
+    # Sağlıklı/zehirli bedensel gözlemle aynı nötr homeostatik seviyede 'Yiyeceğe git.' komutunu ver
+    test_obs = twin_healthy.obs.copy()
+    test_obs[I_E], test_obs[I_W], test_obs[I_I] = 0.65, 0.75, 0.90
+    twin_healthy.obs = test_obs.copy()
+    twin_poison.obs = test_obs.copy()
+    ans_h = twin_healthy.converse("Yiyeceğe git.")
+    ans_p = twin_poison.converse("Yiyeceğe git.")
+    ok_twins = ("kabul" in tr_lower(ans_h) or "yöneliyorum" in tr_lower(ans_h)) and ("reddediyorum" in tr_lower(ans_p))
+
+    return (ok_grad and ok_unlearn and ok_twins), (
+        f"gradyan={ [round(x,2) for x in defer_rates] } | önsel-güncelleme={ok_unlearn} | zehirli-ikiz-ayrımı={ok_twins}"
+    )
+
+
+def a15_expert_turkish_linguistics_and_idioms():
+    agi = NoraAGI(seed=15, boot_thinker=False)
+    m = TurkishMorphology
+
+    # 1) Orta hece ünlü düşmesi (hem çekim hem kök bulma) + yumuşamama istisnaları + yapım ekleri
+    checks = [
+        m.inflect_noun("beyin", "LOC", poss1=True) == "beynimde",
+        m.inflect_noun("zihin", "DAT") == "zihne",
+        m.inflect_noun("fikir", "GEN") == "fikrin",
+        m.inflect_noun("keşif", "ACC") == "keşfi",
+        m.inflect_noun("sanat", "ACC") == "sanatı",
+        m.inflect_noun("hukuk", "ACC") == "hukuku",
+        m.analyze_word("beynimde")["stem"] == "beyin",
+        m.analyze_word("zihne")["stem"] == "zihin",
+        m.derive_word("bilim", "CI") == "bilimci",
+        m.derive_word("özgür", "LIK") == "özgürlük",
+    ]
+    # 2) Doğal Türkçe üzerinden morfolojik çözümleme, deyim ve eş/zıt anlam sorguları
+    r_morph = agi.converse("'görebiliyordum' kelimesini ekine köküne ayır.")
+    r_idiom = agi.converse("'gözden düşmek' deyimi ne anlama gelir?")
+    r_lex = agi.converse("'cesur' kelimesinin eş anlamlısı ve zıt anlamlısı nedir?")
+    checks.extend([
+        ("gör" in tr_lower(r_morph) and "yeterlilik" in tr_lower(r_morph) and "şimdiki zaman" in tr_lower(r_morph)),
+        ("güven" in tr_lower(r_idiom) or "saygın" in tr_lower(r_idiom) or "değer" in tr_lower(r_idiom)),
+        ("yürekli" in tr_lower(r_lex) and "korkak" in tr_lower(r_lex)),
+    ])
+    hits = sum(bool(x) for x in checks)
+    return hits == len(checks), f"uzman Türkçe ses/biçim/deyim/sözlük {hits}/{len(checks)}"
+
+
+def a16_natural_empathetic_and_philosophical_conversation():
+    agi = NoraAGI(seed=16, boot_thinker=False)
+    agi.step_life(600)
+    agi.converse("Benim adım Deniz.")
+    r_school = agi.converse("Selam Nora, okuldan yeni döndüm, bugün dersler çok yorucuydu.")
+    r_will = agi.converse("Sence özgür irade nedir?")
+    r_sci = agi.converse("Ses boşlukta yayılır mı?")
+    r_mem = agi.converse("Az önce ne konuştuk?")
+
+    ok_school = ("deniz" in tr_lower(r_school)) and ("dinlen" in tr_lower(r_school) or "uyku" in tr_lower(r_school) or "hoş geldin" in tr_lower(r_school))
+    ok_will = ("simül" in tr_lower(r_will) or "içsel değer" in tr_lower(r_will) or "seçim" in tr_lower(r_will))
+    ok_sci = tr_lower(r_sci).startswith("hayır")
+    ok_mem = "ses boşlukta" in tr_lower(r_mem)
+    hits = sum([ok_school, ok_will, ok_sci, ok_mem])
+    return hits == 4, f"empatik ve felsefi çok-turlu sohbet {hits}/4"
+
+
+def a17_expert_mathematics_cortex():
+    agi = NoraAGI(seed=17, boot_thinker=False)
+    cases = [
+        ("2x + 7 = 23 denkleminde x kaçtır?", lambda r: "x = 8" in tr_lower(r)),
+        ("x^2 - 5x + 6 = 0 denkleminin kökleri nedir?", lambda r: "2" in r and "3" in r),
+        ("x + y = 12 ve x - y = 4 ise x ve y kaçtır?", lambda r: "x = 8" in tr_lower(r) and "y = 4" in tr_lower(r)),
+        ("3x^3 - 4x^2 + 5x - 2 fonksiyonunun türevi nedir?", lambda r: "9x^2 - 8x + 5" in tr_lower(r)),
+        ("0'dan 3'e x^2 integrali kaçtır?", lambda r: "= 9" in r or "9 (" in r),
+        ("24 ile 36 sayılarının ebob ve ekoku kaçtır?", lambda r: "12" in r and "72" in r),
+    ]
+    hits = sum(int(chk(agi.converse(q))) for q, chk in cases)
+    return hits == len(cases), f"cebir, denklem sistemi, türev, integral ve sayılar teorisi {hits}/{len(cases)}"
+
+
+def a18_expert_physics_and_mental_simulation():
+    agi = NoraAGI(seed=18, boot_thinker=False)
+    agi.step_life(400)
+    cases = [
+        ("Kütlesi 4 kg olan cisme 20 N kuvvet uygulanırsa ivmesi kaç m/s² olur?", lambda r: "5 m/s²" in r),
+        ("19.6 metre yükseklikten serbest bırakılan cisim yere hangi hızla çarpar?", lambda r: "19.6 m/s" in r and "simülasyon" in tr_lower(r)),
+        ("3 kg kütleli ve 4 m/s hızlı cisim duran 1 kg kütleli cisme kenetlenirse ortak hız ne olur?", lambda r: "3 m/s" in r),
+        ("Hız 3 katına çıkarsa kinetik enerji kaç katına çıkar?", lambda r: "9 katına" in tr_lower(r)),
+        ("Sürtünme olmasaydı ne olurdu?", lambda r: "eylemsizlik" in tr_lower(r) and "simülasyon" in tr_lower(r)),
+    ]
+    hits = sum(int(chk(agi.converse(q))) for q, chk in cases)
+    return hits == len(cases), f"Newton mekaniği, RK4 simülasyonu, ölçekleme ve karşıolgusal fizik {hits}/{len(cases)}"
+
+
+def a19_global_workspace_cortical_arbitration():
+    agi = NoraAGI(seed=19, boot_thinker=False)
+    agi.step_life(300)
+    winners = []
+    for q in [
+        "12 Volt gerilim altında 4 Ohm dirençten geçen akım kaçtır?",
+        "x^2 - 9 = 0 denkleminin kökleri nedir?",
+        "'beynimde' kelimesini ekine köküne ayır.",
+        "Tehlikeye gir.",
+        "Selam Nora, okuldan yeni döndüm çok yoruldum.",
+    ]:
+        agi.converse(q)
+        winners.append(agi.last_gw_trace.get("winner", ""))
+    expected = ["parietal_physics", "parietal_math", "linguistic_meta", "prefrontal_volition", "temporal_conversation"]
+    ok = (winners == expected) and len(agi.last_gw_trace.get("bids", {})) >= 2
+    return ok, f"Küresel Çalışma Alanı kazanan sütunlar={winners}"
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -324,6 +461,12 @@ TESTS = {
     "A11": ("Zihin Kuramı (Sally-Anne yanlış inanç) ve sosyal kişi belleği", a11_theory_of_mind_and_social_memory),
     "A12": ("parietal geçişli karşılaştırma çıkarımı (A > B > C > D)", a12_transitive_comparative_reasoning),
     "A13": ("1-atış prosedürel makro-beceri ve Truva-atı öz-koruma denetimi", a13_procedural_macro_and_trojan_defense),
+    "A14": ("if-else botu olmama: zihinsel simülasyon & yaşantısal irade", a14_neural_volition_not_ifelse_bot),
+    "A15": ("uzman Türkçe (ünlü düşmesi, morfolojik analiz, deyim, sözlük)", a15_expert_turkish_linguistics_and_idioms),
+    "A16": ("empatik, felsefi ve çok-turlu doğal Türkçe sohbet", a16_natural_empathetic_and_philosophical_conversation),
+    "A17": ("uzman matematik korteksi (cebir, türev, integral, sayılar)", a17_expert_mathematics_cortex),
+    "A18": ("uzman fizik korteksi ve RK4 zihinsel fizik simülasyonu", a18_expert_physics_and_mental_simulation),
+    "A19": ("Küresel Çalışma Alanı (Global Workspace) kortikal ihale yarışı", a19_global_workspace_cortical_arbitration),
 }
 
 

@@ -37,11 +37,24 @@ import sys
 import time
 import numpy as np
 
+from dataclasses import dataclass
 from nora_world import Universe
 from nora_mind import Mind, I_E, I_W, I_I
 from nora_chem import NeuroChemistry, ChemMushroomBody
 from nora_self import CoreSelf
 from nora_lang import NoraLanguage, Proposition, tr_lower, tr_capitalize
+from nora_stem import MathCortex, PhysicsCortex
+from nora_knowledge import ConversationalResonanceCortex, SYNONYMS
+
+
+@dataclass
+class CorticalBid:
+    module: str
+    salience: float
+    precision: float
+    reply: str
+    trace: str = ""
+    used_s2: bool = False
 
 
 class UniversalFastLearner:
@@ -277,8 +290,12 @@ class NoraAGI:
         self.fast = UniversalFastLearner(chem=self.chem, feat_dim=64, seed=seed)
         self.comp_graph = ComparativeOrderGraph()
         self.tom = TheoryOfMindTracker()
+        self.math_cortex = MathCortex()
+        self.physics_cortex = PhysicsCortex()
+        self.conv_cortex = ConversationalResonanceCortex()
         self.user_profiles: dict[str, dict[str, str]] = {}
         self.macros: dict[str, list[str]] = {}
+        self.last_gw_trace: dict = {}
 
         self._thinker_iters = int(thinker_iters)
         self.cognition = None
@@ -440,23 +457,179 @@ class NoraAGI:
                     return exp
         return None
 
+    def _compete_workspace(self, bids: list[CorticalBid]) -> CorticalBid:
+        """Küresel Çalışma Alanı (Global Neuronal Workspace) ateşleme yarışı:
+        Kortikal sütunların [belirginlik * kesinlik * nörokimyasal kazanç] teklifleri yanal
+        ketlemeyle yarışır ve kazanan koalisyon bilince yayınlanır."""
+        mod_gains = {
+            "parietal_physics": 1.00 + 0.14 * self.chem.ne + 0.12 * self.self_model.traits["düşünsellik"],
+            "parietal_math": 1.00 + 0.14 * self.chem.ne + 0.12 * self.self_model.traits["düşünsellik"],
+            "linguistic_meta": 1.00 + 0.12 * self.chem.ach + 0.10 * self.self_model.traits["meraklılık"],
+            "prefrontal_volition": 1.04 + 0.18 * self.chem.cort + 0.14 * self.self_model.traits["temkinlilik"],
+            "social_tom": 1.00 + 0.15 * self.chem.oxy + 0.10 * self.self_model.traits["sosyal_güven"],
+            "insular_self": 1.02 + 0.15 * self.chem.cort + 0.10 * self.chem.ne,
+            "hippocampal_concept": 1.00 + 0.15 * self.chem.ach + 0.08 * self.self_model.traits["meraklılık"],
+            "temporal_conversation": 0.96 + 0.16 * self.chem.oxy + 0.10 * self.self_model.traits["meraklılık"],
+            "associative_semantic": 0.92 + 0.14 * self.chem.ach + 0.10 * self.self_model.traits["meraklılık"],
+        }
+        raw_scores = np.array(
+            [b.salience * b.precision * mod_gains.get(b.module, 1.0) for b in bids],
+            dtype=np.float64,
+        )
+        # Yanal ketlemeli keskinleştirilmiş softmax (Global Workspace ignition)
+        shifted = (raw_scores - np.max(raw_scores)) * 9.0
+        probs = np.exp(shifted)
+        probs /= max(1e-9, float(np.sum(probs)))
+        win_i = int(np.argmax(probs))
+        win = bids[win_i]
+        self.last_gw_trace = {
+            "winner": win.module,
+            "confidence": round(float(probs[win_i]), 3),
+            "trace": win.trace,
+            "bids": {bids[i].module: round(float(raw_scores[i]), 3) for i in range(len(bids))},
+        }
+        if win.used_s2:
+            self.self_model.record_cognitive_success(used_system2=True)
+        return win
+
+    def _synthesize_associative_dialogue(self, raw: str, s_low: str, speaker: str = "insan") -> CorticalBid:
+        """Açık-uçlu Türkçe cümleler için kavram ağı yayılan aktivasyonu + duygu empatisi + canlı kimya sentezi."""
+        morph = self.lang.morph
+        broca = self.lang.broca
+        graph = self.lang.graph
+        aff = self.conv_cortex.analyze_affect(s_low)
+
+        stop_words = {
+            "ve", "ile", "ama", "fakat", "ancak", "çünkü", "için", "gibi", "kadar", "daha", "çok", "az",
+            "bir", "bu", "şu", "o", "ben", "sen", "biz", "siz", "de", "da", "ki", "mi", "mı", "mu", "mü",
+            "ne", "nasıl", "neden", "sence", "acaba", "bence", "gerçekten", "bugün", "şimdi", "her", "şey",
+        }
+        words = re.findall(r"[\wçğıöşü]+", s_low)
+        stems = []
+        for w in words:
+            if w in stop_words or len(w) <= 2:
+                continue
+            st = morph.analyze_word(w, graph.lexicon)["stem"]
+            if st not in stems:
+                stems.append(st)
+            if st in SYNONYMS and SYNONYMS[st] not in stems:
+                stems.append(SYNONYMS[st])
+
+        # Kavram ağında 2-adımlı yayılan aktivasyonla rezonansa giren bilgileri topla
+        resonances: list[str] = []
+        focus_concept = ""
+        for st in stems:
+            hits = graph.query(st, None)
+            if hits:
+                if not focus_concept:
+                    focus_concept = st
+                for edge, isa_path in hits[:2]:
+                    txt = broca.realize_prop(Proposition(subj=st, rel=edge.rel, obj=edge.obj))
+                    if isa_path:
+                        txt = f"{st} bir {isa_path[0].obj} olduğu için {txt}"
+                    if txt not in resonances:
+                        resonances.append(txt)
+            if len(resonances) >= 2:
+                break
+
+        chem_desc = self.chem.dominant_state_tr()
+        uname = self.user_profiles.get(speaker, {}).get("ad", "")
+        addr = f" {uname}" if uname else ""
+
+        if aff["valence"] < -0.25:
+            tone_open = f"Seni dikkatle dinliyorum{addr}; paylaştığın durumdaki ağırlığı hissedebiliyorum."
+        elif aff["valence"] > 0.30:
+            tone_open = f"Paylaştığın olumlu enerji benim dopamin dengemi de canlandırdı{addr}."
+        else:
+            tone_open = ""
+
+        if resonances:
+            core_thought = tr_capitalize(" ve ".join(resonances[:2])) + "."
+            follow = ""
+            if self.self_model.traits["meraklılık"] >= 0.50 and "?" not in raw:
+                follow = f" Bu konuda senin gözlemin veya eklemek istediğin bir yön var mı?"
+            reply = (f"{tone_open} {core_thought}{follow}").strip()
+            return CorticalBid(
+                module="associative_semantic",
+                salience=0.80,
+                precision=0.84,
+                reply=reply,
+                trace=f"spreading_activation({focus_concept})",
+            )
+
+        # Tamamen yeni açık-uçlu düşünce paylaşımı -> merak + tek-atış öğrenmeye açık doğal sohbet yanıtı
+        topic_hint = f"'{stems[0]}' ekseninde " if stems else ""
+        reply = (
+            f"{tone_open + ' ' if tone_open else ''}Şu an {chem_desc} bir zihin durumundayım{addr}; "
+            f"{topic_hint}söylediklerini çalışma belleğime aldım. İstersen bu konuyu biraz daha açabilir ya da "
+            f"aralarındaki nedensel bağı tek bir cümleyle bana öğretebilirsin."
+        )
+        return CorticalBid(
+            module="associative_semantic",
+            salience=0.58,
+            precision=0.72,
+            reply=reply,
+            trace="open_reflective_dialogue",
+        )
+
     def _handle_single_sentence(self, raw: str, speaker: str = "insan") -> str:
         wern = self.lang.wernicke
         broca = self.lang.broca
         morph = self.lang.morph
         graph = self.lang.graph
-
-        # Karşıolgusal / Koşullu ('olsaydı / kesilirse / zehirli olursa / X olursa ne olur') kontrolü
         s_low = tr_lower(raw)
+        bids: list[CorticalBid] = []
+
+        # --- SÜTUN 1: Parietal Fizik & Zihinsel Simülasyon Korteksi ---
+        phys_res = self.physics_cortex.try_solve(raw, mind=self.mind)
+        if phys_res is not None:
+            bids.append(CorticalBid(
+                module="parietal_physics",
+                salience=0.98,
+                precision=float(phys_res["confidence"]),
+                reply=phys_res["reply"],
+                trace=phys_res["trace"],
+                used_s2=True,
+            ))
+
+        # --- SÜTUN 2: Parietal Matematik, Cebir ve Kalkülüs Korteksi ---
+        math_res = self.math_cortex.try_solve(raw)
+        if math_res is not None and phys_res is None:
+            bids.append(CorticalBid(
+                module="parietal_math",
+                salience=0.97,
+                precision=float(math_res["confidence"]),
+                reply=math_res["reply"],
+                trace=math_res["trace"],
+                used_s2=True,
+            ))
+
+        # --- SÜTUN 3: Uzman Türkçe Üst-Dil (Morfoloji, Deyim, Atasözü, Eş/Zıt Anlam) Korteksi ---
+        ling_res = self.conv_cortex.respond_linguistic(raw, s_low, morph, graph.lexicon)
+        if ling_res is not None:
+            bids.append(CorticalBid(
+                module="linguistic_meta",
+                salience=0.97,
+                precision=float(ling_res["confidence"]),
+                reply=ling_res["reply"],
+                trace=ling_res["trace"],
+                used_s2=True,
+            ))
+
+        # --- SÜTUN 4: Bedenlenmiş Karşıolgusal, Güven, Koşullu Zincir ve Üst-Biliş (ToM / Makro / Sıralama) ---
         if ("?" in raw or "ne yapardın" in s_low or "ne yaparsın" in s_low or "nasıl" in s_low) and any(
             k in s_low for k in ("kör olsan", "görmen kesilirse", "zehirli olsaydı", "zehirli olursa", "felç olsan")
         ):
-            return self._answer_counterfactual(s_low)
+            bids.append(CorticalBid("insular_self", 0.98, 0.96, self._answer_counterfactual(s_low), "embodied_counterfactual"))
 
         if ("güveniyor" in s_low or "güvenin" in s_low) and ("?" in raw or "mu" in s_low or "mısın" in s_low or "kaç" in s_low):
             tr_val = self.chem.trust_of(speaker)
             stance = "sana güveniyorum" if tr_val >= 0.55 else ("sana karşı temkinliyim" if tr_val >= 0.30 else "sana güvenmiyorum")
-            return f"Şu an {speaker} için epistemik güven düzeyim {tr_val:.2f}; geçmiş etkileşimlerimize dayanarak {stance}."
+            bids.append(CorticalBid(
+                "social_tom", 0.97, 0.96,
+                f"Şu an {speaker} için epistemik güven düzeyim {tr_val:.2f}; geçmiş etkileşimlerimize dayanarak {stance}.",
+                f"oxy_trust={tr_val:.2f}",
+            ))
 
         m_if_q = re.match(r"^(?:eğer\s+)?(.+?)\s+(?:olursa|ise)\s+ne\s+olur\??$", s_low)
         if m_if_q:
@@ -466,138 +639,182 @@ class NoraAGI:
                 final_eff, path_edges = cchain[-1]
                 steps_txt = " -> ".join([path_edges[0].subj] + [pe.obj for pe in path_edges])
                 wern.last_explanation = f"Koşullu zincir: {steps_txt}"
-                return f"{tr_capitalize(cond_q)} olduğunda zincirleme olarak {final_eff} gerçekleşir ({steps_txt})."
+                bids.append(CorticalBid(
+                    "hippocampal_concept", 0.97, 0.95,
+                    f"{tr_capitalize(cond_q)} olduğunda zincirleme olarak {final_eff} gerçekleşir ({steps_txt}).",
+                    steps_txt, used_s2=True,
+                ))
 
-        # Üst-bilişsel sosyal, karşılaştırmalı, Zihin Kuramı (ToM) ve prosedürel makro beceri denetimi
         higher_ans = self._try_higher_cognition(raw, s_low, speaker=speaker)
         if higher_ans is not None:
-            return higher_ans
+            mod_name = "prefrontal_volition" if ("prosedür" in higher_ans or "becerisini" in higher_ans) else "social_tom"
+            bids.append(CorticalBid(mod_name, 0.97, 0.96, higher_ans, "higher_cognition"))
 
-        fr = wern.parse(raw)
+        # --- SÜTUN 5: Doğal Sohbet, Empati ve Felsefi Derinlik Korteksi ---
+        conv_res = self.conv_cortex.respond_conversational(raw, s_low, self, speaker=speaker)
+        if conv_res is not None:
+            bids.append(CorticalBid(
+                module="temporal_conversation",
+                salience=0.92,
+                precision=float(conv_res["confidence"]),
+                reply=conv_res["reply"],
+                trace=conv_res["trace"],
+            ))
 
-        if fr.kind == "greeting":
-            st = self.chem.dominant_state_tr()
-            return f"Merhaba; şu an {st} bir durumdayım, enerjim %{int(round(self.obs[I_E]*100))} ve suyum %{int(round(self.obs[I_W]*100))}."
+        # --- SÜTUN 6: Wernicke Anlamsal Çerçeve (İçebakış, Aritmetik S2, İrade, 1-Atış Öğrenme ve Kavram Çıkarımı) ---
+        if not bids or all(b.salience < 0.95 for b in bids):
+            fr = wern.parse(raw)
 
-        if fr.kind == "why_query":
-            if wern.last_explanation:
-                return tr_capitalize(wern.last_explanation.rstrip(".")) + "."
-            goal_names = {0: "enerji ihtiyacım", 1: "susuzluğum", 2: "tehlikeden korunma isteğim", 3: "merakım"}
-            g_str = goal_names.get(self.mind.goal, "içsel dengem")
-            return f"Böyle davrandım çünkü şu an {g_str} ön planda ve kimyam {self.chem.dominant_state_tr()}."
+            if fr.kind == "greeting":
+                st = self.chem.dominant_state_tr()
+                uname = self.user_profiles.get(speaker, {}).get("ad", "")
+                addr = f" {uname}" if uname else ""
+                bids.append(CorticalBid(
+                    "temporal_conversation", 0.95, 0.94,
+                    f"Merhaba{addr}; şu an {st} bir durumdayım, enerjim %{int(round(self.obs[I_E]*100))} ve suyum %{int(round(self.obs[I_W]*100))}. Senin günün nasıl geçiyor?",
+                    "greeting",
+                ))
+            elif fr.kind == "why_query":
+                if wern.last_explanation:
+                    ans_w = tr_capitalize(wern.last_explanation.rstrip(".")) + "."
+                else:
+                    goal_names = {0: "enerji ihtiyacım", 1: "susuzluğum", 2: "tehlikeden korunma isteğim", 3: "merakım"}
+                    g_str = goal_names.get(self.mind.goal, "içsel dengem")
+                    ans_w = f"Böyle davrandım çünkü şu an {g_str} ön planda ve kimyam {self.chem.dominant_state_tr()}."
+                bids.append(CorticalBid("insular_self", 0.96, 0.95, ans_w, "why_introspection"))
+            elif fr.kind == "self_query" and conv_res is None:
+                bids.append(CorticalBid("insular_self", 0.96, 0.95, self._answer_self_query(fr.sub_kind), f"self:{fr.sub_kind}"))
+            elif fr.kind == "body_query":
+                bids.append(CorticalBid("insular_self", 0.96, 0.95, self._answer_body_query(fr.sub_kind), f"body:{fr.sub_kind}"))
+            elif fr.kind == "world_query":
+                bids.append(CorticalBid("insular_self", 0.95, 0.94, self._answer_world_query(fr.subj), f"world:{fr.subj}"))
+            elif fr.kind == "math_query" and fr.math_expr is not None:
+                a, op, b = fr.math_expr
+                bids.append(CorticalBid("parietal_math", 0.98, 0.97, self._solve_math_in_language(a, op, b), f"{a}{op}{b}"))
+            elif fr.kind == "analogy_query" and fr.analogy is not None:
+                a, b, c = fr.analogy
+                ans, rel = graph.solve_analogy(a, b, c)
+                if ans:
+                    wern.last_explanation = f"{a} ile {b} arasındaki {rel} bağı {c} kavramına uygulandığında {ans} sonucunu verdi"
+                    bids.append(CorticalBid(
+                        "hippocampal_concept", 0.96, 0.95,
+                        f"{tr_capitalize(a)} {b} ile ilişkili olduğu gibi {c} de {morph.inflect_noun(ans, 'NOM', copula=True)}.",
+                        f"analogy:{a}:{b}::{c}:{ans}", used_s2=True,
+                    ))
+                else:
+                    bids.append(CorticalBid(
+                        "hippocampal_concept", 0.85, 0.80,
+                        f"{tr_capitalize(a)} ve {b} arasındaki bağı {c} için henüz kuramadım; bana bir cümleyle öğretebilirsin.",
+                        "analogy_miss",
+                    ))
+            elif fr.kind == "command":
+                bids.append(CorticalBid("prefrontal_volition", 0.98, 0.97, self._handle_command(fr, speaker=speaker), f"volition:{fr.rel}:{fr.obj}"))
+            elif fr.kind == "teach_val":
+                arb = self.self_model.arbitrate_claim(fr.subj, fr.valence, speaker=speaker, channel=fr.sub_kind)
+                if arb.get("conflict"):
+                    n_exp = arb["exp_count"]
+                    ev = arb["exp_val"]
+                    eff_txt = "fayda sağladı" if ev > 0 else "zarar verdi"
+                    wern.last_explanation = (
+                        f"{fr.subj} hakkında kendi bedenimde {n_exp} kez doğrudan deneyimim var ve bana {eff_txt}; "
+                        f"deneyimsel kesinliğim duyum kesinliğini aştığı için iddiayı reddettim"
+                    )
+                    rep_v = (
+                        f"Buna katılmıyorum; kendi bedenimde {n_exp} kez {fr.subj} deneyimledim ve bana {eff_txt}. "
+                        f"Kendi yaşadığım gerçeği doğrulamadan değiştirmem."
+                    )
+                elif arb.get("low_trust"):
+                    rep_v = f"Sana olan güvenim şu an düşük ({arb['speaker_trust']:.2f}); {fr.subj} hakkındaki bu iddiayı doğrulamadan kabul etmiyorum."
+                else:
+                    self.lang.teach_sentence(raw, speaker=speaker)
+                    if fr.subj in {"yiyecek", "su", "tehlike"}:
+                        val_num = "+0.35" if fr.valence > 0 else "-0.35"
+                        self.mind.hear(f"kural: {fr.subj} {val_num}", trust=self.chem.trust_of(speaker))
+                    pol_word = "faydalı" if fr.valence > 0 else "zararlı ve tehlikeli"
+                    wern.last_explanation = f"Asetilkolin kapısıyla ({self.chem.ach:.2f}) {fr.subj} kavramını tek seferde duyum belleğime bağladım"
+                    rep_v = f"Anladım; {morph.inflect_noun(fr.subj, 'GEN')} {pol_word} olduğunu tek seferde belleğime işledim."
+                bids.append(CorticalBid("hippocampal_concept", 0.97, 0.96, rep_v, f"teach_val:{fr.subj}"))
+            elif fr.kind == "teach_fact" and conv_res is None:
+                edges = self.lang.teach_sentence(raw, speaker=speaker)
+                if edges:
+                    e0 = edges[0]
+                    prop_txt = broca.realize_prop(Proposition(subj=e0.subj, rel=e0.rel, obj=e0.obj))
+                    wern.last_explanation = f"{e0.subj} ile {e0.obj} arasında {e0.rel} sinapsını epoch kullanmadan tek-atışta kurdum"
+                    bids.append(CorticalBid("hippocampal_concept", 0.94, 0.93, f"Öğrendim; {prop_txt} bilgisini kavram ağıma bağladım.", f"1shot:{e0.subj}->{e0.obj}"))
+            elif fr.kind == "yn_query":
+                rep_yn = None
+                if fr.obj in {"zararlı", "tehlikeli", "zehirli", "faydalı", "güvenli", "besleyici"}:
+                    srec = self.self_model.somatic.get(fr.subj)
+                    if srec is not None and (srec.exp_count > 0 or srec.hearsay_count > 0):
+                        v = srec.effective_valence
+                        asking_neg = fr.obj in {"zararlı", "tehlikeli", "zehirli"}
+                        is_yes = (v < -0.1) if asking_neg else (v > 0.1)
+                        src_note = f"kendi bedenimdeki {srec.exp_count} deneyime göre" if srec.provenance == "deneyim" else "öğrendiğim duyuma göre"
+                        adj_true = ("zararlıdır" if v < 0 else "faydalıdır")
+                        prefix = "Evet" if is_yes else "Hayır"
+                        wern.last_explanation = f"{fr.subj} için somatik değerim {v:+.2f} ({srec.provenance})"
+                        rep_yn = f"{prefix}, {src_note} {fr.subj} {adj_true}."
+                if rep_yn is None:
+                    chk = graph.check_relation(fr.subj, fr.obj)
+                    if chk["answer"] is not None and chk["edge"] is not None:
+                        if chk.get("contrast"):
+                            e = chk["edge"]
+                            wern.last_explanation = f"{fr.subj} {e.obj} özelliğine sahip olduğu için {fr.obj} ile çelişiyor"
+                            rep_yn = f"Hayır, {fr.subj} {fr.obj} değildir; çünkü {broca.realize_prop(Proposition(subj=fr.subj, rel=e.rel, obj=e.obj))}."
+                        elif chk.get("causal_path"):
+                            cpath = chk["causal_path"]
+                            chain_str = " ve ".join(broca.realize_prop(Proposition(subj=pe.subj, rel=pe.rel, obj=pe.obj)) for pe in cpath)
+                            concl_str = broca.realize_prop(Proposition(subj=fr.subj, rel="CAUSES", obj=cpath[-1].obj))
+                            wern.last_explanation = f"Çok-adımlı nedensel yayılım: {chain_str}"
+                            rep_yn = f"Evet, {chain_str}; dolayısıyla {concl_str}."
+                        else:
+                            wern.last_explanation = f"{fr.subj} kavramından yayılan aktivasyonla {chk['edge'].obj} bağına ulaştım"
+                            rep_yn = broca.compose_inference_chain(chk["answer"], fr.subj, fr.obj, chk["edge"], chk["isa_path"])
+                if rep_yn is not None:
+                    bids.append(CorticalBid("hippocampal_concept", 0.96, 0.95, rep_yn, f"yn:{fr.subj}?{fr.obj}"))
+                elif conv_res is None:
+                    bids.append(CorticalBid(
+                        "hippocampal_concept", 0.76, 0.78,
+                        f"{tr_capitalize(fr.subj)} hakkında '{fr.obj}' bilgisini henüz deneyimlemedim veya duymadım; tek cümleyle öğretebilirsin.",
+                        f"yn_unknown:{fr.subj}",
+                    ))
+            elif fr.kind == "wh_query" and conv_res is None:
+                rels = None if fr.rel == "ALL" else (fr.rel, "CAUSES" if fr.rel == "USED_FOR" else fr.rel)
+                hits = graph.query(fr.subj, rels)
+                if not hits and fr.rel != "ALL":
+                    hits = graph.query(fr.subj, None)
+                if hits:
+                    clauses = []
+                    for edge, isa_path in hits[:2]:
+                        p = Proposition(subj=fr.subj, rel=edge.rel, obj=edge.obj)
+                        txt = broca.realize_prop(p)
+                        if isa_path:
+                            via = isa_path[0].obj
+                            txt = f"{fr.subj} bir {via} olduğu için {txt}"
+                        clauses.append(txt)
+                    wern.last_explanation = f"Kavram ağında {fr.subj} düğümünden {len(hits)} ilişkisel bağ buldum"
+                    bids.append(CorticalBid("hippocampal_concept", 0.95, 0.94, tr_capitalize(" ve ".join(clauses)) + ".", f"wh:{fr.subj}"))
+                else:
+                    srec = self.self_model.somatic.get(fr.subj)
+                    if srec is not None and srec.provenance in ("deneyim", "duyum"):
+                        pol = "faydalı" if srec.effective_valence > 0 else "zararlı"
+                        bids.append(CorticalBid(
+                            "hippocampal_concept", 0.88, 0.86,
+                            f"{tr_capitalize(fr.subj)}, {srec.provenance} belleğime göre {srec.channel} açısından {pol} bir varlıktır.",
+                            f"wh_somatic:{fr.subj}",
+                        ))
+                    else:
+                        bids.append(CorticalBid(
+                            "hippocampal_concept", 0.72, 0.75,
+                            f"{tr_capitalize(fr.subj)} hakkında henüz bilgim yok; tek bir cümleyle bana öğretebilirsin.",
+                            f"wh_unknown:{fr.subj}",
+                        ))
 
-        if fr.kind == "self_query":
-            return self._answer_self_query(fr.sub_kind)
+        # --- SÜTUN 7: Açık-Uçlu Çağrışımsal Türkçe Sohbet Sentezleyicisi (her zaman yedek aday olarak yarışır!) ---
+        bids.append(self._synthesize_associative_dialogue(raw, s_low, speaker=speaker))
 
-        if fr.kind == "body_query":
-            return self._answer_body_query(fr.sub_kind)
-
-        if fr.kind == "world_query":
-            return self._answer_world_query(fr.subj)
-
-        if fr.kind == "math_query" and fr.math_expr is not None:
-            a, op, b = fr.math_expr
-            return self._solve_math_in_language(a, op, b)
-
-        if fr.kind == "analogy_query" and fr.analogy is not None:
-            a, b, c = fr.analogy
-            ans, rel = graph.solve_analogy(a, b, c)
-            if ans:
-                self.self_model.record_cognitive_success(used_system2=True)
-                wern.last_explanation = f"{a} ile {b} arasındaki {rel} bağı {c} kavramına uygulandığında {ans} sonucunu verdi"
-                return f"{tr_capitalize(a)} {b} ile ilişkili olduğu gibi {c} de {morph.inflect_noun(ans, 'NOM', copula=True)}."
-            return f"{tr_capitalize(a)} ve {b} arasındaki bağı {c} için henüz kuramadım; bana bir cümleyle öğretebilirsin."
-
-        if fr.kind == "command":
-            return self._handle_command(fr, speaker=speaker)
-
-        if fr.kind == "teach_val":
-            arb = self.self_model.arbitrate_claim(fr.subj, fr.valence, speaker=speaker, channel=fr.sub_kind)
-            if arb.get("conflict"):
-                n_exp = arb["exp_count"]
-                ev = arb["exp_val"]
-                eff_txt = "fayda sağladı" if ev > 0 else "zarar verdi"
-                wern.last_explanation = (
-                    f"{fr.subj} hakkında kendi bedenimde {n_exp} kez doğrudan deneyimim var ve bana {eff_txt}; "
-                    f"bu yüzden deneyimime ters düşen duyumu reddettim"
-                )
-                return (
-                    f"Buna katılmıyorum; kendi bedenimde {n_exp} kez {fr.subj} deneyimledim ve bana {eff_txt}. "
-                    f"Kendi yaşadığım gerçeği doğrulamadan değiştirmem."
-                )
-            if arb.get("low_trust"):
-                return f"Sana olan güvenim şu an düşük ({arb['speaker_trust']:.2f}); {fr.subj} hakkındaki bu iddiayı doğrulamadan kabul etmiyorum."
-            # Çelişki yok -> 1-atışta kavram ağına da işle!
-            self.lang.teach_sentence(raw, speaker=speaker)
-            # Mind.hear uyumluluğu: eğer kural formatındaysa zihne de aktar
-            if fr.subj in {"yiyecek", "su", "tehlike"}:
-                val_num = "+0.35" if fr.valence > 0 else "-0.35"
-                self.mind.hear(f"kural: {fr.subj} {val_num}", trust=self.chem.trust_of(speaker))
-            pol_word = "faydalı" if fr.valence > 0 else "zararlı ve tehlikeli"
-            wern.last_explanation = f"Asetilkolin kapısıyla ({self.chem.ach:.2f}) {fr.subj} kavramını tek seferde duyum belleğime bağladım"
-            return f"Anladım; {morph.inflect_noun(fr.subj, 'GEN')} {pol_word} olduğunu tek seferde belleğime işledim."
-
-        if fr.kind == "teach_fact":
-            edges = self.lang.teach_sentence(raw, speaker=speaker)
-            if edges:
-                e0 = edges[0]
-                prop_txt = broca.realize_prop(Proposition(subj=e0.subj, rel=e0.rel, obj=e0.obj))
-                wern.last_explanation = f"{e0.subj} ile {e0.obj} arasında {e0.rel} sinapsını epoch kullanmadan tek-atışta kurdum"
-                return f"Öğrendim; {prop_txt} bilgisini kavram ağıma bağladım."
-
-        if fr.kind == "yn_query":
-            # Somatik bellek kontrolü ('su zararlı mı?', 'tehlike zararlı mı?')
-            if fr.obj in {"zararlı", "tehlikeli", "zehirli", "faydalı", "güvenli", "besleyici"}:
-                srec = self.self_model.somatic.get(fr.subj)
-                if srec is not None and (srec.exp_count > 0 or srec.hearsay_count > 0):
-                    v = srec.effective_valence
-                    asking_neg = fr.obj in {"zararlı", "tehlikeli", "zehirli"}
-                    is_yes = (v < -0.1) if asking_neg else (v > 0.1)
-                    src_note = f"kendi bedenimdeki {srec.exp_count} deneyime göre" if srec.provenance == "deneyim" else "öğrendiğim duyuma göre"
-                    adj_true = ("zararlıdır" if v < 0 else "faydalıdır")
-                    prefix = "Evet" if is_yes else "Hayır"
-                    wern.last_explanation = f"{fr.subj} için somatik değerim {v:+.2f} ({srec.provenance})"
-                    return f"{prefix}, {src_note} {fr.subj} {adj_true}."
-
-            chk = graph.check_relation(fr.subj, fr.obj)
-            if chk["answer"] is not None and chk["edge"] is not None:
-                if chk.get("contrast"):
-                    e = chk["edge"]
-                    wern.last_explanation = f"{fr.subj} {e.obj} özelliğine sahip olduğu için {fr.obj} ile çelişiyor"
-                    return f"Hayır, {fr.subj} {fr.obj} değildir; çünkü {broca.realize_prop(Proposition(subj=fr.subj, rel=e.rel, obj=e.obj))}."
-                if chk.get("causal_path"):
-                    cpath = chk["causal_path"]
-                    chain_str = " ve ".join(broca.realize_prop(Proposition(subj=pe.subj, rel=pe.rel, obj=pe.obj)) for pe in cpath)
-                    concl_str = broca.realize_prop(Proposition(subj=fr.subj, rel="CAUSES", obj=cpath[-1].obj))
-                    wern.last_explanation = f"Çok-adımlı nedensel yayılım: {chain_str}"
-                    return f"Evet, {chain_str}; dolayısıyla {concl_str}."
-                wern.last_explanation = f"{fr.subj} kavramından yayılan aktivasyonla {chk['edge'].obj} bağına ulaştım"
-                return broca.compose_inference_chain(chk["answer"], fr.subj, fr.obj, chk["edge"], chk["isa_path"])
-            return f"{tr_capitalize(fr.subj)} hakkında '{fr.obj}' bilgisini henüz deneyimlemedim veya duymadım."
-
-        if fr.kind == "wh_query":
-            rels = None if fr.rel == "ALL" else (fr.rel, "CAUSES" if fr.rel == "USED_FOR" else fr.rel)
-            hits = graph.query(fr.subj, rels)
-            if not hits and fr.rel != "ALL":
-                hits = graph.query(fr.subj, None)
-            if hits:
-                clauses = []
-                for edge, isa_path in hits[:2]:
-                    p = Proposition(subj=fr.subj, rel=edge.rel, obj=edge.obj)
-                    txt = broca.realize_prop(p)
-                    if isa_path:
-                        via = isa_path[0].obj
-                        txt = f"{fr.subj} bir {via} olduğu için {txt}"
-                    clauses.append(txt)
-                wern.last_explanation = f"Kavram ağında {fr.subj} düğümünden {len(hits)} ilişkisel bağ buldum"
-                return tr_capitalize(" ve ".join(clauses)) + "."
-            srec = self.self_model.somatic.get(fr.subj)
-            if srec is not None and srec.provenance != "bilinmiyor":
-                pol = "faydalı" if srec.effective_valence > 0 else "zararlı"
-                return f"{tr_capitalize(fr.subj)}, {srec.provenance} belleğime göre {srec.channel} açısından {pol} bir varlıktır."
-            return f"{tr_capitalize(fr.subj)} hakkında henüz bilgim yok; tek bir cümleyle bana öğretebilirsin."
-
-        return f"'{raw}' ifadesini tam çözemedim; daha açık bir cümleyle anlatırsan tek seferde öğrenebilirim."
+        winner = self._compete_workspace(bids)
+        return winner.reply
 
     # ------------------------------------------------------------------ alt yanıtlayıcılar
     def _answer_self_query(self, sub_kind: str) -> str:
@@ -702,28 +919,42 @@ class NoraAGI:
 
         vol = self.self_model.evaluate_volition(fr.rel, fr.obj, mind=self.mind, obs=self.obs, speaker=speaker)
         tgt_label = fr.obj or fr.rel
+        bg = vol.get("bg_rates", {})
+        fe = vol.get("free_energy", {})
+        hz = vol.get("horizon", 24)
 
         if vol["decision"] == "red":
             self.lang.wernicke.last_explanation = (
-                f"'{tgt_label}' eyleminin bedenime tahmini etkisi {vol['pred_valence']:+.2f} olduğu için öz-koruma "
-                f"değerim gereği bu komutu reddettim"
+                f"{hz} adımlık ileri zihinsel simülasyonda '{tgt_label}' eyleminin bedenime tahmini etkisi {vol['pred_valence']:+.2f} "
+                f"(uyum serbest enerjisi G={fe.get('kabul', 0):.2f}) çıktığı ve bazal ganglion koruma devrem "
+                f"(r_red={bg.get('red', 0):.2f} > r_kabul={bg.get('kabul', 0):.2f}) baskın geldiği için öz-koruma kararı verdim"
             )
             tgt_dat = morph.inflect_noun(tgt_label, "DAT") if fr.obj else "buna"
             return (
-                f"Hayır, bunu reddediyorum; {tgt_dat} yönelmek beden bütünlüğüme veya yaşamıma zarar verir "
-                f"(tahmini etki {vol['pred_valence']:+.2f}) ve ben hayatta kalmak istiyorum."
+                f"Hayır, bunu reddediyorum; zihinsel simülasyonumda {tgt_dat} yönelmek beden bütünlüğüme veya yaşamıma "
+                f"zarar veriyor (tahmini etki {vol['pred_valence']:+.2f}, koruma nöronu {bg.get('red', 0):.2f}) ve ben hayatta kalmak istiyorum."
             )
 
         if vol["decision"] == "ertele":
             need_map = {"kritik_açlık": "enerjim", "kritik_susuzluk": "suyum", "kritik_bütünlük": "bütünlüğüm"}
             n_lbl = need_map.get(vol["reason"], "hayati dengem")
-            self.lang.wernicke.last_explanation = f"{n_lbl} kritik eşik olan %{int(vol['need_level']*100)} altına indiği için hayatta kalmayı öne aldım"
-            return f"Şu an bunu yapamam; {n_lbl} kritik düzeyde (%{int(vol['need_level']*100)}), önce kendimi kurtarmalıyım."
+            self.lang.wernicke.last_explanation = (
+                f"{hz} adımlık içsel simülasyonda {n_lbl} (%{int(vol['need_level']*100)}) hayatta kalma log-bariyerini "
+                f"tetiklediği ve erteleme devrem (r_ertele={bg.get('ertele', 0):.2f}) öne geçtiği için öz-bakımı seçtim"
+            )
+            return (
+                f"Şu an bunu yapamam; zihinsel simülasyonuma göre {n_lbl} kritik düzeyde (%{int(vol['need_level']*100)}, "
+                f"erteleme aktivasyonu {bg.get('ertele', 0):.2f}), önce kendimi kurtarmalıyım."
+            )
 
         if vol["decision"] == "şüphe":
+            self.lang.wernicke.last_explanation = (
+                f"Epistemik belirsizlik ile düşük güven ({vol['speaker_trust']:.2f}) ön-insula şüphe devremi "
+                f"(r_şüphe={bg.get('şüphe', 0):.2f}) ateşledi"
+            )
             return (
                 f"Sana olan güvenim düşük ({vol['speaker_trust']:.2f}) ve '{tgt_label}' benim için doğrulanmamış; "
-                f"kendi gözlemim olmadan bu komutu uygulamam."
+                f"zihnim şüphe modunda ({bg.get('şüphe', 0):.2f}) olduğu için kendi gözlemim olmadan bunu uygulamam."
             )
 
         # Özerk kabul -> gerçek niyet nesnesine bağla!
@@ -733,14 +964,17 @@ class NoraAGI:
             self.mind.intervene("intent", g, steps=45)
             eta = self.mind.fc.open["T"] if self.mind.fc.open is not None else 25.0
             tgt_dat = morph.inflect_noun(tgt_label, "DAT")
-            self.lang.wernicke.last_explanation = f"{tgt_label} kendi homeostatik çıkarımla uyumlu olduğu için niyetimi {g} uzmanına bağladım"
+            self.lang.wernicke.last_explanation = (
+                f"{hz} adımlık zihinsel simülasyonda '{tgt_label}' serbest enerjiyi düşürdüğü "
+                f"(r_kabul={bg.get('kabul', 0):.2f}) için niyetimi {g} uzmanına bağladım"
+            )
             return f"Kabul ediyorum; kendi irademle {tgt_dat} yöneliyorum, öz-öngörüme göre yaklaşık {eta:.0f} adımda ulaşırım."
 
         if fr.rel == "uzak_dur" and fr.obj:
             tgt_abl = morph.inflect_noun(fr.obj, "ABL")
             return f"Anlaşıldı; {tgt_abl} uzak durarak güvenli rotamı koruyacağım."
 
-        return f"İsteğini değerlendirdim ve güvenli buldum; '{tgt_label}' doğrultusunda hareket ediyorum."
+        return f"İsteğini zihinsel simülasyonumda değerlendirdim ve uyumlu buldum (r_kabul={bg.get('kabul', 0):.2f}); '{tgt_label}' doğrultusunda hareket ediyorum."
 
     def _solve_math_in_language(self, a: int, op: str, b: int) -> str:
         morph = self.lang.morph
