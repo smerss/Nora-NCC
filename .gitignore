@@ -10,3 +10,5 @@ data/text/*.txt
 data/text/*.conllu
 *.log
 runs/*.log
+BATTERY_RAPORU.txt
+STOP_NORA

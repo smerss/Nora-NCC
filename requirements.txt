@@ -1,0 +1,6 @@
+numpy
+# köprü (nora_bridge.py, nora_think.py, grow_gpt.py) için:
+torch
+# FlyWire konektomunu dönüştürmek için (isteğe bağlı; make_fly_reservoir.py / nora_neuron.py --stage convert):
+pandas
+pyarrow
