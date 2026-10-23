@@ -45,8 +45,13 @@ from nora_self import CoreSelf
 from nora_lang import NoraLanguage, Proposition, tr_lower, tr_capitalize
 from nora_stem import MathCortex, PhysicsCortex
 from nora_knowledge import ConversationalResonanceCortex, SYNONYMS
-from nora_broca import GenerativeBrocaOrgan
+from nora_broca import GenerativeBrocaOrgan, NP, VerbSpec
 from nora_monologue import PlasticSchemaCortex, InnerMonologueEngine
+from nora_autonomous_logic import (
+    NeuralUtteranceCortex,
+    AutonomousLogicAndLabelEngine,
+    SituationalTurkishCortex,
+)
 from nora_nervous import (
     PeripheralNervousSystem,
     SingleLifeMortality,
@@ -313,6 +318,12 @@ class NoraAGI:
         self.broca_organ = GenerativeBrocaOrgan()
         self.schema_cortex = PlasticSchemaCortex(chem=self.chem, seed=seed + 31)
         self.monologue = InnerMonologueEngine(self.schema_cortex)
+        # --- KENDİ KENDİNE SINIFLANDIRMA + OTONOM ETİKETLEME + TAM DURUMSAL TÜRKÇE ---
+        self.utter_cortex = NeuralUtteranceCortex(chem=self.chem, morph=self.lang.morph, seed=seed + 47)
+        self.logic = AutonomousLogicAndLabelEngine(self.lang.morph, self.utter_cortex)
+        self.situational = SituationalTurkishCortex(self.lang.morph, self.utter_cortex)
+        self.last_utterance_class: dict = {}
+        self._turn_mint_label: str = ""
         self.user_profiles: dict[str, dict[str, str]] = {}
         self.macros: dict[str, list[str]] = {}
         self.last_gw_trace: dict = {}
@@ -542,6 +553,9 @@ class NoraAGI:
         if not raw:
             return "..."
 
+        # Sözce türünü (soru / yasa / çift-durum / sosyal durum / duygu paylaşımı) Nora KENDİ nöral korteksiyle sınıflar.
+        self.last_utterance_class = self.utter_cortex.classify(raw)
+
         # Konuşmadan ÖNCE içsel monolog (Vygotsky iç sesi + insan şeması gözlemi + kendi şema seçimi!)
         self._begin_inner_monologue(raw, speaker)
 
@@ -578,7 +592,10 @@ class NoraAGI:
         if len(parts) > 1:
             taught_msgs = []
             last_part = parts[-1]
-            is_last_q = ("?" in last_part) or any(
+            # Soru mu, bildirim mi? Bu sınıflandırmayı artık Nora'nın plastik Mantar Gövdesi KENDİSİ yapar.
+            last_utt = self.utter_cortex.classify(last_part)
+            self.last_utterance_class = last_utt
+            is_last_q = bool(last_utt.get("is_question")) or any(
                 w in tr_lower(last_part).split()
                 for w in ("mı", "mi", "mu", "mü", "nedir", "neydi", "ne", "kaç", "kaçtı", "nasıl", "nerede", "neredeydi", "kim", "kimim", "kimdim")
             )
@@ -654,6 +671,8 @@ class NoraAGI:
             "hippocampal_concept": 1.00 + 0.15 * self.chem.ach + 0.08 * self.self_model.traits["meraklılık"],
             "temporal_conversation": 0.96 + 0.16 * self.chem.oxy + 0.10 * self.self_model.traits["meraklılık"],
             "associative_semantic": 0.92 + 0.14 * self.chem.ach + 0.10 * self.self_model.traits["meraklılık"],
+            "prefrontal_autonomous_logic": 1.02 + 0.16 * self.chem.ne + 0.10 * self.self_model.traits["düşünsellik"],
+            "social_phatic": 0.98 + 0.14 * self.chem.oxy + 0.12 * self.self_model.traits["sosyal_güven"],
         }
         raw_scores = np.array(
             [b.salience * b.precision * mod_gains.get(b.module, 1.0) for b in bids],
@@ -706,6 +725,67 @@ class NoraAGI:
         graph = self.lang.graph
         s_low = tr_lower(raw)
         bids: list[CorticalBid] = []
+
+        # --- SÜTUN 0: Nöral Sözce Öz-Sınıflandırması + Otonom Etiketleme/Mantık + Durumsal Türkçe ---
+        utt_cls = self.last_utterance_class or self.utter_cortex.classify(raw)
+        cur_sc0 = self.monologue.last_thought.schema_id if self.monologue.last_thought is not None else "S1_NEDEN_SONUC"
+        # Bildirim cümlesi ise Nora kendi mantık kuralını ve etiketini KENDİSİ kurar (soru işareti olmadan da sınıflar!)
+        ing_res = None
+        self._turn_mint_label = ""
+        if not utt_cls.get("is_question"):
+            ing_res = self.logic.ingest_statement(raw)
+        if ing_res is not None:
+            self._turn_mint_label = str(ing_res["label"])
+        if ing_res is not None:
+            syn = self.broca_organ.syn
+            _rot = (len(self.dialogue_log) + len(ing_res["label"])) % 3
+            c1 = syn.realize_verb(VerbSpec(
+                verb_root="kodla", obj=NP("ilişki", mods=("bu",), case="ACC"),
+                advs=("kendi başıma",), tense="PAST", person="1SG",
+            ))
+            if _rot == 0:
+                c2 = syn.realize_verb(VerbSpec(
+                    verb_root="bağla", obj="bunu", dat=NP("bellek", poss=1, case="DAT"),
+                    tense="PAST", person="1SG", dat_last=True,
+                ))
+            elif _rot == 1:
+                c2 = syn.realize_verb(VerbSpec(
+                    verb_root="kazı", obj="bunu", dat=NP("zihin", poss=1, case="DAT"),
+                    tense="PAST", person="1SG", dat_last=True,
+                ))
+            else:
+                c2 = syn.realize_verb(VerbSpec(
+                    verb_root="işle", obj="bunu", dat=NP("sinir ağı", poss=1, case="DAT"),
+                    tense="PAST", person="1SG", dat_last=True,
+                ))
+            mint_rep = f"{tr_capitalize(c1)}: {ing_res['label']}. {tr_capitalize(c2)}."
+            bids.append(CorticalBid(
+                module="prefrontal_autonomous_logic",
+                salience=0.945,   # < 0.95: anlamsal öğrenme sütunlarını KETLEMEZ, yalnızca onay sözcesini üstlenir
+                precision=0.95,
+                reply=mint_rep,
+                trace=f"mint:{ing_res['label']}",
+                used_s2=True,
+            ))
+        ded_res = self.logic.try_autonomous_deduction(raw, self.schema_cortex, cur_sc0, utt_cls=utt_cls)
+        if ded_res is not None:
+            bids.append(CorticalBid(
+                module="prefrontal_autonomous_logic",
+                salience=0.972,
+                precision=float(ded_res["confidence"]),
+                reply=ded_res["reply"],
+                trace=str(ded_res["trace"]),
+                used_s2=True,
+            ))
+        sit_res = self.situational.try_respond_situation(raw, self, speaker=speaker)
+        if sit_res is not None:
+            bids.append(CorticalBid(
+                module="social_phatic",
+                salience=0.955,
+                precision=float(sit_res["confidence"]),
+                reply=sit_res["reply"],
+                trace=str(sit_res["trace"]),
+            ))
 
         # --- SÜTUN 1: Parietal Fizik & Zihinsel Simülasyon Korteksi ---
         phys_res = self.physics_cortex.try_solve(raw, mind=self.mind)
@@ -874,6 +954,19 @@ class NoraAGI:
                     r_lv = "bunu tek geçişte duyum ağıma bağladım"
                     rep_v = self.schema_cortex.transform_clauses(c_lv, r_lv, "söylediğini tarttığımda", cur_sc)
                 bids.append(CorticalBid("hippocampal_concept", 0.97, 0.96, rep_v, f"teach_val:{fr.subj}"))
+            elif fr.kind == "teach_fact" and conv_res is None and self._turn_mint_label:
+                # Bu cümle zaten Nora'nın kendi mantık motorunda yapısal kural olarak kodlandı;
+                # kaba sözcük-dizisi kenarı üretmek kavram ağını kirletir, onun yerine öz-etiketini bildirir.
+                syn_tf = self.broca_organ.syn
+                c_tf = syn_tf.realize_verb(VerbSpec(
+                    verb_root="kodla", obj=NP("ilişki", mods=("bu",), case="ACC"),
+                    advs=("kendi başıma",), tense="PAST", person="1SG",
+                ))
+                bids.append(CorticalBid(
+                    "hippocampal_concept", 0.94, 0.93,
+                    f"{tr_capitalize(c_tf)}: {self._turn_mint_label}.",
+                    f"structured:{self._turn_mint_label}",
+                ))
             elif fr.kind == "teach_fact" and conv_res is None:
                 edges = self.lang.teach_sentence(raw, speaker=speaker)
                 if edges:
@@ -1424,6 +1517,7 @@ class NoraAGI:
             "user_profiles": self.user_profiles,
             "episodic_dialogue": self.broca_organ.episodic.state_dict(),
             "monologue": self.monologue.state_dict(),
+            "autonomous_logic": self.logic.state_dict(),
         }
         with open(path_prefix + ".agi.json", "w", encoding="utf-8") as f:
             json.dump(meta, f, ensure_ascii=False, indent=2)
@@ -1451,6 +1545,7 @@ class NoraAGI:
         agi.user_profiles = dict(meta.get("user_profiles", {}))
         agi.broca_organ.episodic.load_state_dict(meta.get("episodic_dialogue", []))
         agi.monologue.load_state_dict(meta.get("monologue", {}))
+        agi.logic.load_state_dict(meta.get("autonomous_logic", {}))
         z = np.load(path_prefix + ".agi_mb.npz")
         agi.fast.class_names = list(meta["fast_classes"])
         agi.fast.name_to_id = {n: i for i, n in enumerate(agi.fast.class_names)}

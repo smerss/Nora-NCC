@@ -77,6 +77,7 @@ class VerbSpec:
     person: str = "1SG"           # 1SG | 2SG | 3SG | 1PL | 2PL
     question_yn: bool = False
     wh_word: str = ""             # 'nasıl', 'neden', 'ne', 'hangi konuyu' vb.
+    dat_last: bool = False        # Belirtili nesne yönelme tümlecinden önce mi gelsin? ('seçenekleri adımlara ayır')
 
 
 class TurkishSyntaxEngine:
@@ -422,15 +423,18 @@ class TurkishSyntaxEngine:
 
     @classmethod
     def realize_verb(cls, spec: VerbSpec) -> str:
-        """SOV Türkçe cümle dizilimi: [Özne] + [Ön-Yan-Cümle] + [Tümleçler] + [Nesne] + [Durum Zarfları] + [Soru] + [Yüklem]."""
+        """SOV Türkçe cümle dizilimi: [Özne] + [Ön-Yan-Cümle] + [Tümleçler] + [Nesne] + [Durum Zarfları] + [Soru] + [Yüklem].
+        Türkçe belirtili nesne kuralı gereği nesne, yönelme tümlecinden ÖNCE gelebilir (dat_last=True)."""
+        if spec.dat is not None and getattr(spec, "dat_last", False):
+            obliques = [cls.realize_np(spec.abl), cls.realize_np(spec.loc), cls.realize_np(spec.ins),
+                        cls.realize_np(spec.obj), cls.realize_np(spec.dat)]
+        else:
+            obliques = [cls.realize_np(spec.abl), cls.realize_np(spec.loc), cls.realize_np(spec.ins),
+                        cls.realize_np(spec.dat), cls.realize_np(spec.obj)]
         elems = [
             cls.realize_np(spec.subj),
             spec.pre_clause,
-            cls.realize_np(spec.abl),
-            cls.realize_np(spec.loc),
-            cls.realize_np(spec.ins),
-            cls.realize_np(spec.dat),
-            cls.realize_np(spec.obj),
+            *obliques,
             *(tr_lower(a) for a in spec.advs if a),
             spec.wh_word,
             cls._conjugate_full_verb(spec.verb_root, spec.tense, spec.neg, spec.person, spec.question_yn),

@@ -890,6 +890,224 @@ def a31_self_learned_schema_and_anti_cloning():
     return ok, f"şemalar={chosen_schemas} soru={q_count}/6 aynı_soru_farklı={ok_non_identical} öğrenilen_devrik={learned_devrik}"
 
 
+def a32_neural_utterance_self_classification():
+    """A32: Soru/bildirim/koşullu-yasa/çift-durum ayrımını '?' işaretine dayanmadan Nora'nın
+    KENDİ plastik Mantar Gövdesi yapar; bilinmeyen yeni bir söylem türünü kendisi etiketler."""
+    agi = NoraAGI(seed=104, boot_thinker=False)
+    uc = agi.utter_cortex
+
+    probes = [
+        ("enerji korunumlu bir büyüklük müdür", True),
+        ("elektron ölçülürse ne olur", True),
+        ("arza bağlı olarak fiyat nasıl değişir", True),
+        ("bunu bana biraz açar mısın", True),
+        ("bilinç fiziksel bir süreç olarak açıklanabilir mi", True),
+        ("hangi durumda entropi azalır", True),
+        ("sıcaklık artarsa basınç yükselir", False),
+        ("arz azaldıkça fiyat artar", False),
+        ("elektron aynı anda hem dalga hem parçacık özelliği taşır", False),
+        ("gözlem yapılırsa süperpozisyon bozulur", False),
+        ("bağışıklık sistemi patojeni tanır", False),
+        ("foton soğurulması elektronu üst seviyeye sıçratır", False),
+    ]
+    hits = 0
+    for text, expect_q in probes:
+        res = uc.classify(text)
+        hits += int(bool(res["is_question"]) == expect_q)
+    ok_cls = hits >= 11
+
+    # Ayrıca SORU işareti olmadan söylem TÜRÜNÜ de doğru ayırmalı (soru türü, yasa, süperpozisyon, orantı, sosyal, duygu)
+    label_probes = [
+        ("entropi nasıl tanımlanır", ("SORU_",)),
+        ("gözlem yapılmazsa hangi durumda kalır", ("SORU_",)),
+        ("bilinç fiziksel bir süreç olarak açıklanabilir mi", ("SORU_",)),
+        ("bana bir yol gösterir misin", ("TAVSIYE_KARAR",)),
+        ("kolay gelsin sana", ("SOSYAL_NEZAKET",)),
+        ("bugün biraz hastayım başım ağrıyor", ("DUYGUSAL_PAYLASIM", "ILLNESS", "SOSYAL_NEZAKET")),
+        ("kafam çok karışık odaklanamıyorum", ("DUYGUSAL_PAYLASIM", "SOSYAL_NEZAKET")),
+        ("foton aynı anda hem dalga hem tanecik özelliği gösterir", ("IKILI_SUPERPOZISYON",)),
+        ("dalga boyu kısaldıkça frekans yükselir", ("ORANTI_BAGINTI",)),
+        ("sıcaklık sıfırın altına düşerse su donar", ("KOSULLU_YASA",)),
+        ("böbrekler kanı süzer ve atığı uzaklaştırır", ("OLGU_EYLEM_YASASI",)),
+        ("bence bu konuda haklısın katılıyorum", ("GORUS_TARTISMA", "SOSYAL_NEZAKET", "DUYGUSAL_PAYLASIM")),
+    ]
+    lab_hits = 0
+    for text, allowed in label_probes:
+        got = uc.classify(text)["label"]
+        lab_hits += int(got in allowed or (allowed == ("SORU_",) and got.startswith("SORU_")))
+    ok_label = lab_hits >= 11
+
+    # Soru işareti olmadan, hiç görülmemiş söylem türü -> KENDİ yeni etiketini üretir
+    novel = "olsun mu olmasın mı diye arafta kalıyorum işte"
+    before = len(uc.labels)
+    minted = uc.mint_utterance_label(novel, custom_name="ÖZ_SÖYLEM:kararsiz_ikilem")
+    after = len(uc.labels)
+    res_minted = uc.classify(novel)
+    ok_mint = (after == before + 1) and (minted in uc.labels) and res_minted["label"] == minted
+
+    # Sınıflandırma öğrenme kapısı olarak KULLANILIYOR: soru cümlesi mantık kuralı olarak yazılmaz
+    rules_before = len(agi.logic.transition_rules) + len(agi.logic.dual_rules) + len(agi.logic.variation_rules)
+    agi.converse("enerji korunumlu bir büyüklük müdür")
+    rules_after_q = len(agi.logic.transition_rules) + len(agi.logic.dual_rules) + len(agi.logic.variation_rules)
+    agi.converse("Ölçüm dalga fonksiyonunu tek bir özduruma çökertir")
+    rules_after_d = len(agi.logic.transition_rules) + len(agi.logic.dual_rules) + len(agi.logic.variation_rules)
+    ok_gate = (rules_after_q == rules_before) and (rules_after_d > rules_after_q)
+
+    ok = ok_cls and ok_label and ok_mint and ok_gate
+    return ok, (
+        f"soru/bildirim {hits}/12 | söylem türü {lab_hits}/12 | öz-etiket={minted} | sınıflama-kapısı={ok_gate}"
+    )
+
+
+def a33_autonomous_quantum_logic_self_labeling():
+    """A33: Hiç görülmemiş bir alan (kuantum) sıfırdan öğretildiğinde Nora kendi etiketlerini,
+    kendi mantık yasalarını kurar ve noktalamasız, hiç görülmemiş soruları bu mantıkla çözer."""
+    agi = NoraAGI(seed=105, boot_thinker=False)
+    teaching = [
+        "Elektron gözlemlenmeden önce hem dalga hem parçacık durumundadır.",
+        "Ölçüm dalga fonksiyonunu tek bir özduruma çökertir.",
+        "Gözlem yapılırsa süperpozisyon bozulur.",
+        "Konum belirsizliği azaldıkça momentum belirsizliği artar.",
+        "Kuantum dolanıklık iki parçacığın durumunu birbirine bağlar.",
+    ]
+    for t in teaching:
+        agi.converse(t)
+
+    tags = " ".join(agi.logic.self_minted_tags.keys())
+    kinds = sum([
+        "ÖZ_MANTIK:ÇİFT_DURUM" in tags,
+        "ÖZ_BAĞ:" in tags,
+        "ÖZ_YASA:" in tags,
+        ("ÖZ_GEÇİŞ:" in tags) or ("ÖZ_BAĞ:bozul" in tags),
+    ])
+
+    questions = [
+        ("elektron aynı anda hem dalga hem parçacık olabilir mi", ("hem dalga", "hem parçacık")),
+        ("elektron gözlemlenmeden önce sadece parçacık mıdır", ("hayır", "dalga", "parçacık")),
+        ("elektron ölçülürse ne olur", ("dalga fonksiyon", "çök")),
+        ("peki ölçüm yapılmazsa elektron hangi durumdadır", ("dalga", "parçacık")),
+        ("konum belirsizliği artarsa momentum belirsizliği ne olur", ("momentum", "azal")),
+        ("kendi oluşturduğun etiketler ve mantık kuralları neler", ("öz", "etiket")),
+    ]
+    q_hits = 0
+    for q, must in questions:
+        ans = tr_lower(agi.converse(q))
+        q_hits += int(all(m in ans for m in must))
+    ok_q = q_hits >= 5
+
+    # Rehin/algı yok: soru işareti olmadan da doğru çıkarım + kümeler kendi kendine oluştu
+    ok_clusters = len(agi.logic.emergent_clusters) >= 1
+    ok = (kinds >= 3) and ok_q and ok_clusters
+    return ok, f"öz-etiket türü={kinds}/4 | noktalamasız kuantum çıkarımı={q_hits}/6 | öz-küme={len(agi.logic.emergent_clusters)}"
+
+
+def a34_intermediate_turkish_full_paradigm():
+    """A34: Orta-ileri Türkçe — 6 kişi x 5 kip çekimi, iyelik/hal üretimi, çatı/ulaç çözümlemesi
+    ve her türlü günlük/sosyal/duygusal durumda doğal karşılık."""
+    agi = NoraAGI(seed=106, boot_thinker=False)
+    m = TurkishMorphology
+
+    # 1) Tam kişi/kip paradigması (6 kişi x 5 kip = 30 biçim, 3 fiil)
+    expected = {
+        "git": {
+            "PRES": ["gidiyorum", "gidiyorsun", "gidiyor", "gidiyoruz", "gidiyorsunuz", "gidiyorlar"],
+            "PAST": ["gittim", "gittin", "gitti", "gittik", "gittiniz", "gittiler"],
+            "FUT": ["gideceğim", "gideceksin", "gidecek", "gideceğiz", "gideceksiniz", "gidecekler"],
+            "AOR": ["giderim", "gidersin", "gider", "gideriz", "gidersiniz", "giderler"],
+            "NEC": ["gitmeliyim", "gitmelisin", "gitmeli", "gitmeliyiz", "gitmelisiniz", "gitmeliler"],
+        },
+        "gör": {
+            "PRES": ["görüyorum", "görüyorsun", "görüyor", "görüyoruz", "görüyorsunuz", "görüyorlar"],
+            "PAST": ["gördüm", "gördün", "gördü", "gördük", "gördünüz", "gördüler"],
+            "FUT": ["göreceğim", "göreceksin", "görecek", "göreceğiz", "göreceksiniz", "görecekler"],
+            "AOR": ["görürüm", "görürsün", "görür", "görürüz", "görürsünüz", "görürler"],
+            "NEC": ["görmeliyim", "görmelisin", "görmeli", "görmeliyiz", "görmelisiniz", "görmeliler"],
+        },
+    }
+    persons = ["1SG", "2SG", "3SG", "1PL", "2PL", "3PL"]
+    conj_hits = 0
+    conj_total = 0
+    for v, tense_map in expected.items():
+        for tense, forms in tense_map.items():
+            for pers, want in zip(persons, forms):
+                conj_total += 1
+                conj_hits += int(m.conjugate_verb(v, tense, person=pers) == want)
+    ok_conj = conj_hits >= conj_total - 2
+
+    # 2) İsim çekimi: iyelik/hal, ünsüz yumuşaması, ünlü düşmesi, kaynaştırma
+    noun_checks = [
+        m.inflect_noun("dikkat", "NOM", poss1=True) == "dikkatim",
+        m.inflect_noun("kitap", "ACC") == "kitabı",
+        m.inflect_noun("ağız", "GEN") == "ağzın",
+        m.inflect_noun("fonksiyon", "ACC", poss3=True) == "fonksiyonunu",
+        m.inflect_noun("özdurum", "DAT") == "özduruma",
+        m.inflect_noun("etiket", "ACC") == "etiketi",
+    ]
+    ok_noun = sum(int(x) for x in noun_checks) >= 5
+
+    # 3) Çatı/ulaç çözümlemesi (edilgen, ettirgen, -dıkça, -madan, şart)
+    analyze_checks = [
+        m.analyze_word("ölçülürse")["stem"] == "ölç" and m.analyze_word("ölçülürse").get("cond"),
+        m.analyze_word("gözlemlenmeden")["stem"] == "gözlemle" and m.analyze_word("gözlemlenmeden").get("converb") == "MADAN",
+        m.analyze_word("azaldıkça")["stem"] == "azal" and m.analyze_word("azaldıkça").get("converb") == "DIKCA",
+        m.analyze_word("başlatır")["stem"] == "başlat",
+        m.analyze_word("çökertir")["stem"] == "çökert",
+        m.analyze_word("tanımlanır")["stem"] == "tanımla",
+    ]
+    ok_analyze = sum(int(bool(x)) for x in analyze_checks) >= 5
+
+    # 4) Her türlü günlük durum (selamlama, özür, hastalık, kutlama, kararsızlık, stres, tartışma, şaka)
+    situations = [
+        ("Günaydın Nora!", ("günaydın",)),
+        ("Kolay gelsin, çok işim var.", ("teşekkür", "kolaylık")),
+        ("Özür dilerim, kusura bakma.", ("sorun yok", "güven")),
+        ("Çok hastayım, başım ağrıyor.", ("geçmiş olsun", "dinlen")),
+        ("Sınavı kazandım, çok mutluyum!", ("kutla", "karşılığ")),
+        ("Çok kararsız kaldım, ne önerirsin?", ("adım", "belirsizli")),
+        ("Kafam çok karışık, hiç odaklanamıyorum.", ("anlıyorum", "mola")),
+        ("Bence bu konuda haklısın, katılıyorum.", ("uyum", "sevindim")),
+        ("Şaka yaptım, takılıyorum sana.", ("ton", "mizah")),
+    ]
+    s_hits = 0
+    for text, must in situations:
+        ans = tr_lower(agi.converse(text))
+        s_hits += int(all(k in ans for k in must))
+    ok_sit = s_hits >= 8
+
+    ok = ok_conj and ok_noun and ok_analyze and ok_sit
+    return ok, (
+        f"kip-kişi {conj_hits}/{conj_total} | isim çekimi {'/'.join(str(int(x)) for x in noun_checks)} | "
+        f"çatı/ulaç {'/'.join(str(int(bool(x))) for x in analyze_checks)} | günlük durum {s_hits}/9"
+    )
+
+
+def a35_self_built_logic_persistence():
+    """A35: Kendi kurduğu etiketler, mantık yasaları ve kavram kümeleri kalıcıdır (tek yaşam belleği)."""
+    agi = NoraAGI(seed=107, boot_thinker=False)
+    teaching = [
+        "Elektron gözlemlenmeden önce hem dalga hem parçacık durumundadır.",
+        "Ölçüm dalga fonksiyonunu tek bir özduruma çökertir.",
+        "Konum belirsizliği azaldıkça momentum belirsizliği artar.",
+    ]
+    for t in teaching:
+        agi.converse(t)
+    n_before = len(agi.logic.dual_rules) + len(agi.logic.transition_rules) + len(agi.logic.variation_rules)
+    tags_before = set(agi.logic.self_minted_tags.keys())
+
+    with tempfile.TemporaryDirectory() as td:
+        path = os.path.join(td, "nora")
+        agi.save(path)
+        agi2 = NoraAGI.load(path)
+        n_after = len(agi2.logic.dual_rules) + len(agi2.logic.transition_rules) + len(agi2.logic.variation_rules)
+        tags_after = set(agi2.logic.self_minted_tags.keys())
+        ans_ok = tr_lower(agi2.converse("konum belirsizliği artarsa momentum belirsizliği ne olur"))
+        ok_rule = (n_after == n_before) and (tags_after == tags_before)
+        ok_recall = ("momentum" in ans_ok) and ("azal" in ans_ok)
+
+    ok = ok_rule and ok_recall
+    return ok, f"kural {n_before}->{n_after} | etiket-kalıcılığı={tags_after == tags_before} | kendi mantığını hatırlama={ok_recall}"
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -922,6 +1140,10 @@ TESTS = {
     "A29": ("overfitting denetimi: 12 alanda görülmemiş soru/ifade varyasyonları", a29_out_of_distribution_paraphrase_generalization),
     "A30": ("sürekli içsel monolog (otonom DMN + konuşma öncesi sessiz iç ses)", a30_continuous_inner_monologue),
     "A31": ("plastik şema keşfi, şema klonlama karşıtlığı ve davranış çeşitliliği", a31_self_learned_schema_and_anti_cloning),
+    "A32": ("noktalama gerektirmeyen nöral sözce öz-sınıflandırması ve etiket üretimi", a32_neural_utterance_self_classification),
+    "A33": ("kuantum alanında otonom öz-etiketleme ve kendi mantığıyla genelleme", a33_autonomous_quantum_logic_self_labeling),
+    "A34": ("orta-ileri Türkçe: tam kip/kişi, çatı, ulaç ve tüm günlük durumlar", a34_intermediate_turkish_full_paradigm),
+    "A35": ("kendi kurduğu mantık ve etiketlerin tek-yaşam kalıcılığı", a35_self_built_logic_persistence),
 }
 
 

@@ -67,16 +67,54 @@ VOWEL_DROP_STEMS: dict[str, str] = {
     "şekil": "şekl",
     "devir": "devr",
     "seyir": "seyr",
+    "zehir": "zehr",
+    "emir": "emr",
+    "kesir": "kesr",
+    "nesil": "nesl",
+    "asır": "asr",
+    "hapis": "haps",
+    "beniz": "benz",
+    "geniz": "genz",
     "uyku": "uyku",  # uyu-k -> referans
 }
 
 REVERSE_VOWEL_DROP: dict[str, str] = {v: k for k, v in VOWEL_DROP_STEMS.items() if v != k}
+
+# Orta-İleri Türkçe Temel Fiil Kökleri Dağarcığı (Günlük yaşam + iletişim + bilim + soyut muhakeme)
+CORE_TURKISH_VERBS: set[str] = {
+    # Hareket ve eylem
+    "git", "gel", "ye", "iç", "dur", "bekle", "kaç", "gir", "çık", "bak", "gör", "duy", "dinle",
+    "uç", "yüz", "koş", "yürü", "atla", "düş", "kalk", "otur", "yat", "uyu", "uyan", "dön", "geç",
+    "yaklaş", "uzaklaş", "ilerle", "gerile", "durakla", "taş", "taşı", "çek", "it", "at", "tut",
+    "bırak", "koy", "al", "ver", "aç", "kapat", "kır", "bük", "kes", "bağla", "çöz", "kur", "yık",
+    # Zihin, biliş, araştırma ve dil
+    "öğren", "öğret", "bil", "düşün", "anla", "kavrama", "kavra", "sez", "fark", "hatırla", "unut",
+    "okuma", "oku", "yaz", "sor", "yanıtla", "cevapla", "anlat", "söyle", "konuş", "sus", "tartış",
+    "açıkla", "tanımla", "adlandır", "sınıflandır", "etiketle", "karşılaştır", "ölç", "hesapla",
+    "gözlemle", "incele", "araştır", "keşfet", "kanıtla", "doğrula", "yanlışla", "sına", "varsay",
+    "çıkar", "genelle", "özetle", "yorumla", "planla", "tasarla", "simüle", "öngör", "tahmin",
+    # İrade, duygu ve sosyal etkileşim
+    "iste", "seç", "reddet", "kabul", "inan", "güven", "şüphelen", "merak", "sev", "beğen", "kork",
+    "üzül", "sevin", "şaşır", "öfkelen", "kız", "sakinleş", "yatış", "umutlan", "özle", "paylaş",
+    "yardım", "destekle", "koru", "onar", "affet", "kutla", "öner", "danış", "katıl", "reddet",
+    # Doğa, fizik, kimya ve durum geçişleri
+    "ol", "oluş", "var", "yaşa", "öl", "doğ", "büyü", "geliş", "değiş", "dönüş", "art", "artır",
+    "azal", "azalt", "yüksel", "alçal", "hızlan", "yavaşla", "genleş", "daral", "sıkış", "gevşe",
+    "ısıt", "ısın", "soğut", "soğu", "eri", "don", "kayna", "buharlaş", "yoğunlaş", "çözün", "yan",
+    "parla", "ışılda", "yansıt", "yansı", "soğur", "ilet", "yayıl", "dağıl", "odakla", "böl", "bölün",
+    "birleş", "ayrış", "çök", "çökert", "boz", "bozul", "dengele", "etkile", "tetikle", "üret", "tüket",
+    "başla", "bit", "bitir", "sür", "sürdür", "kazan", "kaybet", "çalış", "dinlen", "yorul", "iyileş",
+    "belirle", "bul", "bulun", "sağla", "uygula", "engelle", "aktar", "sakla", "barındır", "sergile", "göster",
+    "diren", "tanı", "kaynaklan", "yükselt", "tetikle", "yönet", "besle", "sınırla", "genişlet", "yoğunlaş",
+    "sentezle", "parçala", "harca", "depola", "sıçra", "yayımla", "doğrula", "çürüt", "yorumla",
+}
 
 # Ünsüz yumuşamasına GİRMEYEN çok heceli / alıntı veya Türkçe kökler
 NO_SOFTEN_EXTENDED: set[str] = {
     "at", "et", "ot", "süt", "ok", "ek", "ak", "kök", "yük", "top", "ip", "çöp", "saç", "üç", "göç", "suç", "kaç", "iç",
     "sanat", "hukuk", "devlet", "cumhuriyet", "hayat", "merak", "ahlak", "millet", "tabiat", "kanıt", "boyut",
     "taşıt", "yakıt", "anıt", "yapıt", "ölçüt", "kesit", "bulut", "konut", "sepet", "paket", "bilet", "kaset",
+    "etiket", "işaret", "suret", "şahsiyet", "hüviyet", "kudret", "devlet", "servet", "kıyamet", "alamet",
     "robot", "pilot", "uzay", "evrak", "ittifak", "hakikat", "adalet", "cesaret", "nezaket", "felaket", "hareket",
     "bereket", "memleket", "şirket", "dikkat", "şefkat", "sohbet", "gurbet", "hasret", "ücret", "nöbet",
 }
@@ -149,6 +187,16 @@ IDIOMS_AND_PROVERBS: dict[str, tuple[str, str]] = {
     "işleyen demir pas tutmaz": ("atasözü", "Sürekli çalışan, üreten ve düşünen zihin ya da beden körelmez, dinç kalır."),
     "rüzgar eken fırtına biçer": ("atasözü", "Zararlı ve sert eylemler başlatan kişi sonunda çok daha ağır tepkilerle karşılaşır."),
     "güneş balçıkla sıvanmaz": ("atasözü", "Apaçık ortada olan kanıtlanmış bir gerçek hiçbir çabayla gizlenemez."),
+    "gözden kaçırmak": ("deyim", "Dikkatsizlik yüzünden önemli bir ayrıntıyı fark edememek."),
+    "kafası karışmak": ("deyim", "Çelişkili veya yoğun bilgiler karşısında ne düşüneceğini bilemez duruma gelmek."),
+    "içine sinmek": ("deyim", "Yapılan bir işin veya kararın doğruluğundan gönül rahatlığıyla emin olmak."),
+    "tadını çıkarmak": ("deyim", "Güzel bir anın veya durumun keyfini doyasıya yaşamak."),
+    "yüzüstü bırakmak": ("deyim", "Güvenen bir kimseyi en çok ihtiyaç duyduğu anda desteksiz bırakmak."),
+    "kolları sıvamak": ("deyim", "Bir işe güçlü bir istekle başlamak üzere hazırlanmak."),
+    "ipin ucu kaçmak": ("deyim", "Bir konudaki denetimi ve düzeni yitirmek."),
+    "taşı gediğine koymak": ("deyim", "Tam zamanında ve yerinde çok etkili, düşündürücü bir söz söylemek."),
+    "azıcık aşım kaygısız başım": ("atasözü", "Aşırı hırstan uzak, sade ve dengeli yaşam zihne huzur verir."),
+    "bugünün işini yarına bırakma": ("atasözü", "Zamanında yapılan eylem birikmiş belirsizliği ve stresi önler."),
 }
 
 # 0-Epoch Temel Ontoloji Önermeleri: (özne, ilişki, nesne)
@@ -204,6 +252,42 @@ FOUNDATIONAL_PROPOSITIONS: list[tuple[str, str, str]] = [
     ("bilim", "USED_FOR", "doğa yasalarını deney ve kanıtla çözme"),
     ("sanat", "USED_FOR", "duygu ve estetik anlamı ifade etme"),
     ("zaman", "ISA", "değişimin ve nedenselliğin yönü"),
+    # Günlük Yaşam, Hava, Doğa, Toplum, Sağlık ve Teknoloji (Orta-İleri Genel Türkçe Temeli)
+    ("yağmur", "CAUSES", "toprağın sulanması ve su döngüsü"),
+    ("bulut", "CAUSES", "yağış oluşumu"),
+    ("rüzgar", "ISA", "basınç farkından doğan hava akımı"),
+    ("mevsim", "CAUSES", "iklim ve sıcaklık değişimi"),
+    ("ilkbahar", "ISA", "doğanın canlandığı mevsim"),
+    ("kış", "ISA", "soğuk ve yağışlı mevsim"),
+    ("yaz", "ISA", "sıcak ve güneşli mevsim"),
+    ("sonbahar", "ISA", "geçiş ve yaprak dökümü mevsimi"),
+    ("orman", "USED_FOR", "ekosistemi ve temiz havayı koruma"),
+    ("okyanus", "ISA", "dev tuzlu su kütlesi"),
+    ("deprem", "CAUSES", "yer kabuğunda sarsıntı"),
+    ("kitap", "USED_FOR", "bilgi ve hayal gücünü aktarma"),
+    ("müzik", "USED_FOR", "ritim ve duygu uyumu oluşturma"),
+    ("spor", "CAUSES", "bedensel dayanıklılık ve sağlık"),
+    ("beslenme", "USED_FOR", "hücresel enerji ve yaşam desteği"),
+    ("dinlenme", "CAUSES", "zihinsel berraklık ve sinaptik toparlanma"),
+    ("hastalık", "CAUSES", "bedensel dengenin bozulması"),
+    ("ilaç", "USED_FOR", "hastalığı iyileştirme"),
+    ("arkadaşlık", "CAUSES", "karşılıklı güven ve dayanışma"),
+    ("dürüstlük", "CAUSES", "kalıcı sosyal güven"),
+    ("sabır", "USED_FOR", "zor süreçlerde dengeyi koruma"),
+    ("planlama", "USED_FOR", "belirsizliği azaltıp hedefe ulaşma"),
+    ("deney", "USED_FOR", "varsayımları gerçeklikle sınama"),
+    ("gözlem", "USED_FOR", "olguları dikkatle inceleme"),
+    ("mantık", "USED_FOR", "öncüllerden tutarlı sonuç çıkarma"),
+    ("bilgisayar", "USED_FOR", "veri işleme ve hesaplama"),
+    ("internet", "USED_FOR", "küresel bilgi paylaşımı ve araştırma"),
+    ("elektrik", "USED_FOR", "enerji ve sinyal iletimi"),
+    ("manyetizma", "CAUSES", "yüklü parçacıklar üzerinde kuvvet"),
+    ("sıcaklık", "ISA", "taneciklerin ortalama kinetik enerjisi"),
+    ("basınç", "ISA", "birim yüzeye uygulanan dik kuvvet"),
+    ("kimya", "ISA", "maddenin bağ ve dönüşüm bilimi"),
+    ("molekül", "ISA", "atomların bağ kurduğu yapı"),
+    ("oksijen", "USED_FOR", "hücresel solunum ve yanma"),
+    ("karbon", "ISA", "organik yaşamın temel elementi"),
 ]
 
 
@@ -237,6 +321,20 @@ class ConversationalResonanceCortex:
         "başar": (+0.80, 0.75, "başarı"),
         "kazan": (+0.75, 0.75, "başarı"),
         "merak": (+0.55, 0.70, "merak"),
+        "şaşır": (+0.20, 0.80, "merak"),
+        "umut": (+0.70, 0.60, "sevinç"),
+        "huzur": (+0.75, 0.25, "sevinç"),
+        "rahatla": (+0.65, 0.30, "sevinç"),
+        "kararsız": (-0.25, 0.55, "kararsızlık"),
+        "karışık": (-0.30, 0.55, "kararsızlık"),
+        "hasta": (-0.60, 0.35, "hastalık"),
+        "ağrı": (-0.65, 0.55, "hastalık"),
+        "ateş": (-0.45, 0.50, "hastalık"),
+        "öfke": (-0.65, 0.85, "öfke"),
+        "sinirli": (-0.60, 0.80, "öfke"),
+        "kızgın": (-0.60, 0.75, "öfke"),
+        "özür": (-0.15, 0.40, "özür"),
+        "pişman": (-0.40, 0.45, "özür"),
         "okul": (+0.15, 0.50, "okul"),
         "ders": (+0.10, 0.50, "okul"),
         "sınav": (-0.15, 0.70, "okul"),
