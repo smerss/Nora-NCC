@@ -148,6 +148,9 @@ class RequestGrounder:
         r"«([^»]+)»",
         r"‘([^’]+)’",
         r"`([^`]+)`",
+        # Düz tek tırnak: Türkçe iyelik kesmesiyle ('Python'da) karışmasın diye
+        # yalnızca sözcük sınırındaki tırnaklar kabul edilir.
+        r"(?<![\wçğıöşü])'([^']{2,})'(?![\wçğıöşü])",
     )
 
     CUE_ROOTS = ("yazdır", "yazdir", "ekrana", "bastır", "print", "çıktı ver", "göster")
@@ -169,20 +172,30 @@ class RequestGrounder:
                 break
 
         if not payload:
-            # Tırnaksız istek: 'Merhaba! Ey Ahali! yazdıran python satırı'
-            cut = len(raw)
-            for cue in self.CUE_ROOTS:
-                idx = s.find(cue)
-                if idx > 0:
-                    cut = min(cut, idx)
-            prefix = raw[:cut].strip(" ,.:;-\n\t")
-            # Kibar/istek kalıplarını ayıkla
-            prefix = re.sub(r"^(?:bana|lütfen|acaba|hemen|şimdi)\s+", "", prefix, flags=re.IGNORECASE)
-            for addr in self.ADDRESS_ROOTS:
-                if tr_lower(prefix).startswith(addr):
-                    prefix = prefix[len(addr):].strip(" ,.:;-\n\t")
-            if prefix and not any(k in tr_lower(prefix) for k in ("python", "satır", "kod", "program")):
-                payload = prefix
+            # Tırnaksız istek: 'Merhaba! Ey Ahali! yazdıran python satırı' / 'ekrana Merhaba! yaz'
+            def _cut_payload(span: str) -> str:
+                cut = len(span)
+                low_span = tr_lower(span)
+                for cue in self.CUE_ROOTS + ("yaz", "bas", "yazdır"):
+                    j = low_span.find(cue)
+                    if j > 0:
+                        cut = min(cut, j)
+                cand = span[:cut].strip(" ,.:;-\n\t")
+                cand = re.sub(r"^(?:bana|lütfen|acaba|hemen|şimdi)\s+", "", cand, flags=re.IGNORECASE)
+                if any(k in tr_lower(cand) for k in ("python", "satır", "kod", "program", "betik")):
+                    return ""
+                return cand
+
+            # (a) Kanal adı ('ekrana', 'konsola') verilmişse gömülü metin ONDAN SONRA gelir
+            addr_hits = [(s.rfind(a), a) for a in self.ADDRESS_ROOTS if s.rfind(a) >= 0]
+            if addr_hits:
+                idx, addr = max(addr_hits)
+                cand = _cut_payload(raw[idx + len(addr):])
+                if cand:
+                    payload = cand
+            # (b) Klasik sıra: 'METİN yazdıran python satırı'
+            if not payload:
+                payload = _cut_payload(raw)
 
         verb, probs = self.cortex.select(raw)
         single = bool(re.search(r"\b(tek|bir)\s+satır", s)) or ("satır" in s)
@@ -320,12 +333,12 @@ class CodeSynthesisCortex:
                 verb_root="söyle", obj=syn.nominalize_dik("yazdır", poss=2, case="ACC"),
                 neg=True, tense="PAST", person="2SG",
             ))
-            c2 = syn.realize_verb(VerbSpec(verb_root="söyle", obj=NP("metin", case="ACC"), tense="PRES", person="2SG"))
+            c2 = syn.realize_verb(VerbSpec(verb_root="söyle", obj=NP("metin", case="ACC"), tense="IMP", person="2SG"))
             c3 = syn.realize_verb(VerbSpec(
                 verb_root="ver", obj=NP("satır", case="ACC"),
                 advs=("ancak çalıştırıp doğruladıktan sonra",), tense="AOR", person="1SG",
             ))
-            return f"{tr_capitalize(c1)}. {tr_capitalize(c2)}; {tr_capitalize(c3)}."
+            return f"{tr_capitalize(c1)}. {tr_capitalize(c2)}; {c3}."
         c1 = syn.realize_verb(VerbSpec(verb_root="çözümle", obj=NP("istek", poss=2, case="ACC"), tense="PAST", person="1SG"))
         c2 = syn.realize_verb(VerbSpec(verb_root="anla", advs=("hangi işlemi istediğini",),
                                        neg=True, tense="PAST", person="1SG"))
@@ -411,8 +424,9 @@ class CodeSynthesisCortex:
             c1 = syn.realize_verb(VerbSpec(verb_root="yaz", obj=NP("satır", case="ACC"),
                                            advs=("istediğin gibi",), tense="PAST", person="1SG"))
             head = f"{tr_capitalize(c1)}."
-        verify = f"{tr_capitalize(c_run)} ve {c_chk}; çıktısı birebir şu: {out.rstrip('.')}"
-        return f"{head} `{prog}` — {verify}. Doğrulanmamış hiçbir kodu sana vermem."
+        verify = f"{tr_capitalize(c_run)} ve {c_chk}; çıktısı birebir şu: {out}"
+        stop = "" if out.endswith(("!", "?", ".")) else "."
+        return f"{head} `{prog}` — {verify}{stop} Doğrulanmamış hiçbir kodu sana vermem."
 
     def snapshot(self) -> dict:
         return {

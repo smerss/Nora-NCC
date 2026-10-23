@@ -117,6 +117,7 @@ NO_SOFTEN_EXTENDED: set[str] = {
     "etiket", "işaret", "suret", "şahsiyet", "hüviyet", "kudret", "devlet", "servet", "kıyamet", "alamet",
     "robot", "pilot", "uzay", "evrak", "ittifak", "hakikat", "adalet", "cesaret", "nezaket", "felaket", "hareket",
     "bereket", "memleket", "şirket", "dikkat", "şefkat", "sohbet", "gurbet", "hasret", "ücret", "nöbet",
+    "saat", "kanat", "sanat", "iftar", "sabah", "silah", "sabır",
 }
 
 # Eş anlamlılar ve zıt anlamlılar sözlüğü

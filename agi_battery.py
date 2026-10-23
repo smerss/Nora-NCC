@@ -1197,15 +1197,17 @@ def a39_python_code_synthesis_verified():
     t0 = time.perf_counter()
     r2 = cc.handle('"Merhaba! Ey Ahali!" yazdıracak bir Python satırı ver')
     dt2 = (time.perf_counter() - t0) * 1000
+    r_nat = cc.handle("Merhaba! Ey Ahali! yazdıracak tek satırlık bir Python kodu yaz.")
     r3 = cc.handle("bana bir python satırı ver")
+    ok_natural = bool(r_nat.get("ok")) and r_nat.get("program") == 'print("Merhaba! Ey Ahali!")'
     ok_exact = r1.get("ok") and r1.get("program") == 'print("Merhaba! Ey Ahali!")'
     ok_exec = r1.get("stdout", "").strip() == "Merhaba! Ey Ahali!" and r1.get("verified") is True
     ok_s1 = r2.get("path") == "system1" and r2.get("program") == r1.get("program")
     ok_faster = dt2 <= max(30.0, dt1)
     ok_abstain = (r3.get("ok") is False) and r3.get("path") == "abstain" and r3.get("program") == ""
-    ok = ok_exact and ok_exec and ok_s1 and ok_faster and ok_abstain
-    return ok, (f"kod={r1.get('program')!r} | çalıştırma+doğrulama={ok_exec} | System-1={ok_s1} "
-                f"| {dt1:.1f}->{dt2:.1f} ms | belirsizde dürüst={ok_abstain}")
+    ok = ok_exact and ok_natural and ok_exec and ok_s1 and ok_faster and ok_abstain
+    return ok, (f"kod={r1.get('program')!r} | tırnaksız-doğal-istem={ok_natural} | çalıştırma+doğrulama={ok_exec} "
+                f"| System-1={ok_s1} | {dt1:.1f}->{dt2:.1f} ms | belirsizde dürüst={ok_abstain}")
 
 
 def a40_epistemic_persistence_and_mortal_memory():

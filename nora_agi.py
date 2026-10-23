@@ -592,6 +592,13 @@ class NoraAGI:
             self._log_turn(speaker, raw, seq_ans, t0)
             return seq_ans
 
+        # Kod istemi tek bir bütündür: içindeki ünlem/nokta metnin PARÇASI olabilir ('Merhaba! Ey Ahali!')
+        if self.code_cortex.is_requested(raw):
+            self.last_utterance_class = self.utter_cortex.classify(raw)
+            reply = self._handle_single_sentence(raw, speaker=speaker)
+            self._log_turn(speaker, raw, reply, t0)
+            return reply
+
         # Çok-cümleli öğreti + soru kombinasyonu kontrolü ('Kuşlar uçar. Karga bir kuştur. Karga uçar mı?')
         parts = [p.strip() for p in re.split(r"(?<=[.!?])\s+", raw) if p.strip()]
         # Ünlemli selamlama ('Merhaba Nora! Nasılsın?') tek bir doğal sosyal sözce olarak birleştirilir
@@ -1108,6 +1115,9 @@ class NoraAGI:
         """Soru ise inanç deposundan KANITLA yanıtlar; bildirim ise KARŞILAŞTIRARAK öğrenir.
         Hiçbir iddia 'kaydettim' diye kör kabul edilmez: çelişki/eksik ad -> yarışan hipotezler."""
         try:
+            # Kod istemi bir iddia değildir: inanç defterine yazılmaz.
+            if self.code_cortex.is_requested(raw):
+                return None, "", 0.0
             # Soruysa önce kanıt deposundan yanıtla; değilse öğren. (Soru asla 'iddia' diye kaydedilmez.)
             ans = self.episteme.answer(raw)
             if ans is not None:
