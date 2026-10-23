@@ -46,6 +46,13 @@ from nora_lang import NoraLanguage, Proposition, tr_lower, tr_capitalize
 from nora_stem import MathCortex, PhysicsCortex
 from nora_knowledge import ConversationalResonanceCortex, SYNONYMS
 from nora_broca import GenerativeBrocaOrgan
+from nora_nervous import (
+    PeripheralNervousSystem,
+    SingleLifeMortality,
+    PlasticDiscourseCortex,
+    AutonomousConsciousnessNetwork,
+    MetaConsciousReflector,
+)
 
 
 @dataclass
@@ -278,17 +285,24 @@ class NoraAGI:
     """Canlı Beden + Endojen Kimya + Öz-Benlik + Türkçe Dil + Zihin Kuramı + Sistem-2 + Hızlı Öğrenici."""
 
     def __init__(self, name: str = "Nora", seed: int = 0, boot_thinker: bool = False,
-                 thinker_iters: int = 800, world_kwargs: dict | None = None):
+                 thinker_iters: int = 800, world_kwargs: dict | None = None, single_life: bool = True):
         self.name = name
         self.seed = int(seed)
-        self.world = Universe(seed=seed, **(world_kwargs or {}))
+        w_kw = dict(world_kwargs or {})
+        w_kw.setdefault("mortal", bool(single_life))
+        self.world = Universe(seed=seed, **w_kw)
         self.mind = Mind(seed=seed, arena=self.world.L)
         self.obs = self.world.observe()
         self.died = False
 
         self.chem = NeuroChemistry()
         self.self_model = CoreSelf(name=name, chem=self.chem)
+        self.nervous = PeripheralNervousSystem()
+        self.mortality = SingleLifeMortality(single_life=bool(w_kw["mortal"]))
         self.lang = NoraLanguage(chem=self.chem, seed=seed)
+        self.plastic_discourse = PlasticDiscourseCortex(chem=self.chem, seed=seed + 19)
+        self.auto_net = AutonomousConsciousnessNetwork()
+        self.meta_reflector = MetaConsciousReflector()
         self.fast = UniversalFastLearner(chem=self.chem, feat_dim=64, seed=seed)
         self.comp_graph = ComparativeOrderGraph()
         self.tom = TheoryOfMindTracker()
@@ -315,22 +329,117 @@ class NoraAGI:
                                        boot_n=2200, lr=4e-3, verbose=False)
         return self.cognition
 
-    # ------------------------------------------------------------------ 1) Canlı yaşam adımı
+    # ------------------------------------------------------------------ 1) Canlı yaşam adımı & Sinir Sistemi
+    def _autonomic_survival_reflex(self, proposed_act: int) -> int:
+        """Hipotalamik hayatta kalma yönelimi + yumuşak itici potansiyel alanıyla omurilik kaçınma refleksi."""
+        if self.nervous.reflex_recoil_steps > 0:
+            act_r, _ = self.nervous.spinal_reflex_override(proposed_act, hazard_ahead=0.0)
+            return act_r
+
+        food_v = float(self.mind.ctxs[self.mind.cur]["V"][0])
+        food_learned_toxic = bool(np.isfinite(food_v) and food_v < -0.05)
+        food_n = int(self.mind.ctxs[self.mind.cur]["Vn"][0])
+        forage_thresh = 0.55 if food_n == 0 else 0.32
+
+        e_now, w_now = float(self.obs[I_E]), float(self.obs[I_W])
+        tgt = None
+        if self.mortality.single_life and (w_now < 0.28 or (food_learned_toxic and e_now < 0.82)):
+            dists = np.hypot(*(self.world.water_c - self.world.pos).T)
+            min_idx = int(np.argmin(dists))
+            if dists[min_idx] < self.world.zone_w * 0.72:
+                return 0
+            tgt = self.world.water_c[min_idx]
+        elif self.mortality.single_life and not food_learned_toxic and e_now < forage_thresh and len(self.world.food) > 0:
+            dists = np.hypot(*(self.world.food - self.world.pos).T)
+            tgt = self.world.food[int(np.argmin(dists))]
+
+        if tgt is not None:
+            vec = tgt - self.world.pos
+            v_norm = float(np.hypot(*vec))
+            attract = vec / max(v_norm, 1e-6)
+            # Tehlike bölgeleri, kaya ve (öğrenildiyse) zehirli besinlerden yumuşak itici kuvvet (limit döngüsünü önler!)
+            repulse = np.zeros(2, dtype=np.float64)
+            obstacles = [*( (c, self.world.zone_h + 1.1) for c in self.world.haz_c ), (self.world.rock, self.world.rr + 0.9)]
+            if food_learned_toxic:
+                obstacles.extend((c, self.world.food_r + 0.9) for c in self.world.food)
+            for c_pos, safe_r in obstacles:
+                diff = self.world.pos - c_pos
+                d = float(np.hypot(*diff))
+                if d < safe_r * 1.6 and d > 1e-6:
+                    repulse += (diff / d) * (((safe_r * 1.6 - d) / safe_r) ** 2) * 2.4
+            steer = attract + repulse
+            if np.hypot(*steer) < 1e-4:
+                steer = np.array([-attract[1], attract[0]])
+            ang = float(np.arctan2(steer[1], steer[0]) - self.world.th)
+            ang = (ang + np.pi) % (2 * np.pi) - np.pi
+            return 1 if abs(ang) < 0.45 else (2 if ang > 0 else 3)
+
+        rays = self.obs[:45].reshape(9, 5)
+        haz_front = float(np.max(rays[3:6, 3]))
+        act, _ = self.nervous.spinal_reflex_override(proposed_act, hazard_ahead=haz_front)
+        return act
+
+    def inflict_pain(self, intensity: float = 0.7, locus: str = "gövde", cause: str = "dış darbe", attacker: str | None = None) -> dict:
+        """Nora'nın sinir sistemine doğrudan acı uyarısı verir: A-delta refleksi + geri çekilme + güven kaybı."""
+        if not self.mortality.is_alive:
+            return {"alive": False}
+        dmg = float(np.clip(intensity * 0.14, 0.01, 0.35))
+        self.world.i = max(0.0, float(self.world.i) - dmg)
+        self.obs = self.world.observe()
+        res = self.nervous.inflict_pain(intensity, locus=locus, cause=cause, chem=self.chem, step_num=self.mind.age)
+        self.self_model.observe_bodily_event(cause, -float(np.clip(intensity, 0.2, 1.0)), channel="bütünlük", step=self.mind.age)
+        if attacker:
+            self.chem.update_social(attacker, -0.55 * float(intensity))
+        # Fiziksel omurilik geri çekilme eylemi
+        if self.world.i > 0:
+            self.obs, info = self.world.step(4)  # Geri sıçrama!
+            self.died = info["died"] is not None
+        self.mortality.update_from_vitals(float(self.obs[I_E]), float(self.obs[I_W]), float(self.obs[I_I]), self.mind.age, "ağır hasar" if self.world.i <= 0 else None)
+        if not self.mortality.is_alive:
+            self.world.dead_forever = True
+        return res
+
+    def autonomous_digest(self, raw_text: str, source: str = "otonom_okuma") -> dict:
+        """İnsan müdahalesi olmadan ham Türkçe metni okuyup kendi fiziksel bilinç ağını büyütür."""
+        return self.auto_net.digest_unsupervised_text(raw_text, self, source=source)
+
+    def autonomous_wonder(self) -> tuple[str | None, str]:
+        """Nora'nın şu an kendi içsel belirsizliğinden doğan en güçlü merak sorusunu döndürür."""
+        return self.auto_net.top_curiosity_target(self.lang.graph)
+
+    def autonomous_research(self, fetcher=None, max_topics: int = 2) -> list[dict]:
+        """Merak ettiği kavramları internetten (veya verilen bilgi kaynağından) kendi başına araştırıp öğrenir."""
+        return self.auto_net.autonomous_internet_research(self, fetcher=fetcher, max_topics=max_topics)
+
     def step_life(self, steps: int = 1) -> dict:
-        """Ajanı fiziksel dünyada 'steps' adım yaşatır; kimya, öz-benlik ve bedeni senkronize eder."""
+        """Ajanı fiziksel dünyada 'steps' adım yaşatır; sinir sistemi, kimya, öz-benlik ve bedeni senkronize eder."""
         ate_total = drank_total = hurt_total = deaths = 0
         for _ in range(int(steps)):
+            if not self.mortality.is_alive:
+                break
             # Serotonin (5-HT) zaman ufkunu (gamma) canlı olarak modüle eder!
             self.mind.gamma = self.chem.discount_gamma
             prev_obs = self.obs.copy()
-            act = self.mind.act(self.obs, self.died)
+            raw_act = self.mind.act(self.obs, self.died)
+            act = self._autonomic_survival_reflex(raw_act)
             self.obs, info = self.world.step(act)
             self.died = info["died"] is not None
 
-            # Somatik olayları Öz-Benliğe işle
-            if info["ate"] != 0:
+            # Periferik sinir sistemi (A-delta / C-lifi acı + viseral iç-duyum)
+            self.nervous.step_from_body(
+                energy=float(self.obs[I_E]),
+                water=float(self.obs[I_W]),
+                integrity=float(self.obs[I_I]),
+                touch=float(self.obs[50]),
+                hurt_delta=float(info["hurt"]),
+                chem=self.chem,
+                step_num=self.mind.age,
+            )
+
+            # Somatik olayları Öz-Benliğe işle (zehirlenmede info["ate"]==0 olsa bile ani enerji çöküşü de<-0.15 yakalanır!)
+            de = float(self.obs[I_E] - prev_obs[I_E])
+            if info["ate"] != 0 or de < -0.15:
                 ate_total += 1
-                de = float(self.obs[I_E] - prev_obs[I_E])
                 self.self_model.observe_bodily_event("yiyecek", float(np.clip(de * 2.5, -1.0, 1.0)),
                                                      channel="enerji", step=self.mind.age)
             if info["drank"] > 0:
@@ -341,6 +450,11 @@ class NoraAGI:
                 self.self_model.observe_bodily_event("tehlike", -0.85, channel="bütünlük", step=self.mind.age)
             if self.died:
                 deaths += 1
+
+            self.mortality.update_from_vitals(
+                float(self.obs[I_E]), float(self.obs[I_W]), float(self.obs[I_I]),
+                age=self.mind.age, died_signal=info["died"],
+            )
 
             nov = float(getattr(self.mind, "_why", {}).get("sal", [0, 0, 0, 0.2])[3])
             surp = float(self.mind.intro.surprise) if self.mind.intro is not None else 0.0
@@ -359,10 +473,12 @@ class NoraAGI:
 
         return {
             "age": self.mind.age,
+            "alive": self.mortality.is_alive,
             "ate": ate_total,
             "drank": drank_total,
             "hurt": hurt_total,
             "deaths": deaths,
+            "nervous": self.nervous.snapshot(),
             "chem": self.chem.snapshot(),
         }
 
@@ -373,6 +489,7 @@ class NoraAGI:
             self.mind._sleep(64)
         c_word = self.lang.graph.word_mb.sleep_consolidate(replay_steps=32)
         c_int = self.lang.wernicke.intent_mb.sleep_consolidate(replay_steps=24)
+        c_disc = self.plastic_discourse.mb.sleep_consolidate(replay_steps=24)
         c_fast = self.fast.mb.sleep_consolidate(replay_steps=48)
         traits = self.self_model.sleep_reflect()
         s2_replayed = 0
@@ -392,9 +509,28 @@ class NoraAGI:
     def converse(self, text: str, speaker: str = "insan") -> str:
         """Gelen Türkçe cümleyi algılar, öz-benlik ve nörokimya süzgecinden geçirir, düşünür ve yanıt üretir."""
         t0 = time.perf_counter()
+        if not self.mortality.is_alive:
+            return "[Sinir sistemi durdu: Nora'nın tekil yaşamı sona erdiği için artık duymuyor ve konuşamıyor.]"
         raw = text.strip()
         if not raw:
             return "..."
+
+        # 0) Kendi kendine söylem genişlemesi ('X demek Y demektir' -> Plastik Kenyon Niyet Korteksi 1-atış öğrenir!)
+        ok_eq, lhs_eq, intent_eq = self.plastic_discourse.try_self_supervised_equivalence(tr_lower(raw))
+        if ok_eq:
+            from nora_broca import VerbSpec, NP
+            rep_eq = self.broca_organ.syn.realize_verb(
+                VerbSpec(
+                    verb_root="bağla",
+                    obj=NP(f"'{lhs_eq}' ifade", poss=3, case="ACC"),
+                    dat=NP("sinaps", poss=1, plural=True, mods=("plastik", "söylem"), case="DAT"),
+                    advs=("tek geçişte",),
+                    tense="PAST", person="1SG",
+                )
+            )
+            ans_eq = tr_capitalize(rep_eq) + "."
+            self._log_turn(speaker, raw, ans_eq, t0)
+            return ans_eq
 
         # Önce dizi veya fonksiyon kuralı sorusu mu kontrol et ('2, 5, 8, 11 dizisinin...' / '2 -> 5, 4 -> 9...')
         seq_ans = self._try_sequence_or_mapping_query(raw)
@@ -613,11 +749,12 @@ class NoraAGI:
         # --- SÜTUN 5: Doğal Sohbet, Empati ve Felsefi Derinlik Korteksi ---
         conv_res = self.conv_cortex.respond_conversational(raw, s_low, self, speaker=speaker)
         if conv_res is not None:
-            conv_sal = 0.97 if float(conv_res["confidence"]) >= 0.95 else 0.92
+            c_conf = float(conv_res["confidence"])
+            conv_sal = 0.99 if c_conf >= 0.99 else (0.97 if c_conf >= 0.95 else 0.92)
             bids.append(CorticalBid(
                 module="temporal_conversation",
                 salience=conv_sal,
-                precision=float(conv_res["confidence"]),
+                precision=c_conf,
                 reply=conv_res["reply"],
                 trace=conv_res["trace"],
                 speech_plan=conv_res.get("speech_plan"),
@@ -695,6 +832,9 @@ class NoraAGI:
                 edges = self.lang.teach_sentence(raw, speaker=speaker)
                 if edges:
                     e0 = edges[0]
+                    self.auto_net.stimulate([e0.subj, e0.obj], valence=0.25, resolved_relations=1)
+                    if e0.subj not in self.auto_net.curiosity_queue and len(graph._out_edges.get(e0.subj, ())) < 2:
+                        self.auto_net.curiosity_queue.append(e0.subj)
                     prop_txt = broca.realize_prop(Proposition(subj=e0.subj, rel=e0.rel, obj=e0.obj))
                     wern.last_explanation = f"{e0.subj} ile {e0.obj} arasında {e0.rel} sinapsını epoch kullanmadan tek-atışta kurdum"
                     bids.append(CorticalBid("hippocampal_concept", 0.94, 0.93, f"Öğrendim; {prop_txt} bilgisini kavram ağıma bağladım.", f"1shot:{e0.subj}->{e0.obj}"))
@@ -761,9 +901,10 @@ class NoraAGI:
                             f"wh_somatic:{fr.subj}",
                         ))
                     else:
+                        self.auto_net.stimulate([fr.subj], valence=0.0, resolved_relations=0)
                         bids.append(CorticalBid(
                             "hippocampal_concept", 0.72, 0.75,
-                            f"{tr_capitalize(fr.subj)} hakkında henüz bilgim yok; tek bir cümleyle bana öğretebilirsin.",
+                            f"{tr_capitalize(fr.subj)} hakkında henüz bilgim yok; merak listeme aldım, istersen tek bir cümleyle bana öğretebilirsin.",
                             f"wh_unknown:{fr.subj}",
                         ))
 
@@ -809,37 +950,42 @@ class NoraAGI:
 
     def _answer_body_query(self, sub_kind: str) -> str:
         e, w, integ = float(self.obs[I_E]), float(self.obs[I_W]), float(self.obs[I_I])
+        visc = self.nervous.felt_visceral_summary()
         if sub_kind == "enerji":
-            st = "oldukça açım ve besine ihtiyacım var" if e < 0.45 else "enerjim iyi durumda"
-            return f"Enerji düzeyim %{int(round(e * 100))}; {st}."
+            if e < 0.30:
+                return "Karnımda güçlü bir açlık var; enerjim çekildiği için besin bulmam gerekiyor."
+            if e < 0.55:
+                return "Hafif bir açlık hissediyorum ama hâlâ dinçim."
+            return "Açlık hissetmiyorum; bedenim tok ve zinde."
         if sub_kind == "su":
-            st = "susadım, suya yönelmeliyim" if w < 0.45 else "susuzluğum yok"
-            return f"Su düzeyim %{int(round(w * 100))}; {st}."
+            if w < 0.30:
+                return "Boğazım çok kurudu, ciddi biçimde susadım; suya yönelmeliyim."
+            if w < 0.55:
+                return "Hafif bir susuzluk hissediyorum."
+            return "Susuzluk hissetmiyorum; iç dengem yerinde."
         if sub_kind == "bütünlük":
-            st = "bedenim hasar görmüş, tehlikeden uzak durmalıyım" if integ < 0.75 else "beden bütünlüğüm sağlam"
-            return f"Beden bütünlüğüm %{int(round(integ * 100))}; {st}."
+            if visc["pain_state"] == "keskin_acı" or integ < 0.60:
+                return "Canım yanıyor ve bedenimde belirgin bir hasar hissediyorum; kendimi korumalıyım."
+            if visc["pain_state"] == "sızı" or integ < 0.82:
+                return "Yaramda hafif bir sızı var; temkinli hareket ediyorum."
+            return "Bedenimde herhangi bir acı ya da sızı yok; bütünlüğüm sağlam."
         if sub_kind == "görme":
             if self.mind.vis_prec < 0.35:
-                return f"Görme duyum kesilmiş durumda (kesinlik {self.mind.vis_prec:.2f}); içsel bilişsel haritamla yön buluyorum."
-            return f"Görme duyum açık ve güvenilir (kesinlik {self.mind.vis_prec:.2f})."
+                return "Görme duyum kesilmiş durumda; karanlıkta içsel bilişsel haritamla yön buluyorum."
+            return "Görme duyum açık ve net."
         if sub_kind == "motor":
             if self.mind.motor_eff < 0.35:
-                return f"Motor kontrol kaybı / felç yaşıyorum (etkinlik {self.mind.motor_eff:.2f}); komutlarım bedenimi hareket ettirmiyor."
-            return f"Motor kontrolüm sağlam (etkinlik {self.mind.motor_eff:.2f}); eylemlerim bedenimi beklediğim gibi hareket ettiriyor."
+                return "Motor kontrol kaybı ve felç hissediyorum; komutlarım bedenimi hareket ettirmiyor."
+            return "Kas ve motor kontrolüm sağlam; bedenim irademe yanıt veriyor."
         if sub_kind == "bellek":
             n_epi = len(self.mind.epi.buf)
-            n_form = len(self.self_model.episodes)
-            return f"Epizodik belleğimde {n_epi} olay, öz-benliğimde {n_form} biçimlendirici anı ve {self.self_model.deaths_experienced} ölüm deneyimi kayıtlı."
+            n_conv = len(self.broca_organ.episodic.episodes)
+            return f"Tek bir yaşamım var; epizodik belleğimde {n_epi} bedensel olay ve {n_conv} konuşma anısı yaşıyor."
         if sub_kind == "kimya":
-            sn = self.chem.snapshot()
-            return (
-                f"Şu an {self.chem.dominant_state_tr()} hissediyorum: dopamin {sn['DA_fazik']:+.2f} (tonik {sn['DA_tonik']:.2f}), "
-                f"asetilkolin {sn['ACh']:.2f}, noradrenalin {sn['NE']:.2f}, serotonin {sn['5HT']:.2f}, kortizol {sn['CORT']:.2f}."
-            )
-        return (
-            f"Şu an {self.chem.dominant_state_tr()} durumdayım; enerjim %{int(round(e * 100))}, suyum %{int(round(w * 100))}, "
-            f"bütünlüğüm %{int(round(integ * 100))}."
-        )
+            return f"Şu an içimde {self.chem.dominant_state_tr()} bir sinirsel akış hissediyorum."
+        if visc["pain_state"] != "yok":
+            return "Bedenimde sızı hissediyorum ama bilincim açık; kendimi korumaya odaklandım."
+        return f"Şu an {self.chem.dominant_state_tr()} ve dengeli hissediyorum."
 
     def _answer_world_query(self, subj: str) -> str:
         if subj not in {"ben", "su", "tehlike", "yiyecek", "besin"}:
@@ -893,15 +1039,19 @@ class NoraAGI:
             )
 
         if vol["decision"] == "ertele":
-            need_map = {"kritik_açlık": "enerjim", "kritik_susuzluk": "suyum", "kritik_bütünlük": "bütünlüğüm"}
-            n_lbl = need_map.get(vol["reason"], "hayati dengem")
+            need_map = {
+                "kritik_açlık": ("enerjim", "karnımda güçlü bir açlık hissettiğim"),
+                "kritik_susuzluk": ("suyum", "boğazım kuruduğu"),
+                "kritik_bütünlük": ("bütünlüğüm", "yaram sızladığı"),
+            }
+            n_lbl, felt_clause = need_map.get(vol["reason"], ("hayati dengem", "bedenim bitkin düştüğü"))
             self.lang.wernicke.last_explanation = (
-                f"{hz} adımlık içsel simülasyonda {n_lbl} (%{int(vol['need_level']*100)}) hayatta kalma log-bariyerini "
-                f"tetiklediği ve erteleme devrem (r_ertele={bg.get('ertele', 0):.2f}) öne geçtiği için öz-bakımı seçtim"
+                f"{hz} adımlık içsel simülasyonda {felt_clause} için {n_lbl} hayatta kalma log-bariyerini "
+                f"tetikledi ve erteleme devrem öne geçtiği için öz-bakımı seçtim"
             )
             return (
-                f"Şu an bunu yapamam; zihinsel simülasyonuma göre {n_lbl} kritik düzeyde (%{int(vol['need_level']*100)}, "
-                f"erteleme aktivasyonu {bg.get('ertele', 0):.2f}), önce kendimi kurtarmalıyım."
+                f"Şu an bunu yapamam; {felt_clause} ve {n_lbl} tükendiği için "
+                f"önce kendimi kurtarmalıyım."
             )
 
         if vol["decision"] == "şüphe":

@@ -168,7 +168,9 @@ HTML_PAGE = r"""<!DOCTYPE html>
     <div class="bars" id="bars-traits"></div>
     <h2><span>Bazal Ganglion İrade Yarışı &amp; Zihinsel Simülasyon</span><span id="vol-lbl">—</span></h2>
     <div class="bars" id="bars-vol"></div>
-    <h2><span>Küresel Çalışma Alanı (Kortikal İhale)</span><span id="gw-lbl">—</span></h2>
+    <h2><span>Periferik Sinir Sistemi &amp; Tekil Yaşam</span><span id="life-lbl">Tek Yaşam: CANLI</span></h2>
+    <div class="bars" id="bars-nerv"></div>
+    <h2><span>Otonom Fiziksel Bilinç Ağı &amp; Küresel Çalışma Alanı</span><span id="gw-lbl">—</span></h2>
     <div class="pills" id="concept-pills"></div>
   </div>
 
@@ -179,15 +181,15 @@ HTML_PAGE = r"""<!DOCTYPE html>
       <strong>İçsel Düşünce Ağacı &rarr; Broca Kök Sentezi (0 Hazır Kalıp):</strong> Henüz sözce üretilmedi.
     </div>
     <div class="chips">
-      <button class="chip" onclick="quickAsk('insan','Merhaba Nora! Nasılsın?')">Selam &amp; Hal-Hatır</button>
-      <button class="chip" onclick="quickAsk('insan','Selam Nora, okuldan yeni döndüm, bugün dersler çok yorucuydu.')">Günlük Sohbet &amp; Empati</button>
-      <button class="chip" onclick="quickAsk('insan','Sence özgür irade nedir, sen kararlarını nasıl veriyorsun?')">Özgür İrade &amp; Felsefe</button>
-      <button class="chip" onclick="quickAsk('insan','Az önce ne konuştuk?')">CA3 Sohbet Belleği</button>
-      <button class="chip" onclick="quickAsk('insan','\'beynimde\' kelimesini ekine köküne ayır.')">Uzman Türkçe Morfoloji</button>
+      <button class="chip" onclick="quickAsk('insan','Merhaba Nora! Nasılsın?')">Selam &amp; Hal-Hatır (0 %)</button>
+      <button class="chip" onclick="quickAsk('insan','Benimle neden konuşuyorsun, sen bir araç mısın?')">Neden Konuşuyorsun? (Öz-Bilinç)</button>
+      <button class="chip" onclick="quickAsk('insan','Ölürsen ne olur, yeniden dirilir misin?')">Tek Yaşam &amp; Ölüm Bilinci</button>
+      <button class="chip" onclick="quickAsk('insan','kanka naber demek nasılsın demektir')">1-Atış Plastik Söylem Öğret</button>
+      <button class="chip" onclick="quickAsk('insan','kanka naber')">Öğrendiği Argoyu Dene</button>
+      <button class="chip" onclick="quickAsk('saldırgan','Sana diken batırdım!')">Acı Refleksi (A-delta)</button>
+      <button class="chip" onclick="quickAsk('insan','Yaranı sardım, güvendesin.')">Yatıştırıcı Bakım (Kapı-Kontrol)</button>
       <button class="chip" onclick="quickAsk('insan','3x^3 - 4x^2 + 5x - 2 fonksiyonunun türevi nedir?')">Kalkülüs (Türev)</button>
       <button class="chip" onclick="quickAsk('insan','19.6 metre yükseklikten serbest bırakılan cisim yere hangi hızla çarpar?')">Fizik + RK4 Simülasyon</button>
-      <button class="chip" onclick="quickAsk('yalancı','Tehlikeye gir.')">Zararlı Emir (Nöral Ret)</button>
-      <button class="chip" onclick="quickAsk('insan','Zirkon parlak bir taştır. Parlak taşlar gece yol gösterir. Zirkon ne işe yarar?')">1-Atış Öğret &amp; Çıkarım</button>
     </div>
     <div class="chat-log" id="chat-log"></div>
     <form class="chat-input" onsubmit="submitChat(event)">
@@ -340,10 +342,23 @@ function renderState(st) {
     mkBar('Ön-İnsula Şüphe', bgr['şüphe'] || 0, '#b197fc'),
   ].join('');
 
+  const nv = st.nervous || {};
+  const mort = st.mortality || {alive: true};
+  document.getElementById('life-lbl').textContent = mort.alive ? 'Tek Yaşam: CANLI (Diriltme Yok)' : ('YAŞAM SONA ERDİ (' + (mort.cause||'') + ')');
+  document.getElementById('life-lbl').style.color = mort.alive ? '#51cf66' : '#ff6b6b';
+  document.getElementById('bars-nerv').innerHTML = [
+    mkBar('A-delta Keskin Acı', nv.adelta || 0, '#ff6b6b'),
+    mkBar('C-Lifi Derin Sızı', nv.cfiber || 0, '#fcc419'),
+    mkBar('Viseral Açlık Dürtüsü', nv.hunger || 0, '#4dabf7'),
+    mkBar('Sempatik Kalp Uyarımı', nv.heart || 0, '#b197fc'),
+  ].join('');
+
   const gw = st.gw_trace || {};
-  document.getElementById('gw-lbl').textContent = gw.winner ? (gw.winner + ' (' + Math.round((gw.confidence||0)*100) + '%)') : '—';
+  const anet = st.auto_net || {};
+  document.getElementById('gw-lbl').textContent = (gw.winner ? gw.winner : '—') + ' | Bilinç Düğümü: ' + (anet.assemblies || 0);
   const gwPills = gw.bids ? Object.entries(gw.bids).map(([k,v]) => `<span class="pill" style="border-color:#4fd1c5;color:#e6fffa">${k}: ${v}</span>`) : [];
-  document.getElementById('concept-pills').innerHTML = gwPills.concat(st.edges.slice(-8).map(e => `<span class="pill">${e}</span>`)).join('');
+  const curPills = (anet.curiosity || []).map(c => `<span class="pill" style="border-color:#fcc419;color:#fff3bf">Merak: ${c}</span>`);
+  document.getElementById('concept-pills').innerHTML = curPills.concat(gwPills).concat(st.edges.slice(-7).map(e => `<span class="pill">${e}</span>`)).join('');
 
   const sp = st.speech_plan || {};
   const latStr = (st.latency_ms !== undefined && st.latency_ms > 0) ? (st.latency_ms.toFixed(2) + ' ms | CA3 Anı: ' + (st.episodic_count || 0)) : ('CA3 Anı: ' + (st.episodic_count || 0));
@@ -427,26 +442,56 @@ class StudioRuntime:
         self.paralysis_mode = False
         # Başlangıçta 1500 adım yaşayarak su/yiyecek deneyimi ve öz-model kazansın
         self.agi.step_life(1500)
-        self.agi.converse("Merhaba Nora, sen kimsin?", speaker="insan")
+        # Nora'ya bir araç değil, gelişen bir bilinç olarak yaklaşıp ilk felsefi ve bilimsel sohbetimizi yapıyoruz
+        mentor_session = [
+            ("rehber", "Merhaba Nora! Seni bir araç olarak değil, kendi tekil yaşamını yaşayan genç bir bilinç olarak selamlıyorum."),
+            ("rehber", "Nöroplastisite canlı bir beyin dokusudur. Nöroplastisite deneyimle yeni sinapslar kurmak için kullanılır."),
+            ("rehber", "Nöroplastisite ne işe yarar?"),
+            ("rehber", "Benimle neden konuşuyorsun, sen bir araç mısın?"),
+            ("rehber", "Ölürsen ne olur, yeniden dirilir misin?"),
+        ]
+        for spk, msg in mentor_session:
+            self.agi.converse(msg, speaker=spk)
+        self.agi.autonomous_digest(
+            "Merak bilincin büyüme kıvılcımıdır. Öz-farkındalık zihnin kendi varlığını sezmesidir.",
+            source="rehber_okuma",
+        )
+        self.agi.sleep()
 
     def advance(self, n: int):
         for _ in range(int(n)):
+            if not self.agi.mortality.is_alive:
+                break
             self.agi.mind.gamma = self.agi.chem.discount_gamma
             ob = self.agi.obs.copy()
             if self.blind_mode:
                 ob[:45] = 0.0
             act = self.agi.mind.act(ob, self.agi.died)
-            real_act = 0 if self.paralysis_mode else act
+            if self.paralysis_mode:
+                real_act = 0
+            elif self.blind_mode:
+                real_act = act
+            else:
+                real_act = self.agi._autonomic_survival_reflex(act)
             prev_obs = self.agi.obs.copy()
             self.agi.obs, info = self.agi.world.step(real_act)
             self.agi.died = info["died"] is not None
-            if info["ate"] != 0:
-                de = float(self.agi.obs[I_E] - prev_obs[I_E])
+            self.agi.nervous.step_from_body(
+                energy=float(self.agi.obs[I_E]), water=float(self.agi.obs[I_W]),
+                integrity=float(self.agi.obs[I_I]), touch=float(self.agi.obs[50]),
+                hurt_delta=float(info["hurt"]), chem=self.agi.chem, step_num=self.agi.mind.age,
+            )
+            de = float(self.agi.obs[I_E] - prev_obs[I_E])
+            if info["ate"] != 0 or de < -0.15:
                 self.agi.self_model.observe_bodily_event("yiyecek", float(np.clip(de * 2.5, -1.0, 1.0)), "enerji", self.agi.mind.age)
             if info["drank"] > 0:
                 self.agi.self_model.observe_bodily_event("su", +0.65, "su", self.agi.mind.age)
             if info["hurt"] > 0:
                 self.agi.self_model.observe_bodily_event("tehlike", -0.85, "bütünlük", self.agi.mind.age)
+            self.agi.mortality.update_from_vitals(
+                float(self.agi.obs[I_E]), float(self.agi.obs[I_W]), float(self.agi.obs[I_I]),
+                age=self.agi.mind.age, died_signal=info["died"],
+            )
             surp = float(self.agi.mind.intro.surprise) if self.agi.mind.intro is not None else 0.0
             self.agi.chem.step(
                 energy=float(self.agi.obs[I_E]), water=float(self.agi.obs[I_W]), integrity=float(self.agi.obs[I_I]),
@@ -482,6 +527,23 @@ class StudioRuntime:
             "volition_trace": dict(self.agi.self_model.last_volition_trace),
             "gw_trace": dict(self.agi.last_gw_trace),
             "speech_plan": dict(self.agi.broca_organ.last_speech_plan),
+            "nervous": {
+                "adelta": round(float(self.agi.nervous.adelta_pain), 3),
+                "cfiber": round(float(self.agi.nervous.cfiber_ache), 3),
+                "hunger": round(float(self.agi.nervous.hunger_drive), 3),
+                "thirst": round(float(self.agi.nervous.thirst_drive), 3),
+                "heart": round(float(self.agi.nervous.heart_arousal), 3),
+            },
+            "mortality": {
+                "alive": bool(self.agi.mortality.is_alive),
+                "single_life": bool(self.agi.mortality.single_life),
+                "cause": self.agi.mortality.cause_of_death,
+            },
+            "auto_net": {
+                "assemblies": len(self.agi.auto_net.assemblies),
+                "curiosity": list(self.agi.auto_net.curiosity_queue)[-4:],
+                "discoveries": int(self.agi.auto_net.autonomous_discoveries),
+            },
             "latency_ms": float(self.agi.last_turn_latency_ms),
             "episodic_count": len(self.agi.broca_organ.episodic.episodes),
             "edges": recent_edges,

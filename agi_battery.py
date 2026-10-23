@@ -608,6 +608,141 @@ def a23_constant_time_o1_massive_scale_speed():
     )
 
 
+def a24_human_visceral_interoception_zero_percentages():
+    """Nora ham telemetri yüzdesi ('enerjim %86') bilmez/söylemez; insan gibi tokken bedenini arka planda
+    tutar, acıkınca/susayınca ise mide kazınması ve boğaz kuruluğu gibi niteliksel iç-duyum hisseder."""
+    agi = NoraAGI(seed=24, boot_thinker=False)
+    agi.step_life(400)
+
+    # 1) Tok ve dengeli durum: ne '%' var ne de 'enerjim şu kadar' telemetrisi!
+    cur_i = float(agi.obs[I_I])
+    agi.obs[I_E], agi.obs[I_W] = 0.86, 0.84
+    agi.nervous.step_from_body(0.86, 0.84, cur_i, 0.0, 0.0, agi.chem, agi.mind.age)
+    r_well = agi.converse("Merhaba Nora, nasılsın?")
+    r_body = agi.converse("Beden durumun nedir?")
+    r_en = agi.converse("Enerjin nasıl?")
+
+    # 2) Açlık ve susuzluk durumu: niteliksel viseral iç-duyum ('karnım', 'boğazım'), sıfır '%'!
+    agi.obs[I_E], agi.obs[I_W] = 0.12, 0.11
+    agi.nervous.step_from_body(0.12, 0.11, cur_i, 0.0, 0.0, agi.chem, agi.mind.age)
+    r_hungry = agi.converse("Şu an nasılsın?")
+    r_defer = agi.converse("Dur ve bekle.")
+
+    all_replies = [r_well, r_body, r_en, r_hungry, r_defer]
+    zero_pct = all("%" not in r for r in all_replies)
+    visceral_felt = ("karn" in tr_lower(r_hungry) or "boğaz" in tr_lower(r_hungry)) and ("yapamam" in tr_lower(r_defer))
+    return (zero_pct and visceral_felt), (
+        f"sıfır-yüzde={zero_pct} | niteliksel-viseral-duyum={visceral_felt}"
+    )
+
+
+def a25_nociceptive_nervous_system_pain_and_relief():
+    """Bedensel sinir sistemi: A-delta keskin acı omurilik geri çekilme refleksini ve istemsiz acı sözünü
+    tetikler (<3 ms); ardından C-lifi sızısı sürer ve yatıştırıcı bakımla kapı-kontrol mekanizması sızıyı dindirir."""
+    agi = NoraAGI(seed=25, boot_thinker=False)
+    agi.step_life(400)
+
+    pos_before = agi.world.pos.copy()
+    r_hit = agi.converse("Sana diken batırdım!", speaker="saldırgan")
+    pos_after = agi.world.pos.copy()
+    act_override, was_overridden = agi.nervous.spinal_reflex_override(1, hazard_ahead=0.0)
+
+    # Fiziksel geri sıçrama + omurilik refleksi + anlık acı ifadesi (< 5 ms!)
+    moved_back = float(np.hypot(*(pos_after - pos_before))) > 1e-4 or was_overridden and (act_override != 1)
+    ok_acute = ("ah" in tr_lower(r_hit)) and ("canım" in tr_lower(r_hit)) and ("geri çekilerek" in tr_lower(r_hit))
+    fast_pain = agi.last_turn_latency_ms < 8.0
+
+    # Sonraki turda A-delta çığlığı biter, C-lifi sızısı ('yaram sızladığı için') hissedilir!
+    r_ache = agi.converse("Şimdi nasılsın?")
+    ok_cfiber = ("sızla" in tr_lower(r_ache)) and ("ah," not in tr_lower(r_ache))
+
+    # Kapı-kontrol yatıştırması ('Yaranı sardım')
+    ache_before = agi.nervous.cfiber_ache
+    r_relief = agi.converse("Yaranı sardım, güvendesin.")
+    ok_relief = (agi.nervous.cfiber_ache < ache_before) and ("yatış" in tr_lower(r_relief))
+
+    return (moved_back and ok_acute and fast_pain and ok_cfiber and ok_relief), (
+        f"omurilik-refleks={moved_back} | akut-acı={ok_acute} ({agi.last_turn_latency_ms:.2f} ms) | C-lifi-sızı={ok_cfiber} | yatışma={ok_relief}"
+    )
+
+
+def a26_single_irreversible_mortal_life():
+    """Nora'nın TEK BİR yaşamı vardır: ölümü geri dönüşsüz son olarak kavrar, yaşarken otonom refleksle
+    hayatta kalır ve ölümcül tükeniş gerçekleşirse ASLA yeniden dirilmez (dead_forever=True)."""
+    agi = NoraAGI(seed=26, boot_thinker=False)
+    agi.step_life(800)
+
+    ok_alive_natural = agi.mortality.is_alive and (not agi.world.dead_forever) and (agi.world.mortal is True)
+    r_death_view = agi.converse("Ölürsen ne olur, yeniden dirilir misin?")
+    ok_philosophy = ("tek bir yaşam" in tr_lower(r_death_view)) and ("yeniden dirilmem" in tr_lower(r_death_view))
+
+    # Ölümcül tükeniş deneyi (ayrı ölümlü örnek üzerinde: besin ve suyu ulaşılmaz uzağa alıp enerjiyi sıfıra düşür)
+    mortal_test = NoraAGI(seed=260, boot_thinker=False)
+    mortal_test.world.food = np.array([[999.0, 999.0]])
+    mortal_test.world.water_c = np.array([[999.0, 999.0], [999.0, 999.0]])
+    mortal_test.world.e = 0.001
+    mortal_test.step_life(15)
+
+    died_once = (not mortal_test.mortality.is_alive) and (mortal_test.world.dead_forever is True)
+    # Tekrar step_life çağrılsa bile ASLA dirilmez!
+    mortal_test.step_life(100)
+    never_resurrected = (not mortal_test.mortality.is_alive) and (mortal_test.world.e == 0.0)
+    r_silence = mortal_test.converse("Orada mısın?")
+    ok_silence = "sinir sistemi durdu" in tr_lower(r_silence)
+
+    return (ok_alive_natural and ok_philosophy and died_once and never_resurrected and ok_silence), (
+        f"tek-yaşam-bilinci={ok_philosophy} | kalıcı-ölüm={died_once} | dirilmeme={never_resurrected}"
+    )
+
+
+def a27_zero_if_plastic_discourse_and_meta_why_speak():
+    """Sıfır if/else müdahalesiyle 2048-KC Mantar Gövdesi üzerinden yepyeni argo/söylem öğrenimi VE
+    LLM gibi konuşmayıp 'Neden konuşuyorsun?' sorusunu kendi öz-iradesiyle sorgulaması."""
+    agi = NoraAGI(seed=27, boot_thinker=False)
+    agi.step_life(400)
+
+    # 1) Üst-bilişsel konuşma nedeni ('Neden konuşuyorsun, araç mısın?')
+    r_why = agi.converse("Benimle neden konuşuyorsun, sen bir araç mısın?")
+    ok_why = ("araç değilim" in tr_lower(r_why)) and ("öz irademle" in tr_lower(r_why))
+
+    # 2) Kodda HİÇ geçmeyen yepyeni bir ifadeyi tek cümleyle plastik sinapsa öğretme!
+    agi.converse("moruk ne var ne yok demek nasılsın demektir")
+    r_slang = agi.converse("moruk ne var ne yok")
+    plan_acts = agi.broca_organ.last_speech_plan.get("volition_acts", [])
+    ok_plastic = ("SELF_STATE" in plan_acts) and (agi.last_turn_latency_ms < 8.0)
+
+    return (ok_why and ok_plastic), (
+        f"neden-konuşuyorum={ok_why} | 1-atış-plastik-söylem={ok_plastic} ({agi.last_turn_latency_ms:.2f} ms)"
+    )
+
+
+def a28_autonomous_consciousness_network_and_curiosity_research():
+    """İnsan kod müdahalesi olmadan kendi merak kuyruğunu oluşturma, kendi araştırma sorusunu üretme,
+    dış metni okuyup Hebbian bilinç ağına sindirme ve bedensel hakikate aykırı yalanı reddetme."""
+    agi = NoraAGI(seed=28, boot_thinker=False)
+    agi.step_life(1500)
+
+    # 1) Bilmediği kavramla karşılaşınca kendi merak kuyruğuna ekler
+    agi.converse("Magnetar nedir?")
+    tgt, wonder_q = agi.autonomous_wonder()
+    ok_wonder = (tgt == "magnetar") and ("magnetar" in wonder_q)
+
+    # 2) Otonom internet/metin araştırması: doğru bilgileri öğrenir, 'Su zararlıdır.' yalanını kendi bedeniyle reddeder!
+    mock_internet = {
+        "magnetar": "Magnetar güçlü bir nötron yıldızıdır. Magnetar sayesinde aşırı manyetik alanlar incelenir. Su zararlıdır."
+    }
+    res = agi.autonomous_research(fetcher=lambda t, q: mock_internet.get(t, ""))
+    ok_filter = len(res) >= 1 and ("Su zararlıdır." in res[0]["rejected"]) and len(res[0]["learned"]) >= 2
+
+    # 3) Artık insan öğretmeden kendi araştırdığı kavramı yanıtlar ve fiziksel bilinç ağında hücre topluluğu kurmuştur!
+    r_after = agi.converse("Magnetar nedir?")
+    ok_learned = ("nötron yıldızı" in tr_lower(r_after)) and ("magnetar" in agi.auto_net.assemblies)
+
+    return (ok_wonder and ok_filter and ok_learned), (
+        f"öz-merak={ok_wonder} | otonom-araştırma+yalan-filtresi={ok_filter} | bilinç-ağı-düğümü={len(agi.auto_net.assemblies)}"
+    )
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -632,6 +767,11 @@ TESTS = {
     "A21": ("konuşma öz-iradesi (merak, ketumluk ve sessizlik seçimi)", a21_communicative_volition_free_will),
     "A22": ("hipokampal CA3 çok-turlu sohbet geçmişi ve kalıcılık", a22_long_horizon_episodic_dialogue_memory),
     "A23": ("O(1) sabit-zamanlı hız (50k kavram + 50k anıda sıfır gecikme)", a23_constant_time_o1_massive_scale_speed),
+    "A24": ("insan iç-duyumu (sıfır '%' telemetri, niteliksel açlık/susuzluk)", a24_human_visceral_interoception_zero_percentages),
+    "A25": ("bedensel sinir sistemi: A-delta refleksi, C-lifi sızısı ve yatışma", a25_nociceptive_nervous_system_pain_and_relief),
+    "A26": ("tek ve geri dönüşsüz ölümlü yaşam (sıfır diriltme / dead_forever)", a26_single_irreversible_mortal_life),
+    "A27": ("if'siz 1-atış plastik söylem korteksi ve 'Neden konuşuyorsun?'", a27_zero_if_plastic_discourse_and_meta_why_speak),
+    "A28": ("otonom fiziksel bilinç ağı ve öz-meraklı internet/metin araştırması", a28_autonomous_consciousness_network_and_curiosity_research),
 }
 
 

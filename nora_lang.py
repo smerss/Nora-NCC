@@ -1015,9 +1015,9 @@ class WernickeComprehender:
         if words and words[0] in {"neden", "niçin", "niye"} and len(words) <= 5:
             return SemanticFrame(kind="why_query", raw=s_raw)
 
-        # 5) Öz-benlik, bilinç, yaşama ve kimlik sorguları
+        # 5) Öz-benlik, bilinç, yaşama ve kimlik sorguları (yalnızca soru veya doğrudan 'kendini tanıt' isteğinde!)
         self_kws = {"kimsin", "nesin", "yaşıyor", "canlı", "bilinç", "bilincin", "zombi", "benliğin", "karakterin", "kişiliğin", "değerlerin", "adın", "ismin"}
-        if any(w in self_kws for w in words) or ("kendini" in words and ("tanıt" in words or "anlat" in words or "ayırırsın" in words)):
+        if (has_q and any(w in self_kws for w in words)) or ("kendini" in words and ("tanıt" in words or "anlat" in words or "ayırırsın" in words)):
             sub = "yaşam" if ("yaşıyor" in words or "canlı" in words) else ("ayna" if "ayna" in words or "ayırırsın" in words else "kimlik")
             return SemanticFrame(kind="self_query", raw=s_raw, sub_kind=sub)
 
@@ -1108,8 +1108,10 @@ class WernickeComprehender:
                     qtype = "ALL"
                 return SemanticFrame(kind="wh_query", raw=s_raw, subj=subj, rel=qtype)
 
-        # 11) Öğretici bildirim cümleleri (1-shot öğrenme!)
+        # 11) Öğretici bildirim cümleleri (1-shot öğrenme — 1. tekil/çoğul kişisel sohbet cümleleri hariç!)
         if not has_q and len(words) >= 2:
+            if words[0] in {"ben", "bugün", "dün", "yarın", "sana", "seni", "senin"} or re.search(r"[dt][ıiuü][mk]$|(?:iyor|ıyor|uyor|üyor)um$", words[-1]):
+                return SemanticFrame(kind="chat", raw=s_raw)
             return self._parse_declarative(s_raw, s, words)
 
         return SemanticFrame(kind="unknown", raw=s_raw)
@@ -1133,11 +1135,16 @@ class WernickeComprehender:
             if len(s_clean) > 5 and s_clean.endswith(cop):
                 s_clean = s_clean[:-3]
                 break
-        m_adj_isa = re.match(r"^([\wçğıöşü]+)\s+([\wçğıöşü]+)\s+bir\s+([\wçğıöşü]+)$", s_clean)
+        m_adj_isa = re.match(r"^([\wçğıöşü]+)\s+([\wçğıöşü]+)\s+bir\s+([\wçğıöşü\s]+)$", s_clean)
         if m_adj_isa:
             subj = self._clean_np(m_adj_isa.group(1))
             adj = m_adj_isa.group(2)
-            noun = self.morph.analyze_word(m_adj_isa.group(3), self.graph.lexicon)["stem"]
+            np_parts = m_adj_isa.group(3).strip().split()
+            if len(np_parts) >= 2:
+                last_w = re.sub(r"[dt][ıiuü]r$", "", np_parts[-1])
+                noun = " ".join(np_parts[:-1] + [last_w]).strip()
+            else:
+                noun = self.morph.analyze_word(np_parts[-1], self.graph.lexicon)["stem"]
             self.last_topic = subj
             return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj, rel="ADJ_ISA", obj=f"{adj}|{noun}")
 
@@ -1147,8 +1154,10 @@ class WernickeComprehender:
             subj = self._clean_np(m_isa.group(1))
             obj_raw = m_isa.group(2).strip()
             obj_parts = obj_raw.split()
-            obj_an = self.morph.analyze_word(obj_parts[-1], self.graph.lexicon)
-            obj_noun = obj_an["stem"]
+            if len(obj_parts) >= 2:
+                obj_noun = re.sub(r"[dt][ıiuü]r$", "", obj_parts[-1])
+            else:
+                obj_noun = self.morph.analyze_word(obj_parts[-1], self.graph.lexicon)["stem"]
             self.last_topic = subj
             return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj, rel="ISA", obj=" ".join(obj_parts[:-1] + [obj_noun]).strip())
 

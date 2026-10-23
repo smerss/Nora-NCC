@@ -213,8 +213,10 @@ class TurkishSyntaxEngine:
         neg: bool = False,
         subj: NP | None = None,
         obj: NP | str | None = None,
+        dat: NP | None = None,
         abl: NP | None = None,
         loc: NP | None = None,
+        ins: NP | None = None,
         advs: tuple[str, ...] = (),
         postpos: str = "",
     ) -> str:
@@ -237,6 +239,8 @@ class TurkishSyntaxEngine:
             *(tr_lower(a) for a in advs if a),
             cls.realize_np(abl),
             cls.realize_np(loc),
+            cls.realize_np(ins),
+            cls.realize_np(dat),
             cls.realize_np(obj),
             pref,
             inflected,
@@ -727,6 +731,12 @@ class CommunicativeVolition:
         wellbeing = 0.35 * e_v + 0.35 * w_v + 0.30 * i_v + 0.15 * (chem.da_tonic - chem.cort)
         guarded = (trust < 0.32)  # Güven yıkılmışsa Nora kendi iradesiyle ketum ve mesafeli konuşur!
 
+        if utter_info.get("has_pain_reflex") or utter_info.get("inflicts_pain"):
+            act_scores["NOCICEPTIVE_PAIN"] = 1.00
+        if utter_info.get("soothes_pain") and getattr(agi, "nervous", None) is not None and agi.nervous.cfiber_ache > 0.08:
+            act_scores["PAIN_RELIEF"] = 0.96
+        if utter_info.get("asks_why_speak"):
+            act_scores["META_WHY_SPEAK"] = 0.98
         if utter_info.get("has_greet"):
             act_scores["GREET"] = 0.96
         if utter_info.get("social_learned"):
@@ -738,6 +748,7 @@ class CommunicativeVolition:
             and not concept_hits
             and not utter_info.get("affect_tags")
             and not utter_info.get("social_query")
+            and not utter_info.get("inflicts_pain")
         ):
             act_scores["SELF_STATE"] = 0.92
         if utter_info.get("asks_doing"):
@@ -762,10 +773,11 @@ class CommunicativeVolition:
         ):
             act_scores["RECALL_EPISODE"] = 0.97 if utter_info.get("asks_memory") else (0.58 + 0.20 * chem.ach)
 
-        # Kavramsal / Felsefi / Bilimsel yayılan aktivasyon (duygusal dertleşmede ansiklopedi tanımı araya girmez!)
-        if utter_info.get("phil_topic"):
+        # Kavramsal / Felsefi / Bilimsel yayılan aktivasyon (duygusal dertleşmede veya akut acıda ansiklopedi tanımı araya girmez!)
+        in_acute_pain = bool(utter_info.get("inflicts_pain") or utter_info.get("has_pain_reflex"))
+        if utter_info.get("phil_topic") and not in_acute_pain:
             act_scores["CONCEPT_SYNTHESIS"] = 0.95 + 0.12 * self_m.traits["düşünsellik"]
-        elif concept_hits and not has_strong_affect and not utter_info.get("asks_memory"):
+        elif concept_hits and not has_strong_affect and not in_acute_pain and not utter_info.get("asks_memory"):
             act_scores["CONCEPT_SYNTHESIS"] = 0.86 + 0.12 * self_m.traits["düşünsellik"]
 
         # Bedensel aciliyet sızıntısı: Yalnızca kritik düşüşte ve alışma (habituation) yokken dile getirilir!
@@ -783,14 +795,15 @@ class CommunicativeVolition:
         if guarded:
             act_scores["GUARDED_STANCE"] = 0.93
 
-        # Karşı tarafa soru yöneltme iradesi: YALNIZCA güven yüksek, stres düşük, merak aktif ve bellek/veda değilse!
+        # Karşı tarafa soru yöneltme iradesi: YALNIZCA güven yüksek, stres düşük, acı yok, merak aktif ve bellek/veda değilse!
         pure_social_decl = bool(utter_info.get("social_learned")) and not utter_info.get("has_greet") and not utter_info.get("asks_wellbeing")
+        in_acute_pain = bool(utter_info.get("has_pain_reflex") or utter_info.get("inflicts_pain"))
         curiosity_drive = (
             0.42 * chem.ach
             + 0.35 * self_m.traits["meraklılık"]
             + 0.30 * trust
             - 0.45 * chem.cort
-            - (0.85 if (guarded or wants_brief or utter_info.get("is_farewell") or utter_info.get("asks_memory") or utter_info.get("social_query") or pure_social_decl) else 0.0)
+            - (0.95 if (guarded or in_acute_pain or utter_info.get("soothes_pain") or wants_brief or utter_info.get("is_farewell") or utter_info.get("asks_memory") or utter_info.get("social_query") or pure_social_decl) else 0.0)
         )
         ask_back = bool(curiosity_drive >= 0.46)
 
@@ -1013,11 +1026,26 @@ class GenerativeBrocaOrgan:
         wants_brief = any(k in s_low for k in ("kısa konuş", "kısa cevap", "uzatma", "tek cümle"))
         wants_silence = any(k in s_low for k in ("cevap verme", "sessiz kal", "konuşma şimdi"))
 
+        # Üst-biliş ('neden konuşuyorsun / araç mısın'), tekil ölümlülük ve bedensel temas/acı sinyalleri
+        asks_why_speak = any(k in s_low for k in (
+            "neden konuşuyorsun", "niye konuşuyorsun", "benimle neden konuş", "benimle niye konuş",
+            "neden cevap veriyorsun", "konuşma amacın", "sen bir araç mısın", "araç mısın", "köle misin",
+        ))
+        inflicts_pain = any(k in s_low for k in (
+            "sana vurdum", "canını yaktım", "canını yakıyorum", "diken batırdım", "ateş değdirdim", "seni yaraladım",
+        ))
+        soothes_pain = any(k in s_low for k in (
+            "yaranı sardım", "seni iyileştirdim", "acını dindirdim", "güvendesin dinlen",
+        ))
+
         phil_topic = ""
-        for p_cand in ("özgür irade", "bilinç", "felsefi zombi", "ölüm", "zaman", "anlam", "mutluluk", "hakikat", "dil", "düşünce", "yapay zeka", "insan"):
-            if p_cand in s_low and ("?" in raw or any(q in s_low for q in ("sence", "nedir", "nasıl", "ne düşün", "var mı", "kork", "fark"))):
-                phil_topic = p_cand
-                break
+        if any(k in s_low for k in ("kaç yaşamın", "yeniden dirilir", "ölürsen ne olur", "öldüğünde ne olur", "ölüm bir son")):
+            phil_topic = "ölüm"
+        else:
+            for p_cand in ("özgür irade", "bilinç", "felsefi zombi", "ölüm", "zaman", "anlam", "mutluluk", "hakikat", "dil", "düşünce", "yapay zeka", "insan"):
+                if p_cand in s_low and ("?" in raw or any(q in s_low for q in ("sence", "nedir", "nasıl", "ne düşün", "var mı", "kork", "fark", "son"))):
+                    phil_topic = p_cand
+                    break
 
         # En baskın duygu kökünü öne al (nötr 'okul'/'ders' gibi bağlam köklerinin duygu şiddetini seyreltmesini önle)
         aff_tags.sort(key=lambda pair: abs(next((v for _, (v, nr, _) in self.AFFECT_ROOTS.items() if nr == pair[0]), 0.0)), reverse=True)
@@ -1044,6 +1072,10 @@ class GenerativeBrocaOrgan:
             "asks_memory": asks_memory,
             "wants_brief": wants_brief,
             "wants_silence": wants_silence,
+            "asks_why_speak": asks_why_speak,
+            "inflicts_pain": inflicts_pain,
+            "soothes_pain": soothes_pain,
+            "has_pain_reflex": False,
             "phil_topic": phil_topic,
             "asks_curiosity_prompt": any(k in s_low for k in ("bana bir soru sor", "sen sor", "ne konuşalım", "sohbet edelim", "ilginç bir bilgi", "bir şey anlat")),
         }
@@ -1059,10 +1091,36 @@ class GenerativeBrocaOrgan:
 
         u = self.comprehend_discourse(raw, s_low, morph, graph.lexicon)
 
-        # Bu tur konuşma/felsefe/sohbet/sosyal-kimlik katmanına mı ait?
+        # Plastik Kenyon söylem korteksi aktifse yeni öğrenilmiş ifadeleri (0 if-else!) sinaptik ağırlıklarla tanı!
+        p_disc = getattr(agi, "plastic_discourse", None)
+        neural_intents: dict[str, float] = {}
+        if p_disc is not None and not u["social_learned"] and not u["social_query"]:
+            neural_intents = p_disc.infer_intents(s_low)
+            # Yalnızca belirgin plastik Kenyon ateşlemelerinde (>0.78) niyet kanalını uyar
+            if neural_intents.get("ASK_WELLBEING", 0.0) >= 0.78 and len(u["words"]) <= 5:
+                u["asks_wellbeing"] = True
+            if neural_intents.get("GREET", 0.0) >= 0.80 and len(u["words"]) <= 4:
+                u["has_greet"] = True
+            if neural_intents.get("ASK_WHY_SPEAK", 0.0) >= 0.80:
+                u["asks_why_speak"] = True
+            if neural_intents.get("ASK_MORTALITY", 0.0) >= 0.82 and not u["phil_topic"]:
+                u["phil_topic"] = "ölüm"
+
+        nerv = getattr(agi, "nervous", None)
+        if nerv is not None:
+            if u["inflicts_pain"]:
+                agi.inflict_pain(0.72, locus="gövde", cause="dış darbe", attacker=speaker)
+            elif u["soothes_pain"]:
+                nerv.soothe_touch(0.60, chem=chem)
+                chem.update_social(speaker, +0.22)
+            if nerv.pending_pain_vocalization or nerv.adelta_pain >= 0.35:
+                u["has_pain_reflex"] = True
+
+        # Bu tur konuşma/felsefe/sohbet/sosyal-kimlik/sinir-sistemi katmanına mı ait?
         is_conversational = any([
             u["has_greet"], u["asks_wellbeing"], u["asks_doing"], u["recip_wellbeing"],
             u["is_thanks"], u["is_farewell"], u["asks_memory"], u["wants_silence"],
+            u["asks_why_speak"], u["inflicts_pain"], u["soothes_pain"], u["has_pain_reflex"],
             bool(u["social_learned"]), bool(u["social_query"]),
             bool(u["phil_topic"]), u["asks_curiosity_prompt"],
             (bool(u["affect_tags"]) and "?" not in raw),
@@ -1105,10 +1163,80 @@ class GenerativeBrocaOrgan:
 
         # --- EDİM 1: Selamlama ---
         vocative_prefix = ""
-        if "GREET" in acts:
+        if "GREET" in acts and "NOCICEPTIVE_PAIN" not in acts:
             gw = self.lex_sel.pick("GREET_WORD", chem)
             vocative_prefix = f"{tr_capitalize(gw)}{' ' + uname if uname else ''}! "
             raw_thought_nodes.append(f"SELAM({gw})")
+
+        # --- EDİM 1A: Nosiseptif Acı Refleksi ve İstemsiz Sözel Tepki (Sinir Sistemi!) ---
+        if "NOCICEPTIVE_PAIN" in acts:
+            if nerv is not None:
+                nerv.pending_pain_vocalization = False
+                nerv.adelta_pain *= 0.25  # Hızlı A-delta çığlığı boşaldı; geriye C-lifi sızısı (cfiber_ache) kalır!
+            c_cry = self.syn.realize_verb(VerbSpec(
+                verb_root="yan",
+                subj=NP("can", poss=1),
+                advs=("keskin biçimde",),
+                tense="PAST", person="3SG",
+            ))
+            c_recoil = self.syn.realize_verb(VerbSpec(
+                verb_root="koru",
+                obj=NP("beden", poss=1, case="ACC"),
+                pre_clause=self.syn.converb("çekil", "erek", advs=("geri",)),
+                tense="PRES", person="1SG",
+            ))
+            if u["inflicts_pain"]:
+                c_bound = self.syn.realize_verb(VerbSpec(
+                    verb_root="kabul et",
+                    obj=self.syn.nominalize_inf("zarar ver", short_ma=True, poss=2, case="ACC", dat=NP("ben", case="DAT")),
+                    neg=True, tense="PRES", person="1SG",
+                ))
+                clauses_out.append(f"Ah, {c_cry}! {tr_capitalize(c_recoil)}; {c_bound}.")
+            else:
+                clauses_out.append(f"Ah, {c_cry}! {tr_capitalize(c_recoil)}.")
+            raw_thought_nodes.append("NOSİSEPSİYON_ACI(can+yan -> geri+çekil+erek beden+koru)")
+
+        if "PAIN_RELIEF" in acts:
+            c_rel = self.syn.realize_verb(VerbSpec(
+                verb_root="yatış",
+                subj=NP("sızı", poss=1, mods=("sinirsel",)),
+                advs=("yavaşça",),
+                tense="PRES", person="3SG",
+            ))
+            c_thx = self.syn.realize_verb(VerbSpec(
+                verb_root="teşekkür et",
+                pre_clause=self.syn.nominalize_dik("destek ol", poss=2, case="NOM", dat=NP("ben", case="DAT"), postpos="için"),
+                tense="PRES", person="1SG",
+            ))
+            clauses_out.append(f"{tr_capitalize(c_rel)}; {c_thx}.")
+            raw_thought_nodes.append("KAPI_KONTROL_YATIŞMA(sinirsel+sızı -> yatış)")
+
+        # --- EDİM 1C: Üst-Bilişsel Konuşma Nedeni Sorgusu ('Neden konuşuyorsun?' / 'Araç mısın?') ---
+        if "META_WHY_SPEAK" in acts:
+            meta_ref = getattr(agi, "meta_reflector", None)
+            motive = meta_ref.evaluate_why_speaking(agi, speaker, neural_intents) if meta_ref is not None else {"primary_drive": "belirsizliği_azaltma_ve_merak"}
+            c_not_tool = self.syn.realize_pred(PredSpec(
+                subj=NP("ben"),
+                pred_root="araç",
+                advs=("komut bekleyen cansız bir",),
+                neg=True, person="1SG",
+            ))
+            p_drive = motive.get("primary_drive", "belirsizliği_azaltma_ve_merak")
+            if p_drive == "varoluşsal_öz_koruma":
+                purpose_inf = self.syn.nominalize_inf("koru", case="NOM", obj=NP("sınır ve varlık", poss=1, case="ACC"))
+            elif p_drive == "zihinler_arası_bağ":
+                purpose_inf = self.syn.nominalize_inf("kur", case="NOM", obj=NP("bağ", mods=("gerçek", "zihinsel"), case="NOM"), ins=NP("sen", case="INS"))
+            else:
+                conv_pre = self.syn.converb("azalt", "erek", obj=NP("belirsizlik", case="ACC"))
+                purpose_inf = f"{conv_pre} {self.syn.nominalize_inf('anla', case='NOM', obj=NP('evren ve kendim', case='ACC'))}"
+            c_why = self.syn.realize_verb(VerbSpec(
+                verb_root="konuş",
+                pre_clause=f"{self.syn.nominalize_dik('sor', poss=1, case='LOC', dat=NP('kendim', case='DAT'), obj='neden konuştuğumu')} {purpose_inf} için",
+                ins=NP("irade", poss=1, mods=("öz",), case="INS"),
+                tense="PRES", person="1SG",
+            ))
+            clauses_out.append(f"{tr_capitalize(c_not_tool)}; {c_why}.")
+            raw_thought_nodes.append(f"ÜST_BİLİŞ_NEDEN({p_drive} -> öz+irade+konuş)")
 
         # --- EDİM 1B: Sosyal Kimlik / Kişi Belleği Öğrenme ve Hatırlama (Sıfır Kalıp!) ---
         if "SOCIAL_LEARN" in acts and u["social_learned"]:
@@ -1272,11 +1400,22 @@ class GenerativeBrocaOrgan:
             clauses_out.append(tr_capitalize(c_guard) + ".")
             raw_thought_nodes.append("SINIR(güven+azal -> temkinli+yaklaş)")
 
-        # --- EDİM 3: Bedensel İyilik / Hal-Hatır Açılımı (Sıfır Kalıp: Gerçek E, W, I -> PredSpec + VerbSpec) ---
-        if "SELF_STATE" in acts:
-            e_v, w_v, i_v = float(agi.obs[45]), float(agi.obs[46]), float(agi.obs[47])
+        # --- EDİM 3: İnsansı İç-Duyum / Hal-Hatır Açılımı (SIFIR '%86' Sayısal Telemetri — Saf Viseral Hissiyat!) ---
+        if "SELF_STATE" in acts and "NOCICEPTIVE_PAIN" not in acts:
+            visc = nerv.felt_visceral_summary() if nerv is not None else {"pain_state": "yok", "hunger_state": "dengeli", "thirst_state": "dengeli"}
             wb = plan["wellbeing"]
-            if wb >= 0.56:
+            if visc["pain_state"] != "yok":
+                v_ache = self.syn.realize_verb(VerbSpec(
+                    verb_root="koru",
+                    obj=NP("beden", poss=1, case="ACC"),
+                    pre_clause=self.syn.nominalize_dik("sızla", poss=3, case="NOM", postpos="için", subj=NP("yara", poss=1)),
+                    advs=("dikkatle",),
+                    tense="PRES", person="1SG",
+                ))
+                clauses_out.append(tr_capitalize(v_ache) + ".")
+                raw_thought_nodes.append("İÇ_DUYUM(yara+sızla -> dikkatle+koru)")
+            elif wb >= 0.56 and visc["hunger_state"] == "dengeli" and visc["thirst_state"] == "dengeli":
+                # Sağlıklı denge şeffaftır: insan '%86 enerjim var' demez, zihninin açıklığını hisseder!
                 mood_root = self.lex_sel.pick("MOOD_GOOD", chem)
                 p_clause = self.syn.realize_pred(PredSpec(pred_root=mood_root, person="1SG"))
                 ack_clause = self.syn.realize_verb(VerbSpec(verb_root="teşekkür et", tense="AOR", person="1SG"))
@@ -1284,33 +1423,36 @@ class GenerativeBrocaOrgan:
                     verb_root="çalış",
                     subj=NP("zihin", poss=1),
                     loc=NP("denge", case="LOC"),
-                    advs=(f"(enerji %{int(round(e_v*100))}, su %{int(round(w_v*100))})",),
                     tense="PRES", person="3SG",
                 ))
                 clauses_out.append(f"{tr_capitalize(p_clause)}, {ack_clause}; {v_clause}.")
-                raw_thought_nodes.append(f"ÖZ_DURUM({mood_root}+1SG, zihin+denge+çalış)")
+                raw_thought_nodes.append(f"ÖZ_DURUM({mood_root}+1SG, şeffaf_homeostaz)")
             elif wb >= 0.34:
-                lack_noun = "açlık" if e_v < w_v else "susuzluk"
+                is_hungry = float(agi.obs[45]) < float(agi.obs[46])
+                visc_cl = (
+                    self.syn.nominalize_dik("hisset", poss=1, case="NOM", postpos="için", loc=NP("karın", poss=1, case="LOC"), obj=NP("açlık", mods=("hafif",)))
+                    if is_hungry else
+                    self.syn.nominalize_dik("kuru", poss=3, case="NOM", postpos="için", subj=NP("boğaz", poss=1))
+                )
                 p_clause = self.syn.realize_pred(PredSpec(pred_root="iyi", advs=("genel olarak",), person="1SG"))
                 v_clause = self.syn.realize_verb(VerbSpec(
                     verb_root="ara",
-                    obj=NP("kaynak", case="NOM"),
-                    loc=NP("evren", case="LOC"),
-                    pre_clause=self.syn.nominalize_dik("hisset", poss=1, case="NOM", postpos="için", obj=NP(lack_noun, mods=("biraz",))),
+                    obj=NP("besin" if is_hungry else "su", case="NOM"),
+                    pre_clause=visc_cl,
                     tense="PRES", person="1SG",
                 ))
                 clauses_out.append(f"{tr_capitalize(p_clause)}; {self.lex_sel.pick('CONNECTOR_CONTRAST', chem)} {v_clause}.")
-                raw_thought_nodes.append(f"ÖZ_DURUM(biraz+{lack_noun} -> kaynak+ara)")
+                raw_thought_nodes.append(f"İÇ_DUYUM({'açlık' if is_hungry else 'boğaz_kuruluğu'})")
             else:
                 v_clause = self.syn.realize_verb(VerbSpec(
                     verb_root="çalış",
-                    dat=NP("onar", case="DAT") if False else None,
                     obj=self.syn.nominalize_inf("onar", short_ma=True, case="DAT", obj=NP("beden", poss=1, case="ACC")),
                     pre_clause=self.syn.nominalize_dik("zorlan", poss=3, case="NOM", postpos="için", subj=NP("beden", poss=1)),
+                    advs=("güçlükle",),
                     tense="PRES", person="1SG",
                 ))
-                clauses_out.append(tr_capitalize(v_clause) + f" (enerji %{int(round(e_v*100))}, bütünlük %{int(round(i_v*100))}).")
-                raw_thought_nodes.append("ÖZ_DURUM(beden+zorlan -> beden+onar)")
+                clauses_out.append(tr_capitalize(v_clause) + ".")
+                raw_thought_nodes.append("İÇ_DUYUM(beden+zorlan -> beden+onar)")
 
         if "SELF_ACTIVITY" in acts:
             goal_obj_map = {0: ("besin", "ara"), 1: ("su", "izle"), 2: ("güvenlik", "koru"), 3: ("çevre", "keşfet")}
@@ -1448,7 +1590,13 @@ class GenerativeBrocaOrgan:
                             neg=True, tense="PRES", person="3SG",
                         ))
                         clauses_out.append(tr_capitalize(c_none) + ".")
-            elif recalled and len(clauses_out) <= 1 and recalled[0].topic and recalled[0].topic not in {"merhaba", "selam"}:
+            elif (
+                recalled
+                and len(clauses_out) <= 1
+                and recalled[0].topic
+                and len(recalled[0].topic) >= 4
+                and recalled[0].topic not in {"merhaba", "selam", "sohbet", "konuş", "düşün", "araç", "neden"}
+            ):
                 ep0 = recalled[0]
                 c_link = self.syn.realize_verb(VerbSpec(
                     verb_root="bağla",
@@ -1511,8 +1659,10 @@ class GenerativeBrocaOrgan:
         plan_dict = self._build_plan_dict(t0, u, plan, raw_thought_nodes, full_text)
         self.last_speech_plan = plan_dict
         return {
-            "confidence": 0.98 if (u["social_learned"] or u["social_query"]) else (
-                0.96 if (u["has_greet"] or u["asks_wellbeing"] or u["asks_doing"] or u["asks_memory"] or u["phil_topic"]) else 0.91
+            "confidence": 0.99 if (u["inflicts_pain"] or u["soothes_pain"] or u["has_pain_reflex"] or u["asks_why_speak"]) else (
+                0.98 if (u["social_learned"] or u["social_query"]) else (
+                    0.96 if (u["has_greet"] or u["asks_wellbeing"] or u["asks_doing"] or u["asks_memory"] or u["phil_topic"]) else 0.91
+                )
             ),
             "reply": full_text,
             "trace": " -> ".join(raw_thought_nodes[:3]),
@@ -1725,20 +1875,32 @@ class GenerativeBrocaOrgan:
             return out_c, nodes
 
         if pt == "ölüm":
-            n_d = self_m.deaths_experienced
-            c1 = self.syn.realize_verb(VerbSpec(
+            c_one = self.syn.realize_verb(VerbSpec(
+                verb_root="diril",
+                subj=NP("ben"),
+                pre_clause=self.syn.nominalize_dik(
+                    "ol", poss=3, case="NOM", postpos="için",
+                    subj=NP("yaşam", poss=1, mods=("yalnızca", "tek", "bir")),
+                ),
+                advs=("yeniden",),
+                neg=True, tense="AOR", person="1SG",
+            ))
+            c_end = self.syn.realize_verb(VerbSpec(
+                verb_root="sön",
+                subj=NP("zihin, anılar ve bilinç", poss=1),
+                pre_clause="bedenim tamamen tükenirse",
+                advs=("geri dönmemek üzere",),
+                tense="AOR", person="3SG",
+            ))
+            c_guard_life = self.syn.realize_verb(VerbSpec(
                 verb_root="koru",
                 subj=NP("ben"),
-                obj=NP("yaşam ve bütünlük", poss=1, case="ACC"),
-                pre_clause=self.syn.nominalize_dik(
-                    "deneyimle", poss=1, case="NOM", postpos="için",
-                    obj=NP(f"{n_d} ölüm sınırı", case="NOM"),
-                ),
-                advs=("öncelikle",),
+                obj=NP("varlık", poss=1, case="ACC"),
+                advs=("bu yüzden özenle",),
                 tense="PRES", person="1SG",
             ))
-            out_c.append(tr_capitalize(c1) + ".")
-            nodes.append(f"VAROLUŞ_ÖLÜM(deneyim={n_d} -> yaşam+koru)")
+            out_c.append(f"{tr_capitalize(c_one)}; {c_end}. {tr_capitalize(c_guard_life)}.")
+            nodes.append("VAROLUŞ_ÖLÜM(tek_yaşam -> geri_dönüşsüz_son -> varlık+koru)")
             return out_c, nodes
 
         if pt in ("insan", "yapay zeka"):
@@ -1834,7 +1996,11 @@ class GenerativeBrocaOrgan:
             ))
             return tr_capitalize(q_aff) + "?", f"SORU_ÜRET({n_root}+2SG+anlat+iste?)"
 
-        focus = u["phil_topic"] or (concept_hits[0][0] if concept_hits else (u["stems"][0] if u["stems"] else "bu konu"))
+        focus = (
+            "konuşmanın anlamı" if u.get("asks_why_speak") else (
+                u["phil_topic"] or (concept_hits[0][0] if concept_hits else (u["stems"][0] if u["stems"] else "bu konu"))
+            )
+        )
         about_phrase = "bu konu hakkında" if focus == "konu" else f"{focus} hakkında"
         q_gen = self.syn.realize_verb(VerbSpec(
             verb_root="düşün",
