@@ -399,6 +399,11 @@ class NoraAGI:
 
         # Çok-cümleli öğreti + soru kombinasyonu kontrolü ('Kuşlar uçar. Karga bir kuştur. Karga uçar mı?')
         parts = [p.strip() for p in re.split(r"(?<=[.!?])\s+", raw) if p.strip()]
+        # Ünlemli selamlama ('Merhaba Nora! Nasılsın?') tek bir doğal sosyal sözce olarak birleştirilir
+        if len(parts) >= 2:
+            p0_words = re.findall(r"[\wçğıöşü]+", tr_lower(parts[0]))
+            if p0_words and p0_words[0] in {"merhaba", "selam", "selamlar", "günaydın", "hey", "iyi"} and len(p0_words) <= 4:
+                parts = [parts[0] + " " + parts[1]] + parts[2:]
         if len(parts) > 1:
             taught_msgs = []
             last_part = parts[-1]
@@ -653,9 +658,10 @@ class NoraAGI:
         # --- SÜTUN 5: Doğal Sohbet, Empati ve Felsefi Derinlik Korteksi ---
         conv_res = self.conv_cortex.respond_conversational(raw, s_low, self, speaker=speaker)
         if conv_res is not None:
+            conv_sal = 0.97 if float(conv_res["confidence"]) >= 0.95 else 0.92
             bids.append(CorticalBid(
                 module="temporal_conversation",
-                salience=0.92,
+                salience=conv_sal,
                 precision=float(conv_res["confidence"]),
                 reply=conv_res["reply"],
                 trace=conv_res["trace"],

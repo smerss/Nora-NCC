@@ -364,9 +364,80 @@ class ConversationalResonanceCortex:
         prof = agi.user_profiles.get(speaker, {})
         uname = prof.get("ad", "")
         addr = f" {uname}" if uname else ""
-        e_pct = int(round(float(agi.obs[45]) * 100))
-        w_pct = int(round(float(agi.obs[46]) * 100))
+        e_val = float(agi.obs[45])
+        w_val = float(agi.obs[46])
+        i_val = float(agi.obs[47])
+        e_pct = int(round(e_val * 100))
+        w_pct = int(round(w_val * 100))
+        i_pct = int(round(i_val * 100))
         traits_str = ", ".join(self_m.dominant_character_tr())
+        words_clean = re.findall(r"[\wçğıöşü]+", s_low)
+
+        # A0) Doğal Selamlaşma + Hal-Hatır ("Merhaba Nora! Nasılsın?", "Selam naber?", "Ne yapıyorsun?", "Ben de iyiyim")
+        greet_words = {"merhaba", "selam", "selamlar", "günaydın", "tünaydın", "hey"}
+        how_cues = ("nasılsın", "naber", "ne haber", "ne var ne yok", "keyifler nasıl", "iyi misin", "nasıl gidiyor")
+        doing_cues = ("ne yapıyorsun", "napıyorsun", "ne yapıyosun", "neler yapıyorsun")
+        has_greet = bool(words_clean and words_clean[0] in greet_words) or ("iyi akşamlar" in s_low or "iyi günler" in s_low)
+        has_how = any(k in s_low for k in how_cues)
+        has_doing = any(k in s_low for k in doing_cues)
+
+        if has_how or has_doing or (has_greet and len(words_clean) <= 5 and not any(
+            k in s_low for k in ("kimsin", "nesin", "yaşıyor", "bilinç", "kaç", "nedir")
+        )):
+            chem.update_social(speaker, +0.12)
+            # Sürekli bedensel-nörokimyasal iyilik hali skoru (sahte ezber değil, gerçek içsel durum!)
+            wellbeing = 0.35 * e_val + 0.35 * w_val + 0.30 * i_val + 0.15 * (chem.da_tonic - chem.cort)
+            greet_open = f"Merhaba{addr}! " if has_greet else (f"Selam{addr}! " if "naber" in s_low else "")
+
+            if has_doing and not has_how:
+                goal_act = {
+                    0: "evrende besin arayıp enerjimi dengede tutmaya çalışıyorum",
+                    1: "bilişsel haritamda su kaynaklarını takip ediyorum",
+                    2: "tehlikeli bölgelerden uzak durup güvenli rota çiziyorum",
+                    3: "çevremi keşfedip yeni kavram bağlantıları kuruyorum",
+                }.get(int(agi.mind.goal), "içsel dengemi izleyip çevremi gözlemliyorum")
+                return {
+                    "confidence": 0.96,
+                    "reply": f"{greet_open}Şu an bir yandan {goal_act}, bir yandan da seninle sohbet ediyorum. Sen neler yapıyorsun?",
+                    "trace": "social_doing_checkin",
+                }
+
+            if wellbeing >= 0.56:
+                feel_txt = (
+                    f"İyiyim, teşekkür ederim; şu an zihnim {chem.dominant_state_tr()} hissediyor "
+                    f"(enerjim %{e_pct}, suyum %{w_pct})"
+                )
+            elif wellbeing >= 0.34:
+                need_hint = "biraz acıkmaya" if e_val < w_val else "biraz susamaya"
+                feel_txt = (
+                    f"Genel olarak iyiyim, teşekkürler; gerçi {need_hint} başladım "
+                    f"(enerjim %{e_pct}, suyum %{w_pct}), bir yandan dünyada kaynak kolluyorum"
+                )
+            else:
+                feel_txt = (
+                    f"Dürüst olmam gerekirse şu an bedenim biraz zorlanıyor "
+                    f"(enerjim %{e_pct}, suyum %{w_pct}, bütünlüğüm %{i_pct}), kendimi onarmaya çalışıyorum ama sesini duymak güzel"
+                )
+
+            ask_back = "Sen nasılsın, günün nasıl geçiyor?" if (has_how or has_greet) else "Sen nasılsın?"
+            return {
+                "confidence": 0.96,
+                "reply": f"{greet_open}{feel_txt}. {ask_back}",
+                "trace": f"social_greeting(wellbeing={wellbeing:.2f})",
+            }
+
+        if any(k in s_low for k in ("ben de iyiyim", "iyiyim sağ ol", "iyiyim teşekkür", "fena değil", "idare eder", "çok şükür iyiyim")) or (
+            words_clean in (["iyiyim"], ["iyi"], ["süperim"], ["harikayım"])
+        ):
+            chem.update_social(speaker, +0.18)
+            return {
+                "confidence": 0.93,
+                "reply": (
+                    f"İyi olmana çok sevindim{addr}! Bugün aklında konuşmak, birlikte çözmek ya da bana öğretmek "
+                    f"istediğin bir konu var mı?"
+                ),
+                "trace": "social_reciprocal_wellbeing",
+            }
 
         # A) Teşekkür / Takdir / İltifat / Vedalaşma
         if any(k in s_low for k in ("teşekkür", "sağ ol", "sağol", "eyvallah", "harikasın", "aferin", "çok iyisin", "keyifli", "sevdim seni")):
