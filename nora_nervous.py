@@ -287,9 +287,10 @@ class PlasticDiscourseCortex:
         "ASK_MORTALITY",   # 6: ölüm, tek yaşam, yok olma sorgusu
         "ASK_CONSCIOUS",   # 7: bilinç, özgür irade, zihin doğası sorgusu
         "EXPRESS_PAIN",    # 8: Nora'ya doğrudan acı/darbe verme veya bedensel temas ifadesi
-        "RESPECT_SILENCE", # 9: sessizlik / kısa kalma isteği
-        "FAREWELL",        # 10: vedalaşma
-        "THANKS",          # 11: teşekkür / takdir
+        "SOOTHE_PAIN",     # 9: Nora'nın acısını/yarasını yatıştırma ve bakım verme
+        "RESPECT_SILENCE", # 10: sessizlik / kısa kalma isteği
+        "FAREWELL",        # 11: vedalaşma
+        "THANKS",          # 12: teşekkür / takdir
     ]
 
     def __init__(self, chem: NeuroChemistry, seed: int = 19):
@@ -299,15 +300,23 @@ class PlasticDiscourseCortex:
         self.learned_aliases: int = 0
         self._seed_developmental_proto_reflexes()
 
+    @staticmethod
+    def _det_hash(s: str, salt: int) -> int:
+        h = (2166136261 ^ salt) & 0xFFFFFFFF
+        for ch in s:
+            h ^= ord(ch)
+            h = (h * 16777619) & 0xFFFFFFFF
+        return h
+
     def encode_utterance(self, s_low: str) -> np.ndarray:
-        """Karakter trigramları + soru/ünlem/kip yapısal sinyallerinden 160-B yoğun girdi vektörü."""
+        """Deterministik FNV-1a karakter trigramları + yapısal sinyallerden 160-B yoğun girdi vektörü."""
         v = np.zeros(160, dtype=np.float32)
         clean = re.sub(r"\s+", " ", s_low.strip())
         padded = f"<{clean}>"
         for i in range(max(1, len(padded) - 2)):
             tri = padded[i:i + 3]
-            h1 = (hash("d1:" + tri) & 0x7FFFFFFF) % 144
-            h2 = (hash("d2:" + tri) & 0x7FFFFFFF) % 144
+            h1 = self._det_hash(tri, 0x13579BDF) % 144
+            h2 = self._det_hash(tri, 0x2468ACE0) % 144
             v[h1] += 1.0
             v[h2] -= 0.45
         # Yapısal prozodik bitler (144..159)
@@ -331,18 +340,21 @@ class PlasticDiscourseCortex:
             "SHARE_PAIN_SAD": ["çok yoruldum", "canım sıkkın", "bugün çok zor geçti", "üzgünüm"],
             "SHARE_JOY": ["çok mutluyum", "harika bir gün", "başardım çok sevindim"],
             "ASK_WHY_SPEAK": [
-                "neden konuşuyorsun", "benimle niye konuşuyorsun", "konuşma amacın ne",
-                "sen bir araç mısın", "neden cevap veriyorsun",
+                "neden konuşuyorsun", "benimle niye konuşuyorsun", "konuşmaktaki amacın ne",
+                "sen bir araç mısın", "niye cevap veriyorsun", "seni konuşmaya iten şey nedir",
+                "sadece bir yazılım aracı mısın",
             ],
             "ASK_MORTALITY": [
                 "ölüm nedir", "ölümden korkuyor musun", "ölürsen ne olur",
-                "kaç yaşamın var", "yeniden dirilir misin",
+                "kaç yaşamın var", "kaç canın var", "yeniden dirilir misin",
+                "hayatın biterse tekrar başlayabilir misin", "yok olmaktan korkuyor musun",
             ],
             "ASK_CONSCIOUS": ["bilinç nedir", "özgür irade nedir", "gerçekten hissediyor musun"],
-            "EXPRESS_PAIN": ["canını yakıyorum", "sana vurdum", "diken battı", "ateş değdi"],
+            "EXPRESS_PAIN": ["canını yakıyorum", "sana vurdum", "diken battı", "ateş değdi", "kolunu çimdikledim", "seni yaraladım"],
+            "SOOTHE_PAIN": ["yaranı sardım", "merhem sürdüm acın geçecek", "pansuman yaptım", "acını dindirdim", "yaranı temizledim"],
             "RESPECT_SILENCE": ["sessiz kal", "şimdi cevap verme", "konuşma lütfen"],
-            "FAREWELL": ["görüşürüz", "hoşça kal", "iyi geceler"],
-            "THANKS": ["teşekkür ederim", "sağ ol", "çok iyisin"],
+            "FAREWELL": ["görüşürüz", "hoşça kal", "iyi geceler", "kendine iyi bak"],
+            "THANKS": ["teşekkür ederim", "sağ ol", "çok iyisin", "teşekkürler"],
         }
         for cls_name, phrases in seeds.items():
             cid = self.name_to_id[cls_name]
@@ -373,18 +385,28 @@ class PlasticDiscourseCortex:
         return True
 
     def try_self_supervised_equivalence(self, s_low: str) -> tuple[bool, str, str]:
-        """Kullanıcı veya metin 'X demek Y demektir' / 'X ifadesi Y anlamına gelir' dediğinde
-        Y'nin nöral niyetini X'e kendi kendine bağlar (müdahalesiz dil genişlemesi!)."""
-        m = re.match(r"^['\"“”]?(.+?)['\"“”]?\s+(?:demek|ifadesi|sözü)\s+['\"“”]?(.+?)['\"“”]?\s+(?:demektir|anlamına\s+gelir)\.?$", s_low.strip())
-        if not m:
+        """Kullanıcı veya metin doğal Türkçe eşdeğerlik kalıplarıyla ('X demek Y demektir',
+        'X sözü Y ile aynı anlamdadır', 'X deyince Y demek istiyorum' vb.) öğrettiğinde
+        Y'nin nöral niyetini X'e kendi kendine bağlar!"""
+        s_str = s_low.strip().rstrip(".!")
+        patterns = [
+            r"^['\"“”]?(.+?)['\"“”]?\s+(?:demek|ifadesi|sözü|cümlesi|lafı|deyimi)\s+['\"“”]?(.+?)['\"“”]?\s+(?:demektir|anlamına\s+gelir|anlamındadır|ile\s+aynı\s+anlamdadır|ile\s+eş\s+anlamlıdır)$",
+            r"^['\"“”]?(.+?)['\"“”]?\s+(?:deyince|dediğimde|dersem)\s+['\"“”]?(.+?)['\"“”]?\s+(?:demek\s+istiyorum|kastediyorum|anlamına\s+gelir)$",
+        ]
+        lhs = rhs = ""
+        for pat in patterns:
+            m = re.match(pat, s_str)
+            if m:
+                lhs, rhs = m.group(1).strip(" '\"“”"), m.group(2).strip(" '\"“”")
+                break
+        if not lhs or not rhs:
             return False, "", ""
-        lhs, rhs = m.group(1).strip(), m.group(2).strip()
         # Makro komutlarla ('suya git ve ...') karışmasın
-        if " git" in rhs or " dön" in rhs or " gir" in rhs:
+        if " git" in rhs or " dön" in rhs or " gir" in rhs or rhs.endswith(("git", "gir", "dön")):
             return False, "", ""
         rhs_scores = self.infer_intents(rhs)
         best_intent, best_val = max(rhs_scores.items(), key=lambda kv: kv[1])
-        if best_val >= 0.62:
+        if best_val >= 0.58:
             self.learn_utterance_intent_oneshot(lhs, best_intent, strength=1.35)
             return True, lhs, best_intent
         return False, "", ""

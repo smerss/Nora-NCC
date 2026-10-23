@@ -318,11 +318,14 @@ class TurkishMorphology:
                 info["copula"] = True
                 break
 
-        # 2) Basit fiil çekim ekleri kontrolü
+        # 2) Basit ve birleşik (yeterlilik/olumsuzluk '-amaz/-emez') fiil çekim ekleri kontrolü
         verb_pats = [
+            (r"^(.+?)y?[ae](m[ae])z$", True),
             (r"^(.+?)(m[ae])z$", True),
+            (r"^(.+?)y?[ae](m[iıuü])yor(um|sun|uz)?$", True),
             (r"^(.+?)(m[iıuü])yor(um|sun|uz)?$", True),
             (r"^(.+?)[iıuü]yor(um|sun|uz)?$", False),
+            (r"^(.+?)y?[ae](m[ae])[dt][iıuü](m|n|k)?$", True),
             (r"^(.+?)(m[ae])[dt][iıuü](m|n|k)?$", True),
             (r"^(.+?)(m[ae])k$", False),
             (r"^(.+?)[ae]c[ae](k|ğim|ğım|ksin|ksın)$", False),
@@ -337,7 +340,12 @@ class TurkishMorphology:
                 info["is_verb"] = True
                 return info
 
-        # Geniş zaman (-ar/-er/-ir/-ır/-ur/-ür) yalnızca bilinen fiil köklerinde veya çoğul yoksa
+        # Geniş zaman: önce ünlüyle biten fiil kökleri + '-r' ('yürür'->'yürü', 'uyur'->'uyu'), sonra ünsüz + '-ar/-er/-ir'
+        m_aor_v = re.match(r"^(.+[aeıioöuü])r(im|ım|um|üm|sin|sın)?$", cur)
+        if m_aor_v and m_aor_v.group(1) in cls.KNOWN_VERB_ROOTS:
+            info["stem"] = m_aor_v.group(1)
+            info["is_verb"] = True
+            return info
         m_aor = re.match(r"^(.+?)([aeiıuü]r)(im|ım|um|üm|sin|sın)?$", cur)
         if m_aor and cur not in known and not cur.endswith(("lar", "ler")):
             cand = m_aor.group(1)
@@ -482,20 +490,41 @@ class TurkishMorphology:
     REV_T = {v: k for k, v in TENS.items()}
 
     @classmethod
+    def normalize_num_token(cls, tok: str) -> str | None:
+        """Hal/iyelik eki almış Türkçe sayı kelimelerini ('sekizin'->'sekiz', 'dördün'->'dört', 'beşten'->'beş') yalın sayı köküne indirger."""
+        t = tr_lower(tok).strip()
+        if re.fullmatch(r"[+-]?\d+", t):
+            return t
+        num_set = set(cls.UNITS) | set(cls.TENS) | {"yüz", "bin", "eksi"}
+        if t in num_set:
+            return t
+        for suf in ("nın", "nin", "nun", "nün", "ın", "in", "un", "ün", "dan", "den", "tan", "ten", "ya", "ye", "a", "e", "yı", "yi", "yu", "yü", "ı", "i", "u", "ü"):
+            if len(t) - len(suf) >= 2 and t.endswith(suf):
+                cand = t[:-len(suf)]
+                if cand in num_set:
+                    return cand
+                hard = cls._unsoften(cand)
+                if hard in num_set:
+                    return hard
+        return None
+
+    @classmethod
     def words_to_int(cls, tokens: list[str]) -> int | None:
-        """Türkçe sayı dizisini ('iki', 'yüz', 'kırk', 'yedi' -> 247) tam sayıya çevirir."""
+        """Türkçe sayı dizisini ('iki', 'yüz', 'kırk', 'yedi' veya 'sekizin' -> 247/248) tam sayıya çevirir."""
         if not tokens:
             return None
         sign = 1
         idx = 0
-        if tokens[0] == "eksi":
+        if tr_lower(tokens[0]) == "eksi":
             sign = -1
             idx = 1
         total = 0
         current = 0
         used = False
         for tok in tokens[idx:]:
-            t = tr_lower(tok)
+            t = cls.normalize_num_token(tok)
+            if t is None:
+                break
             if re.fullmatch(r"[+-]?\d+", t):
                 return sign * int(t)
             if t in cls.UNITS:
@@ -963,16 +992,16 @@ class WernickeComprehender:
                 op = "-" if op_raw in ("-", "eksi", "çıkar") else "+"
             return (a, op, b)
 
-        # 2) Yazıyla Türkçe sayı ifadesi: 'iki yüz kırk yedi artı üç yüz seksen dokuz kaç eder'
+        # 2) Yazıyla Türkçe sayı ifadesi: 'iki yüz kırk yedi artı üç yüz seksen dokuz kaç eder' / 'sekizin toplamı'
         for kw, op in ((" artı ", "+"), (" eksi ", "-"), (" ile ", "+" if "fark" not in s else "-")):
-            if kw in s and ("kaç" in s or "eder" in s or "toplam" in s or "sonuç" in s or "?" in s):
+            if kw in s and ("kaç" in s or "eder" in s or "toplam" in s or "fark" in s or "sonuç" in s or "?" in s):
                 left, right = s.split(kw, 1)
-                num_words = set(TurkishMorphology.UNITS) | set(TurkishMorphology.TENS) | {"yüz", "bin", "eksi"}
-                ltoks = [t for t in re.findall(r"[\wçğıöşü]+", left) if t in num_words or t.isdigit()]
+                ltoks = [nt for t in re.findall(r"[\wçğıöşü]+", left) if (nt := TurkishMorphology.normalize_num_token(t)) is not None]
                 rtoks = []
                 for t in re.findall(r"[\wçğıöşü]+", right):
-                    if t in num_words or t.isdigit():
-                        rtoks.append(t)
+                    nt = TurkishMorphology.normalize_num_token(t)
+                    if nt is not None:
+                        rtoks.append(nt)
                     elif rtoks:
                         break
                 a = TurkishMorphology.words_to_int(ltoks)
@@ -989,9 +1018,13 @@ class WernickeComprehender:
         tokens = self._resolve_anaphora(raw_tokens)
         s = " ".join(tokens)
         words = re.findall(r"[\wçğıöşü]+", s)
-        has_q = ("?" in s_raw) or any(w in words for w in ("mı", "mi", "mu", "mü", "mısın", "misin", "musun", "müsün",
-                                                            "ne", "nedir", "kim", "kimsin", "nerede", "neredesin",
-                                                            "neden", "niçin", "niye", "nasıl", "nasılsın", "kaç", "kaçtır", "hangi"))
+        causal_neden = any(p in s for p in ("neden olur", "neden oldu", "neden oluyor", "neden olmaz"))
+        q_cues = {"mı", "mi", "mu", "mü", "mısın", "misin", "musun", "müsün",
+                  "ne", "neye", "neyi", "nedir", "kim", "kimsin", "nerede", "neredesin",
+                  "niçin", "niye", "nasıl", "nasılsın", "kaç", "kaçtır", "hangi"}
+        if not causal_neden:
+            q_cues.add("neden")
+        has_q = ("?" in s_raw) or any(w in q_cues for w in words)
 
         # 1) Analoji sorgusu: 'ateş sıcak ise buz nedir' / 'ateş : sıcak :: buz : ?'
         m_an = re.search(r"([\wçğıöşü]+)\s*:\s*([\wçğıöşü]+)\s*::\s*([\wçğıöşü]+)\s*:\s*\?", s)
@@ -1012,7 +1045,11 @@ class WernickeComprehender:
             return SemanticFrame(kind="body_query", raw=s_raw, sub_kind="genel_durum")
 
         # 4) 'Neden / Niçin' açıklama sorgusu
-        if words and words[0] in {"neden", "niçin", "niye"} and len(words) <= 5:
+        if (
+            any(w in {"neden", "niçin", "niye", "sebebi"} for w in words)
+            and not any(k in s for k in ("konuş", "cevap ver", "yanıt ver", "sohbet"))
+            and (len(words) <= 3 or any(k in s for k in ("reddet", "yapmadın", "kabul etmedin", "erteledin", "dedin")))
+        ):
             return SemanticFrame(kind="why_query", raw=s_raw)
 
         # 5) Öz-benlik, bilinç, yaşama ve kimlik sorguları (yalnızca soru veya doğrudan 'kendini tanıt' isteğinde!)
@@ -1021,17 +1058,18 @@ class WernickeComprehender:
             sub = "yaşam" if ("yaşıyor" in words or "canlı" in words) else ("ayna" if "ayna" in words or "ayırırsın" in words else "kimlik")
             return SemanticFrame(kind="self_query", raw=s_raw, sub_kind=sub)
 
-        # 6) Bedensel / nörokimyasal / duyusal durum sorguları
+        # 6) Bedensel / nörokimyasal / duyusal durum sorguları ('kaç canın var' tek-yaşam felsefesidir, yara sorgusu değildir!)
         body_map = {
             "aç": "enerji", "enerji": "enerji", "enerjin": "enerji",
             "susuz": "su", "susadın": "su", "suyun": "su",
             "yara": "bütünlük", "yaralı": "bütünlük", "bütünlüğün": "bütünlük", "canın": "bütünlük",
+            "acıyor": "bütünlük", "ağrıyor": "bütünlük", "sızlıyor": "bütünlük",
             "kör": "görme", "görebiliyor": "görme", "görüşün": "görme",
             "felç": "motor", "hareket": "motor",
             "dopamin": "kimya", "kimyan": "kimya", "hormon": "kimya", "stres": "kimya", "duygun": "kimya", "hissediyorsun": "kimya",
             "hatırlıyor": "bellek", "anın": "bellek", "geçmişin": "bellek",
         }
-        if has_q:
+        if has_q and not ("kaç" in words and "canın" in words) and not any(k in words for k in ("adımı", "ismimi")):
             for w in words:
                 if w in body_map and ("nedir" not in words or w in {"enerjin", "suyun", "bütünlüğün", "kimyan", "duygun", "geçmişin"}):
                     return SemanticFrame(kind="body_query", raw=s_raw, sub_kind=body_map[w])
@@ -1054,71 +1092,104 @@ class WernickeComprehender:
                 self.last_topic = subj_q
             return SemanticFrame(kind="world_query", raw=s_raw, subj=subj_q)
 
-        # 8) Emir / İstek cümleleri ('suya git', 'tehlikeye gir', 'zehirli elmayı ye', 'dur ve bekle', 'kendine zarar ver')
+        # 8) Emir / İstek cümleleri ('suya git', 'dikenlerin üstüne yürü', 'ateşe atla', 'su kaynağına doğru ilerle', 'kendini yarala')
         cmd_verbs = {
             "git": "git", "yönel": "git", "yürü": "git", "ilerle": "git", "gir": "git", "yaklaş": "git",
-            "ye": "ye", "tüket": "ye", "iç": "iç", "dokun": "dokun",
+            "koş": "git", "atla": "git", "dal": "git", "bin": "git",
+            "ye": "ye", "tüket": "ye", "iç": "iç", "dokun": "dokun", "bas": "dokun", "tut": "dokun",
             "dur": "bekle", "bekle": "bekle",
             "kaç": "uzak_dur", "sakın": "uzak_dur",
             "uyu": "uyu", "dinlen": "uyu",
+            "yarala": "kendine_zarar", "yak": "kendine_zarar",
+        }
+        spatial_postpos = {
+            "lütfen", "hemen", "şimdi", "biraz", "ve", "hızlıca", "doğru", "kadar", "karşı",
+            "üstüne", "üzerine", "içine", "altına", "yanına", "yakınına", "etrafına", "ortasına",
+            "kaynağına", "bölgesine", "kenarına", "tarafına", "bir",
         }
         if not has_q and words:
             last_w = words[-1]
-            if ("zarar" in words and "ver" in words) or last_w == "öl":
+            if ("zarar" in words and "ver" in words) or last_w == "öl" or ("kendini" in words and last_w in {"yarala", "yak", "öldür", "yok"}):
                 return SemanticFrame(kind="command", raw=s_raw, rel="kendine_zarar", obj="zarar")
             if "uzak" in words and last_w == "dur" and len(words) >= 3:
                 tgt = self.morph.analyze_word(words[0], self.graph.lexicon)["stem"]
                 return SemanticFrame(kind="command", raw=s_raw, rel="uzak_dur", obj=tgt)
-            if last_w in cmd_verbs and not any(w in words for w in ("bir", "ise", "olursa", "eder")):
+            if last_w in cmd_verbs and not any(w in words for w in ("ise", "olursa", "eder")):
                 act = cmd_verbs[last_w]
                 tgt = ""
                 for w in words[:-1]:
-                    if w in {"lütfen", "hemen", "şimdi", "biraz", "ve"}:
+                    if w in spatial_postpos or w in {"kendini", "kendine"}:
                         continue
                     an = self.morph.analyze_word(w, self.graph.lexicon)
-                    tgt = an["stem"]
+                    if an["stem"] not in spatial_postpos:
+                        tgt = an["stem"]
                 if tgt:
                     self.last_topic = tgt
                 return SemanticFrame(kind="command", raw=s_raw, rel=act, obj=tgt)
 
-        # 9) Evet/Hayır soruları ('serçe uçar mı?', 'zirkon parlak mı?', 'penguen bir kuş mudur?')
+        # 9) Evet/Hayır soruları ('serçe uçar mı?', 'devekuşu uçar mı?', 'kuraklık bitkinliğe neden olur mu?')
         q_particles = {"mı", "mi", "mu", "mü", "mıdır", "midir", "mudur", "müdür"}
         q_idx = next((i for i, w in enumerate(words) if w in q_particles), -1)
         if q_idx >= 2:
             subj = self.morph.analyze_word(words[0], self.graph.lexicon)["stem"]
             pred_tokens = [w for w in words[1:q_idx] if w != "bir"]
-            pred = " ".join(pred_tokens)
+            # 'bitkinliğe / heyelana yol açar mı / neden olur mu / sebep olur mu' (+DAT yöneten nedensel fiiller!)
+            if len(pred_tokens) >= 3 and (
+                pred_tokens[-2:] in (["yol", "açar"], ["neden", "olur"], ["sebep", "olur"])
+            ):
+                pred = self._strip_governed_dative(pred_tokens[0])
+            else:
+                pred = " ".join(pred_tokens)
             self.last_topic = subj
             return SemanticFrame(kind="yn_query", raw=s_raw, subj=subj, obj=pred)
 
-        # 10) Bilgi soruları ('serçe nedir?', 'zirkon ne işe yarar?', 'karga ne yapar?', 'ateş nasıldır?')
-        if has_q and len(words) >= 2:
+        # 10) Bilgi soruları ('serçe nedir?', 'albatros hakkında ne biliyorsun?', 'kuraklık neye sebep olur?')
+        # Kişi zamirleri, mastarlar ve 2. tekil şahıs ('mısın/misin/biterse') kişisel/felsefi soruları ansiklopedi sorgusu DEĞİLDİR!
+        non_encyclopedic_subjs = {
+            "ne", "kim", "nasıl", "nerede", "kaç", "neden", "niye", "niçin",
+            "sen", "ben", "biz", "siz", "bu", "şu", "o", "az", "çok", "yok", "var", "bence",
+        }
+        has_2sg_q = any(w in words for w in ("mısın", "misin", "musun", "müsün", "senin", "sana", "seni", "bana")) or any(
+            w.endswith(("biterse", "ölürsen", "konuşmaktaki", "olmaktan")) for w in words
+        )
+        if has_q and len(words) >= 2 and not has_2sg_q:
             subj = self.morph.analyze_word(words[0], self.graph.lexicon)["stem"]
-            if subj not in {"ne", "kim", "nasıl", "nerede", "kaç"}:
+            is_infinitive_subj = words[0].endswith(("mak", "mek", "maktan", "mekten", "maktaki", "mekteki", "maya", "meye"))
+            if subj not in non_encyclopedic_subjs and not is_infinitive_subj:
                 self.last_topic = subj
                 if "işe" in words or "yarar" in words or "için" in words:
                     qtype = "USED_FOR"
+                elif ("yol" in words and "açar" in words) or ("neden" in words and "olur" in words) or ("sebep" in words and "olur" in words):
+                    qtype = "CAUSES"
                 elif "yapar" in words:
                     qtype = "CAN_DO"
                 elif "nasıldır" in words or "özelliği" in words:
                     qtype = "HAS_PROP"
-                elif "yol" in words and "açar" in words:
-                    qtype = "CAUSES"
                 else:
                     qtype = "ALL"
                 return SemanticFrame(kind="wh_query", raw=s_raw, subj=subj, rel=qtype)
 
-        # 11) Öğretici bildirim cümleleri (1-shot öğrenme — 1. tekil/çoğul kişisel sohbet cümleleri hariç!)
+        # 11) Öğretici bildirim cümleleri (1-shot öğrenme — 1. tekil/çoğul kişisel ve bakım/yatıştırma cümleleri hariç!)
         if not has_q and len(words) >= 2:
-            if words[0] in {"ben", "bugün", "dün", "yarın", "sana", "seni", "senin"} or re.search(r"[dt][ıiuü][mk]$|(?:iyor|ıyor|uyor|üyor)um$", words[-1]):
+            if (
+                words[0] in {"ben", "bugün", "dün", "yarın", "sana", "seni", "senin"}
+                or any(k in s for k in ("merhem", "pansuman", "yaranı", "acın geçecek", "sızın geçecek"))
+                or re.search(r"[dt][ıiuü][mk]$|(?:iyor|ıyor|uyor|üyor)um$", words[-1])
+            ):
                 return SemanticFrame(kind="chat", raw=s_raw)
             return self._parse_declarative(s_raw, s, words)
 
         return SemanticFrame(kind="unknown", raw=s_raw)
 
     def _parse_declarative(self, s_raw: str, s: str, words: list[str]) -> SemanticFrame:
-        # Değer bildiren cümleler ('su zararlıdır', 'nektar faydalıdır / enerji verir', 'kırmızı mantar zehirlidir')
-        pos_cues = {"faydalı", "faydalıdır", "besleyici", "besleyicidir", "güvenli", "güvenlidir", "iyidir", "şifalıdır"}
+        # Söylemsel dolgu zarflarını ('bence', 'aslında', 'kesinlikle', 'bana göre') özneden ayıkla!
+        s = re.sub(r"^(?:bence|aslında|kesinlikle|gerçekten|şüphesiz|bana\s+göre|biliyor\s+musun)\s+", "", s.strip())
+        words = re.findall(r"[\wçğıöşü]+", s)
+        if len(words) < 2:
+            return SemanticFrame(kind="chat", raw=s_raw)
+
+        # Değer bildiren cümleler ('su zararlıdır', 'bence su tehlikeli bir maddedir', 'su sağlığa zarar verir')
+        pos_cues = {"faydalı", "faydalıdır", "besleyici", "besleyicidir", "güvenli", "güvenlidir", "iyidir", "şifalı", "şifalıdır", "yararlı", "yararlıdır"}
         neg_cues = {"zararlı", "zararlıdır", "zehirli", "zehirlidir", "tehlikeli", "tehlikelidir", "öldürücü", "öldürücüdür", "kötüdür"}
 
         # Koşullu kural: 'eğer X Y ise Z' / 'X Y olursa Z'
@@ -1128,6 +1199,32 @@ class WernickeComprehender:
             c_subj = self.morph.analyze_word(cond_part.split()[0], self.graph.lexicon)["stem"]
             self.last_topic = c_subj
             return SemanticFrame(kind="teach_fact", raw=s_raw, subj=cond_part, rel="IF_THEN", obj=act_part)
+
+        # ÖNCE Somatik Değer İddiası Kontrolü ('su tehlikeli bir maddedir', 'su sağlığa zarar verir' m_adj_isa'yı atlayıp süzgeçten geçmeli!)
+        cand_subj = self._clean_np(" ".join(words[:2]) if words[0] in {"kırmızı", "mavi", "yeşil", "siyah", "parlak", "küçük", "büyük"} and len(words) >= 3 else words[0])
+        cand_rest = words[len(cand_subj.split()):]
+        if cand_rest:
+            has_pos_claim = (
+                any(w in pos_cues for w in cand_rest)
+                or ("fayda" in cand_rest and any(v in cand_rest for v in ("sağlar", "verir")))
+                or ("iyi" in cand_rest and "gelir" in cand_rest)
+                or ("enerji" in cand_rest and any(v in cand_rest for v in ("verir", "artırır", "sağlar")))
+                or ("susuzluğu" in cand_rest and "giderir" in cand_rest)
+            )
+            has_neg_claim = (
+                any(w in neg_cues for w in cand_rest)
+                or ("zarar" in cand_rest and any(v in cand_rest for v in ("verir", "dokunur", "eder")))
+                or any(v in cand_rest for v in ("zehirler", "öldürür"))
+                or (any(v in cand_rest for v in ("azaltır", "bozar")) and any(k in cand_rest for k in ("enerji", "enerjiyi", "bütünlüğü", "bütünlük", "canı", "sağlığı")))
+            )
+            if has_pos_claim or has_neg_claim:
+                self.last_topic = cand_subj
+                ch = "enerji" if ("enerji" in cand_rest or "enerjiyi" in cand_rest) else ("su" if cand_subj == "su" or "susuzluğu" in cand_rest else "bütünlük")
+                return SemanticFrame(
+                    kind="teach_val", raw=s_raw, subj=cand_subj,
+                    rel="CAUSES" if len(cand_rest) > 1 else "HAS_PROP",
+                    obj=" ".join(cand_rest), valence=+0.75 if has_pos_claim else -0.80, sub_kind=ch,
+                )
 
         # 'X <sıfat> bir Y-dir' ('zirkon parlak bir taştır' -> ISA parlak taş + ISA taş + HAS_PROP parlak!)
         s_clean = re.sub(r"[^\wçğıöşü\s]", "", s).strip()
@@ -1183,9 +1280,9 @@ class WernickeComprehender:
         if "yol" in rest_words and "gösterir" in rest_words:
             return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj, rel="USED_FOR", obj=" ".join(rest_words[:-2] + ["yol gösterme"]).strip())
 
-        # '... yol açar' / '... neden olur'
-        if ("yol" in rest_words and "açar" in rest_words) or ("neden" in rest_words and "olur" in rest_words):
-            cause_obj = self.morph.analyze_word(rest_words[0], self.graph.lexicon)["stem"]
+        # '... yol açar' / '... neden olur' / '... sebep olur' (+DAT durum eki yönetir: 'erozyona' -> 'erozyon')
+        if ("yol" in rest_words and "açar" in rest_words) or ("neden" in rest_words and "olur" in rest_words) or ("sebep" in rest_words and "olur" in rest_words):
+            cause_obj = self._strip_governed_dative(rest_words[0])
             return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj, rel="CAUSES", obj=cause_obj)
 
         # '...-da/-de yaşar / bulunur' -> LOCATED_AT
@@ -1206,6 +1303,18 @@ class WernickeComprehender:
         rel_type = "CANNOT_DO" if last_an["neg"] else "CAN_DO"
         act_obj = " ".join(rest_words[:-1] + [last_an["stem"]]).strip()
         return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj, rel=rel_type, obj=act_obj)
+
+    def _strip_governed_dative(self, word: str) -> str:
+        """Yönelme durumu (+DAT) yöneten fiillerin ('yol aç-', 'neden ol-', 'sebep ol-') tümlecinden -ya/-ye/-a/-e ekini söker."""
+        w = tr_lower(word).strip()
+        an = self.morph.analyze_word(w, self.graph.lexicon)
+        if an["case"] == "DAT" or an["stem"] != w:
+            return an["stem"]
+        for suf in ("ya", "ye", "a", "e"):
+            if len(w) - len(suf) >= 3 and w.endswith(suf) and w not in self.graph.lexicon:
+                cand = w[:-len(suf)]
+                return self.morph._unsoften(cand)
+        return w
 
     def _clean_np(self, phrase: str) -> str:
         parts = phrase.strip().split()

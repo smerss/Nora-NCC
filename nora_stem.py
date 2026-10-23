@@ -511,15 +511,17 @@ class MathCortex:
                 return res
 
         # 5) Sayılar Teorisi: Asallık & Asal Çarpanlar & EBOB/EKOK & Faktöriyel & Kombinasyon/Permütasyon
-        if "ebob" in s or "ekok" in s or "obeb" in s or "okek" in s:
+        wants_gcd = any(k in s for k in ("ebob", "obeb", "en büyük ortak bölen", "ortak bölen"))
+        wants_lcm = any(k in s for k in ("ekok", "okek", "en küçük ortak kat", "ortak kat"))
+        if wants_gcd or wants_lcm:
             nums = [abs(int(x)) for x in re.findall(r"-?\d+", s)]
             if len(nums) >= 2:
                 a, b = nums[0], nums[1]
                 g = math.gcd(a, b)
                 l = abs(a * b) // g if g else 0
-                if ("ebob" in s or "obeb" in s) and ("ekok" in s or "okek" in s):
+                if wants_gcd and wants_lcm:
                     ans_txt = f"{a} ile {b} sayılarının EBOB'u {g}, EKOK'u ise {l} olur (sağlama: {g} × {l} = {g*l} = {a} × {b})."
-                elif "ebob" in s or "obeb" in s:
+                elif wants_gcd:
                     ans_txt = f"Öklid algoritmasıyla {a} ve {b} sayılarının en büyük ortak böleni (EBOB) {g} bulunur."
                 else:
                     ans_txt = f"{a} ve {b} sayılarının en küçük ortak katı (EKOK) {l} bulunur."
