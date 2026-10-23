@@ -412,7 +412,10 @@ class NoraAGI:
         if len(parts) > 1:
             taught_msgs = []
             last_part = parts[-1]
-            is_last_q = ("?" in last_part) or any(w in tr_lower(last_part).split() for w in ("mı", "mi", "mu", "mü", "nedir", "ne", "kaç", "nasıl", "nerede"))
+            is_last_q = ("?" in last_part) or any(
+                w in tr_lower(last_part).split()
+                for w in ("mı", "mi", "mu", "mü", "nedir", "neydi", "ne", "kaç", "kaçtı", "nasıl", "nerede", "neredeydi", "kim", "kimim", "kimdim")
+            )
             teach_slice = parts[:-1] if is_last_q else parts
             for sent in teach_slice:
                 r_msg = self._handle_single_sentence(sent, speaker=speaker)
@@ -1017,41 +1020,10 @@ class NoraAGI:
         morph = self.lang.morph
         lex = self.lang.graph.lexicon
         s_clean = re.sub(r"[^\wçğıöşü\s]", "", s_low).strip()
-        has_q = ("?" in raw) or any(w in s_clean.split() for w in ("mı", "mi", "mu", "mü", "mıdır", "midir", "mudur", "müdür", "ne", "nedir", "nerede", "nerededir", "hangisidir", "kimim"))
-
-        # 1) Kullanıcı profili öğrenme ve hatırlama ('Benim adım Ahmet', 'Ben Antalya'da yaşıyorum', 'Ben kahveyi severim')
-        prof = self.user_profiles.setdefault(speaker, {})
-        m_name = re.match(r"^benim\s+adım\s+([\wçğıöşü]+)$", s_clean)
-        if m_name and not has_q:
-            uname = tr_capitalize(m_name.group(1))
-            prof["ad"] = uname
-            self.chem.pulse_learning(novelty=0.75, valence=0.35)
-            return f"Memnun oldum {uname}; adını sosyal belleğime kaydettim."
-        m_live = re.match(r"^ben\s+([\wçğıöşü]+?)(?:da|de|ta|te)\s+yaşıyorum$", s_clean)
-        if m_live and not has_q:
-            city = tr_capitalize(m_live.group(1))
-            prof["konum"] = city
-            self.chem.pulse_learning(novelty=0.75, valence=0.30)
-            return f"Anladım; {morph.inflect_noun(city, 'LOC')} yaşadığını belleğime işledim."
-        m_like = re.match(r"^ben\s+([\wçğıöşü]+)\s+severim$", s_clean)
-        if m_like and not has_q:
-            item = morph.analyze_word(m_like.group(1), lex)["stem"]
-            prof["sevdiği"] = item
-            self.chem.pulse_learning(novelty=0.75, valence=0.30)
-            return f"Kaydettim; senin {morph.inflect_noun(item, 'ACC')} sevdiğini hatırlayacağım."
-
-        if has_q and ("benim adım ne" in s_clean or s_clean in {"ben kimim", "adım ne"}):
-            if "ad" in prof:
-                return f"Sosyal belleğime göre senin adın {prof['ad']}."
-            return "Adını bana henüz söylemedin."
-        if has_q and "ben nerede yaşıyorum" in s_clean:
-            if "konum" in prof:
-                return f"Bana anlattığına göre {tr_capitalize(morph.inflect_noun(prof['konum'], 'LOC'))} yaşıyorsun."
-            return "Nerede yaşadığını henüz bilmiyorum."
-        if has_q and ("ben neyi severim" in s_clean or "ne severim" in s_clean):
-            if "sevdiği" in prof:
-                return f"Belleğime göre sen {morph.inflect_noun(prof['sevdiği'], 'ACC')} seversin."
-            return "Neyi sevdiğini henüz bana söylemedin."
+        has_q = ("?" in raw) or any(
+            w in s_clean.split()
+            for w in ("mı", "mi", "mu", "mü", "mıdır", "midir", "mudur", "müdür", "ne", "nedir", "neydi", "nerede", "nerededir", "neredeydi", "hangisidir", "kimim", "kimdim", "kaç", "kaçtı")
+        )
 
         # 2) Prosedürel Makro-Beceri Öğrenme (1-shot) ve Öz-Benlik Güvenlik Denetimli Yürütme!
         # 'devriye demek suya git ve yiyeceğe git demektir'

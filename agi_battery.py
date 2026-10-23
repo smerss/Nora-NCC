@@ -518,9 +518,10 @@ def a21_communicative_volition_free_will():
 
 
 def a22_long_horizon_episodic_dialogue_memory():
-    """Hipokampal CA3 Sohbet Belleği: Yüzlerce tur önceki konuyu, ilk konuşmayı ve diskten
-    geri yükleme sonrası geçmiş sohbeti hatırlama."""
+    """Hipokampal CA3 Sohbet Belleği: Doğal koşaçsız tanışma ('merhaba! Ben baran' -> 'benim adım neydi'),
+    yüzlerce tur önceki konuyu, ilk konuşmayı ve diskten geri yükleme sonrası geçmiş sohbeti hatırlama."""
     agi = NoraAGI(seed=22, boot_thinker=False)
+    r_intro = agi.converse("merhaba! Ben baran")
     agi.converse("Antalya sahilinde kuantum dolanıklık üzerine çalıştım.")
     agi.converse("Zirkon parlak bir taştır.")
     for i in range(250):
@@ -535,23 +536,26 @@ def a22_long_horizon_episodic_dialogue_memory():
             reply_text="tamam",
         )
 
+    r_name = agi.converse("benim adım neydi")
     r_first = agi.converse("İlk ne konuşmuştuk?")
     r_topic = agi.converse("Kuantum hakkında sana ne demiştim?")
     r_count = agi.converse("Belleğinde kaç konuşma anısı var?")
 
-    ok_first = "antalya" in tr_lower(r_first)
+    ok_name = ("baran" in tr_lower(r_intro)) and ("baran" in tr_lower(r_name))
+    ok_first = "baran" in tr_lower(r_first)
     ok_topic = "antalya" in tr_lower(r_topic) and "kuantum" in tr_lower(r_topic)
-    ok_count = "252" in r_count
+    ok_count = "253" in r_count
 
     with tempfile.TemporaryDirectory() as td:
         pref = os.path.join(td, "nora_mem")
         agi.save(pref)
         agi2 = NoraAGI.load(pref)
         r_after_load = agi2.converse("Antalya hakkında ne konuşmuştuk?")
-        ok_persist = "kuantum" in tr_lower(r_after_load)
+        r_name_after_load = agi2.converse("benim adım neydi")
+        ok_persist = ("kuantum" in tr_lower(r_after_load)) and ("baran" in tr_lower(r_name_after_load))
 
-    ok = ok_first and ok_topic and ok_count and ok_persist
-    return ok, f"ilk-anı={ok_first} | 250-tur-ötesi-konu={ok_topic} | sayaç={ok_count} | kalıcılık={ok_persist}"
+    ok = ok_name and ok_first and ok_topic and ok_count and ok_persist
+    return ok, f"baran-ad={ok_name} | ilk-anı={ok_first} | 250-tur-ötesi={ok_topic} | sayaç={ok_count} | kalıcılık={ok_persist}"
 
 
 def a23_constant_time_o1_massive_scale_speed():
