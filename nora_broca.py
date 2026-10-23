@@ -425,6 +425,22 @@ class TurkishSyntaxEngine:
         t = tense.upper()
         p = person.upper()
 
+        # Emir kipi (IMP): 2SG yalın gövde ('söyle', 'yaz'), diğer kişiler ek alır.
+        if t == "IMP":
+            if p == "2SG":
+                surf = v
+            elif p == "3SG":
+                surf = v + ("sin" if m.vowel_e_a(v) == "e" else "sın")
+            elif p == "2PL":
+                surf = v + ("in" if m.vowel_e_a(v) == "e" else "ın") + "ız"
+            elif p == "3PL":
+                surf = v + ("sinler" if m.vowel_e_a(v) == "e" else "sınlar")
+            else:
+                surf = v + ("elim" if m.vowel_e_a(v) == "e" else "alım")
+            if neg:
+                surf = v + ("me" if m.vowel_e_a(v) == "e" else "ma") + surf[len(v):]
+            return (pref + " " + surf).strip() if pref else surf
+
         # Yeterlilik gövdesi (-ebil / olumsuzda -ama/-eme)
         if t in ("ABIL_PRES", "ABIL_AOR"):
             v_s = cls._soften_verb_t(v)
