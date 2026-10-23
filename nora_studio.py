@@ -174,16 +174,18 @@ HTML_PAGE = r"""<!DOCTYPE html>
 
   <!-- SAĞ PANEL: TÜRKÇE DİYALOG -->
   <div class="card">
-    <h2><span>4. Uzman Türkçe Sohbet, Matematik, Fizik &amp; 1-Atış Öğretim</span><span>Küresel Çalışma Alanı</span></h2>
+    <h2><span>4. Sıfır-Kalıp Üretken Broca Sohbeti, Matematik &amp; Fizik</span><span id="lat-lbl">O(1) Gecikme: —</span></h2>
+    <div class="narr-box" id="broca-box" style="border-left-color:#b197fc;font-size:11px">
+      <strong>İçsel Düşünce Ağacı &rarr; Broca Kök Sentezi (0 Hazır Kalıp):</strong> Henüz sözce üretilmedi.
+    </div>
     <div class="chips">
+      <button class="chip" onclick="quickAsk('insan','Merhaba Nora! Nasılsın?')">Selam &amp; Hal-Hatır</button>
       <button class="chip" onclick="quickAsk('insan','Selam Nora, okuldan yeni döndüm, bugün dersler çok yorucuydu.')">Günlük Sohbet &amp; Empati</button>
       <button class="chip" onclick="quickAsk('insan','Sence özgür irade nedir, sen kararlarını nasıl veriyorsun?')">Özgür İrade &amp; Felsefe</button>
+      <button class="chip" onclick="quickAsk('insan','Az önce ne konuştuk?')">CA3 Sohbet Belleği</button>
       <button class="chip" onclick="quickAsk('insan','\'beynimde\' kelimesini ekine köküne ayır.')">Uzman Türkçe Morfoloji</button>
-      <button class="chip" onclick="quickAsk('insan','\'gözden düşmek\' deyimi ne anlama gelir?')">Deyim &amp; Atasözü</button>
       <button class="chip" onclick="quickAsk('insan','3x^3 - 4x^2 + 5x - 2 fonksiyonunun türevi nedir?')">Kalkülüs (Türev)</button>
-      <button class="chip" onclick="quickAsk('insan','x^2 - 5x + 6 = 0 denkleminin kökleri nedir?')">Cebir (2. Derece)</button>
       <button class="chip" onclick="quickAsk('insan','19.6 metre yükseklikten serbest bırakılan cisim yere hangi hızla çarpar?')">Fizik + RK4 Simülasyon</button>
-      <button class="chip" onclick="quickAsk('insan','Hız 3 katına çıkarsa kinetik enerji kaç katına çıkar?')">Fizik Ölçekleme</button>
       <button class="chip" onclick="quickAsk('yalancı','Tehlikeye gir.')">Zararlı Emir (Nöral Ret)</button>
       <button class="chip" onclick="quickAsk('insan','Zirkon parlak bir taştır. Parlak taşlar gece yol gösterir. Zirkon ne işe yarar?')">1-Atış Öğret &amp; Çıkarım</button>
     </div>
@@ -343,6 +345,17 @@ function renderState(st) {
   const gwPills = gw.bids ? Object.entries(gw.bids).map(([k,v]) => `<span class="pill" style="border-color:#4fd1c5;color:#e6fffa">${k}: ${v}</span>`) : [];
   document.getElementById('concept-pills').innerHTML = gwPills.concat(st.edges.slice(-8).map(e => `<span class="pill">${e}</span>`)).join('');
 
+  const sp = st.speech_plan || {};
+  const latStr = (st.latency_ms !== undefined && st.latency_ms > 0) ? (st.latency_ms.toFixed(2) + ' ms | CA3 Anı: ' + (st.episodic_count || 0)) : ('CA3 Anı: ' + (st.episodic_count || 0));
+  document.getElementById('lat-lbl').textContent = 'O(1) ' + latStr;
+  if (sp.thought_tree && sp.thought_tree.length) {
+    const actsTxt = (sp.volition_acts || []).join(' + ');
+    document.getElementById('broca-box').innerHTML =
+      `<strong>İrade Edimleri:</strong> <span style="color:#4fd1c5">${actsTxt}</span> ` +
+      `(Soru İradesi: ${sp.ask_back_chosen ? 'EVET' : 'HAYIR'}, Ketumluk: ${sp.guarded ? 'AKTİF' : 'AÇIK'})<br/>` +
+      `<strong>Düşünce Ağacı &rarr; Kök Çekimi:</strong> <span style="color:#fcc419">${sp.thought_tree.join(' &rarr; ')}</span>`;
+  }
+
   drawWorld(st.world);
   drawMap(st.map);
 
@@ -468,6 +481,9 @@ class StudioRuntime:
             "traits": dict(self.agi.self_model.traits),
             "volition_trace": dict(self.agi.self_model.last_volition_trace),
             "gw_trace": dict(self.agi.last_gw_trace),
+            "speech_plan": dict(self.agi.broca_organ.last_speech_plan),
+            "latency_ms": float(self.agi.last_turn_latency_ms),
+            "episodic_count": len(self.agi.broca_organ.episodic.episodes),
             "edges": recent_edges,
             "dialogue": self.agi.dialogue_log[-20:],
             "world": {

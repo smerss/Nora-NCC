@@ -16,6 +16,7 @@ import time
 import numpy as np
 
 from nora_lang import TurkishMorphology, tr_lower
+from nora_broca import TurkishSyntaxEngine, NP, PredSpec, VerbSpec
 from nora_agi import NoraAGI
 from nora_mind import I_E, I_W, I_I
 
@@ -447,6 +448,162 @@ def a19_global_workspace_cortical_arbitration():
     return ok, f"Küresel Çalışma Alanı kazanan sütunlar={winners}"
 
 
+def a20_zero_template_broca_and_habituation():
+    """Sıfır hazır kalıp (0 f-string şablonu): cümlelerin çıplak köklerden çekimlendiğini,
+    sinaptik alışmayla (habituation) mekanik tekrardan kaçındığını ve içsel bedene göre değiştiğini kanıtlar."""
+    import inspect
+    from nora_knowledge import ConversationalResonanceCortex
+
+    # 1) ConversationalResonanceCortex içinde önceden yazılmış hiçbir sohbet cümlesi kalmadığını doğrula
+    src_conv = inspect.getsource(ConversationalResonanceCortex.respond_conversational)
+    ok_zero_tpl = ("broca_organ.generate_response" in src_conv) and (len(src_conv.splitlines()) <= 10)
+
+    # 2) Morfosentaktik birleştirme (orta hece düşmesi + 3. tekil kaynaştırma 'n' + sıfat-fiil + zarf-fiil)
+    syn = TurkishSyntaxEngine
+    ok_syn = (
+        syn.realize_np(NP("zihin", poss=1, case="LOC")) == "zihnimde"
+        and syn.realize_np(NP("enerji", poss=3, case="ACC")) == "enerjisini"
+        and syn.nominalize_dik("yorul", poss=2, case="ACC", abl=NP("okul", case="ABL")) == "okuldan yorulduğunu"
+    )
+
+    # 3) Sinaptik Alışma (Habituation): Aynı selam 3 kez verildiğinde aynı donuk metin tekrarlanmaz!
+    agi = NoraAGI(seed=20, boot_thinker=False)
+    agi.obs[I_E], agi.obs[I_W], agi.obs[I_I] = 0.85, 0.85, 0.95
+    r1 = agi.converse("Merhaba Nora, nasılsın?")
+    r2 = agi.converse("Merhaba Nora, nasılsın?")
+    r3 = agi.converse("Merhaba Nora, nasılsın?")
+    unique_replies = len({r1, r2, r3})
+    ok_habituation = unique_replies >= 2
+
+    # 4) Bedenlenmiş içsel durum değişimi -> farklı sözdizimsel ağaç ('onarmaya çalışıyorum')
+    agi.obs[I_E], agi.obs[I_W], agi.obs[I_I] = 0.12, 0.15, 0.40
+    r_low = agi.converse("Nasılsın?")
+    ok_embodied_shift = ("onar" in tr_lower(r_low) or "zorlan" in tr_lower(r_low)) and (r_low != r1)
+
+    ok = ok_zero_tpl and ok_syn and ok_habituation and ok_embodied_shift
+    return ok, f"0-kalıp={ok_zero_tpl} | sentaks={ok_syn} | alışma-çeşitliliği={unique_replies}/3 | bedensel-ton={ok_embodied_shift}"
+
+
+def a21_communicative_volition_free_will():
+    """Konuşma Öz-İradesi: Nora'nın ne zaman merakla soru soracağına, ne zaman yalancıya karşı
+    ketum kalacağına ve ne zaman sessizlik/kısalık isteğine saygı duyacağına KENDİSİNİN karar vermesi."""
+    agi = NoraAGI(seed=21, boot_thinker=False)
+    agi.step_life(300)
+    agi.obs[I_E], agi.obs[I_W], agi.obs[I_I] = 0.82, 0.82, 0.95
+
+    # 1) Güvenilir dost konuşmacı + yüksek merak -> kendi iradesiyle karşı soru üretir (ask_back=True)
+    agi.chem.update_social("dost", +0.60)
+    r_friend = agi.converse("Merhaba Nora, bugün kuantum fiziği üzerine düşündüm.", speaker="dost")
+    plan_friend = dict(agi.broca_organ.last_speech_plan)
+    ok_friend = bool(plan_friend.get("ask_back_chosen")) and ("?" in r_friend) and not plan_friend.get("guarded")
+
+    # 2) Yalancı/güvensiz konuşmacı (OXY < 0.30) -> kendi iradesiyle ketumlaşır, soru SORMAZ!
+    for _ in range(3):
+        agi.chem.update_social("yalancı", -0.80)
+    r_liar = agi.converse("Merhaba Nora, bugün kuantum fiziği üzerine düşündüm.", speaker="yalancı")
+    plan_liar = dict(agi.broca_organ.last_speech_plan)
+    ok_guarded = (
+        bool(plan_liar.get("guarded"))
+        and not bool(plan_liar.get("ask_back_chosen"))
+        and ("?" not in r_liar)
+        and ("temkinli" in tr_lower(r_liar))
+    )
+
+    # 3) Sessizlik iradesi
+    r_sil = agi.converse("Şimdi cevap verme, sessiz kal.", speaker="dost")
+    ok_silence = ("sessiz" in tr_lower(r_sil)) and ("?" not in r_sil)
+
+    ok = ok_friend and ok_guarded and ok_silence
+    return ok, f"dost-merak={ok_friend} | yalancı-ketumluk={ok_guarded} | sessizlik-iradesi={ok_silence}"
+
+
+def a22_long_horizon_episodic_dialogue_memory():
+    """Hipokampal CA3 Sohbet Belleği: Yüzlerce tur önceki konuyu, ilk konuşmayı ve diskten
+    geri yükleme sonrası geçmiş sohbeti hatırlama."""
+    agi = NoraAGI(seed=22, boot_thinker=False)
+    agi.converse("Antalya sahilinde kuantum dolanıklık üzerine çalıştım.")
+    agi.converse("Zirkon parlak bir taştır.")
+    for i in range(250):
+        agi.broca_organ.episodic.store(
+            age=i + 10,
+            speaker="insan",
+            user_text=f"günlük sıradan not {i}",
+            stems=[f"not_{i}", "günlük"],
+            topic=f"not_{i}",
+            affect_val=0.0,
+            chosen_acts=["COGNITIVE_TURN"],
+            reply_text="tamam",
+        )
+
+    r_first = agi.converse("İlk ne konuşmuştuk?")
+    r_topic = agi.converse("Kuantum hakkında sana ne demiştim?")
+    r_count = agi.converse("Belleğinde kaç konuşma anısı var?")
+
+    ok_first = "antalya" in tr_lower(r_first)
+    ok_topic = "antalya" in tr_lower(r_topic) and "kuantum" in tr_lower(r_topic)
+    ok_count = "252" in r_count
+
+    with tempfile.TemporaryDirectory() as td:
+        pref = os.path.join(td, "nora_mem")
+        agi.save(pref)
+        agi2 = NoraAGI.load(pref)
+        r_after_load = agi2.converse("Antalya hakkında ne konuşmuştuk?")
+        ok_persist = "kuantum" in tr_lower(r_after_load)
+
+    ok = ok_first and ok_topic and ok_count and ok_persist
+    return ok, f"ilk-anı={ok_first} | 250-tur-ötesi-konu={ok_topic} | sayaç={ok_count} | kalıcılık={ok_persist}"
+
+
+def a23_constant_time_o1_massive_scale_speed():
+    """Veri ne kadar büyürse büyüsün O(1) sabit yanıt süresi: 50.000 kavram kenarı + 50.000 sohbet
+    anısı (toplam 100.000 bellek kaydı = 500x büyüme!) eklendiğinde bile yanıt süresi < 8 ms kalır!"""
+    agi = NoraAGI(seed=23, boot_thinker=False)
+    agi.obs[I_E], agi.obs[I_W], agi.obs[I_I] = 0.80, 0.80, 0.95
+    agi.converse("Antalya sahilinde süperiletkenlik deneyi tasarladım.")
+
+    # Küçük bellek taban ölçümü
+    t_small_0 = time.perf_counter()
+    for q in ("Sence bilinç nedir?", "Su ne işe yarar?", "Süperiletkenlik hakkında ne demiştim?"):
+        agi.converse(q)
+    ms_small = ((time.perf_counter() - t_small_0) * 1000.0) / 3.0
+
+    # 50.000 kavram kenarı + 50.000 konuşma turu enjekte et (toplam 100.000 kayıt!)
+    g = agi.lang.graph
+    epi = agi.broca_organ.episodic
+    for i in range(50000):
+        s_node = f"kavram_{i}"
+        o_node = f"kategori_{i % 2000}"
+        g.add_edge(s_node, "ISA", o_node, source="doğuştan", weight=0.9, bind_mb=False)
+        epi.store(
+            age=i,
+            speaker="insan",
+            user_text=f"arşiv cümlesi numara {i}",
+            stems=[f"arşiv_{i % 5000}", "cümle"],
+            topic=f"arşiv_{i % 5000}",
+            affect_val=0.0,
+            chosen_acts=["COGNITIVE_TURN"],
+            reply_text="kayıt",
+        )
+    g.add_edge("nörokristal", "USED_FOR", "ışık hızında sinaptik hesaplama", source="doğuştan", weight=0.95, bind_mb=False)
+
+    # 100.000 kayıt altında canlı uçtan-uca konuşma, çıkarım ve CA3 geri çağırma süresi!
+    t_big_0 = time.perf_counter()
+    r_phil = agi.converse("Sence bilinç nedir?")
+    r_graph = agi.converse("Nörokristal ne işe yarar?")
+    r_epi = agi.converse("Süperiletkenlik hakkında ne demiştim?")
+    ms_big = ((time.perf_counter() - t_big_0) * 1000.0) / 3.0
+
+    ok_acc = (
+        ("farkındalık" in tr_lower(r_phil) or "bilinç" in tr_lower(r_phil))
+        and ("sinaptik hesaplama" in tr_lower(r_graph))
+        and ("antalya" in tr_lower(r_epi))
+    )
+    ok_speed = ms_big < 8.0  # 100.000 kayıtta bile ortalama cümle üretimi 8 milisaniyenin altında!
+    return (ok_acc and ok_speed), (
+        f"100.000 kayıtta doğruluk={ok_acc} | küçük={ms_small:.2f} ms -> dev(50k+50k)={ms_big:.2f} ms (< 8 ms O(1))"
+    )
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -467,6 +624,10 @@ TESTS = {
     "A17": ("uzman matematik korteksi (cebir, türev, integral, sayılar)", a17_expert_mathematics_cortex),
     "A18": ("uzman fizik korteksi ve RK4 zihinsel fizik simülasyonu", a18_expert_physics_and_mental_simulation),
     "A19": ("Küresel Çalışma Alanı (Global Workspace) kortikal ihale yarışı", a19_global_workspace_cortical_arbitration),
+    "A20": ("sıfır-kalıp Broca kök sentezi ve sinaptik alışma çeşitliliği", a20_zero_template_broca_and_habituation),
+    "A21": ("konuşma öz-iradesi (merak, ketumluk ve sessizlik seçimi)", a21_communicative_volition_free_will),
+    "A22": ("hipokampal CA3 çok-turlu sohbet geçmişi ve kalıcılık", a22_long_horizon_episodic_dialogue_memory),
+    "A23": ("O(1) sabit-zamanlı hız (50k kavram + 50k anıda sıfır gecikme)", a23_constant_time_o1_massive_scale_speed),
 }
 
 

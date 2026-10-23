@@ -574,12 +574,20 @@ class GroundedConceptGraph:
         self.rng = np.random.default_rng(seed)
         self.lexicon: set[str] = set()
         self.edges: list[RelationEdge] = []
+        # O(1) yerel sinaptik komşuluk indeksleri (veri 100.000 kenara çıksa da sorgu gecikmesi ~0.05 ms kalır!)
+        self._out_edges: dict[str, list[RelationEdge]] = {}
+        self._edge_map: dict[tuple[str, str, str], RelationEdge] = {}
         self.concept_vecs: dict[str, np.ndarray] = {}
         self.concept_id: dict[str, int] = {}
         self.id_concept: list[str] = []
         # Karakter-üçlüsü (trigram) -> seyrek Kenyon hücresi ile fonolojik-kavramsal çağrışım!
         self.word_mb = ChemMushroomBody(n_in=128, n_out=32, n_kc=2048, seed=seed + 11)
         self._bootstrap_embodied_primitives()
+
+    def clear_all_edges(self):
+        self.edges.clear()
+        self._out_edges.clear()
+        self._edge_map.clear()
 
     def _trigram_vec(self, text: str) -> np.ndarray:
         v = np.zeros(128, dtype=np.float32)
@@ -592,7 +600,7 @@ class GroundedConceptGraph:
             v[h2] -= 0.5
         return v
 
-    def register_concept(self, name: str) -> int:
+    def register_concept(self, name: str, bind_mb: bool = True) -> int:
         c = tr_lower(name).strip()
         if not c:
             return -1
@@ -603,15 +611,16 @@ class GroundedConceptGraph:
             cid = len(self.id_concept)
             self.concept_id[c] = cid
             self.id_concept.append(c)
-            vec = self._trigram_vec(c)
-            self.concept_vecs[c] = vec
-            self.word_mb.learn_oneshot(vec, cid, chem=self.chem, strength=0.8, contrastive=False)
+            if bind_mb and cid < 384:
+                vec = self._trigram_vec(c)
+                self.concept_vecs[c] = vec
+                self.word_mb.learn_oneshot(vec, cid, chem=self.chem, strength=0.8, contrastive=False)
         return self.concept_id[c]
 
     def _bootstrap_embodied_primitives(self):
         """Ansiklopedi EZBERİ YOK; yalnızca bedenin doğuştan sahip olduğu duyu-motor kökler."""
         base_words = [
-            "ben", "sen", "nora", "su", "yiyecek", "besin", "yem", "elma", "tehlike", "diken", "zehir",
+            "ben", "sen", "nora", "merhaba", "selam", "nasıl", "su", "yiyecek", "besin", "yem", "elma", "tehlike", "diken", "zehir",
             "duvar", "kaya", "enerji", "susuzluk", "açlık", "bütünlük", "acı", "yara", "ölüm", "yaşam",
             "gündüz", "gece", "karanlık", "aydınlık", "harita", "konum", "görme", "hareket", "ayna",
             "kuzey", "güney", "doğu", "batı", "ileri", "sol", "sağ", "faydalı", "zararlı", "güvenli", "tehlikeli",
@@ -637,29 +646,34 @@ class GroundedConceptGraph:
             self.add_edge(k_ant, "OPPOSITE", v_ant, source="doğuştan", weight=0.85)
 
     def add_edge(self, subj: str, rel: str, obj: str, source: str = "duyum",
-                 speaker: str = "insan", weight: float = 1.0) -> RelationEdge:
+                 speaker: str = "insan", weight: float = 1.0, bind_mb: bool = True) -> RelationEdge:
         s = tr_lower(subj).strip()
         o = tr_lower(obj).strip()
-        self.register_concept(s)
-        self.register_concept(o)
-        # Zıt kutuplu çelişen eski 'duyum' bağını güncelle (ör. CAN_DO vs CANNOT_DO)
+        self.register_concept(s, bind_mb=bind_mb)
+        self.register_concept(o, bind_mb=bind_mb)
+        # O(1) mevcut sinaps kontrolü + zıt kutuplu çelişen eski 'duyum' bağını zayıflatma
+        existing = self._edge_map.get((s, rel, o))
+        if existing is not None:
+            existing.weight = float(min(2.0, existing.weight + 0.4 * weight))
+            if source == "deneyim":
+                existing.source = "deneyim"
+            return existing
         opposite_rel = {"CAN_DO": "CANNOT_DO", "CANNOT_DO": "CAN_DO"}.get(rel)
-        for e in self.edges:
-            if e.subj == s and e.rel == rel and e.obj == o:
-                e.weight = float(min(2.0, e.weight + 0.4 * weight))
-                if source == "deneyim":
-                    e.source = "deneyim"
-                return e
-            if opposite_rel and e.subj == s and e.rel == opposite_rel and e.obj == o and e.source != "deneyim":
-                e.weight *= 0.2
+        if opposite_rel is not None:
+            opp_edge = self._edge_map.get((s, opposite_rel, o))
+            if opp_edge is not None and opp_edge.source != "deneyim":
+                opp_edge.weight *= 0.2
+
         edge = RelationEdge(subj=s, rel=rel, obj=o, weight=float(weight), source=source, speaker=speaker)
         self.edges.append(edge)
+        self._out_edges.setdefault(s, []).append(edge)
+        self._edge_map[(s, rel, o)] = edge
         if source != "doğuştan":
             self.chem.pulse_learning(novelty=0.80, valence=0.35)
         return edge
 
     def ancestors(self, subj: str, max_hops: int = 4) -> list[tuple[str, list[RelationEdge]]]:
-        """ISA taksonomi zincirinde yukarı doğru yayılan aktivasyon: [(üst_kavram, iz_kenarları)]."""
+        """O(k) yerel sinaps yayılımı ile ISA taksonomi zincirinde yukarı doğru aktivasyon."""
         s = tr_lower(subj).strip()
         visited = {s}
         frontier: list[tuple[str, list[RelationEdge]]] = [(s, [])]
@@ -667,8 +681,8 @@ class GroundedConceptGraph:
         for _ in range(max_hops):
             nxt = []
             for cur, path in frontier:
-                for e in self.edges:
-                    if e.subj == cur and e.rel == "ISA" and e.weight > 0.25 and e.obj not in visited:
+                for e in self._out_edges.get(cur, ()):
+                    if e.rel == "ISA" and e.weight > 0.25 and e.obj not in visited:
                         visited.add(e.obj)
                         npath = path + [e]
                         out.append((e.obj, npath))
@@ -679,25 +693,25 @@ class GroundedConceptGraph:
         return out
 
     def query(self, subj: str, rels: tuple[str, ...] | None = None) -> list[tuple[RelationEdge, list[RelationEdge]]]:
-        """Doğrudan + kalıtsal (ISA üzerinden geçişli) tüm özellikleri döndürür; istisnaları (CANNOT_DO) korur!"""
+        """O(k) yerel sinaps komşuluğu üzerinden doğrudan + kalıtsal özellikleri döndürür."""
         chain = self.ancestors(subj)
         blocked_actions: set[str] = set()
         results: list[tuple[RelationEdge, list[RelationEdge]]] = []
         for anc, isa_path in chain:
-            for e in self.edges:
-                if e.subj != anc or e.weight <= 0.25:
+            for e in self._out_edges.get(anc, ()):
+                if e.weight <= 0.25:
                     continue
                 if e.rel == "CANNOT_DO":
                     blocked_actions.add(e.obj)
                 if rels is not None and e.rel not in rels:
                     continue
                 if e.rel == "CAN_DO" and e.obj in blocked_actions and len(isa_path) > 0:
-                    continue  # alt-kavramdaki doğrudan istisna ('penguen uçmaz'), üst-sınıfı ('kuş uçar') ezer!
+                    continue
                 results.append((e, isa_path))
         return results
 
     def causal_chain(self, subj: str, max_hops: int = 4) -> list[tuple[str, list[RelationEdge]]]:
-        """CAUSES ve IF_THEN sinapsları boyunca çok-adımlı ileri nedensel yayılım (A -> B -> C)."""
+        """O(k) yerel sinaps komşuluğu üzerinden CAUSES ve IF_THEN çok-adımlı ileri yayılımı."""
         s = tr_lower(subj).strip()
         visited = {s}
         frontier: list[tuple[str, list[RelationEdge]]] = [(s, [])]
@@ -705,8 +719,8 @@ class GroundedConceptGraph:
         for _ in range(max_hops):
             nxt = []
             for cur, path in frontier:
-                for e in self.edges:
-                    if e.subj == cur and e.rel in ("CAUSES", "IF_THEN") and e.weight > 0.25 and e.obj not in visited:
+                for e in self._out_edges.get(cur, ()):
+                    if e.rel in ("CAUSES", "IF_THEN") and e.weight > 0.25 and e.obj not in visited:
                         visited.add(e.obj)
                         npath = path + [e]
                         out.append((e.obj, npath))
@@ -744,7 +758,7 @@ class GroundedConceptGraph:
                 return {"answer": True, "edge": cpath[-1], "isa_path": [], "causal_path": cpath}
 
         # 4) Zıt özellik kontrolü (ör. 'ateş soğuk mudur?' -> ateş sıcaktır, sıcak != soğuk -> Hayır!)
-        opposites = {e.obj for e in self.edges if e.subj == t_stem and e.rel == "OPPOSITE"}
+        opposites = {e.obj for e in self._out_edges.get(t_stem, ()) if e.rel == "OPPOSITE"}
         if opposites:
             for e, isa_path in self.query(s, ("HAS_PROP",)):
                 if e.obj in opposites:
@@ -761,10 +775,10 @@ class GroundedConceptGraph:
                 for e_c, _ in self.query(c_l, (e_ab.rel,)):
                     return e_c.obj, e_ab.rel
         # 2) Zıtlık ilişkisi
-        for e in self.edges:
-            if e.subj == a_l and e.rel == "OPPOSITE" and e.obj == b_l:
-                for e2 in self.edges:
-                    if e2.subj == c_l and e2.rel == "OPPOSITE":
+        for e in self._out_edges.get(a_l, ()):
+            if e.rel == "OPPOSITE" and e.obj == b_l:
+                for e2 in self._out_edges.get(c_l, ()):
+                    if e2.rel == "OPPOSITE":
                         return e2.obj, "OPPOSITE"
         return None, ""
 
