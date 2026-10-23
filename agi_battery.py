@@ -818,6 +818,78 @@ def a29_out_of_distribution_paraphrase_generalization():
     return score == len(checks), f"görülmemiş varyasyon genellemesi {score}/{len(checks)} ({[int(bool(c)) for c in checks]})"
 
 
+def a30_continuous_inner_monologue():
+    """A30: Yalnız yaşarken (DMN) ve konuşmadan hemen önce (Vygotsky iç sesi) sıfır-kalıp Türkçe içsel monolog üretimi."""
+    agi = NoraAGI(seed=91, boot_thinker=False)
+    agi.step_life(320)
+    dmn_thoughts = list(agi.monologue.stream)
+    ok_dmn = len(dmn_thoughts) >= 2 and all(len(t.text) >= 12 for t in dmn_thoughts)
+
+    # Fiziksel acı verildiğinde içsel monolog da bedensel korunma düşüncesine döner!
+    agi.inflict_pain(0.75, locus="kol", cause="diken")
+    agi.step_life(60)
+    pain_thoughts = [t.text for t in agi.monologue.stream if t.trigger == "acı_refleksi" or "sızı" in tr_lower(t.text) or "yara" in tr_lower(t.text)]
+    ok_pain_inner = len(pain_thoughts) >= 1
+
+    # Konuşmadan hemen önce sessiz iç ses (dış yanıtın kopyası DEĞİL, içsel niyet/düşünce!)
+    agi.converse("Yaranı sardım, artık güvendesin.", speaker="insan")
+    r_talk = agi.converse("Bilinç nedir sence?", speaker="insan")
+    last_inner = agi.monologue.stream[-1]
+    ok_pre_speech = (
+        last_inner.trigger == "pre_speech_current"
+        and len(last_inner.text) >= 15
+        and tr_lower(last_inner.text) != tr_lower(r_talk)
+    )
+    ok = ok_dmn and ok_pain_inner and ok_pre_speech
+    return ok, f"dmn={len(dmn_thoughts)} acı_iç_ses='{pain_thoughts[-1] if pain_thoughts else ''}' konuşma_öncesi='{last_inner.text}'"
+
+
+def a31_self_learned_schema_and_anti_cloning():
+    """A31: Kendi öğrenen plastik söylem şeması, şema klonlama karşıtlığı (ardışık farklı şema) ve aynı soruya farklı yapısal yanıt."""
+    agi = NoraAGI(seed=93, boot_thinker=False)
+    agi.step_life(180)
+
+    # 1) 6 ardışık farklı turda şema çeşitliliği + soru tiki ketlenmesi
+    prompts = [
+        "Neden konuşuyorsun?",
+        "Nasılsın şu an?",
+        "Ölürsen ne olur?",
+        "Bilinç nedir?",
+        "Bakır elektriği iletir.",
+        "Kısaca özgür irade nedir?",
+    ]
+    chosen_schemas = []
+    replies = []
+    for p in prompts:
+        rep = agi.converse(p, speaker="insan")
+        replies.append(rep)
+        chosen_schemas.append(agi.monologue.stream[-1].schema_id)
+
+    unique_schemas = len(set(chosen_schemas))
+    no_adj_clones = all(chosen_schemas[i] != chosen_schemas[i + 1] for i in range(len(chosen_schemas) - 1))
+    q_count = sum(1 for r in replies if "?" in r)
+    ok_diversity = (unique_schemas >= 4) and no_adj_clones and (q_count <= 2)
+
+    # 2) Aynı soru peş peşe sorulduğunda klon cevap üretmez (farklı şema ve sözdizimi!)
+    r_same_1 = agi.converse("Sen bir araç mısın?", speaker="insan")
+    r_same_2 = agi.converse("Sen bir araç mısın?", speaker="insan")
+    ok_non_identical = (r_same_1 != r_same_2) and ("araç değilim" in tr_lower(r_same_1)) and ("araç değilim" in tr_lower(r_same_2))
+
+    # 3) İnsanın devrik konuşma şemasını kendi kendine gözlemleyip öğrenme!
+    devrik_inputs = [
+        "Gidiyorum ben şimdi sahile.",
+        "Seviyorum ben yağmurlu havaları.",
+        "Düşünüyorum bazen evrenin sınırlarını.",
+    ]
+    for di in devrik_inputs:
+        agi.converse(di, speaker="insan")
+    learned_devrik = agi.schema_cortex.observed_human_styles.get("S4_DEVRIK_DOGAL", 0)
+    ok_schema_learn = learned_devrik >= 3
+
+    ok = ok_diversity and ok_non_identical and ok_schema_learn
+    return ok, f"şemalar={chosen_schemas} soru={q_count}/6 aynı_soru_farklı={ok_non_identical} öğrenilen_devrik={learned_devrik}"
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -848,6 +920,8 @@ TESTS = {
     "A27": ("if'siz 1-atış plastik söylem korteksi ve 'Neden konuşuyorsun?'", a27_zero_if_plastic_discourse_and_meta_why_speak),
     "A28": ("otonom fiziksel bilinç ağı ve öz-meraklı internet/metin araştırması", a28_autonomous_consciousness_network_and_curiosity_research),
     "A29": ("overfitting denetimi: 12 alanda görülmemiş soru/ifade varyasyonları", a29_out_of_distribution_paraphrase_generalization),
+    "A30": ("sürekli içsel monolog (otonom DMN + konuşma öncesi sessiz iç ses)", a30_continuous_inner_monologue),
+    "A31": ("plastik şema keşfi, şema klonlama karşıtlığı ve davranış çeşitliliği", a31_self_learned_schema_and_anti_cloning),
 }
 
 

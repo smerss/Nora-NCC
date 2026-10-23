@@ -68,6 +68,7 @@ class TurkishMorphology:
         "öğren", "bil", "düşün", "anla", "koru", "onar", "uç", "yüz", "koş", "yürü", "parla",
         "ısıt", "soğut", "azalt", "artır", "ver", "al", "yap", "et", "ol", "yaşa", "öl",
         "reddet", "kabul", "inan", "güven", "çöz", "hesapla", "ara", "bul", "göster", "taş", "yayıl", "üret",
+        "ilet", "yansıt", "soğur", "buharlaş", "yoğunlaş", "genleş", "çek", "it", "taşı", "erime", "eri", "don",
     }
 
     @staticmethod
@@ -312,8 +313,14 @@ class TurkishMorphology:
 
         cur = w
         # 1) Koşaç (-dir/-dır/-tir/-tır/-dür/-dur/-tür/-tur)
+        # Türkçe ünsüz benzeşmesi yasası: '-tIr' koşaçı YALNIZCA sert ünsüzden (f,s,t,k,ç,ş,h,p) sonra gelebilir!
+        # 'iletir', 'üretir', 'azaltır', 'ısıtır' gibi sözcüklerde '-tir/-tır' koşaç DEĞİL, t-bitimli fiilin geniş zamanıdır!
         for cop in ("dir", "dır", "dur", "dür", "tir", "tır", "tur", "tür"):
             if len(cur) > 4 and cur.endswith(cop):
+                if cop.startswith("t") and cur[-4] not in HARD_CONS:
+                    continue
+                if cur[:-2] in cls.KNOWN_VERB_ROOTS:
+                    continue
                 cur = cur[:-3]
                 info["copula"] = True
                 break

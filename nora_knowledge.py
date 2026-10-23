@@ -38,6 +38,7 @@ VOWEL_DROP_STEMS: dict[str, str] = {
     "zihin": "zihn",
     "fikir": "fikr",
     "keşif": "keşf",
+    "keyif": "keyf",
     "sabır": "sabr",
     "şehir": "şehr",
     "nehir": "nehr",

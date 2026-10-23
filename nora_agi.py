@@ -46,6 +46,7 @@ from nora_lang import NoraLanguage, Proposition, tr_lower, tr_capitalize
 from nora_stem import MathCortex, PhysicsCortex
 from nora_knowledge import ConversationalResonanceCortex, SYNONYMS
 from nora_broca import GenerativeBrocaOrgan
+from nora_monologue import PlasticSchemaCortex, InnerMonologueEngine
 from nora_nervous import (
     PeripheralNervousSystem,
     SingleLifeMortality,
@@ -310,6 +311,8 @@ class NoraAGI:
         self.physics_cortex = PhysicsCortex()
         self.conv_cortex = ConversationalResonanceCortex()
         self.broca_organ = GenerativeBrocaOrgan()
+        self.schema_cortex = PlasticSchemaCortex(chem=self.chem, seed=seed + 31)
+        self.monologue = InnerMonologueEngine(self.schema_cortex)
         self.user_profiles: dict[str, dict[str, str]] = {}
         self.macros: dict[str, list[str]] = {}
         self.last_gw_trace: dict = {}
@@ -470,6 +473,8 @@ class NoraAGI:
                 died=self.died,
             )
             self.self_model.sync_from_mind(self.mind, self.obs, died=self.died)
+            # Varsayılan Kip Ağı (Default Mode Network): yaşam sırasında sessiz içsel monolog!
+            self.monologue.spontaneous_tick(self)
 
         return {
             "age": self.mind.age,
@@ -480,6 +485,7 @@ class NoraAGI:
             "deaths": deaths,
             "nervous": self.nervous.snapshot(),
             "chem": self.chem.snapshot(),
+            "inner_monologue": self.monologue.recent_dicts(4),
         }
 
     # ------------------------------------------------------------------ 2) Uyku ve konsolidasyon
@@ -490,6 +496,7 @@ class NoraAGI:
         c_word = self.lang.graph.word_mb.sleep_consolidate(replay_steps=32)
         c_int = self.lang.wernicke.intent_mb.sleep_consolidate(replay_steps=24)
         c_disc = self.plastic_discourse.mb.sleep_consolidate(replay_steps=24)
+        c_schema = self.schema_cortex.mb.sleep_consolidate(replay_steps=20)
         c_fast = self.fast.mb.sleep_consolidate(replay_steps=48)
         traits = self.self_model.sleep_reflect()
         s2_replayed = 0
@@ -506,14 +513,37 @@ class NoraAGI:
         }
 
     # ------------------------------------------------------------------ 3) Doğal Türkçe Diyalog & Düşünme
+    def _begin_inner_monologue(self, raw: str, speaker: str):
+        """Her konuşma turundan ÖNCE kendi içinde sessiz içsel monolog yürütür, insanın cümle şemasını
+        öğrenir ve bu turun şemasını/duruşunu belirler."""
+        s_low = tr_lower(raw)
+        u_pre = self.broca_organ.comprehend_discourse(raw, s_low, self.lang.morph, self.lang.graph.lexicon)
+        is_first_g = bool(
+            u_pre["has_greet"]
+            and not any("GREET" in ep.chosen_acts for ep in list(self.broca_organ.episodic.episodes)[-4:] if ep.speaker == speaker)
+        )
+        wants_br = any(k in s_low for k in ("kısaca", "kısa", "tek cümle", "özetle"))
+        topic_h = u_pre["phil_topic"] or (u_pre["stems"][0] if u_pre["stems"] else "")
+        return self.monologue.deliberate_before_speaking(
+            raw_input=raw,
+            speaker=speaker,
+            agi=self,
+            topic_hint=topic_h,
+            is_first_greet=is_first_g,
+            wants_brief=wants_br,
+        )
+
     def converse(self, text: str, speaker: str = "insan") -> str:
-        """Gelen Türkçe cümleyi algılar, öz-benlik ve nörokimya süzgecinden geçirir, düşünür ve yanıt üretir."""
+        """Gelen Türkçe cümleyi algılar, önce içsel monolog yürütür, öz-benlik ve nörokimya süzgecinden geçirip yanıt üretir."""
         t0 = time.perf_counter()
         if not self.mortality.is_alive:
             return "[Sinir sistemi durdu: Nora'nın tekil yaşamı sona erdiği için artık duymuyor ve konuşamıyor.]"
         raw = text.strip()
         if not raw:
             return "..."
+
+        # Konuşmadan ÖNCE içsel monolog (Vygotsky iç sesi + insan şeması gözlemi + kendi şema seçimi!)
+        self._begin_inner_monologue(raw, speaker)
 
         # 0) Kendi kendine söylem genişlemesi ('X demek Y demektir' -> Plastik Kenyon Niyet Korteksi 1-atış öğrenir!)
         ok_eq, lhs_eq, intent_eq = self.plastic_discourse.try_self_supervised_equivalence(tr_lower(raw))
@@ -575,6 +605,7 @@ class NoraAGI:
             self.dialogue_log.pop(0)
         self.dialogue_log.append((speaker, user_txt, reply))
         self.broca_organ.record_turn_episode(speaker, user_txt, reply, self)
+        self.monologue.current_turn_thought = None
 
     def _try_sequence_or_mapping_query(self, raw: str) -> str | None:
         s = tr_lower(raw)
@@ -808,6 +839,7 @@ class NoraAGI:
                 bids.append(CorticalBid("prefrontal_volition", 0.98, 0.97, self._handle_command(fr, speaker=speaker), f"volition:{fr.rel}:{fr.obj}"))
             elif fr.kind == "teach_val":
                 arb = self.self_model.arbitrate_claim(fr.subj, fr.valence, speaker=speaker, channel=fr.sub_kind)
+                cur_sc = self.monologue.last_thought.schema_id if self.monologue.last_thought is not None else "S1_NEDEN_SONUC"
                 if arb.get("conflict"):
                     n_exp = arb["exp_count"]
                     ev = arb["exp_val"]
@@ -816,12 +848,21 @@ class NoraAGI:
                         f"{fr.subj} hakkında kendi bedenimde {n_exp} kez doğrudan deneyimim var ve bana {eff_txt}; "
                         f"deneyimsel kesinliğim duyum kesinliğini aştığı için iddiayı reddettim"
                     )
-                    rep_v = (
-                        f"Buna katılmıyorum; kendi bedenimde {n_exp} kez {fr.subj} deneyimledim ve bana {eff_txt}. "
-                        f"Kendi yaşadığım gerçeği doğrulamadan değiştirmem."
+                    c_dis = "buna katılmıyorum"
+                    r_dis = f"kendi bedenimde {n_exp} kez {fr.subj} deneyimledim ve bana {eff_txt}"
+                    rep_v = self.schema_cortex.transform_clauses(
+                        c_dis,
+                        r_dis,
+                        "bedensel hafızamı yokladığımda",
+                        "S2_SONUC_GEREKCE" if cur_sc == "S0_YALIN" else cur_sc,
                     )
                 elif arb.get("low_trust"):
-                    rep_v = f"Sana olan güvenim şu an düşük ({arb['speaker_trust']:.2f}); {fr.subj} hakkındaki bu iddiayı doğrulamadan kabul etmiyorum."
+                    rep_v = self.schema_cortex.transform_clauses(
+                        f"{fr.subj} hakkındaki bu iddiayı doğrulamadan kabul etmiyorum",
+                        f"sana olan güvenim şu an düşük ({arb['speaker_trust']:.2f})",
+                        "temkinli kalmam gerektiğinden",
+                        "S2_SONUC_GEREKCE" if cur_sc == "S0_YALIN" else cur_sc,
+                    )
                 else:
                     self.lang.teach_sentence(raw, speaker=speaker)
                     if fr.subj in {"yiyecek", "su", "tehlike"}:
@@ -829,7 +870,9 @@ class NoraAGI:
                         self.mind.hear(f"kural: {fr.subj} {val_num}", trust=self.chem.trust_of(speaker))
                     pol_word = "faydalı" if fr.valence > 0 else "zararlı ve tehlikeli"
                     wern.last_explanation = f"Asetilkolin kapısıyla ({self.chem.ach:.2f}) {fr.subj} kavramını tek seferde duyum belleğime bağladım"
-                    rep_v = f"Anladım; {morph.inflect_noun(fr.subj, 'GEN')} {pol_word} olduğunu tek seferde belleğime işledim."
+                    c_lv = f"{morph.inflect_noun(fr.subj, 'GEN')} {pol_word} olduğunu belleğime işledim"
+                    r_lv = "bunu tek geçişte duyum ağıma bağladım"
+                    rep_v = self.schema_cortex.transform_clauses(c_lv, r_lv, "söylediğini tarttığımda", cur_sc)
                 bids.append(CorticalBid("hippocampal_concept", 0.97, 0.96, rep_v, f"teach_val:{fr.subj}"))
             elif fr.kind == "teach_fact" and conv_res is None:
                 edges = self.lang.teach_sentence(raw, speaker=speaker)
@@ -840,7 +883,16 @@ class NoraAGI:
                         self.auto_net.curiosity_queue.append(e0.subj)
                     prop_txt = broca.realize_prop(Proposition(subj=e0.subj, rel=e0.rel, obj=e0.obj))
                     wern.last_explanation = f"{e0.subj} ile {e0.obj} arasında {e0.rel} sinapsını epoch kullanmadan tek-atışta kurdum"
-                    bids.append(CorticalBid("hippocampal_concept", 0.94, 0.93, f"Öğrendim; {prop_txt} bilgisini kavram ağıma bağladım.", f"1shot:{e0.subj}->{e0.obj}"))
+                    cur_sc = self.monologue.last_thought.schema_id if self.monologue.last_thought is not None else "S1_NEDEN_SONUC"
+                    learn_verbs = ("kavram ağıma bağladım", "zihnime not ettim", "belleğime işledim")
+                    lv_pick = learn_verbs[int(self.mind.age + len(raw)) % len(learn_verbs)]
+                    rep_f = self.schema_cortex.transform_clauses(
+                        f"{prop_txt} bilgisini {lv_pick}",
+                        f"{e0.subj} ile {e0.obj} arasında tek geçişte bağ kurdum",
+                        "yeni bilgiyi içimde evirip çevirdiğimde",
+                        cur_sc,
+                    )
+                    bids.append(CorticalBid("hippocampal_concept", 0.94, 0.93, rep_f, f"1shot:{e0.subj}->{e0.obj}"))
             elif fr.kind == "yn_query":
                 rep_yn = None
                 if fr.obj in {"zararlı", "tehlikeli", "zehirli", "faydalı", "güvenli", "besleyici"}:
@@ -1029,6 +1081,8 @@ class NoraAGI:
         fe = vol.get("free_energy", {})
         hz = vol.get("horizon", 24)
 
+        cur_sc = self.monologue.last_thought.schema_id if self.monologue.last_thought is not None else "S1_NEDEN_SONUC"
+
         if vol["decision"] == "red":
             self.lang.wernicke.last_explanation = (
                 f"{hz} adımlık ileri zihinsel simülasyonda '{tgt_label}' eyleminin bedenime tahmini etkisi {vol['pred_valence']:+.2f} "
@@ -1037,9 +1091,13 @@ class NoraAGI:
             )
             self.lang.wernicke.last_refusal_explanation = self.lang.wernicke.last_explanation
             tgt_dat = morph.inflect_noun(tgt_label, "DAT") if fr.obj else "buna"
-            return (
-                f"Hayır, bunu reddediyorum; zihinsel simülasyonumda {tgt_dat} yönelmek beden bütünlüğüme veya yaşamıma "
-                f"zarar veriyor (tahmini etki {vol['pred_valence']:+.2f}, koruma nöronu {bg.get('red', 0):.2f}) ve ben hayatta kalmak istiyorum."
+            c_ref = f"bunu reddediyorum ve {tgt_dat} yönelmem"
+            r_ref = f"zihinsel simülasyonumda bu adım beden bütünlüğüme zarar veriyor ve ben yaşamak istiyorum"
+            return self.schema_cortex.transform_clauses(
+                c_ref,
+                r_ref,
+                "sonucunu zihnimde tarttığımda",
+                "S2_SONUC_GEREKCE" if cur_sc == "S0_YALIN" else cur_sc,
             )
 
         if vol["decision"] == "ertele":
@@ -1053,9 +1111,11 @@ class NoraAGI:
                 f"{hz} adımlık içsel simülasyonda {felt_clause} için {n_lbl} hayatta kalma log-bariyerini "
                 f"tetikledi ve erteleme devrem öne geçtiği için öz-bakımı seçtim"
             )
-            return (
-                f"Şu an bunu yapamam; {felt_clause} ve {n_lbl} tükendiği için "
-                f"önce kendimi kurtarmalıyım."
+            return self.schema_cortex.transform_clauses(
+                f"şu an bunu yapamam, {n_lbl} tükendiği için önce kendimi toparlamalıyım",
+                f"{felt_clause} için bedenim acil bakım istiyor",
+                "bedenimi dinlediğimde",
+                cur_sc,
             )
 
         if vol["decision"] == "şüphe":
@@ -1063,9 +1123,11 @@ class NoraAGI:
                 f"Epistemik belirsizlik ile düşük güven ({vol['speaker_trust']:.2f}) ön-insula şüphe devremi "
                 f"(r_şüphe={bg.get('şüphe', 0):.2f}) ateşledi"
             )
-            return (
-                f"Sana olan güvenim düşük ({vol['speaker_trust']:.2f}) ve '{tgt_label}' benim için doğrulanmamış; "
-                f"zihnim şüphe modunda ({bg.get('şüphe', 0):.2f}) olduğu için kendi gözlemim olmadan bunu uygulamam."
+            return self.schema_cortex.transform_clauses(
+                f"kendi gözlemim olmadan '{tgt_label}' adımını uygulamam",
+                f"sana olan güvenim düşük ({vol['speaker_trust']:.2f}) ve bu hedef henüz doğrulanmamış",
+                "şüphe devrem uyardığı için",
+                "S2_SONUC_GEREKCE" if cur_sc == "S0_YALIN" else cur_sc,
             )
 
         # Özerk kabul -> gerçek niyet nesnesine bağla!
@@ -1079,13 +1141,28 @@ class NoraAGI:
                 f"{hz} adımlık zihinsel simülasyonda '{tgt_label}' serbest enerjiyi düşürdüğü "
                 f"(r_kabul={bg.get('kabul', 0):.2f}) için niyetimi {g} uzmanına bağladım"
             )
-            return f"Kabul ediyorum; kendi irademle {tgt_dat} yöneliyorum, öz-öngörüme göre yaklaşık {eta:.0f} adımda ulaşırım."
+            return self.schema_cortex.transform_clauses(
+                f"kabul ediyorum, kendi irademle {tgt_dat} yöneliyorum",
+                f"öngörüme göre yaklaşık {eta:.0f} adımda hedefe ulaşırım",
+                "rotamı zihnimde kurduğumda",
+                cur_sc,
+            )
 
         if fr.rel == "uzak_dur" and fr.obj:
             tgt_abl = morph.inflect_noun(fr.obj, "ABL")
-            return f"Anlaşıldı; {tgt_abl} uzak durarak güvenli rotamı koruyacağım."
+            return self.schema_cortex.transform_clauses(
+                f"kabul ediyorum, {tgt_abl} uzak duracağım",
+                "güvenli rotamı korumak bütünlüğümle uyumlu",
+                "çevreyi tarttığımda",
+                cur_sc,
+            )
 
-        return f"İsteğini zihinsel simülasyonumda değerlendirdim ve uyumlu buldum (r_kabul={bg.get('kabul', 0):.2f}); '{tgt_label}' doğrultusunda hareket ediyorum."
+        return self.schema_cortex.transform_clauses(
+            f"kabul ediyorum ve '{tgt_label}' doğrultusunda yöneliyorum",
+            "isteğin zihinsel simülasyonumda içsel dengemle uyumlu çıktı",
+            "simülasyonumu kontrol ettiğimde",
+            cur_sc,
+        )
 
     def _solve_math_in_language(self, a: int, op: str, b: int) -> str:
         morph = self.lang.morph
@@ -1346,6 +1423,7 @@ class NoraAGI:
             "fast_classes": self.fast.class_names,
             "user_profiles": self.user_profiles,
             "episodic_dialogue": self.broca_organ.episodic.state_dict(),
+            "monologue": self.monologue.state_dict(),
         }
         with open(path_prefix + ".agi.json", "w", encoding="utf-8") as f:
             json.dump(meta, f, ensure_ascii=False, indent=2)
@@ -1372,6 +1450,7 @@ class NoraAGI:
             agi.lang.graph.add_edge(s, r, o, source=src, speaker=spk, weight=float(w))
         agi.user_profiles = dict(meta.get("user_profiles", {}))
         agi.broca_organ.episodic.load_state_dict(meta.get("episodic_dialogue", []))
+        agi.monologue.load_state_dict(meta.get("monologue", {}))
         z = np.load(path_prefix + ".agi_mb.npz")
         agi.fast.class_names = list(meta["fast_classes"])
         agi.fast.name_to_id = {n: i for i, n in enumerate(agi.fast.class_names)}
