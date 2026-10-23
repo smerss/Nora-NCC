@@ -457,6 +457,25 @@ Klasik veri ezberleyen çoklu-epoch (brute-force SGD) yaklaşımı yerine, biyol
   - Çift-yönlü üretken Türkçe morfoloji (ünlü uyumu, ünsüz yumuşaması/sertleşmesi, hal/zaman/kişi ekleri ve Türkçe sayı okuma/yazma — uydurma kelimeler dahil).
   - Tek cümlede (`0 epoch`) taksonomi (`ISA`), istisnalı kalıtım (`CANNOT_DO` > `CAN_DO`), çok-adımlı nedensel zincir (`CAUSES`), mekânsal bağ (`LOCATED_AT`) ve çalışma belleği zamir çözümleme (`o / onun / ona`).
 - **`nora_agi.py`, `agi_battery.py` & `nora_studio.py`**:
-  - Beden, kimya, öz-benlik, Türkçe dil, `ThinkColumn` Sistem-2 muhakemesi, **Sally-Anne Zihin Kuramı (yanlış-inanç ayrımı)**, geçişli büyüklük çıkarımı, 1-atış prosedürel makro-beceri öğrenme ve MDL dizi/fonksiyon keşfini tek organizmada birleştirir (`python agi_battery.py` **13/13 GEÇTİ**, canlı gözlemevi `python nora_studio.py`).
+  - Beden, kimya, öz-benlik, Türkçe dil, `ThinkColumn` Sistem-2 muhakemesi, **Sally-Anne Zihin Kuramı (yanlış-inanç ayrımı)**, geçişli büyüklük çıkarımı, 1-atış prosedürel makro-beceri öğrenme ve MDL dizi/fonksiyon keşfini tek organizmada birleştirir.
+
+---
+
+## Aşama P — Aktif Çıkarımlı Nöral İrade (`if-else`siz Karar), Küresel Çalışma Alanı İhalesi, Uzman Türkçe, Matematik ve Fizik Korteksleri (`A14–A19`, Toplam `19/19 GEÇTİ`)
+
+Sistemdeki kesikli kural eşikleri tamamen kaldırılarak tüm karar, yönlendirme ve akıl yürütme katmanları sürekli zihin dinamiklerine bağlandı:
+
+- **İf-Else Botu Olmayan Zihinsel Simülasyon + Bazal Ganglion Rekabeti (`nora_self.py` — `BasalGangliaVolitionNet`)**:
+  - `if enerji < 0.18: reddet` veya sabit zararlı kelime karalistesi yerine, her komut serotonin (`5-HT`) tarafından belirlenen $H = 16 + 24\cdot\text{5-HT}$ adımlık ufukta 4 karşıolgusal politika (`kabul`, `red`, `ertele`, `şüphe`) boyunca ileri sarılır.
+  - Hayatta kalma log-bariyeri $-\sum_c w_c \ln(\hat{h}_{t,c})$ + epistemik belirsizlik $\sigma^2_{\text{epist}}$ + sosyal işbirliği değerinden **Beklenen Serbest Enerji $G(\pi)$** hesaplanır; Usher-McClelland yanal-ketlemeli 4 nöral popülasyon (`D1-Go`, `D2-NoGo`, `Hipotalamik-Erteleme`, `Ön-İnsula-Şüphe`) yarışarak kararı ve ateşleme izini (`bg_rates`) üretir.
+  - Doğrudan bedensel deneyim (`exp_count`), evrimsel önselleri kesinlik-ağırlıklı olarak ezer (`A14`: sağlıklı ve zehirli evrende büyüyen özdeş ikizler aynı *"Yiyeceğe git."* komutuna zıt özerk kararlar verir).
+- **Küresel Çalışma Alanı Kortikal İhalesi (`nora_agi.py` — `_compete_workspace`)**:
+  - Ardışık `if/elif` yönlendirmesi yerine `parietal_physics`, `parietal_math`, `linguistic_meta`, `prefrontal_volition`, `social_tom`, `insular_self`, `hippocampal_concept`, `temporal_conversation` ve `associative_semantic` sütunları `belirginlik × kesinlik × nörokimyasal kazanç` ile paralel ihale verir (`A19`).
+- **Uzman Türkçe, Deyim/Atasözü, Orta Hece Ünlü Düşmesi ve Empatik Sohbet (`nora_knowledge.py`, `nora_lang.py`)**:
+  - Orta hece dar ünlü düşmesi (`beyin <-> beynimde`, `zihin <-> zihne`, `fikir <-> fikrin`, `keşif <-> keşfi`), yumuşamama istisnaları (`sanat -> sanatı`, `hukuk -> hukuku`), yapım ekleri (`bilim -> bilimci`, `özgür -> özgürlük`), birleşik fiil morfolojik çözümleyici (`görebiliyordum -> gör + -ebil + -iyor + -du + -m`), deyimler/atasözleri, eş/zıt anlamlılar ve çok-turlu empatik/felsefi Türkçe sohbet (`A15`, `A16`).
+- **Parietal Matematik ve Fizik Simülasyon Korteksleri (`nora_stem.py` — `MathCortex`, `PhysicsCortex`, `MentalPhysicsSandbox`)**:
+  - **Matematik (`A17`)**: Güvenli sembolik AST ile 1./2./3. derece cebirsel denklemler, 2×2 doğrusal denklem sistemleri (yerine koyma sağlamalı), sembolik türev (sonlu-fark sayısal eğim sağlamalı), belirli/belirsiz integral (analitik ilkel fonksiyon + Simpson sayısal sağlamalı), asal çarpanlar, `EBOB/EKOK`, kombinatorik ve geometri.
+  - **Fizik (`A18`)**: SI boyut vektörü `[M, L, T, I, Θ]` analizi, çift-yönlü fizik yasaları yayılımı, **RK4 zaman-adımlı zihinsel fizik simülasyonu**, sıfır-atış ölçekleme pertürbasyonu (*"Hız 3 katına çıkarsa kinetik enerji 9 katına çıkar"*) ve karşıolgusal fiziksel muhakeme.
+
 
 

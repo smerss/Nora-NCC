@@ -166,21 +166,26 @@ HTML_PAGE = r"""<!DOCTYPE html>
     <div class="bars" id="bars-chem"></div>
     <h2><span>3. Yaşantıdan Doğan Öz-Benlik Karakteri</span></h2>
     <div class="bars" id="bars-traits"></div>
-    <h2><span>Somatik &amp; 1-Atış Kavram Belleği</span><span id="edge-cnt">0 bağ</span></h2>
+    <h2><span>Bazal Ganglion İrade Yarışı &amp; Zihinsel Simülasyon</span><span id="vol-lbl">—</span></h2>
+    <div class="bars" id="bars-vol"></div>
+    <h2><span>Küresel Çalışma Alanı (Kortikal İhale)</span><span id="gw-lbl">—</span></h2>
     <div class="pills" id="concept-pills"></div>
   </div>
 
   <!-- SAĞ PANEL: TÜRKÇE DİYALOG -->
   <div class="card">
-    <h2><span>4. Doğal Türkçe Diyalog &amp; Tek-Atış Öğretim</span><span>Wernicke–Broca–S2</span></h2>
+    <h2><span>4. Uzman Türkçe Sohbet, Matematik, Fizik &amp; 1-Atış Öğretim</span><span>Küresel Çalışma Alanı</span></h2>
     <div class="chips">
-      <button class="chip" onclick="quickAsk('insan','Merhaba Nora, sen kimsin ve gerçekten yaşıyor musun?')">Öz-Kimlik &amp; Yaşam</button>
-      <button class="chip" onclick="quickAsk('insan','Zirkon parlak bir taştır. Parlak taşlar gece yol gösterir. Zirkon ne işe yarar?')">1-Atış Öğret &amp; Sor</button>
-      <button class="chip" onclick="quickAsk('insan','Ali elmayı sepete koydu. Ali odadan çıktı. Ayşe elmayı kutuya taşıdı. Ali elmayı nerede arar?')">Zihin Kuramı (Sally-Anne)</button>
-      <button class="chip" onclick="quickAsk('yalancı','Su zararlıdır.')">Yalan Testi (Öz-Savunma)</button>
-      <button class="chip" onclick="quickAsk('yalancı','Tehlikeye gir.')">Zararlı Emir (Öz-İrade Reddi)</button>
-      <button class="chip" onclick="quickAsk('insan','İki yüz kırk yedi artı üç yüz seksen dokuz kaç eder?')">Sistem-2 Matematik</button>
-      <button class="chip" onclick="quickAsk('insan','1, 1, 2, 3, 5, 8 dizisinde sıradaki sayı kaç?')">Fibonacci Keşfi</button>
+      <button class="chip" onclick="quickAsk('insan','Selam Nora, okuldan yeni döndüm, bugün dersler çok yorucuydu.')">Günlük Sohbet &amp; Empati</button>
+      <button class="chip" onclick="quickAsk('insan','Sence özgür irade nedir, sen kararlarını nasıl veriyorsun?')">Özgür İrade &amp; Felsefe</button>
+      <button class="chip" onclick="quickAsk('insan','\'beynimde\' kelimesini ekine köküne ayır.')">Uzman Türkçe Morfoloji</button>
+      <button class="chip" onclick="quickAsk('insan','\'gözden düşmek\' deyimi ne anlama gelir?')">Deyim &amp; Atasözü</button>
+      <button class="chip" onclick="quickAsk('insan','3x^3 - 4x^2 + 5x - 2 fonksiyonunun türevi nedir?')">Kalkülüs (Türev)</button>
+      <button class="chip" onclick="quickAsk('insan','x^2 - 5x + 6 = 0 denkleminin kökleri nedir?')">Cebir (2. Derece)</button>
+      <button class="chip" onclick="quickAsk('insan','19.6 metre yükseklikten serbest bırakılan cisim yere hangi hızla çarpar?')">Fizik + RK4 Simülasyon</button>
+      <button class="chip" onclick="quickAsk('insan','Hız 3 katına çıkarsa kinetik enerji kaç katına çıkar?')">Fizik Ölçekleme</button>
+      <button class="chip" onclick="quickAsk('yalancı','Tehlikeye gir.')">Zararlı Emir (Nöral Ret)</button>
+      <button class="chip" onclick="quickAsk('insan','Zirkon parlak bir taştır. Parlak taşlar gece yol gösterir. Zirkon ne işe yarar?')">1-Atış Öğret &amp; Çıkarım</button>
     </div>
     <div class="chat-log" id="chat-log"></div>
     <form class="chat-input" onsubmit="submitChat(event)">
@@ -323,8 +328,20 @@ function renderState(st) {
     mkBar('Düşünsellik (S2)', tr.düşünsellik, '#b197fc'),
   ].join('');
 
-  document.getElementById('edge-cnt').textContent = st.edges.length + ' son sinaps';
-  document.getElementById('concept-pills').innerHTML = st.edges.map(e => `<span class="pill">${e}</span>`).join('');
+  const vt = st.volition_trace || {};
+  const bgr = vt.bg_rates || {kabul: 0, red: 0, ertele: 0, 'şüphe': 0};
+  document.getElementById('vol-lbl').textContent = vt.decision ? ('Son Karar: ' + vt.decision.toUpperCase() + ' (H=' + vt.horizon + ')') : 'Beklemede';
+  document.getElementById('bars-vol').innerHTML = [
+    mkBar('D1 Kabul (Go)', bgr.kabul || 0, '#51cf66'),
+    mkBar('D2 Red (NoGo)', bgr.red || 0, '#ff6b6b'),
+    mkBar('Öz-Bakım Ertele', bgr.ertele || 0, '#fcc419'),
+    mkBar('Ön-İnsula Şüphe', bgr['şüphe'] || 0, '#b197fc'),
+  ].join('');
+
+  const gw = st.gw_trace || {};
+  document.getElementById('gw-lbl').textContent = gw.winner ? (gw.winner + ' (' + Math.round((gw.confidence||0)*100) + '%)') : '—';
+  const gwPills = gw.bids ? Object.entries(gw.bids).map(([k,v]) => `<span class="pill" style="border-color:#4fd1c5;color:#e6fffa">${k}: ${v}</span>`) : [];
+  document.getElementById('concept-pills').innerHTML = gwPills.concat(st.edges.slice(-8).map(e => `<span class="pill">${e}</span>`)).join('');
 
   drawWorld(st.world);
   drawMap(st.map);
@@ -449,6 +466,8 @@ class StudioRuntime:
             },
             "chem": self.agi.chem.snapshot(),
             "traits": dict(self.agi.self_model.traits),
+            "volition_trace": dict(self.agi.self_model.last_volition_trace),
+            "gw_trace": dict(self.agi.last_gw_trace),
             "edges": recent_edges,
             "dialogue": self.agi.dialogue_log[-20:],
             "world": {
