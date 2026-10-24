@@ -37,6 +37,11 @@ import time
 # ============================================================================
 
 VOCAB: list[str] = """
+sessiz suskun durgun sakin donuk dalgın yorul üzgün keyifsiz gergin heyecanlı mutlu kızgın
+kırgın yalnız huzur meraklı sabırsız umutlu umutsuz cesur korkak dürüst tembel çalışkan
+akıllı komik ciddi nazik kaba sabırlı dikkatli dikkatsiz yaratıcı mantıklı duygusal kararlı
+kararsız inatçı şüpheci aç tok uykulu rahat tatlı sadık sevimli evcil
+
 hikâye hikaye masal öykü anlatı tavsiye öğüt fikir danış
 moral kafa can öğretmen doktor mühendis öğrenci sınav sır gitar kahve şaka keyif gönül
 sessiz gürültülü sakin mutlu üzgün kızgın kırgın yalnız uykulu heyecanlı endişeli gergin rahat
@@ -360,6 +365,34 @@ DIALOGUE: list[str] = [
 ]
 
 
+# ============================================================================
+# 1b. DUYGUSAL TANIKLIK (öğretmenin sözlü tanıklığı)
+#     Nora bir varlığı kendi gözüyle görmediyse değerini UYDURMAZ; öğretmenin
+#     söylediğini KAYNAKLI DUYUM olarak self_model.arbitrate_claim'e verir.
+#     Böylece tercih, kodda değil, öğretilen tanıklıkta saklanır.
+# ============================================================================
+
+AFFECT_HEARSAY: list[tuple[str, float, str]] = [
+    ("kedi", 0.78, "görsel"),
+    ("köpek", 0.52, "görsel"),
+]
+
+HEARSAY_SENTENCES: list[str] = [
+    "Kediler tatlıdır ve insana huzur verir.",
+    "Köpekler sadıktır ve insana keyif verir.",
+    "Kediyi sevmek insanı rahatlatır.",
+    "Köpekle oynamak insanı mutlu eder.",
+]
+
+
+def _teach(agi, sent: str) -> bool:
+    try:
+        agi.lang.teach_sentence(sent, speaker="öğretmen")
+        return True
+    except Exception:
+        return False
+
+
 def _feed(agi, triples: list[tuple[str, str, str]], sentences: list[str], dialogue: list[str]) -> dict:
     """Tek geçişte besleme: kavram ağı + sözdizimi + söz organı. Epoch yok, öğretmen yok."""
     g = agi.lang.graph
@@ -383,16 +416,30 @@ def _feed(agi, triples: list[tuple[str, str, str]], sentences: list[str], dialog
             edges_txt += len(e or [])
         except Exception:
             continue
+    arb = []
+    for concept, val, ch in AFFECT_HEARSAY:
+        try:
+            res = agi.self_model.arbitrate_claim(concept, val, speaker="öğretmen", channel=ch)
+            arb.append(res.get("accepted", False))
+        except Exception:
+            arb.append(False)
+    edges_txt += sum(1 for sent in HEARSAY_SENTENCES if _teach(agi, sent))
     heard = 0
     try:
         from nora_voice import state_vector
         st = state_vector(agi, nov=0.3, fam=0.7, conf=0.8)
-        for sent in sentences + dialogue:
+        for sent in sentences + dialogue + HEARSAY_SENTENCES:
             agi.life.voice.hear(sent, st)
             heard += len(sent.split())
     except Exception:
         pass
+    # Öğretim oturumu SOHBET DEĞİLDİR: son "konu" olarak öğretmen cümlesi kalmaz.
+    try:
+        agi.lang.wernicke.last_topic = ""
+    except Exception:
+        pass
     return {"triples": len(triples), "triples_added": added, "vocab": len(VOCAB), "sentence_edges": edges_txt,
+            "hearsay": sum(1 for x in arb if x),
             "words_heard": heard, "concepts": len(g.lexicon), "graph_edges": len(g.edges),
             "voice_maturity": round(float(agi.life.voice.mature), 3)}
 
