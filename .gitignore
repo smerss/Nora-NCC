@@ -12,3 +12,11 @@ data/text/*.conllu
 runs/*.log
 BATTERY_RAPORU.txt
 STOP_NORA
+data/text/
+runs/*.pkl.gz
+runs/*.pt
+runs/*.pt.*
+runs/nora_egitim*
+runs/ses_*
+runs/bozuk/
+runs/tok.json
