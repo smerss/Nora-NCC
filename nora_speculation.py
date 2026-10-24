@@ -103,7 +103,7 @@ class SpeculativeCortex:
         raw_lemma: dict[str, str] = {}
         for i, t in enumerate(tokens):
             if t.endswith("ken") and len(t) > 5:
-                converb = t[:-3]            # yürürken -> yürü, uçarken -> uçar
+                converb = t                # yürürken / uçarken: ulaç olduğu gibi saklanır
                 continue
             lem, case, plural, is_v = self._lemma(agi, t)
             if is_v:
@@ -184,6 +184,10 @@ class SpeculativeCortex:
                     break
         for lem, case, _p, idx in nouns:
             if idx in used_idx:
+                continue
+            if case == "LOC" and not place:
+                place = lem
+                used_idx.add(idx)
                 continue
             if case == "ACC" and not patient:
                 patient = lem
@@ -350,7 +354,7 @@ class SpeculativeCortex:
                             clause = SYN.realize_verb(VerbSpec(
                                 verb_root=verb, subj=NP(agent),
                                 obj=NP(_obj, case="NOM") if _obj else None,
-                                ins=NP(part, case="INS"), tense="AOR", person="3SG"))
+                                ins=NP(part, case="INS", poss=3, plural=True), tense="AOR", person="3SG"))
                             if clause:
                                 return clause, f"parça:{agent}.{part}->{e2.obj}"
                         except Exception:
@@ -422,7 +426,7 @@ class SpeculativeCortex:
                         continue
                     try:
                         out = SYN.realize_verb(VerbSpec(verb_root=root, subj=NP(agent),
-                                                        ins=NP(part, case="INS"),
+                                                        ins=NP(part, case="INS", poss=3, plural=True),
                                                         tense="AOR", person="3SG"))
                         return _cap(out).rstrip(".") if out else ""
                     except Exception:
@@ -433,7 +437,14 @@ class SpeculativeCortex:
     def _complement(self, agi, q: dict) -> str:
         """'-DIğInI' yan cümleciği: 'karıncanın sıra ol' + 'duğunu'."""
         try:
-            advs = (q["wh"],) if q["wh"] in ("nasıl", "neden", "nerede") else ()
+            advs = []
+            if q.get("converb"):
+                advs.append(q["converb"])            # 'uçarken'
+            if q.get("place"):
+                advs.append(SYN.realize_np(NP(q["place"], case="LOC")))   # 'karanlıkta'
+            if q["wh"] in ("nasıl", "neden", "nerede"):
+                advs.append(q["wh"])                 # 'nasıl' en sonda: 'karanlıkta nasıl uçtuğunu'
+            advs = tuple(a for a in advs if a)
             if q["pred_noun"] and q["verb"]:
                 return SYN.nominalize_dik(q["verb"], poss=3, case="ACC",
                                           subj=NP(q["agent"], case="GEN") if q["agent"] else None,
