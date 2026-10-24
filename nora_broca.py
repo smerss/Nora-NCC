@@ -438,6 +438,10 @@ class TurkishSyntaxEngine:
         buf = "y" if v_s[-1] in ALL_VOWELS else ""
         if kind == "ip":
             form = f"{v_s}{buf}{m.vowel_4(v_s)}p"
+        elif kind == "inca":
+            # -IncA ('gelince', 'deyince', 'bakınca'): 'olunca/olduğunda' anlamı
+            v4 = m.vowel_4(v_s)
+            form = f"{v_s}{buf}{v4}n{'ca' if v4 in 'ıu' else 'ce'}"
         else:
             ea = m.vowel_e_a(v_s)
             form = f"{v_s}{buf}{ea}r{ea}k"

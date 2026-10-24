@@ -451,8 +451,23 @@ class TurkishMorphology:
             return aor + ("ler" if cls.vowel_e_a(aor) == "e" else "lar")
         return aor
 
+    _ANALYZE_CACHE: dict[tuple[str, int], dict] = {}
+
     @classmethod
     def analyze_word(cls, raw: str, lexicon: set[str] | None = None) -> dict:
+        """Sözlük boyu anahtarlı önbellek: aynı sözcük her turda yeniden çözümlenmez (tur gecikmesi O(1))."""
+        key = (raw, len(lexicon) if lexicon else 0)
+        hit = cls._ANALYZE_CACHE.get(key)
+        if hit is not None:
+            return dict(hit)
+        info = cls._analyze_word_uncached(raw, lexicon)
+        if len(cls._ANALYZE_CACHE) > 40000:
+            cls._ANALYZE_CACHE.clear()
+        cls._ANALYZE_CACHE[key] = dict(info)
+        return info
+
+    @classmethod
+    def _analyze_word_uncached(cls, raw: str, lexicon: set[str] | None = None) -> dict:
         """Sözlük-duyarlı çözümleme: ham çözümlemeyi yapar, sonra uydurma kök soymayı geri alır.
         ('zürafa'->'züraf'+DAT, 'matematik'->'mat'+fiil gibi hatalar anlamayı bozuyordu.)"""
         info = cls._analyze_word_raw(raw, lexicon)

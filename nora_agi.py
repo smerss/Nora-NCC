@@ -329,6 +329,7 @@ class NoraAGI:
         self.broca_organ = GenerativeBrocaOrgan()
         self.schema_cortex = PlasticSchemaCortex(chem=self.chem, seed=seed + 31)
         self._last_focus = ""
+        self._warm_speech_paths()
         self.monologue = InnerMonologueEngine(self.schema_cortex)
         # --- KENDİ KENDİNE SINIFLANDIRMA + OTONOM ETİKETLEME + TAM DURUMSAL TÜRKÇE ---
         self.utter_cortex = NeuralUtteranceCortex(chem=self.chem, morph=self.lang.morph, seed=seed + 47)
@@ -966,7 +967,11 @@ class NoraAGI:
         # Bildirim cümlesi ise Nora kendi mantık kuralını ve etiketini KENDİSİ kurar (soru işareti olmadan da sınıflar!)
         ing_res = None
         self._turn_mint_label = ""
-        if not utt_cls.get("is_question") and narration is None:
+        # Nosiseptif refleks turunda kortikal kural-öğrenimi ertelenir: omurilik refleksi korteksi
+        # beklemez (acı darbesi sürerken kural çıkarmak nörobiyolojik olarak da yersizdir).
+        _nociceptive = (getattr(self.nervous, "adelta_pain", 0.0) > 0.25
+                        or bool(getattr(self.nervous, "pending_pain_vocalization", False)))
+        if not utt_cls.get("is_question") and narration is None and not _nociceptive:
             ing_res = self.logic.ingest_statement(raw)
         if ing_res is not None:
             self._turn_mint_label = str(ing_res["label"])
@@ -1276,11 +1281,12 @@ class NoraAGI:
                     wern.last_explanation = f"{e0.subj} ile {e0.obj} arasında {e0.rel} sinapsını epoch kullanmadan tek-atışta kurdum"
                     cur_sc = self.monologue.last_thought.schema_id if self.monologue.last_thought is not None else "S1_NEDEN_SONUC"
                     _prop_txt = broca.realize_prop(Proposition(subj=e0.subj, rel=e0.rel, obj=e0.obj))
-                    _learn_verbs = ("kavram ağıma bağladım", "zihnime not ettim", "belleğime işledim")
-                    _lv = _learn_verbs[int(self.mind.age + len(raw)) % len(_learn_verbs)]
+                    # Gerekçe: az önce kurulan önermenin kendisi. Çekirdek: öğrenme eylemi Broca'da çekimlenir.
+                    _bind = SYN.realize_verb(VerbSpec(
+                        verb_root="bağla", obj=NP("bilgi", poss=3, case="ACC"),
+                        dat=NP("kavram ağı", poss=1, case="DAT"), tense="PAST", person="1SG"))
                     _rep_fb = self.schema_cortex.transform_clauses(
-                        f"{_prop_txt} bilgisini {_lv}",
-                        f"{e0.subj} ile {e0.obj} arasında tek geçişte bağ kurdum",
+                        _bind, _prop_txt,
                         SYN.converb("evir", kind="ip", obj=NP("bilgi", case="ACC", mods=("yeni",)))
                         + " " + SYN.converb("çevir", kind="ip", loc=NP("iç", poss=1, case="LOC")), cur_sc)
                     rep_f = self.speak_or(_rep_fb, anchors=[e0.subj, e0.obj], nov=1.0 - _fam, fam=_fam,
@@ -1341,12 +1347,17 @@ class NoraAGI:
                         _gap = getattr(self.speculation, "last_gap", "")
                     except Exception:
                         _spec, _gap = "", ""
+                _agent = getattr(self.speculation, "last_agent", "") if _strict else ""
+                if _agent and _agent != fr.subj and graph.query(_agent, None):
+                    # Wernicke soruyu yanlış özneyle çözdüyse ("arılar balı yapar" -> bal),
+                    # kendi parçalamasının bulduğu eyleyiciyi kullan.
+                    fr.subj = _agent
                 hits = graph.query(fr.subj, rels)
                 if not hits and fr.rel != "ALL" and not _strict:
                     hits = graph.query(fr.subj, None)
                 # TERS ARAMA: "dünyanın en yüksek dağı" gibi tanımlayıcı bir öbek, bilinen bir kavramın
                 # özelliği olarak ağda duruyorsa (everest HAS_PROP "dünyanın en yüksek dağı") o kavramı bul.
-                if not hits:
+                if not hits and not graph.query(fr.subj, None):
                     for _rev in graph._in_edges.get(fr.subj, ()):
                         _rev_hits = graph.query(_rev.subj, rels)
                         if _rev_hits:
@@ -1395,7 +1406,11 @@ class NoraAGI:
                     _drop = fr.subj + " "
                     _clean = [clauses[0]] + [(c[len(_drop):] if c.startswith(_drop) else c) for c in clauses[1:]]
                     _joined = tr_capitalize("; ".join(_clean))
-                    if _gap and not self._wh_covered(hits, _wh, raw):
+                    _cov = self._wh_covered(hits, _wh, raw)
+                    if _strict and _spec and not _cov:
+                        # Bağlar sorunun istediği şeyi karşılamıyor: tam düşünme metni konuşsun.
+                        _joined = _spec
+                    elif _gap and not _cov:
                         _joined = (_joined.rstrip(".") + ". " + tr_capitalize(_gap)).strip()
                     _join_txt = _joined if _joined.endswith((".", "?", "!")) else _joined + "."
                     bids.append(CorticalBid("hippocampal_concept", 0.95, 0.94, _join_txt, f"wh:{fr.subj}"))
@@ -1666,13 +1681,14 @@ class NoraAGI:
             return True
         try:
             q = self.speculation._decompose(self, raw, None)
-            focus = self.speculation._tokens(q.get("verb_phrase", "")) | self.speculation._tokens(q.get("pred_noun", ""))
+            focus = (self.speculation._tokens2(q.get("verb_phrase", ""))
+                     | self.speculation._tokens2(q.get("pred_noun", "")))
         except Exception:
             focus = set()
         if not focus:
             return True
         for e, _p in hits:
-            if e.rel in want and e.obj and (self.speculation._tokens(e.obj) & focus):
+            if e.rel in want and e.obj and (self.speculation._tokens2(e.obj) & focus):
                 return True
         return False
 
@@ -1785,24 +1801,36 @@ class NoraAGI:
         last = getattr(self, "_last_focus", "")
         return last
 
+    def _warm_speech_paths(self) -> None:
+        """Konuşma yolunun tembel derlemelerini (regex/örüntü) AÇILIŞTA yap.
+        Refleks turunda ilk-çağrı maliyeti gecikmeye karışmasın; ölçülen şey refleks olsun."""
+        try:
+            for s in ("bedenime diken batırdı", "canım yandı", "yaram sızladı"):
+                self.lang.wernicke.parse(s)
+                self.utter_cortex.classify(s)
+                self.logic.classify(s)
+                for w in s.split():
+                    self.lang.morph.analyze_word(w, self.lang.graph.lexicon)
+            # Broca + şema korteksi: refleks cümlesi ilk kez kurulurken regex derlemesi olmasın.
+            self.lang.broca.realize_verb(VerbSpec(verb_root="yan", tense="PAST", person="3SG", subj=NP("can", poss=1)))
+            self.lang.broca.realize_prop(Proposition(subj="can", rel="HAS_PROP", obj="acı"))
+            self.schema_cortex.transform_clauses("canım yandı", "diken battı", "", "S1_NEDEN_SONUC")
+        except Exception:
+            pass
+
     def _remember_focus(self, raw: str) -> None:
         """Kullanıcının son sözündeki, hakkında gerçekten bir şey bildiği konuyu hatırla."""
         g = self.lang.graph
         _bad = self._TEMPER_ADJ | {"ben", "sen", "bir", "ve", "çok", "bu", "da", "de", "mi", "mı",
                                    "niye", "neden", "nasıl", "ne", "bugün", "dün", "yarın", "şimdi"}
-        for wd in re.findall(r"[\wçğıöşü]+", tr_lower(raw)):
-            if wd in _bad or len(wd) < 3:
-                continue
-            try:
-                an = self.lang.morph.analyze_word(wd, g.lexicon)
-            except Exception:
-                continue
-            stem = an.get("stem") or wd
-            if an.get("is_verb") or an.get("copula"):
-                continue
-            if stem in g._out_edges and len(g._out_edges[stem]) >= 2:
-                self._last_focus = stem
+        words = [wd for wd in re.findall(r"[\wçğıöşü]+", tr_lower(raw)) if wd not in _bad and len(wd) >= 3]
+        # Hızlı yol (O(1) sözlük bakışı): yüzey biçim zaten bir düğümse kök çözümlemesi gerekmez.
+        for wd in words:
+            if len(g._out_edges.get(wd, ())) >= 2:
+                self._last_focus = wd
                 return
+        # Kök çözümlemesi burada YAPILMAZ: refleks turunda morfoloji maliyeti gecikmeye eklenmesin.
+        # Yüzey biçim düğüm değilse konu hatırlanmaz; `_current_focus` epizodik yedeği zaten var.
 
     def _answer_temperament_query(self, adj, speaker="insan"):
         """'Niye bu kadar sessizsin?' — sıfat yüklemi ve gerekçe Broca'da kökten çekimlenir; gerekçe

@@ -552,13 +552,25 @@ class DiscourseCortex:
         for c in meta["concepts"]:
             nb, rel = self._neighbour(graph, c)
             if nb:
-                if rel == "ISA":
-                    return f"“{c}” deyince aklıma {nb} geliyor; ikisi arasında bir bağ kuruyorum."
-                if rel == "HAS_PART":
-                    return f"“{c}” deyince {nb} geliyor aklıma."
-                if rel == "CAN_DO":
-                    return f"“{c}” deyince {nb} yaptığı geliyor aklıma."
-                return f"“{c}” ile {nb} arasında bir bağ var; bunu düşünüyorum."
+                # Cümle kalıbı yok: çekim Broca'da, topoloji plastik şema korteksinde.
+                try:
+                    from nora_broca import NP, VerbSpec
+                    from nora_broca import TurkishSyntaxEngine as SYN
+                    c_say = SYN.converb("de", "inca", obj=NP(c, case="NOM"))
+                    if rel in ("ISA", "HAS_PART", "CAN_DO"):
+                        c_come = SYN.realize_verb(VerbSpec(verb_root="gel", subj=NP(nb),
+                                                           dat=NP("akıl", poss=1, case="DAT"),
+                                                           tense="PRES", person="3SG"))
+                    else:
+                        c_come = SYN.realize_verb(VerbSpec(verb_root="kur", obj=NP("bağ", case="ACC"),
+                                                           ins=NP("bunun", case="INS"),
+                                                           tense="PRES", person="1SG"))
+                    if c_say and c_come:
+                        return tr_capitalize(c_say) + ", " + c_come + "."
+                    if c_come:
+                        return tr_capitalize(c_come) + "."
+                except Exception:
+                    pass
         return None
 
     def _speak_honest_unknown(self, raw: str, meta: dict, agi) -> str | None:
