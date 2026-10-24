@@ -245,7 +245,7 @@ class InitiativeCortex:
                 direct = agi.lang.broca.realize_prop(Proposition(subj=subj, rel=rel, obj=obj))
             except Exception:
                 return None
-            return _cap(direct) + "." if direct else None
+            return _cap(direct) if direct else None
         verbs = ("fark et", "öğren", "anla", "gör")
         verb = verbs[self.py_rng.randrange(len(verbs))]
         try:
@@ -285,7 +285,7 @@ class InitiativeCortex:
         if rel in ("CAN_DO", "USED_FOR", "CAUSES") and last in TurkishMorphology.KNOWN_VERB_ROOTS:
             prev = tuple(w for w in words[:-1] if w)
             return SYN.nominalize_dik(last, poss=3, case="ACC", subj=NP(subj, case="GEN"), advs=prev)
-        if rel in ("CAN_DO", "USED_FOR"):
+        if rel in ("CAN_DO", "USED_FOR", "CAUSES"):
             return ""                      # fiil tanınmadıysa bozuk cümle kurmaktansa susar
         if rel == "USED_FOR":
             return ""                      # edilgen anlam: doğrudan önerme daha doğru söylenir

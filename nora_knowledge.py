@@ -142,6 +142,19 @@ CORE_TURKISH_VERBS: set[str] = {
     "belirle", "bul", "bulun", "sağla", "uygula", "engelle", "aktar", "sakla", "barındır", "sergile", "göster",
     "diren", "tanı", "kaynaklan", "yükselt", "tetikle", "yönet", "besle", "sınırla", "genişlet", "yoğunlaş",
     "sentezle", "parçala", "harca", "depola", "sıçra", "yayımla", "doğrula", "çürüt", "yorumla",
+
+    # Gündelik beden, ev ve toplum eylemleri (çocuk dilinin ilk fiilleri)
+    "kal", "vur", "küs", "sar", "sarıl", "tırmala", "zıpla", "hopla", "mırıldan", "homurdan", "haykır",
+    "fırlat", "kovala", "saklan", "boğul", "yıkan", "tara", "sil", "süpür", "dök", "saç", "salla",
+    "kaldır", "indir", "bindir", "ısır", "kaşı", "öp", "em", "yoğur", "kızart", "haşla", "karıştır",
+    "çırp", "süz", "ez", "çiğne", "yut", "tükür", "hapşır", "öksür", "esne", "çömel", "devril", "süzül",
+    "sallan", "kay", "emekle", "uzan", "eğil", "doğrul", "bükül", "gerin", "tutun", "kap", "kucakla",
+    "okşa", "gülümse", "kızar", "çağır", "uyut", "emzir", "büyüt", "yetiştir", "öde", "borçlan", "satın",
+    "sat", "kirala", "ödünç", "dile", "dua", "karar", "özlem", "anımsa", "çekiştir", "dürt", "tekmele",
+    "yumrukla", "sık", "gevşet", "bağır", "inle", "ağla", "sızla", "titri", "terle", "kana", "uyukla",
+    # Hayvan sesleri ve doğa olayları
+    "öt", "havla", "miyavla", "mele", "kişne", "anır", "böğür", "gıdakla", "ötüş", "uğulda", "şimşekle",
+    "gürle", "patla", "fokurda", "damla", "karla", "yağmurla", "es",
 }
 
 # Ünsüz yumuşamasına GİRMEYEN çok heceli / alıntı veya Türkçe kökler
