@@ -481,7 +481,7 @@ setInterval(poll, 450);
 
 
 class StudioRuntime:
-    def __init__(self, seed: int = 1, think_iters: int = 600):
+    def __init__(self, seed: int = 1, think_iters: int = 600, besin: bool = True):
         self.lock = threading.Lock()
         self.flow: list[tuple[str, str]] = []
         self.proactive: list[dict] = []
@@ -506,6 +506,15 @@ class StudioRuntime:
             source="rehber_okuma",
         )
         self.agi.sleep()
+        # Dünya bilgisi + Türkçe corpus: çocuğa dünyayı anlatıyoruz (tek geçiş, epoch yok)
+        self.besin_rapor = {}
+        if besin:
+            try:
+                from nora_besle import besle
+                self.besin_rapor = besle(self.agi, verbose=False)
+                print(f"[nora-studio] besin: {self.besin_rapor}", flush=True)
+            except Exception as exc:      # besleme hattı çökmemeli
+                print(f"[nora-studio] besin atlandı: {exc}", flush=True)
 
     def advance(self, n: int):
         for _ in range(int(n)):
@@ -783,11 +792,12 @@ def main():
     ap.add_argument("--port", type=int, default=8000)
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--think-iters", type=int, default=600)
+    ap.add_argument("--no-besin", action="store_true", help="dünya/Türkçe besinini kapat")
     args = ap.parse_args()
 
     print(f"[nora-studio] Nora-AGI başlatılıyor (seed={args.seed}, S2 boot={args.think_iters})...", flush=True)
     t0 = time.time()
-    RUNTIME = StudioRuntime(seed=args.seed, think_iters=args.think_iters)
+    RUNTIME = StudioRuntime(seed=args.seed, think_iters=args.think_iters, besin=not args.no_besin)
     srv = ThreadingHTTPServer((args.host, args.port), StudioHandler)
     print(f"[nora-studio] Canlı Gözlemevi hazır ({time.time() - t0:.1f}s) -> http://{args.host}:{args.port}", flush=True)
     srv.serve_forever()

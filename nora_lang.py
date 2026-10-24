@@ -437,6 +437,23 @@ class TurkishMorphology:
 
     @classmethod
     def analyze_word(cls, raw: str, lexicon: set[str] | None = None) -> dict:
+        """Sözlük-duyarlı çözümleme: ham çözümlemeyi yapar, sonra uydurma kök soymayı geri alır.
+        ('zürafa'->'züraf'+DAT, 'matematik'->'mat'+fiil gibi hatalar anlamayı bozuyordu.)"""
+        info = cls._analyze_word_raw(raw, lexicon)
+        known = lexicon or set()
+        if not known:
+            return info
+        w, stem = info.get("surface", ""), info.get("stem", "")
+        if w in known and stem not in known:
+            return {**info, "stem": w, "case": "NOM", "is_verb": False}
+        if w not in known and stem not in known and info.get("is_verb") and stem not in cls.KNOWN_VERB_ROOTS:
+            # 'matematik' -> 'mat' (fiil) gibi köksüz çözümlemeler anlamayı bozar; sözlükte
+            # olmayan bir fiil kökü asla "gerçek" sayılmaz, kelime olduğu gibi alınır.
+            return {**info, "stem": w, "case": "NOM", "is_verb": False, "neg": False}
+        return info
+
+    @classmethod
+    def _analyze_word_raw(cls, raw: str, lexicon: set[str] | None = None) -> dict:
         """Kelimeyi (kök, hal, çoğul, olumsuzluk, zaman, koşaç) bileşenlerine ayırır."""
         w = re.sub(r"[^\wçğıöşüÇĞİÖŞÜ-]", "", tr_lower(raw))
         info = {"surface": w, "stem": w, "case": "NOM", "plural": False, "neg": False, "copula": False, "is_verb": False}
@@ -1029,7 +1046,7 @@ class GroundedConceptGraph:
                 return {"answer": False, "edge": e, "isa_path": isa_path}
 
         # 2) Doğrudan veya ISA-kalıtsal pozitif bağ var mı?
-        for e, isa_path in self.query(s, ("ISA", "HAS_PROP", "CAN_DO", "CAUSES", "USED_FOR", "LOCATED_AT")):
+        for e, isa_path in self.query(s, ("ISA", "HAS_PROP", "HAS_PART", "CAN_DO", "CAUSES", "USED_FOR", "LOCATED_AT")):
             e_stem = TurkishMorphology.analyze_word(e.obj.split()[-1], self.lexicon)["stem"] if e.obj else ""
             if e.obj == t or e.obj == t_clean or e.obj == t_stem or e_stem == t_stem or t_clean in e.obj:
                 return {"answer": True, "edge": e, "isa_path": isa_path}
@@ -1087,6 +1104,15 @@ class BrocaGenerator:
             if p.neg:
                 return f"{s} {o} değildir"
             return f"{s} {self.morph.inflect_noun(o, 'NOM', copula=True)}"
+
+        if r == "HAS_PART":
+            # Sahiplik: 'zürafanın uzun boynu var' (parça/özellik adı iyelikli kurulur)
+            parts = o.split()
+            head = parts[-1] if parts else o
+            part = " ".join(parts[:-1] + [self.morph.inflect_noun(head, "NOM", poss3=True)]).strip()
+            if p.neg:
+                return f"{s} {self.morph.inflect_noun(s, 'GEN')} {part} yok"
+            return f"{self.morph.inflect_noun(s, 'GEN')} {part} var"
 
         if r in ("CAN_DO", "CANNOT_DO"):
             is_neg = p.neg or (r == "CANNOT_DO")

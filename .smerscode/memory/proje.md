@@ -107,3 +107,15 @@ Ek bulgular (özerk oturum sonu): tanıklıkla öğrenme 48x48 arenada ölümü 
   Canlı gözlemevinde doğrulandı: "Bana bir şey anlat; ne olurdu olmasa.", "Sen orada mısın?", "Bugün seni en çok ne yordu?".
   Tam paket: **A1–A49 49/49 GEÇTİ (259.7 sn)**.
 
+## Güncel (tur: FAZ B — Türkçe corpus / dünya besini)
+- `nora_besle.py`: üç katmanlı besin hattı — (1) 231 dünya üçlüsü (ISA/CAN_DO/USED_FOR/CAUSES/HAS_PART/
+  HAS_PROP/LOCATED_AT/OPPOSITE), (2) 130 doğal Türkçe cümle, (3) 80 günlük diyalog satırı. Tek geçiş, epoch yok.
+  Ölçüm: 418 kenar, 841 kavram, 1.5 sn. `nora_studio.py --no-besin` ile kapatılabilir (varsayılan açık).
+- `nora_lang.analyze_word` iki katmana ayrıldı: `_analyze_word_raw` + sözlük-duyarlı sarmalayıcı. Sözlükte
+  olmayan kelime uydurma köke soyulmuyor ('matematik'->'mat'+fiil hatası düzeldi; 'okudu' da korunuyor).
+  Not: DAT/ACC'yi zorla NOM'a çeviren geniş kural DENENDİ ve GERİ ALINDI (sepete->NOM -> "sepetede" hatası).
+- Yeni `HAS_PART` ilişkisi Broca'da iyelikli kurulur: "zürafanın uzun boynu var", "filin hortumu var",
+  "satürnün halkası var". `check_relation` bu ilişkiyi de tarar.
+- Testler: **A50** (corpus'tan dünya bilgisi 12/12 + bilinmeyende dürüstlük), **A51** (iyelik/sahiplik +
+  sözlük-güvenli kök çözümleme). Paket: **A1–A51**.
+
