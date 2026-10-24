@@ -94,6 +94,8 @@ class NP:
     case: str = "NOM"             # NOM | ACC | DAT | LOC | ABL | INS | GEN
     gen_owner: "NP | None" = None
     proper: bool = False          # özel ad/kısaltma: büyük harf ve kesme işareti korunur (COVID-19'un)
+    verbal_noun: bool = False     # -mAk fiil adı: belirtme/hâl eki 'yap-mak' -> 'yap-ma-yı'
+    post: str = ""                 # son-ilgeç: 'dünya hakkında', 'kedi için'
 
 
 @dataclass
@@ -164,6 +166,12 @@ class TurkishSyntaxEngine:
         if _case.upper() == "ACC" and any(tr_lower(m).strip() in cls.INDEFINITE_MODS for m in np_node.mods):
             _case = "NOM"
 
+        # -mAk fiil adı (-ma-yı, -ma-ya, -ma-nın): mastar isim gibi çekilmez, fiil adı olarak çekilir.
+        if np_node.verbal_noun:
+            _vn = cls.realize_verbal_noun(head_raw, _case)
+            if _vn:
+                return ((" ".join(tr_lower(m).strip() for m in np_node.mods if m) + " ").strip() + " " + _vn).strip()
+
         # Zamir özel çekimi
         if stem in cls.PRONOUN_CASES and not np_node.plural and np_node.poss == 0:
             inflected = cls.PRONOUN_CASES[stem].get(_case.upper(), stem)
@@ -199,6 +207,8 @@ class TurkishSyntaxEngine:
             prefix_words = orig_parts[:-1]
         pieces.extend(prefix_words)
         pieces.append(inflected)
+        if np_node.post:
+            pieces.append(tr_lower(np_node.post).strip())
         return " ".join(p for p in pieces if p)
 
     @classmethod
@@ -260,6 +270,30 @@ class TurkishSyntaxEngine:
             if c == "INS":
                 return w + "yl" + ea
         return m.inflect_noun(w, case=c, plural=False, poss1=False)
+
+    @classmethod
+    def realize_verbal_noun(cls, phrase: str, case: str = "ACC") -> str:
+        """-mAk mastarını fiil adı olarak çeker: yapmak -> yapmayı / yapmaya / yapmanın.
+        Yalın, bulunma, ayrılma ve vasıta hâllerinde mastar biçimi korunur (yapmakta, yapmaktan)."""
+        from nora_lang import TurkishMorphology as _M
+        words = tr_lower(phrase).strip().split()
+        if not words:
+            return ""
+        last = words[-1]
+        if not last.endswith(("mak", "mek")):
+            return ""
+        root = last[:-3]
+        vn = root + ("me" if _M.vowel_e_a(root) == "e" else "ma")
+        c = case.upper()
+        if c == "ACC":
+            out = vn + "y" + _M.vowel_4(vn)
+        elif c == "DAT":
+            out = vn + "y" + _M.vowel_e_a(vn)
+        elif c == "GEN":
+            out = vn + "n" + _M.vowel_4(vn) + "n"
+        else:
+            out = last
+        return " ".join(words[:-1] + [out])
 
     # ------------------------------------------------------------------ Fiilimsi (Yan Cümlecik) Üreticileri
     @classmethod
