@@ -62,3 +62,26 @@ Ek bulgular (özerk oturum sonu): tanıklıkla öğrenme 48x48 arenada ölümü 
 - Testler: A36 (kör kabul yok → 2 hipotez), A37 (güvenilirlikle öğrenme, çelişki ezmez, System-1 terfi/iptal), A38 (yalnız güvenilir kaynak; güvenilmezden öğrenmeme), A39 (çalıştırarak doğrulanan kod + doğal tırnaksız istem + abstain), A40 (epistemik+kod kalıcılığı). Tam paket: **40/40, 168.7 sn**; A23 O(1) 3.89→5.21 ms.
 - Canlı kanıt: gözlemevinde "Merhaba! Ey Ahali! yazdıracak tek satırlık bir Python kodu yaz." → `print("Merhaba! Ey Ahali!")`, çalıştırıldı, çıktı birebir doğrulandı; ikinci istemde System-1 (12 ms).
 - Bilinen açık: durumsal nezaket korteksi hâlâ sözcük ölçütleriyle yönlendiriliyor (beyin-benzeri plastik sınıflandırıcıya taşınmalı); bu ortamda Wikipedia'ya ağ çıkışı yok (araştırmacı dürüstçe başarısız oluyor); eş ad birleştirme iki bağımsız güvenilir kaynak ister, tek kaynakla bilinçli olarak birleşmez.
+
+## Güncel (tur: claude/clever-franklin-sz4mmr incelemesi + main'e birleştirme)
+- İncelenen dal: `claude/clever-franklin-sz4mmr` (ed028e5 + 2018492, ata: fc6331c). Getirdikleri:
+  `nora_voice.py` (LearnedVoice: dilden bağımsız alt-sözcük/n-gram söz organı, sözcük–iç durum çağrışımı),
+  `nora_broca_net.py` (5,7M GRU artikülasyon motoru, tek geçiş çevrimiçi öğrenme, çözümlemede **yapısal sözcük maskesi** → uydurma imkânsız),
+  `nora_life.py` (arka plan yaşamı: CA3 tarama, RK4 zihinsel gerilim, 5 popülasyonlu LCA ihalesi, Hipotez Havuzu=çapraz doğrulama,
+  ReplyRepertoire=eksik tamamlama iradesi, metabolik THOUGHT_COST, outbox), `nora_egit.py` + `make_corpus_*.py` (eğitim hattı),
+  `data/broca_tr.pt` (23 MB eğitilmiş ağırlık). Ayrıca `nora_lang/nora_broca`'da **kararlı FNV-1a hash** (PYTHONHASHSEED'e bağlı olmayan kalıcı bellek) ve OPT kipi düzeltmesi.
+  Testler: A41–A47 (dilsiz organ sessiz / EN-TR taklidi yok, kodda Türkçe sabit yok, tek kaynak ağa girmiyor, 2 bağımsız kaynak terfi,
+  eksik tamamlama, arka plan yaşamı, O(1) tick kalıcılık, Broca tek geçiş + maske, eğitilmiş Broca'nın dürüst duruşu).
+- Birleştirme (merge commit `e0f0c58`). Birleşme sonrası **gerçek konuşma testi regresyon gösterdi**: dil hiç duyulmamışken
+  (`data/broca_tr.pt` bağlı değil) söz organı birkaç turdan öğrendiği dizgilerle konuşuyordu →
+  "Zürafa nedir?" → *"Benim adım ali."*, "Karadeniz hakkında ne biliyorsun?" → **girdinin yankısı**, "Kediler uçar mı?" → bağlantısız cümle.
+  (main'de aynı sorular dürüst yedeği veriyordu: "X hakkında henüz bilgim yok; merak listeme aldım…")
+- Düzeltme (bu tur): (1) `NoraAGI.voice_ready()` dil olgunluğu kapısı (`VOICE_READY_MATURE=0.35`, eğitilmiş organ varsa açık);
+  (2) `_voice_usable()` kullanılabilirlik denetimi (boş/çok kısa söz, çapayı taşımayan söz, tekrar eden söz söylenmez);
+  (3) `speak_or()` — organ hazır değilse *dürüst yedeğe* düşer; bilinmeyen kavramda organ sorusu varsa "bilgim yok" + kendi merak sorusu birleşir;
+  (4) `nora_lang`/`nora_broca`: t>d yumuşaması **sözlüksel** oldu (`SOFTEN_T_VERBS`, `soften_verb_t`): hisset→hissediyorum, affet→affediyorum, kaydet→kaydediyorum; tüket/yönet/ilet yumuşamaz. Önceki hâlde "hissetiyorsun" üretiliyordu.
+- Ölçüm: varsayılan yapılandırmada bilinmeyen soru 4–22 ms'de dürüst yedek; `data/broca_tr.pt` bağlıyken 130–260 ms ve cevap
+  "Mitokondri hakkında henüz bilgim yok; merak listeme aldım. Mitokondri mi?" (dürüst + meraklı). İç ses: dil yoksa sessiz, organ varsa kısa ama gerçek.
+- Tam paket: **A1–A47 47/47 GEÇTİ (277 sn)**; A23/A25 hız eşikleri donanıma bağlı (yük altında ara sıra düşebiliyor — bir koşuda 46/47, aynı koşuda torch indirmesi arka planda çalışıyordu; tekil tekrarda A44/A45/A46/A30 dört kez üst üste geçti).
+- Gözlemevi `nora_studio.py` birleşik kodla çalışıyor: /api/chat 5 ms, arka plan yaşamı tick'i studio içinde de dönüyor.
+

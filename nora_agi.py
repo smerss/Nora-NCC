@@ -366,13 +366,51 @@ class NoraAGI:
         self.life.voice.organ = BrocaOrgan.load(path)
         self.life.voice.tok = self.life.voice.organ.tok
 
+    # Söz organı konuşmaya başlamak için ne kadar dil duymuş olmalı (duyulan parça sayısından üstel doyma).
+    # Az dil duymuş bir organın sözü dizgi gürültüsüdür; o durumda Nora kendi sözünü KURMAZ, dürüstçe bilmediğini söyler.
+    VOICE_READY_MATURE = 0.35
+
+    def voice_ready(self) -> bool:
+        """Dil olgunluğu kapısı: eğitilmiş artikülasyon organı varsa ya da yeterince dil duyulduysa açılır."""
+        v = self.life.voice
+        return v.organ is not None or v.mature >= self.VOICE_READY_MATURE
+
     def speak_from_state(self, anchors: list[str] | None = None, nov: float = 0.5, fam: float = 0.5,
                          conf: float = 0.5, tension: float = 0.0, facts: list[str] | None = None) -> str:
         """Tüm 'kendi sözü' üretimi: iç durum + çapa kavramlar -> öğrenilmiş söz organı. Dil yoksa dürüstçe '…'."""
+        if not self.voice_ready():
+            return "…"
         st = state_vector(self, nov=nov, fam=fam, conf=conf, tension=tension)
         return self.life.voice.speak(st, anchors, extra_allowed=facts) or "…"
 
-    def speak_unknown(self, concept: str) -> str:
+    @staticmethod
+    def _voice_usable(out: str, anchors: list[str] | None) -> bool:
+        """Öğrenilmiş sözün kullanılabilirlik denetimi (kalıp değil, ölçüt): boş/çok kısa söz,
+        çapa kavramını taşımayan söz ve aynı parçayı tekrarlayan söz söylenmez."""
+        if not out:
+            return False
+        t = out.strip()
+        if t in ("…", "...", ".", "?"):
+            return False
+        toks = re.findall(r"[\wçğıöşü]+", tr_lower(t))
+        if len(toks) < 4:
+            return False
+        if anchors and not any(tr_lower(a).strip() and tr_lower(a).strip() in tr_lower(t) for a in anchors if a):
+            return False
+        if len(toks) != len(set(toks)) and max(toks.count(w) for w in set(toks)) > 2:
+            return False
+        if len(toks) != len(set(toks)) and len(toks) < 6:
+            return False
+        return True
+
+    def speak_or(self, fallback: str, **kw) -> str:
+        """Söz organı hazır değilse, boş ya da kullanılamaz bir söz üretirse dürüst yedeğe düşer."""
+        if not self.voice_ready():
+            return fallback
+        out = self.speak_from_state(**kw)
+        return out if self._voice_usable(out, kw.get("anchors")) else fallback
+
+    def speak_unknown(self, concept: str, fallback: str = "") -> str:
         """Bilmediği şeyle karşılaşma: uydurmaz; boşluğu gerilim defterine yazar, elinde yarım iz (hipotez) varsa
         kesinliği söze yansır. Söz, öğrenilmiş söz organından çıkar."""
         self.life.note_unknown_concept(self, concept)
@@ -380,9 +418,19 @@ class NoraAGI:
         fam = 0.0 if node is None else min(1.0, node.familiarity / 6.0)
         trace = self.life.pool.trace_for(self, concept)
         g = self.life.ledger.gaps.get(f"c:{concept}")
-        return self.speak_from_state(anchors=[concept], nov=1.0 - fam, fam=fam,
-                                     conf=0.0 if trace is None else trace[0],
-                                     tension=0.0 if g is None else g.tension)
+        if not fallback:
+            fallback = (f"{tr_capitalize(concept)} hakkında henüz bilgim yok; merak listeme aldım, "
+                        f"istersen tek bir cümleyle bana öğretebilirsin.")
+        if not self.voice_ready():
+            return fallback
+        out = self.speak_from_state(anchors=[concept], nov=1.0 - fam, fam=fam,
+                                    conf=0.0 if trace is None else trace[0],
+                                    tension=0.0 if g is None else g.tension)
+        # Artikülasyon organının sorusu yapısal maske sayesinde çapadan dışarı çıkamaz; anlam kaybolmasın
+        # diye önce bilmediğini söyler, ardından kendi merak sorusunu ekler (insan da öyle yapar).
+        if out and out.strip().endswith("?") and tr_lower(concept) in tr_lower(out):
+            return f"{tr_capitalize(concept)} hakkında henüz bilgim yok; merak listeme aldım. {out.strip()}"
+        return out if self._voice_usable(out, [concept]) else fallback
 
     def drain_outbox(self) -> list[dict]:
         """Kullanıcı yazmadan Nora'nın kendiliğinden gönderdiği mesajlar (spontaneous_action)."""
@@ -809,8 +857,16 @@ class NoraAGI:
         if ing_res is not None:
             self._turn_mint_label = str(ing_res["label"])
         if ing_res is not None:
-            mint_rep = self.speak_from_state(anchors=[str(ing_res["label"])], nov=0.8, fam=0.2,
-                                             conf=self._speaker_trust(speaker))
+            _syn_m = self.broca_organ.syn
+            _c_mint = _syn_m.realize_verb(VerbSpec(
+                verb_root="kodla", obj=NP("ilişki", mods=("bu",), case="ACC"),
+                advs=("kendi başıma",), tense="PAST", person="1SG"))
+            _c_tie = _syn_m.realize_verb(VerbSpec(
+                verb_root="bağla", obj="bunu", dat=NP("bellek", poss=1, case="DAT"),
+                tense="PAST", person="1SG", dat_last=True))
+            _mint_fb = f"{tr_capitalize(_c_mint)}: {ing_res['label']}. {tr_capitalize(_c_tie)}."
+            mint_rep = self.speak_or(_mint_fb, anchors=[str(ing_res["label"])], nov=0.8, fam=0.2,
+                                     conf=self._speaker_trust(speaker))
             bids.append(CorticalBid(
                 module="prefrontal_autonomous_logic",
                 salience=0.945,   # < 0.95: anlamsal öğrenme sütunlarını KETLEMEZ, yalnızca onay sözcesini üstlenir
@@ -985,7 +1041,10 @@ class NoraAGI:
                     ))
                 else:
                     bids.append(CorticalBid(
-                        "hippocampal_concept", 0.85, 0.80, self.speak_unknown(c), "analogy_miss",
+                        "hippocampal_concept", 0.85, 0.80,
+                        self.speak_unknown(c, fallback=(f"{tr_capitalize(a)} ve {b} arasındaki bağı {c} için henüz "
+                                                        f"kuramadım; bana bir cümleyle öğretebilirsin.")),
+                        "analogy_miss",
                     ))
             elif fr.kind == "command":
                 bids.append(CorticalBid("prefrontal_volition", 0.98, 0.97, self._handle_command(fr, speaker=speaker), f"volition:{fr.rel}:{fr.obj}"))
@@ -1021,7 +1080,12 @@ class NoraAGI:
                         val_num = "+0.35" if fr.valence > 0 else "-0.35"
                         self.mind.hear(f"kural: {fr.subj} {val_num}", trust=self.chem.trust_of(speaker))
                     wern.last_explanation = f"Asetilkolin kapısıyla ({self.chem.ach:.2f}) {fr.subj} kavramını tek seferde duyum belleğime bağladım"
-                    rep_v = self.speak_from_state(anchors=[fr.subj], nov=0.7, fam=0.3, conf=self._speaker_trust(speaker))
+                    _pol = "faydalı" if fr.valence > 0 else "zararlı ve tehlikeli"
+                    _c_lv = f"{morph.inflect_noun(fr.subj, 'GEN')} {_pol} olduğunu belleğime işledim"
+                    _r_lv = "bunu tek geçişte duyum ağıma bağladım"
+                    rep_v = self.speak_or(
+                        self.schema_cortex.transform_clauses(_c_lv, _r_lv, "söylediğini tarttığımda", cur_sc),
+                        anchors=[fr.subj], nov=0.7, fam=0.3, conf=self._speaker_trust(speaker))
                 bids.append(CorticalBid("hippocampal_concept", 0.97, 0.96, rep_v, f"teach_val:{fr.subj}"))
             elif fr.kind == "teach_fact" and conv_res is None and self._turn_mint_label:
                 # Bu cümle zaten Nora'nın kendi mantık motorunda yapısal kural olarak kodlandı;
@@ -1046,8 +1110,16 @@ class NoraAGI:
                     if e0.subj not in self.auto_net.curiosity_queue and len(graph._out_edges.get(e0.subj, ())) < 2:
                         self.auto_net.curiosity_queue.append(e0.subj)
                     wern.last_explanation = f"{e0.subj} ile {e0.obj} arasında {e0.rel} sinapsını epoch kullanmadan tek-atışta kurdum"
-                    rep_f = self.speak_from_state(anchors=[e0.subj, e0.obj], nov=1.0 - _fam, fam=_fam,
-                                                  conf=max(0.55, self._speaker_trust(speaker)))
+                    cur_sc = self.monologue.last_thought.schema_id if self.monologue.last_thought is not None else "S1_NEDEN_SONUC"
+                    _prop_txt = broca.realize_prop(Proposition(subj=e0.subj, rel=e0.rel, obj=e0.obj))
+                    _learn_verbs = ("kavram ağıma bağladım", "zihnime not ettim", "belleğime işledim")
+                    _lv = _learn_verbs[int(self.mind.age + len(raw)) % len(_learn_verbs)]
+                    _rep_fb = self.schema_cortex.transform_clauses(
+                        f"{_prop_txt} bilgisini {_lv}",
+                        f"{e0.subj} ile {e0.obj} arasında tek geçişte bağ kurdum",
+                        "yeni bilgiyi içimde evirip çevirdiğimde", cur_sc)
+                    rep_f = self.speak_or(_rep_fb, anchors=[e0.subj, e0.obj], nov=1.0 - _fam, fam=_fam,
+                                          conf=max(0.55, self._speaker_trust(speaker)))
                     bids.append(CorticalBid("hippocampal_concept", 0.94, 0.93, rep_f, f"1shot:{e0.subj}->{e0.obj}"))
             elif fr.kind == "yn_query":
                 rep_yn = None
@@ -1082,7 +1154,10 @@ class NoraAGI:
                     bids.append(CorticalBid("hippocampal_concept", 0.96, 0.95, rep_yn, f"yn:{fr.subj}?{fr.obj}"))
                 elif conv_res is None:
                     bids.append(CorticalBid(
-                        "hippocampal_concept", 0.76, 0.78, self.speak_unknown(fr.subj), f"yn_unknown:{fr.subj}",
+                        "hippocampal_concept", 0.76, 0.78,
+                        self.speak_unknown(fr.subj, fallback=(f"{tr_capitalize(fr.subj)} hakkında '{fr.obj}' bilgisini "
+                                                              f"henüz deneyimlemedim veya duymadım; tek cümleyle öğretebilirsin.")),
+                        f"yn_unknown:{fr.subj}",
                     ))
             elif fr.kind == "wh_query" and conv_res is None:
                 rels = None if fr.rel == "ALL" else (fr.rel, "CAUSES" if fr.rel == "USED_FOR" else fr.rel)
@@ -1112,7 +1187,10 @@ class NoraAGI:
                     else:
                         self.auto_net.stimulate([fr.subj], valence=0.0, resolved_relations=0)
                         bids.append(CorticalBid(
-                            "hippocampal_concept", 0.72, 0.75, self.speak_unknown(fr.subj), f"wh_unknown:{fr.subj}",
+                            "hippocampal_concept", 0.72, 0.75,
+                            self.speak_unknown(fr.subj, fallback=(f"{tr_capitalize(fr.subj)} hakkında henüz bilgim yok; "
+                                                                  f"merak listeme aldım, istersen tek bir cümleyle bana öğretebilirsin.")),
+                            f"wh_unknown:{fr.subj}",
                         ))
 
         # --- SÜTUN 7: Açık-Uçlu Çağrışımsal Türkçe Sohbet Sentezleyicisi (her zaman yedek aday olarak yarışır!) ---

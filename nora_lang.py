@@ -41,6 +41,16 @@ FRONT_VOWELS = set("eiöü")
 ALL_VOWELS = BACK_VOWELS | FRONT_VOWELS
 HARD_CONS = set("fstkçşhp")
 
+# -t ile biten fiillerde ünlü önünde t>d yumuşaması SÖZLÜKSELDİR: "hisset->hissediyorum" ama
+# "tüket->tüketiyorum", "ilet->iletiyorum". Tek heceliler (git/et/tat/güt) ve -det (kaydet/reddet) zaten kurallı.
+SOFTEN_T_VERBS = frozenset({"git", "et", "tat", "güt", "hisset", "affet", "seyret", "zannet", "hükmet", "kaybet"})
+
+
+def soften_verb_t(v: str) -> str:
+    """Ünlü önünde t>d yumuşaması (git->gid, hisset->hissed, kaydet->kayded); sözlükte olmayan fiil
+    olduğu gibi kalır (tüket->tüket, ilet->ilet). Kural sözlükseldir, tahmin edilmez."""
+    return (v[:-1] + "d") if (v.endswith("det") or v in SOFTEN_T_VERBS) else v
+
 
 
 def _stable_hash(x: str) -> int:
@@ -314,10 +324,7 @@ class TurkishMorphology:
             if neg:
                 base = v + "m" + cls.vowel_4(v) + "yor"
             else:
-                if v in {"git", "et", "tat", "güt"} or v.endswith("det"):
-                    v_pres = v[:-1] + "d"
-                else:
-                    v_pres = v
+                v_pres = soften_verb_t(v)
                 if v in ("di", "yi"):
                     base = v + "yor"
                 elif v_pres[-1] in ALL_VOWELS:
@@ -357,8 +364,8 @@ class TurkishMorphology:
 
         if t == "FUT":
             v_soft = v
-            if not neg and (v in {"git", "et", "tat", "güt"} or v.endswith("det")):
-                v_soft = v[:-1] + "d"
+            if not neg:
+                v_soft = soften_verb_t(v)
             b = (v + "m" + cls.vowel_e_a(v)) if neg else v_soft
             ea = cls.vowel_e_a(b)
             buf = "y" if b[-1] in ALL_VOWELS else ""
