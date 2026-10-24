@@ -298,10 +298,33 @@ class DiscourseCortex:
             if j >= len(words):
                 continue
             nxt = words[j]
-            if nxt in STATE_ADJECTIVES or nxt in ("yok", "yoktur"):
+            _nan = memo.get(nxt)
+            if _nan is None:
+                _nan = memo[nxt] = morph.analyze_word(nxt, lex)
+            _is_state = nxt in STATE_ADJECTIVES or nxt in ("yok", "yoktur")
+            if not _is_state and _nan.get("case") == "NOM" and not _nan.get("is_verb") \
+                    and not _nan.get("poss") and len(nxt) > 2:
+                # 'matematik ödevim çok zor' — sıfat yüklemi (sözlükte sıfat diye etiket yok; yapı karar verir)
+                _is_state = True
+            if _is_state:
+                # Çok sözcüklü özne: 'matematik ödevim' -> 'matematik ödev'
+                _k = i
+                _stop = {"bugün", "dün", "yarın", "şimdi", "sabah", "akşam", "gece", "artık", "yine",
+                         "hep", "çok", "biraz", "pek", "gerçekten", "yani", "ama", "ve"}
+                while _k > 0:
+                    _pw = words[_k - 1]
+                    if _pw in _stop:
+                        break
+                    _pan = memo.get(_pw)
+                    if _pan is None:
+                        _pan = memo[_pw] = morph.analyze_word(_pw, lex)
+                    if _pan.get("case") != "NOM" or _pan.get("is_verb") or _pan.get("poss"):
+                        break
+                    _k -= 1
+                _subj = " ".join(words[_k:i] + [an["stem"]]).strip()
                 return {"verb": nxt, "neg": nxt.startswith("yok"), "person": "1SG", "tense": "STATE",
                         "index": i, "words": words, "rest": words[:i], "tail": words[j + 1:],
-                        "state": True, "subject": an["stem"]}
+                        "state": True, "subject": _subj}
 
         # Kimlik bildirimi: 'Ben öğretmenim' (1. kişi koşacı + meslek adı)
         if len(words) >= 2 and words[0] == "ben":
@@ -402,17 +425,54 @@ class DiscourseCortex:
         except Exception:
             obj = ""
         rest = [w for w in nar["rest"] if w not in ("ben", "biz", "bugün", "dün", "şimdi")]
+        # Karşıdakinin ağzından aktarırken 1. kişi iyeliği 2. kişiye döner:
+        # 'kedim kucağıma geldi' -> 'kedinin kucağına geldiğini duyuyorum'.
+        _morph = getattr(getattr(agi, "lang", None), "morph", None)
+        _lex = getattr(getattr(getattr(agi, "lang", None), "graph", None), "lexicon", None)
+        if _morph is not None and rest:
+            _shifted = []
+            for w in rest:
+                try:
+                    _an = _morph.analyze_word(w, _lex)
+                except Exception:
+                    _an = {}
+                if _an.get("poss") == 1 and _an.get("case") and _an.get("case") != "NOM":
+                    try:
+                        _shifted.append(SYN.realize_np(NP(_an["stem"], poss=2, case=_an["case"])))
+                        continue
+                    except Exception:
+                        pass
+                _shifted.append(w)
+            rest = _shifted
         rest_txt = " ".join(rest)
         _nsub = str(nar.get("subject") or "")
+        # Yan cümle ('geldi ve uyudu'): ikinci yüklem de aktarılır -> '... geldiğini ve uyuduğunu'.
+        _tail_clause = ""
+        _tail = [w for w in (nar.get("tail") or []) if w not in ("ve", "sonra", "ardından", "da", "de")]
+        if _morph is not None and _tail:
+            for _w in _tail:
+                try:
+                    _tan = _morph.analyze_word(_w, _lex)
+                except Exception:
+                    _tan = {}
+                if _tan.get("is_verb"):
+                    try:
+                        _tail_clause = SYN.nominalize_dik(_tan["stem"], poss=2, case="ACC",
+                                                          neg=bool(_tan.get("neg")))
+                    except Exception:
+                        _tail_clause = ""
+                    break
         if _nsub and obj and not nar.get("state"):
             # 'içim daralıyor' -> 'içinin daraldığını duyuyorum' (iyelikli özne tamlayana döner)
             try:
                 gen = SYN.realize_np(NP(_nsub, poss=2, case="GEN"))
             except Exception:
                 gen = _nsub
-            lead = f"{gen} {rest_txt} {obj} duyuyorum".replace("  ", " ")
+            _cpl = f"{obj} ve {_tail_clause}" if _tail_clause else obj
+            lead = f"{gen} {rest_txt} {_cpl} duyuyorum".replace("  ", " ")
         elif obj:
-            lead = f"{rest_txt} {obj} duyuyorum".strip()
+            _cpl = f"{obj} ve {_tail_clause}" if _tail_clause else obj
+            lead = f"{rest_txt} {_cpl} duyuyorum".strip()
         else:
             lead = "seni duyuyorum"
         lead = _cap(lead)
@@ -451,7 +511,8 @@ class DiscourseCortex:
         neg = bool(nar.get("neg"))
         words = " ".join(nar.get("words", []))
         heavy = neg or any(w in words for w in ("yorul", "üzül", "kötü", "ağla", "kork", "yalnız"))
-        warm = any(w in words for w in ("güzel", "iyi", "mutlu", "sevindim", "harika", "keyif"))
+        warm = any(w in words for w in ("güzel", "iyi", "mutlu", "sevindim", "harika", "keyif",
+                                         "özle", "sevdim", "teşekkür"))
         if warm:
             return "SHARE_FEELING"
         if heavy:

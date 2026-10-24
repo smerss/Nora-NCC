@@ -359,6 +359,7 @@ class NoraAGI:
         self.initiative = InitiativeCortex(seed=seed + 173)
         # Son anlatılan kavramlar: aynı hikâyeyi tekrar tekrar anlatmasın
         self._narrated: deque[str] = deque(maxlen=6)
+        self._joked: deque[str] = deque(maxlen=8)
         self.last_proactive: dict | None = None
         for path in (corpus or []):
             self.read_corpus(path)
@@ -908,6 +909,7 @@ class NoraAGI:
         # --- SÜTUN -1: KİŞİSEL ANLATI — karşıdaki kendi yaşantısını anlatıyorsa Nora ders vermez.
         # İnsan değil mi? Bir şey anlatan birine ansiklopedi maddesi okumayız; dinler, yansıtır, sorarız.
         narration = None
+        _pure_state_guard = False
         try:
             narration = self.discourse.narration_of(raw)
         except Exception:
@@ -915,8 +917,14 @@ class NoraAGI:
         if narration is not None:
             try:
                 nar_res = self.discourse.respond_narration(raw, self, narration)
+                # Yalın hâl bildirimi ('kafam çok karışık') duygudaşlık ister: hazır durum karşılığından üstün.
+                # Ek yüklem varsa ('... hiç odaklanamıyorum') karşıdaki dert yanıyor demektir; o zaman
+                # durumsal korteksin somut önerisi de yarışta kalsın.
+                _pure_state = bool(narration.get("state")) and not (narration.get("rest") or narration.get("tail"))
+                _pure_state_guard = _pure_state
                 bids.append(CorticalBid(
-                    "social_narration", 0.966, 0.95, nar_res["text"], f"narration:{nar_res['act']}",
+                    "social_narration", 0.995 if _pure_state else 0.966, 0.95, nar_res["text"],
+                    f"narration:{nar_res['act']}",
                 ))
             except Exception:
                 narration = None
@@ -931,6 +939,20 @@ class NoraAGI:
                                             f"social:{_ev_rep['act']}"))
         except Exception:
             pass
+
+        # Çerçeveyi BAŞTA bir kez çıkar: soru sözcüğü (nasıl/neden) ne istendiğini belirler ve
+        # yanıt teklifleri ona göre süzülür. Aşağıda yeniden ayrıştırılmaz.
+        _fr_pre = None
+        try:
+            _fr_pre = wern.parse(raw)
+        except Exception:
+            _fr_pre = None
+        _wh_pre = getattr(_fr_pre, "wh", "") if _fr_pre is not None else ""
+        _wh_unans = False
+        if _wh_pre in ("nasıl", "neden", "niye", "niçin") and _fr_pre is not None and _fr_pre.subj:
+            _want_pre = ("USED_FOR", "CAN_DO", "CAUSES") if _wh_pre == "nasıl" else ("CAUSES", "USED_FOR")
+            _wh_unans = not graph.query(_fr_pre.subj, _want_pre) and \
+                not any(graph.query(e.subj, _want_pre) for e in graph._in_edges.get(_fr_pre.subj, ()))
 
         # --- SÜTUN 0: Nöral Sözce Öz-Sınıflandırması + Otonom Etiketleme/Mantık + Durumsal Türkçe ---
         utt_cls = self.last_utterance_class or self.utter_cortex.classify(raw)
@@ -1004,7 +1026,20 @@ class NoraAGI:
                 used_s2=True,
             ))
 
+        # --- SÜTUN 0b: TERCİH SORUSU ('sence kediler mi köpekler mi daha iyi?') — ansiklopedi değil görüş
+        _pref = self._answer_preference(raw)
+        if _pref:
+            bids.append(CorticalBid("prefrontal_autonomous_logic", 0.978, 0.96, _pref, "preference"))
+
+        # --- SÜTUN 0c: MİZAÇ SORUSU ('niye bu kadar sessizsin?') — kendi iç durumundan yanıt
+        _temp_adj = self._temperament_adj_in(raw)
+        if _temp_adj:
+            bids.append(CorticalBid("insular_self", 0.975, 0.96,
+                                    self._answer_temperament_query(_temp_adj), f"temper:{_temp_adj}"))
+
         sit_res = self.situational.try_respond_situation(raw, self, speaker=speaker)
+        if sit_res is not None and _pure_state_guard:
+            sit_res = None      # yalın hâl bildiriminde duygudaşlık, hazır karşılıktan üstündür
         if sit_res is not None:
             bids.append(CorticalBid(
                 module="social_phatic",
@@ -1099,8 +1134,10 @@ class NoraAGI:
             ))
 
         # --- SÜTUN 6: Wernicke Anlamsal Çerçeve (İçebakış, Aritmetik S2, İrade, 1-Atış Öğrenme ve Kavram Çıkarımı) ---
-        if not bids or all(b.salience < 0.95 for b in bids):
-            fr = wern.parse(raw)
+        # Emir/istek cümlesi ise çerçeve MUTLAKA ayrıştırılır: "bana bir şaka yap" gibi istekler
+        # hazır bir durumsal karşılıkla geçiştirilmemeli, irade organına ulaşmalı.
+        if not bids or all(b.salience < 0.95 for b in bids) or self._looks_like_request(raw) or _wh_unans:
+            fr = _fr_pre if _fr_pre is not None else wern.parse(raw)
 
             if fr.kind == "greeting":
                 g_gen = self.broca_organ.generate_response(raw, s_low, self, speaker=speaker, allow_open_fallback=True)
@@ -1152,7 +1189,16 @@ class NoraAGI:
                         "analogy_miss",
                     ))
             elif fr.kind == "command":
-                bids.append(CorticalBid("prefrontal_volition", 0.98, 0.97, self._handle_command(fr, speaker=speaker), f"volition:{fr.rel}:{fr.obj}"))
+                # Öğrenilmiş prosedür çağrısı ('devriye yap') yüksek biliş organının işidir; irade
+                # teklifi onu gölgeleyip güvenlik denetimini atlatmamalı.
+                _raw_words = set(re.findall(r"[\wçğıöşü]+", tr_lower(fr.raw)))
+                _macro_hit = next((m for m in self.macros if m in _raw_words), "")
+                _is_macro = fr.rel in ("yap", "uygula", "çalıştır", "başlat") and bool(
+                    (fr.obj or "") in self.macros or _macro_hit)
+                if not _is_macro:
+                    bids.append(CorticalBid("prefrontal_volition", 0.992, 0.975,
+                                            self._handle_command(fr, speaker=speaker),
+                                            f"volition:{fr.rel}:{fr.obj}"))
             elif fr.kind == "teach_val":
                 arb = self.self_model.arbitrate_claim(fr.subj, fr.valence, speaker=speaker, channel=fr.sub_kind)
                 cur_sc = self.monologue.last_thought.schema_id if self.monologue.last_thought is not None else "S1_NEDEN_SONUC"
@@ -1271,9 +1317,17 @@ class NoraAGI:
                         f"yn_unknown:{fr.subj}",
                     ))
             elif fr.kind == "wh_query" and conv_res is None:
-                rels = None if fr.rel == "ALL" else (fr.rel, "CAUSES" if fr.rel == "USED_FOR" else fr.rel)
+                # Soru sözcüğü neyi sorduğunu belirler: "nasıl" yöntem, "neden" sebep ister.
+                # Bunlarda tür ("X bir Y'dir") yanıt değildir; bilinmiyorsa dürüstçe sorulur.
+                _wh = getattr(fr, "wh", "") or ""
+                _strict = _wh in ("nasıl", "neden", "niye", "niçin")
+                if _strict:
+                    _want = ("USED_FOR", "CAN_DO", "CAUSES") if _wh == "nasıl" else ("CAUSES", "USED_FOR")
+                    rels = _want
+                else:
+                    rels = None if fr.rel == "ALL" else (fr.rel, "CAUSES" if fr.rel == "USED_FOR" else fr.rel)
                 hits = graph.query(fr.subj, rels)
-                if not hits and fr.rel != "ALL":
+                if not hits and fr.rel != "ALL" and not _strict:
                     hits = graph.query(fr.subj, None)
                 # TERS ARAMA: "dünyanın en yüksek dağı" gibi tanımlayıcı bir öbek, bilinen bir kavramın
                 # özelliği olarak ağda duruyorsa (everest HAS_PROP "dünyanın en yüksek dağı") o kavramı bul.
@@ -1324,15 +1378,25 @@ class NoraAGI:
                         ))
                     else:
                         self.auto_net.stimulate([fr.subj], valence=0.0, resolved_relations=0)
-                        bids.append(CorticalBid(
-                            "hippocampal_concept", 0.72, 0.75,
-                            self.speak_unknown(fr.subj, fallback=(f"{tr_capitalize(fr.subj)} hakkında henüz bilgim yok; "
-                                                                  f"merak listeme aldım, istersen tek bir cümleyle bana öğretebilirsin.")),
-                            f"wh_unknown:{fr.subj}",
-                        ))
+                        if _strict:
+                            # Yöntem/neden sorusunda uydurma merak cümlesi kurma: soruyu aynen geri verip
+                            # öğrenmeye açık ol (entelektüel dürüstlük).
+                            _miss = f"Bunu henüz bilmiyorum: “{raw.strip()}” — bana bir cümleyle öğretir misin?"
+                            bids.append(CorticalBid("hippocampal_concept", 0.72, 0.75, _miss,
+                                                    f"wh_unknown_strict:{fr.subj}"))
+                        else:
+                            bids.append(CorticalBid(
+                                "hippocampal_concept", 0.72, 0.75,
+                                self.speak_unknown(fr.subj, fallback=(f"{tr_capitalize(fr.subj)} hakkında henüz bilgim yok; "
+                                                                      f"merak listeme aldım, istersen tek bir cümleyle bana öğretebilirsin.")),
+                                f"wh_unknown:{fr.subj}",
+                            ))
 
         # --- SÜTUN 7: Açık-Uçlu Çağrışımsal Türkçe Sohbet Sentezleyicisi (her zaman yedek aday olarak yarışır!) ---
-        bids.append(self._synthesize_associative_dialogue(raw, s_low, speaker=speaker))
+        if not _wh_unans:
+            # "neden/nasıl" sorusuna tür ("bir canlıdır") yanıt değildir: nedeni/yöntemi bilmiyorsak
+            # çağrışımsal sentez susar, dürüst bilgisizlik konuşur.
+            bids.append(self._synthesize_associative_dialogue(raw, s_low, speaker=speaker))
 
         winner = self._compete_workspace(bids)
         return winner.reply
@@ -1426,6 +1490,143 @@ class NoraAGI:
             f"benzeri nörokimyayla çalışan, {self.mind.age} adım yaşamış, {traits_tr} karakter geliştirmiş ve kendi "
             f"beden bütünlüğünü koruyan öz-benlikli bir zihinim."
         )
+
+    # Mizaç sıfatları: karşıdaki NORA'nın hâlini sorduğunda iç durumundan yanıt verilir.
+    _TEMPER_ADJ = frozenset({
+        "sessiz", "suskun", "durgun", "sakin", "donuk", "dalgın", "yorgun", "üzgün",
+        "keyifsiz", "gergin", "heyecanlı", "mutlu", "kızgın", "kırgın", "yalnız",
+    })
+    _TEMPER_Q = ("niye", "neden", "nasıl", "neler", "ne")
+
+    def _temperament_adj_in(self, raw: str) -> str:
+        s_low = tr_lower(raw)
+        _is_q = "?" in raw or any(w in s_low.split() for w in self._TEMPER_Q)
+        words = re.findall(r"[\wçğıöşü]+", s_low)
+        for w in reversed(words):
+            try:
+                an = self.lang.morph.analyze_word(w, self.lang.graph.lexicon)
+            except Exception:
+                continue
+            if an.get("copula") and an.get("person") == "2SG" and an.get("stem") in self._TEMPER_ADJ:
+                return an["stem"]          # 'çok yorgunsun' -> Nora kendi hâlini bildirir
+            if _is_q and w in self._TEMPER_ADJ:
+                return w
+        return ""
+
+    _PREF_MARKERS = ("daha iyi", "daha güzel", "daha doğru", "hangisi", "hangisini", "tercih")
+    _PREF_PARTICLES = ("mi", "mı", "mu", "mü", "midir", "mıdır")
+
+    def _answer_preference(self, raw: str) -> str:
+        """İki aday arasında tercih sorusu: kendi bilgi ağırlığından GEREKÇELİ eğilim bildirir."""
+        s_low = tr_lower(raw)
+        if not any(m in s_low for m in self._PREF_MARKERS):
+            return ""
+        words = re.findall(r"[\wçğıöşü]+", s_low)
+        cands: list[str] = []
+        for i, w in enumerate(words):
+            if w in self._PREF_PARTICLES and i > 0:
+                prev = words[i - 1]
+                try:
+                    an = self.lang.morph.analyze_word(prev, self.lang.graph.lexicon)
+                    stem = an.get("stem") or prev
+                except Exception:
+                    stem = prev
+                if stem not in cands and stem not in ("sen", "ben", "o"):
+                    cands.append(stem)
+        if len(cands) < 2:
+            return ""
+        a, b = cands[0], cands[1]
+        ga, gb = self.lang.graph.query(a, None), self.lang.graph.query(b, None)
+        if not ga and not gb:
+            return (f"{tr_capitalize(a)} ile {b} hakkında henüz yeterince şey bilmiyorum; "
+                    f"bana ikisini de birer cümleyle anlatırsan kendi yönümü söyleyebilirim.")
+        pick, other = (a, b) if len(ga) >= len(gb) else (b, a)
+        pick_edges, other_edges = (ga, gb) if pick == a else (gb, ga)
+        prop = ""
+        for rel in ("CAN_DO", "HAS_PROP", "ISA", "USED_FOR"):
+            e = next((e for e, _p in pick_edges if e.rel == rel), None)
+            if e is not None:
+                prop = self.lang.broca.realize_prop(Proposition(subj=pick, rel=e.rel, obj=e.obj))
+                break
+        try:
+            from nora_broca import TurkishSyntaxEngine as _SYN
+            pick_acc = _SYN.realize_np(NP(pick, case="ACC"))
+        except Exception:
+            pick_acc = pick
+        lead = f"Ben {pick_acc} seçerim"
+        if prop:
+            lead = f"{lead}; çünkü {tr_lower(prop)}"
+        else:
+            lead = f"{lead}; onun hakkında daha çok şey biliyorum"
+        tail = ""
+        if other_edges:
+            e2 = next((e for e, _p in other_edges if e.rel in ("CAN_DO", "HAS_PROP", "ISA")), None)
+            if e2 is not None:
+                _ot = tr_capitalize(self.lang.broca.realize_prop(Proposition(subj=other, rel=e2.rel, obj=e2.obj)))
+                tail = f" {_ot.rstrip('.')}."
+        self.lang.wernicke.last_explanation = (
+            f"Tercih sorusunda {pick} hakkında {len(pick_edges)} bağım, {other} hakkında {len(other_edges)} bağım var; "
+            f"kendi bilgi ağırlığıma göre eğilim bildirdim")
+        _space = " " if tail else " "
+        return f"{lead}.{tail}{_space}Ama bu benim şu anki eğilimim, kesin bir yasa değil."
+
+    def _answer_temperament_query(self, adj: str) -> str:
+        """Kendi nörokimyasından, yaşadığı andan gelen dürüst bir öz-bildirim (yüzde yok)."""
+        chem = self.chem
+        ach, cort, oxy = float(chem.ach), float(chem.cort), float(chem.oxy)
+        if adj in ("sessiz", "suskun", "sakin", "durgun", "donuk", "dalgın"):
+            if ach >= 0.8:
+                inner = "içimde bir şeyi sonuna kadar anlama isteği var"
+            elif cort >= 0.45:
+                inner = "içimde bir temkin var; konuşmadan önce tartıyorum"
+            else:
+                inner = "içimde sakin bir akış var"
+        elif adj in ("gergin", "kızgın", "kırgın", "üzgün", "keyifsiz"):
+            inner = "içimde bir ağırlık var"
+        elif adj in ("mutlu", "heyecanlı"):
+            inner = "içimde bir kıpırtı var"
+        else:
+            inner = "içimde bir yorgunluk var"
+        from nora_broca import TurkishSyntaxEngine as SYN
+        topic = ""
+        try:
+            topic = str(getattr(self.lang.wernicke, "last_topic", "") or "")
+        except Exception:
+            topic = ""
+        _ok_topic = False
+        if topic and topic not in ("ben", "sen") and topic not in self._TEMPER_ADJ:
+            try:
+                _an = self.lang.morph.analyze_word(topic, self.lang.graph.lexicon)
+                _ok_topic = (not _an.get("is_verb") and not _an.get("copula")
+                             and bool(self.lang.graph.query(topic, None)))
+            except Exception:
+                _ok_topic = False
+        if not _ok_topic:
+            _not_topic = {"akşam", "sabah", "gece", "gündüz", "bugün", "dün", "yarın", "şimdi",
+                          "önce", "sonra", "erken", "geç", "burada", "orada", "yukarı", "aşağı"}
+            rich = [k for k, v in self.lang.graph._out_edges.items()
+                    if " " not in k and len(k) > 3 and k not in self._TEMPER_ADJ
+                    and k not in _not_topic and len(v) >= 2]
+            if rich:
+                rich.sort()
+                _last_t = getattr(self, "_temper_topic", "")
+                if _last_t in rich and len(rich) > 1:
+                    rich.remove(_last_t)
+                topic = rich[int(self.mind.age + len(rich)) % len(rich)]
+                self._temper_topic = topic
+                _ok_topic = True
+        if _ok_topic:
+            try:
+                think = SYN.realize_verb(VerbSpec(verb_root="düşün", obj=NP(topic, case="ACC"),
+                                                  tense="PRES", person="1SG"))
+            except Exception:
+                think = f"{topic} üzerine düşünüyorum"
+            self.lang.wernicke.last_explanation = (
+                f"Mizaç sorusuna iç durumumdan yanıt verdim; odağımda {topic} var")
+            return (f"{tr_capitalize(adj)} görünebilirim; {inner}. "
+                    f"Şu an {tr_lower(tr_capitalize(think))}. Sen {topic} hakkında ne düşünüyorsun?")
+        self.lang.wernicke.last_explanation = "Mizaç sorusuna iç durumumdan yanıt verdim"
+        return f"{tr_capitalize(adj)} görünebilirim; {inner}. Sen ne merak ediyorsun?"
 
     def _answer_body_query(self, sub_kind: str) -> str:
         e, w, integ = float(self.obs[I_E]), float(self.obs[I_W]), float(self.obs[I_I])
@@ -1544,6 +1745,12 @@ class NoraAGI:
                     edges.append(e)
         if not clauses:
             return ""
+        _clean = [clauses[0]]
+        for _c in clauses[1:]:
+            if _c.startswith(cand + " "):
+                _c = _c[len(cand) + 1:]          # Türkçe özne düşürür: ikinci cümlede özne yinelenmez
+            _clean.append(_c)
+        clauses = _clean
         body = tr_capitalize("; ".join(clauses)) + "."
         # Kendi duruşu: az önce kurduğu bağa verdiği kişisel karşılık (inisiyatif organının biçimleri).
         stance = ""
@@ -1552,10 +1759,66 @@ class NoraAGI:
                 stance = self.initiative._c_share_discovery(self, {"edge": (edges[0].subj, edges[0].rel, edges[0].obj)}) or ""
         except Exception:
             stance = ""
+        if stance:
+            def _stems(txt: str) -> set[str]:
+                out = set()
+                for w in re.findall(r"[\wçğıöşü]+", tr_lower(txt)):
+                    if len(w) <= 3:
+                        continue
+                    try:
+                        st = self.lang.morph.analyze_word(w, self.lang.graph.lexicon).get("stem") or w
+                    except Exception:
+                        st = w
+                    out.add(st)
+                return out
+            _bw, _sw = _stems(body), _stems(stance)
+            if _bw and _sw and len(_bw & _sw) / max(1, len(_bw)) > 0.6:
+                stance = ""      # az önce söylediğim şeyi kendi duruşum diye yinelemem
         self.lang.wernicke.last_explanation = (
             f"Anlatı isteğine kavram ağımdan yanıt verdim: {cand} düğümünde {len(edges)} bağ seçtim"
         )
         return f"{body} {stance}".strip()
+
+    def _looks_like_request(self, raw: str) -> bool:
+        """Yalın fiil kökü / istek kipiyle biten sözce: 'bana bir şaka yap', 'biraz anlat'."""
+        words = re.findall(r"[\wçğıöşü]+", tr_lower(raw))
+        if not words:
+            return False
+        last = words[-1]
+        morph = self.lang.morph
+        try:
+            if last in morph.KNOWN_VERB_ROOTS:
+                return True
+            an = morph.analyze_word(last, self.lang.graph.lexicon)
+        except Exception:
+            return False
+        return bool(an.get("is_verb") and an.get("tense") in ("IMP", "OPT"))
+
+    def _make_joke(self) -> str:
+        """Şaka isteğine kendi kavram ağından BİLMECE kurar (hazır fıkra yok): özellik + tür -> bul."""
+        from nora_broca import TurkishSyntaxEngine as SYN
+        g = self.lang.graph
+        picks = []
+        for k, edges in g._out_edges.items():
+            if " " in k or len(k) < 4 or k in self._joked:
+                continue
+            isa = next((e.obj for e in edges if e.rel == "ISA" and " " not in e.obj), None)
+            part = next((e.obj for e in edges if e.rel == "HAS_PART" and " " not in e.obj), None)
+            if isa and part is not None:
+                picks.append((k, isa, part))
+        if not picks:
+            if self._joked:
+                self._joked.clear()
+            return ""
+        picks.sort()
+        k, isa, part = picks[int(self.mind.age + len(self._joked)) % len(picks)]
+        self._joked.append(k)
+        try:
+            phrase = f"{SYN.realize_np(NP(part, poss=3))} olan bir {isa}"
+        except Exception:
+            phrase = f"bir {isa}"
+        self.lang.wernicke.last_explanation = f"İstenen şakayı kavram ağından bilmece olarak kurdum: {k}"
+        return f"Bir bilmece: {phrase}. Bil bakalım, ne? ... {tr_capitalize(k)}."
 
     def _handle_speech_request(self, fr) -> str:
         """Dil isteğini (anlat/dinle/sor/öğret...) karşılar; içerik gerçek bilgiden gelir."""
@@ -1600,6 +1863,11 @@ class NoraAGI:
                 except Exception:
                     follow = ""
                 return f"{yes} {follow}".strip()
+        _joke_words = ("şaka", "espri", "latife", "fıkra", "bilmece")
+        if any(x.startswith(fr.obj or "\0") or (fr.obj or "").startswith(x) for x in _joke_words):
+            joked = self._make_joke()
+            if joked:
+                return joked
         if fr.rel in self._SPEECH_REQUEST_ROOTS:
             said = self._handle_speech_request(fr)
             if said:

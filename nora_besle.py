@@ -39,6 +39,14 @@ import time
 VOCAB: list[str] = """
 hikâye hikaye masal öykü anlatı tavsiye öğüt fikir danış
 moral kafa can öğretmen doktor mühendis öğrenci sınav sır gitar kahve şaka keyif gönül
+sessiz gürültülü sakin mutlu üzgün kızgın kırgın yalnız uykulu heyecanlı endişeli gergin rahat
+huzurlu meraklı sabırsız umutlu umutsuz cesur korkak dürüst yalancı tembel çalışkan akıllı aptal
+komik ciddi nazik kaba sabırlı dikkatli dikkatsiz dalgın yaratıcı mantıklı kararlı kararsız inatçı
+şüpheci açgözlü zor kolay güzel çirkin iyi kötü büyük küçük uzun kısa ağır hafif hızlı yavaş
+ödev ders soru cevap sınav not başarı hata doğru yanlış eksik tam hazır meşgul yorgun aç tok hasta
+kucak adam kız akıl ruh ırmak kök bahar fırtına harf sözcük yazı çanta sınıf
+durgun suskun donuk dalgın keyifsiz tedirgin huzursuz kaygılı öfkeli sevinçli
+bilim insanı teleskop gözlem deney organ diş
 ben sen o biz siz onlar kendi kendim kendin şey şeyler herkes kimse biri birisi hiçbiri
 bu şu bunlar şunlar öyle böyle şöyle hangi neden niçin niye nasıl nerede nereye nereden ne zaman
 kaç kadar göre rağmen için ile ve ama fakat ancak çünkü eğer ki ise de da bile yalnız sadece hep
@@ -114,6 +122,12 @@ TRIPLES: list[tuple[str, str, str]] = [
     ("fizik", "ISA", "bilim"), ("kimya", "ISA", "bilim"), ("matematik", "ISA", "bilim"),
     ("everest", "ISA", "dağ"), ("everest", "LOCATED_AT", "himalaya"),
     ("everest", "HAS_PROP", "dünyanın en yüksek dağı"),
+    ("yalan", "USED_FOR", "kendini korumak"), ("yalan söylemek", "CAUSES", "güven kaybı"),
+    ("insan", "CAN_DO", "yalan söylemek"),
+    ("bilim insanı", "CAN_DO", "gözlem yapmak"), ("bilim insanı", "CAN_DO", "deney yapmak"),
+    ("uzay", "USED_FOR", "teleskopla gözlem"), ("teleskop", "USED_FOR", "uzayı gözlemlemek"),
+    ("ağız", "ISA", "organ"), ("ağız", "CAN_DO", "konuşmak"), ("ağız", "CAN_DO", "yemek yemek"),
+    ("ağız", "HAS_PART", "dişler"),
     ("kuantum bilgisayar", "ISA", "bilgisayar"), ("bilgisayar", "ISA", "makine"),
     ("bilgisayar", "CAN_DO", "hesaplamak"), ("uzay", "ISA", "boşluk"),
     ("biyoloji", "ISA", "bilim"), ("astronomi", "ISA", "bilim"),
