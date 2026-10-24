@@ -368,6 +368,13 @@ class NoraAGI:
         self.acc = ConflictMonitor() if ConflictMonitor is not None else None
         self.last_meta_repeat: dict | None = None
         self.last_meta_thought: str = ""
+        # 4 BOYUTLU SANDBOX: zaman yalnız adımlarla değil, gerçek saatle de akar.
+        self.last_real_time: float = time.time()
+        self.self_exam_log: list[dict] = []
+        self.last_self_exam: dict | None = None
+        self._exam_age_mark: int = 0
+        self.wallclock_steps: int = 0
+        self.last_gap_s: float = 0.0
 
         # --- ARKA PLAN YAŞAMI + ÖĞRENEN SÖZ ORGANI (elle yazılmış sözcük/cümle yok; dil okunarak öğrenilir) ---
         self.life = BackgroundLife(seed=seed + 71)
@@ -610,6 +617,14 @@ class NoraAGI:
         """Merak ettiği kavramları internetten (veya verilen bilgi kaynağından) kendi başına araştırıp öğrenir."""
         return self.auto_net.autonomous_internet_research(self, fetcher=fetcher, max_topics=max_topics, fetchers=fetchers)
 
+    def self_exam(self, factor: float = 1.0) -> dict:
+        """Kendi kendini sına (morfoloji, ad çekimi, matematik, fizik) — dış cevap yok."""
+        try:
+            from nora_selfexam import run_self_exam
+            return run_self_exam(self, seed=int(self.mind.age) + int(self.seed), factor=factor)
+        except Exception as exc:            # pragma: no cover
+            return {"total": 0, "passed": 0, "domains": {}, "failures": [str(exc)], "ratio": 0.0}
+
     def step_life(self, steps: int = 1) -> dict:
         """Ajanı fiziksel dünyada 'steps' adım yaşatır; sinir sistemi, kimya, öz-benlik ve bedeni senkronize eder."""
         ate_total = drank_total = hurt_total = deaths = 0
@@ -678,6 +693,11 @@ class NoraAGI:
             self.monologue.spontaneous_tick(self)
             if self.life.enabled and self.mind.age % self.life.stride == 0:
                 self.life.tick(self)
+            # ÖZ-SINAV: her ~120 yaşam adımında bir kendini sına (üret -> çöz -> karşılaştır).
+            # Başarısız madde varsa bu bir öğrenme sinyalidir, ceza değil: sadece kaydedilir.
+            if self.mind.age - self._exam_age_mark >= 120:
+                self._exam_age_mark = self.mind.age
+                self.self_exam(factor=0.6)
 
         return {
             "age": self.mind.age,
@@ -745,6 +765,18 @@ class NoraAGI:
         """
         raw = (text or "").strip()
         now = time.time()
+        # Aradan gerçek zaman geçtiyse Nora boşlukta yaşamıştır: açık olduğu sürece zaman akar.
+        # (2 saniyede 1 yaşam adımı; en fazla 900 adım — uzun sessizlikte boğulup ölmesin.)
+        try:
+            _gap = now - float(getattr(self, "last_real_time", now))
+            self.last_gap_s = max(0.0, _gap)
+            _steps = int(min(240, max(0, _gap) / 5.0))
+            if _steps > 0 and self.mortality.is_alive:
+                self.step_life(_steps)
+                self.wallclock_steps += _steps
+            self.last_real_time = now
+        except Exception:
+            pass
         _meta = None
         if self.acc is not None and raw:
             try:
@@ -806,10 +838,17 @@ class NoraAGI:
 
         # ZAMAN SORUSU: Nora zamanı bedeninde ve belleğinde ölçer (sandbox evreninin saati).
         _tl = tr_lower(raw)
-        if self.acc is not None and any(k in _tl for k in (
-                "ne kadar oldu", "ne kadar zaman oldu", "ne zamandır", "ne kadar süredir",
-                "kaç dakika oldu", "kaç saat oldu", "saat kaç", "saat kaçtır")):
-            _ans_t = compose_time_answer(self.acc.since_session(), len(self.dialogue_log))
+        _clock_q = any(k in _tl for k in ("saat kaç", "saat kaçtır", "saat kaç oldu"))
+        _elapsed_q = any(k in _tl for k in (
+            "ne kadar oldu", "ne kadar zaman oldu", "ne zamandır", "ne kadar süredir",
+            "kaç dakika oldu", "kaç saat oldu", "ne kadar süre"))
+        if self.acc is not None and (_clock_q or _elapsed_q):
+            if _clock_q and not _elapsed_q:
+                _ans_t = compose_time_answer(0.0, kind="clock", rng=getattr(self.discourse, "random", None))
+            else:
+                _ans_t = compose_time_answer(self.acc.since_session(), len(self.dialogue_log),
+                                             kind="elapsed", steps=int(self.mind.age),
+                                             rng=getattr(self.discourse, "random", None))
             self._log_turn(speaker, raw, _ans_t, t0)
             return _ans_t
 

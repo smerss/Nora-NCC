@@ -14,6 +14,7 @@ verisinden cümle KURULUR. Metin, durumun kendisinden doğar.
 """
 from __future__ import annotations
 
+import random
 import time
 
 from nora_lang import TurkishMorphology, tr_lower
@@ -196,9 +197,21 @@ def compose_noticing(meta: dict, agi=None, rng=None) -> str:
     return f"{_cap(body)}. {q}"
 
 
-def compose_time_answer(seconds: float, turns: int = 0) -> str:
-    """'Ne kadar oldu / saat kaç' sorusuna bedenin ve belleğin ölçtüğüyle cevap."""
+def compose_time_answer(seconds: float, turns: int = 0, *, kind: str = "elapsed",
+                        steps: int = 0, rng=None) -> str:
+    """Zaman sorusuna bedenin ve belleğin ÖLÇTÜĞÜYLE cevap.
+
+    kind="clock"   -> yalnızca saati söyler (saat kaç?)
+    kind="elapsed" -> konuşma süresi + tur sayısı + iç adım sayısı (ne kadar oldu?)
+    Cümle her seferinde sayılardan yeniden kurulur; hazır kalıp yok.
+    """
     s = float(max(0.0, seconds))
+    clock = time.strftime("%H:%M")
+    _rng = rng if rng is not None else random
+    if kind == "clock":
+        heads = (f"Şu an {clock}.", f"Saat {clock}.", f"{clock}.")
+        tails = ("", "", " Saat bende durmuyor, akıp gidiyor.", " Akrep yelkovan bende de dönüyor.")
+        return _rng.choice(heads) + _rng.choice(tails)
     if s < 15:
         span = "daha birkaç saniye"
     elif s < 60:
@@ -207,5 +220,13 @@ def compose_time_answer(seconds: float, turns: int = 0) -> str:
         span = f"{int(s // 60)} dakika"
     else:
         span = f"{int(s // 3600)} saat {int((s % 3600) // 60)} dakika"
-    tail = f", bu arada {turns} tur konuştuk" if turns else ""
-    return f"Seninle konuşmaya başlayalı {span} oldu{tail}. Zaman bende adım adım ilerliyor; şu an {time.strftime('%H:%M')}."
+    bits = [f"Seninle konuşmaya başlayalı {span} oldu"]
+    if turns:
+        bits.append(f"bu arada {turns} tur konuştuk")
+    if steps:
+        bits.append(f"kendi içimde {int(steps)} adım yaşadım")
+    body = ", ".join(bits)
+    closers = (f"Zaman bende adım adım ilerliyor; şu an {clock}.",
+               f"İçimdeki saat işliyor, dışarıda {clock}.",
+               f"Şu an {clock}; bende zaman hiç durmadı.")
+    return f"{body}. {_rng.choice(closers)}"

@@ -409,6 +409,10 @@ _ABIL_PERSON = {"im": "1SG", "ım": "1SG", "um": "1SG", "üm": "1SG",
 def ability_stem(cls, root: str, neg: bool = False) -> str:
     """Yeterlilik gövdesi: 'gel' -> 'gelebil' (olumlu), 'gele' (olumsuz: geleme-)."""
     v = tr_lower(root)
+    # t -> d yalnızca gerçekten yumuşayan köklerde: git->gidebil, et->edebil, tat->tadabil.
+    # 'at' ise 'atabilir' olur (yumuşama yok) — sözcük bilgisi, kural değil.
+    if v in ("git", "et", "tat", "güt", "dit"):
+        v = soften_verb_t(v)
     ybuf = "y" if v[-1:] in list("aeıioöuü") else ""
     if neg:
         return v + ybuf + cls.vowel_e_a(v)
@@ -601,7 +605,8 @@ def analyze_copula_dir(cls, w: str) -> dict | None:
         _v = cls.analyze_voice(w) if hasattr(cls, "analyze_voice") else {}
         if _v.get("is_verb"):
             return {"stem": _v.get("voice_stem") or _v.get("stem"), "case": "NOM", "is_verb": True,
-                    "tense": _v.get("tense"), "person": _v.get("person")}
+                    "tense": _v.get("tense"), "person": _v.get("person"),
+                    "voice": _v.get("voice") or "CAUSATIVE"}
     for suf in ("dir", "dır", "dur", "dür", "tir", "tır", "tur", "tür"):
         if not w.endswith(suf) or len(w) - len(suf) < 3:
             continue
@@ -674,6 +679,22 @@ _NOM_PERSON = {"m": "1SG", "n": "2SG", "k": "1PL", "niz": "2PL", "nız": "2PL",
                "nuz": "2PL", "nüz": "2PL", "ler": "3PL", "lar": "3PL"}
 
 
+def infinitive_ma(cls, root: str, poss: int = 2, neg: bool = False) -> str:
+    """-mA isim-fiili: 'yapman', olumsuzda 'yapmaman' (gereklilik yansıtmasında kullanılır)."""
+    v = tr_lower(root)
+    a = cls.vowel_e_a(v)
+    body = v + "m" + a
+    if neg:
+        body += "m" + a
+    if poss == 1:
+        body += "m"
+    elif poss == 2:
+        body += "n"
+    elif poss == 4:
+        body += "mız" if a == "a" else "miz"
+    return body
+
+
 def analyze_nominal_copula(cls, w: str, known: set | None = None) -> dict | None:
     """AD + KOŞAÇ çözümlemesi: 'güzeldi', 'hastaydı', 'yorgundum', 'mutluyuz', 'hastaysa'.
 
@@ -744,6 +765,24 @@ def analyze_nominal_copula(cls, w: str, known: set | None = None) -> dict | None
                 continue
             return {"stem": c, "case": "NOM", "is_verb": False, "copula": True,
                     "tense": "PRES", "person": psn}
+    # 2b) Rivayet koşaçı (-mIş): 'güzelmiş', 'sıcakmış', 'hastaymış', 'yorgunmuşsun'
+    _EP = {"sınız": "2PL", "siniz": "2PL", "sunuz": "2PL", "sünüz": "2PL",
+           "yız": "1PL", "yiz": "1PL", "yuz": "1PL", "yüz": "1PL",
+           "sın": "2SG", "sin": "2SG", "sun": "2SG", "sün": "2SG",
+           "yım": "1SG", "yim": "1SG", "yum": "1SG", "yüm": "1SG",
+           "ım": "1SG", "im": "1SG", "um": "1SG", "üm": "1SG",
+           "lar": "3PL", "ler": "3PL", "": "3SG"}
+    for psuf in _EP:
+        if psuf and not w.endswith(psuf):
+            continue
+        body = w[: -len(psuf)] if psuf else w
+        for suf in ("mış", "miş", "muş", "müş"):
+            if not body.endswith(suf) or len(body) - len(suf) < 3:
+                continue
+            base = body[: -len(suf)]
+            for c in _cands(base):
+                return {"stem": c, "case": "NOM", "is_verb": False, "copula": True,
+                        "tense": "EVID", "person": _EP[psuf]}
     # 3) Koşullu koşaç: hastaysa, güzel-se, yorgun-sa, hastay-sa
     for suf, ea in (("ysa", "a"), ("yse", "e"), ("sa", "a"), ("se", "e")):
         if not w.endswith(suf) or len(w) - len(suf) < 3:

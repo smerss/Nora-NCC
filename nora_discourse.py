@@ -246,6 +246,23 @@ class DiscourseCortex:
     # ---------------------------------------------------------------- kişisel anlatı
     NARRATION_ACTS = ("REFLECT_ASK", "SHARE_FEELING", "OFFER_LISTEN")
 
+    def _perceive(self) -> str:
+        """Algı fiili her turda aynı olmasın: duymak / anlamak / fark etmek / görmek (1. tekİL).
+
+        Kalıp cümle yok: kök sözlükten, çekim motorundan; seçim her turda yeniden.
+        """
+        from nora_lang import TurkishMorphology as _MT
+        _pick = self.random.choice(("duy", "anla", "fark et", "gör", "anla", "fark et", "gör"))
+        try:
+            _pref, _root = SYN.split_compound_verb(_pick)
+        except Exception:
+            _pref, _root = "", _pick
+        try:
+            _form = _MT.conjugate_verb(_root, "PRES", person="1SG")
+        except Exception:
+            _form = "duyuyorum"
+        return f"{_pref} {_form}".strip() if _pref else _form
+
     def narration_of(self, raw: str) -> dict | None:
         """Karşıdaki kendi yaşantısını mı anlatıyor? 1. kişi bitmiş fiil (-dIm, -yorum, -mIşIm)
         varsa ve soru değilse bu bir ANLATIdır: Nora ders vermez, dinler ve karşılık verir."""
@@ -272,7 +289,8 @@ class DiscourseCortex:
             if an.get("is_verb") and an.get("person") in ("1SG", "1PL"):
                 return {"verb": an["stem"], "neg": bool(an.get("neg")), "person": an.get("person"),
                         "tense": an.get("tense", ""), "index": i, "words": words,
-                        "rest": words[:i], "tail": words[i + 1:]}
+                        "rest": words[:i], "tail": words[i + 1:],
+                        "modal": an.get("modal")}
         # 1. kişi koşaçlı hâl sıfatı: 'bugün kendimi yalnız hissediyorum' değilse de 'çok yorgunum'.
         from nora_knowledge import STATE_ADJECTIVES
         for i, w in enumerate(words):
@@ -345,6 +363,72 @@ class DiscourseCortex:
             if _an.get("poss") == 1:
                 poss_idx = i
                 break
+        # 3. kişi ANLATI: '-mış/-di' + zaman belirteci varsa bu bir yaşantıdır, bilgi maddesi değil.
+        # ('Bugün hava çok güzelmiş', 'Yarın hava yağmurlu olacakmış', 'Kardeşim üniversiteye başladı')
+        _deixis = {"bugün", "dün", "yarın", "şimdi", "az", "önce", "geçen", "hafta", "ay", "yıl",
+                   "sabah", "akşam", "gece", "öğlen", "bu", "şu", "o", "biraz", "az"}
+        _has_deixis = any(w in _deixis for w in words)
+        _ADV_SKIP = {"çok", "az", "biraz", "pek", "daha", "en", "çokça", "hiç", "hep", "yine"}
+        _TIME_SKIP = {"bugün", "dün", "yarın", "şimdi", "sabah", "akşam", "gece", "öğlen",
+                      "hafta", "ay", "yıl", "önce", "sonra", "bu", "şu", "o"}
+        from nora_knowledge import COMMON_ADJECTIVES as _CA, COMMON_NOUNS as _CN, STATE_ADJECTIVES as _SA
+        if _has_deixis:
+            # 3a) Koşaçlı ad/sıfat yüklemi: 'hava çok güzelmiş' -> yüklem 'güzel', özne 'hava'
+            for i in range(len(words) - 1, -1, -1):
+                w = words[i]
+                an = memo.get(w)
+                if an is None:
+                    an = memo[w] = morph.analyze_word(w, lex)
+                if w in _ADV_SKIP:
+                    continue
+                if not (an.get("copula") or (an.get("stem") in _CA or an.get("stem") in _SA)):
+                    continue
+                if an.get("is_verb"):
+                    continue
+                _subj = ""
+                for j in range(i - 1, -1, -1):
+                    _pw = words[j]
+                    _pan = memo.get(_pw)
+                    if _pan is None:
+                        _pan = memo[_pw] = morph.analyze_word(_pw, lex)
+                    if _pan.get("is_verb") or _pan.get("copula"):
+                        break
+                    if _pw in _TIME_SKIP or _pw in _ADV_SKIP:
+                        continue
+                    if _pan.get("case") == "NOM" and not _pan.get("poss") and _pw in _CN:
+                        _subj = _pan.get("stem") or _pw
+                        break
+                if _subj:
+                    return {"verb": an.get("stem") or w, "neg": bool(an.get("neg")), "person": "3SG",
+                            "tense": "STATE", "index": i, "words": words,
+                            "rest": [x for x in words[:i] if x != _subj],
+                            "tail": words[i + 1:], "subject": _subj, "state": True}
+            # 3b) 3. kişi fiil + özne: 'kardeşim üniversiteye başladı' yakalanmıyorsa buradan
+            for i, w in enumerate(words):
+                an = memo.get(w)
+                if an is None:
+                    an = memo[w] = morph.analyze_word(w, lex)
+                if not (an.get("is_verb") and not an.get("copula") and an.get("person") in ("3SG", "3PL")):
+                    continue
+                # Geniş zaman/şimdiki zaman = GENEL DOĞRU (bilgi), kişisel yaşantı değil:
+                # 'Parlak taşlar gece yol gösterir' bir olgudur, '-dı/-mış' ise anlatıdır.
+                if not str(an.get("tense") or "").startswith(("PAST", "EVID", "FUT", "PROG")):
+                    continue
+                for j in range(i - 1, -1, -1):
+                    _pw = words[j]
+                    _pan = memo.get(_pw)
+                    if _pan is None:
+                        _pan = memo[_pw] = morph.analyze_word(_pw, lex)
+                    if _pan.get("is_verb"):
+                        break
+                    if _pw in _TIME_SKIP or _pw in _ADV_SKIP:
+                        continue
+                    if _pan.get("case") == "NOM" and _pw in _CN:
+                        return {"verb": an["stem"], "neg": bool(an.get("neg")), "person": "3SG",
+                                "tense": an.get("tense", ""), "index": i, "words": words,
+                                "rest": [x for x in words[:i] if x != _pw],
+                                "tail": words[i + 1:],
+                                "subject": _pan.get("stem") or _pw}
         if poss_idx >= 0:
             for i, w in enumerate(words):
                 an = memo.get(w)
@@ -355,7 +439,52 @@ class DiscourseCortex:
                     return {"verb": an["stem"], "neg": bool(an.get("neg")), "person": "3SG",
                             "tense": an.get("tense", ""), "index": i, "words": words,
                             "rest": [w for w in words[:i] if w != words[poss_idx]],
-                            "tail": words[i + 1:], "subject": _pan.get("stem", "")}
+                            "tail": words[i + 1:], "subject": _pan.get("stem", ""),
+                            "subject_poss": 1}
+        return None
+
+    def _split_rest_clause(self, rest: list[str], morph, lex):
+        """'kardeşim gitti, yalnız kaldım' -> ('', 'kardeşinin gittiğini', 'yalnız').
+
+        Konuşanın İKİ olayı varsa ikisi de aktarılır; ilk olay ham bırakılmaz.
+        Dönüş: (bağlam, birinci yan cümle, kalan sözcükler) ya da None.
+        """
+        if not rest or morph is None:
+            return None
+        _time = {"dün", "bugün", "yarın", "sabah", "akşam", "gece", "öğlen", "az", "önce", "sonra"}
+        for i, w in enumerate(rest):
+            try:
+                an = morph.analyze_word(w, lex)
+            except Exception:
+                continue
+            _finite = str(an.get("tense") or "") in (
+                "PAST", "PRES", "FUT", "AOR", "EVID", "PROG", "IMP", "COND", "OPT", "NEC")
+            if not (an.get("is_verb") and not an.get("copula") and _finite):
+                continue   # ulaç/ortaç ('içerken', 'kalkıp') yan cümle yüklemi değildir
+            if i < 1:
+                continue
+            subj = rest[i - 1]
+            if subj in _time:
+                continue
+            try:
+                san = morph.analyze_word(subj, lex)
+            except Exception:
+                san = {}
+            try:
+                if san.get("poss") or san.get("poss1"):
+                    gen = SYN.realize_np(NP(san.get("stem") or subj, poss=2, case="GEN"))
+                elif san.get("is_verb") is False and san.get("case") == "NOM":
+                    gen = SYN.realize_np(NP(san.get("stem") or subj, poss=0, case="GEN"))
+                else:
+                    gen = subj
+                nom = SYN.nominalize_dik(an["stem"], poss=2, case="ACC", neg=bool(an.get("neg")))
+            except Exception:
+                return None
+            if not nom:
+                return None
+            ctx = " ".join(rest[: i - 1]).strip()
+            mid = " ".join(rest[i + 1:]).strip()
+            return ctx, f"{gen} {nom}".strip(), mid
         return None
 
     def respond_narration(self, raw: str, agi, nar: dict) -> dict:
@@ -386,7 +515,7 @@ class DiscourseCortex:
                 _vn = ""
             if _vn:
                 _rest = " ".join(w for w in (nar.get("rest") or []) if w not in ("ben", "biz", "artık"))
-                lead = _cap(f"{_rest} {_vn} gerektiğini duyuyorum".strip())
+                lead = _cap(f"{_rest} {_vn} gerektiğini {self._perceive()}".strip())
                 follow = self._fresh(("Zor ama yapılabilir.", "Birlikte planlayalım mı?",
                                       "Ne zaman başlamayı düşünüyorsun?", "Kendine zaman tanı."))
                 return {"text": f"{lead} {follow}", "act": "NARRATION_NECESSITY", "narration": True}
@@ -400,9 +529,9 @@ class DiscourseCortex:
                     gen = SYN.realize_np(NP(_subj, poss=2, case="GEN"))
                 except Exception:
                     gen = _subj
-                lead = _cap(self._fresh((f"{gen} {adj} olduğunu duyuyorum",
+                lead = _cap(self._fresh((f"{gen} {adj} olduğunu {self._perceive()}",
                                          f"{gen} {adj} olması can sıkıcı",
-                                         f"Bugün {gen} {adj} olduğunu görüyorum")))
+                                         f"Bugün {gen} {adj} olduğunu {self._perceive()}")))
                 follow = self._fresh(("Yanındayım.", "Anlatmak ister misin?", "Birlikte biraz soluklanalım mı?"))
                 return {"text": f"{lead} {follow}", "act": "NARRATION_EMPATHIZE", "narration": True}
             if nar.get("neg") or adj in ("yok", "yoktur"):
@@ -411,14 +540,14 @@ class DiscourseCortex:
                     gen = SYN.realize_np(NP(subj, poss=2, case="GEN"))
                 except Exception:
                     gen = subj
-                lead = _cap(self._fresh((f"{gen} yerinde olmadığını duyuyorum",
-                                         f"{gen} olmadığını görüyorum, kolay değil",
+                lead = _cap(self._fresh((f"{gen} yerinde olmadığını {self._perceive()}",
+                                         f"{gen} olmadığını {self._perceive()}, kolay değil",
                                          f"Bugün {gen} yerinde değil anlaşılan")))
                 follow = self._fresh(("Yanındayım.", "Anlatmak ister misin?", "Birlikte biraz soluklanalım mı?"))
                 return {"text": f"{lead} {follow}", "act": "NARRATION_EMPATHIZE", "narration": True}
             lead = _cap(self.random.choice((
-                f"Kendini {adj} hissettiğini duyuyorum",
-                f"Şu an {adj} olduğunu anlıyorum",
+                f"Kendini {adj} hissettiğini {self._perceive()}",
+                f"Şu an {adj} olduğunu {self._perceive()}",
                 f"{tr_capitalize(adj)} olmak zor",
             )))
             try:
@@ -435,13 +564,34 @@ class DiscourseCortex:
             return {"text": f"{lead} {follow}", "act": "NARRATION_EMPATHIZE", "narration": True}
         # Konuşan 'biz' diyorsa dinleyen de o topluluğun içinde: 'gideceğimizi duyuyorum'.
         _poss = 4 if str(nar.get("person")) == "1PL" else 2
+        _vbase = verb
+        if str(nar.get("modal") or "") == "ABIL":
+            # 'gidebiliriz' -> 'gidebileceğimizi' (yeterlilik gövdesi korunur, kip kaybolmaz)
+            try:
+                from nora_turkce import ability_stem
+                _mm = getattr(getattr(agi, "lang", None), "morph", None)
+                _vbase = ability_stem(_mm, verb, bool(nar.get("neg"))) if _mm is not None else verb
+            except Exception:
+                _vbase = verb
         try:
-            if str(nar.get("tense") or "").startswith("FUT"):
-                obj = SYN.nominalize_acak(verb, poss=_poss, case="ACC", neg=nar["neg"])
+            if str(nar.get("tense") or "").startswith("NEC"):
+                # 'yapmamalıydım' -> 'yapmaman gerektiğini' (gereklilik kipi korunur)
+                from nora_turkce import infinitive_ma
+                _mm = getattr(getattr(agi, "lang", None), "morph", None)
+                obj = f"{infinitive_ma(_mm, verb, _poss, bool(nar.get('neg')))} gerektiğini" \
+                    if _mm is not None else ""
+            elif str(nar.get("tense") or "").startswith("FUT") or (
+                    str(nar.get("modal") or "") == "ABIL"
+                    and str(nar.get("tense") or "") in ("AOR", "PRES", "PROG")):
+                obj = SYN.nominalize_acak(_vbase, poss=_poss, case="ACC",
+                                          neg=bool(nar["neg"]) and not str(nar.get("modal") or "") == "ABIL")
             else:
-                obj = SYN.nominalize_dik(verb, poss=_poss, case="ACC", neg=nar["neg"])
+                obj = SYN.nominalize_dik(_vbase, poss=_poss, case="ACC", neg=nar["neg"])
         except Exception:
-            obj = ""
+            try:
+                obj = SYN.nominalize_dik(verb, poss=_poss, case="ACC", neg=nar["neg"])
+            except Exception:
+                obj = ""
         rest = [w for w in nar["rest"] if w not in ("ben", "biz", "bugün", "dün", "şimdi")]
         # Karşıdakinin ağzından aktarırken 1. kişi iyeliği 2. kişiye döner:
         # 'kedim kucağıma geldi' -> 'kedinin kucağına geldiğini duyuyorum'.
@@ -467,12 +617,29 @@ class DiscourseCortex:
         # Yan cümle ('geldi ve uyudu'): ikinci yüklem de aktarılır -> '... geldiğini ve uyuduğunu'.
         _tail_clause = ""
         _tail = [w for w in (nar.get("tail") or []) if w not in ("ve", "sonra", "ardından", "da", "de")]
+        _TAIL_STOP = {"çok", "az", "biraz", "pek", "daha", "en", "çokça", "hiç", "hep", "yine"}
         if _morph is not None and _tail:
-            for _w in _tail:
+            # Yan cümlede YÜKLEM sondadır: sondan geriye bak (belirteçler yüklem sayılmaz).
+            for _w in (reversed(_tail) if hasattr(reversed(_tail), "__next__") else _tail):
+                if _w in _TAIL_STOP:
+                    continue
                 try:
                     _tan = _morph.analyze_word(_w, _lex)
                 except Exception:
                     _tan = {}
+                from nora_knowledge import COMMON_ADJECTIVES, STATE_ADJECTIVES
+                _is_adj = (_w in COMMON_ADJECTIVES) or (_tan.get("stem") in COMMON_ADJECTIVES) \
+                    or (_tan.get("stem") in STATE_ADJECTIVES)
+                if _tan.get("copula") or (_is_adj and not _tan.get("is_verb")):
+                    # Koşaçlı yan cümle: 'çok güzeldi' -> 'çok güzel olduğunu' (adlaştırma 'ol' üzerinden)
+                    _adj = _tan.get("stem") or _w
+                    try:
+                        _ol = SYN.nominalize_dik("ol", poss=2, case="ACC")
+                    except Exception:
+                        _ol = ""
+                    if _ol and len(_adj) > 1:
+                        _tail_clause = f"{_adj} {_ol}"
+                        break
                 if _tan.get("is_verb") and not _tan.get("copula"):
                     # 'güzeldi' bir KOŞAÇtır; '-diğini' diye adlaştırılmaz ('güzel olduğunu' denir)
                     try:
@@ -483,20 +650,31 @@ class DiscourseCortex:
                     break
         # Algı fiili her turda aynı olmasın: duymak / anlamak / fark etmek / görmek.
         # Hepsi aynı içeriği taşır, edimselliği değişir (ezber sesi kaybolur).
-        def _perceive() -> str:
-            from nora_lang import TurkishMorphology as _MT
-            _pick = self.random.choice(("duy", "anla", "fark et", "gör", "duy", "anla"))
-            _pref, _root = SYN.split_compound_verb(_pick)
-            try:
-                _form = _MT.conjugate_verb(_root, "PRES", person="1SG")
-            except Exception:
-                _form = "duyuyorum"
-            return f"{_pref} {_form}".strip() if _pref else _form
+        _perceive = self._perceive
 
-        if _nsub and obj and not nar.get("state"):
+        _pr = self._split_rest_clause(rest, _morph, _lex) if (obj and rest and _morph is not None) else None
+        if _pr and obj:
+            _ctx, _c1, _mid = _pr
+            _second = f"{_mid} {obj}".strip()
+            _parts = [p for p in (_ctx, _c1) if p]
+            lead = f"{', '.join(_parts)}, {_second} {_perceive()}"
+        elif _nsub and obj and not nar.get("state"):
             # 'içim daralıyor' -> 'içinin daraldığını duyuyorum' (iyelikli özne tamlayana döner)
+            # Özne 1. kişi iyeliğiyle gelirse ('kardeşim'), aktarımda 2. kişiye çevrilir:
+            # 'kardeşim gitti' -> 'kardeşinin gittiğini' (ham 'kardeşim' ekranda kalmaz).
+            _sbase, _sposs = _nsub, 0
+            if _morph is not None:
+                try:
+                    _san = _morph.analyze_word(_nsub, _lex)
+                except Exception:
+                    _san = {}
+                if _san and not _san.get("is_verb"):
+                    if nar.get("subject_poss") or _san.get("poss") or _san.get("poss1"):
+                        _sbase, _sposs = _san.get("stem") or _nsub, 2
+                    elif _san.get("stem"):
+                        _sbase = _san["stem"]
             try:
-                gen = SYN.realize_np(NP(_nsub, poss=2, case="GEN"))
+                gen = SYN.realize_np(NP(_sbase, poss=_sposs, case="GEN"))
             except Exception:
                 gen = _nsub
             _cpl = f"{obj} ve {_tail_clause}" if _tail_clause else obj
@@ -512,7 +690,14 @@ class DiscourseCortex:
         act = self._pick_narration_act(nar)
         _future = str(nar.get("tense") or "").startswith("FUT") or any(
             w in (nar.get("words") or []) for w in ("yarın", "haftaya", "gelecek", "sonra"))
-        if act == "REFLECT_ASK" and _future:
+        if act == "REFLECT_ASK" and nar.get("state"):
+            q = self._fresh((
+                "Sen bunu nasıl karşıladın?", "Bu havada ne yapmak iyi gelir?",
+                "Böyle günlerde içim daha sakin oluyor, sende de öyle mi?",
+                "Bugünün en güzel yanı neydi?", "Pencereden ne görüyorsun?",
+            ))
+            text = f"{lead} {q}"
+        elif act == "REFLECT_ASK" and _future:
             # Gelecek anlatısına geçmiş sorusu sorulmaz ('Nasıl geçti?' değil 'Neler planlıyorsun?').
             q = self._fresh((
                 "Neler planlıyorsun?", "Heyecanlı mısın?", "Kiminle olacaksın?",
