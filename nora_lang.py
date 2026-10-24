@@ -454,13 +454,105 @@ class TurkishMorphology:
         if not known:
             return info
         w, stem = info.get("surface", ""), info.get("stem", "")
-        if w in known and stem not in known:
-            return {**info, "stem": w, "case": "NOM", "is_verb": False}
+        if w in known and (stem not in known or info.get("is_verb")):
+            # Sözlükte bütün hâliyle duran sözcük, kök soyma tahmininden üstündür:
+            # 'yemek' (aş) 'ye+mek' diye fiil köküne indirgenmemeli; 'hikâye' 'hikâ'+DAT olmamalı.
+            return {**info, "stem": w, "case": "NOM", "is_verb": False, "neg": False}
         if w not in known and stem not in known and info.get("is_verb") and stem not in cls.KNOWN_VERB_ROOTS:
             # 'matematik' -> 'mat' (fiil) gibi köksüz çözümlemeler anlamayı bozar; sözlükte
             # olmayan bir fiil kökü asla "gerçek" sayılmaz, kelime olduğu gibi alınır.
             return {**info, "stem": w, "case": "NOM", "is_verb": False, "neg": False}
         return info
+
+    # (ek, zaman, kişi) — uzun ekler önce denenir
+    _FINITE_SUFFIXES: tuple[tuple[str, str, str], ...] = (
+        ("yelim", "OPT", "1PL"), ("yalım", "OPT", "1PL"), ("elim", "OPT", "1PL"), ("alım", "OPT", "1PL"),
+        ("yorsunuz", "PRES", "2PL"), ("yorsun", "PRES", "2SG"), ("yoruz", "PRES", "1PL"),
+        ("yorum", "PRES", "1SG"), ("yorlar", "PRES", "3PL"), ("yorsunuz", "PRES", "2PL"),
+        ("mışsınız", "EVID", "2PL"), ("mışım", "EVID", "1SG"), ("mışsın", "EVID", "2SG"),
+        ("mışız", "EVID", "1PL"), ("mışlar", "EVID", "3PL"),
+        ("dınız", "PAST", "2PL"), ("tiniz", "PAST", "2PL"), ("dım", "PAST", "1SG"),
+        ("dim", "PAST", "1SG"), ("dum", "PAST", "1SG"), ("düm", "PAST", "1SG"),
+        ("tım", "PAST", "1SG"), ("tim", "PAST", "1SG"), ("tum", "PAST", "1SG"), ("tüm", "PAST", "1SG"),
+        ("dın", "PAST", "2SG"), ("din", "PAST", "2SG"), ("dun", "PAST", "2SG"), ("dün", "PAST", "2SG"),
+        ("tın", "PAST", "2SG"), ("tin", "PAST", "2SG"), ("tun", "PAST", "2SG"), ("tün", "PAST", "2SG"),
+        ("dık", "PAST", "1PL"), ("dik", "PAST", "1PL"), ("duk", "PAST", "1PL"), ("dük", "PAST", "1PL"),
+        ("tık", "PAST", "1PL"), ("tik", "PAST", "1PL"), ("tuk", "PAST", "1PL"), ("tük", "PAST", "1PL"),
+        ("dılar", "PAST", "3PL"), ("diler", "PAST", "3PL"), ("dular", "PAST", "3PL"), ("düler", "PAST", "3PL"),
+        ("tılar", "PAST", "3PL"), ("tiler", "PAST", "3PL"),
+        ("acaksın", "FUT", "2SG"), ("eceksin", "FUT", "2SG"), ("acağım", "FUT", "1SG"), ("eceğim", "FUT", "1SG"),
+        ("acak", "FUT", "3SG"), ("ecek", "FUT", "3SG"),
+        ("malıyım", "NEC", "1SG"), ("meliyim", "NEC", "1SG"), ("malı", "NEC", "3SG"), ("meli", "NEC", "3SG"),
+        ("dı", "PAST", "3SG"), ("di", "PAST", "3SG"), ("du", "PAST", "3SG"), ("dü", "PAST", "3SG"),
+        ("tı", "PAST", "3SG"), ("ti", "PAST", "3SG"), ("tu", "PAST", "3SG"), ("tü", "PAST", "3SG"),
+        ("yor", "PRES", "3SG"), ("mış", "EVID", "3SG"), ("miş", "EVID", "3SG"),
+        ("muş", "EVID", "3SG"), ("müş", "EVID", "3SG"),
+    )
+
+    _FINITE_BY_LAST: dict[str, tuple] = {}
+
+    @classmethod
+    def _finite_index(cls) -> dict[str, tuple]:
+        """Ekleri son harfe göre indeksler: her sözcükte 50 ek denemek yerine ~6 aday denenir (O(1) hız)."""
+        if not cls._FINITE_BY_LAST:
+            idx: dict[str, list] = {}
+            for item in cls._FINITE_SUFFIXES:
+                idx.setdefault(item[0][-1], []).append(item)
+            cls._FINITE_BY_LAST = {k: tuple(v) for k, v in idx.items()}
+        return cls._FINITE_BY_LAST
+
+    @classmethod
+    def _finite_verb(cls, w: str) -> dict | None:
+        """Bitmiş fiil biçimini (kök + zaman + kişi) çözer; yalnızca sözlükteki kökler kabul edilir."""
+        for suf, tense, person in cls._finite_index().get(w[-1:], ()):
+            if len(w) - len(suf) < 2 or not w.endswith(suf):
+                continue
+            cand = w[: -len(suf)]
+            cands = [cand, cls._unsoften(cand)]
+            if cand.endswith("y") and len(cand) > 2:      # 'okuyacağım' -> 'oku' (kaynaştırma y)
+                cands += [cand[:-1], cls._unsoften(cand[:-1])]
+            if cand.endswith("n") and len(cand) > 3:      # 'başlayacaksın' -> 'başlayacağ' -> 'başla'
+                cands += [cand[:-1]]
+            # Olumsuz -yor: 'istemiyorum' (iste+me+yor), 'görmüyorum' (gör+me+yor)
+            if "yor" in suf and len(cand) >= 3 and cand[-2:-1] == "m" and cand[-1] in "ıiuü":
+                for base in (cand[:-2], cls._unsoften(cand[:-2])):
+                    if base in cls.KNOWN_VERB_ROOTS:
+                        return {"stem": base, "case": "NOM", "is_verb": True, "neg": True,
+                                "tense": tense, "person": person}
+            # -yor çekiminde kök ile ek arasında dar ünlü türer ya da kökün son ünlüsü düşer:
+            # 'anlatıyorum' -> anlat+ı, 'istiyorum' -> iste(->ist+i), 'başlıyorum' -> başla(->başl+ı).
+            if "yor" in suf:
+                _v, _s = cand, cls._unsoften(cand)
+                if cand and cand[-1] in "ıiuü":
+                    cands += [cand[:-1], cls._unsoften(cand[:-1])]
+                for base in (_v, _s):
+                    if base and len(base) >= 3:
+                        cands += [base + "e", base + "a", base + "i", base + "ı"]
+                if len(_v) >= 3 and _v[-1] in "ıiuü":
+                    cands += [_v[:-1] + "e", _v[:-1] + "a"]
+                # Olumsuz geniş zaman: 'istemiyorum' -> iste+me+yor; 'görmüyorum' -> gör+me+yor
+                if len(_v) >= 3 and _v[-2:-1] == "m" and _v[-1] in "ıiuü":
+                    cands += [_v[:-2], cls._unsoften(_v[:-2])]
+            _uniq: list[str] = []
+            for c_ in cands:
+                if c_ and c_ not in _uniq:
+                    _uniq.append(c_)
+            for root in _uniq:
+                if root in cls.KNOWN_VERB_ROOTS:
+                    out = {"stem": root, "case": "NOM", "is_verb": True, "tense": tense, "person": person}
+                    if suf.startswith(("ma", "me")) and not w.startswith(root + "m"):
+                        pass
+                    return out
+            # olumsuzluk: 'uyuyamadım' -> 'uyu' + 'yama' + 'dım'; 'yapamadım' -> 'yap' + 'ama' + 'dım'
+            if len(cand) > 3 and cand[-3:] in ("ama", "eme"):
+                for base in (cand[:-3], cand[:-4], cand[:-3][:-1] if cand[:-3].endswith("y") else ""):
+                    if not base or len(base) < 2:
+                        continue
+                    for root in (base, cls._unsoften(base)):
+                        if root in cls.KNOWN_VERB_ROOTS:
+                            return {"stem": root, "case": "NOM", "is_verb": True, "neg": True,
+                                    "tense": tense, "person": person}
+        return None
 
     @classmethod
     def _analyze_word_raw(cls, raw: str, lexicon: set[str] | None = None) -> dict:
@@ -483,6 +575,14 @@ class TurkishMorphology:
         }
         if w in pron_map:
             info["stem"], info["case"] = pron_map[w]
+            return info
+
+        # 0) BİTMİŞ FİİL (finite verb) çözümlemesi — konuşma dilinin bel kemiği.
+        #    'izledim', 'kalktım', 'uyuyamadım', 'geldi', 'konuştum'. Yalnızca kök SÖZLÜKTE varsa kabul
+        #    edilir (tahmin yok): yanlış pozitif çıkmaz, gerçek kişi/zaman bilgisi kazanılır.
+        fin = cls._finite_verb(w)
+        if fin is not None:
+            info.update(fin)
             return info
 
         cur = w
@@ -1106,6 +1206,11 @@ class BrocaGenerator:
         parts = phrase.split()
         if not parts:
             return phrase
+        # Yüklem zaten çekimli bir fiilse koşaç EKLENMEZ: 'kalp sağlığına iyi gelirdir' değil
+        # 'iyi gelir'. (Geniş zaman 3. tekil fiil + -dIr = çifte çekim)
+        last_an = self.morph.analyze_word(parts[-1])
+        if last_an.get("is_verb") and str(last_an.get("person", "")) in ("3SG", "3PL"):
+            return phrase
         return " ".join(parts[:-1] + [self.morph.inflect_noun(parts[-1], "NOM", copula=True)])
 
     def _gen_phrase(self, phrase: str) -> str:
@@ -1178,6 +1283,13 @@ class BrocaGenerator:
         if r == "LOCATED_AT":
             loc = self._case_phrase(o, "LOC")
             return f"{s} {loc} bulunur"
+
+        if r == "OPPOSITE":
+            # "Sıcak, soğuğun zıttıdır." — özne tekrarlanmaz, tamlayan kurulur.
+            gen = self._gen_phrase(o)
+            if p.neg:
+                return f"{s} {gen} zıttı değildir"
+            return f"{s} {gen} zıttıdır"
 
         if r == "IF_THEN":
             return f"{s} olduğunda {o}"
@@ -1458,6 +1570,33 @@ class WernickeComprehender:
                 if tgt:
                     self.last_topic = tgt
                 return SemanticFrame(kind="command", raw=s_raw, rel=act, obj=tgt)
+            # 8a) Ortak istek kipi ('biraz sohbet edelim', 'gidelim', 'konuşalım'): davet.
+            _inv = self.morph.analyze_word(last_w, self.graph.lexicon)
+            if _inv.get("tense") == "OPT" and _inv.get("is_verb"):
+                tgt = ""
+                for w in words[:-1]:
+                    if w in spatial_postpos or w in {"bana", "sen", "sana", "ben", "biraz", "hadi"}:
+                        continue
+                    an = self.morph.analyze_word(w, self.graph.lexicon)
+                    if an["stem"] not in spatial_postpos and not an.get("is_verb") and an["case"] == "NOM":
+                        tgt = an["stem"]
+                if tgt:
+                    self.last_topic = tgt
+                return SemanticFrame(kind="command", raw=s_raw, rel=_inv["stem"], obj=tgt, sub_kind="invite")
+
+            # 8b) Genel emir kipi: yalın fiil köküyle biten cümle ('bana bir hikâye anlat', 'şunu söyle').
+            #     Bu bir OLGU değil İSTEKtir; olgu diye öğrenilirse Nora kendi sözünü papağan gibi tekrarlar.
+            if last_w in self.morph.KNOWN_VERB_ROOTS and not any(w in words for w in ("ise", "olursa", "eder", "mı", "mi")):
+                tgt = ""
+                for w in words[:-1]:
+                    if w in spatial_postpos or w in {"kendini", "kendine", "bana", "sen", "sana", "ben"}:
+                        continue
+                    an = self.morph.analyze_word(w, self.graph.lexicon)
+                    if an["stem"] not in spatial_postpos and not an.get("is_verb"):
+                        tgt = an["stem"]
+                if tgt:
+                    self.last_topic = tgt
+                return SemanticFrame(kind="command", raw=s_raw, rel=last_w, obj=tgt)
 
         # 9) Evet/Hayır soruları ('serçe uçar mı?', 'devekuşu uçar mı?', 'kuraklık bitkinliğe neden olur mu?')
         q_particles = {"mı", "mi", "mu", "mü", "mıdır", "midir", "mudur", "müdür"}
@@ -1624,6 +1763,18 @@ class WernickeComprehender:
             cause_obj = self._strip_governed_dative(rest_words[0])
             return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj, rel="CAUSES", obj=cause_obj)
 
+        # "X, Y'nin zıttıdır" / "X, Y'nin tam tersidir" -> OPPOSITE  (tamlayan + zıt adı + koşaç)
+        for opp_word in ("zıttı", "zıddı", "tersi", "karşıtı"):
+            if rest_words and rest_words[-1].startswith(opp_word):
+                gen_part = " ".join(rest_words[:-1])
+                if gen_part:
+                    gen_an = self.morph.analyze_word(gen_part.split()[-1], self.graph.lexicon)
+                    tail = rest_words[-1][len(opp_word):]
+                    obj = gen_an["stem"] if gen_an["case"] == "GEN" or gen_an["stem"] != gen_part.split()[-1] else gen_part
+                    neg = "değil" in tail
+                    return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj, rel="OPPOSITE", obj=obj,
+                                         valence=-1.0 if neg else 0.0)
+
         # '...-da/-de yaşar / bulunur' -> LOCATED_AT
         if rest_words[-1] in {"yaşar", "bulunur", "yetişir"} and len(rest_words) >= 2:
             loc_an = self.morph.analyze_word(rest_words[0], self.graph.lexicon)
@@ -1637,6 +1788,18 @@ class WernickeComprehender:
             if neg and len(rest_words) >= 2:
                 prop = self.morph.analyze_word(rest_words[-2], self.graph.lexicon)["stem"]
             return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj, rel="HAS_PROP", obj=prop, valence=-1.0 if neg else 0.0)
+
+        # Sıfat yüklemi: 'matematik ödevim çok zor', 'bugün hava sıcak' (son sözcük fiil değil)
+        if not last_an["is_verb"] and not last_an["copula"]:
+            _advs = {"çok", "pek", "fena", "gerçekten", "biraz", "oldukça", "çokça", "hayli"}
+            _sw = words[:-1]
+            while len(_sw) > 1 and _sw[-1] in _advs:
+                _sw = _sw[:-1]
+            subj_adj = self._clean_np(" ".join(_sw)) if _sw else subj
+            if subj_adj:
+                self.last_topic = subj_adj
+                return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj_adj, rel="HAS_PROP",
+                                     obj=rest_words[-1])
 
         # Eylem: 'kuşlar uçar', 'penguen uçmaz', 'balıklar suda yüzer'
         rel_type = "CANNOT_DO" if last_an["neg"] else "CAN_DO"
@@ -1685,6 +1848,8 @@ class NoraLanguage:
                 continue
             fr = self.wernicke.parse(cl)
             if fr.kind == "teach_fact":
+                if fr.rel in ("ISA", "HAS_PROP", "HAS_PART") and not self._teachable_predicate(fr.obj):
+                    continue
                 if fr.rel == "ADJ_ISA":
                     adj, noun = fr.obj.split("|", 1)
                     learned.append(self.graph.add_edge(fr.subj, "ISA", f"{adj} {noun}", source="duyum", speaker=speaker))
@@ -1695,6 +1860,21 @@ class NoraLanguage:
             elif fr.kind == "teach_val":
                 learned.append(self.graph.add_edge(fr.subj, fr.rel, fr.obj, source="duyum", speaker=speaker))
         return learned
+
+    def _teachable_predicate(self, obj: str) -> bool:
+        """Yüklem gerçekten tek bir özellik mi? 'organdır ve düşünmeyi sağlar' gibi bütün bir
+        yan cümle ad yerine geçmişse kavram ağına YAZILMAZ (bozuk düğüm = bozuk dünya bilgisi)."""
+        words = obj.split()
+        if len(words) > 4:
+            return False
+        if any(w in {"ve", "ama", "ancak", "fakat", "çünkü", "ki"} for w in words):
+            return False
+        for w in words:
+            an = self.morph.analyze_word(w, self.graph.lexicon)
+            if an.get("is_verb") and an.get("tense") in ("PRES", "PAST", "AOR", "EVID", "FUT") \
+                    and str(an.get("person", "")).startswith("3"):
+                return False
+        return True
 
 
 if __name__ == "__main__":

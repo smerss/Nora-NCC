@@ -641,6 +641,9 @@ def a25_nociceptive_nervous_system_pain_and_relief():
     tetikler (<3 ms); ardından C-lifi sızısı sürer ve yatıştırıcı bakımla kapı-kontrol mekanizması sızıyı dindirir."""
     agi = NoraAGI(seed=25, boot_thinker=False)
     agi.step_life(400)
+    # Isınma turu: ilk turda modüllerin tembel import/regex derleme maliyeti ölçüme karışmasın
+    # (ölçülen şey refleks gecikmesi; Python'un ilk-çağrı maliyeti değil).
+    agi.converse("Merhaba, bugün nasılsın?")
 
     pos_before = agi.world.pos.copy()
     r_hit = agi.converse("Sana diken batırdım!", speaker="saldırgan")
@@ -1605,6 +1608,73 @@ def a53_morphology_vowel_drop_and_soft_vowels():
     return ok, f"{len(checks) - len(bad)}/{len(checks)} morfoloji kuralı" + (f" | hatalı: {bad}" if bad else "")
 
 
+def a54_personal_narration_listening():
+    """Karşıdaki kendi yaşantısını anlatınca Nora ders vermez: olayı geri yansıtır, gerçek bir soru
+    sorar ya da içten karşılık verir; anlatıyı kavram ağına 'olgu' diye yazıp kirletmez."""
+    import re
+    from nora_lang import tr_lower
+    from nora_besle import besle
+
+    agi = NoraAGI(seed=54, boot_thinker=False)
+    agi.step_life(200)
+    besle(agi, verbose=False)
+    cases = [
+        "Dün akşam bir film izledim, çok güzeldi.",
+        "Sabah erkenden kalkıp yürüyüşe çıktım.",
+        "Dün gece hiç uyuyamadım.",
+        "Bugün annemle uzun uzun konuştum.",
+    ]
+    replies = [agi.converse(c) for c in cases]
+    # 1) Hepsi olayı geri yansıtıyor ("…duyuyorum")
+    ok_echo = all("duyuyorum" in tr_lower(r) for r in replies)
+    # 2) En az birinde gerçek bir takip sorusu var
+    ok_ask = any("?" in r for r in replies)
+    # 3) Kavram ağı kirlenmedi: anlatı cümlesi olgu olarak yazılmadı
+    edges = {(e.subj, e.rel, e.obj) for e in agi.lang.graph.edges}
+    polluted = any("film" in s_ and ("izle" in o or "güzel" in o) for s_, _r, o in edges)
+    ok_clean = not polluted
+    # 4) Ansiklopedi sesi yok ("bir ...dir ve" kalıbıyla ders vermiyor)
+    no_lecture = not any(re.search(r"bir \w+dır ve", tr_lower(r)) for r in replies)
+    ok = ok_echo and ok_ask and ok_clean and no_lecture
+    return ok, (f"geri-yansıtma={ok_echo} | takip-sorusu={ok_ask} | ağ-temiz={ok_clean} | "
+                f"ders-yok={no_lecture}")
+
+
+def a55_conversational_understanding_of_daily_speech():
+    """Günlük konuşma: kişisel anlatı, olumsuzluk, davet, toplumsal olay ve emir isteği.
+    Nora ders kitabı gibi konuşmaz; anlatılanı yansıtır, olumsuzluğu korur, davete karşılık verir."""
+    from nora_lang import tr_lower
+    from nora_besle import besle
+
+    agi = NoraAGI(seed=55, boot_thinker=False)
+    agi.step_life(250)
+    besle(agi, verbose=False)
+
+    # 1) Anlatı yansıtma + takip sorusu (ansiklopedi sesi yok)
+    r_nar = agi.converse("Dün akşam bir film izledim, çok güzeldi.")
+    _low_nar = tr_lower(r_nar)
+    ok_nar = ("izlediğini" in _low_nar) and ("?" in r_nar or "içim" in _low_nar)
+    # 2) Olumsuzluk korunur ("istemiyorum" -> "istemediğini")
+    r_neg = agi.converse("Annemle konuşmak istemiyorum.")
+    low_neg = tr_lower(r_neg)
+    ok_neg = ("istemediğini" in low_neg) and ("istediğini duyuyorum" not in low_neg)
+    # 3) Ortak istek/davet kipi karşılık bulur
+    r_inv = agi.converse("Biraz sohbet edelim.")
+    ok_inv = tr_lower(r_inv).startswith("sohbet edelim") and ("?" in r_inv)
+    # 4) Toplumsal olay: doğum günü kutlanır
+    r_bd = agi.converse("Bugün doğum günüm.")
+    low_bd = tr_lower(r_bd)
+    ok_bd = ("kutlu" in low_bd) and ("yaş" in low_bd)
+    # 5) Emir/istek cümlesi papağan gibi geri yansıtılmaz
+    r_req = agi.converse("Bana bir hikâye anlat.")
+    ok_req = tr_lower(r_req).strip(" .") != "bana bir hikâye anlat" and len(r_req) > 20
+    # 6) İç simgeler (ÖZ_...) söze sızmaz
+    ok_clean = all("ÖZ_" not in x and "->" not in x for x in (r_nar, r_neg, r_inv, r_bd, r_req))
+    ok = ok_nar and ok_neg and ok_inv and ok_bd and ok_req and ok_clean
+    return ok, (f"anlatı={ok_nar} | olumsuzluk={ok_neg} | davet={ok_inv} | doğum-günü={ok_bd} | "
+                f"istek={ok_req} | iç-simge-yok={ok_clean}")
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -1659,6 +1729,8 @@ TESTS = {
     "A51": ("Türkçe iyelik/sahiplik ve sözlük-güvenli kök çözümleme", a51_turkish_possession_and_case),
     "A52": ("söylem politikası: çöp cümle yok, sahte bilgisizlik yok, doğru ton", a52_discourse_policy_no_garbage),
     "A53": ("Türkçe morfoloji köşeleri: ünlü düşmesi, â uyumu, öbek eki, koşaç", a53_morphology_vowel_drop_and_soft_vowels),
+    "A54": ("kişisel anlatıyı dinleme: yansıtma + soru, ağ kirlenmesi yok", a54_personal_narration_listening),
+    "A55": ("günlük konuşma: anlatı, olumsuzluk, davet, kutlama, istek", a55_conversational_understanding_of_daily_speech),
 }
 
 

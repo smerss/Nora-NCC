@@ -319,6 +319,18 @@ class TurkishSyntaxEngine:
         return " ".join(e for e in elems if e)
 
     @classmethod
+    def nominalize_acak(cls, verb_root: str, poss: int = 1, case: str = "ACC", neg: bool = False,
+                        subj: NP | None = None, obj: NP | str | None = None,
+                        advs: tuple[str, ...] = ()) -> str:
+        """-AcAk sıfat-fiili ('gideceğini', 'yağacağını'): gelecek/plan bildiren yan cümlecik."""
+        m = TurkishMorphology
+        fut = m.conjugate_verb(verb_root, "FUT", person="3SG", neg=neg)
+        inflected = cls._inflect_full_noun(fut, poss=poss, plural=False, case=case)
+        elems = [cls.realize_np(subj), *(tr_lower(a) for a in advs if a),
+                 cls.realize_np(obj), inflected]
+        return " ".join(e for e in elems if e)
+
+    @classmethod
     def nominalize_inf(
         cls,
         verb_root: str,
@@ -1152,8 +1164,21 @@ class GenerativeBrocaOrgan:
         if mortality_cues:
             phil_topic = "ölüm"
         else:
-            for p_cand in ("özgür irade", "bilinç", "felsefi zombi", "ölüm", "zaman", "anlam", "mutluluk", "hakikat", "dil", "düşünce", "yapay zeka", "insan"):
-                if p_cand in s_low and ("?" in raw or any(q in s_low for q in ("sence", "nedir", "nasıl", "ne düşün", "var mı", "kork", "fark", "son"))):
+            # Sözcük sınırı şart: 'kediler' içinde 'dil', 'insanlar' içinde 'insan' geçiyor diye
+            # felsefe konusu sanılmamalı (alt-dizgi eşleşmesi anlamayı zehirliyordu).
+            for p_cand in ("özgür irade", "bilinç", "felsefi zombi", "ölüm", "zaman", "anlam", "mutluluk",
+                           "hakikat", "dil", "düşünce", "yapay zeka", "insan"):
+                kw = r"(?<![\wçğıöşü])" + re.escape(p_cand) + r"(?:lar|ler|ın|in|a|e|ı|i|da|de|ta|te)?(?![\wçğıöşü])"
+                if not re.search(kw, s_low):
+                    continue
+                # Konu, sorunun ÖZNESİ olmalı: 'insanlar neden yalan söyler' bir felsefe sorusu değil,
+                # insan davranışı sorusudur. Felsefe sorusu ya doğrudan tanım ister ya da bana yönelir.
+                asks_about_it = bool(
+                    re.search(kw + r"\s+(?:nedir|ne demek|ne anlama)", s_low)
+                    or re.search(r"(?:sence|sana göre|senin için)\s+.*" + kw, s_low)
+                    or re.search(kw + r".*\b(?:sen|farkın|farkı|gibi misin|mısın)\b", s_low)
+                )
+                if asks_about_it and ("?" in raw or any(q in s_low for q in ("sence", "nedir", "nasıl", "ne düşün", "var mı", "kork", "fark", "son"))):
                     phil_topic = p_cand
                     break
 

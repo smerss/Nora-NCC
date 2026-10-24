@@ -171,6 +171,31 @@ Nora yalnızca *sorulduğunda* konuşuyordu. `BackgroundLife._reach` sözü yaln
 - Yeni `HAS_PART` ilişkisi iyelikli kurulur: "zürafanın uzun boynu var".
 - `<X> neden olur?` artık dünya bilgisi sorusu (CAUSES), içebakış değil; CAUSES "X'in nedeni Y'dir" ile.
 - Çok sözcüklü kavram öznesi ('yapay zekâ') en uzun bilinen önekle çözülür.
+### Günlük konuşmayı anlama (2026-10 sonu)
+- **Bitmiş fiil çözümlemesi** (`TurkishMorphology._finite_verb`): -dIm/-dIn/-dIk/-dIlEr/-DI, -yorum/-yorsun/-yor,
+  -mIş, -AcAk, -mAlI, ortak istek (-(y)alım/-elim). Kök YALNIZCA `KNOWN_VERB_ROOTS` içindeyse kabul edilir
+  (uydurma kök yok). -yor için ünlü türemesi/düşmesi ve olumsuzluk (iste+me+yor) çözülür.
+  Ekler son harfe göre indekslenir (O(1)); `analyze_word` sözlükte bütün hâliyle duran sözcüğü kök soymaya
+  tercih eder ('yemek' → 'ye' değil, 'yemek').
+- **Kişisel anlatı sütunu** (`DiscourseCortex.narration_of` / `respond_narration`): 1. kişi bitmiş fiil,
+  1. kişi hâl sıfatı (yorgunum/yalnızım) ve iyelikli özne + 3. kişi fiil ('kedim ... uyudu') yakalanır; Nora
+  ansiklopedi maddesi okumaz: olayı -dIğInI yan cümleciğiyle geri yansıtır, gerçek bir soru sorar ya da
+  içinden gelen karşılığı verir. Ağ kirlenmez (anlatı olgu diye yazılmaz). Olumsuzluk korunur
+  ('istemiyorum' → 'istemediğini'). Gelecek/plan -AcAk ile yansıtılır ('gideceğini').
+- **Toplumsal olay sütunu**: doğum günü gibi olaylar bilgi sorusu değildir; kutlama sözdizimi motorundan
+  kurulur ("Doğum gününü kutluyorum! Yaşın kaç?").
+- **Emir/istek ve davet**: yalın fiil köküyle biten cümle İSTEKtir (olgu diye öğrenilmez). Söz edimi
+  kökleri (anlat/söyle/açıkla/öğret/oku/sor/dinle/göster/ver) dil organını çalıştırır; anlatı isteğinde
+  kavram ağından en zengin düğüm seçilir, son anlatılanlar deque ile dışlanır. -(y)alım/-elim davetleri
+  kabul edilir ve ardından gerçek bir soru gelir.
+- **İç simge sızıntısı kapatıldı**: `ÖZ_...` etiketleri söze dönüşmez; mint onayı olay türünün Türkçe
+  karşılığıyla kurulur.
+- **Zehirli düğüm filtresi** (`_teachable_predicate`): "Beyin bir organdır ve düşünmeyi sağlar" gibi bütün
+  yan cümle yüklem sanılıp ağa yazılmaz.
+- Alt-dizgi eşleşmesi hataları: 'kediler' içindeki 'dil' felsefe konusu sanılmıyor (sözcük sınırı + konu
+  gerçekten soruluyor mu denetimi).
+- `numpy.ma` tembel importu modül başında çekildi (ilk tur gecikmesi); A25'e ısınma turu eklendi.
+
 ### Ölçüm
-Tam paket: **A1–A53 → 52/52 GEÇTİ (281.5 sn)** (A53 sonradan eklendi, tek başına 8/8).
+Tam paket: **A1–A55 → 55/55 GEÇTİ (285.3 sn)**; A54 (kişisel anlatı) ve A55 (günlük konuşma) yeni.
 

@@ -35,12 +35,12 @@ import os
 import re
 import sys
 import time
+from collections import deque
 import numpy as np
 
 from dataclasses import dataclass
 from nora_life import BackgroundLife
 from nora_discourse import DiscourseCortex
-from nora_initiative import InitiativeCortex
 from nora_initiative import InitiativeCortex
 from nora_voice import state_vector
 from nora_world import Universe
@@ -355,10 +355,10 @@ class NoraAGI:
         # --- ARKA PLAN YAŞAMI + ÖĞRENEN SÖZ ORGANI (elle yazılmış sözcük/cümle yok; dil okunarak öğrenilir) ---
         self.life = BackgroundLife(seed=seed + 71)
         # Kimse konuşmazken konuşan organ: hangi hâlde ne söyleyeceğini yaşayarak öğrenir
-        self.initiative = InitiativeCortex(seed=seed + 91)
         self.discourse = DiscourseCortex(seed=seed + 137, lexicon=self.lang.graph.lexicon)
         self.initiative = InitiativeCortex(seed=seed + 173)
-        self.last_proactive: dict | None = None
+        # Son anlatılan kavramlar: aynı hikâyeyi tekrar tekrar anlatmasın
+        self._narrated: deque[str] = deque(maxlen=6)
         self.last_proactive: dict | None = None
         for path in (corpus or []):
             self.read_corpus(path)
@@ -905,13 +905,40 @@ class NoraAGI:
         s_low = tr_lower(raw)
         bids: list[CorticalBid] = []
 
+        # --- SÜTUN -1: KİŞİSEL ANLATI — karşıdaki kendi yaşantısını anlatıyorsa Nora ders vermez.
+        # İnsan değil mi? Bir şey anlatan birine ansiklopedi maddesi okumayız; dinler, yansıtır, sorarız.
+        narration = None
+        try:
+            narration = self.discourse.narration_of(raw)
+        except Exception:
+            narration = None
+        if narration is not None:
+            try:
+                nar_res = self.discourse.respond_narration(raw, self, narration)
+                bids.append(CorticalBid(
+                    "social_narration", 0.966, 0.95, nar_res["text"], f"narration:{nar_res['act']}",
+                ))
+            except Exception:
+                narration = None
+
+        # --- SÜTUN -1b: TOPLUMSAL OLAY (doğum günü gibi) — bilgi maddesi değil, insan karşılığı
+        try:
+            _ev = self.discourse.social_event_of(raw)
+            if _ev is not None:
+                _ev_rep = self.discourse.respond_social_event(raw, self, _ev)
+                if _ev_rep.get("text"):
+                    bids.append(CorticalBid("social_event", 0.972, 0.96, _ev_rep["text"],
+                                            f"social:{_ev_rep['act']}"))
+        except Exception:
+            pass
+
         # --- SÜTUN 0: Nöral Sözce Öz-Sınıflandırması + Otonom Etiketleme/Mantık + Durumsal Türkçe ---
         utt_cls = self.last_utterance_class or self.utter_cortex.classify(raw)
         cur_sc0 = self.monologue.last_thought.schema_id if self.monologue.last_thought is not None else "S1_NEDEN_SONUC"
         # Bildirim cümlesi ise Nora kendi mantık kuralını ve etiketini KENDİSİ kurar (soru işareti olmadan da sınıflar!)
         ing_res = None
         self._turn_mint_label = ""
-        if not utt_cls.get("is_question"):
+        if not utt_cls.get("is_question") and narration is None:
             ing_res = self.logic.ingest_statement(raw)
         if ing_res is not None:
             self._turn_mint_label = str(ing_res["label"])
@@ -923,7 +950,18 @@ class NoraAGI:
             _c_tie = _syn_m.realize_verb(VerbSpec(
                 verb_root="bağla", obj="bunu", dat=NP("bellek", poss=1, case="DAT"),
                 tense="PAST", person="1SG", dat_last=True))
-            _mint_fb = f"{tr_capitalize(_c_mint)}: {ing_res['label']}. {tr_capitalize(_c_tie)}."
+            # İç etiketler (ÖZ_...) ASLA söze dönüşmez: bunlar zihnin iç simgeleridir, insan dili değil.
+            _lbl = str(ing_res["label"])
+            if "_" in _lbl or "[" in _lbl or ":" in _lbl:
+                _desc = {
+                    "dual_state": "iki durumun aynı anda geçerli olabileceğini",
+                    "variation": "iki değişkenin birlikte değiştiğini",
+                    "conditional_transition": "bir koşulun durumu değiştirdiğini",
+                    "frame_transition": "bir durumun başka bir biçime dönüştüğünü",
+                }.get(str(ing_res.get("kind", "")), "bu cümledeki bağı")
+                _mint_fb = f"Bu cümlede {_desc} kendi başıma çözdüm. {tr_capitalize(_c_tie)}."
+            else:
+                _mint_fb = f"{tr_capitalize(_c_mint)}: {_lbl}. {tr_capitalize(_c_tie)}."
             mint_rep = self.speak_or(_mint_fb, anchors=[str(ing_res["label"])], nov=0.8, fam=0.2,
                                      conf=self._speaker_trust(speaker))
             bids.append(CorticalBid(
@@ -1152,7 +1190,7 @@ class NoraAGI:
                 # ve türetilmiş kurallardan (0.972) DAHA YÜKSEK ses alır: kanıt, etiketten üstündür.
                 _sal = 0.985 if arb.get("conflict") else 0.97
                 bids.append(CorticalBid("hippocampal_concept", _sal, 0.96, rep_v, f"teach_val:{fr.subj}"))
-            elif fr.kind == "teach_fact" and conv_res is None and self._turn_mint_label:
+            elif fr.kind == "teach_fact" and conv_res is None and narration is None and self._turn_mint_label:
                 # Bu cümle zaten Nora'nın kendi mantık motorunda yapısal kural olarak kodlandı;
                 # kaba sözcük-dizisi kenarı üretmek kavram ağını kirletir, onun yerine öz-etiketini bildirir.
                 syn_tf = self.broca_organ.syn
@@ -1165,7 +1203,7 @@ class NoraAGI:
                     f"{tr_capitalize(c_tf)}: {self._turn_mint_label}.",
                     f"structured:{self._turn_mint_label}",
                 ))
-            elif fr.kind == "teach_fact" and conv_res is None:
+            elif fr.kind == "teach_fact" and conv_res is None and narration is None:
                 edges = self.lang.teach_sentence(raw, speaker=speaker)
                 if edges:
                     e0 = edges[0]
@@ -1432,8 +1470,112 @@ class NoraAGI:
             return f"Bilişsel haritamda işaretlenmiş {n_haz} tehlikeli hücre var; konumum ({px:.1f}, {py:.1f})."
         return f"İçsel yol integrasyonu haritama göre ({px:.1f}, {py:.1f}) konumundayım (belirsizlik {self.mind.map.unc:.2f})."
 
+    # Söz edimi isteyen fiiller: karşıdaki bunları istediğinde Nora bedensel irade değil DİL
+    # organını çalıştırır (anlat -> bildiğinden anlat, dinle -> dinle, sor -> sor).
+    _SPEECH_REQUEST_ROOTS = frozenset({
+        "anlat", "söyle", "açıkla", "öğret", "oku", "konuş", "sor", "dinle", "yaz", "göster",
+        "ver", "danış",
+    })
+    # İçerik istemeyen istek nesneleri: 'bana bir tavsiye ver' -> konu sorulur.
+    _ADVICE_OBJECTS = frozenset({"tavsiye", "öğüt", "fikir", "akıl", "yol"})
+
+    def _narrate_from_knowledge(self, topic: str = "") -> str:
+        """Kendi kavram ağından, kendi seçtiği bir düğümü anlatır: uydurmadan, ezberden okumadan.
+        Hikâye istendiğinde gerçekten bildiği bağları sıraya koyar; sonunda kendi merakını ekler."""
+        g = self.lang.graph
+        broca = self.lang.broca
+        cand = tr_lower(topic).strip() if topic else ""
+        if cand and not g.query(cand, None):
+            cand = ""
+        if not cand:
+            rich = [(k, len(v)) for k, v in g._out_edges.items() if len(v) >= 2 and k not in self._narrated]
+            if not rich:
+                self._narrated.clear()
+                rich = [(k, len(v)) for k, v in g._out_edges.items() if len(v) >= 2]
+            if not rich:
+                return ""
+            rich.sort(key=lambda kv: (-kv[1], kv[0]))
+            pool = rich[:12]
+            cand = pool[int(self.mind.age + len(self._narrated)) % len(pool)][0]
+        self._narrated.append(cand)
+        hits = g.query(cand, None)
+        best: dict[str, tuple] = {}
+        for e, path in hits:
+            cur = best.get(e.rel)
+            if cur is None or (e.weight, -len(path or ())) > (cur[0].weight, -len(cur[1] or ())):
+                best[e.rel] = (e, path)
+        order = ("ISA", "HAS_PART", "HAS_PROP", "CAN_DO", "USED_FOR", "CAUSES", "LOCATED_AT", "OPPOSITE")
+        clauses: list[str] = []
+        edges: list = []
+        for rel in order:
+            if rel in best and len(clauses) < 2:
+                e, _path = best[rel]
+                txt = broca.realize_prop(Proposition(subj=cand, rel=e.rel, obj=e.obj))
+                if txt and txt not in clauses:
+                    clauses.append(txt)
+                    edges.append(e)
+        if not clauses:
+            return ""
+        body = tr_capitalize("; ".join(clauses)) + "."
+        # Kendi duruşu: az önce kurduğu bağa verdiği kişisel karşılık (inisiyatif organının biçimleri).
+        stance = ""
+        try:
+            if edges:
+                stance = self.initiative._c_share_discovery(self, {"edge": (edges[0].subj, edges[0].rel, edges[0].obj)}) or ""
+        except Exception:
+            stance = ""
+        self.lang.wernicke.last_explanation = (
+            f"Anlatı isteğine kavram ağımdan yanıt verdim: {cand} düğümünde {len(edges)} bağ seçtim"
+        )
+        return f"{body} {stance}".strip()
+
+    def _handle_speech_request(self, fr) -> str:
+        """Dil isteğini (anlat/dinle/sor/öğret...) karşılar; içerik gerçek bilgiden gelir."""
+        from nora_broca import TurkishSyntaxEngine as SYN
+        rel = fr.rel
+        topic = (fr.obj or "").strip()
+        if rel == "dinle":
+            return tr_capitalize(SYN.realize_verb(VerbSpec(
+                verb_root="dinle", obj=NP("sen", case="ACC"), tense="PRES", person="1SG"))) + "."
+        if rel == "sor":
+            ask = SYN.realize_verb(VerbSpec(verb_root="sor", tense="IMP", person="2SG"))
+            return f"{tr_capitalize(ask)}, " + tr_lower(tr_capitalize(SYN.realize_verb(VerbSpec(
+                verb_root="dinle", obj=NP("ben", case="ACC"), tense="PRES", person="1SG")))) + "."
+        if rel == "konuş":
+            return tr_capitalize(SYN.realize_verb(VerbSpec(
+                verb_root="konuş", advs=("seninle",), tense="AOR", person="1PL",
+                question_yn=True))) + "?"
+        if topic in self._ADVICE_OBJECTS:
+            ask = SYN.realize_verb(VerbSpec(
+                verb_root="iste", obj=NP(topic, mods=("ne hakkında",), case="NOM"),
+                tense="AOR", person="2SG"))
+            return tr_capitalize(ask) + "?"
+        told = self._narrate_from_knowledge(topic)
+        if told:
+            return told
+        return ""
+
     def _handle_command(self, fr, speaker: str = "insan") -> str:
         morph = self.lang.morph
+        if getattr(fr, "sub_kind", "") == "invite":
+            from nora_broca import TurkishSyntaxEngine as SYN
+            obj_np = NP(fr.obj, case="NOM") if fr.obj else None
+            try:
+                yes = SYN.realize_verb(VerbSpec(verb_root=fr.rel, obj=obj_np, tense="OPT", person="1PL"))
+            except Exception:
+                yes = ""
+            if yes:
+                yes = tr_capitalize(yes) + "."
+                follow = ""
+                try:
+                    follow = self.initiative._c_ask_about(self, {}) or ""
+                except Exception:
+                    follow = ""
+                return f"{yes} {follow}".strip()
+        if fr.rel in self._SPEECH_REQUEST_ROOTS:
+            said = self._handle_speech_request(fr)
+            if said:
+                return said
         if fr.rel == "uyu":
             st = self.sleep()
             return (
