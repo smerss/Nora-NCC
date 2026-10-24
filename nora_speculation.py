@@ -133,9 +133,25 @@ class SpeculativeCortex:
                 cand1 = t[:-1]
                 if cand1 and cand1[-1] in 'aeıioöuü':
                     roots.append(cand1)           # mırla-r, esne-r
-                known = next((c for c in roots if c in agi.lang.morph.KNOWN_VERB_ROOTS
-                              or g.query(c, None) or c in g.lexicon), None)
-                cand = known or (cand1 if cand1 and cand1[-1] in 'aeıioöuü' else (roots[0] if roots else ''))
+                def _is_root(c: str) -> bool:
+                    if not c or len(c) < 2:
+                        return False
+                    return (c in agi.lang.morph.KNOWN_VERB_ROOTS or g.query(c, None)
+                            or c + "mak" in g.lexicon or c + "mek" in g.lexicon)
+                known = next((c for c in roots if _is_root(c)), None)
+                if known:
+                    cand = known
+                elif roots:
+                    _r0 = roots[0]
+                    _cluster = len(_r0) >= 2 and _r0[-1] not in 'aeıioöuü' and _r0[-2] not in 'aeıioöuü'
+                    # Ünsüz kümesiyle biten gövde ('esn', 'sall', 'mırl') Türkçede kök değildir:
+                    # bu durumda ünlüyle biten aday köktür ('esne', 'salla', 'mırla').
+                    if _cluster and cand1 and cand1[-1] in 'aeıioöuü':
+                        cand = cand1
+                    else:
+                        cand = _r0
+                else:
+                    cand = '' 
                 if cand and len(cand) >= 2:
                     verb, verb_idx = cand, _i
                     nouns = [n for n in nouns if not (verb.startswith(n[0]) and len(n[0]) >= 2)]
