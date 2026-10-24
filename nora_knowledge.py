@@ -123,6 +123,60 @@ COMMON_ADJECTIVES: set[str] = {
     "erken", "geç", "hazır", "hazırlıklı", "şanslı", "şanssız", "haklı", "haksız",
 }
 
+COMMON_NOUNS: set[str] = {
+    # Gündelik Türkçenin çekirdek AD hazinesi: iyelik/hâl çözümlemesi sözlükle doğrulanabilsin
+    # ('kardeşim' -> 'kardeş', 'evimize' -> 'ev'). Kalıp değil, sözcük bilgisi.
+    # Akrabalık
+    "anne", "baba", "kardeş", "abla", "ağabey", "abi", "dede", "nine", "büyükanne", "büyükbaba",
+    "oğul", "kız", "çocuk", "bebek", "eş", "karı", "koca", "torun", "amca", "hala", "dayı", "teyze",
+    "yeğen", "kuzen", "gelin", "damat", "aile", "akraba", "arkadaş", "dost", "komşu", "misafir",
+    # Beden
+    "baş", "kafa", "saç", "yüz", "alın", "göz", "kaş", "kirpik", "kulak", "burun", "ağız", "dudak",
+    "diş", "dil", "çene", "boyun", "omuz", "kol", "el", "parmak", "tırnak", "göğüs", "sırt", "karın",
+    "mide", "kalp", "yürek", "ciğer", "böbrek", "kan", "damar", "deri", "ten", "kemik", "kas", "bacak",
+    "diz", "ayak", "topuk", "beyin", "sinir", "hücre", "nefes", "ses",
+    # Ev ve eşya
+    "ev", "oda", "salon", "mutfak", "banyo", "tuvalet", "bahçe", "balkon", "kapı", "pencere", "duvar",
+    "tavan", "yer", "tavan", "masa", "sandalye", "koltuk", "yatak", "yorgan", "yastık", "perde", "halı",
+    "dolap", "çekmece", "raf", "lamba", "ampul", "anahtar", "kilit", "tabak", "bardak", "çatal", "kaşık",
+    "bıçak", "tencere", "tava", "buzdolabı", "fırın", "ocak", "çaydanlık", "sürahi", "havlu", "sabun",
+    "diş fırçası", "tarak", "ayna", "telefon", "bilgisayar", "televizyon", "radyo", "saat", "takvim",
+    "kitap", "defter", "kalem", "silgi", "çanta", "kâğıt", "makas", "yapıştırıcı", "para", "cüzdan",
+    "giysi", "elbise", "gömlek", "pantolon", "etek", "ceket", "mont", "ayakkabı", "çorap", "şapka",
+    "atkı", "eldiven", "gözlük", "yüzük", "kolye", "bilezik",
+    # Yiyecek/içecek
+    "su", "çay", "kahve", "süt", "meyve suyu", "ekmek", "peynir", "zeytin", "yumurta", "tereyağı",
+    "bal", "reçel", "şeker", "tuz", "un", "pirinç", "makarna", "bulgur", "çorba", "salata", "yemek",
+    "et", "tavuk", "balık", "sebze", "meyve", "elma", "armut", "muz", "portakal", "limon", "üzüm",
+    "karpuz", "kavun", "çilek", "kiraz", "şeftali", "domates", "salatalık", "biber", "patlıcan",
+    "patates", "soğan", "sarımsak", "havuç", "ıspanak", "fasulye", "nohut", "mercimek", "ceviz",
+    "fındık", "badem", "kek", "börek", "poğaça", "simit", "dondurma", "çikolata", "tatlı",
+    # Hayvan/doğa
+    "kedi", "köpek", "kuş", "balık", "at", "eşek", "inek", "koyun", "keçi", "tavuk", "horoz", "ördek",
+    "kaz", "arı", "kelebek", "karınca", "örümcek", "yılan", "kurbağa", "kaplumbağa", "aslan", "kaplan",
+    "ayı", "kurt", "tilki", "tavşan", "fare", "sincap", "ağaç", "orman", "çiçek", "gül", "papatya",
+    "çimen", "yaprak", "dal", "kök", "tohum", "toprak", "taş", "kaya", "dağ", "tepe", "vadi", "ova",
+    "tarla", "bahçe", "deniz", "göl", "nehir", "dere", "ırmak", "yağmur", "kar", "rüzgâr", "fırtına",
+    "güneş", "ay", "yıldız", "gökyüzü", "bulut", "hava", "ateş", "duman", "kül", "kum", "çamur",
+    # Yer/kurum/ulaşım
+    "şehir", "köy", "kasaba", "sokak", "cadde", "mahalle", "meydan", "park", "okul", "sınıf",
+    "üniversite", "hastane", "eczane", "market", "dükkân", "mağaza", "kafe", "restoran", "otel",
+    "sinema", "tiyatro", "müze", "kütüphane", "cami", "kilise", "havalimanı", "istasyon", "durak",
+    "iskele", "liman", "yol", "köprü", "tünel", "araba", "otobüs", "tren", "uçak", "gemi", "bisiklet",
+    "motor", "taksi", "asansör", "merdiven",
+    # Zaman/soyut
+    "gün", "gece", "sabah", "öğle", "akşam", "hafta", "ay", "yıl", "mevsim", "ilkbahar", "yaz",
+    "sonbahar", "kış", "dün", "bugün", "yarın", "şimdi", "zaman", "saat", "dakika", "saniye",
+    "hayat", "yaşam", "ölüm", "doğum", "yaş", "isim", "ad", "söz", "kelime", "cümle", "dil", "hikâye",
+    "masal", "şarkı", "müzik", "resim", "film", "oyun", "iş", "meslek", "para", "soru", "cevap",
+    "fikir", "düşünce", "duygu", "sevinç", "üzüntü", "korku", "öfke", "merak", "umut", "sevgi",
+    "saygı", "güven", "yalan", "gerçek", "hayal", "rüya", "anı", "hatıra", "plan", "hedef", "yol",
+    "sorun", "çözüm", "neden", "sonuç", "başlangıç", "son", "orta", "yan", "iç", "dış", "üst", "alt",
+    "ön", "arka", "sağ", "sol", "güç", "enerji", "hareket", "durum", "olay", "haber", "mektup",
+    "gazete", "dergi", "sayfa", "satır", "sayı", "renk", "biçim", "boyut", "ağırlık", "sıcaklık",
+    "hız", "mesafe", "yer", "gök", "dünya", "evren", "doğa", "insan", "toplum", "kültür", "tarih",
+}
+
 CORE_TURKISH_VERBS: set[str] = {
     # Gündelik anlatı (konuşma dilinin en sık fiilleri)
     "izle", "seyret", "başla", "bitir", "oku", "yaz", "dinle", "hazırla", "temizle", "gez",

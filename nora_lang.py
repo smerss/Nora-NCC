@@ -696,6 +696,62 @@ class TurkishMorphology:
     _ANALYZE_CACHE: dict[tuple[str, int, int], dict] = {}
 
     @classmethod
+    def _finish_noun(cls, info: dict, cur: str) -> dict:
+        """Erken dönüşlerde ortak bitiriş: gövdeyi yaz, alanları tutarlı bırak."""
+        if cur in cls.REV_VOWEL_DROP:
+            cur = cls.REV_VOWEL_DROP[cur]
+            info["vowel_drop"] = True
+        info["stem"] = cur
+        return info
+
+    _VOCAB_CACHE: dict = {}
+
+    @classmethod
+    def _known_vocab(cls, lexicon: set[str] | None) -> set[str]:
+        """Sözlük + gündelik ad hazinesi — KOPYASIZ ve önbellekli.
+
+        Her sözcükte 50k'lık sözlüğü kopyalamak O(n) olurdu (O(1) hız sözü bozulur);
+        bu yüzden birleşim sözlüğün (id, uzunluk) anahtarıyla bir kez kurulur.
+        """
+        try:
+            from nora_knowledge import COMMON_NOUNS
+        except Exception:
+            COMMON_NOUNS = set()
+        if not lexicon:
+            return COMMON_NOUNS
+        key = (id(lexicon), len(lexicon))
+        hit = cls._VOCAB_CACHE.get(key)
+        if hit is not None:
+            return hit
+        merged = set(lexicon) | COMMON_NOUNS
+        if len(cls._VOCAB_CACHE) > 64:
+            cls._VOCAB_CACHE.clear()
+        cls._VOCAB_CACHE[key] = merged
+        return merged
+
+    @classmethod
+    def strip_poss1(cls, w: str, lexicon: set[str] | None = None) -> str | None:
+        """1. tekil iyelik ekini (-Im) sözlük doğrulamasıyla soyar: 'kardeşim' -> 'kardeş'.
+
+        Sözcük bütün hâliyle sözlükte duruyorsa bile iyelik okuması geçerlidir; bu, konuşanın
+        kendi yakınlarını ('kardeşim', 'annem') aktarırken 2. kişiye çevirmek için gerekir.
+        """
+        if not w:
+            return None
+        known = cls._known_vocab(lexicon)
+        low = tr_lower(w)
+        for suf in ("ımız", "imiz", "umuz", "ümüz", "ım", "im", "um", "üm", "m"):
+            if not low.endswith(suf) or len(low) - len(suf) < 3:
+                continue
+            base = low[: -len(suf)]
+            for cand in (base, cls._unsoften(base), cls._undouble(base),
+                         base + "a", base + "e", base + "ı", base + "i"):
+                if cand and (cand in known or cand in cls.KNOWN_VERB_ROOTS):
+                    if cand in known or cls._unsoften(cand) in known:
+                        return cand
+        return None
+
+    @classmethod
     def analyze_word(cls, raw: str, lexicon: set[str] | None = None) -> dict:
         """Sözlük boyu anahtarlı önbellek: aynı sözcük her turda yeniden çözümlenmez (tur gecikmesi O(1))."""
         key = (raw, len(lexicon) if lexicon else 0, len(cls.KNOWN_VERB_ROOTS))
@@ -713,7 +769,7 @@ class TurkishMorphology:
         """Sözlük-duyarlı çözümleme: ham çözümlemeyi yapar, sonra uydurma kök soymayı geri alır.
         ('zürafa'->'züraf'+DAT, 'matematik'->'mat'+fiil gibi hatalar anlamayı bozuyordu.)"""
         info = cls._analyze_word_raw(raw, lexicon)
-        known = lexicon or set()
+        known = cls._known_vocab(lexicon)
         if not known:
             return info
         w, stem = info.get("surface", ""), info.get("stem", "")
@@ -721,7 +777,8 @@ class TurkishMorphology:
             # Sözlükte bütün hâliyle duran sözcük, kök soyma tahmininden üstündür:
             # 'yemek' (aş) 'ye+mek' diye fiil köküne indirgenmemeli; 'hikâye' 'hikâ'+DAT olmamalı.
             return {**info, "stem": w, "case": "NOM", "is_verb": False, "neg": False}
-        if w not in known and stem not in known and info.get("is_verb") and stem not in cls.KNOWN_VERB_ROOTS:
+        if (w not in known and stem not in known and info.get("is_verb")
+                and not info.get("voice") and stem not in cls.KNOWN_VERB_ROOTS):
             # 'matematik' -> 'mat' (fiil) gibi köksüz çözümlemeler anlamayı bozar; sözlükte
             # olmayan bir fiil kökü asla "gerçek" sayılmaz, kelime olduğu gibi alınır.
             return {**info, "stem": w, "case": "NOM", "is_verb": False, "neg": False}
@@ -895,8 +952,21 @@ class TurkishMorphology:
         # 1) SENTEZ İNDEKSİ — üretimin aynısı; üretilebilen her biçim çözülebilir.
         _hit = cls._index_lookup(w)
         if _hit is not None:
+            # SIFAT KÖKLERİ zamanla fiil gibi öğrenilebiliyor ('güzel-di' -> kök 'güzel').
+            # Yalnızca bu durumda koşaç okuması öne geçer (yoksa 'güzel-diğini' diye bozulur);
+            # diğer bütün sözcüklerde indeks O(1) yolu korunur.
+            try:
+                from nora_knowledge import COMMON_ADJECTIVES as _CA, STATE_ADJECTIVES as _SA
+                _st = _hit.get("stem")
+                if _st in _CA or _st in _SA:
+                    _nc0 = getattr(cls, "analyze_nominal_copula", None)
+                    _r0 = _nc0(w, None) if _nc0 is not None else None
+                    if _r0:
+                        return _r0
+            except Exception:
+                pass
             return _hit
-        # AD + KOŞAÇ: 'güzeldi', 'hastaydı', 'soğuktu' (hal eki sanılmasın; indekste yoksa)
+        # AD + KOŞAÇ: 'güzeldi', 'hastaydı', 'soğuktu' (indekste yoksa)
         _nc = getattr(cls, "analyze_nominal_copula", None)
         if _nc is not None:
             _ncr = _nc(w, None)
@@ -999,7 +1069,7 @@ class TurkishMorphology:
         info = {"surface": w, "stem": w, "case": "NOM", "plural": False, "neg": False, "copula": False, "is_verb": False}
         if not w or len(w) <= 2:
             return info
-        known = lexicon or set()
+        known = cls._known_vocab(lexicon)
 
         # Özel zamir ve düzensiz biçimler
         pron_map = {
@@ -1014,6 +1084,13 @@ class TurkishMorphology:
         if w in pron_map:
             info["stem"], info["case"] = pron_map[w]
             return info
+        # SIFAT SÖZLÜĞÜ: 'hasta' -> 'has'+LOC gibi savrulmaları önler (sıfatlar çekimsiz köklerdir).
+        try:
+            from nora_knowledge import COMMON_ADJECTIVES, STATE_ADJECTIVES
+            if w in STATE_ADJECTIVES or w in COMMON_ADJECTIVES:
+                return info
+        except Exception:
+            pass
 
         # 0) BİTMİŞ FİİL (finite verb) çözümlemesi — konuşma dilinin bel kemiği.
         #    'izledim', 'kalktım', 'uyuyamadım', 'geldi', 'konuştum'. Yalnızca kök SÖZLÜKTE varsa kabul
@@ -1277,6 +1354,11 @@ class TurkishMorphology:
                         # Türkçe ünsüz benzeşmesi yasası: 't' ile başlayan hal eki (-ta/-te/-tan/-ten) YALNIZCA sert ünsüzden sonra gelebilir!
                         if sf[0] == "t" and (not cand or cand[-1] not in HARD_CONS):
                             continue
+                        # Ünlüyle biten gövdeye 'la/le' gelemez: araç hali 'yla/yle' olur
+                        # ('okula' -> 'oku'+INS değil, 'okul'+DAT!). Aynı kural tek harfli
+                        # belirtme/yönelme ekleri için de geçerli: ünlü gövde 'y'/'n' ister.
+                        if cand and cand[-1] in ALL_VOWELS and sf in ("la", "le", "a", "e", "ı", "i", "u", "ü"):
+                            continue
                         # Kaynaştırma 'n'li ek yalnızca ünlüyle biten ve SÖZLÜKTE olan bir gövdeye gelir
                         # ('gökyüzü-nü'); yoksa 'kadına' -> 'kadı' gibi savrulma olur.
                         if len(sf) == 2 and sf[0] == "n" and cand not in known \
@@ -1307,7 +1389,9 @@ class TurkishMorphology:
                                 or (sf == "e" and _v4 in ("i", "ü")) or (sf == "i" and _v4 == "i")
                                 or (sf == "u" and _v4 == "u") or (sf == "ü" and _v4 == "ü")
                             )
-                            _min_len = 3 if (vdrop or cand in known or hard in known) else 4
+                            # Sözlükte DOĞRULANMIŞ iki harflik gerçek kökler ('ev', 'su', 'at') korunur;
+                            # sözlükte olmayan kısa gövdeler ise uydurma soyma sayılır.
+                            _min_len = 2 if (cand in known or hard in known) else (3 if vdrop else 4)
                             if not (len(cand) >= _min_len and base_vowels and _ok_harm):
                                 continue
                         cur = hard if softened else cand
@@ -1383,6 +1467,8 @@ class TurkishMorphology:
                         if len(_ps) > 2:
                             info["poss"] = 2
                             info["poss1"] = False
+                            info["poss_person"] = ("1PL" if _ps in ("ımız", "imiz", "umuz", "ümüz")
+                                                   else "2PL")
                         return info
 
         # 4) Çoğul eki (-lar/-ler) ve iyelik (-ım/-im/-um/-üm / -ı/-i/-u/-ü) + Ünlü Düşmesi geri kazanımı
@@ -1407,7 +1493,20 @@ class TurkishMorphology:
                     cur = hard if hard in known else cand
                     info["poss1"] = True
                     info["poss"] = 1
+                    info["poss_person"] = "1SG"
                     break
+                # 'yollarım' -> 'yol' + lar (çoğul) + ım (1. tekil iyelik)
+                for _pl in ("lar", "ler"):
+                    if cand.endswith(_pl) and len(cand) - len(_pl) >= 2:
+                        _b = cand[:-len(_pl)]
+                        _hb = cls._unsoften(_b)
+                        if _b in known or _hb in known:
+                            cur = _hb if _hb in known else _b
+                            info["plural"] = True
+                            info["poss1"] = True
+                            info["poss"] = 1
+                            info["poss_person"] = "1SG"
+                            return cls._finish_noun(info, cur)
 
         if cur in cls.REV_VOWEL_DROP:
             cur = cls.REV_VOWEL_DROP[cur]
@@ -1895,6 +1994,21 @@ class BrocaGenerator:
             if parts and parts[-1].endswith(("ir", "ır", "ur", "ür", "yor", "di", "dı", "ti", "tı",
                                              "ecek", "acak", "meli", "malı", "maz", "mez")):
                 return f"{s} {' '.join(parts)}"
+            # Yüklem bir FİİL değilse (sıfat/ad) çekimlenmez, koşaç alır:
+            # 'hava çok sıcakmış' -> 'hava çok sıcaktır' ('sıcakır' değil).
+            try:
+                _la = self.morph.analyze_word(parts[-1] if parts else o)
+            except Exception:
+                _la = {}
+            _last = parts[-1] if parts else o
+            _is_root = _last in self.morph.KNOWN_VERB_ROOTS
+            if not _is_root and parts and not _la.get("is_verb") and not _la.get("tense"):
+                if is_neg:
+                    return f"{s} {o} değildir".strip()
+                return f"{s} {self._copula_phrase(o)}".strip()
+            if not _is_root and _la.get("is_verb") and _la.get("tense"):
+                # Yüklem ZATEN çekimli ('uçar', 'yaşar'): ikinci kez çekimlenmez.
+                return f"{s} {o}".strip()
             if len(parts) == 1:
                 v_form = self.morph.conjugate_verb(parts[0], tense=p.tense, neg=is_neg, person=p.person)
                 return f"{s} {v_form}".strip()
