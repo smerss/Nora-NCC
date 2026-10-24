@@ -31,7 +31,7 @@ import re
 import time
 import numpy as np
 
-from nora_lang import TurkishMorphology, ALL_VOWELS, FRONT_VOWELS, HARD_CONS, tr_lower, tr_capitalize
+from nora_lang import TurkishMorphology, ALL_VOWELS, FRONT_VOWELS, HARD_CONS, tr_lower, tr_capitalize, soften_verb_t
 from nora_knowledge import VOWEL_DROP_STEMS, NO_SOFTEN_EXTENDED
 
 
@@ -265,9 +265,7 @@ class TurkishSyntaxEngine:
 
     @classmethod
     def _soften_verb_t(cls, v: str) -> str:
-        if v in {"git", "et", "tat", "güt"} or v.endswith("det"):
-            return v[:-1] + "d"
-        return v
+        return soften_verb_t(v)
 
     @classmethod
     def nominalize_dik(

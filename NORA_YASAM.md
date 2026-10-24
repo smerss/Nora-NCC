@@ -46,9 +46,16 @@ python nora_egit.py broca --tokenizer runs/tok.json --wiki data/text/tr_dump.txt
 python nora_egit.py kisa --out runs/broca.pt --chat data/text/tr_tatoeba_c.txt
 ```
 
+## Dil olgunluğu kapısı (birleşme sonrası eklendi)
+Söz organı yalnızca `.mature ≥ 0.35` (≈1300 duyulmuş parça) ya da eğitilmiş `data/broca_tr.pt` bağlıyken kendi sözünü kurar.
+Bunun altında söz dizgi gürültüsü olacağı için Nora uydurmaz: `speak_or()` dürüst yedeğe düşer ("… hakkında henüz bilgim yok; merak listeme aldım").
+Ayrıca `_voice_usable()` denetimi vardır: <4 parçalı, çapayı taşımayan ya da aynı parçayı tekrarlayan söz söylenmez.
+Eğitilmiş organ bağlıyken bilinmeyen kavramda iki parçalı dürüst duruş kullanılır: "X hakkında henüz bilgim yok; merak listeme aldım. X mi?".
+
 ## Dürüst sınırlar
 * Sinirsel Broca kısa ve sade konuşur ("Kuş uç.", "Mitokondri mi?"); uzun, tutarlı cümle kuramaz (5,7M parametre, ~25M parça, tek geçiş). Anlam zihinden geldiği için bu bir sınırdır, kusur değil; ama konuşma kalitesi veriyle ve yaşantıyla artmalıdır.
 * Eğitim verisi (Tatoeba) çeviri cümleleridir; doğal Türkçe sohbet değildir.
 * Eski çekirdekte hâlâ elle yazılmış parçalar var (reddetme gerekçeleri, selamlaşma/empati kortekslerinin sözcük seçimi, Türkçe ayrıştırıcı). Bunlar öğrenilmiş katmana taşınmadı.
+* Öğrenilmiş sözün kalitesi duyulan dille sınırlı: hiç metin okutulmadan organ konuşmaz (bilinçli sessizlik), eğitilmiş organ ise kısa sorular kurar.
 * Hedef-eşiği gibi birkaç geliştirici sabiti kaldı (ör. terfi için 2 bağımsız kaynak, kesinlik 0.74, `IDLE_TAU`). Bunlar ileride Nora'nın kendi deneyiminden ayarlanmalı.
 * `A23`/`A25` süre eşikleri donanıma bağlıdır; bu makinede değişikliklerden önce de geçmiyordu.
