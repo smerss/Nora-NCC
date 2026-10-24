@@ -1090,6 +1090,14 @@ class BrocaGenerator:
         self.morph = TurkishMorphology()
         self.connective_counts: dict[str, int] = {"çünkü": 1, "dolayısıyla": 1, "ancak": 1}
 
+    def _copula_phrase(self, phrase: str) -> str:
+        """Çok sözcüklü yüklem öbeğinde koşaç YALNIZCA son sözcüğe gelir ('çok sıcaktır',
+        'bir değerli metaldir'); tam dizgeye uygulanınca 'sıcakır' gibi bozuk biçimler çıkıyordu."""
+        parts = phrase.split()
+        if not parts:
+            return phrase
+        return " ".join(parts[:-1] + [self.morph.inflect_noun(parts[-1], "NOM", copula=True)])
+
     def realize_prop(self, p: Proposition) -> str:
         s = p.subj.strip()
         o = p.obj.strip()
@@ -1097,13 +1105,13 @@ class BrocaGenerator:
 
         if r == "ISA":
             art = "" if o.startswith("bir ") else "bir "
-            pred = self.morph.inflect_noun(o, "NOM", copula=not p.neg)
-            return f"{s} {art}{o} değildir" if p.neg else f"{s} {art}{pred}"
+            pred = self._copula_phrase(art + o)
+            return f"{s} {art}{o} değildir" if p.neg else f"{s} {pred}"
 
         if r == "HAS_PROP":
             if p.neg:
                 return f"{s} {o} değildir"
-            return f"{s} {self.morph.inflect_noun(o, 'NOM', copula=True)}"
+            return f"{s} {self._copula_phrase(o)}"
 
         if r == "HAS_PART":
             # Sahiplik: 'zürafanın uzun boynu var' (parça/özellik adı iyelikli kurulur)

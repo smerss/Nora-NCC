@@ -30,6 +30,50 @@ import time
 #    CAUSES: X ...'e yol açar | HAS_PROP: X ... özelliğine sahiptir | OPPOSITE: zıt
 # ============================================================================
 
+# ============================================================================
+# 0. SÖZCÜK DAĞARCIĞI (bilgi değil, sözcük): çocuk gibi önce kelimeleri tanır.
+#    Bu liste kavram ağına "kavram" olarak yazılır; hiçbir olgu iddiası taşımaz.
+#    Amacı: Nora'nın bilmediği sözcüğü "bilmiyorum" diye işaretlemesi DÜRÜST olsun.
+# ============================================================================
+
+VOCAB: list[str] = """
+ben sen o biz siz onlar kendi kendim kendin şey şeyler herkes kimse biri birisi hiçbiri
+bu şu bunlar şunlar öyle böyle şöyle hangi neden niçin niye nasıl nerede nereye nereden ne zaman
+kaç kadar göre rağmen için ile ve ama fakat ancak çünkü eğer ki ise de da bile yalnız sadece hep
+çok az en daha pek çok daha çoğu bazı birkaç bütün tüm her hiçbir başka diğer öteki aynı benzer
+şimdi şu an bugün dün yarın önce sonra önceki sonraki sabah akşam gece gündüz öğle erken geç
+burada orada buraya oraya buradan oradan nerede dışarı içeri yukarı aşağı ileri geri yanında
+üzerinde altında yanına arasında içinde dışında karşısında yanı sıra etrafında ortasında
+evet hayır tamam peki belki tabii elbette kesinlikle asla gerçekten cidden belki
+gel git kal dur bak yap et ol ver al aç kapa kalk in çık otur yat uyu uyan ye iç konuş sus
+söyle anlat sor cevap iste dile merak et düşün bil anla öğren öğret hatırla unut sev sevin
+üzül kork korkma ağla gül gülümse bekle ara bul kaybet kazan başla bitir devam et bırak tut
+yaşa öl doğ büyü küçül değiş dön dolaş yürü koş uç yüz sürün zıpla tırman dinlen çalış oyna
+oku yaz çiz say hesapla ölç tart dene gör duy dokun tat kokla nefes al
+insan kişi çocuk genç yaşlı kadın erkek anne baba kardeş abla ağabey dede nine arkadaş dost
+komşu öğretmen öğrenci doktor hasta işçi çiftçi mühendis sanatçı yazar şair bilim insanı
+aile toplum kalabalık yalnızlık sohbet konuşma söz cümle kelime dil ses sessizlik gürültü
+gün hafta ay yıl mevsim saat dakika an zaman geçmiş şimdi gelecek geçmiş anı anılar
+ev oda mutfak banyo yatak salon bahçe sokak yol şehir köy ülke dünya evren gökyüzü yer toprak
+su hava ateş ışık karanlık gölge sıcak soğuk ılık serin rüzgâr yağmur kar bulut güneş ay yıldız
+deniz göl nehir dağ tepe ova orman çöl ada kıyı sahil dalga kum taş kaya
+yemek ekmek su çay kahve süt meyve sebze et balık tuz şeker tatlı tuzlu acı ekşi
+baş göz kulak burun ağız dudak dil diş yüz saç el kol ayak parmak bacak sırt göğüs karın
+kalp beyin akciğer mide böbrek karaciğer kan kemik kas deri sinir hücre
+sağlık hastalık ağrı acı ateş öksürük yara ilaç uyku yorgunluk dinlenme yemek içmek
+duygu sevgi nefret korku kaygı öfke mutluluk üzüntü yalnızlık merak umut umutsuzluk
+huzur huzursuzluk sıkıntı can sıkıntısı sevinç heyecan şaşkınlık gurur utanç suçluluk
+iyi kötü güzel çirkin doğru yanlış gerçek yalan kolay zor büyük küçük uzun kısa geniş dar
+yüksek alçak hızlı yavaş güçlü zayıf güçlü sağlıklı hasta mutlu mutsuz yorgun dinç aç tok
+kitap defter kalem kâğıt masa sandalye yatak kapı pencere duvar çatı bahçe araba otobüs tren
+uçak gemi bisiklet telefon bilgisayar internet radyo televizyon müzik resim film oyun oyuncak
+iş okul üniversite sınav ders ödev proje para alışveriş market pazar
+renk kırmızı mavi yeşil sarı siyah beyaz pembe mor turuncu kahverengi gri
+sayı bir iki üç dört beş altı yedi sekiz dokuz on yüz bin milyon yarım çeyrek
+neden sonuç amaç soru cevap problem çözüm fikir düşünce hayal rüya anlam değer özgürlük
+zaman mekân varlık yokluk yaşam ölüm doğum büyüme değişim düzen kaos gerçeklik
+""".split()
+
 TRIPLES: list[tuple[str, str, str]] = [
     # ---------------------------------------------------------------- canlılar
     ("kedi", "ISA", "evcil hayvan"), ("köpek", "ISA", "evcil hayvan"),
@@ -296,6 +340,11 @@ DIALOGUE: list[str] = [
 def _feed(agi, triples: list[tuple[str, str, str]], sentences: list[str], dialogue: list[str]) -> dict:
     """Tek geçişte besleme: kavram ağı + sözdizimi + söz organı. Epoch yok, öğretmen yok."""
     g = agi.lang.graph
+    for w in VOCAB:
+        try:
+            g.register_concept(w, bind_mb=False)
+        except Exception:
+            continue
     added = 0
     for subj, rel, obj in triples:
         try:
@@ -320,7 +369,7 @@ def _feed(agi, triples: list[tuple[str, str, str]], sentences: list[str], dialog
             heard += len(sent.split())
     except Exception:
         pass
-    return {"triples": len(triples), "triples_added": added, "sentence_edges": edges_txt,
+    return {"triples": len(triples), "triples_added": added, "vocab": len(VOCAB), "sentence_edges": edges_txt,
             "words_heard": heard, "concepts": len(g.lexicon), "graph_edges": len(g.edges),
             "voice_maturity": round(float(agi.life.voice.mature), 3)}
 

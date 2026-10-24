@@ -1546,6 +1546,40 @@ def a51_turkish_possession_and_case():
     return ok, f"iyelik(parça)={ok_part} | hortum={ok_f} | kök-güvenliği={ok_stem} | nesne={ok_obj}"
 
 
+def a52_discourse_policy_no_garbage():
+    """Söylem organı: anlaşılamayan sözde çöp cümle üretmez (fiil kökünü nesne sanmaz), tanıdık
+    sözcüğe "bilmiyorum" demez, olumsuz söze sevinçle karşılık vermez, tekrar etmez."""
+    import re
+    from nora_lang import tr_lower
+    from nora_besle import besle
+
+    agi = NoraAGI(seed=52, boot_thinker=False)
+    agi.step_life(200)
+    besle(agi, verbose=False)
+    qs = ["Sen orada mısın?", "Yarın işe gidiyorum.", "Bir sorunum var ama anlatmak istemiyorum.",
+          "Bugün canım sıkılıyor.", "Uyuyamıyorum.", "Ne düşünüyorsun?",
+          "Dün akşam bir film izledim.", "Biraz sohbet edelim.", "Kendimi yalnız hissediyorum."]
+    replies = [agi.converse(q) for q in qs]
+    joined = " ".join(tr_lower(r) for r in replies)
+
+    # 1) dilbilgisel çöp: fiil köküne belirtme eki + boş yansıma
+    garbage = re.findall(r"\b(bu )?\w*[ıiuü] (düşün|gözlemle|değerlendir|yorumla)yorum", joined)
+    ok_gram = not garbage
+    # 2) tanıdık sözcüğe sahte bilgisizlik ("orada", "canım" gibi)
+    ok_known = not any(f"“{w}” sözcüğünü henüz bilmiyorum" in joined
+                       for w in ("orada", "canım", "bugün", "yarın", "işe"))
+    # 3) olumsuz söze olumlu duygu ifadesi
+    ok_tone = not any(("uyuyamıyor" in tr_lower(q) or "yalnız" in tr_lower(q) or "sıkılı" in tr_lower(q))
+                      and "sevindim" in tr_lower(r) for q, r in zip(qs, replies))
+    # 4) boş/çöp olmayan, biten cümleler + çeşitlilik
+    ok_forms = all(len(r.strip()) >= 8 and r.strip()[-1] in ".?!" for r in replies)
+    uniq = len(set(tr_lower(r) for r in replies)) / max(1, len(replies))
+    ok_uniq = uniq >= 0.75
+    ok = ok_gram and ok_known and ok_tone and ok_forms and ok_uniq
+    return ok, (f"dilbilgisi-çöpü={ok_gram} | sahte-bilgisizlik-yok={ok_known} | ton={ok_tone} | "
+                f"biçim={ok_forms} | tekrarsız={uniq:.2f}")
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -1598,6 +1632,7 @@ TESTS = {
     "A49": ("inisiyatif sözü içerikten gelir (bağ/beden), yüzde yok, alışmayla tekrarsız", a49_initiative_content_and_habituation),
     "A50": ("corpus'tan dünya bilgisi (kavram/ilişki) ve bilinmeyende dürüstlük", a50_world_knowledge_from_corpus),
     "A51": ("Türkçe iyelik/sahiplik ve sözlük-güvenli kök çözümleme", a51_turkish_possession_and_case),
+    "A52": ("söylem politikası: çöp cümle yok, sahte bilgisizlik yok, doğru ton", a52_discourse_policy_no_garbage),
 }
 
 

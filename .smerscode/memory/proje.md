@@ -119,3 +119,23 @@ Ek bulgular (özerk oturum sonu): tanıklıkla öğrenme 48x48 arenada ölümü 
 - Testler: **A50** (corpus'tan dünya bilgisi 12/12 + bilinmeyende dürüstlük), **A51** (iyelik/sahiplik +
   sözlük-güvenli kök çözümleme). Paket: **A1–A51**.
 
+## Güncel (tur: FAZ B/2 — söylem politikası organı)
+- Sorun: anlaşılamayan sözlerde "Çalışma belleğimde bu uyuyu düşünüyorum." gibi çöp cümleler çıkıyordu
+  (fiil kökü nesne sanılıp belirtme eki alıyordu: uyu→uyuyu, anla→anlıyoru, yarın→yarı).
+- Yeni organ `nora_discourse.py` (DiscourseCortex): 7 konuşma EDİMİ (QUOTE_ASK, CONCEPT_PEEK,
+  HONEST_UNKNOWN, EMPATHIZE, OFFER, WONDER, ACK_AND_STAY), 10 sürekli özellik (unknown_word,
+  known_concept, negative, positive, bored, question, short, long, self_state, repeat), plastik
+  ağırlık matrisi + alışma + yenilik cezası. Son deneme her zaman QUOTE_ASK → organ asla susmaz.
+- Alıntı yolu birebir (çekim hatası imkânsız), kavram komşusu gerçek graftan, duygudaşlık tonu
+  karşıdakinin hâlinden (negatifse ağır ton) — Nora'nın kimyası yalnızca şiddeti ayarlar.
+- Sahte bilgisizlik engeli: çekimli fiil, hâl ekli sözcük ya da tanıdık kök ("anlıyor"→"anla",
+  "gidiyorum"→"git") için "bilmiyorum" denmez; `_FUNCTION` dilbilgisi sözcükleri hiç aday olmaz.
+- `nora_besle.VOCAB`: 528 sözcüklük sözcük dağarcığı (bilgi değil, sözcük) — kavram ağına kavram
+  olarak yazılır, olgu iddiası taşımaz. Böylece "orada/canım/bugün" bilinmiyor sayılmıyor.
+- `nora_lang.BrocaGenerator._copula_phrase`: çok sözcüklü yükleme koşaç yalnızca son sözcüğe
+  ("çok sıcaktır", "bir değerli metaldir") — "sıcakır" hatası düzeldi.
+- `nora_broca.synthesize_associative_bid` ve `generate_response` açık-yansıma yolları artık önce
+  söylem organına soruyor; son çare mastarla kuruluyor ("uyumak hakkında").
+- Test: **A52** (dilbilgisi çöpü yok, sahte bilgisizlik yok, doğru ton, biçim, tekrarsız ≥0.75).
+  Paket: **A1–A52 → 52/52 GEÇTİ (261.9 sn)**.
+
