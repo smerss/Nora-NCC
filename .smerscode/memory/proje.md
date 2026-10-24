@@ -215,6 +215,25 @@ Nora yalnızca *sorulduğunda* konuşuyordu. `BackgroundLife._reach` sözü yaln
 - Yanıt çeşitliliği: `DiscourseCortex._fresh()` son 6 takip sözünü tekrarlamaz.
 - İç simge sızıntısı ikinci kapı: `ÖZ_` etiketli mint onayı olay türünün Türkçesiyle kurulur.
 
+### Günlük konuşma — üçüncü tur (dilbilgisi + karşılık)
+- **Ad çekimi zinciri**: iyelik + hal + çoğul birlikte çözülür (`kucağıma`→kucak+DAT, `sözlerime`→söz+ler+im+e,
+  `evime`, `kardeşime`, `kitabıma`). Sözlükte bütün hâliyle duran sözcük kök soymadan üstündür (`bilim`→"bil"
+  değil); 2. tekil koşaç (`sessizsin`), `-cA` zarfı (`sence`→sen), kaynaştırma n'lı hal (`gökyüzünü`),
+  büyük ünlü uyumunun iki yönlü sınıfı, kısa gövdede yumuşama tuzağı (`kadına`→kadın) düzeltildi.
+- **Soru sözcüğü çerçevede taşınır** (`wh`): "nasıl" yöntem, "neden" sebep ister; tür cümlesi ("insan bir
+  canlıdır") bu sorulara yanıt sayılmaz — bilinmiyorsa dürüstçe "bunu henüz bilmiyorum" denir.
+- **İstek/emir cümleleri her zaman ayrıştırılır**: hazır durumsal karşılık onları geçiştiremez.
+  `bana bir şaka yap` → kavram ağından **bilmece** (hazır fıkra yok); `bana bir hikâye anlat` → gerçek bilgi.
+- **Mizaç soruları** ("niye bu kadar sessizsin?") nörokimyasal iç durumdan yanıtlanır; "çok yorgunsun"
+  karşıdakine değil Nora'nın kendisine dairdir.
+- **Tercih soruları** ("kediler mi köpekler mi?") ansiklopedi değil: bilgi ağırlığına dayalı, gerekçeli,
+  "bu benim şu anki eğilimim" kaydıyla verilen görüş.
+- **Anlatı**: 1. kişi iyeliği 2. kişiye kayar (`kucağıma`→`kucağına`), yan cümle birleşir ("... geldiğini ve
+  uyuduğunu"), çok sözcüklü iyelikli özne tamlayana çevrilir (matematik ödevinin). Empati kolundaki
+  ansiklopedi cümlesi kaldırıldı; takip soruları tona göre seçiliyor.
+- **Özel adlar** kesme işaretiyle çekimlenir (Himalaya'da, Akdeniz'de); `PROPER_NOUNS` nora_knowledge'ta.
+- Öğrenilmiş prosedür çağrısı ("devriye yap") irade teklifine gölge düşürmez (Truva-atı denetimi A13).
+
 ### Ölçüm
-Tam paket: **A1–A55 → 55/55 GEÇTİ (283.5 sn)**; A54 (kişisel anlatı) ve A55 (günlük konuşma) yeni.
+Tam paket: **A1–A55 → 55/55 GEÇTİ (290.1 sn)**; sonrasında A29 12/12, A50, A52, A54, A55, A13 → 6/6.
 
