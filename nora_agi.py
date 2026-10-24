@@ -296,7 +296,7 @@ class NoraAGI:
 
     def __init__(self, name: str = "Nora", seed: int = 0, boot_thinker: bool = False,
                  thinker_iters: int = 800, world_kwargs: dict | None = None, single_life: bool = True,
-                 corpus: list[str] | None = None):
+                 corpus: list[str] | None = None, broca: str | None = None):
         self.name = name
         self.seed = int(seed)
         w_kw = dict(world_kwargs or {})
@@ -353,16 +353,24 @@ class NoraAGI:
         self.life = BackgroundLife(seed=seed + 71)
         for path in (corpus or []):
             self.read_corpus(path)
+        if broca:
+            self.attach_broca(broca)
 
     def read_corpus(self, path: str):
         """Nora'yı bir metinle baş başa bırakır: söz organı yalnızca bundan öğrenir (hangi dil olduğu fark etmez)."""
         self.life.voice.hear_file(path, state_vector(self))
 
+    def attach_broca(self, path: str):
+        """Sinirsel Broca artikülasyon organını bağlar (zihin karar verir, organ yalnızca dile döker)."""
+        from nora_broca_net import BrocaOrgan
+        self.life.voice.organ = BrocaOrgan.load(path)
+        self.life.voice.tok = self.life.voice.organ.tok
+
     def speak_from_state(self, anchors: list[str] | None = None, nov: float = 0.5, fam: float = 0.5,
-                         conf: float = 0.5, tension: float = 0.0) -> str:
+                         conf: float = 0.5, tension: float = 0.0, facts: list[str] | None = None) -> str:
         """Tüm 'kendi sözü' üretimi: iç durum + çapa kavramlar -> öğrenilmiş söz organı. Dil yoksa dürüstçe '…'."""
         st = state_vector(self, nov=nov, fam=fam, conf=conf, tension=tension)
-        return self.life.voice.speak(st, anchors) or "…"
+        return self.life.voice.speak(st, anchors, extra_allowed=facts) or "…"
 
     def speak_unknown(self, concept: str) -> str:
         """Bilmediği şeyle karşılaşma: uydurmaz; boşluğu gerilim defterine yazar, elinde yarım iz (hipotez) varsa
@@ -1039,7 +1047,7 @@ class NoraAGI:
                         self.auto_net.curiosity_queue.append(e0.subj)
                     wern.last_explanation = f"{e0.subj} ile {e0.obj} arasında {e0.rel} sinapsını epoch kullanmadan tek-atışta kurdum"
                     rep_f = self.speak_from_state(anchors=[e0.subj, e0.obj], nov=1.0 - _fam, fam=_fam,
-                                                  conf=self._speaker_trust(speaker))
+                                                  conf=max(0.55, self._speaker_trust(speaker)))
                     bids.append(CorticalBid("hippocampal_concept", 0.94, 0.93, rep_f, f"1shot:{e0.subj}->{e0.obj}"))
             elif fr.kind == "yn_query":
                 rep_yn = None
@@ -1640,6 +1648,9 @@ class NoraAGI:
             fast_cs=self.fast.mb.claw_sign,
         )
         self.mind.save(path_prefix + ".mind.npz")
+        self.life.voice.save_file(path_prefix + ".voice.pkl.gz")
+        if self.life.voice.organ is not None:
+            self.life.voice.organ.save(path_prefix + ".broca.pt")
 
     @classmethod
     def load(cls, path_prefix: str) -> "NoraAGI":
@@ -1668,6 +1679,10 @@ class NoraAGI:
             agi.life.load_state_dict(meta.get("life") or {})
         except Exception:
             pass
+        if os.path.exists(path_prefix + ".voice.pkl.gz"):
+            agi.life.voice.load_file(path_prefix + ".voice.pkl.gz")
+        if os.path.exists(path_prefix + ".broca.pt"):
+            agi.attach_broca(path_prefix + ".broca.pt")
         z = np.load(path_prefix + ".agi_mb.npz")
         agi.fast.class_names = list(meta["fast_classes"])
         agi.fast.name_to_id = {n: i for i, n in enumerate(agi.fast.class_names)}
@@ -1721,7 +1736,8 @@ def stage_demo(args):
 def stage_chat(args):
     """Sohbet + arka plan yaşamı: Nora siz yazmasanız da yaşar; kendiliğinden mesajı gelince ekrana düşer."""
     import threading
-    agi = NoraAGI(name="Nora", seed=args.seed, boot_thinker=True, thinker_iters=args.think_iters, corpus=args.corpus)
+    agi = NoraAGI(name="Nora", seed=args.seed, boot_thinker=True, thinker_iters=args.think_iters, corpus=args.corpus,
+                  broca=args.broca if os.path.exists(args.broca) else None)
     agi.step_life(1500)
     if args.internet:
         agi.life.enable_internet()
@@ -1766,6 +1782,7 @@ def main():
     ap.add_argument("--life-steps", type=int, default=2500)
     ap.add_argument("--think-iters", type=int, default=700)
     ap.add_argument("--corpus", nargs="*", default=[], help="Nora'nın okuyarak dil öğreneceği metin dosyaları (herhangi bir dil)")
+    ap.add_argument("--broca", default="data/broca_tr.pt", help="eğitilmiş sinirsel Broca artikülasyon organı")
     ap.add_argument("--internet", action="store_true", help="arka plan araştırması için gerçek ağ kaynaklarını aç")
     args = ap.parse_args()
     if args.stage == "demo":
