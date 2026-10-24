@@ -41,6 +41,7 @@ import numpy as np
 from dataclasses import dataclass
 from nora_life import BackgroundLife
 from nora_discourse import DiscourseCortex
+from nora_knowledge import PROPER_NOUNS
 from nora_initiative import InitiativeCortex
 from nora_voice import state_vector
 from nora_world import Universe
