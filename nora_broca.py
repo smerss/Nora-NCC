@@ -31,7 +31,7 @@ import re
 import time
 import numpy as np
 
-from nora_lang import TurkishMorphology, ALL_VOWELS, FRONT_VOWELS, HARD_CONS, tr_lower, tr_capitalize
+from nora_lang import TurkishMorphology, ALL_VOWELS, FRONT_VOWELS, HARD_CONS, tr_lower, tr_capitalize, soften_verb_t
 from nora_knowledge import VOWEL_DROP_STEMS, NO_SOFTEN_EXTENDED
 
 
@@ -73,6 +73,15 @@ def _spoken_tail(word: str) -> str:
 def _needs_apostrophe(word: str) -> bool:
     """TDK: kısaltmalara ve sayı eki alan adlara gelen çekim eki kesme işaretiyle ayrılır."""
     return bool(re.search(r"\d", word) or re.search(r"[A-ZÇĞİÖŞÜ]{2,}", word))
+
+
+
+def _stable_hash(x: str) -> int:
+    """Süreçler arası kararlı 32-bit FNV-1a (Python hash() PYTHONHASHSEED'e bağlıdır; kalıcı bellekte tutarsızlık yaratır)."""
+    h = 2166136261
+    for b in x.encode("utf-8"):
+        h = ((h ^ b) * 16777619) & 0xFFFFFFFF
+    return h
 
 
 @dataclass
@@ -256,9 +265,7 @@ class TurkishSyntaxEngine:
 
     @classmethod
     def _soften_verb_t(cls, v: str) -> str:
-        if v in {"git", "et", "tat", "güt"} or v.endswith("det"):
-            return v[:-1] + "d"
-        return v
+        return soften_verb_t(v)
 
     @classmethod
     def nominalize_dik(
@@ -457,7 +464,9 @@ class TurkishSyntaxEngine:
             return f"{pref} {word}".strip()
 
         if t == "OPT":
-            v_s = cls._soften_verb_t(v)
+            v_s = v if neg else cls._soften_verb_t(v)
+            if v_s in ("de", "ye") and not neg:
+                v_s = "di" if v_s == "de" else "yi"
             if neg:
                 v_s = v_s + "m" + m.vowel_e_a(v_s)
             ea = m.vowel_e_a(v_s)
@@ -550,8 +559,8 @@ class EpisodicDialogueCortex:
             return [0]
         fibers: list[int] = []
         for st in stems[:6]:
-            h1 = (hash("f1:" + st) & 0x7FFFFFFF) % self.N_FIBERS
-            h2 = (hash("f2:" + st) & 0x7FFFFFFF) % self.N_FIBERS
+            h1 = (_stable_hash("f1:" + st) & 0x7FFFFFFF) % self.N_FIBERS
+            h2 = (_stable_hash("f2:" + st) & 0x7FFFFFFF) % self.N_FIBERS
             if h1 not in fibers:
                 fibers.append(h1)
             if h2 not in fibers and len(fibers) < self.K_ACTIVE:

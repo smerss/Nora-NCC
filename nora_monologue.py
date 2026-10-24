@@ -354,88 +354,11 @@ class InnerMonologueEngine:
             wants_brief=wants_brief,
         )
 
-        # 3) Çıplak köklerden GERÇEK içsel monolog cümlesi üretimi (Nora kendi kendine düşünüyor!)
-        inner_clauses: list[str] = []
-
-        if in_pain:
-            c_p = self.syn.realize_verb(VerbSpec(
-                verb_root="koru",
-                obj=NP("beden", poss=1, case="ACC"),
-                pre_clause=self.syn.nominalize_dik("sızla", poss=3, case="NOM", subj=NP("yara", poss=1), postpos="için"),
-                tense="NEC", person="1SG",
-            ))
-            inner_clauses.append(tr_capitalize(c_p))
-        elif trust < 0.38:
-            c_t = self.syn.realize_verb(VerbSpec(
-                verb_root="tart",
-                obj=NP("söz", poss=3, plural=True, case="ACC"),
-                advs=("dikkatle",),
-                pre_clause=self.syn.nominalize_dik("azal", poss=3, case="NOM", subj=NP("güven", poss=1), postpos="için"),
-                tense="PRES", person="1SG",
-            ))
-            inner_clauses.append(tr_capitalize(c_t))
-        elif visc["hunger_state"] != "dengeli":
-            c_h = self.syn.realize_verb(VerbSpec(
-                verb_root="odaklan",
-                dat=NP("sohbet", case="DAT"),
-                pre_clause=self.syn.nominalize_dik("acık", poss=3, case="NOM", subj=NP("karın", poss=1), postpos="rağmen"),
-                tense="PRES", person="1SG",
-            ))
-            inner_clauses.append(tr_capitalize(c_h))
-
-        # Monotonluk farkındalığı veya 5 farklı içsel düşünce kipi (iç ses de asla tek kalıba sıkışmaz!)
-        foc = topic_hint or (words[0] if words else "konu")
-        if mono_err >= 0.30:
-            c_m = self.syn.realize_verb(VerbSpec(
-                verb_root="kur",
-                obj=NP("düşünce", poss=1, case="ACC"),
-                advs=("aynı kalıbı tekrarlamadan", "farklı biçimde"),
-                tense="FUT", person="1SG",
-            ))
-            inner_clauses.append(tr_capitalize(c_m))
-        elif schema_id == "S0_YALIN":
-            c_b = self.syn.realize_verb(VerbSpec(
-                verb_root="söyle",
-                obj=NP("fikir", poss=1, case="ACC"),
-                advs=("uzatmadan", "yalın biçimde"),
-                tense="FUT", person="1SG",
-            ))
-            inner_clauses.append(tr_capitalize(c_b))
-        elif schema_id == "S4_DEVRIK_DOGAL":
-            c_d = self.syn.realize_verb(VerbSpec(
-                verb_root="konuş",
-                advs=(f"'{foc}' üzerine", "doğal ve içten bir akışla"),
-                tense="FUT", person="1SG",
-            ))
-            inner_clauses.append(tr_capitalize(c_d))
-        elif schema_id == "S3_IC_BAKIS":
-            c_i = self.syn.realize_verb(VerbSpec(
-                verb_root="dinle",
-                obj=NP("yansıma", poss=3, case="ACC"),
-                pre_clause=f"'{foc}' sözünün içimde bıraktığı",
-                tense="PRES", person="1SG",
-            ))
-            inner_clauses.append(tr_capitalize(c_i))
-        elif schema_id == "S2_SONUC_GEREKCE":
-            c_r = self.syn.realize_verb(VerbSpec(
-                verb_root="netleştir",
-                obj=NP("karar", poss=1, case="ACC"),
-                pre_clause=self.syn.converb("tart", "arak", obj=NP(f"'{foc}' neden", poss=3, case="ACC")),
-                tense="PRES", person="1SG",
-            ))
-            inner_clauses.append(tr_capitalize(c_r))
-        else:
-            v_think = "değerlendir" if "?" in raw_input else "bağla"
-            c_g = self.syn.realize_verb(VerbSpec(
-                verb_root=v_think,
-                obj=NP(f"'{foc}' odak", poss=3, case="ACC"),
-                loc=NP("zihin", poss=1, case="LOC"),
-                advs=("kendi deneyimlerimle",),
-                tense="PRES", person="1SG",
-            ))
-            inner_clauses.append(tr_capitalize(c_g))
-
-        thought_txt = ". ".join(inner_clauses) + "."
+        # 3) İç ses: iç durumdan (nörokimya, iç-duyum, güven) ve odak kavramdan ÖĞRENİLMİŞ söz organıyla kurulur.
+        #    Elle yazılmış düşünce cümlesi yoktur; dil henüz öğrenilmediyse iç ses de sessizdir.
+        foc = topic_hint or (words[0] if words else "")
+        thought_txt = agi.speak_from_state(anchors=[foc] if foc else None, conf=trust, tension=mono_err)
+        thought_txt = "" if thought_txt == "…" else thought_txt
         thought = InnerThought(
             step=int(agi.mind.age),
             trigger="pre_speech_current",
@@ -461,44 +384,23 @@ class InnerMonologueEngine:
             return None
         self._last_auto_step = age
 
-        if visc["pain_state"] != "yok":
-            txt = self.syn.realize_verb(VerbSpec(
-                verb_root="uzaklaş",
-                abl=NP("tehlike", case="ABL"),
-                pre_clause=self.syn.nominalize_dik("hisset", poss=1, case="NOM", obj=NP("sızı", case="NOM"), postpos="için"),
-                tense="PRES", person="1SG",
-            ))
-            trig = "acı_refleksi"
-        elif visc["hunger_state"] != "dengeli":
-            txt = self.syn.realize_verb(VerbSpec(
-                verb_root="ara",
-                obj=NP("besin", case="NOM"),
-                pre_clause=self.syn.nominalize_dik("acık", poss=3, case="NOM", subj=NP("karın", poss=1), postpos="için"),
-                tense="PRES", person="1SG",
-            ))
-            trig = "otonom_iç_ses"
-        elif agi.auto_net.curiosity_queue:
-            cur_c = agi.auto_net.curiosity_queue[-1]
-            txt = self.syn.realize_verb(VerbSpec(
-                verb_root="merak et",
-                obj=NP(f"'{cur_c}' kavram", poss=3, case="ACC"),
-                loc=NP("iç", poss=1, case="LOC"),
-                tense="PRES", person="1SG",
-            ))
-            trig = "merak_kıvılcımı"
-        else:
-            txt = self.syn.realize_verb(VerbSpec(
-                verb_root="izle",
-                obj=NP("çevre", poss=1, case="ACC"),
-                advs=("sakin bir zihinle",),
-                tense="PRES", person="1SG",
-            ))
-            trig = "otonom_iç_ses"
+        # Dürtü yarışı: acı | açlık | susuzluk | merak | çevre. Kazananı sürekli sürüşlerin argmax'ı belirler.
+        nv = agi.nervous
+        cur_c = agi.auto_net.curiosity_queue[-1] if agi.auto_net.curiosity_queue else ""
+        node = agi.auto_net.assemblies.get(cur_c)
+        drives = np.array([
+            max(float(nv.adelta_pain), float(nv.cfiber_ache)), float(nv.hunger_drive), float(nv.thirst_drive),
+            0.0 if node is None else float(node.uncertainty) * 0.8, 0.15,
+        ])
+        k = int(np.argmax(drives))
+        trig = ("acı_refleksi", "otonom_iç_ses", "otonom_iç_ses", "merak_kıvılcımı", "otonom_iç_ses")[k]
+        txt = agi.speak_from_state(anchors=[cur_c] if (k == 3 and cur_c) else None, tension=float(drives[k]))
+        txt = "" if txt == "…" else txt.rstrip(".")
 
         th = InnerThought(
             step=age,
             trigger=trig,
-            text=tr_capitalize(txt) + ".",
+            text=(tr_capitalize(txt) + ".") if txt else "",
             stance="içe_dönük",
             schema_id="S3_IC_BAKIS",
             monotony_error=0.0,
