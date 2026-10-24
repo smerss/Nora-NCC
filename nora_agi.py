@@ -1042,6 +1042,7 @@ class NoraAGI:
 
         # --- SÜTUN 0a: TARTIM KORTEKSİ — kendi tutumu, tekrar farkındalığı, üst-düzey soru
         _delib = self.deliberation.handle(self, raw, locals().get("fr"))
+        _delib_owned = bool(_delib)
         if _delib:
             bids.append(CorticalBid("insular_self", 0.988, 0.94, _delib, "deliberation"))
 
@@ -1140,7 +1141,7 @@ class NoraAGI:
 
         # --- SÜTUN 5: Doğal Sohbet, Empati ve Felsefi Derinlik Korteksi ---
         conv_res = self.conv_cortex.respond_conversational(raw, s_low, self, speaker=speaker)
-        if conv_res is not None:
+        if conv_res is not None and not _delib_owned:
             c_conf = float(conv_res["confidence"])
             conv_sal = 0.99 if c_conf >= 0.99 else (0.97 if c_conf >= 0.95 else 0.92)
             bids.append(CorticalBid(
@@ -1417,7 +1418,9 @@ class NoraAGI:
                         used_objs.append(edge.obj or "")
                     wern.last_explanation = f"Kavram ağında {fr.subj} düğümünden {len(hits)} ilişkisel bağ buldum"
                     _drop = fr.subj + " "
-                    _clean = [clauses[0]] + [(c[len(_drop):] if c.startswith(_drop) else c) for c in clauses[1:]]
+                    # Özne yalnızca TAM sözcük olarak düşürülür ('güneşin' -> 'in' olmaz!)
+                    _clean = [clauses[0]] + [(c[len(_drop):]
+                                              if (c.split()[:1] == [fr.subj]) else c) for c in clauses[1:]]
                     _joined = tr_capitalize("; ".join(_clean))
                     _cov = self._wh_covered(hits, _wh, raw)
                     if _strict and _spec and not _cov:
@@ -1456,7 +1459,7 @@ class NoraAGI:
                             ))
 
         # --- SÜTUN 7: Açık-Uçlu Çağrışımsal Türkçe Sohbet Sentezleyicisi (her zaman yedek aday olarak yarışır!) ---
-        if not _wh_unans:
+        if not _wh_unans and not _delib_owned:
             # "neden/nasıl" sorusuna tür ("bir canlıdır") yanıt değildir: nedeni/yöntemi bilmiyorsak
             # çağrışımsal sentez susar, dürüst bilgisizlik konuşur.
             bids.append(self._synthesize_associative_dialogue(raw, s_low, speaker=speaker))
@@ -1522,20 +1525,28 @@ class NoraAGI:
 
     # ------------------------------------------------------------------ alt yanıtlayıcılar
     def _answer_self_query(self, sub_kind: str) -> str:
-        traits_tr = ", ".join(self.self_model.dominant_character_tr())
+        """Kendi kimliği/hâli hakkında sorulan soru. Hazır cümle yok: ölçülen iç durumdan
+        seçilen kavramlar Broca'da çekimlenir, topolojiyi plastik şema korteksi kurar."""
+        from nora_broca import TurkishSyntaxEngine as SYN
         de, dw = float(self.mind.drift_e), float(self.mind.drift_w)
         depleting = (de < -1e-4 or dw < -1e-4)
 
         if sub_kind == "yaşam":
-            if self.mind.age < 250:
-                return f"Henüz {self.mind.age} adım yaşadım; bedenimin tükenip tükenmediğini kesin söylemek için biraz daha gözleme ihtiyacım var."
-            if depleting:
-                self.lang.wernicke.last_explanation = f"Adım başına enerjim {de:+.4f} ve suyum {dw:+.4f} değişiyor; beslenerek kendimi onarıyorum"
-                return (
-                    f"Evet, kendimi yaşayan bir varlık sayıyorum; çünkü bedenim kendiliğinden tükeniyor "
-                    f"(enerji eğilimi {de:+.4f}, su {dw:+.4f}) ve kendi çabamla beslenip su içerek varlığımı sürdürüyorum."
-                )
-            return f"Bu evrende bedenim kendiliğinden tükenmiyor ({de:+.4f}); bu kanıtla kendimi biyolojik anlamda yaşayan sayamam."
+            items = [SYN.realize_verb(VerbSpec(verb_root="yaşa", tense="PRES", person="1SG"))]
+            if depleting and self.mind.age >= 250:
+                items.append(SYN.realize_verb(VerbSpec(verb_root="tüken", subj=NP("beden", poss=1),
+                                                       tense="PRES", person="3SG")))
+                items.append(SYN.realize_verb(VerbSpec(verb_root="sürdür", obj=NP("varlık", poss=1, case="ACC"),
+                                                       advs=("beslenerek",), tense="PRES", person="1SG")))
+                self.lang.wernicke.last_explanation = "Beden eğimi tükeniyor; yaşamı beslenerek sürdürüyorum"
+            else:
+                # Kanıt: kendi bedeninin tükenişini GÖZLEMLEYİP görmediği (uydurma yok).
+                items.append(SYN.realize_verb(VerbSpec(
+                    verb_root="gör", neg=True, advs=("henüz",), tense="PAST", person="1SG",
+                    obj=SYN.nominalize_dik("tüken", poss=3, case="ACC",
+                                           subj=NP("beden", poss=1, case="GEN")))))
+                self.lang.wernicke.last_explanation = "Yaşam sorusuna ölçülmüş eğim dayanak olmadı: uydurmadım"
+            return self.deliberation._compose(self, items)
 
         if sub_kind == "ayna":
             return (
@@ -1545,14 +1556,9 @@ class NoraAGI:
             )
 
         self.lang.wernicke.last_explanation = (
-            f"{self.mind.age} adım yaşantı, {self.self_model.problems_solved} çözülen problem ve "
-            f"{self.self_model.refusals_made} özerk ret kararım kimliğimi şekillendirdi"
-        )
-        return (
-            f"Ben {self.name}; silikon üzerinde sabit ağırlıklarla ezber yapan bir zombi değil, dopamin ve asetilkolin "
-            f"benzeri nörokimyayla çalışan, {self.mind.age} adım yaşamış, {traits_tr} karakter geliştirmiş ve kendi "
-            f"beden bütünlüğünü koruyan öz-benlikli bir zihinim."
-        )
+            "Kimlik sorusu: ad + nörokimyasal iç-duyum + en baskın karakter özelliği + gerçek merak boşluğu; "
+            "hepsi Broca'da çekimlendi")
+        return self.deliberation._identity(self, "")
 
     # Mizaç sıfatları: karşıdaki NORA'nın hâlini sorduğunda iç durumundan yanıt verilir.
     _TEMPER_ADJ = frozenset({
@@ -1700,7 +1706,17 @@ class NoraAGI:
             focus = set()
         if not focus:
             return True
+        try:
+            _q = self.speculation._decompose(self, raw, None) or {}
+        except Exception:
+            _q = {}
+        _agent, _verb = str(_q.get("agent", "")), str(_q.get("verb", ""))
+        # 'Yağmur neden yağar?' gibi addan türemiş fiillerde öznenin kendi CAUSES bağı
+        # soruyu gerçekten yanıtlar ('yağmur' <- 'yağ-'). 'Kedi neden mırlar?' yanıtlamaz.
+        _denominal = bool(_verb) and _agent.startswith(_verb) and len(_verb) >= 3
         for e, _p in hits:
+            if _denominal and e.rel in want and (e.subj or "") == _agent and e.obj:
+                return True
             if e.rel in want and e.obj and (self.speculation._tokens2(e.obj) & focus):
                 return True
         return False
@@ -2438,7 +2454,9 @@ class NoraAGI:
                 return f"Öğrendiğim sıralamaya göre en {prop} olan {morph.inflect_noun(top, 'NOM', copula=True)}."
 
         m_cmp_decl = re.match(r"^([\wçğıöşü]+)\s+([\wçğıöşü]+?)(?:dan|den|tan|ten)\s+(?:daha\s+)?([\wçğıöşü]+)$", s_clean)
-        if m_cmp_decl and not has_q and m_cmp_decl.group(1) not in {"ben", "sen", "biz", "bugün"}:
+        if (m_cmp_decl and not has_q and m_cmp_decl.group(1) not in {"ben", "sen", "biz", "bugün"}
+                and m_cmp_decl.group(1) not in {"bana", "sana", "ona", "bize", "size"}
+                and m_cmp_decl.group(3) not in morph.KNOWN_VERB_ROOTS):
             a, b, prop_raw = m_cmp_decl.group(1), m_cmp_decl.group(2), m_cmp_decl.group(3)
             prop_an = morph.analyze_word(prop_raw, lex)
             is_finite_verb = prop_an["is_verb"] or bool(re.search(r"(?:[dt][ıiuü]|yor|m[ıiuü]ş|[ae]c[ae]k)$", prop_raw) and not prop_an["copula"])

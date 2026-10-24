@@ -1874,11 +1874,10 @@ class GenerativeBrocaOrgan:
             ):
                 ep0 = recalled[0]
                 c_link = self.syn.realize_verb(VerbSpec(
-                    verb_root="bağla",
-                    obj=NP("konu", mods=("bu",), case="ACC"),
-                    dat=NP(ep0.topic, mods=("önceki",), case="DAT"),
-                    loc=NP("bellek", poss=1, case="LOC"),
-                    tense="PRES", person="1SG",
+                    verb_root="konuş",
+                    obj=NP(ep0.topic, case="ACC"),
+                    advs=("az önce",),
+                    tense="PAST", person="1PL",
                 ))
                 clauses_out.append(tr_capitalize(c_link) + ".")
                 raw_thought_nodes.append(f"CA3_BAĞ({ep0.topic})")
@@ -2353,7 +2352,7 @@ class GenerativeBrocaOrgan:
             return tr_capitalize(q_aff) + "?", f"SORU_ÜRET({n_root}+2SG+anlat+iste?)"
 
         focus = (
-            "konuşmanın anlamı" if u.get("asks_why_speak") else (
+            "konuşmanın anlam" if u.get("asks_why_speak") else (
                 u["phil_topic"] or (concept_hits[0][0] if concept_hits else (u["stems"][0] if u["stems"] else "bu konu"))
             )
         )
