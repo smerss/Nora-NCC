@@ -38,6 +38,7 @@ import time
 
 VOCAB: list[str] = """
 hikâye hikaye masal öykü anlatı tavsiye öğüt fikir danış
+moral kafa can öğretmen doktor mühendis öğrenci sınav sır gitar kahve şaka keyif gönül
 ben sen o biz siz onlar kendi kendim kendin şey şeyler herkes kimse biri birisi hiçbiri
 bu şu bunlar şunlar öyle böyle şöyle hangi neden niçin niye nasıl nerede nereye nereden ne zaman
 kaç kadar göre rağmen için ile ve ama fakat ancak çünkü eğer ki ise de da bile yalnız sadece hep
@@ -111,6 +112,10 @@ TRIPLES: list[tuple[str, str, str]] = [
     ("yürüyüş", "CAUSES", "kalp sağlığı"), ("su", "USED_FOR", "yaşam"),
     # ---------------------------------------------------------------- bilim
     ("fizik", "ISA", "bilim"), ("kimya", "ISA", "bilim"), ("matematik", "ISA", "bilim"),
+    ("everest", "ISA", "dağ"), ("everest", "LOCATED_AT", "himalaya"),
+    ("everest", "HAS_PROP", "dünyanın en yüksek dağı"),
+    ("kuantum bilgisayar", "ISA", "bilgisayar"), ("bilgisayar", "ISA", "makine"),
+    ("bilgisayar", "CAN_DO", "hesaplamak"), ("uzay", "ISA", "boşluk"),
     ("biyoloji", "ISA", "bilim"), ("astronomi", "ISA", "bilim"),
     ("bilim", "USED_FOR", "doğayı anlamak"),
     ("atom", "ISA", "madde parçası"), ("molekül", "ISA", "madde parçası"),

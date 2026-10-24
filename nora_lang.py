@@ -586,6 +586,28 @@ class TurkishMorphology:
             return info
 
         cur = w
+        # 0b) 1. tekil iyelik/koşaç (-Im): 'moralim', 'kafam', 'hastayım', 'öğretmenim'.
+        #     Yalnızca SÖZLÜKTE olan bir köke indirgeniyorsa kabul edilir (uydurma kök yok).
+        if len(w) >= 4 and w.endswith("m"):
+            _cands = [w[:-1], w[:-2], w[:-3]]
+            for _c in list(_cands):
+                if _c.endswith("y"):
+                    _cands.append(_c[:-1])
+                _cands.append(_c + "a")
+                _cands.append(_c + "e")
+            for _c in _cands:
+                if _c and _c in known:
+                    info["stem"] = _c
+                    info["poss"] = 1
+                    info["case"] = "NOM"
+                    return info
+                _u = cls._unsoften(_c)
+                if _u != _c and _u and _u in known:
+                    info["stem"] = _u
+                    info["poss"] = 1
+                    info["case"] = "NOM"
+                    return info
+
         # 1) Koşaç (-dir/-dır/-tir/-tır/-dür/-dur/-tür/-tur)
         # Türkçe ünsüz benzeşmesi yasası: '-tIr' koşaçı YALNIZCA sert ünsüzden (f,s,t,k,ç,ş,h,p) sonra gelebilir!
         # 'iletir', 'üretir', 'azaltır', 'ısıtır' gibi sözcüklerde '-tir/-tır' koşaç DEĞİL, t-bitimli fiilin geniş zamanıdır!
@@ -781,12 +803,14 @@ class TurkishMorphology:
                 if cand in cls.REV_VOWEL_DROP:
                     cur = cls.REV_VOWEL_DROP[cand]
                     info["poss1"] = True
+                    info["poss"] = 1
                     info["vowel_drop"] = True
                     break
                 hard = cls._unsoften(cand)
                 if cand in known or hard in known:
                     cur = hard if hard in known else cand
                     info["poss1"] = True
+                    info["poss"] = 1
                     break
 
         if cur in cls.REV_VOWEL_DROP:
@@ -986,6 +1010,7 @@ class GroundedConceptGraph:
         self.edges: list[RelationEdge] = []
         # O(1) yerel sinaptik komşuluk indeksleri (veri 100.000 kenara çıksa da sorgu gecikmesi ~0.05 ms kalır!)
         self._out_edges: dict[str, list[RelationEdge]] = {}
+        self._in_edges: dict[str, list[RelationEdge]] = {}
         self._edge_map: dict[tuple[str, str, str], RelationEdge] = {}
         self.concept_vecs: dict[str, np.ndarray] = {}
         self.concept_id: dict[str, int] = {}
@@ -997,6 +1022,7 @@ class GroundedConceptGraph:
     def clear_all_edges(self):
         self.edges.clear()
         self._out_edges.clear()
+        self._in_edges.clear()
         self._edge_map.clear()
 
     def _trigram_vec(self, text: str) -> np.ndarray:
@@ -1077,6 +1103,7 @@ class GroundedConceptGraph:
         edge = RelationEdge(subj=s, rel=rel, obj=o, weight=float(weight), source=source, speaker=speaker)
         self.edges.append(edge)
         self._out_edges.setdefault(s, []).append(edge)
+        self._in_edges.setdefault(o, []).append(edge)   # ters arama: "dünyanın en yüksek dağı" -> everest
         self._edge_map[(s, rel, o)] = edge
         if source != "doğuştan":
             self.chem.pulse_learning(novelty=0.80, valence=0.35)
@@ -1488,13 +1515,27 @@ class WernickeComprehender:
             self.last_topic = tgt
             return SemanticFrame(kind="wh_query", raw=s_raw, subj=tgt, rel="CAUSES")
 
-        # 4) 'Neden / Niçin' açıklama sorgusu
+        # 4) 'Neden / Niçin': DÜNYA sorusu mu, kendi davranışımın açıklaması mı?
+        #    "Neden gökyüzü mavi?" bir dünya sorusudur (içebakış değil); "Neden böyle yaptın?" kendime dair.
         if (
             any(w in {"neden", "niçin", "niye", "sebebi"} for w in words)
             and not any(k in s for k in ("konuş", "cevap ver", "yanıt ver", "sohbet"))
-            and (len(words) <= 3 or any(k in s for k in ("reddet", "yapmadın", "kabul etmedin", "erteledin", "dedin")))
+            # Evet/hayır sorusu ('Erozyon kıtlığa neden olur mu?') kendi yolundan gider.
+            and not any(w in {"mı", "mi", "mu", "mü", "mıdır", "midir", "mudur", "müdür"} for w in words)
+            # 'X kıtlığa neden olur' bir NEDENSELLİK BİLDİRİMİdir ('neden ol-' yüklemi), soru değil.
+            and not re.search(r"\b(?:neden|sebep)\s+ol(?:ur|du|uyor|acak)\b|\byol\s+aç", s)
         ):
-            return SemanticFrame(kind="why_query", raw=s_raw)
+            _self_words = {"sen", "seni", "sana", "senin", "böyle", "öyle", "davran", "davrandın", "davranıyorsun",
+                           "yaptın", "yapıyorsun", "reddettin", "reddediyorsun", "kabul", "ettin", "dedin",
+                           "söyledin", "sus", "sustun", "korkuyorsun", "üzülüyorsun"}
+            _about_self = any(w in _self_words for w in words)
+            _content = [w for w in words if w not in {"neden", "niçin", "niye", "sebebi", "bir", "bu", "şu", "çok", "kadar", "acaba"}]
+            if not _about_self and _content:
+                _subj = self._clean_np(_content[0])
+                self.last_topic = _subj
+                return SemanticFrame(kind="wh_query", raw=s_raw, subj=_subj)
+            if len(words) <= 3 or _about_self or any(k in s for k in ("reddet", "yapmadın", "kabul etmedin", "erteledin", "dedin")):
+                return SemanticFrame(kind="why_query", raw=s_raw)
 
         # 5) Öz-benlik, bilinç, yaşama ve kimlik sorguları (yalnızca soru veya doğrudan 'kendini tanıt' isteğinde!)
         self_kws = {"kimsin", "nesin", "yaşıyor", "canlı", "bilinç", "bilincin", "zombi", "benliğin", "karakterin", "kişiliğin", "değerlerin", "adın", "ismin"}
@@ -1625,12 +1666,25 @@ class WernickeComprehender:
         )
         if has_q and len(words) >= 2 and not has_2sg_q:
             # Çok sözcüklü kavram ('yapay zekâ', 'kara delik'): en uzun bilinen öneki özne say.
+            # Bilinen önek yoksa Türkçenin baş-sonda kuralı: öbek başı SON sözcüktür ('kuantum bilgisayar').
             subj = self.morph.analyze_word(words[0], self.graph.lexicon)["stem"]
+            _found = False
             for n_w in (3, 2):
                 if len(words) > n_w:
                     cand = " ".join(words[:n_w])
                     if cand in self.graph.lexicon:
                         subj = cand
+                        _found = True
+                        break
+            if not _found:
+                _qmarks = {"nedir", "ne", "nasıl", "nerede", "kim", "neye", "niye", "neden", "niçin",
+                           "hakkında", "biliyorsun", "mı", "mi", "mu", "mü", "ise", "bir", "en", "çok", "daha"}
+                for w_tok in reversed(words):
+                    if w_tok in _qmarks:
+                        continue
+                    a_tok = self.morph.analyze_word(w_tok, self.graph.lexicon)
+                    if a_tok["stem"] in self.graph.lexicon and not a_tok.get("is_verb"):
+                        subj = a_tok["stem"]
                         break
             is_infinitive_subj = words[0].endswith(("mak", "mek", "maktan", "mekten", "maktaki", "mekteki", "maya", "meye"))
             if subj not in non_encyclopedic_subjs and not is_infinitive_subj:
