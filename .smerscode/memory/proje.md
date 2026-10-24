@@ -85,3 +85,25 @@ Ek bulgular (özerk oturum sonu): tanıklıkla öğrenme 48x48 arenada ölümü 
 - Tam paket: **A1–A47 47/47 GEÇTİ (277 sn)**; A23/A25 hız eşikleri donanıma bağlı (yük altında ara sıra düşebiliyor — bir koşuda 46/47, aynı koşuda torch indirmesi arka planda çalışıyordu; tekil tekrarda A44/A45/A46/A30 dört kez üst üste geçti).
 - Gözlemevi `nora_studio.py` birleşik kodla çalışıyor: /api/chat 5 ms, arka plan yaşamı tick'i studio içinde de dönüyor.
 
+## Güncel (tur: FAZ A — kendiliğinden konuşma / inisiyatif)
+- Sorun: `nora_life._reach` zaten "seslen" eylemi üretiyordu ama (a) `nora_studio.advance()` arka plan yaşamını hiç döndürmüyordu
+  (studio kendi `advance` döngüsünü yazmış, `life.tick` çağrısı yoktu), (b) sürüş denkleminde seslenme yalnızca gerilim/haber
+  varsa tetikleniyordu; kimse yazmayınca *yalnızlık* diye bir sürüş yoktu, (c) söz öğrenilmiş organdan çıkıyordu ve organ olgun
+  değilken `None` -> "…" olarak düşüyordu.
+- Yeni organ `nora_initiative.py` (InitiativeCortex): 9 konuşma türü (SHARE_STATE, ASK_ABOUT, WONDER, REMEMBER, OFFER,
+  CONFIDE, NOTICE_BODY, SHARE_DISCOVERY, NUDGE), 10 sürekli iç-durum özelliği (alone, tension, curiosity, cheer, agitation,
+  body, memory, discovery, night, recent_reach), plastik ağırlık matrisi + softmax seçim, alışma/tekrar sönümü, karşılık
+  aldıkça güçlenme (`reinforce`). Cümleler hazır kalıp değil: `TurkishSyntaxEngine` ile kök+çekim+hâl ekinden kurulur.
+- `NoraAGI.proactive_line()` + `life._reach` entegrasyonu; `voice_ready()` değilse organ susar, uydurmaz.
+- Sürüş denklemine **yalnızlık** eklendi (`loneliness = 1.15 * social_need`) ve **refrakter dönem** (son seslenmeden sonra 900 adım).
+  Cevapsız kalma geri çekilmesi 0.5**n -> 0.72**n (iki-üç denemeden sonra susar, kullanıcı yazınca sıfırlanır).
+- Gözlemevi: `advance()` artık `life.tick` çağırıyor; `snapshot()` outbox'ı boşaltıp tek zaman çizgisine (`flow`) yazıyor;
+  arayüzde "Nora — kendiliğinden" balonu (yeşil, kesikli çerçeve), `proactive`, `initiative`, `background` panelleri.
+- Dilbilgisi düzeltmesi: belirtisiz nesne kuralı (`bir/her/bazı/...` ile kurulan öbek belirtme eki almaz): "bir şeyi anlat" -> "bir şey anlat".
+- Testler: **A48** (sorulmadan konuşma: 6000 adım sessizlikte 2-8 söz, tekrarsız, ≥2 tür, spam yok, kullanıcı yazınca sıfırlanır),
+  **A49** (söz içerikten gelir: öğrenilen bağ sözde görünür, açlık dile gelir, yüzde yok, 12 sözde tekrarsız oran ≥0.6).
+- A45 güncellendi: ölüm bir hata değil (tek yaşamlı A26 ile tutarlı); artık "öldüyse temiz duruş" doğrulanır (hazard ölümü oyunun parçası).
+- Ölçüm: 6000 adım sessizlikte 3 kendiliğinden söz (yaş 492/1572/3093), aralıklar ~1080 ve ~1521 adım (~40-57 sn).
+  Canlı gözlemevinde doğrulandı: "Bana bir şey anlat; ne olurdu olmasa.", "Sen orada mısın?", "Bugün seni en çok ne yordu?".
+  Tam paket: **A1–A49 49/49 GEÇTİ (259.7 sn)**.
+

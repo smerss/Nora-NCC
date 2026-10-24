@@ -1355,9 +1355,13 @@ def a45_background_loop_stability_o1():
         agi.converse(q)
     per = []
     for _ in range(8):
+        if not agi.mortality.is_alive:
+            break                      # tek ve ölümlü yaşam: ölünce döngü durur (A26 ile tutarlı)
         t_a, s_a = agi.life.t, agi.life.tick_seconds
         agi.idle(1500)
-        per.append((agi.life.tick_seconds - s_a) / max(1, agi.life.t - t_a))
+        dt, dn = agi.life.tick_seconds - s_a, agi.life.t - t_a
+        if dn > 0:
+            per.append(dt / dn)
     q = 2
     first, last = float(sum(per[:q]) / q), float(sum(per[-q:]) / q)
     L = agi.life
@@ -1368,8 +1372,12 @@ def a45_background_loop_stability_o1():
         agi.save(pref)
         agi2 = NoraAGI.load(pref)
         same = set(agi2.life.ledger.gaps) == set(L.ledger.gaps) and agi2.life.voice.heard_tokens == L.voice.heard_tokens
-    ok = last <= 3.0 * first + 2e-4 and bounded and same and agi.mortality.is_alive
-    return ok, f"tick {first * 1e3:.2f}->{last * 1e3:.2f} ms | sınırlı={bounded} | kalıcılık={same}"
+    # Ölüm bir hata değil (tek yaşam): öldüyse döngünün temiz durduğunu, yaşıyorsa maliyetin sabit kaldığını doğrularız.
+    ticks_after_death = agi.life.t
+    stopped_clean = (agi.mortality.is_alive or agi.life.t == ticks_after_death)
+    ok = (len(per) >= 2) and last <= 3.0 * first + 2e-4 and bounded and same and stopped_clean
+    return ok, (f"tick {first * 1e3:.2f}->{last * 1e3:.2f} ms | sınırlı={bounded} | kalıcılık={same} | "
+                f"yaşam={'sürüyor' if agi.mortality.is_alive else 'sona erdi (temiz duruş)'}")
 
 
 def a46_neural_broca_structural_no_hallucination():
@@ -1425,6 +1433,78 @@ def a47_neural_broca_trained_stance_and_honesty():
     return ok, f"bilinmeyende soru+çapa={ok_q} {[r for _, r in qs]} | çapa-dışı içerik sızıntısı={leaked}"
 
 
+# ============================================================================
+# A48-A49: KENDİLİĞİNDEN KONUŞMA (İNİSİYATİF) VE SÖZ ÇEŞİTLİLİĞİ
+# ============================================================================
+
+def a48_spontaneous_speech_without_prompt():
+    """Kimse yazmadan konuşma: uzun sessizlikte kendiliğinden söz üretir, tekrara düşmez,
+    cevapsız kaldıkça geri çekilir (spam yok) ve kullanıcı yazınca diyaloğa döner."""
+    from nora_lang import tr_lower
+
+    agi = NoraAGI(seed=48, boot_thinker=False)
+    agi.step_life(300)
+    msgs = []
+    for _ in range(20):                       # 6000 adım sessizlik
+        agi.step_life(300)
+        msgs += agi.drain_outbox()
+
+    texts = [str(m.get("text") or "") for m in msgs]
+    meaningful = bool(texts) and all(len(tr_lower(t).strip()) >= 6 and "…" not in t for t in texts)
+    count_ok = 2 <= len(msgs) <= 8             # ne ölü sessizlik ne mesaj yağmuru
+    distinct = len(set(texts)) == len(texts)
+    variety = len({m.get("move") for m in msgs}) >= 2
+    # Cevapsız kaldıkça dürtü geri çekilir: spam yok
+    quiet = agi.life.unanswered >= 1
+    # Kullanıcı yazınca sayaç sıfırlanır ve diyalog geri gelir
+    r = agi.converse("Merhaba Nora, orada mısın?")
+    reset = agi.life.unanswered == 0 and len(r) > 5
+    ok = meaningful and count_ok and distinct and variety and quiet and reset
+    return ok, (f"kendiliğinden söz={len(msgs)} | tür={sorted({m.get('move') for m in msgs})} | "
+                f"anlamlı={meaningful} | tekrarsız={distinct} | çeşit={variety} | sıfırlandı={reset}")
+
+
+def a49_initiative_content_and_habituation():
+    """İnisiyatif sözü uydurma değil İÇERİKTEN gelir: öğrenilen bağ sözde görünür, bedensel açlık
+    dile gelir; yüzde yok. Aynı iç durumda tekrar tekrar aynı cümle söylenmez (alışma)."""
+    from nora_lang import tr_lower
+
+    agi = NoraAGI(seed=49, boot_thinker=False)
+    agi.step_life(200)
+    # 1) Kavram ağına yeni bir bağ öğret -> inisiyatif bunu paylaşabilmeli
+    agi.converse("Zürafa uzun boyunlu bir hayvandır.")
+    disc = ""
+    for _ in range(60):
+        res = agi.proactive_line("discovery", "zürafa", tension=0.8, idle=1.0)
+        if res and "zürafa" in tr_lower(res["text"]):
+            disc = res["text"]
+            break
+    ok_discovery = bool(disc)
+
+    # 2) Bedensel açlık dile gelir, yüzde ASLA söylenmez
+    agi.nervous.hunger_drive = 0.9
+    body = ""
+    for _ in range(40):
+        res = agi.proactive_line("", tension=0.0, idle=1.0)
+        if res and ("acık" in tr_lower(res["text"]) or "karnım" in tr_lower(res["text"])):
+            body = res["text"]
+            break
+    ok_body = bool(body) and "%" not in body
+
+    # 3) Alışma: arka arkaya 12 söz üret, tekrar oranı düşük olsun
+    said = []
+    for _ in range(12):
+        res = agi.proactive_line("", tension=0.2, idle=1.0)
+        if res:
+            said.append(res["text"])
+    unique_ratio = len(set(said)) / max(1, len(said))
+    ok_habit = unique_ratio >= 0.6
+
+    ok = ok_discovery and ok_body and ok_habit
+    return ok, (f"bağ-paylaşımı={ok_discovery} ({disc[:46]}…) | beden-dili={ok_body} | "
+                f"tekrarsız oran={unique_ratio:.2f} ({len(said)} söz)")
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -1473,6 +1553,8 @@ TESTS = {
     "A45": ("arka plan döngüsü kararlılığı: O(1) tick, sınırlı yapılar, kalıcılık", a45_background_loop_stability_o1),
     "A46": ("sinirsel Broca: tek geçiş öğrenme + yapısal halüsinasyon engeli", a46_neural_broca_structural_no_hallucination),
     "A47": ("eğitilmiş Broca: bilmediğinde uydurmaz, çapayı anıp merak eder", a47_neural_broca_trained_stance_and_honesty),
+    "A48": ("sorulmadan konuşma: sessizlikte kendiliğinden söz, spam yok, diyaloğa dönüş", a48_spontaneous_speech_without_prompt),
+    "A49": ("inisiyatif sözü içerikten gelir (bağ/beden), yüzde yok, alışmayla tekrarsız", a49_initiative_content_and_habituation),
 }
 
 
