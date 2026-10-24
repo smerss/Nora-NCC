@@ -454,7 +454,7 @@ class TurkishMorphology:
         if not known:
             return info
         w, stem = info.get("surface", ""), info.get("stem", "")
-        if w in known and (stem not in known or info.get("is_verb")):
+        if w in known and (stem not in known or info.get("is_verb")) and not info.get("vowel_drop") and not info.get("poss"):
             # Sözlükte bütün hâliyle duran sözcük, kök soyma tahmininden üstündür:
             # 'yemek' (aş) 'ye+mek' diye fiil köküne indirgenmemeli; 'hikâye' 'hikâ'+DAT olmamalı.
             return {**info, "stem": w, "case": "NOM", "is_verb": False, "neg": False}
@@ -588,7 +588,7 @@ class TurkishMorphology:
         cur = w
         # 0b) 1. tekil iyelik/koşaç (-Im): 'moralim', 'kafam', 'hastayım', 'öğretmenim'.
         #     Yalnızca SÖZLÜKTE olan bir köke indirgeniyorsa kabul edilir (uydurma kök yok).
-        if len(w) >= 4 and w.endswith("m"):
+        if len(w) >= 4 and w.endswith("m") and w not in known:
             _cands = [w[:-1], w[:-2], w[:-3]]
             for _c in list(_cands):
                 if _c.endswith("y"):
@@ -620,6 +620,21 @@ class TurkishMorphology:
                 cur = cur[:-3]
                 info["copula"] = True
                 break
+
+        # 1b) 2. tekil kişi koşacı (-sIn): 'sessizsin', 'yorgunsun', 'hastasın' -> sıfat + 2SG.
+        for _sf in ("sin", "sın", "sun", "sün"):
+            if len(cur) > len(_sf) + 2 and cur.endswith(_sf) and cur[:-len(_sf)] in known:
+                info["stem"] = cur[:-len(_sf)]
+                info["copula"] = True
+                info["person"] = "2SG"
+                return info
+
+        # 1c) -cA zarfı ('sence', 'bence', 'onca'): görüş/tarz belirtir, hal eki değildir.
+        for _sf in ("ce", "ca", "çe", "ça"):
+            if len(cur) > len(_sf) + 1 and cur.endswith(_sf) and cur[:-len(_sf)] in known:
+                info["stem"] = cur[:-len(_sf)]
+                info["adverb"] = "CA"
+                return info
 
         # 2) Zarf-fiiller (-dıkça/-tikçe, -madan/-meden), yeterlilik (-(y)abilir), şart (-sa/-se, -ırsa/-irse),
         #    duyulan geçmiş (-mış/-miş) ve basit fiil çekim ekleri
@@ -741,6 +756,23 @@ class TurkishMorphology:
                             continue
                         if not sf.startswith("s") and cand[-1] in ALL_VOWELS:
                             continue
+                        # Kısa gövdede yumuşama tuzağı: 'kadına' -> 'kad'(+iyelik) -> 'kat' savrulması.
+                        # Uzun gövdelerde (fonksiyon, seviye, durum) sözlük dışı olmak doğaldır.
+                        if len(cand) <= 3 and cand not in known and cls._unsoften(cand) in known:
+                            continue
+                        # Doğrudan hal eki okuyuşu sözlükte gerçek bir ada çıkıyorsa o okuma üstündür:
+                        # 'kadına' = kadın+DAT (kad+iyelik değil).
+                        _direct_known = False
+                        for _ds in ("a", "e", "ı", "i", "u", "ü", "da", "de", "ta", "te",
+                                    "dan", "den", "tan", "ten", "ın", "in", "un", "ün",
+                                    "nı", "ni", "nu", "nü", "na", "ne"):
+                            if cur.endswith(_ds) and len(cur) - len(_ds) >= 3:
+                                _dc = cur[:-len(_ds)]
+                                if _dc in known or cls._unsoften(_dc) in known:
+                                    _direct_known = True
+                                    break
+                        if _direct_known:
+                            continue
                         if cand in cls.REV_VOWEL_DROP:
                             cur = cls.REV_VOWEL_DROP[cand]
                             info["vowel_drop"] = True
@@ -760,10 +792,10 @@ class TurkishMorphology:
             (("da", "de", "ta", "te"), "LOC"),
             (("nın", "nin", "nun", "nün", "ın", "in", "un", "ün"), "GEN"),
             (("yla", "yle", "la", "le"), "INS"),
-            (("ya", "ye", "a", "e"), "DAT"),
-            (("yı", "yi", "yu", "yü", "ı", "i", "u", "ü"), "ACC"),
+            (("ya", "ye", "na", "ne", "a", "e"), "DAT"),
+            (("yı", "yi", "yu", "yü", "nı", "ni", "nu", "nü", "ı", "i", "u", "ü"), "ACC"),
         ]
-        if cur not in known and info["case"] == "NOM" and not info.get("poss3"):
+        if info["case"] == "NOM" and not info.get("poss3"):
             for suffixes, cname in case_rules:
                 matched = False
                 for sf in suffixes:
@@ -772,17 +804,38 @@ class TurkishMorphology:
                         # Türkçe ünsüz benzeşmesi yasası: 't' ile başlayan hal eki (-ta/-te/-tan/-ten) YALNIZCA sert ünsüzden sonra gelebilir!
                         if sf[0] == "t" and (not cand or cand[-1] not in HARD_CONS):
                             continue
+                        # Kaynaştırma 'n'li ek yalnızca ünlüyle biten ve SÖZLÜKTE olan bir gövdeye gelir
+                        # ('gökyüzü-nü'); yoksa 'kadına' -> 'kadı' gibi savrulma olur.
+                        if len(sf) == 2 and sf[0] == "n" and cand not in known \
+                                and cls._unsoften(cand) not in known and cand not in cls.REV_VOWEL_DROP:
+                            continue
                         # 'a'/'e'/'ı'/'i' tek harfli eklerde kelimenin zaten sözlükte kök olup olmadığını koru;
                         # ancak ünsüz yumuşaması ('ğ/b/c/d' + ünlü) veya sert ünsüz + ünlü ('sepete' -> 'sepet') hal ekidir!
                         hard = cls._unsoften(cand)
+                        if hard not in known and cand not in known:
+                            _ud = cls._undouble(cand)
+                            if _ud in known:
+                                hard = cand = _ud
                         softened = cls._likely_softened(cand, sf)
                         vdrop = (cand in cls.REV_VOWEL_DROP)
                         hard_dat_acc = (cand[-1] in HARD_CONS and len(cand) >= 3)
-                        if len(sf) == 1 and (cur in known or (not softened and not vdrop and not hard_dat_acc and cand not in known and hard not in known and not cand.endswith(("lar", "ler")))):
+                        if len(sf) == 1 and cur in known and not vdrop and cand not in known and hard not in known:
+                            # Yüzey sözlükte, soyalacak kök sözlükte değil: çekim uydurma ('bilgi' -> 'bilg').
+                            continue
+                        if len(sf) == 1:
                             # Ünlü uyumu + kökte ünlü bulunması koşuluyla tek harfli -ı/-i/-u/-ü ekini yine de kabul et
                             # ('patojeni'->'patojen'+ACC, 'hipotezi'->'hipotez'+ACC) — 'dünya'->'düny' gibi köksüz kalıplar reddedilir!
                             base_vowels = [ch for ch in cand if ch in ALL_VOWELS]
-                            if not (len(cand) >= 4 and base_vowels and cls.vowel_4(cand) == sf):
+                            _v4 = cls.vowel_4(cand) if base_vowels else ""
+                            # Büyük ünlü uyumu: kalın {a,ı,o,u} -> a/ı, ince {e,i,ö,ü} -> e/i;
+                            # dörtlü eklerde (ı/i/u/ü) sınıfın kendi harfi gerekir.
+                            _ok_harm = (
+                                (sf == "a" and _v4 in ("ı", "u")) or (sf == "ı" and _v4 == "ı")
+                                or (sf == "e" and _v4 in ("i", "ü")) or (sf == "i" and _v4 == "i")
+                                or (sf == "u" and _v4 == "u") or (sf == "ü" and _v4 == "ü")
+                            )
+                            _min_len = 3 if (vdrop or cand in known or hard in known) else 4
+                            if not (len(cand) >= _min_len and base_vowels and _ok_harm):
                                 continue
                         cur = hard if softened else cand
                         info["case"] = cname
@@ -791,6 +844,74 @@ class TurkishMorphology:
                 if matched:
                     break
 
+        # 1d) İYELİK + HAL ZİNCİRİ: 'kucağıma' (kucak+ım+a), 'kardeşime', 'evime', 'elimde'.
+        #     Hal eki tek başına soyulunca geriye sözlükte olmayan bir gövde kalıyorsa, gövdenin sonunda
+        #     bir iyelik eki daha vardır; ikisini birlikte çözeriz (Türkçe ad çekiminin gerçek zinciri).
+        _case_chain = ("ndan", "nden", "nın", "nin", "nun", "nün", "dan", "den", "tan", "ten",
+                       "nda", "nde", "da", "de", "ta", "te", "yla", "yle", "la", "le",
+                       "nı", "ni", "nu", "nü", "yı", "yi", "yu", "yü", "ya", "ye",
+                       "ın", "in", "un", "ün", "ı", "i", "u", "ü", "a", "e")
+        _poss_chain = ("ımız", "imiz", "umuz", "ümüz", "sı", "si", "su", "sü",
+                       "ım", "im", "um", "üm", "ın", "in", "un", "ün", "ı", "i", "u", "ü", "m")
+        if w not in known:
+            for _cs in _case_chain:
+                if len(w) - len(_cs) < 3 or not w.endswith(_cs):
+                    continue
+                _mid = w[:-len(_cs)]
+                _case_name = None
+                if _cs in ("ndan", "nden"):
+                    _case_name = "ABL"
+                elif _cs in ("nın", "nin", "nun", "nün"):
+                    _case_name = "GEN"
+                elif _cs in ("dan", "den", "tan", "ten"):
+                    _case_name = "ABL"
+                elif _cs in ("nda", "nde", "da", "de", "ta", "te"):
+                    _case_name = "LOC"
+                elif _cs in ("yla", "yle", "la", "le"):
+                    _case_name = "INS"
+                elif _cs in ("ya", "ye", "a", "e"):
+                    _case_name = "DAT"
+                elif _cs in ("nı", "ni", "nu", "nü", "yı", "yi", "yu", "yü", "ı", "i", "u", "ü"):
+                    _case_name = "ACC"
+                elif _cs in ("ın", "in", "un", "ün"):
+                    _case_name = "GEN"
+                for _ps in _poss_chain:
+                    if len(_mid) - len(_ps) < 2 or not _mid.endswith(_ps):
+                        continue
+                    _stem_c = _mid[:-len(_ps)]
+                    _res = None
+                    _pl_hit = False
+                    for _pl in ("lar", "ler"):
+                        if _stem_c.endswith(_pl) and len(_stem_c) - 3 >= 2:
+                            _base = _stem_c[:-3]
+                            _b2 = _base if _base in known else cls._unsoften(_base)
+                            if _b2 in known:
+                                _stem_c = _b2
+                                _pl_hit = True
+                                break
+                    if _stem_c in known:
+                        _res = _stem_c
+                    elif _stem_c in cls.REV_VOWEL_DROP:
+                        _res = cls.REV_VOWEL_DROP[_stem_c]
+                        info["vowel_drop"] = True
+                    else:
+                        _h = cls._unsoften(_stem_c)
+                        if _h in known:
+                            _res = _h
+                        elif cls._undouble(_stem_c) in known:
+                            _res = cls._undouble(_stem_c)
+                    if _res is not None:
+                        if _pl_hit:
+                            info["plural"] = True
+                        info["stem"] = _res
+                        info["poss"] = 1
+                        info["poss1"] = True
+                        info["case"] = _case_name or "NOM"
+                        if len(_ps) > 2:
+                            info["poss"] = 2
+                            info["poss1"] = False
+                        return info
+
         # 4) Çoğul eki (-lar/-ler) ve iyelik (-ım/-im/-um/-üm / -ı/-i/-u/-ü) + Ünlü Düşmesi geri kazanımı
         for pl in ("lar", "ler"):
             if len(cur) > 4 and cur.endswith(pl) and cur not in known:
@@ -798,6 +919,8 @@ class TurkishMorphology:
                 info["plural"] = True
                 break
         for poss in ("ımız", "imiz", "umuz", "ümüz", "ım", "im", "um", "üm", "ın", "in", "un", "ün", "m"):
+            if info.get("poss3"):
+                break   # 3. kişi iyeliği çözüldüyse üstüne 1. kişi iyeliği bindirme ('durumunda' -> 'dur')
             if len(cur) - len(poss) >= 3 and cur.endswith(poss) and cur not in known:
                 cand = cur[:-len(poss)]
                 if cand in cls.REV_VOWEL_DROP:
@@ -880,6 +1003,13 @@ class TurkishMorphology:
     @staticmethod
     def _likely_softened(cand: str, sf: str) -> bool:
         return bool(sf and sf[0] in ALL_VOWELS and cand and cand[-1] in {"b", "c", "d", "ğ"})
+
+    @staticmethod
+    def _undouble(cand: str) -> str:
+        """Ünsüz ikizleşmesi geri çözümü: 'zıtt' -> 'zıt', 'hiss' -> 'his', 'ret' korunur."""
+        if len(cand) >= 3 and cand[-1] == cand[-2] and cand[-1] in "bcçdfgğhjklmnprsştvyz":
+            return cand[:-1]
+        return cand
 
     @staticmethod
     def _unsoften(cand: str) -> str:
@@ -1376,6 +1506,7 @@ class SemanticFrame:
     math_expr: tuple[int, str, int] | None = None
     analogy: tuple[str, str, str] | None = None
     sub_kind: str = ""
+    wh: str = ""              # soru sözcüğü: nasıl | neden | nerede | kim | ne ...
 
 
 class WernickeComprehender:
@@ -1533,7 +1664,7 @@ class WernickeComprehender:
             if not _about_self and _content:
                 _subj = self._clean_np(_content[0])
                 self.last_topic = _subj
-                return SemanticFrame(kind="wh_query", raw=s_raw, subj=_subj)
+                return SemanticFrame(kind="wh_query", raw=s_raw, subj=_subj, wh="neden")
             if len(words) <= 3 or _about_self or any(k in s for k in ("reddet", "yapmadın", "kabul etmedin", "erteledin", "dedin")):
                 return SemanticFrame(kind="why_query", raw=s_raw)
 
@@ -1686,6 +1817,11 @@ class WernickeComprehender:
                     if a_tok["stem"] in self.graph.lexicon and not a_tok.get("is_verb"):
                         subj = a_tok["stem"]
                         break
+            _wh = ""
+            for _wq in ("nasıl", "neden", "niye", "niçin", "nerede", "nereye", "nereden", "kim", "hangisi"):
+                if _wq in words:
+                    _wh = _wq
+                    break
             is_infinitive_subj = words[0].endswith(("mak", "mek", "maktan", "mekten", "maktaki", "mekteki", "maya", "meye"))
             if subj not in non_encyclopedic_subjs and not is_infinitive_subj:
                 self.last_topic = subj
@@ -1699,7 +1835,7 @@ class WernickeComprehender:
                     qtype = "HAS_PROP"
                 else:
                     qtype = "ALL"
-                return SemanticFrame(kind="wh_query", raw=s_raw, subj=subj, rel=qtype)
+                return SemanticFrame(kind="wh_query", raw=s_raw, subj=subj, rel=qtype, wh=_wh)
 
         # 11) Öğretici bildirim cümleleri (1-shot öğrenme — 1. tekil/çoğul kişisel ve bakım/yatıştırma cümleleri hariç!)
         if not has_q and len(words) >= 2:

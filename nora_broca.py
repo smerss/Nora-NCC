@@ -1743,14 +1743,14 @@ class GenerativeBrocaOrgan:
                     advs=("yakından",),
                     tense="PRES", person="1SG",
                 ))
-                v_care = self.lex_sel.pick("VERB_CONSOLIDATE", chem)
-                c_emp2 = self.syn.realize_verb(VerbSpec(
-                    verb_root=v_care,
-                    subj=NP("uyku ve dinlenme"),
-                    obj=NP("bellek ve zihin", poss=2, case="ACC"),
-                    pre_clause=self.syn.converb("azalt", "erek", obj=NP("yorgunluk", case="ACC")),
-                    tense="AOR", person="3SG",
-                ))
+                # Ders değil soru: karşıdaki yorgunken ansiklopedi maddesi okunmaz, hâli sorulur.
+                try:
+                    c_emp2 = agi.discourse._fresh((
+                        "Ne zamandır böyle?", "Bugün ne oldu?", "Anlatmak ister misin?",
+                        "Yanında olmamı ister misin?", "Biraz yavaşlayalım mı?",
+                    ))
+                except Exception:
+                    c_emp2 = "Anlatmak ister misin?"
                 welcome = ""
                 if "okul" in s_low and any(k in s_low for k in ("döndüm", "geldim")):
                     addr_w = f" {uname}" if (uname and not vocative_prefix) else ""
@@ -1758,8 +1758,11 @@ class GenerativeBrocaOrgan:
                     agi.user_profiles.setdefault(speaker, {})["son_durum"] = "okuldan yorgun döndü"
                 elif uname and not vocative_prefix and not plan["guarded"]:
                     vocative_prefix = f"{uname}, "
-                clauses_out.append(f"{welcome}{tr_capitalize(c_emp1)}; {c_emp2}.")
-                raw_thought_nodes.append(f"EMPATİ({v_root}+2SG+DIK -> {v_emp}; dinlenme -> bellek+{v_care})")
+                if c_emp2.endswith("?") or c_emp2.endswith("."):
+                    clauses_out.append(f"{welcome}{tr_capitalize(c_emp1)}. {c_emp2}")
+                else:
+                    clauses_out.append(f"{welcome}{tr_capitalize(c_emp1)}; {c_emp2}.")
+                raw_thought_nodes.append(f"EMPATİ({v_root}+2SG+DIK -> {v_emp}; soru -> {c_emp2})")
             else:
                 chem.da_phasic = float(np.clip(chem.da_phasic + 0.22, -1.0, 1.0))
                 dik_obj = self.syn.nominalize_dik(v_root, poss=2, case="DAT")
