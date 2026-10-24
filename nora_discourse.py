@@ -370,7 +370,8 @@ class DiscourseCortex:
         _has_deixis = any(w in _deixis for w in words)
         _ADV_SKIP = {"çok", "az", "biraz", "pek", "daha", "en", "çokça", "hiç", "hep", "yine"}
         _TIME_SKIP = {"bugün", "dün", "yarın", "şimdi", "sabah", "akşam", "gece", "öğlen",
-                      "hafta", "ay", "yıl", "önce", "sonra", "bu", "şu", "o"}
+                      "hafta", "ay", "yıl", "önce", "sonra", "bu", "şu", "o",
+                      "seninle", "benimle", "onunla", "bununla", "şununla", "sizinle", "bizimle"}
         from nora_knowledge import COMMON_ADJECTIVES as _CA, COMMON_NOUNS as _CN, STATE_ADJECTIVES as _SA
         if _has_deixis:
             # 3a) Koşaçlı ad/sıfat yüklemi: 'hava çok güzelmiş' -> yüklem 'güzel', özne 'hava'
@@ -429,6 +430,11 @@ class DiscourseCortex:
                                 "rest": [x for x in words[:i] if x != _pw],
                                 "tail": words[i + 1:],
                                 "subject": _pan.get("stem") or _pw}
+        # PRONOMINAL özne ('seninle konuşmak iyi geliyor'): tamlayan kurulmaz.
+        _PRON_SUBJ = {"sen", "ben", "o", "biz", "siz", "seni", "beni", "senin", "benim",
+                      "seninle", "benimle", "onunla", "sizinle", "bizimle"}
+        if poss_idx >= 0 and words[poss_idx] in _PRON_SUBJ:
+            poss_idx = -1
         if poss_idx >= 0:
             for i, w in enumerate(words):
                 an = memo.get(w)
@@ -712,7 +718,10 @@ class DiscourseCortex:
                     _an = _morph.analyze_word(_w, _lex) if _morph is not None else {}
                 except Exception:
                     _an = {}
-                if _an and not _an.get("is_verb") and len(_w) > 3 and "." not in _w:
+                _Q_SKIP = {"bugün", "dün", "yarın", "şimdi", "sabah", "akşam", "gece", "öğlen",
+                           "çok", "biraz", "daha", "hep", "yine", "sonra", "önce", "az"}
+                if _an and not _an.get("is_verb") and len(_w) > 3 and "." not in _w \
+                        and _w not in _Q_SKIP:
                     _qn.append(f"Hangi {_w}?")
                     break
             q = self._fresh(tuple(_qn) + (
