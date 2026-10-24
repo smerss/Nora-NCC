@@ -20,3 +20,8 @@ runs/nora_egitim*
 runs/ses_*
 runs/bozuk/
 runs/tok.json
+
+# yerel deneme betikleri
+_probe*.py
+_t*.py
+_patch*.py
