@@ -46,6 +46,7 @@ class SpeculativeCortex:
     """Bilinmeyen soruya karşı düşünme: bilgi kırıntısı -> hipotez -> eksik -> kendi sorusu."""
 
     def __init__(self, seed: int = 0):
+        self.last_gap = ""
         self.rng = random.Random(seed)
         self.last_trace: str = ""
 
@@ -80,6 +81,7 @@ class SpeculativeCortex:
 
     # ------------------------------------------------------------------ 1. PARÇALA
     def _decompose(self, agi, raw: str, fr=None) -> dict:
+        g = agi.lang.graph
         low = tr_lower(raw)
         wh = ""
         for w in _QUESTION_WORDS:
@@ -106,13 +108,13 @@ class SpeculativeCortex:
             nouns.append((lem, case, plural, i))
         if not verb:
             # Sözlükte olmayan ama fiil gibi görünen sözcük ('mırlar' -> 'mırla'): gövde tahmini.
-            for t in reversed(tokens):
+            for _i, t in reversed(list(enumerate(tokens))):
                 if len(t) >= 5 and t.endswith("r"):
                     if t.endswith(("lar", "ler")) and (t[:-3] in g.lexicon or g.query(t[:-3], None)):
                         continue                     # 'ağaçlar' bir addır, fiil değil
                     cand = t[:-1]
                     if cand.endswith(("la", "le", "da", "de", "ta", "te")):
-                        verb = cand
+                        verb, verb_idx = cand, _i
                         nouns = [n for n in nouns if not (verb.startswith(n[0]) and len(n[0]) >= 2)]
                         break
 
@@ -144,12 +146,14 @@ class SpeculativeCortex:
         # Ad + yardımcı fiil ('sıra ol', 'nefes al'): fiilden hemen önceki ad yüklem adıdır.
         if verb_idx > 0:
             for lem, case, _p, idx in nouns:
-                if case != "NOM" or idx in used_idx:
+                if idx in used_idx:
                     continue
                 if idx == verb_idx - 1:
                     if verb and (verb.startswith(lem) or lem.startswith(verb)):
                         continue                 # 'mır mırlar' gibi kök yinelemesi
-                    pred_noun = lem
+                    # Ağda karşılığı olmayan sözcük kırpılmış köküyle değil, duyulduğu gibi saklanır.
+                    surf = tokens[idx] if idx < len(tokens) else lem
+                    pred_noun = lem if g.query(lem, None) else surf
                     used_idx.add(idx)
         if not patient:
             for lem, case, _p, idx in nouns:
@@ -170,11 +174,21 @@ class SpeculativeCortex:
         broca = agi.lang.broca
         out: list[str] = []
         order = {"HAS_PROP": 0, "CAN_DO": 1, "USED_FOR": 2, "CAUSES": 3, "HAS_PART": 4, "ISA": 5}
-        for c in q["concepts"]:
+        if q.get("wh") in ("neden", "niye", "niçin"):
+            order = {"CAUSES": 0, "USED_FOR": 1, "CAN_DO": 2, "HAS_PROP": 3, "HAS_PART": 4, "ISA": 5}
+        _asked = tr_lower(q.get("raw", ""))
+        # 'neden/nasıl' sorusunda yalnız SORULAN varlığın bağları sayılır; yan kavramlar (yer, araç) gürültüdür.
+        _concepts = [q["agent"]] if (q.get("wh") in ("neden", "niye", "niçin", "nasıl") and q.get("agent")) else q["concepts"]
+        for c in _concepts:
             hits = [(e, p) for e, p in g.query(c, None) if not p]
+            hits = [(e, p) for e, p in hits
+                    if e.rel in order or (e.rel == "OPPOSITE" and any(w in _asked for w in ("zıt", "karşıt", "ters")))]
             hits.sort(key=lambda h: (order.get(h[0].rel, 9), -float(h[0].weight)))
             q_tokens = self._tokens(q.get("verb_phrase", "")) | self._tokens(q.get("patient", ""))
+            _strict = q.get("wh") in ("neden", "niye", "niçin", "nasıl")
             for e, _p in hits:
+                if _strict and e.rel in ("ISA", "HAS_PROP") and q_tokens and not (self._tokens(e.obj) & q_tokens):
+                    continue
                 if e.rel == "CAN_DO":
                     if " " in (e.obj or "") and e.obj.split()[-1] in ("verir", "ver"):
                         continue
@@ -239,12 +253,15 @@ class SpeculativeCortex:
 
         # (b) NEDEN: kavramın kendi CAUSES bağı varsa bu tahmin değil, bilgidir.
         if "CAUSES" in rels:
-            _srcs = [q["pred_noun"], q["verb_phrase"], agent, patient]
+            _specific = [q["pred_noun"], q["verb_phrase"]]
             if q["verb"] and q["patient"]:
-                _srcs.append(f"{q['patient']} {q['verb']}")
-            for _vp in list(_srcs):
+                _specific.append(f"{q['patient']} {q['verb']}")
+            for _vp in list(_specific):
                 if _vp and " " in _vp:
-                    _srcs.append(_vp + ("mak" if _vp[-1] in "aıou" else "mek"))
+                    _specific.append(_vp + ("mak" if _vp[-1] in "aıou" else "mek"))
+            _generic = [agent, patient]
+            _light = q["verb"] in ("", "ol", "et", "yap", "bulun", "bul")
+            _srcs = _specific + (_generic if _light else [])
             for c in dict.fromkeys(x for x in _srcs if x):
                 if not c:
                     continue
@@ -270,10 +287,12 @@ class SpeculativeCortex:
                         if not (self._tokens(e2.obj) & pat_tokens) and self._verb_in(e2.obj) != verb:
                             continue
                         try:
+                            _own = [w for w in q["verb_phrase"].split() if w != verb and w not in _STOP]
+                            _obj = patient or (" ".join(_own) if _own else "")
                             clause = SYN.realize_verb(VerbSpec(
                                 verb_root=verb, subj=NP(agent),
-                                obj=NP(patient, case="ACC") if patient else None,
-                                ins=NP(part, case="INS"), tense="AOR", person=person))
+                                obj=NP(_obj, case="NOM") if _obj else None,
+                                ins=NP(part, case="INS"), tense="AOR", person="3SG"))
                             if clause:
                                 return clause, f"parça:{agent}.{part}->{e2.obj}"
                         except Exception:
@@ -429,10 +448,17 @@ class SpeculativeCortex:
             lack = self._lack_clause(agi, q)
             if lack and tr_lower(lack) not in seen:
                 parts.append(lack)
+        gap_parts: list[str] = []
         if not hypo:
+            lack = self._lack_clause(agi, q)
             question = self._curiosity_question(agi, q)
-            if question and all(tr_lower(question) != tr_lower(p) for p in parts):
-                parts.append(question)
+            for txt in (lack, question):
+                if not txt:
+                    continue
+                gap_parts.append(txt)
+                if all(tr_lower(txt) != tr_lower(pp) for pp in parts):
+                    parts.append(txt)
+        self.last_gap = " ".join(gap_parts)
         self.last_trace = (f"parçala: eyleyici={q['agent']} nesne={q['patient']} fiil={q['verb_phrase']} "
                            f"wh={q['wh']} | bilgi={len(known)} | {trace or 'hipotez yok'}")
         return " ".join(parts)
