@@ -298,6 +298,13 @@ class TheoryOfMindTracker:
         return bel, real, (bel is not None and real is not None and bel != real)
 
 
+try:
+    from nora_meta import ConflictMonitor, compose_noticing, compose_time_answer
+except Exception:  # pragma: no cover
+    ConflictMonitor = None
+    compose_noticing = compose_time_answer = None
+
+
 class NoraAGI:
     """Canlı Beden + Endojen Kimya + Öz-Benlik + Türkçe Dil + Zihin Kuramı + Sistem-2 + Hızlı Öğrenici."""
 
@@ -357,6 +364,10 @@ class NoraAGI:
             self._ensure_cognition()
 
         self.dialogue_log: list[tuple[str, str, str]] = []
+        # ÜST-BİLİŞ: aynı sözün tekrarı ve geçen zaman (ACC çakışma izleme + episodik bellek)
+        self.acc = ConflictMonitor() if ConflictMonitor is not None else None
+        self.last_meta_repeat: dict | None = None
+        self.last_meta_thought: str = ""
 
         # --- ARKA PLAN YAŞAMI + ÖĞRENEN SÖZ ORGANI (elle yazılmış sözcük/cümle yok; dil okunarak öğrenilir) ---
         self.life = BackgroundLife(seed=seed + 71)
@@ -727,6 +738,46 @@ class NoraAGI:
         )
 
     def converse(self, text: str, speaker: str = "insan") -> str:
+        """Konuşma turu: yanıt üretilir, ardından üst-biliş (tekrar farkındalığı) devreye girer.
+
+        Nora sadece soruya değil, sorunun KENDİSİNE de bakar: aynı söz az önce söylendiyse
+        ne zaman söylendiğini, o an ne cevap verdiğini hatırlar ve bunu sözüne katar.
+        """
+        raw = (text or "").strip()
+        now = time.time()
+        _meta = None
+        if self.acc is not None and raw:
+            try:
+                _meta = self.acc.observe(raw, now)
+            except Exception:
+                _meta = None
+        ans = self._converse_core(text, speaker)
+        if self.acc is not None and raw:
+            try:
+                self.acc.note_turn(raw, ans, now)
+                if _meta is not None:
+                    self.acc.repeats_noticed += 1
+                    self.last_meta_repeat = _meta
+                    self.last_meta_thought = (
+                        f"Bu sözü {ConflictMonitor.time_phrase(_meta.get('elapsed_s', 0.0))} "
+                        f"de duymuştum; {int(_meta.get('turns_ago', 1))} tur önce.")
+                    # ÖZ-İRADE: ketumluk/sessizlik seçildiyse fark etmek konuşmayı gerektirmez.
+                    # İçeride fark eder, dışarıda susar — insan da böyle yapar.
+                    _plan = dict(getattr(self.broca_organ, "last_speech_plan", {}) or {})
+                    _quiet = bool(_plan.get("guarded")) or bool(_plan.get("silence")) or \
+                        bool(_plan.get("wants_silence"))
+                    _low = tr_lower(ans)
+                    if not _quiet and "sessiz" not in _low:
+                        _rng = getattr(self, "rng", None) or getattr(self, "random", None)
+                        _note = compose_noticing(_meta, self, _rng)
+                        ans = f"{ans.rstrip()} {_note}"
+                        if self.dialogue_log and self.dialogue_log[-1][1] == raw:
+                            self.dialogue_log[-1] = (self.dialogue_log[-1][0], raw, ans)
+            except Exception:
+                pass
+        return ans
+
+    def _converse_core(self, text: str, speaker: str = "insan") -> str:
         """Gelen Türkçe cümleyi algılar, önce içsel monolog yürütür, öz-benlik ve nörokimya süzgecinden geçirip yanıt üretir."""
         t0 = time.perf_counter()
         if not self.mortality.is_alive:
@@ -752,6 +803,15 @@ class NoraAGI:
 
         # Sözce türünü (soru / yasa / çift-durum / sosyal durum / duygu paylaşımı) Nora KENDİ nöral korteksiyle sınıflar.
         self.last_utterance_class = self.utter_cortex.classify(raw)
+
+        # ZAMAN SORUSU: Nora zamanı bedeninde ve belleğinde ölçer (sandbox evreninin saati).
+        _tl = tr_lower(raw)
+        if self.acc is not None and any(k in _tl for k in (
+                "ne kadar oldu", "ne kadar zaman oldu", "ne zamandır", "ne kadar süredir",
+                "kaç dakika oldu", "kaç saat oldu", "saat kaç", "saat kaçtır")):
+            _ans_t = compose_time_answer(self.acc.since_session(), len(self.dialogue_log))
+            self._log_turn(speaker, raw, _ans_t, t0)
+            return _ans_t
 
         # Konuşmadan ÖNCE içsel monolog (Vygotsky iç sesi + insan şeması gözlemi + kendi şema seçimi!)
         self._begin_inner_monologue(raw, speaker)

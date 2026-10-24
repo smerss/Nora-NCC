@@ -19,7 +19,7 @@ from __future__ import annotations
 import re
 
 from nora_lang import ALL_VOWELS, soften_verb_t, tr_lower
-from nora_knowledge import PROPER_NOUNS, STATE_ADJECTIVES
+from nora_knowledge import COMMON_ADJECTIVES, PROPER_NOUNS, STATE_ADJECTIVES
 
 
 def _v4(cls, w: str) -> str:
@@ -517,6 +517,8 @@ def analyze_imperative(cls, w: str) -> dict | None:
         if not m:
             continue
         root = m.group(1)
+        if len(root) < 2:
+            continue
         bases = [root, cls._unsoften(root)]
         for b in list(bases):
             for v in ("a", "e", "ı", "i", "u", "ü"):
@@ -657,6 +659,102 @@ def analyze_ca(cls, w: str) -> dict | None:
     return None
 
 
+
+# ============================================================================ AD + KOŞAÇ
+_NOM_PRES = {"yım": "1SG", "yim": "1SG", "yum": "1SG", "yüm": "1SG",
+             "sın": "2SG", "sin": "2SG", "sun": "2SG", "sün": "2SG",
+             "yız": "1PL", "yiz": "1PL", "yuz": "1PL", "yüz": "1PL",
+             "sınız": "2PL", "siniz": "2PL", "sunuz": "2PL", "sünüz": "2PL",
+             "dır": "3SG", "dir": "3SG", "dur": "3SG", "dür": "3SG",
+             "tır": "3SG", "tir": "3SG", "tur": "3SG", "tür": "3SG",
+             "lar": "3PL", "ler": "3PL"}
+_NOM_PAST = {"dı": "3SG", "di": "3SG", "du": "3SG", "dü": "3SG",
+             "tı": "3SG", "ti": "3SG", "tu": "3SG", "tü": "3SG"}
+_NOM_PERSON = {"m": "1SG", "n": "2SG", "k": "1PL", "niz": "2PL", "nız": "2PL",
+               "nuz": "2PL", "nüz": "2PL", "ler": "3PL", "lar": "3PL"}
+
+
+def analyze_nominal_copula(cls, w: str, known: set | None = None) -> dict | None:
+    """AD + KOŞAÇ çözümlemesi: 'güzeldi', 'hastaydı', 'yorgundum', 'mutluyuz', 'hastaysa'.
+
+    Kural: hal eki sanılmasın diye kök AD/SIFAT olarak doğrulanır; sırayla
+    geçmiş koşaç + kişi, şimdiki koşaç + kişi, koşullu koşaç denenir.
+    '-Im' yalnızca SIFAT kökünde koşaç sayılır ('yorgunum'); ad kökünde iyeliktir
+    ('evim', 'öğretmenim') ve o yorum korunur.
+    """
+    kn = set(known or ())
+    words = kn | STATE_ADJECTIVES | COMMON_ADJECTIVES | PROPER_NOUNS
+    adjs = STATE_ADJECTIVES | COMMON_ADJECTIVES
+
+    def _norm(base: str) -> str:
+        return base[:-1] if base.endswith("y") and len(base) >= 4 else base
+
+    def _cands(base: str):
+        """Yalnızca SÖZLÜKTE/SIFAT LİSTESİNDE olan kök kabul edilir (uydurma kök yok)."""
+        out = []
+        if base in words:
+            out.append(base)
+        b2 = _norm(base)
+        if b2 != base and b2 in words:
+            out.insert(0, b2)                       # 'iyi-y-di' -> iyi (kaynaştırma y düşer)
+        return out
+
+    _PSUF = ("nız", "niz", "nuz", "nüz", "lar", "ler", "m", "n", "k", "")
+    # 1) Geçmiş koşaç: güzel-di-m, hasta-y-dı-k, yorgun-du-nuz, soğuk-tu
+    for psuf in _PSUF:
+        if psuf and not w.endswith(psuf):
+            continue
+        body = w[: -len(psuf)] if psuf else w
+        if len(body) < 4:
+            continue
+        for suf, _ in (("dı", 0), ("di", 0), ("du", 0), ("dü", 0),
+                       ("tı", 0), ("ti", 0), ("tu", 0), ("tü", 0)):
+            if not body.endswith(suf):
+                continue
+            base = body[: -len(suf)]
+            for c in _cands(base):
+                return {"stem": c, "case": "NOM", "is_verb": False, "copula": True,
+                        "tense": "PAST", "person": ("3SG" if not psuf else
+                                                    {"m": "1SG", "n": "2SG", "k": "1PL", "niz": "2PL",
+                                                     "nız": "2PL", "nuz": "2PL", "nüz": "2PL",
+                                                     "ler": "3PL", "lar": "3PL"}.get(psuf, "3SG"))}
+    # 2) Şimdiki koşaç: hasta-y-ım, mutlu-y-uz, güzel-sin, soğuk-tur, öğretmen-im (sıfat)
+    for suf, psn, sadece_sifat in (("yım", "1SG", False), ("yim", "1SG", False),
+                                   ("yum", "1SG", False), ("yüm", "1SG", False),
+                                   ("yız", "1PL", False), ("yiz", "1PL", False),
+                                   ("yuz", "1PL", False), ("yüz", "1PL", False),
+                                   ("sınız", "2PL", False), ("siniz", "2PL", False),
+                                   ("sunuz", "2PL", False), ("sünüz", "2PL", False),
+                                   ("sın", "2SG", False), ("sin", "2SG", False),
+                                   ("sun", "2SG", False), ("sün", "2SG", False),
+                                   ("dır", "3SG", False), ("dir", "3SG", False),
+                                   ("dur", "3SG", False), ("dür", "3SG", False),
+                                   ("tır", "3SG", False), ("tir", "3SG", False),
+                                   ("tur", "3SG", False), ("tür", "3SG", False),
+                                   ("yım", "1SG", True), ("yim", "1SG", True),
+                                   ("ım", "1SG", True), ("im", "1SG", True),
+                                   ("um", "1SG", True), ("üm", "1SG", True),
+                                   ("ız", "1PL", True), ("iz", "1PL", True),
+                                   ("uz", "1PL", True), ("üz", "1PL", True)):
+        if not w.endswith(suf) or len(w) - len(suf) < 3:
+            continue
+        base = w[: -len(suf)]
+        for c in _cands(base):
+            if sadece_sifat and c not in adjs:
+                continue
+            return {"stem": c, "case": "NOM", "is_verb": False, "copula": True,
+                    "tense": "PRES", "person": psn}
+    # 3) Koşullu koşaç: hastaysa, güzel-se, yorgun-sa, hastay-sa
+    for suf, ea in (("ysa", "a"), ("yse", "e"), ("sa", "a"), ("se", "e")):
+        if not w.endswith(suf) or len(w) - len(suf) < 3:
+            continue
+        base = w[: -len(suf)]
+        for c in _cands(base) + ([base + ea] if (base + ea) in words else []):
+            return {"stem": c, "case": "NOM", "is_verb": False, "copula": True,
+                    "tense": "COND", "person": "3SG"}
+    return None
+
+
 # ============================================================================ BAĞLA
 def attach(morph_cls) -> None:
     """Yetenekleri TurkishMorphology sınıfına bağlar (tek giriş noktası)."""
@@ -682,3 +780,4 @@ def attach(morph_cls) -> None:
     morph_cls.analyze_copula_dir = classmethod(analyze_copula_dir)
     morph_cls.analyze_rel_ki = classmethod(analyze_rel_ki)
     morph_cls.analyze_ca = classmethod(analyze_ca)
+    morph_cls.analyze_nominal_copula = classmethod(analyze_nominal_copula)

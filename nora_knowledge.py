@@ -105,6 +105,24 @@ STATE_ADJECTIVES: set[str] = {
     "hevesli", "isteksiz", "kırılgan", "duygusal", "sakin", "yorgun", "kırık", "dağınık",
 }
 
+COMMON_ADJECTIVES: set[str] = {
+    # Sıfatlar ad çekimi alır, koşaçla çekilir: 'güzeldi', 'soğuktu', 'hastaydı'.
+    "güzel", "kötü", "iyi", "fena", "büyük", "küçük", "uzun", "kısa", "geniş", "dar",
+    "yüksek", "alçak", "derin", "sığ", "sıcak", "soğuk", "ılık", "serin", "kuru", "ıslak",
+    "temiz", "kirli", "yeni", "eski", "genç", "yaşlı", "hızlı", "yavaş", "kolay", "zor",
+    "ağır", "hafif", "sert", "yumuşak", "sessiz", "gürültülü", "aydınlık", "karanlık",
+    "açık", "kapalı", "dolu", "boş", "kalabalık", "tenha", "zengin", "fakir", "ucuz", "pahalı",
+    "tatlı", "tuzlu", "ekşi", "acı", "lezzetli", "taze", "bayat", "güçlü", "zayıf", "sağlam",
+    "kırık", "bozuk", "çalışkan", "tembel", "akıllı", "aptal", "dikkatli", "dikkatsiz",
+    "cesur", "korkak", "sabırlı", "sabırsız", "dürüst", "yalancı", "kibar", "kaba",
+    "güler yüzlü", "asık suratlı", "meraklı", "ilgisiz", "sakin", "telaşlı", "düzenli",
+    "dağınık", "hazır", "meşgul", "yorgun", "dinç", "uykulu", "aç", "tok", "susuz",
+    "üzgün", "sevinçli", "mutlu", "mutsuz", "kızgın", "sakin", "endişeli", "rahat",
+    "gerekli", "gereksiz", "önemli", "önemsiz", "doğru", "yanlış", "gerçek", "sahte",
+    "aynı", "farklı", "benzer", "tek", "çok", "az", "bol", "nadir", "sık", "yakın", "uzak",
+    "erken", "geç", "hazır", "hazırlıklı", "şanslı", "şanssız", "haklı", "haksız",
+}
+
 CORE_TURKISH_VERBS: set[str] = {
     # Gündelik anlatı (konuşma dilinin en sık fiilleri)
     "izle", "seyret", "başla", "bitir", "oku", "yaz", "dinle", "hazırla", "temizle", "gez",

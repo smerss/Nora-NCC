@@ -1625,8 +1625,14 @@ def a54_personal_narration_listening():
         "Bugün annemle uzun uzun konuştum.",
     ]
     replies = [agi.converse(c) for c in cases]
-    # 1) Hepsi olayı geri yansıtıyor ("…duyuyorum")
-    ok_echo = all("duyuyorum" in tr_lower(r) for r in replies)
+    # 1) Hepsi olayı adlaştırarak geri yansıtıyor ("izlediğini", "kalktığını", "uyumadığını"…)
+    import re as _re
+    _nom = _re.compile(r"(d[ıiuü]ğ[ıiuü]|t[ıiuü]ğ[ıiuü])")
+    ok_echo = all(_nom.search(tr_lower(r)) for r in replies)
+    # 1b) Algı fiili ezber değil: dört cevapta tek bir kalıp dayatılmıyor
+    _perc = ("duyuyorum", "anlıyorum", "fark ediyorum", "görüyorum", "dinliyorum")
+    _used = {p for p in _perc for r in replies if p in tr_lower(r)}
+    ok_var = len(_used) >= 2
     # 2) En az birinde gerçek bir takip sorusu var
     ok_ask = any("?" in r for r in replies)
     # 3) Kavram ağı kirlenmedi: anlatı cümlesi olgu olarak yazılmadı
@@ -1635,9 +1641,9 @@ def a54_personal_narration_listening():
     ok_clean = not polluted
     # 4) Ansiklopedi sesi yok ("bir ...dir ve" kalıbıyla ders vermiyor)
     no_lecture = not any(re.search(r"bir \w+dır ve", tr_lower(r)) for r in replies)
-    ok = ok_echo and ok_ask and ok_clean and no_lecture
-    return ok, (f"geri-yansıtma={ok_echo} | takip-sorusu={ok_ask} | ağ-temiz={ok_clean} | "
-                f"ders-yok={no_lecture}")
+    ok = ok_echo and ok_var and ok_ask and ok_clean and no_lecture
+    return ok, (f"geri-yansıtma={ok_echo} | algı-çeşitliliği={ok_var} | takip-sorusu={ok_ask} | "
+                f"ağ-temiz={ok_clean} | ders-yok={no_lecture}")
 
 
 def a55_conversational_understanding_of_daily_speech():
@@ -1756,6 +1762,39 @@ def a56_full_turkish_morphology():
     return bad <= 2, f"morfoloji {ok}/{total} | kalan={bad}"
 
 
+def a57_repetition_awareness_time_and_variety():
+    """A57: Aynı sözün tekrarı fark edilir (ACC çakışma izleme + episodik bellek + zaman).
+
+    Nora soruya değil SORUNUN KENDİSİNE de bakar: "bunu az önce de söylemiştin" der,
+    o an ne cevap verdiğini hatırlar, kendi sorusunu hatırlatır; her seferinde aynı
+    cümleyi kurmaz. Zamanı da sandbox evreninin saatiyle ölçer.
+    """
+    import time as _time
+    agi = NoraAGI(seed=57, boot_thinker=False)
+    agi.step_life(120)
+    r1 = agi.converse("Merhaba! Nasılsın?")
+    _time.sleep(0.08)
+    r2 = agi.converse("Merhaba! Nasılsın?")
+    _time.sleep(0.08)
+    r3 = agi.converse("Merhaba! Nasılsın?")
+
+    ok_notice = int(getattr(agi.acc, "repeats_noticed", 0)) >= 2
+    ok_diff = (r2 != r1) and (r3 != r2)
+    low2 = tr_lower(r2)
+    ok_meta = any(k in low2 for k in ("az önce", "demin", "aynı şeyi", "tekrar"))
+    ok_memory = ("demiştim" in low2) or ("sormuştum" in low2)
+    ok_q = "?" in r3
+    # zaman bilinci: geçen süre kendi ölçümünden gelir
+    t_ans = agi.converse("Ne kadar oldu?")
+    ok_time = any(k in tr_lower(t_ans) for k in ("saniye", "dakika", "saat", "yeni"))
+    # iç ses de farkındalığı taşır
+    ok_inner = bool(getattr(agi, "last_meta_thought", ""))
+    ok = ok_notice and ok_diff and ok_meta and ok_memory and ok_q and ok_time and ok_inner
+    return ok, (f"tekrar-farkındalığı={ok_notice} | cevap-çeşitliliği={ok_diff} | "
+                f"meta-ifade={ok_meta} | geçmiş-cevap-anısı={ok_memory} | kendi-sorusu={ok_q} | "
+                f"zaman={ok_time} ({tr_lower(t_ans)[:48]}…) | iç-ses={ok_inner}")
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -1813,6 +1852,7 @@ TESTS = {
     "A54": ("kişisel anlatıyı dinleme: yansıtma + soru, ağ kirlenmesi yok", a54_personal_narration_listening),
     "A55": ("günlük konuşma: anlatı, olumsuzluk, davet, kutlama, istek", a55_conversational_understanding_of_daily_speech),
     "A56": ("tam Türkçe kapsamı: 8 kip, birleşik zaman, yeterlilik, emir, -mAktA, -DIr/-ki/-CA", a56_full_turkish_morphology),
+    "A57": ("tekrar farkındalığı, geçmiş cevabı anma, cevap çeşitliliği ve zaman bilinci", a57_repetition_awareness_time_and_variety),
 }
 
 
