@@ -128,6 +128,7 @@ class VerbSpec:
     question_yn: bool = False
     wh_word: str = ""             # 'nasıl', 'neden', 'ne', 'hangi konuyu' vb.
     dat_last: bool = False        # Belirtili nesne yönelme tümlecinden önce mi gelsin? ('seçenekleri adımlara ayır')
+    voice: str = ""               # "" | PASSIVE | CAUSATIVE | REFLEXIVE | RECIPROCAL
 
 
 class TurkishSyntaxEngine:
@@ -430,19 +431,17 @@ class TurkishSyntaxEngine:
         ins: NP | None = None,
         advs: tuple[str, ...] = (),
         loc: NP | None = None,
+        neg: bool = False,
     ) -> str:
-        """-erek/-arak veya -ip/-ıp/-up/-üp zarf-fiil (ulaç) yan cümleciği üretir."""
+        """Zarf-fiil (ulaç) yan cümleciği: -erek, -ip, -ince, -ken, -dıkça, -madan, -alı,
+        -dığında, -maksızın. Sesbilim nora_lang.converb_form'dadır (tek kaynak)."""
         m = TurkishMorphology
         pref, v = cls.split_compound_verb(verb_root)
-        v_s = cls._soften_verb_t(v)
-        buf = "y" if v_s[-1] in ALL_VOWELS else ""
-        if kind == "ip":
-            form = f"{v_s}{buf}{m.vowel_4(v_s)}p"
-        elif kind == "inca":
-            # -IncA ('gelince', 'deyince', 'bakınca'): 'olunca/olduğunda' anlamı
-            v4 = m.vowel_4(v_s)
-            form = f"{v_s}{buf}{v4}n{'ca' if v4 in 'ıu' else 'ce'}"
-        else:
+        # Ulaç sesbilimi TEK kaynaktan gelir (çözümleyici de aynı fonksiyonla sentez yapar).
+        form = m.converb_form(v, kind, neg=bool(neg))
+        if not form:
+            v_s = cls._soften_verb_t(v)
+            buf = "y" if v_s[-1] in ALL_VOWELS else ""
             ea = m.vowel_e_a(v_s)
             form = f"{v_s}{buf}{ea}r{ea}k"
         elems = [
@@ -464,8 +463,23 @@ class TurkishSyntaxEngine:
         m = TurkishMorphology
         subj_s = cls.realize_np(spec.subj)
         adv_s = " ".join(tr_lower(a) for a in spec.advs if a)
-        root = tr_lower(spec.pred_root).strip()
+        raw_root = str(spec.pred_root or "").strip()
+        proper = bool(raw_root[:1].isupper()) and raw_root[:1] != "İ" or raw_root[:1] == "İ"
+        root = tr_lower(raw_root).strip()
         p = spec.person.upper()
+        if proper and root:
+            # Özel ad yüklemi: kesme işaretiyle çekimlenir ('ben Nora'yım', 'o İstanbul'da')
+            case = {"1SG": "NOM", "2SG": "NOM", "1PL": "NOM", "2PL": "NOM"}.get(p, "NOM")
+            cop = {"1SG": "yım", "2SG": "sın", "1PL": "yız", "2PL": "sınız"}.get(p, "")
+            if cop:
+                v4 = m.vowel_4(root)
+                cop = {"yım": "y" + v4 + "m", "sın": "s" + v4 + "n",
+                       "yız": "y" + v4 + "z", "sınız": "s" + v4 + "n" + v4 + "z"}[cop]
+            if cop:
+                proper_s = tr_capitalize(raw_root) + "'" + cop
+            else:
+                proper_s = tr_capitalize(raw_root) + ("'dır" if spec.emphatic_dir else "")
+            return " ".join(x for x in (subj_s, adv_s, proper_s) if x)
 
         if spec.neg:
             # 'değilim / değilsin / değildir'
@@ -500,27 +514,36 @@ class TurkishSyntaxEngine:
         body = " ".join(x for x in (subj_s, adv_s, pred_s) if x)
         return body
 
+    # Çatı sesbilimi TEK kaynaktadır (nora_lang.TurkishMorphology.voice_stem).
     @classmethod
-    def _conjugate_full_verb(cls, verb_root: str, tense: str, neg: bool, person: str, question_yn: bool) -> str:
+    def voice_stem(cls, v: str, voice: str) -> str:
+        return TurkishMorphology.voice_stem(v, voice)
+
+    @classmethod
+    def _conjugate_full_verb(cls, verb_root: str, tense: str, neg: bool, person: str, question_yn: bool,
+                             voice: str = "") -> str:
         m = TurkishMorphology
         pref, v = cls.split_compound_verb(verb_root)
+        # Kip eş adları: tek bir adlandırma kuralı (MELI == NEC, PROG == PRES, DIYDI == PAST ...)
+        _ALIAS = {"MELI": "NEC", "MALI": "NEC", "GEREK": "NEC", "GEREKLILIK": "NEC",
+                  "PROG": "PRES", "IYOR": "PRES", "SIMDIKI": "PRES",
+                  "DIYDI": "PAST", "GECMIS": "PAST", "MIS": "EVID", "DUYULAN": "EVID",
+                  "ACAK": "FUT", "ECEK": "FUT", "GENIS": "AOR", "ISTEK": "OPT", "SA": "COND",
+                  "ABIL": "ABIL_AOR", "EBIL": "ABIL_AOR"}
+        tense = _ALIAS.get(str(tense).upper(), str(tense).upper())
         t = tense.upper()
         p = person.upper()
+        # ÇATI: gövde, kip eklerinden ÖNCE dönüştürülür (sesbilim tek kaynak).
+        voice = str(voice or "").upper()
+        if voice:
+            v = cls.voice_stem(v, voice)
 
-        # Emir kipi (IMP): 2SG yalın gövde ('söyle', 'yaz'), diğer kişiler ek alır.
+        # Emir kipi (IMP) ve -mAktA sürekliliği: çekim TEK kaynaktan (nora_turkce) gelir.
         if t == "IMP":
-            if p == "2SG":
-                surf = v
-            elif p == "3SG":
-                surf = v + ("sin" if m.vowel_e_a(v) == "e" else "sın")
-            elif p == "2PL":
-                surf = v + ("in" if m.vowel_e_a(v) == "e" else "ın") + "ız"
-            elif p == "3PL":
-                surf = v + ("sinler" if m.vowel_e_a(v) == "e" else "sınlar")
-            else:
-                surf = v + ("elim" if m.vowel_e_a(v) == "e" else "alım")
-            if neg:
-                surf = v + ("me" if m.vowel_e_a(v) == "e" else "ma") + surf[len(v):]
+            surf = m.imperative_form(v, p, neg=neg)
+            return (pref + " " + surf).strip() if pref else surf
+        if t == "MAKTA":
+            surf = m.progressive_form(v, p, neg=neg)
             return (pref + " " + surf).strip() if pref else surf
 
         # Yeterlilik gövdesi (-ebil / olumsuzda -ama/-eme)
@@ -586,13 +609,23 @@ class TurkishSyntaxEngine:
         else:
             obliques = [cls.realize_np(spec.abl), cls.realize_np(spec.loc), cls.realize_np(spec.ins),
                         cls.realize_np(spec.dat), cls.realize_np(spec.obj)]
+        wh = spec.wh_word or ""
+        # Soru zamiri zaten nesnenin yerini tutuyorsa nesne ikinci kez söylenmez
+        # ('ne neyi öğreniyorsun' değil 'ne öğreniyorsun').
+        if wh in ("ne", "neyi", "kimi", "kim", "nereyi") and spec.obj is not None:
+            obliques = [cls.realize_np(spec.abl), cls.realize_np(spec.loc), cls.realize_np(spec.ins),
+                        cls.realize_np(spec.dat)] if not getattr(spec, "dat_last", False) else obliques
+            if spec.dat is not None and getattr(spec, "dat_last", False):
+                obliques = [cls.realize_np(spec.abl), cls.realize_np(spec.loc), cls.realize_np(spec.ins),
+                            cls.realize_np(spec.dat)]
         elems = [
             cls.realize_np(spec.subj),
             spec.pre_clause,
             *obliques,
             *(tr_lower(a) for a in spec.advs if a),
-            spec.wh_word,
-            cls._conjugate_full_verb(spec.verb_root, spec.tense, spec.neg, spec.person, spec.question_yn),
+            wh,
+            cls._conjugate_full_verb(spec.verb_root, spec.tense, spec.neg, spec.person,
+                                     spec.question_yn, getattr(spec, "voice", "")),
         ]
         return " ".join(e for e in elems if e)
 

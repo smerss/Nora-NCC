@@ -1675,6 +1675,87 @@ def a55_conversational_understanding_of_daily_speech():
                 f"istek={ok_req} | iç-simge-yok={ok_clean}")
 
 
+def a56_full_turkish_morphology():
+    """A56: Türkçenin tam kapsamı — 6 kişi x 8 kip, birleşik zamanlar, yeterlilik, emir,
+    -mAktA, koşaç -DIr, ilgi -ki, -CA, geniş zaman (olumlu/olumsuz), sıfat/isim-fiil,
+    yapım ekleri, çatı, sayılar. Üretim ve çözümleme AYNI sesbilim kaynağından doğar."""
+    from nora_lang import TurkishMorphology as m
+    ok = bad = 0
+
+    def chk(got, want):
+        nonlocal ok, bad
+        if got == want:
+            ok += 1
+        else:
+            bad += 1
+
+    # 1) 8 kip x 6 kişi
+    par = {"PRES": ["geliyorum", "geliyorsun", "geliyor", "geliyoruz", "geliyorsunuz", "geliyorlar"],
+           "PAST": ["geldim", "geldin", "geldi", "geldik", "geldiniz", "geldiler"],
+           "FUT": ["geleceğim", "geleceksin", "gelecek", "geleceğiz", "geleceksiniz", "gelecekler"],
+           "AOR": ["gelirim", "gelirsin", "gelir", "geliriz", "gelirsiniz", "gelirler"],
+           "NEC": ["gelmeliyim", "gelmelisin", "gelmeli", "gelmeliyiz", "gelmelisiniz", "gelmeliler"],
+           "EVID": ["gelmişim", "gelmişsin", "gelmiş", "gelmişiz", "gelmişsiniz", "gelmişler"],
+           "OPT": ["geleyim", "gelesin", "gele", "gelelim", "gelesiniz", "geleler"],
+           "COND": ["gelsem", "gelsen", "gelse", "gelsek", "gelseniz", "gelseler"]}
+    for t, forms in par.items():
+        for p, want in zip(("1SG", "2SG", "3SG", "1PL", "2PL", "3PL"), forms):
+            chk(m.conjugate_verb("gel", t, person=p), want)
+
+    # 2) birleşik zamanlar
+    chk(m.conjugate_verb("gel", "PRES_HIK", person="1SG"), "geliyordum")
+    chk(m.conjugate_verb("gel", "FUT_HIK", person="1SG"), "gelecektim")
+    chk(m.conjugate_verb("gel", "AOR_HIK", person="1SG"), "gelirdim")
+    chk(m.conjugate_verb("gel", "NEC_HIK", person="1SG"), "gelmeliydim")
+    chk(m.conjugate_verb("gel", "PRES_SART", person="1SG"), "geliyorsam")
+    chk(m.conjugate_verb("gel", "FUT_RIV", person="3SG"), "gelecekmiş")
+
+    # 3) yeterlilik (-(y)Abil-) ve emir kipi
+    chk(m.ability_form("gel", "AOR", "1SG"), "gelebilirim")
+    chk(m.ability_form("oku", "AOR", "1SG"), "okuyabilirim")
+    chk(m.ability_form("gel", "PAST", "1SG", neg=True), "gelemedim")
+    chk(m.ability_form("oku", "PRES", "3SG", neg=True), "okuyamıyor")
+    chk(m.ability_form("yap", "FUT", "1SG", neg=True), "yapamayacağım")
+    chk(m.imperative_form("gel", "2PL"), "gelin")
+    chk(m.imperative_form("oku", "3SG"), "okusun")
+    chk(m.imperative_form("yürü", "2PL", neg=True), "yürümeyin")
+    chk(m.imperative_form("oku", "3PL", neg=True), "okumasınlar")
+
+    # 4) -mAktA, koşaç -DIr, ilgi -ki, -CA
+    chk(m.progressive_form("gel", "1SG"), "gelmekteyim")
+    chk(m.progressive_form("oku", "3SG"), "okumaktadır")
+    chk(m.analyze_word("öğretmendir").get("copula"), True)
+    chk(m.analyze_word("geliyordur").get("copula"), True)
+    chk(m.analyze_word("evdeki").get("rel_ki"), True)
+    chk(m.analyze_word("dünkü").get("rel_ki"), True)
+    chk(m.analyze_word("bence").get("derivation"), "CA")
+    chk(m.analyze_word("hızlıca").get("stem"), "hızlı")
+
+    # 5) geniş zaman (olumlu/olumsuz) ve yeterlilik çözümlemesi
+    for w, stem, tense, person in (("gelirim", "gel", "AOR", "1SG"), ("okursun", "oku", "AOR", "2SG"),
+                                   ("yazarlar", "yaz", "AOR", "3PL"), ("kalır", "kal", "AOR", "3SG"),
+                                   ("gelmez", "gel", "AOR", "3SG"), ("okumayız", "oku", "AOR", "1PL"),
+                                   ("gelebilirim", "gel", "AOR", "1SG"), ("okuyabilir", "oku", "AOR", "3SG"),
+                                   ("okusun", "oku", "IMP", "3SG"), ("gelmekteyim", "gel", "PROG", "1SG")):
+        a = m.analyze_word(w, set())
+        chk((a.get("stem"), a.get("tense"), a.get("person")), (stem, tense, person))
+
+    # 6) sıfat/isim-fiil, yapım ekleri, çatı, sayılar
+    chk(m.participle_form("gel", "dik", poss=3, case="ACC"), "geldiğini")
+    chk(m.that_clause("gel", poss=3, case="ACC", subject="köpek"), "köpeğin geldiğini")
+    chk(m.analyze_word("gelme").get("verbal_noun"), "MA")
+    chk(m.derive_noun("kitap", "ci"), "kitapçı")
+    chk(m.derive_noun("dün", "ki"), "dünkü")
+    chk(m.analyze_voice("yaptırıldı").get("voice"), "CAUSATIVE+PASSIVE")
+    chk(m.analyze_word("gözlemlenmeden").get("stem"), "gözlemle")
+    chk(m.int_to_words_full(1234567), "bir milyon iki yüz otuz dört bin beş yüz altmış yedi")
+    chk(m.ordinal_tr(4), "dördüncü")
+    chk(m.decimal_tr(3.14), "üç virgül on dört")
+
+    total = ok + bad
+    return bad <= 2, f"morfoloji {ok}/{total} | kalan={bad}"
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -1731,6 +1812,7 @@ TESTS = {
     "A53": ("Türkçe morfoloji köşeleri: ünlü düşmesi, â uyumu, öbek eki, koşaç", a53_morphology_vowel_drop_and_soft_vowels),
     "A54": ("kişisel anlatıyı dinleme: yansıtma + soru, ağ kirlenmesi yok", a54_personal_narration_listening),
     "A55": ("günlük konuşma: anlatı, olumsuzluk, davet, kutlama, istek", a55_conversational_understanding_of_daily_speech),
+    "A56": ("tam Türkçe kapsamı: 8 kip, birleşik zaman, yeterlilik, emir, -mAktA, -DIr/-ki/-CA", a56_full_turkish_morphology),
 }
 
 

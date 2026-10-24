@@ -94,6 +94,174 @@ class TurkishMorphology:
         "ilet", "yansıt", "soğur", "buharlaş", "yoğunlaş", "genleş", "çek", "it", "taşı", "erime", "eri", "don",
     } | CORE_TURKISH_VERBS
 
+    # --- ÜRETKEN SÖZCÜK EDİNİMİ -------------------------------------------------
+    # Yaşam boyunca duyulan yeni fiil kökleri burada birikir; sınıf düzeyinde olduğu için
+    # çözümleyici, üretici ve tüm korteksler aynı sözlüğü anında görür.
+    LEARNED_VERB_ROOTS: set[str] = set()
+    _VERB_EVIDENCE: dict[str, set[str]] = {}
+    # Çekimli fiil olabilecek yüzeyler (ucuz ön süzgeç; asıl kararı SENTEZ verir).
+    _VERBISH = re.compile(
+        r"(yor|d[ıiuü]|t[ıiuü]|[ae]c[ae][kğ]|m[ıiuü]ş|[ıiuü]r|m[ae]l[ıi]|s[ae])"
+        r"(m|n|k|iz|ız|niz|nız|lar|ler|sın|sin|sun|sün|yım|yim|yız|yiz|sınız|siniz)?$"
+    )
+
+    @classmethod
+    def verb_roots_state(cls) -> list[str]:
+        return sorted(cls.LEARNED_VERB_ROOTS)
+
+    @classmethod
+    def reset_learned_roots(cls) -> None:
+        """Yeni doğan her zihin kendi sözlüğüyle doğar: süreç düzeyi öğrenme sızmaz.
+        (Doğuştan gelen çekirdek kökler korunur; öğrenilenler kayıttan geri yüklenir.)"""
+        for r in list(cls.LEARNED_VERB_ROOTS):
+            cls.KNOWN_VERB_ROOTS.discard(r)
+        cls.LEARNED_VERB_ROOTS.clear()
+        cls._VERB_EVIDENCE.clear()
+        cls._ANALYZE_CACHE.clear()
+
+    @classmethod
+    def load_verb_roots(cls, roots) -> int:
+        n = 0
+        for r in list(roots or ()):
+            if cls.learn_verb_root(r):
+                n += 1
+        return n
+
+    @classmethod
+    def learn_verb_root(cls, cand: str, lex: set[str] | None = None) -> bool:
+        """Yeni fiil kökü edin. Sözlükte AD olarak duran gövde fiil sayılmaz (belirsizlikte susar)."""
+        r = tr_lower(str(cand or "")).strip()
+        for inf in ("mek", "mak"):
+            if len(r) > len(inf) + 1 and r.endswith(inf):
+                r = r[:-3]
+                break
+        if len(r) < 2 or r in cls.KNOWN_VERB_ROOTS:
+            return False
+        if lex is not None and r in lex:
+            return False
+        cls.KNOWN_VERB_ROOTS.add(r)
+        cls.LEARNED_VERB_ROOTS.add(r)
+        return True
+
+    CONVERB_KINDS = ("erek", "ip", "inca", "ken", "dikce", "madan", "ali", "diginda", "maksizin")
+
+    @classmethod
+    def converb_form(cls, root: str, kind: str = "erek", neg: bool = False) -> str:
+        """Zarf-fiil (ulaç) yüzeyi. Tek sesbilim kaynağı: çözümleme de bununla sentez yapar."""
+        k = str(kind or "").lower()
+        v = tr_lower(str(root or "")).strip()
+        for inf in ("mek", "mak"):
+            if len(v) > len(inf) + 1 and v.endswith(inf):
+                v = v[:-3]
+                break
+        if not v:
+            return ""
+        v_s = soften_verb_t(v)
+        buf = "y" if v_s[-1] in ALL_VOWELS else ""
+        v4 = cls.vowel_4(v_s)
+        ea = cls.vowel_e_a(v_s)
+        body = (v + "m" + cls.vowel_e_a(v)) if neg else v
+        if k in ("erek", "arak"):
+            return f"{v_s}{buf}{ea}r{ea}k" if not neg else f"{body}{ea}r{ea}k"
+        if k in ("ip", "ip "):
+            return f"{v_s}{buf}{v4}p" if not neg else f"{body}{v4}p"
+        if k in ("inca", "ince", "-inca", "nca"):
+            if neg:
+                return f"{body}{v4}n{c if False else ('ca' if v4 in 'ıu' else 'ce')}"
+            return f"{v_s}{buf}{v4}n{('ca' if v4 in 'ıu' else 'ce')}"
+        if k in ("ken", "-ken"):
+            # Geniş zaman + ken: 'konuşurken', 'başlarken', 'konuşmazken'
+            aor = cls.conjugate_verb(body, "AOR", person="3SG")
+            return aor + "ken"
+        if k in ("dikce", "dıkça", "dikçe", "-dıkça"):
+            b = body
+            dt = cls.dental_d_t(b)
+            return f"{b}{dt}{v4}k{'ça' if v4 in 'ıu' else 'çe'}"
+        if k in ("madan", "meden", "-madan"):
+            return f"{v}m{ea}d{ea}n"
+        if k in ("ali", "eli", "-alı"):
+            return f"{v_s}{buf}{'alı' if ea == 'a' else 'eli'}"
+        if k in ("diginda", "dığında", "diğinde", "-dığında"):
+            b = body
+            dt = cls.dental_d_t(b)
+            return f"{b}{dt}{v4}ğ{v4}nd{'a' if v4 in 'ıu' else 'e'}"
+        if k in ("maksizin", "meksizin", "-maksızın"):
+            return f"{v}m{ea}k{'sızın' if ea == 'a' else 'sizin'}"
+        return ""
+
+    @classmethod
+    def _paradigm_forms(cls, root: str) -> dict[str, str]:
+        """Bir kökün üretilebilen tüm basit kipleri: yüzey -> kip."""
+        out: dict[str, str] = {}
+        for t in ("PRES", "PAST", "FUT", "AOR", "NEC", "EVID", "OPT"):
+            for p in ("1SG", "2SG", "3SG", "1PL", "2PL", "3PL"):
+                try:
+                    out.setdefault(cls.conjugate_verb(root, t, person=p), t)
+                except Exception:
+                    continue
+        return out
+
+    @classmethod
+    def observe_verb_usage(cls, text: str, lex: set[str] | None = None) -> list[str]:
+        """Sözcedeki bilinmeyen fiilleri ÇÖZÜMLEME-SENTEZ ile sınar.
+
+        Yöntem: her olası gövde adayını kendi çekim üreticisiyle çek ve duyulan yüzey biçimini
+        birebir üretiyor mu diye bak. Tutuyorsa kök gerçektir (ses olayları dâhil doğrulanmış olur).
+        Mastar (-mak/-mek) kesin kanıttır; diğer kiplerde iki ayrı zamanda tanıklık aranır.
+        """
+        learned: list[str] = []
+        for tok in re.findall(r"[\wçğıöşü]+", tr_lower(text or ""))[:24]:
+            if len(tok) < 3 or tok in cls.KNOWN_VERB_ROOTS:
+                continue
+            if lex is not None and tok in lex:
+                continue
+            # (a) Mastar: tartışmasız fiil kanıtı
+            inf_stem = ""
+            for inf in ("mak", "mek"):
+                if tok.endswith(inf) and len(tok) - 3 >= 2:
+                    inf_stem = tok[:-3]
+                    break
+            if inf_stem and (lex is None or inf_stem not in lex):
+                if cls.learn_verb_root(inf_stem, lex):
+                    learned.append(inf_stem)
+                continue
+            if not cls._VERBISH.search(tok):
+                continue
+            # (b) Çözümleme zaten fiil diyorsa dokunma (bilinen kök)
+            try:
+                if cls.analyze_word(tok, lex).get("is_verb"):
+                    continue
+            except Exception:
+                pass
+            # (c) Sentezle doğrulama
+            stem_hit, tense_hit = "", ""
+            for cut in range(1, min(6, len(tok) - 2) + 1):
+                cand = tok[:-cut]
+                for base in (cand, cls._unsoften(cand)):
+                    if len(base) < 3 or (lex is not None and base in lex):
+                        continue
+                    if base in cls.KNOWN_VERB_ROOTS:
+                        continue
+                    hit = cls._paradigm_forms(base).get(tok, "")
+                    if hit:
+                        stem_hit, tense_hit = base, hit
+                        break
+                if stem_hit:
+                    break
+            if not stem_hit:
+                continue
+            ev = cls._VERB_EVIDENCE.setdefault(stem_hit, set())
+            ev.add(tense_hit)
+            # Görülen/şimdiki/gelecek/duyulan geçmiş tek başına yeterince ayırt edicidir;
+            # geniş zaman ve kip ekleri iki tanık ister (ad-fiil karışmasın).
+            confident = tense_hit in ("PRES", "PAST", "FUT", "EVID")
+            if confident or len(ev) >= 2:
+                if cls.learn_verb_root(stem_hit, lex):
+                    learned.append(stem_hit)
+        if learned:
+            cls._ANALYZE_CACHE.clear()
+        return learned
+
     # Ettirgen/dönüşlü/işteş çatı ekleri: 'başlat'->'başla', 'çökert'->'çök', 'temizlet'->'temizle'
     VOICE_SUFFIXES = ("tır", "tir", "tur", "tür", "dır", "dir", "dur", "dür", "ır", "ir", "ur", "ür",
                       "ar", "er", "ıl", "il", "ul", "ül", "ın", "in", "un", "ün", "t", "ş", "r")
@@ -325,6 +493,11 @@ class TurkishMorphology:
             return v
         t = tense.upper()
         p = person.upper()
+        # Birleşik zamanlar (hikâye/rivayet/şart) tek sesbilim çekirdeğinden türetilir.
+        _cmp = globals().get("COMPOUND_MAP") or {}
+        if t in _cmp:
+            _b, _a = _cmp[t]
+            return cls.compound_tense(v, _b, _a, neg=neg, person=p)
         # 'de-' ve 'ye-' ünlü başlayan ekten önce daralır: diyorum, diyecek, yiyeyim (olumsuzda daralmaz: demiyorum)
         if v in ("de", "ye") and not neg and t in ("PRES", "FUT", "OPT"):
             v = "di" if v == "de" else "yi"
@@ -398,6 +571,59 @@ class TurkishMorphology:
                 return f"{b}{buf}{ea}c{ea}kl{ea}r"
             return f"{b}{buf}{ea}c{ea}k"
 
+        if t in ("EVID", "MIS"):
+            # Duyulan geçmiş (-mış/-miş/-muş/-müş): 'saklamışım', 'saklamışsın', 'saklamış'
+            b = (v + "m" + cls.vowel_e_a(v)) if neg else v
+            v4 = cls.vowel_4(b)
+            mis = "m" + v4 + "ş"
+            if p == "1SG":
+                return f"{b}{mis}{v4}m"
+            if p == "2SG":
+                return f"{b}{mis}s{v4}n"
+            if p == "1PL":
+                return f"{b}{mis}{v4}z"
+            if p == "2PL":
+                return f"{b}{mis}s{v4}n{v4}z"
+            if p in ("3PL", "PL"):
+                return f"{b}{mis}l{cls.vowel_e_a(b)}r"
+            return f"{b}{mis}"
+
+        if t in ("OPT", "ISTEK"):
+            # İstek kipi (-a/-e): 'saklayayım', 'saklayasın', 'saklaya'
+            v_s = (v + "m" + cls.vowel_e_a(v)) if neg else soften_verb_t(v)
+            if v_s in ("de", "ye") and not neg:
+                v_s = "di" if v_s == "de" else "yi"
+            ea = cls.vowel_e_a(v_s)
+            buf = "y" if v_s[-1] in ALL_VOWELS else ""
+            v4 = cls.vowel_4(ea)
+            if p == "1SG":
+                return f"{v_s}{buf}{ea}y{v4}m"
+            if p == "2SG":
+                return f"{v_s}{buf}{ea}s{v4}n"
+            if p == "1PL":
+                return f"{v_s}{buf}{ea}l{v4}m"
+            if p == "2PL":
+                return f"{v_s}{buf}{ea}s{v4}n{v4}z"
+            if p in ("3PL", "PL"):
+                return f"{v_s}{buf}{ea}l{ea}r"
+            return f"{v_s}{buf}{ea}"
+
+        if t in ("COND", "SA"):
+            # Şart kipi (-sa/-se): 'saklasam', 'saklasan', 'saklasa'
+            b = (v + "m" + cls.vowel_e_a(v)) if neg else v
+            ea = cls.vowel_e_a(b)
+            if p == "1SG":
+                return f"{b}s{ea}m"
+            if p == "2SG":
+                return f"{b}s{ea}n"
+            if p == "1PL":
+                return f"{b}s{ea}k"
+            if p == "2PL":
+                return f"{b}s{ea}n{v4z if False else cls.vowel_4(ea)}z"
+            if p in ("3PL", "PL"):
+                return f"{b}s{ea}l{ea}r"
+            return f"{b}s{ea}"
+
         if t == "NEC":
             b = (v + "m" + cls.vowel_e_a(v)) if neg else v
             ea = cls.vowel_e_a(b)
@@ -451,12 +677,12 @@ class TurkishMorphology:
             return aor + ("ler" if cls.vowel_e_a(aor) == "e" else "lar")
         return aor
 
-    _ANALYZE_CACHE: dict[tuple[str, int], dict] = {}
+    _ANALYZE_CACHE: dict[tuple[str, int, int], dict] = {}
 
     @classmethod
     def analyze_word(cls, raw: str, lexicon: set[str] | None = None) -> dict:
         """Sözlük boyu anahtarlı önbellek: aynı sözcük her turda yeniden çözümlenmez (tur gecikmesi O(1))."""
-        key = (raw, len(lexicon) if lexicon else 0)
+        key = (raw, len(lexicon) if lexicon else 0, len(cls.KNOWN_VERB_ROOTS))
         hit = cls._ANALYZE_CACHE.get(key)
         if hit is not None:
             return dict(hit)
@@ -508,6 +734,26 @@ class TurkishMorphology:
         ("tı", "PAST", "3SG"), ("ti", "PAST", "3SG"), ("tu", "PAST", "3SG"), ("tü", "PAST", "3SG"),
         ("yor", "PRES", "3SG"), ("mış", "EVID", "3SG"), ("miş", "EVID", "3SG"),
         ("muş", "EVID", "3SG"), ("müş", "EVID", "3SG"),
+        # GENİŞ ZAMAN (aorist) — kişi ekleriyle birlikte: 'gelirim', 'okursun', 'yazarlar'
+        ("ırsınız", "AOR", "2PL"), ("irsınız", "AOR", "2PL"), ("ursunuz", "AOR", "2PL"),
+        ("ürsünüz", "AOR", "2PL"), ("arsınız", "AOR", "2PL"), ("ersiniz", "AOR", "2PL"),
+        ("ırım", "AOR", "1SG"), ("irim", "AOR", "1SG"), ("urum", "AOR", "1SG"), ("ürüm", "AOR", "1SG"),
+        ("arım", "AOR", "1SG"), ("erim", "AOR", "1SG"),
+        ("ırsın", "AOR", "2SG"), ("irsin", "AOR", "2SG"), ("ursun", "AOR", "2SG"), ("ürsün", "AOR", "2SG"),
+        ("arsın", "AOR", "2SG"), ("ersin", "AOR", "2SG"),
+        ("ırız", "AOR", "1PL"), ("iriz", "AOR", "1PL"), ("uruz", "AOR", "1PL"), ("ürüz", "AOR", "1PL"),
+        ("arız", "AOR", "1PL"), ("eriz", "AOR", "1PL"),
+        ("ırlar", "AOR", "3PL"), ("irler", "AOR", "3PL"), ("urlar", "AOR", "3PL"), ("ürler", "AOR", "3PL"),
+        ("arlar", "AOR", "3PL"), ("erler", "AOR", "3PL"),
+        ("ır", "AOR", "3SG"), ("ir", "AOR", "3SG"), ("ur", "AOR", "3SG"), ("ür", "AOR", "3SG"),
+        ("ar", "AOR", "3SG"), ("er", "AOR", "3SG"),
+        ("r", "AOR", "3SG"),
+        # ünlü köklerde aorist: 'okurum', 'anlarım' (kök + r + kişi)
+        ("rım", "AOR", "1SG"), ("rim", "AOR", "1SG"), ("rum", "AOR", "1SG"), ("rüm", "AOR", "1SG"),
+        ("rsın", "AOR", "2SG"), ("rsin", "AOR", "2SG"), ("rsun", "AOR", "2SG"), ("rsün", "AOR", "2SG"),
+        ("rız", "AOR", "1PL"), ("riz", "AOR", "1PL"), ("ruz", "AOR", "1PL"), ("rüz", "AOR", "1PL"),
+        ("rsınız", "AOR", "2PL"), ("rsiniz", "AOR", "2PL"), ("rsunuz", "AOR", "2PL"), ("rsünüz", "AOR", "2PL"),
+        ("rlar", "AOR", "3PL"), ("rler", "AOR", "3PL"),
     )
 
     _FINITE_BY_LAST: dict[str, tuple] = {}
@@ -525,6 +771,43 @@ class TurkishMorphology:
     @classmethod
     def _finite_verb(cls, w: str) -> dict | None:
         """Bitmiş fiil biçimini (kök + zaman + kişi) çözer; yalnızca sözlükteki kökler kabul edilir."""
+        # Birleşik zaman (hikâye/rivayet/şart): 'geliyordum', 'gelirmiş', 'gelecektim'
+        if hasattr(cls, "analyze_compound_tense") and re.search(
+                r"(du|dü|dı|di|tu|tü|tı|ti|muş|müş|mış|miş|sa|se)(m|n|k|niz|nız|nuz|nüz|ler|lar|um|üm|ım|im|sun|sün|sın|sin|uz|üz|ız|iz)?$", w):
+            _cmp = cls.analyze_compound_tense(w)
+            if _cmp:
+                return _cmp
+        # Koşaç -DIr ('öğretmendir', 'geliyordur') ve ilgi -ki ('evdeki') — nora_turkce
+        for _fn in ("analyze_copula_dir", "analyze_rel_ki", "analyze_ca"):
+            _f = getattr(cls, _fn, None)
+            if _f is not None:
+                _r = _f(w)
+                if _r:
+                    return _r
+        # Yeterlilik (-(y)Abil-), emir kipi ve -mAktA sürekliliği (nora_turkce)
+        for _fn in ("analyze_ability", "analyze_imperative", "analyze_progressive",
+                    "analyze_verbal_noun"):
+            _f = getattr(cls, _fn, None)
+            if _f is not None:
+                _r = _f(w)
+                if _r:
+                    return _r
+        # Olumsuz geniş zaman: 'gelmem', 'gelmezsin', 'bitmez', 'atmazlar', 'okumayız'
+        _na = re.match(r"^(.+?)m([ae])(z(sınız|siniz|sunuz|sünüz|lar|ler|sın|sin|sun|sün)?|y(ız|iz|uz|üz)|m|n)?$", w)
+        if _na:
+            _root = _na.group(1)
+            _tail = "m" + _na.group(2) + (_na.group(3) or "")
+            _psn = {"mam": "1SG", "mem": "1SG", "maz": "3SG", "mez": "3SG",
+                    "mayız": "1PL", "meyiz": "1PL",
+                    "mazsın": "2SG", "mezsin": "2SG", "mazsınız": "2PL", "mezsiniz": "2PL",
+                    "mazlar": "3PL", "mezler": "3PL"}.get(_tail)
+            if _psn and len(_root) >= 2:
+                for base in (_root, cls._unsoften(_root), _root + "a", _root + "e",
+                             _root + "ı", _root + "i", _root + "u", _root + "ü"):
+                    if base in cls.KNOWN_VERB_ROOTS:
+                        return {"stem": base, "case": "NOM", "is_verb": True, "neg": True,
+                                "tense": "AOR", "person": _psn}
+
         for suf, tense, person in cls._finite_index().get(w[-1:], ()):
             if len(w) - len(suf) < 2 or not w.endswith(suf):
                 continue
@@ -534,6 +817,9 @@ class TurkishMorphology:
                 cands += [cand[:-1], cls._unsoften(cand[:-1])]
             if cand.endswith("n") and len(cand) > 3:      # 'başlayacaksın' -> 'başlayacağ' -> 'başla'
                 cands += [cand[:-1]]
+            # Ünlüyle biten kök + ek: 'okursun' (ok+ur+sun değil, oku+r+sun), 'anlarım'
+            for _v in ("a", "e", "ı", "i", "u", "ü"):
+                cands.append(cand + _v)
             # Olumsuz -yor: 'istemiyorum' (iste+me+yor), 'görmüyorum' (gör+me+yor)
             if "yor" in suf and len(cand) >= 3 and cand[-2:-1] == "m" and cand[-1] in "ıiuü":
                 for base in (cand[:-2], cls._unsoften(cand[:-2])):
@@ -669,6 +955,8 @@ class TurkishMorphology:
             info["converb"] = "DIKCA"
             return info
 
+        # 2b) ZARF-FİİL (ulaç) tanıma — SENTEZLE: aynı sesbilim fonksiyonu biçimi yeniden
+        #     üretiyorsa kök gerçektir ('konuşurken' -> konuş, 'gittiğinde' -> git, 'koşalı' -> koş).
         m_madan = re.match(r"^(.+?)m[ae]d[ae]n$", cur)
         if m_madan and len(m_madan.group(1)) >= 2:
             cand, is_pas = cls.strip_passive_voice(m_madan.group(1))
@@ -679,6 +967,33 @@ class TurkishMorphology:
             info["neg"] = True
             info["converb"] = "MADAN"
             return info
+
+        _conv_ends = ("ken", "ğında", "ğinde", "ğunda", "ğünde", "ğından", "ğinden",
+                      "kça", "kçe", "madan", "meden", "alı", "eli", "maksızın", "meksizin",
+                      "arak", "erek", "ınca", "ince", "unca", "ünce", "ıp", "ip", "up", "üp")
+        if cur.endswith(_conv_ends) and cur not in known:
+            matches: list[tuple[bool, int, str, str, bool]] = []
+            for cut in range(1, min(10, len(cur) - 2) + 1):
+                base = cur[:-cut]
+                if len(base) < 2:
+                    continue
+                hard = cls._unsoften(base)
+                known_root = base in cls.KNOWN_VERB_ROOTS or hard in cls.KNOWN_VERB_ROOTS
+                for kind in cls.CONVERB_KINDS:
+                    for neg in (False, True):
+                        if cls.converb_form(base, kind, neg=neg) == cur:
+                            matches.append((known_root, not neg, -cut, base, kind, neg))
+            if matches:
+                # En kısa gövde + bilinen kök yeğlenir: 'konuşurken' -> konuş (konuşu değil)
+                matches.sort(reverse=True)
+                _kr, _pos, _negcut, base, kind, neg = matches[0]
+                hard = cls._unsoften(base)
+                info["stem"] = hard if hard in cls.KNOWN_VERB_ROOTS else base
+                info["is_verb"] = True
+                info["converb"] = kind.upper()
+                if neg or kind in ("madan", "maksizin"):
+                    info["neg"] = True
+                return info
 
         m_abil = re.match(r"^(.+?)y?[ae]bil(?:ir|iyor|[ae]c[ae]k|m[iıuü]ş|[dt][iıuü])?(?:im|ım|sin|sın|iz|ız|ler|lar)?$", cur)
         if m_abil and len(m_abil.group(1)) >= 2:
@@ -736,7 +1051,7 @@ class TurkishMorphology:
             info["stem"] = m_aor_v.group(1)
             info["is_verb"] = True
             return info
-        m_aor = re.match(r"^(.+?)([aeiıuü]r)(im|ım|um|üm|sin|sın)?$", cur)
+        m_aor = re.match(r"^(.+?)([aeiıuü]r)(im|ım|um|üm|sin|sın|sun|sün|iz|ız|uz|üz|ler|lar|sınız|siniz|sunuz|sünüz)?$", cur)
         if m_aor and cur not in known and not cur.endswith(("lar", "ler")):
             raw_cand = m_aor.group(1)
             cand, is_pas = cls.strip_passive_voice(raw_cand)
@@ -745,6 +1060,12 @@ class TurkishMorphology:
                 info["stem"] = hard_cand if hard_cand in cls.KNOWN_VERB_ROOTS else cand
                 info["passive"] = is_pas
                 info["is_verb"] = True
+                info["tense"] = "AOR"
+                info["person"] = {"im": "1SG", "ım": "1SG", "um": "1SG", "üm": "1SG",
+                                  "sin": "2SG", "sın": "2SG", "sun": "2SG", "sün": "2SG",
+                                  "iz": "1PL", "ız": "1PL", "uz": "1PL", "üz": "1PL",
+                                  "ler": "3PL", "lar": "3PL", "sınız": "2PL", "siniz": "2PL",
+                                  "sunuz": "2PL", "sünüz": "2PL"}.get(m_aor.group(3) or "", "3SG")
                 return info
             # Ettirgen/işteş çatılı fiiller ('başlatır', 'çökertir', 'tanışır', 'sentezlenir')
             deep = cls.deep_verb_root(cand)
@@ -1797,7 +2118,9 @@ class WernickeComprehender:
 
             # 8b) Genel emir kipi: yalın fiil köküyle biten cümle ('bana bir hikâye anlat', 'şunu söyle').
             #     Bu bir OLGU değil İSTEKtir; olgu diye öğrenilirse Nora kendi sözünü papağan gibi tekrarlar.
-            if last_w in self.morph.KNOWN_VERB_ROOTS and not any(w in words for w in ("ise", "olursa", "eder", "mı", "mi")):
+            # 'var'/'yok' VARLIK yüklemidir, emir değildir: 'çok işim var' bir istek değil durumdur.
+            if (last_w in self.morph.KNOWN_VERB_ROOTS and last_w not in {"var", "yok", "ol", "et"}
+                    and not any(w in words for w in ("ise", "olursa", "eder", "mı", "mi"))):
                 tgt = ""
                 for w in words[:-1]:
                     if w in spatial_postpos or w in {"kendini", "kendine", "bana", "sen", "sana", "ben"}:
@@ -2156,3 +2479,12 @@ if __name__ == "__main__":
     print("[lang-test] karga:", s1)
     print("[lang-test] penguen:", s2)
     assert c_karga["answer"] is True and c_peng["answer"] is False
+
+
+# ============================================================================
+# TÜRKÇENİN EKSİKSİZ ÇEKİM/TÜRETİM ÇEKİRDEĞİ (birleşik zaman, sıfat-fiil, yapım eki,
+# çatı çözümleme, büyük/sıra/ondalık sayı) — sesbilim tek kaynaktan beslenir.
+# ============================================================================
+from nora_turkce import attach as _attach_turkish  # noqa: E402
+from nora_turkce import COMPOUND_MAP  # noqa: E402
+_attach_turkish(TurkishMorphology)

@@ -49,7 +49,7 @@ from nora_world import Universe
 from nora_mind import Mind, I_E, I_W, I_I
 from nora_chem import NeuroChemistry, ChemMushroomBody
 from nora_self import CoreSelf
-from nora_lang import NoraLanguage, Proposition, tr_lower, tr_capitalize
+from nora_lang import NoraLanguage, Proposition, TurkishMorphology, tr_lower, tr_capitalize
 from nora_stem import MathCortex, PhysicsCortex
 from nora_knowledge import ConversationalResonanceCortex, SYNONYMS
 from nora_broca import GenerativeBrocaOrgan, NP, VerbSpec
@@ -366,6 +366,10 @@ class NoraAGI:
         self.speculation = SpeculativeCortex(seed=seed + 211)
         # Söz edimi + çok adımlı tartım korteksi: soruya değil, sorunun NEDENİNE bakar
         self.deliberation = DeliberativeMind(seed=seed + 219)
+        # Öğrendiği fiil kökleri (dilin yaşam boyu büyüyen sözlüğü). Yeni doğan zihin,
+        # süreçteki başka bir örneğin öğrendiklerini miras almaz.
+        TurkishMorphology.reset_learned_roots()
+        self.learned_verb_roots: set[str] = set()
         # Son anlatılan kavramlar: aynı hikâyeyi tekrar tekrar anlatmasın
         self._narrated: deque[str] = deque(maxlen=6)
         self._joked: deque[str] = deque(maxlen=8)
@@ -725,6 +729,14 @@ class NoraAGI:
         raw = text.strip()
         if not raw:
             return "..."
+        # --- TÜRKÇE EDİNİMİ: duyulan bilinmeyen fiil biçimleri, kendi çekim üreticisiyle
+        #     yeniden üretilebiliyorsa kök olarak öğrenilir (kalıcı, sözlüğe yazılır).
+        try:
+            _new_roots = TurkishMorphology.observe_verb_usage(raw, self.lang.graph.lexicon)
+            if _new_roots:
+                self.learned_verb_roots.update(_new_roots)
+        except Exception:
+            pass
         self._remember_focus(raw)
         self.life.on_interaction(self, raw, speaker)
         # Kullanıcı, Nora'nın kendiliğinden söylediği söze karşılık verdi: o konuşma türü pekişir.
@@ -1265,6 +1277,10 @@ class NoraAGI:
                 # ve türetilmiş kurallardan (0.972) DAHA YÜKSEK ses alır: kanıt, etiketten üstündür.
                 _sal = 0.985 if arb.get("conflict") else 0.97
                 bids.append(CorticalBid("hippocampal_concept", _sal, 0.96, rep_v, f"teach_val:{fr.subj}"))
+            elif (fr.kind == "teach_fact" and conv_res is None and narration is None
+                  and sit_res is not None and float(sit_res.get("confidence", 0.0)) >= 0.95):
+                # Sosyal nezaket kalıbı olgusal bilgi değildir ('kolay gelsin, işim var'): öğrenme yok.
+                pass
             elif fr.kind == "teach_fact" and conv_res is None and narration is None and self._turn_mint_label:
                 # Bu cümle zaten Nora'nın kendi mantık motorunda yapısal kural olarak kodlandı;
                 # kaba sözcük-dizisi kenarı üretmek kavram ağını kirletir, onun yerine öz-etiketini bildirir.
@@ -1275,7 +1291,7 @@ class NoraAGI:
                 ))
                 bids.append(CorticalBid(
                     "hippocampal_concept", 0.94, 0.93,
-                    f"{tr_capitalize(c_tf)}: {self._turn_mint_label}.",
+                    f"{tr_capitalize(c_tf)}.",
                     f"structured:{self._turn_mint_label}",
                 ))
             elif fr.kind == "teach_fact" and conv_res is None and narration is None:
@@ -2559,6 +2575,7 @@ class NoraAGI:
             "life": self.life.state_dict(),
             "initiative": self.initiative.state_dict(),
             "discourse": self.discourse.state_dict(),
+            "verb_roots": sorted(set(TurkishMorphology.LEARNED_VERB_ROOTS) | set(self.learned_verb_roots)),
         }
         with open(path_prefix + ".agi.json", "w", encoding="utf-8") as f:
             json.dump(meta, f, ensure_ascii=False, indent=2)
@@ -2596,6 +2613,11 @@ class NoraAGI:
             pass
         try:
             agi.code_cortex.load_state_dict(meta.get("python_cortex") or {})
+        except Exception:
+            pass
+        try:
+            TurkishMorphology.load_verb_roots(meta.get("verb_roots") or [])
+            agi.learned_verb_roots.update(TurkishMorphology.LEARNED_VERB_ROOTS)
         except Exception:
             pass
         try:
