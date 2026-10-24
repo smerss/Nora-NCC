@@ -76,6 +76,10 @@ VOWEL_DROP_STEMS: dict[str, str] = {
     "beniz": "benz",
     "geniz": "genz",
     "uyku": "uyku",  # uyu-k -> referans
+    # Beden ve gündelik yaşam (ikinci hecedeki dar ünlü düşer: boyun -> boynu)
+    "boyun": "boyn", "burun": "burn", "ağız": "ağz", "göğüs": "göğs", "omuz": "omz",
+    "karın": "karn", "akıl": "akl", "beyin": "beyn", "oğul": "oğl", "koyun": "koyn",
+    "gönül": "gönl", "asıl": "asl", "kavuş": "kavş",
 }
 
 REVERSE_VOWEL_DROP: dict[str, str] = {v: k for k, v in VOWEL_DROP_STEMS.items() if v != k}

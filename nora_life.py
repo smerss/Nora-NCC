@@ -466,11 +466,14 @@ class BackgroundLife:
         # varlık ses çıkarır; cevapsız kaldıkça üstel geri çekilir (mesaj yağmuru yok).
         loneliness = 1.15 * social_need
         # Refrakter dönem: az önce konuştuysa hemen tekrar konuşmaz (biyolojik susma süresi).
-        refractory = float(np.clip((age - self.last_reach_age) / 900.0, 0.0, 1.0))
+        refractory = float(np.clip((age - self.last_reach_age) / 700.0, 0.0, 1.0))
         # Cevapsız kaldıkça seslenme isteği yavaşça geri çekilir (0.72**n): iki-üç denemeden sonra susar,
         # kullanıcı yazınca sıfırlanır. Ne spam ne de ölü sessizlik.
+        # Kullanıcı az önce yazdıysa hemen ardından konuşmaya atlamaz: en az 250 adım sessizlik.
+        since_int = max(0.0, float(age - self.last_interaction_age))
+        quiet_gate = float(np.clip(since_int / 250.0, 0.0, 1.0))
         d[R_REACH] = ((reach_t + loneliness) * (0.25 + 0.75 * c.oxy) * calm
-                      * (0.72 ** self.unanswered) * refractory)
+                      * (0.72 ** self.unanswered) * refractory * quiet_gate)
         return np.maximum(0.0, d - 0.35 * np.tanh(self.hab)) * (1.0 + 0.04 * self.rng.standard_normal(len(d)))
 
     # ------------------------------------------------------------ ana döngü
