@@ -52,6 +52,7 @@ from nora_lang import NoraLanguage, Proposition, tr_lower, tr_capitalize
 from nora_stem import MathCortex, PhysicsCortex
 from nora_knowledge import ConversationalResonanceCortex, SYNONYMS
 from nora_broca import GenerativeBrocaOrgan, NP, VerbSpec
+from nora_broca import TurkishSyntaxEngine as SYN
 from nora_monologue import PlasticSchemaCortex, InnerMonologueEngine
 from nora_autonomous_logic import (
     NeuralUtteranceCortex,
@@ -1200,7 +1201,7 @@ class NoraAGI:
                     (fr.obj or "") in self.macros or _macro_hit)
                 if not _is_macro:
                     bids.append(CorticalBid("prefrontal_volition", 0.992, 0.975,
-                                            self._handle_command(fr, speaker=speaker),
+                                            self._handle_command(fr, speaker=speaker, raw=raw),
                                             f"volition:{fr.rel}:{fr.obj}"))
             elif fr.kind == "teach_val":
                 arb = self.self_model.arbitrate_claim(fr.subj, fr.valence, speaker=speaker, channel=fr.sub_kind)
@@ -1241,7 +1242,8 @@ class NoraAGI:
                     _c_lv = f"{morph.inflect_noun(fr.subj, 'GEN')} {_pol} olduğunu belleğime işledim"
                     _r_lv = "bunu tek geçişte duyum ağıma bağladım"
                     rep_v = self.speak_or(
-                        self.schema_cortex.transform_clauses(_c_lv, _r_lv, "söylediğini tarttığımda", cur_sc),
+                        self.schema_cortex.transform_clauses(_c_lv, _r_lv, SYN.nominalize_dik("tart", poss=1, case="LOC",
+                                                 obj=SYN.nominalize_dik("söyle", poss=2, case="ACC")), cur_sc),
                         anchors=[fr.subj], nov=0.7, fam=0.3, conf=self._speaker_trust(speaker))
                 # Bedensel deneyime dayanan itiraz, kendi kendine etiketleme sözcesinden (mint 0.945)
                 # ve türetilmiş kurallardan (0.972) DAHA YÜKSEK ses alır: kanıt, etiketten üstündür.
@@ -1277,7 +1279,8 @@ class NoraAGI:
                     _rep_fb = self.schema_cortex.transform_clauses(
                         f"{_prop_txt} bilgisini {_lv}",
                         f"{e0.subj} ile {e0.obj} arasında tek geçişte bağ kurdum",
-                        "yeni bilgiyi içimde evirip çevirdiğimde", cur_sc)
+                        SYN.converb("evir", kind="ip", obj=NP("bilgi", case="ACC", mods=("yeni",)))
+                        + " " + SYN.converb("çevir", kind="ip", loc=NP("iç", poss=1, case="LOC")), cur_sc)
                     rep_f = self.speak_or(_rep_fb, anchors=[e0.subj, e0.obj], nov=1.0 - _fam, fam=_fam,
                                           conf=max(0.55, self._speaker_trust(speaker)))
                     bids.append(CorticalBid("hippocampal_concept", 0.94, 0.93, rep_f, f"1shot:{e0.subj}->{e0.obj}"))
@@ -1356,9 +1359,20 @@ class NoraAGI:
                             _best[key] = h
                     hits = sorted(_best.values(), key=lambda h: (_prio.get(h[0].rel, 9), bool(h[1]), -h[0].weight))
                     clauses = []
+                    used_objs: list[str] = []
                     for edge, isa_path in hits:
                         if len(clauses) >= 2:
                             break
+                        # Üst kavramdan MİRAS alınan özellik ayırt edici değildir; yineleme de ayıklanır.
+                        if edge.rel == "HAS_PROP" and isa_path:
+                            try:
+                                parent_props = {e2.obj for e2, _ in self.lang.graph.query(isa_path[0].obj, ("HAS_PROP",))}
+                            except Exception:
+                                parent_props = set()
+                            if edge.obj in parent_props:
+                                continue
+                        if any(edge.obj and u and (edge.obj in u or u in edge.obj) for u in used_objs if u != edge.obj):
+                            continue
                         p = Proposition(subj=fr.subj, rel=edge.rel, obj=edge.obj)
                         txt = broca.realize_prop(p)
                         if isa_path:
@@ -1367,8 +1381,11 @@ class NoraAGI:
                             _tail = txt[len(fr.subj):].strip() if txt.startswith(fr.subj) else txt
                             txt = f"{fr.subj} bir {via} olduğu için {_tail}"
                         clauses.append(txt)
+                        used_objs.append(edge.obj or "")
                     wern.last_explanation = f"Kavram ağında {fr.subj} düğümünden {len(hits)} ilişkisel bağ buldum"
-                    _joined = tr_capitalize(" ve ".join(clauses))
+                    _drop = fr.subj + " "
+                    _clean = [clauses[0]] + [(c[len(_drop):] if c.startswith(_drop) else c) for c in clauses[1:]]
+                    _joined = tr_capitalize("; ".join(_clean))
                     bids.append(CorticalBid("hippocampal_concept", 0.95, 0.94, _joined + ".", f"wh:{fr.subj}"))
                 else:
                     srec = self.self_model.somatic.get(fr.subj)
@@ -1965,7 +1982,7 @@ class NoraAGI:
             return False
         return bool(an.get("is_verb") and an.get("tense") in ("IMP", "OPT"))
 
-    def _handle_speech_request(self, fr) -> str:
+    def _handle_speech_request(self, fr, raw: str = "") -> str:
         """Dil isteğini (anlat/dinle/sor/öğret...) karşılar; içerik gerçek bilgiden gelir."""
         from nora_broca import TurkishSyntaxEngine as SYN
         rel = fr.rel
@@ -1986,15 +2003,42 @@ class NoraAGI:
                 verb_root="iste", obj=NP(topic, mods=("ne hakkında",), case="NOM"),
                 tense="AOR", person="2SG"))
             return tr_capitalize(ask) + "?"
+        topic = self._speech_request_topic(fr, raw)
         told = self._narrate_from_knowledge(topic)
         if told:
             return told
         return ""
 
-    def _handle_command(self, fr, speaker: str = "insan") -> str:
+    def _speech_request_topic(self, fr, raw: str) -> str:
+        """Söz ediminin nesnesi boşsa konuyu cümlenin kendisinden çıkarır ('kediler hakkında bilgi ver')."""
+        g = self.lang.graph
+        topic = (getattr(fr, "obj", "") or "").strip()
+        # İçerik istemeyen üst sözcükler konu değildir: 'bilgi ver' -> konu cümlenin içindedir.
+        _meta = {"bilgi", "haber", "cevap", "açıklama", "örnek", "şey", "şeyler", "hikâye", "hikaye",
+                 "masal", "öykü", "şaka", "tavsiye", "öğüt", "fikir", "akıl", "yol"}
+        if topic and topic not in _meta and g.query(topic, None):
+            return topic
+        _skip = {"bilgi", "ver", "anlat", "söyle", "hakkında", "bana", "biraz", "şey", "ne", "bir",
+                 "istiyorum", "isterim", "lütfen", "hadi", "haydi"}
+        best, best_n = "", 0
+        for wd in re.findall(r"[\wçğıöşü]+", tr_lower(raw)):
+            if wd in _skip or len(wd) < 3:
+                continue
+            try:
+                an = self.lang.morph.analyze_word(wd, g.lexicon)
+            except Exception:
+                continue
+            if an.get("is_verb") or an.get("copula"):
+                continue
+            stem = an.get("stem") or wd
+            n = len(g.query(stem, None))
+            if n > best_n:
+                best, best_n = stem, n
+        return best
+
+    def _handle_command(self, fr, speaker: str = "insan", raw: str = "") -> str:
         morph = self.lang.morph
         if getattr(fr, "sub_kind", "") == "invite":
-            from nora_broca import TurkishSyntaxEngine as SYN
             obj_np = NP(fr.obj, case="NOM") if fr.obj else None
             try:
                 yes = SYN.realize_verb(VerbSpec(verb_root=fr.rel, obj=obj_np, tense="OPT", person="1PL"))
@@ -2014,7 +2058,7 @@ class NoraAGI:
             if gap:
                 return gap
         if fr.rel in self._SPEECH_REQUEST_ROOTS:
-            said = self._handle_speech_request(fr)
+            said = self._handle_speech_request(fr, raw)
             if said:
                 return said
         if fr.rel == "uyu":
@@ -2045,7 +2089,8 @@ class NoraAGI:
             return self.schema_cortex.transform_clauses(
                 c_ref,
                 r_ref,
-                "sonucunu zihnimde tarttığımda",
+                SYN.nominalize_dik("tart", poss=1, case="LOC", obj=NP("sonuç", poss=3, case="ACC"),
+                                    loc=NP("zihin", poss=1, case="LOC")),
                 "S2_SONUC_GEREKCE" if cur_sc == "S0_YALIN" else cur_sc,
             )
 
@@ -2093,7 +2138,8 @@ class NoraAGI:
             return self.schema_cortex.transform_clauses(
                 f"kabul ediyorum, kendi irademle {tgt_dat} yöneliyorum",
                 f"öngörüme göre yaklaşık {eta:.0f} adımda hedefe ulaşırım",
-                "rotamı zihnimde kurduğumda",
+                SYN.nominalize_dik("kur", poss=1, case="LOC", obj=NP("rota", poss=1, case="ACC"),
+                                     loc=NP("zihin", poss=1, case="LOC")),
                 cur_sc,
             )
 
@@ -2102,14 +2148,14 @@ class NoraAGI:
             return self.schema_cortex.transform_clauses(
                 f"kabul ediyorum, {tgt_abl} uzak duracağım",
                 "güvenli rotamı korumak bütünlüğümle uyumlu",
-                "çevreyi tarttığımda",
+                SYN.nominalize_dik("tart", poss=1, case="LOC", obj=NP("çevre", case="ACC")),
                 cur_sc,
             )
 
         return self.schema_cortex.transform_clauses(
             f"kabul ediyorum ve '{tgt_label}' doğrultusunda yöneliyorum",
             "isteğin zihinsel simülasyonumda içsel dengemle uyumlu çıktı",
-            "simülasyonumu kontrol ettiğimde",
+            SYN.nominalize_dik("kontrol et", poss=1, case="LOC", obj=NP("simülasyon", poss=1, case="ACC")),
             cur_sc,
         )
 

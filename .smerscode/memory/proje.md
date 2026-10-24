@@ -223,11 +223,11 @@ Nora yalnızca *sorulduğunda* konuşuyordu. `BackgroundLife._reach` sözü yaln
 - **Soru sözcüğü çerçevede taşınır** (`wh`): "nasıl" yöntem, "neden" sebep ister; tür cümlesi ("insan bir
   canlıdır") bu sorulara yanıt sayılmaz — bilinmiyorsa dürüstçe "bunu henüz bilmiyorum" denir.
 - **İstek/emir cümleleri her zaman ayrıştırılır**: hazır durumsal karşılık onları geçiştiremez.
-  `bana bir şaka yap` → kavram ağından **bilmece** (hazır fıkra yok); `bana bir hikâye anlat` → gerçek bilgi.
+  ~~`bana bir şaka yap` → kavram ağından bilmece~~ (bkz. Round 4: kalıp söküldü); `bana bir hikâye anlat` → gerçek bilgi.
 - **Mizaç soruları** ("niye bu kadar sessizsin?") nörokimyasal iç durumdan yanıtlanır; "çok yorgunsun"
   karşıdakine değil Nora'nın kendisine dairdir.
 - **Tercih soruları** ("kediler mi köpekler mi?") ansiklopedi değil: bilgi ağırlığına dayalı, gerekçeli,
-  "bu benim şu anki eğilimim" kaydıyla verilen görüş.
+  "bu benim şu anki eğilimim" kaydıyla verilen görüş. (Round 4: bu kalıp kaldırıldı; karar artık duyusal tanıklıktan.)
 - **Anlatı**: 1. kişi iyeliği 2. kişiye kayar (`kucağıma`→`kucağına`), yan cümle birleşir ("... geldiğini ve
   uyuduğunu"), çok sözcüklü iyelikli özne tamlayana çevrilir (matematik ödevinin). Empati kolundaki
   ansiklopedi cümlesi kaldırıldı; takip soruları tona göre seçiliyor.
@@ -237,3 +237,28 @@ Nora yalnızca *sorulduğunda* konuşuyordu. `BackgroundLife._reach` sözü yaln
 ### Ölçüm
 Tam paket: **A1–A55 → 55/55 GEÇTİ (290.1 sn)**; sonrasında A29 12/12, A50, A52, A54, A55, A13 → 6/6.
 
+
+## Round 4 — iskeletleri sökme (de-hardcode)
+
+- **Tercih artık Nora'nın kendi kanıtından**: `_answer_preference` iki adayın "kaç bağı var"ına ya da
+  söylenme sırasına BAKMAZ. `_affect_evidence` üç kaynağı birleştirir: (1) `self_model.somatic`
+  beden deneyimi (yalnızca `exp_count>0` ise "yaşadım" sayılır), (2) öğretmenin kaynaklı tanıklığı
+  (`arbitrate_claim` → `hearsay_*`), (3) kavramın duygu sözlüğü yüklü özellikleri. Kanıt yoksa tercih
+  UYDURULMAZ: "…tanımıyorum, bana … anlatır mısın?" diye öğrenmek ister. Karar, gerekçe (ayırt edici
+  özellik) ve duyusal cümle Broca'da kökten çekimlenir; topolojiyi `schema_cortex.transform_clauses` seçer.
+- **Mizaç sorusu** ("niye bu kadar sessizsin?"): hazır "içimde … var" cümleleri silindi. Yüklem
+  `realize_pred`, gerekçe gerçek odak üzerine `realize_verb(düşün)`, geri soru konuya bağlı
+  (`realize_verb(düşün, wh_word=ne, post="hakkında")`).
+- **Şaka**: hazır bilmece kalıbı silindi. Öğrenmediği söz edimi dürüst boşluk olarak söylenir
+  ("Şaka yapmayı öğrenmedim. Bana bir şaka öğretir misin?").
+- **Broca kazanımları**: `-mAk` fiil adı çekimi (`yapmayı/yapmaya/yapmanın`, `NP(verbal_noun=True)`),
+  son-ilgeç `NP(post="hakkında")`, `converb(loc=...)`, `nominalize_acak(dat=...)`.
+- **Hazır ulaç parçaları** ("sonucunu zihnimde tarttığımda" vb.) `nominalize_dik`/`converb` ile üretiliyor.
+- **`X hakkında ne biliyorsun?`**: üst kavramdan miras alınan özellik (kedi→evcil, çünkü evcil hayvan→evcil)
+  artık ayırt edici sayılmaz; özne ikinci cümlede düşer; cümleler ';' ile bağlanır.
+- **Konu çıkarımı**: `bana bir hikâye anlat` gibi üst-sözcüklü isteklerde konu cümlenin içinden bulunur
+  (`kediler hakkında bilgi ver` → kedi); öğretim oturumu sonunda `wernicke.last_topic` sıfırlanır.
+- **Duygusal tanıklık öğretimi** `nora_besle.AFFECT_HEARSAY` + `HEARSAY_SENTENCES` üzerinden; mizaç
+  sıfatları sözcük dağarcığına eklendi.
+- **Ölçüm**: tam paket iki kez koşuldu: **55/55 (286.9 sn)** ve **55/55 (286.5 sn)**; bir ara koşuda
+  yükle bağlı 1 test düştü (tekrarında geçti). Gecikme 7 ms.

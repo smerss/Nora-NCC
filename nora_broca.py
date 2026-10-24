@@ -355,13 +355,13 @@ class TurkishSyntaxEngine:
     @classmethod
     def nominalize_acak(cls, verb_root: str, poss: int = 1, case: str = "ACC", neg: bool = False,
                         subj: NP | None = None, obj: NP | str | None = None,
-                        advs: tuple[str, ...] = ()) -> str:
+                        advs: tuple[str, ...] = (), dat: NP | None = None) -> str:
         """-AcAk sıfat-fiili ('gideceğini', 'yağacağını'): gelecek/plan bildiren yan cümlecik."""
         m = TurkishMorphology
         fut = m.conjugate_verb(verb_root, "FUT", person="3SG", neg=neg)
         inflected = cls._inflect_full_noun(fut, poss=poss, plural=False, case=case)
         elems = [cls.realize_np(subj), *(tr_lower(a) for a in advs if a),
-                 cls.realize_np(obj), inflected]
+                 cls.realize_np(dat), cls.realize_np(obj), inflected]
         return " ".join(e for e in elems if e)
 
     @classmethod
@@ -413,6 +413,7 @@ class TurkishSyntaxEngine:
         abl: NP | None = None,
         ins: NP | None = None,
         advs: tuple[str, ...] = (),
+        loc: NP | None = None,
     ) -> str:
         """-erek/-arak veya -ip/-ıp/-up/-üp zarf-fiil (ulaç) yan cümleciği üretir."""
         m = TurkishMorphology
@@ -427,6 +428,7 @@ class TurkishSyntaxEngine:
         elems = [
             *(tr_lower(a) for a in advs if a),
             cls.realize_np(abl),
+            cls.realize_np(loc),
             cls.realize_np(ins),
             cls.realize_np(dat),
             cls.realize_np(obj),
