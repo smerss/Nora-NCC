@@ -47,6 +47,8 @@ class SpeculativeCortex:
 
     def __init__(self, seed: int = 0):
         self.last_gap = ""
+        self.last_agent = ""
+        self.steps = 0
         self.rng = random.Random(seed)
         self.last_trace: str = ""
 
@@ -66,6 +68,9 @@ class SpeculativeCortex:
         stem = an.get("stem") or w
         case = str(an.get("case", "NOM")).upper()
         plural = bool(an.get("plural"))
+        # Biçimbilim kökü yüzeyden farklıysa ve ağda karşılığı varsa o kazanır ('köpekler' -> 'köpek').
+        if stem != w and (stem in g.lexicon or g.query(stem, None)):
+            return stem, case, plural, False
         # Ekli yüzey biçim, ağda BAĞI OLAN kısa kökten sonra gelir ('uzayı' < 'uzay').
         for cut in (1, 2, 3):
             cand = w[:-cut]
@@ -107,6 +112,24 @@ class SpeculativeCortex:
             raw_lemma[t] = lem
             nouns.append((lem, case, plural, i))
         if not verb:
+            # 3. tekil geniş zaman gibi görünen, ad olmayan son sözcük fiil sayılır ('esner' -> 'esne').
+            for _i, t in reversed(list(enumerate(tokens))):
+                if len(t) < 4 or not t.endswith('r') or (t in g.lexicon and g.query(t, None)):
+                    continue
+                if t.endswith(('lar', 'ler')) and (t[:-3] in g.lexicon or g.query(t[:-3], None)):
+                    continue
+                try:
+                    _an = agi.lang.morph.analyze_word(t, g.lexicon)
+                except Exception:
+                    _an = {}
+                if _an.get('copula') or _an.get('plural'):
+                    continue
+                cand = t[:-1]
+                if cand and cand[-1] in 'aeıioöuü':
+                    verb, verb_idx = cand, _i
+                    nouns = [n for n in nouns if not (verb.startswith(n[0]) and len(n[0]) >= 2)]
+                    break
+        if not verb:
             # Sözlükte olmayan ama fiil gibi görünen sözcük ('mırlar' -> 'mırla'): gövde tahmini.
             for _i, t in reversed(list(enumerate(tokens))):
                 if len(t) >= 5 and t.endswith("r"):
@@ -118,7 +141,20 @@ class SpeculativeCortex:
                         nouns = [n for n in nouns if not (verb.startswith(n[0]) and len(n[0]) >= 2)]
                         break
 
+        if verb_idx >= 0:
+            nouns = [n for n in nouns if n[3] != verb_idx]
         agent, patient, place, pred_noun = "", "", "", ""
+        # Koşaçlı sözcük ('mavidir', 'tuzludur') YÜKLEMDİR; nesne sanılmaz.
+        for t in reversed(tokens):
+            lem_t, case_t, _pl_t, _v_t = self._lemma(agi, t)
+            try:
+                _an = agi.lang.morph.analyze_word(t, g.lexicon)
+            except Exception:
+                _an = {}
+            if _an.get("copula") and lem_t not in _STOP:
+                pred_noun = lem_t
+                nouns = [n for n in nouns if n[0] != lem_t]
+                break
         agent_plural = False
         used_idx: set[int] = set()
         # 'bilim insanları' -> eyleyici 'bilim insanı'
@@ -148,7 +184,9 @@ class SpeculativeCortex:
             for lem, case, _p, idx in nouns:
                 if idx in used_idx:
                     continue
-                if idx == verb_idx - 1:
+                if idx >= verb_idx:
+                    continue
+                if idx == verb_idx - 1 and not pred_noun:
                     if verb and (verb.startswith(lem) or lem.startswith(verb)):
                         continue                 # 'mır mırlar' gibi kök yinelemesi
                     # Ağda karşılığı olmayan sözcük kırpılmış köküyle değil, duyulduğu gibi saklanır.
@@ -169,7 +207,7 @@ class SpeculativeCortex:
                 "concepts": list(dict.fromkeys(concepts)), "tokens": tokens}
 
     # ------------------------------------------------------------------ 2. NE BİLİYORUM
-    def _known_clauses(self, agi, q: dict, limit: int = 2) -> list[str]:
+    def _known_clauses(self, agi, q: dict, limit: int = 2, background: bool = False) -> list[str]:
         g = agi.lang.graph
         broca = agi.lang.broca
         out: list[str] = []
@@ -178,14 +216,15 @@ class SpeculativeCortex:
             order = {"CAUSES": 0, "USED_FOR": 1, "CAN_DO": 2, "HAS_PROP": 3, "HAS_PART": 4, "ISA": 5}
         _asked = tr_lower(q.get("raw", ""))
         # 'neden/nasıl' sorusunda yalnız SORULAN varlığın bağları sayılır; yan kavramlar (yer, araç) gürültüdür.
-        _concepts = [q["agent"]] if (q.get("wh") in ("neden", "niye", "niçin", "nasıl") and q.get("agent")) else q["concepts"]
+        _concepts = ([q["agent"]] if (q.get("wh") in ("neden", "niye", "niçin", "nasıl") and q.get("agent"))
+                     else q["concepts"]) if not background else q["concepts"]
         for c in _concepts:
             hits = [(e, p) for e, p in g.query(c, None) if not p]
             hits = [(e, p) for e, p in hits
                     if e.rel in order or (e.rel == "OPPOSITE" and any(w in _asked for w in ("zıt", "karşıt", "ters")))]
             hits.sort(key=lambda h: (order.get(h[0].rel, 9), -float(h[0].weight)))
             q_tokens = self._tokens(q.get("verb_phrase", "")) | self._tokens(q.get("patient", ""))
-            _strict = q.get("wh") in ("neden", "niye", "niçin", "nasıl")
+            _strict = (not background) and q.get("wh") in ("neden", "niye", "niçin", "nasıl")
             for e, _p in hits:
                 if _strict and e.rel in ("ISA", "HAS_PROP") and q_tokens and not (self._tokens(e.obj) & q_tokens):
                     continue
@@ -217,6 +256,11 @@ class SpeculativeCortex:
         if last.endswith(("mak", "mek")):
             return last[:-3]
         return last
+
+    @staticmethod
+    def _tokens2(txt: str) -> set[str]:
+        """Odak sözcükleri: 2 harfli fiiller de sayılır ('uç', 'at', 'ol')."""
+        return {w[:4] for w in re.findall(r"[\wçğıöşü]+", tr_lower(txt)) if len(w) >= 2}
 
     @staticmethod
     def _tokens(txt: str) -> set[str]:
@@ -259,7 +303,7 @@ class SpeculativeCortex:
             for _vp in list(_specific):
                 if _vp and " " in _vp:
                     _specific.append(_vp + ("mak" if _vp[-1] in "aıou" else "mek"))
-            _generic = [agent, patient]
+            _generic = [agent] if not q["verb"] else [agent, patient]
             _light = q["verb"] in ("", "ol", "et", "yap", "bulun", "bul")
             _srcs = _specific + (_generic if _light else [])
             for c in dict.fromkeys(x for x in _srcs if x):
@@ -380,6 +424,10 @@ class SpeculativeCortex:
                 return SYN.nominalize_dik(q["verb"], poss=3, case="ACC",
                                           subj=NP(q["agent"], case="GEN") if q["agent"] else None,
                                           advs=advs + (q["pred_noun"],))
+            if not q["verb"] and (q["pred_noun"] or q["patient"]):
+                return SYN.nominalize_dik("ol", poss=3, case="ACC",
+                                          subj=NP(q["agent"], case="GEN") if q["agent"] else None,
+                                          advs=advs, obj=NP(q["pred_noun"] or q["patient"], case="NOM"))
             if q["verb"]:
                 return SYN.nominalize_dik(q["verb"], poss=3, case="ACC",
                                           subj=NP(q["agent"], case="GEN") if q["agent"] else None,
@@ -397,7 +445,12 @@ class SpeculativeCortex:
                                                       tense="PRES", person="1SG")))
             concept = q["agent"] or q["patient"]
             if concept:
-                return _cap(SYN.realize_verb(VerbSpec(verb_root="tanı", obj=NP(concept, case="ACC"),
+                (g := agi.lang.graph)
+                if not g.query(concept, None) and concept not in g.lexicon:
+                    return _cap(SYN.realize_verb(VerbSpec(verb_root="tanı", obj=NP(concept, case="ACC"),
+                                                          neg=True, tense="PRES", person="1SG")))
+                noun = "sebep" if q.get("wh") in ("neden", "niye", "niçin") else "yol"
+                return _cap(SYN.realize_verb(VerbSpec(verb_root="bil", obj=NP(noun, poss=3, case="ACC"),
                                                       neg=True, tense="PRES", person="1SG")))
         except Exception:
             pass
@@ -422,10 +475,13 @@ class SpeculativeCortex:
     # ------------------------------------------------------------------ 5. BİRLEŞTİR
     def deliberate(self, agi, raw: str, fr=None) -> str:
         q = self._decompose(agi, raw, fr)
+        self.last_agent = q.get("agent", "")
         if not q["concepts"] and not q["verb"]:
             return ""
         known = [_cap(t) for t in self._known_clauses(agi, q, limit=2)]
         hypo, trace = self._hypothesis(agi, q)
+        if not known:
+            known = [_cap(t) for t in self._known_clauses(agi, q, limit=1, background=True)]
 
         parts: list[str] = []
         seen: set[str] = set()
@@ -435,10 +491,20 @@ class SpeculativeCortex:
                 parts.append(txt)
                 seen.add(key)
         if hypo:
+            hedged = hypo
+            if trace == "" or trace.startswith(("parça:", "kalıtım:", "benzetme:")):
+                # Doğrudan öğrenilmemiş, çıkarımla kurulmuş bağ: alçakgönüllü sunulur.
+                markers = ("sanırım", "galiba", "bence", "tahminimce")
+                marker = markers[int(self.steps) % len(markers)] if hasattr(self, "steps") else markers[0]
+                try:
+                    self.steps += 1
+                except Exception:
+                    pass
+                hedged = marker + " " + tr_lower(hypo[0]) + hypo[1:]
             try:
-                hedged = agi.schema_cortex.transform_clauses(hypo, "", "sanırım", "S3_IC_BAKIS")
+                hedged = agi.schema_cortex.transform_clauses(hedged, "", "", "S1_NEDEN_SONUC")
             except Exception:
-                hedged = _cap(hypo)
+                hedged = hedged
             if tr_lower(hedged) not in seen:
                 parts.append(hedged if hedged.endswith((".", "?", "!")) else hedged + ".")
         else:
