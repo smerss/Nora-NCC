@@ -196,6 +196,25 @@ Nora yalnızca *sorulduğunda* konuşuyordu. `BackgroundLife._reach` sözü yaln
   gerçekten soruluyor mu denetimi).
 - `numpy.ma` tembel importu modül başında çekildi (ilk tur gecikmesi); A25'e ısınma turu eklendi.
 
+### Günlük konuşma — ikinci tur (aynı gün)
+- **İyelikli hâl bildirimleri**: `moralim bozuk`, `kafam çok karışık`, `keyfim yok`, `gönlüm kırık`,
+  `içim daralıyor`, `canım sıkılıyor`, `kardeşim bana bağırdı` → duygudaşlık yanıtı. Yanıt kurulurken
+  iyelikli özne tamlayana çevrilir: "moralim" → "moralinin", "kardeşim" → "kardeşinin" (poss=2 + GEN).
+- `analyze_word` 1. tekil iyelik/koşaçı çözer (`-Im`, ünlü düşmesi ve yumuşama ile); `poss` alanı artık
+  eski `poss1` alanıyla birlikte set ediliyor.
+- **Kimlik bildirimi** ("Ben öğretmenim"): 1. kişi koşacı + meslek → "Öğretmen olduğunu öğrendim;
+  bunu aklımda tutacağım. İşin nasıl gidiyor?"
+- **Neden sorusu ayrımı**: "Neden gökyüzü mavi?" artık DÜNYA sorusu (wh_query); içebakış yalnızca
+  kendi davranışı sorulduğunda ("neden böyle yaptın / neden reddettin"). Eski turdan kalan iç telemetri
+  cümlesi soruyla ilgisizse söylenmez (A29 #3 yeniden yeşil).
+- **Öbek başı**: bilinen çok sözcüklü önek yoksa Türkçenin baş-sonda kuralıyla son bilinen ad özne olur
+  ('kuantum bilgisayar' → kuantum bilgisayar; 'dünyanın en yüksek dağı' → ters arama → everest).
+- `GroundedConceptGraph._in_edges` ters indeksi (O(1) yazım): tanımlayıcı öbekten varlığa geri arama.
+- Bilgi eklemeleri: everest (dağ / himalaya / dünyanın en yüksek dağı), kuantum bilgisayar, bilgisayar,
+  uzay, bilim insanı; `tavsiye/öğüt/fikir`, `moral/kafa/can/keyif/gönül/öğretmen/...` dağarcığa girdi.
+- Yanıt çeşitliliği: `DiscourseCortex._fresh()` son 6 takip sözünü tekrarlamaz.
+- İç simge sızıntısı ikinci kapı: `ÖZ_` etiketli mint onayı olay türünün Türkçesiyle kurulur.
+
 ### Ölçüm
-Tam paket: **A1–A55 → 55/55 GEÇTİ (285.3 sn)**; A54 (kişisel anlatı) ve A55 (günlük konuşma) yeni.
+Tam paket: **A1–A55 → 55/55 GEÇTİ (283.5 sn)**; A54 (kişisel anlatı) ve A55 (günlük konuşma) yeni.
 

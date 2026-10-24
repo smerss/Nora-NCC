@@ -137,6 +137,7 @@ class DiscourseCortex:
     def __init__(self, seed: int = 0, lexicon=None):
         rng = np.random.default_rng(seed + 7)
         self.random = random.Random(seed + 17)
+        self.recent_followups: deque[str] = deque(maxlen=6)
         self.acts = list(ACTS)
         self.features = list(FEATURES)
         self.W = rng.normal(0.0, 0.12, size=(len(self.acts), len(self.features)))
@@ -283,27 +284,99 @@ class DiscourseCortex:
                                 "index": i, "words": words, "rest": words[:i], "tail": words[i + 1:],
                                 "state": True}
 
+        # İyelikli özne + hâl sıfatı: 'moralim bozuk', 'kafam çok karışık', 'keyfim yok'
+        _adv = {"çok", "biraz", "pek", "epey", "oldukça", "fena", "çokça", "hayli", "bayağı", "artık"}
+        for i, w in enumerate(words):
+            an = memo.get(w)
+            if an is None:
+                an = memo[w] = morph.analyze_word(w, lex)
+            if not (an.get("poss") == 1 or an.get("poss1")):
+                continue
+            j = i + 1
+            while j < len(words) and words[j] in _adv:
+                j += 1
+            if j >= len(words):
+                continue
+            nxt = words[j]
+            if nxt in STATE_ADJECTIVES or nxt in ("yok", "yoktur"):
+                return {"verb": nxt, "neg": nxt.startswith("yok"), "person": "1SG", "tense": "STATE",
+                        "index": i, "words": words, "rest": words[:i], "tail": words[j + 1:],
+                        "state": True, "subject": an["stem"]}
+
+        # Kimlik bildirimi: 'Ben öğretmenim' (1. kişi koşacı + meslek adı)
+        if len(words) >= 2 and words[0] == "ben":
+            an = memo.get(words[1])
+            if an is None:
+                an = memo[words[1]] = morph.analyze_word(words[1], lex)
+            if an.get("poss") == 1 and an["stem"] not in STATE_ADJECTIVES and not an.get("is_verb"):
+                return {"verb": "ol", "neg": False, "person": "1SG", "tense": "IDENTITY",
+                        "index": 1, "words": words, "rest": [], "tail": words[2:],
+                        "identity": an["stem"]}
+
         # 3. kişiyle kurulmuş kişisel olaylar: iyelikli özne ('kedim', 'annem', 'başım')
         poss_idx = -1
         for i, w in enumerate(words):
-            if morph.analyze_word(w, lex).get("poss1"):
+            _an = memo.get(w)
+            if _an is None:
+                _an = memo[w] = morph.analyze_word(w, lex)
+            if _an.get("poss") == 1:
                 poss_idx = i
                 break
         if poss_idx >= 0:
             for i, w in enumerate(words):
-                an = morph.analyze_word(w, lex)
+                an = memo.get(w)
+                if an is None:
+                    an = memo[w] = morph.analyze_word(w, lex)
                 if an.get("is_verb") and an.get("person") in ("3SG", "3PL"):
+                    _pan = memo.get(words[poss_idx]) or morph.analyze_word(words[poss_idx], lex)
                     return {"verb": an["stem"], "neg": bool(an.get("neg")), "person": "3SG",
                             "tense": an.get("tense", ""), "index": i, "words": words,
-                            "rest": words[:i], "tail": words[i + 1:]}
+                            "rest": [w for w in words[:i] if w != words[poss_idx]],
+                            "tail": words[i + 1:], "subject": _pan.get("stem", "")}
         return None
 
     def respond_narration(self, raw: str, agi, nar: dict) -> dict:
         """Anlatıya insan gibi karşılık: olayı kendi sözleriyle geri yansıt + gerçek bir soru."""
         verb = nar["verb"]
+        if nar.get("identity"):
+            role = nar["identity"]
+            try:
+                learned = SYN.realize_verb(VerbSpec(
+                    verb_root="öğren",
+                    obj=SYN.nominalize_dik("ol", poss=2, case="ACC", subj=NP(role)),
+                    tense="PAST", person="1SG"))
+                ask = SYN.realize_verb(VerbSpec(verb_root="git", subj=NP("iş", poss=2),
+                                               wh_word="nasıl", tense="PRES", person="3SG"))
+                text = f"{tr_capitalize(learned)}; bunu aklımda tutacağım. {tr_capitalize(ask)}?"
+            except Exception:
+                text = f"{tr_capitalize(role)} olduğunu öğrendim."
+            return {"text": text, "act": "NARRATION_IDENTITY", "narration": True}
+
         if nar.get("state") or nar.get("tense") == "STATE":
-            # Hâl bildirimi ('yalnızım', 'yorgunum'): ders değil, duygudaşlık.
+            # Hâl bildirimi ('yalnızım', 'yorgunum', 'keyfim yok'): ders değil, duygudaşlık.
             adj = verb
+            _subj = str(nar.get("subject") or "")
+            if not (nar.get("neg") or adj in ("yok", "yoktur")) and _subj:
+                try:
+                    gen = SYN.realize_np(NP(_subj, poss=2, case="GEN"))
+                except Exception:
+                    gen = _subj
+                lead = _cap(self._fresh((f"{gen} {adj} olduğunu duyuyorum",
+                                         f"{gen} {adj} olması can sıkıcı",
+                                         f"Bugün {gen} {adj} olduğunu görüyorum")))
+                follow = self._fresh(("Yanındayım.", "Anlatmak ister misin?", "Birlikte biraz soluklanalım mı?"))
+                return {"text": f"{lead} {follow}", "act": "NARRATION_EMPATHIZE", "narration": True}
+            if nar.get("neg") or adj in ("yok", "yoktur"):
+                subj = str(nar.get("subject") or "için")
+                try:
+                    gen = SYN.realize_np(NP(subj, poss=2, case="GEN"))
+                except Exception:
+                    gen = subj
+                lead = _cap(self._fresh((f"{gen} yerinde olmadığını duyuyorum",
+                                         f"{gen} olmadığını görüyorum, kolay değil",
+                                         f"Bugün {gen} yerinde değil anlaşılan")))
+                follow = self._fresh(("Yanındayım.", "Anlatmak ister misin?", "Birlikte biraz soluklanalım mı?"))
+                return {"text": f"{lead} {follow}", "act": "NARRATION_EMPATHIZE", "narration": True}
             lead = _cap(self.random.choice((
                 f"Kendini {adj} hissettiğini duyuyorum",
                 f"Şu an {adj} olduğunu anlıyorum",
@@ -314,13 +387,13 @@ class DiscourseCortex:
                 warm = float(getattr(chem, "oxy", 0.5)) >= float(getattr(chem, "cort", 0.5))
             except Exception:
                 warm = True
-            follow = self.random.choice((
+            follow = self._fresh((
                 "Yanındayım.", "Anlatmak ister misin?", "Bu his ne zamandır sürüyor?",
-                "Ben de kendi içimde benzer bir şey taşıyorum.",
-            )) if warm else self.random.choice((
+                "Ben de kendi içimde benzer bir şey taşıyorum.", "İstersen biraz susalım, beraber.",
+            )) if warm else self._fresh((
                 "Bunu yalnız taşımak zorunda değilsin.", "Biraz yavaşlayalım mı?", "Nefes al, buradayım.",
             ))
-            return {"text": f"{lead}. {follow}", "act": "NARRATION_EMPATHIZE", "narration": True}
+            return {"text": f"{lead} {follow}", "act": "NARRATION_EMPATHIZE", "narration": True}
         try:
             if nar.get("tense") == "FUT":
                 obj = SYN.nominalize_acak(verb, poss=2, case="ACC", neg=nar["neg"])
@@ -330,7 +403,15 @@ class DiscourseCortex:
             obj = ""
         rest = [w for w in nar["rest"] if w not in ("ben", "biz", "bugün", "dün", "şimdi")]
         rest_txt = " ".join(rest)
-        if obj:
+        _nsub = str(nar.get("subject") or "")
+        if _nsub and obj and not nar.get("state"):
+            # 'içim daralıyor' -> 'içinin daraldığını duyuyorum' (iyelikli özne tamlayana döner)
+            try:
+                gen = SYN.realize_np(NP(_nsub, poss=2, case="GEN"))
+            except Exception:
+                gen = _nsub
+            lead = f"{gen} {rest_txt} {obj} duyuyorum".replace("  ", " ")
+        elif obj:
             lead = f"{rest_txt} {obj} duyuyorum".strip()
         else:
             lead = "seni duyuyorum"
@@ -338,9 +419,10 @@ class DiscourseCortex:
 
         act = self._pick_narration_act(nar)
         if act == "REFLECT_ASK":
-            q = self.random.choice((
+            q = self._fresh((
                 "Nasıl geçti?", "Bu seni nasıl etkiledi?", "En çok hangi yanı kaldı aklında?",
-                "Devamını merak ediyorum, anlatır mısın?",
+                "Devamını merak ediyorum, anlatır mısın?", "O an ne hissettin?",
+                "Bunu bana biraz daha açar mısın?",
             ))
             text = f"{lead} {q}"
         elif act == "SHARE_FEELING":
@@ -356,6 +438,13 @@ class DiscourseCortex:
         else:
             text = f"{lead} Anlat, dinliyorum."
         return {"text": text, "act": f"NARRATION_{act}", "narration": True}
+
+    def _fresh(self, options: tuple[str, ...]) -> str:
+        """Son söylenenlerle aynı olan takip sözünü seçme: konuşmada tekrar insanı yorar."""
+        avail = [o for o in options if o not in self.recent_followups]
+        pick = self.random.choice(avail or list(options))
+        self.recent_followups.append(pick)
+        return pick
 
     def _pick_narration_act(self, nar: dict) -> str:
         # Ton içerikten: olumsuz fiil/ağır söz -> sadece dinle; sıcak söz -> içten karşılık.

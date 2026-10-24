@@ -92,6 +92,8 @@ STATE_ADJECTIVES: set[str] = {
     "heyecanlı", "sıkılmış", "sıkıntılı", "dingin", "huzurlu", "huzursuz", "gergin", "rahat",
     "mutsuz", "umutsuz", "umutlu", "kaygılı", "endişeli", "sinirli", "kızgın", "kırgın",
     "yaşlı", "genç", "hasta", "sağlıklı", "uykulu", "uykusuz", "dalgın", "şaşkın", "meraklı",
+    "bozuk", "karışık", "sıkkın", "dargın", "keyifsiz", "dolu", "tuhaf", "bitkin", "mutsuz",
+    "hevesli", "isteksiz", "kırılgan", "duygusal", "sakin", "yorgun", "kırık", "dağınık",
 }
 
 CORE_TURKISH_VERBS: set[str] = {
@@ -104,6 +106,7 @@ CORE_TURKISH_VERBS: set[str] = {
     "ağla", "bağır", "fısılda", "düşle", "özle", "sevin", "üzül", "şaşır", "kız", "utan",
     "geçir", "harca", "biriktir", "dene", "çöz", "tamamla", "ertel", "vazgeç", "sürdür", "topla",
     "hisset", "kaygılan", "heyecanlan", "rahatla", "sıkıl", "usan", "umut et", "yalnızlaş",
+    "daral", "bozul", "karış", "şaşır", "sevin", "üzül", "sinirlen", "kırıl",
 
     # Hareket ve eylem
     "git", "gel", "ye", "iç", "dur", "bekle", "kaç", "gir", "çık", "bak", "gör", "duy", "dinle",

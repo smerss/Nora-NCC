@@ -1107,11 +1107,19 @@ class NoraAGI:
                 g_rep = g_gen["reply"] if g_gen is not None else "Merhaba."
                 bids.append(CorticalBid("temporal_conversation", 0.95, 0.94, g_rep, "generative_greeting"))
             elif fr.kind == "why_query":
+                # Açıklama, SORULAN davranışa ait olmalı. Eski turlardan kalan bir iç telemetri cümlesi
+                # (ör. 'kavram ağında X düğümünden 1 bağ buldum') soruyla ilgisizse SÖYLENMEZ.
                 ref_exp = getattr(wern, "last_refusal_explanation", "")
-                if ref_exp and any(k in s_low for k in ("reddet", "kabul etmedin", "yapmadın", "erteledin")):
+                _q_words = set(re.findall(r"[\wçğıöşü]+", s_low))
+                _asks_own_action = bool(_q_words & {"reddet", "reddettin", "kabul", "yaptın", "davrandın",
+                                                    "böyle", "öyle", "erteledin", "yapmadın"}) \
+                    or len(_q_words - {"neden", "niçin", "niye", "peki", "az", "önce", "sen", "bir"}) == 0
+                _expl = (wern.last_explanation or "").strip()
+                _expl_relevant = bool(_expl) and bool(set(re.findall(r"[\wçğıöşü]+", tr_lower(_expl))) & _q_words)
+                if ref_exp and _asks_own_action:
                     ans_w = tr_capitalize(ref_exp.rstrip(".")) + "."
-                elif wern.last_explanation:
-                    ans_w = tr_capitalize(wern.last_explanation.rstrip(".")) + "."
+                elif _expl and _expl_relevant:
+                    ans_w = tr_capitalize(_expl.rstrip(".")) + "."
                 else:
                     goal_names = {0: "enerji ihtiyacım", 1: "susuzluğum", 2: "tehlikeden korunma isteğim", 3: "merakım"}
                     g_str = goal_names.get(self.mind.goal, "içsel dengem")
@@ -1267,6 +1275,15 @@ class NoraAGI:
                 hits = graph.query(fr.subj, rels)
                 if not hits and fr.rel != "ALL":
                     hits = graph.query(fr.subj, None)
+                # TERS ARAMA: "dünyanın en yüksek dağı" gibi tanımlayıcı bir öbek, bilinen bir kavramın
+                # özelliği olarak ağda duruyorsa (everest HAS_PROP "dünyanın en yüksek dağı") o kavramı bul.
+                if not hits:
+                    for _rev in graph._in_edges.get(fr.subj, ()):
+                        _rev_hits = graph.query(_rev.subj, rels)
+                        if _rev_hits:
+                            fr.subj = _rev.subj
+                            hits = _rev_hits
+                            break
                 if hits:
                     # Sıralama anlam taşır: "X nedir?" sorusunda önce türü (ISA), sonra özelliği/parçası,
                     # en sonda nedeni gelir. Aksi hâlde "Uyku nedir?" sorusuna nedenle başlanıyordu.
@@ -1289,10 +1306,13 @@ class NoraAGI:
                         txt = broca.realize_prop(p)
                         if isa_path:
                             via = isa_path[0].obj
-                            txt = f"{fr.subj} bir {via} olduğu için {txt}"
+                            # Özne bir kez söylenir (Türkçe özne düşürür): "X bir Y olduğu için hesaplar."
+                            _tail = txt[len(fr.subj):].strip() if txt.startswith(fr.subj) else txt
+                            txt = f"{fr.subj} bir {via} olduğu için {_tail}"
                         clauses.append(txt)
                     wern.last_explanation = f"Kavram ağında {fr.subj} düğümünden {len(hits)} ilişkisel bağ buldum"
-                    bids.append(CorticalBid("hippocampal_concept", 0.95, 0.94, tr_capitalize(" ve ".join(clauses)) + ".", f"wh:{fr.subj}"))
+                    _joined = tr_capitalize(" ve ".join(clauses))
+                    bids.append(CorticalBid("hippocampal_concept", 0.95, 0.94, _joined + ".", f"wh:{fr.subj}"))
                 else:
                     srec = self.self_model.somatic.get(fr.subj)
                     if srec is not None and srec.provenance in ("deneyim", "duyum"):
@@ -1455,6 +1475,14 @@ class NoraAGI:
                 if isa_path:
                     loc_str = f"{subj} bir {isa_path[0].obj} olduğu için {loc_str}"
                 return tr_capitalize(loc_str) + "."
+            # Ters arama: öbek bilinen bir varlığın tanımıysa o varlığın konumunu söyle.
+            for _rev in self.lang.graph._in_edges.get(subj, ()):
+                _rl = self.lang.graph.query(_rev.subj, ("LOCATED_AT",))
+                if _rl:
+                    _e, _p = _rl[0]
+                    _loc = self.lang.broca.realize_prop(Proposition(subj=_rev.subj, rel="LOCATED_AT", obj=_e.obj))
+                    _tail = _loc[len(_rev.subj):].strip() if _loc.startswith(_rev.subj) else _loc
+                    return f"{tr_capitalize(subj)} {_rev.subj} olarak bilinir; {tr_capitalize(_tail)}."
             return f"{tr_capitalize(subj)} nerede bulunur henüz bilmiyorum; bir cümleyle öğretebilirsin."
         px, py = float(self.mind.map.pos[0]), float(self.mind.map.pos[1])
         if subj == "su":
