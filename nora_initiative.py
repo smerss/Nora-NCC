@@ -220,13 +220,13 @@ class InitiativeCortex:
         if edge is None:
             return None
         subj, rel, obj = edge
-        rel_tr = {"ISA": "bir türü", "HAS_PROP": "bir özelliği", "CAN_DO": "yaptığı bir şey",
-                  "CAUSES": "bir sonucu", "USED_FOR": "işe yaradığı bir şey",
-                  "LOCATED_AT": "bulunduğu bir yer", "OPPOSITE": "zıttı"}.get(rel, "bir bağı")
+        # "arasında bir türü olduğunu fark ettim" yalnızca simetrik ilişkilerde doğru olur (zıt);
+        # diğer bağlarda tamlayan kurulur: "suyun bir madde olduğunu fark ettim".
         shapes = [
             lambda: SYN.realize_verb(VerbSpec(verb_root="kur", obj=NP("bağ", mods=("bir",), case="NOM"),
                                               advs=(f"{subj} ile {obj} arasında",), tense="PAST", person="1SG")),
-            lambda: f"{tr_capitalize(subj)} ile {obj} arasında {rel_tr} olduğunu fark ettim.",
+            lambda: (f"{tr_capitalize(subj)} ile {obj} zıtmış, bunu az önce fark ettim." if rel == "OPPOSITE"
+                     else f"{tr_capitalize(subj)} ile {obj} arasında bir bağ olduğunu fark ettim."),
             lambda: {"OPPOSITE": f"{tr_capitalize(subj)} ile {obj} zıtmış, bunu az önce fark ettim.",
                       "CAUSES": f"{tr_capitalize(subj)} {obj} sonucuna yol açıyormuş.",
                       "ISA": f"{tr_capitalize(subj)} aslında bir {obj} imiş; bunu az önce öğrendim.",

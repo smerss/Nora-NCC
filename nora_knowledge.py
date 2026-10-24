@@ -85,7 +85,26 @@ VOWEL_DROP_STEMS: dict[str, str] = {
 REVERSE_VOWEL_DROP: dict[str, str] = {v: k for k, v in VOWEL_DROP_STEMS.items() if v != k}
 
 # Orta-İleri Türkçe Temel Fiil Kökleri Dağarcığı (Günlük yaşam + iletişim + bilim + soyut muhakeme)
+# Kişinin kendi hâlini bildiren sıfatlar (1. kişi koşacıyla: 'yorgunum', 'yalnızım', 'mutluyum').
+# Bunlar bir OLGU değil, o anki yaşantıdır; Nora bunlara bilgi maddesiyle değil, duygudaşlıkla karşılık verir.
+STATE_ADJECTIVES: set[str] = {
+    "yorgun", "yalnız", "mutlu", "üzgün", "kötü", "iyi", "aç", "tok", "susuz", "korkmuş",
+    "heyecanlı", "sıkılmış", "sıkıntılı", "dingin", "huzurlu", "huzursuz", "gergin", "rahat",
+    "mutsuz", "umutsuz", "umutlu", "kaygılı", "endişeli", "sinirli", "kızgın", "kırgın",
+    "yaşlı", "genç", "hasta", "sağlıklı", "uykulu", "uykusuz", "dalgın", "şaşkın", "meraklı",
+}
+
 CORE_TURKISH_VERBS: set[str] = {
+    # Gündelik anlatı (konuşma dilinin en sık fiilleri)
+    "izle", "seyret", "başla", "bitir", "oku", "yaz", "dinle", "hazırla", "temizle", "gez",
+    "ziyaret", "karşılaş", "tanış", "uğraş", "eğlen", "kaybet", "kazan", "anlat", "söyle", "sor",
+    "cevapla", "dene", "tamamla", "sürdür", "böl", "birleştir", "say", "ölç", "tart", "kokla",
+    "tat", "dokun", "nefes", "uyan", "giy", "çıkar", "yıka", "pişir", "kaynat", "kes", "doğra",
+    "temizlen", "otur", "kalk", "yürü", "koş", "yüz", "uç", "dinlen", "çalış", "oyna", "gül",
+    "ağla", "bağır", "fısılda", "düşle", "özle", "sevin", "üzül", "şaşır", "kız", "utan",
+    "geçir", "harca", "biriktir", "dene", "çöz", "tamamla", "ertel", "vazgeç", "sürdür", "topla",
+    "hisset", "kaygılan", "heyecanlan", "rahatla", "sıkıl", "usan", "umut et", "yalnızlaş",
+
     # Hareket ve eylem
     "git", "gel", "ye", "iç", "dur", "bekle", "kaç", "gir", "çık", "bak", "gör", "duy", "dinle",
     "uç", "yüz", "koş", "yürü", "atla", "düş", "kalk", "otur", "yat", "uyu", "uyan", "dön", "geç",

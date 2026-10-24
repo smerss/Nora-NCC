@@ -37,6 +37,7 @@ import time
 # ============================================================================
 
 VOCAB: list[str] = """
+hikâye hikaye masal öykü anlatı tavsiye öğüt fikir danış
 ben sen o biz siz onlar kendi kendim kendin şey şeyler herkes kimse biri birisi hiçbiri
 bu şu bunlar şunlar öyle böyle şöyle hangi neden niçin niye nasıl nerede nereye nereden ne zaman
 kaç kadar göre rağmen için ile ve ama fakat ancak çünkü eğer ki ise de da bile yalnız sadece hep

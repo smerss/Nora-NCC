@@ -32,6 +32,8 @@ import numpy as np
 from nora_broca import NP, PredSpec, TurkishSyntaxEngine as SYN, VerbSpec
 from nora_lang import tr_capitalize, tr_lower
 
+_WORD_RE = re.compile(r"[\wçğıöşü]+")
+
 # ============================================================================
 # 1. KONUŞMA EDİMLERİ
 # ============================================================================
@@ -82,6 +84,17 @@ _STOP = frozenset({"bir", "bu", "şu", "o", "ve", "ama", "çok", "daha", "ben", 
                    "için", "gibi", "kadar", "ile", "de", "da", "ki", "mi", "mı", "mu", "mü", "ne",
                    "var", "yok", "beni", "bana", "seni", "sana", "bugün", "dün", "yarın", "şimdi",
                    "artık", "biraz", "hiç", "her", "bazı", "en", "çünkü", "eğer", "sonra", "önce"})
+
+
+def _cap(text: str) -> str:
+    """Baş harfi büyüt ve cümleyi soru/bitiş işaretiyle kapat."""
+    text = (text or "").strip()
+    if not text:
+        return text
+    text = tr_capitalize(text[0]) + text[1:]
+    if text[-1] not in ".?!":
+        text += "."
+    return text
 
 
 def _toks(text: str) -> list[str]:
@@ -210,6 +223,151 @@ class DiscourseCortex:
         meta = {"unknown": unknown, "concepts": concepts, "neg": neg, "pos": pos,
                 "bored": bored, "question": question, "content": content, "low": low}
         return feats, meta
+
+    # ---------------------------------------------------------------- toplumsal olay
+    def social_event_of(self, raw: str) -> dict | None:
+        """Kişinin hayatındaki toplumsal olaylar (doğum günü gibi) bir bilgi sorusu değildir."""
+        low = tr_lower(raw)
+        words = _WORD_RE.findall(low)
+        if any(w.startswith("doğum") for w in words) or "doğum gün" in low:
+            return {"kind": "birthday"}
+        return None
+
+    def respond_social_event(self, raw: str, agi, ev: dict) -> dict:
+        """Toplumsal olaya insan gibi karşılık; yüzey yine sözdizimi motorundan kurulur."""
+        if ev["kind"] == "birthday":
+            wish = SYN.realize_verb(VerbSpec(verb_root="kutla", obj=NP("doğum günü", poss=2, case="ACC"),
+                                             tense="PRES", person="1SG"))
+            ask = SYN.realize_pred(PredSpec(subj=NP("yaş", poss=2), pred_root="kaç", person="3SG", question=True))
+            return {"text": f"{tr_capitalize(wish)}! {tr_capitalize(ask)}?", "act": "SOCIAL_BIRTHDAY"}
+        return {"text": "", "act": "SOCIAL_NONE"}
+
+    # ---------------------------------------------------------------- kişisel anlatı
+    NARRATION_ACTS = ("REFLECT_ASK", "SHARE_FEELING", "OFFER_LISTEN")
+
+    def narration_of(self, raw: str) -> dict | None:
+        """Karşıdaki kendi yaşantısını mı anlatıyor? 1. kişi bitmiş fiil (-dIm, -yorum, -mIşIm)
+        varsa ve soru değilse bu bir ANLATIdır: Nora ders vermez, dinler ve karşılık verir."""
+        if "?" in raw:
+            return None
+        from nora_lang import TurkishMorphology as _M
+        words = _WORD_RE.findall(tr_lower(raw))
+        morph = _M()
+        lex = set(self.lexicon or ())
+        # Aynı sözcük bir turda bir kez çözümlensin (tur içi memo; O(1))
+        memo: dict[str, dict] = {}
+        # Kimlik bildiren cümleler (ad, yaş, memleket) anlatı değil SOSYAL BİLGİdir; onları
+        # sosyal öğrenme korteksi işler, Nora "duyuyorum" diye yansıtmaz.
+        if any(w in words for w in ("adım", "ismim", "adımı", "yaşındayım", "yaşıyorum", "senindir")):
+            return None
+        for i, w in enumerate(words):
+            an = memo.get(w)
+            if an is None:
+                an = memo[w] = morph.analyze_word(w, lex)
+            # Gelecek/istek/ortak istek kipleri bir YAŞANTI değil niyettir: "sana bir şey soracağım",
+            # "biraz sohbet edelim" anlatı değildir (davet/plan olarak ayrıca işlenir).
+            if an.get("tense") in ("OPT", "NEC"):
+                continue
+            if an.get("is_verb") and an.get("person") in ("1SG", "1PL"):
+                return {"verb": an["stem"], "neg": bool(an.get("neg")), "person": an.get("person"),
+                        "tense": an.get("tense", ""), "index": i, "words": words,
+                        "rest": words[:i], "tail": words[i + 1:]}
+        # 1. kişi koşaçlı hâl sıfatı: 'bugün kendimi yalnız hissediyorum' değilse de 'çok yorgunum'.
+        from nora_knowledge import STATE_ADJECTIVES
+        for i, w in enumerate(words):
+            for suf in ("yım", "yim", "yum", "yüm", "ım", "im", "um", "üm"):
+                if len(w) - len(suf) >= 3 and w.endswith(suf):
+                    base = w[: -len(suf)]
+                    if base in STATE_ADJECTIVES:
+                        return {"verb": base, "neg": False, "person": "1SG", "tense": "STATE",
+                                "index": i, "words": words, "rest": words[:i], "tail": words[i + 1:],
+                                "state": True}
+
+        # 3. kişiyle kurulmuş kişisel olaylar: iyelikli özne ('kedim', 'annem', 'başım')
+        poss_idx = -1
+        for i, w in enumerate(words):
+            if morph.analyze_word(w, lex).get("poss1"):
+                poss_idx = i
+                break
+        if poss_idx >= 0:
+            for i, w in enumerate(words):
+                an = morph.analyze_word(w, lex)
+                if an.get("is_verb") and an.get("person") in ("3SG", "3PL"):
+                    return {"verb": an["stem"], "neg": bool(an.get("neg")), "person": "3SG",
+                            "tense": an.get("tense", ""), "index": i, "words": words,
+                            "rest": words[:i], "tail": words[i + 1:]}
+        return None
+
+    def respond_narration(self, raw: str, agi, nar: dict) -> dict:
+        """Anlatıya insan gibi karşılık: olayı kendi sözleriyle geri yansıt + gerçek bir soru."""
+        verb = nar["verb"]
+        if nar.get("state") or nar.get("tense") == "STATE":
+            # Hâl bildirimi ('yalnızım', 'yorgunum'): ders değil, duygudaşlık.
+            adj = verb
+            lead = _cap(self.random.choice((
+                f"Kendini {adj} hissettiğini duyuyorum",
+                f"Şu an {adj} olduğunu anlıyorum",
+                f"{tr_capitalize(adj)} olmak zor",
+            )))
+            try:
+                chem = agi.chem
+                warm = float(getattr(chem, "oxy", 0.5)) >= float(getattr(chem, "cort", 0.5))
+            except Exception:
+                warm = True
+            follow = self.random.choice((
+                "Yanındayım.", "Anlatmak ister misin?", "Bu his ne zamandır sürüyor?",
+                "Ben de kendi içimde benzer bir şey taşıyorum.",
+            )) if warm else self.random.choice((
+                "Bunu yalnız taşımak zorunda değilsin.", "Biraz yavaşlayalım mı?", "Nefes al, buradayım.",
+            ))
+            return {"text": f"{lead}. {follow}", "act": "NARRATION_EMPATHIZE", "narration": True}
+        try:
+            if nar.get("tense") == "FUT":
+                obj = SYN.nominalize_acak(verb, poss=2, case="ACC", neg=nar["neg"])
+            else:
+                obj = SYN.nominalize_dik(verb, poss=2, case="ACC", neg=nar["neg"])
+        except Exception:
+            obj = ""
+        rest = [w for w in nar["rest"] if w not in ("ben", "biz", "bugün", "dün", "şimdi")]
+        rest_txt = " ".join(rest)
+        if obj:
+            lead = f"{rest_txt} {obj} duyuyorum".strip()
+        else:
+            lead = "seni duyuyorum"
+        lead = _cap(lead)
+
+        act = self._pick_narration_act(nar)
+        if act == "REFLECT_ASK":
+            q = self.random.choice((
+                "Nasıl geçti?", "Bu seni nasıl etkiledi?", "En çok hangi yanı kaldı aklında?",
+                "Devamını merak ediyorum, anlatır mısın?",
+            ))
+            text = f"{lead} {q}"
+        elif act == "SHARE_FEELING":
+            chem = getattr(agi, "chem", None)
+            warm = True
+            try:
+                warm = float(getattr(chem, "oxy", 0.5)) >= float(getattr(chem, "cort", 0.5))
+            except Exception:
+                pass
+            feel = self.random.choice(("içim ısındı", "içim kıpırdadı")) if warm else \
+                self.random.choice(("içimde bir ağırlık oldu", "içim burkuldu"))
+            text = f"{lead} Bunu duyunca {feel}."
+        else:
+            text = f"{lead} Anlat, dinliyorum."
+        return {"text": text, "act": f"NARRATION_{act}", "narration": True}
+
+    def _pick_narration_act(self, nar: dict) -> str:
+        # Ton içerikten: olumsuz fiil/ağır söz -> sadece dinle; sıcak söz -> içten karşılık.
+        neg = bool(nar.get("neg"))
+        words = " ".join(nar.get("words", []))
+        heavy = neg or any(w in words for w in ("yorul", "üzül", "kötü", "ağla", "kork", "yalnız"))
+        warm = any(w in words for w in ("güzel", "iyi", "mutlu", "sevindim", "harika", "keyif"))
+        if warm:
+            return "SHARE_FEELING"
+        if heavy:
+            return "OFFER_LISTEN"
+        return "REFLECT_ASK"
 
     # ---------------------------------------------------------------- yüzey kuruluşları
     def _neighbour(self, graph, word: str) -> tuple[str, str] | tuple[None, None]:

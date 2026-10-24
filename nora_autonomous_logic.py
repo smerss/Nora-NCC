@@ -31,6 +31,7 @@ import re
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 import numpy as np
+import numpy.ma as _np_ma  # ilk sınıflamada tembel import maliyeti olmasın
 
 from nora_chem import NeuroChemistry, ChemMushroomBody
 from nora_lang import TurkishMorphology, tr_lower, tr_capitalize
