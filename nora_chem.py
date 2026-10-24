@@ -162,6 +162,20 @@ class NeuroChemistry:
             return "hayal kırıklığı / hata düzeltme kipinde"
         return "uyanık ve dengeli"
 
+    def intero_word_tr(self) -> str:
+        """Bedensel duyumun TEK sözcüklük adı (insula okuması): kimyadan türetilir, cümle değildir."""
+        if self.cort > 0.55:
+            return "gerginlik"
+        if self.ne > 0.50:
+            return "tedirginlik"
+        if self.da_phasic > 0.35 and self.ach > 0.60:
+            return "merak"
+        if self.sht > 0.65 and self.cort < 0.25:
+            return "huzur"
+        if self.da_phasic < -0.35:
+            return "burukluk"
+        return "sakinlik"
+
     def state_dict(self) -> dict:
         return {
             "vals": [self.da_tonic, self.da_phasic, self.ach, self.ne, self.sht, self.cort, self.oxy, self.val_ema, self.step_count],

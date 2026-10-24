@@ -365,6 +365,22 @@ class TurkishSyntaxEngine:
         return " ".join(e for e in elems if e)
 
     @classmethod
+    def realize_verbal_noun(cls, phrase: str, case: str = "NOM") -> str:
+        """Öğrenilmiş mastar öbeğini ad gibi çeker: 'rüya görmek' -> 'rüya görmenin' / 'rüya görmeyi'."""
+        words = (phrase or "").strip().split()
+        if not words:
+            return phrase
+        last = words[-1]
+        if last.endswith(("mak", "mek")) and len(last) > 4:
+            root = last[:-3]
+        elif last.endswith(("ma", "me")) and len(last) > 3:
+            root = last[:-2]
+        else:
+            root = last
+        pref = " ".join(words[:-1])
+        return cls.nominalize_inf((pref + " " + root).strip(), case=case)
+
+    @classmethod
     def nominalize_inf(
         cls,
         verb_root: str,
