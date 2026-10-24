@@ -1683,7 +1683,8 @@ class NoraAGI:
                     _e, _p = _rl[0]
                     _loc = self.lang.broca.realize_prop(Proposition(subj=_rev.subj, rel="LOCATED_AT", obj=_e.obj))
                     _tail = _loc[len(_rev.subj):].strip() if _loc.startswith(_rev.subj) else _loc
-                    return f"{tr_capitalize(subj)} {_rev.subj} olarak bilinir; {tr_capitalize(_tail)}."
+                    _rev_name = tr_capitalize(_rev.subj) if _rev.subj in PROPER_NOUNS else _rev.subj
+                    return f"{tr_capitalize(subj)} {_rev_name} olarak bilinir; {tr_capitalize(_tail)}."
             return f"{tr_capitalize(subj)} nerede bulunur henüz bilmiyorum; bir cümleyle öğretebilirsin."
         px, py = float(self.mind.map.pos[0]), float(self.mind.map.pos[1])
         if subj == "su":
@@ -1772,7 +1773,7 @@ class NoraAGI:
                     out.add(st)
                 return out
             _bw, _sw = _stems(body), _stems(stance)
-            if _bw and _sw and len(_bw & _sw) / max(1, len(_bw)) > 0.6:
+            if _bw and _sw and len(_bw & _sw) / max(1, len(_bw)) >= 0.5:
                 stance = ""      # az önce söylediğim şeyi kendi duruşum diye yinelemem
         self.lang.wernicke.last_explanation = (
             f"Anlatı isteğine kavram ağımdan yanıt verdim: {cand} düğümünde {len(edges)} bağ seçtim"

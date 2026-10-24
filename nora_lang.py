@@ -27,6 +27,7 @@ import numpy as np
 
 from nora_chem import NeuroChemistry, ChemMushroomBody
 from nora_knowledge import (
+    PROPER_NOUNS,
     VOWEL_DROP_STEMS,
     REVERSE_VOWEL_DROP,
     NO_SOFTEN_EXTENDED,
@@ -1438,7 +1439,11 @@ class BrocaGenerator:
             return f"{s} {o} için kullanılır"
 
         if r == "LOCATED_AT":
-            loc = self._case_phrase(o, "LOC")
+            if o in PROPER_NOUNS:
+                # Özel ad kesme işaretiyle çekimlenir: "Himalaya'da", "Antalya'da".
+                loc = tr_capitalize(o) + "'" + self._case_phrase(o, "LOC")[len(o):]
+            else:
+                loc = self._case_phrase(o, "LOC")
             return f"{s} {loc} bulunur"
 
         if r == "OPPOSITE":
