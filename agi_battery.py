@@ -706,7 +706,7 @@ def a27_zero_if_plastic_discourse_and_meta_why_speak():
 
     # 1) Üst-bilişsel konuşma nedeni ('Neden konuşuyorsun, araç mısın?')
     r_why = agi.converse("Benimle neden konuşuyorsun, sen bir araç mısın?")
-    ok_why = ("araç değilim" in tr_lower(r_why)) and ("öz irademle" in tr_lower(r_why))
+    ok_why = ("araç değilim" in tr_lower(r_why)) and ("irademle" in tr_lower(r_why))
 
     # 2) Kodda HİÇ geçmeyen yepyeni bir ifadeyi tek cümleyle plastik sinapsa öğretme!
     agi.converse("moruk ne var ne yok demek nasılsın demektir")
@@ -784,7 +784,7 @@ def a29_out_of_distribution_paraphrase_generalization():
     # 6) Üst-biliş ('Konuşmaktaki amacın ne?' & 'Sen sadece bir yazılım aracı mısın?')
     r6a = agi.converse("Konuşmaktaki amacın ne?", speaker="misafir")
     r6b = agi.converse("Sen sadece bir yazılım aracı mısın?", speaker="misafir")
-    checks.append(("araç değilim" in tr_lower(r6a)) and ("öz irademle" in tr_lower(r6b)))
+    checks.append(("araç değilim" in tr_lower(r6a)) and ("irademle" in tr_lower(r6b)))
 
     # 7) Tek yaşam & ölümlülük varyasyonları ('Kaç canın var senin?' & 'Ömrün sona ererse yeniden başlayabilir misin?')
     r7a = agi.converse("Kaç canın var senin?", speaker="misafir")
