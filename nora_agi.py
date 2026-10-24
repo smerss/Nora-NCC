@@ -41,6 +41,7 @@ from dataclasses import dataclass
 from nora_life import BackgroundLife
 from nora_discourse import DiscourseCortex
 from nora_initiative import InitiativeCortex
+from nora_initiative import InitiativeCortex
 from nora_voice import state_vector
 from nora_world import Universe
 from nora_mind import Mind, I_E, I_W, I_I
@@ -356,6 +357,8 @@ class NoraAGI:
         # Kimse konuşmazken konuşan organ: hangi hâlde ne söyleyeceğini yaşayarak öğrenir
         self.initiative = InitiativeCortex(seed=seed + 91)
         self.discourse = DiscourseCortex(seed=seed + 137, lexicon=self.lang.graph.lexicon)
+        self.initiative = InitiativeCortex(seed=seed + 173)
+        self.last_proactive: dict | None = None
         self.last_proactive: dict | None = None
         for path in (corpus or []):
             self.read_corpus(path)
@@ -457,6 +460,30 @@ class NoraAGI:
             "winner": "initiative_cortex", "confidence": 0.9, "trace": f"initiative:{res['move']}",
             "bids": {"initiative_cortex": 1.0},
         }
+        return res
+
+    def proactive_line(self, kind: str = "", topic: str = "", tension: float = 0.0,
+                       idle: float = 0.0, unanswered: int = 0) -> dict | None:
+        """Kimse bir şey sormazken söylenecek söz. Tür seçimi ve cümle inisiyatif korteksinden çıkar;
+        içerik gerçek iç durumdan (nörokimya, iç-duyum, kavram ağı, anı) gelir."""
+        try:
+            discovery = (kind == "discovery")
+            t = float(tension)
+            if discovery and topic:
+                t = max(t, 0.6)
+            self.initiative.topic_hint = topic
+            res = self.initiative.speak(self, tension=t, discovery=discovery, idle=idle,
+                                        unanswered=unanswered,
+                                        temperature=0.5 + 0.3 * float(getattr(self.chem, "ne", 0.0)))
+        except Exception:
+            return None
+        if not res:
+            return None
+        res.update({"age": int(self.mind.age), "kind": kind or res.get("move", ""), "topic": topic})
+        self.last_proactive = res
+        self.last_gw_trace = {"winner": "initiative_cortex", "confidence": 0.9,
+                              "trace": f"initiative:{res.get('move')}",
+                              "bids": {"initiative_cortex": 1.0}}
         return res
 
     def drain_outbox(self) -> list[dict]:
@@ -689,6 +716,11 @@ class NoraAGI:
         if not raw:
             return "..."
         self.life.on_interaction(self, raw, speaker)
+        # Kullanıcı, Nora'nın kendiliğinden söylediği söze karşılık verdi: o konuşma türü pekişir.
+        try:
+            self.initiative.on_user_reply()
+        except Exception:
+            pass
 
         # Sözce türünü (soru / yasa / çift-durum / sosyal durum / duygu paylaşımı) Nora KENDİ nöral korteksiyle sınıflar.
         self.last_utterance_class = self.utter_cortex.classify(raw)
@@ -1094,6 +1126,9 @@ class NoraAGI:
                         "bedensel hafızamı yokladığımda",
                         "S2_SONUC_GEREKCE" if cur_sc == "S0_YALIN" else cur_sc,
                     )
+                    # Epistemik itiraz ASLA düşemez: şema dönüşümü itirazı elediyse iki cümleyle kur.
+                    if "katılmıyorum" not in tr_lower(rep_v):
+                        rep_v = f"{tr_capitalize(c_dis)}. {tr_capitalize(r_dis)}."
                 elif arb.get("low_trust"):
                     rep_v = self.schema_cortex.transform_clauses(
                         f"{fr.subj} hakkındaki bu iddiayı doğrulamadan kabul etmiyorum",
@@ -1113,7 +1148,10 @@ class NoraAGI:
                     rep_v = self.speak_or(
                         self.schema_cortex.transform_clauses(_c_lv, _r_lv, "söylediğini tarttığımda", cur_sc),
                         anchors=[fr.subj], nov=0.7, fam=0.3, conf=self._speaker_trust(speaker))
-                bids.append(CorticalBid("hippocampal_concept", 0.97, 0.96, rep_v, f"teach_val:{fr.subj}"))
+                # Bedensel deneyime dayanan itiraz, kendi kendine etiketleme sözcesinden (mint 0.945)
+                # ve türetilmiş kurallardan (0.972) DAHA YÜKSEK ses alır: kanıt, etiketten üstündür.
+                _sal = 0.985 if arb.get("conflict") else 0.97
+                bids.append(CorticalBid("hippocampal_concept", _sal, 0.96, rep_v, f"teach_val:{fr.subj}"))
             elif fr.kind == "teach_fact" and conv_res is None and self._turn_mint_label:
                 # Bu cümle zaten Nora'nın kendi mantık motorunda yapısal kural olarak kodlandı;
                 # kaba sözcük-dizisi kenarı üretmek kavram ağını kirletir, onun yerine öz-etiketini bildirir.
@@ -1192,8 +1230,23 @@ class NoraAGI:
                 if not hits and fr.rel != "ALL":
                     hits = graph.query(fr.subj, None)
                 if hits:
+                    # Sıralama anlam taşır: "X nedir?" sorusunda önce türü (ISA), sonra özelliği/parçası,
+                    # en sonda nedeni gelir. Aksi hâlde "Uyku nedir?" sorusuna nedenle başlanıyordu.
+                    _prio = {"ISA": 0, "HAS_PROP": 1, "HAS_PART": 2, "CAN_DO": 3, "USED_FOR": 4,
+                             "LOCATED_AT": 5, "CAUSES": 6, "CANNOT_DO": 7, "OPPOSITE": 8}
+                    # Doğrudan bağ, ISA kalıtımından önce gelir (kalıtımsa 'olduğu için' ile açıklanır).
+                    # Her ilişkiden yalnızca en iyi örnek alınır: iki ISA tek cümlede yinelenmez.
+                    _best: dict[str, tuple] = {}
+                    for h in hits:
+                        e, pth = h
+                        key = e.rel
+                        if key not in _best or (bool(pth), -e.weight) < (bool(_best[key][1]), -_best[key][0].weight):
+                            _best[key] = h
+                    hits = sorted(_best.values(), key=lambda h: (_prio.get(h[0].rel, 9), bool(h[1]), -h[0].weight))
                     clauses = []
-                    for edge, isa_path in hits[:2]:
+                    for edge, isa_path in hits:
+                        if len(clauses) >= 2:
+                            break
                         p = Proposition(subj=fr.subj, rel=edge.rel, obj=edge.obj)
                         txt = broca.realize_prop(p)
                         if isa_path:
@@ -1742,6 +1795,7 @@ class NoraAGI:
             "python_cortex": self.code_cortex.state_dict(),
             "life": self.life.state_dict(),
             "initiative": self.initiative.state_dict(),
+            "discourse": self.discourse.state_dict(),
         }
         with open(path_prefix + ".agi.json", "w", encoding="utf-8") as f:
             json.dump(meta, f, ensure_ascii=False, indent=2)
@@ -1784,6 +1838,7 @@ class NoraAGI:
         try:
             agi.life.load_state_dict(meta.get("life") or {})
             agi.initiative.load_state_dict(meta.get("initiative") or {})
+            agi.discourse.load_state_dict(meta.get("discourse") or {})
         except Exception:
             pass
         if os.path.exists(path_prefix + ".voice.pkl.gz"):

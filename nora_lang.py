@@ -39,6 +39,8 @@ from nora_knowledge import (
 BACK_VOWELS = set("aıou")
 FRONT_VOWELS = set("eiöü")
 ALL_VOWELS = BACK_VOWELS | FRONT_VOWELS
+# Arapça/Farsça alıntılarda â/î/û da ünlüdür: 'zekâ' -> 'zekâyı', 'kâğıt' -> 'kâğıdı'.
+SOFT_VOWELS = ALL_VOWELS | set("âîû")
 HARD_CONS = set("fstkçşhp")
 
 # -t ile biten fiillerde ünlü önünde t>d yumuşaması SÖZLÜKSELDİR: "hisset->hissediyorum" ama
@@ -141,11 +143,16 @@ class TurkishMorphology:
                     return base, True
         return cand, False
 
+    _SOFT_MAP = {"â": "a", "î": "i", "û": "u"}
+
     @staticmethod
     def last_vowel(word: str) -> str:
         for ch in reversed(tr_lower(word)):
             if ch in ALL_VOWELS:
                 return ch
+            if ch in TurkishMorphology._SOFT_MAP:
+                # 'â/î/û' ünlü uyumunda düz karşılığıyla işlem görür: zekâ -> zekâya, kâğıt -> kâğıdı
+                return TurkishMorphology._SOFT_MAP[ch]
         return "a"
 
     @classmethod
@@ -225,12 +232,15 @@ class TurkishMorphology:
         if not plural and not poss1 and not poss3 and w in cls.IRREG_NOUN and case in cls.IRREG_NOUN[w]:
             res = cls.IRREG_NOUN[w][case]
         else:
+            # Ünlü düşmesi (boyun -> boynu, ağız -> ağzı): sözlük temelli, tahmin değil.
+            if (not plural) and w in cls.REV_VOWEL_DROP and case.upper() != "NOM":
+                w = cls.REV_VOWEL_DROP[w]
             if plural:
                 w = w + ("ler" if cls.vowel_e_a(w) == "e" else "lar")
             if poss1:
                 if w == "su" and not plural:
                     w = "suyum"
-                elif w[-1] in ALL_VOWELS:
+                elif w[-1] in SOFT_VOWELS:
                     w = w + "m"
                 else:
                     w = cls.soften_stem(w) + cls.vowel_4(w) + "m"
@@ -240,7 +250,7 @@ class TurkishMorphology:
                     w = "suyu"
                 else:
                     v4 = cls.vowel_4(w)
-                    w = (w + "s" + v4) if w[-1] in ALL_VOWELS else (cls.soften_stem(w) + v4)
+                    w = (w + "s" + v4) if w[-1] in SOFT_VOWELS else (cls.soften_stem(w) + v4)
                 if case.upper() == "NOM":
                     res = w
                     if copula:
@@ -271,12 +281,12 @@ class TurkishMorphology:
             if c == "NOM":
                 res = w
             elif c == "ACC":
-                if w[-1] in ALL_VOWELS:
+                if w[-1] in SOFT_VOWELS:
                     res = w + "y" + cls.vowel_4(w)
                 else:
                     res = cls.soften_stem(w) + cls.vowel_4(w)
             elif c == "DAT":
-                if w[-1] in ALL_VOWELS:
+                if w[-1] in SOFT_VOWELS:
                     res = w + "y" + cls.vowel_e_a(w)
                 else:
                     res = cls.soften_stem(w) + cls.vowel_e_a(w)
@@ -285,9 +295,9 @@ class TurkishMorphology:
             elif c == "ABL":
                 res = w + cls.dental_d_t(w) + cls.vowel_e_a(w) + "n"
             elif c == "INS":
-                res = w + ("y" if w[-1] in ALL_VOWELS else "") + "l" + cls.vowel_e_a(w)
+                res = w + ("y" if w[-1] in SOFT_VOWELS else "") + "l" + cls.vowel_e_a(w)
             elif c == "GEN":
-                if w[-1] in ALL_VOWELS:
+                if w[-1] in SOFT_VOWELS:
                     res = w + "n" + cls.vowel_4(w) + "n"
                 else:
                     res = cls.soften_stem(w) + cls.vowel_4(w) + "n"
@@ -1098,6 +1108,23 @@ class BrocaGenerator:
             return phrase
         return " ".join(parts[:-1] + [self.morph.inflect_noun(parts[-1], "NOM", copula=True)])
 
+    def _gen_phrase(self, phrase: str) -> str:
+        """Çok sözcüklü öznede tamlayan eki son sözcüğe ('yer kabuğunun', 'basınç farkının')."""
+        parts = phrase.split()
+        if not parts:
+            return phrase
+        return " ".join(parts[:-1] + [self.morph.inflect_noun(parts[-1], "GEN")])
+
+    def _case_phrase(self, phrase: str, case: str, poss: int = 0) -> str:
+        """Çok sözcüklü öbekte hâl eki YALNIZCA son sözcüğe gelir ('oksijen ve besin üretimine')."""
+        parts = phrase.split()
+        if not parts:
+            return phrase
+        head = parts[-1]
+        tail = (self.morph.inflect_noun(head, case, poss3=(poss == 3)) if poss in (0, 3)
+                else self.morph.inflect_noun(head, case))
+        return " ".join(parts[:-1] + [tail])
+
     def realize_prop(self, p: Proposition) -> str:
         s = p.subj.strip()
         o = p.obj.strip()
@@ -1125,6 +1152,10 @@ class BrocaGenerator:
         if r in ("CAN_DO", "CANNOT_DO"):
             is_neg = p.neg or (r == "CANNOT_DO")
             parts = o.split()
+            # Öğrenilmiş tamamlanmış fiil ('belleği pekiştirir') yeniden çekimlenmez: çift ek olurdu.
+            if parts and parts[-1].endswith(("ir", "ır", "ur", "ür", "yor", "di", "dı", "ti", "tı",
+                                             "ecek", "acak", "meli", "malı", "maz", "mez")):
+                return f"{s} {' '.join(parts)}"
             if len(parts) == 1:
                 v_form = self.morph.conjugate_verb(parts[0], tense=p.tense, neg=is_neg, person=p.person)
                 return f"{s} {v_form}".strip()
@@ -1132,15 +1163,20 @@ class BrocaGenerator:
             return f"{s} {' '.join(parts[:-1])} {v_form}".strip()
 
         if r == "CAUSES":
+            # Çok sözcüklü ve iyelikli öbeklerde yönelme eki güvenilir değil ('basınç farkıya' gibi).
+            # Doğal ve her öbekte doğru kalan kuruluş: "X'in nedeni Y'dir."
+            if o.endswith(("ı", "i", "u", "ü")) or len(o.split()) > 1:
+                gen = self._gen_phrase(s)
+                return f"{gen} nedeni {self._copula_phrase(o)}" if not p.neg else f"{gen} nedeni {o} değildir"
             if p.neg:
-                return f"{s} {self.morph.inflect_noun(o, 'DAT')} yol açmaz"
-            return f"{s} {self.morph.inflect_noun(o, 'DAT')} yol açar"
+                return f"{s} {self._case_phrase(o, 'DAT')} yol açmaz"
+            return f"{s} {self._case_phrase(o, 'DAT')} yol açar"
 
         if r == "USED_FOR":
             return f"{s} {o} için kullanılır"
 
         if r == "LOCATED_AT":
-            loc = self.morph.inflect_noun(o, "LOC")
+            loc = self._case_phrase(o, "LOC")
             return f"{s} {loc} bulunur"
 
         if r == "IF_THEN":
@@ -1332,6 +1368,14 @@ class WernickeComprehender:
         if set(words) <= {"nasılsın", "merhaba", "selam", "nora", "bugün"} and "nasılsın" in words:
             return SemanticFrame(kind="body_query", raw=s_raw, sub_kind="genel_durum")
 
+        # 3b) '<X> neden olur / neye yol açar / sebep olur?' -> X'in NEDENİ (dünya bilgisi), içebakış değil
+        m_cause = re.match(r"^(?:eğer\s+)?(.+?)\s+(?:neden|niçin|niye)\s+olur\??$", s)
+        if m_cause:
+            tgt = m_cause.group(1).strip()
+            tgt = re.sub(r"^(?:bir|bu|şu)\s+", "", tgt)
+            self.last_topic = tgt
+            return SemanticFrame(kind="wh_query", raw=s_raw, subj=tgt, rel="CAUSES")
+
         # 4) 'Neden / Niçin' açıklama sorgusu
         if (
             any(w in {"neden", "niçin", "niye", "sebebi"} for w in words)
@@ -1441,7 +1485,14 @@ class WernickeComprehender:
             w.endswith(("biterse", "ölürsen", "konuşmaktaki", "olmaktan")) for w in words
         )
         if has_q and len(words) >= 2 and not has_2sg_q:
+            # Çok sözcüklü kavram ('yapay zekâ', 'kara delik'): en uzun bilinen öneki özne say.
             subj = self.morph.analyze_word(words[0], self.graph.lexicon)["stem"]
+            for n_w in (3, 2):
+                if len(words) > n_w:
+                    cand = " ".join(words[:n_w])
+                    if cand in self.graph.lexicon:
+                        subj = cand
+                        break
             is_infinitive_subj = words[0].endswith(("mak", "mek", "maktan", "mekten", "maktaki", "mekteki", "maya", "meye"))
             if subj not in non_encyclopedic_subjs and not is_infinitive_subj:
                 self.last_topic = subj

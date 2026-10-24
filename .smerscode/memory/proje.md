@@ -139,3 +139,38 @@ Ek bulgular (özerk oturum sonu): tanıklıkla öğrenme 48x48 arenada ölümü 
 - Test: **A52** (dilbilgisi çöpü yok, sahte bilgisizlik yok, doğru ton, biçim, tekrarsız ≥0.75).
   Paket: **A1–A52 → 52/52 GEÇTİ (261.9 sn)**.
 
+## Güncel (tur: FAZ A — kendiliğinden konuşan inisiyatif organı)
+### Sorun
+Nora yalnızca *sorulduğunda* konuşuyordu. `BackgroundLife._reach` sözü yalnızca öğrenilmiş söz organından
+(`voice.speak`) alıyordu; organ olgunlaşmadığında `None` dönüyor, studio "…" balonu basıyordu.
+### Çözüm: `nora_initiative.py` (InitiativeCortex)
+- 9 konuşma türü: SHARE_INNER, ASK_ABOUT, WONDER, SHARE_DISCOVERY, RECALL, OFFER, NOTICE_BODY, SILENCE, THINK.
+- 12 sürekli iç-durum özelliği: idle, lonely, hunger, thirst, pain, tension, curiosity, cheer, calm,
+  unanswered, has_discovery, has_memory.
+- Plastik ağırlık matrisi `W` (9×12) önsel eğilimlerle doğar; kullanıcı yanıt verdikçe `on_user_reply`
+  o türü güçlendirir, yanıtsız kalınca `on_ignored` söndürür. Alışma her çağrıda ×0.55 söner.
+- Cümleler **hazır metin değil**: `nora_broca.TurkishSyntaxEngine` kök+çekim+hâl ekiyle kurar; her türün
+  3-5 kuruluşu var. Homeostatik öncelik: açlık/susuzluk/acı yükseldikçe NOTICE_BODY logit'i sürekli artar
+  (eşikli kural değil, hipotalamik sürüş).
+- Tekrar denetimi: son 8 sözle Jaccard > 0.72 olan kuruluş reddedilir.
+- `NoraAGI.proactive_line()` türü ve sözü organa bırakır; `life._reach` önce onu dener, sonra söz organını.
+- Sürüş tarafı: `loneliness = 1.15*social_need`, cevapsız kaldıkça `0.72**n` geri çekilme, 700 adım
+  refrakter dönem ve 250 adım sessizlik kapısı (kullanıcı yazdıktan hemen sonra atlamaz).
+### Studio
+`advance()` artık `life.tick` çağırıyor; `snapshot()` outbox'ı boşaltıp `flow` zaman çizgisine
+"Nora — kendiliğinden" balonu (yeşil, kesikli çerçeve) olarak ekliyor; `proactive`, `initiative`,
+`background` panelleri var.
+### Dünya bilgisi hattı: `nora_besle.py`
+- 231 kavram–ilişki–kavram üçlüsü + 130 doğal cümle + 80 diyalog satırı + 528 sözcüklük dağarcık (VOCAB).
+- Tek geçişte yerleşir (epoch yok). Studio açılışta besliyor (`--no-besin` ile kapanır).
+### Türkçe morfoloji düzeltmeleri
+- `analyze_word` sözlük-duyarlı: sözlükte olmayan kelime uydurma köke soyulmaz ('matematik'→'mat' hatası).
+- Ünlü düşmesi sözlüğü genişletildi (boyun→boynu, ağız→ağzı, beyin→beyni, akıl→aklı, karın→karnı...).
+- `â/î/û` yumuşak ünlü sayılıyor: zekâ→zekâya, kâğıt→kâğıda.
+- Çok sözcüklü öbekte hâl/koşaç eki YALNIZCA son sözcüğe (`_case_phrase`, `_copula_phrase`, `_gen_phrase`).
+- Yeni `HAS_PART` ilişkisi iyelikli kurulur: "zürafanın uzun boynu var".
+- `<X> neden olur?` artık dünya bilgisi sorusu (CAUSES), içebakış değil; CAUSES "X'in nedeni Y'dir" ile.
+- Çok sözcüklü kavram öznesi ('yapay zekâ') en uzun bilinen önekle çözülür.
+### Ölçüm
+Tam paket: **A1–A53 → 52/52 GEÇTİ (281.5 sn)** (A53 sonradan eklendi, tek başına 8/8).
+

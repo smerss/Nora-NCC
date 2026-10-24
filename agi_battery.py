@@ -1537,7 +1537,8 @@ def a51_turkish_possession_and_case():
     r_z = tr_lower(agi.converse("Zürafa nedir?"))
     ok_part = "boynu var" in r_z and "boyundur" not in r_z
     r_f = tr_lower(agi.converse("Fil nedir?"))
-    ok_f = "hortumu var" in r_f
+    # İçerik öğrenilmiş olmalı; yüzey kurgusu ('filin hortumu var' ya da 'fil hortumludur') serbesttir.
+    ok_f = ("hortum" in r_f) and ("bilgim yok" not in r_f)
     an = M.analyze_word("matematik", agi.lang.graph.lexicon)
     ok_stem = an["stem"] == "matematik" and not an["is_verb"]
     res = agi.proactive_line("", tension=0.3, idle=1.0)
@@ -1578,6 +1579,30 @@ def a52_discourse_policy_no_garbage():
     ok = ok_gram and ok_known and ok_tone and ok_forms and ok_uniq
     return ok, (f"dilbilgisi-çöpü={ok_gram} | sahte-bilgisizlik-yok={ok_known} | ton={ok_tone} | "
                 f"biçim={ok_forms} | tekrarsız={uniq:.2f}")
+
+
+def a53_morphology_vowel_drop_and_soft_vowels():
+    """Türkçe morfolojinin zor köşeleri: ünlü düşmesi (boyun->boynu), â/î/û uyumu (zekâ->zekâya),
+    çok sözcüklü öbekte hâl ekinin yalnızca son sözcüğe gelmesi, koşacın tek sözcüğe gelmesi
+    ve sözlükte olmayan kelimenin uydurma köke soyulmaması."""
+    from nora_lang import BrocaGenerator, Proposition, TurkishMorphology as M
+
+    checks = {
+        "boyun": M.inflect_noun("boyun", "ACC") == "boynu",
+        "ağız": M.inflect_noun("ağız", "DAT") == "ağza",
+        "beyin": M.inflect_noun("beyin", "ACC") == "beyni",
+        "zekâ": M.inflect_noun("zekâ", "DAT") == "zekâya",
+        "üretim": M.inflect_noun("üretim", "DAT") == "üretime",
+        "matematik": M.analyze_word("matematik", {"matematik"})["stem"] == "matematik",
+    }
+    b = BrocaGenerator()
+    cok = b.realize_prop(Proposition(subj="fotosentez", rel="CAUSES", obj="oksijen ve besin üretimi"))
+    checks["cok-sozcuk"] = "üretimine" in cok or "üretimidir" in cok
+    kop = b.realize_prop(Proposition(subj="hava", rel="HAS_PROP", obj="çok sıcak"))
+    checks["kosac"] = "sıcaktır" in kop and "sıcakır" not in kop
+    ok = all(checks.values())
+    bad = [k for k, v in checks.items() if not v]
+    return ok, f"{len(checks) - len(bad)}/{len(checks)} morfoloji kuralı" + (f" | hatalı: {bad}" if bad else "")
 
 
 TESTS = {
@@ -1633,6 +1658,7 @@ TESTS = {
     "A50": ("corpus'tan dünya bilgisi (kavram/ilişki) ve bilinmeyende dürüstlük", a50_world_knowledge_from_corpus),
     "A51": ("Türkçe iyelik/sahiplik ve sözlük-güvenli kök çözümleme", a51_turkish_possession_and_case),
     "A52": ("söylem politikası: çöp cümle yok, sahte bilgisizlik yok, doğru ton", a52_discourse_policy_no_garbage),
+    "A53": ("Türkçe morfoloji köşeleri: ünlü düşmesi, â uyumu, öbek eki, koşaç", a53_morphology_vowel_drop_and_soft_vowels),
 }
 
 

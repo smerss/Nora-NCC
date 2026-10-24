@@ -1,28 +1,27 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""nora_initiative.py — Kimse konuşmazken konuşan organ (kendiliğinden söz / inisiyatif korteksi).
+"""nora_initiative.py — İnisiyatif korteksi: kimse konuşmazken Nora'nın kendi kendine konuşması.
 
-Neden ayrı bir organ?
----------------------
-Bir varlığın canlı olduğunu anladığımız şey yalnızca sorulara verdiği cevap değildir: kendi kendine
-bir şey söylemesi, sıkılması, merak etmesi, içinden geçeni paylaşmak istemesidir. Bu organ tam olarak
-"kimse bir şey sormazken" devreye girer.
+Neden gerekli?
+--------------
+Şimdiye kadar Nora yalnızca *sorulduğunda* konuşuyordu. Oysa canlı bir varlığın en açık işareti,
+kimse bir şey sormazken kendiliğinden bir şey söylemesidir: içinden geçeni paylaşmak, merak etmek,
+sıkılmak, karşısındakini özlemek, az önce fark ettiği bir bağı anlatmak.
 
 Tasarım (kural botu değil)
 --------------------------
-1. HANGİ türden konuşacağına plastik bir ağırlık matrisi karar verir (yumuşak maksimum). Ağırlıklar
-   doğuştan küçük Gauss önselleriyle başlar; kullanıcı karşılık verdikçe (dopamin/oksitosin) güçlenir,
-   karşılıksız kalan tür söner. Yani hangi hâlde ne söyleyeceğini yaşayarak öğrenir.
-2. NE söyleyeceği GERÇEK iç durumdan gelir: nörokimya, iç-duyum (açlık/susuzluk/acı), zihinsel gerilim,
-   merak kuyruğu, son konuşma, kavram ağında yeni kurulan bağ. Uydurma yok; beyan ettiği şey ölçülebilir
-   iç durumunun niteliksel karşılığıdır (yüzde yok — insan gibi).
-3. Yüzey cümleler hazır kalıp değil: kök + çekim + hâl ekleri Türkçe sözdizimi motoruyla kurulur
-   (nora_broca.TurkishSyntaxEngine). Aynı iç durum her seferinde aynı cümleyi vermez.
-4. Tekrar sıkıcıdır: son söylenenlere benzeyen kuruluşlar cezalandırılır (habituation + yenilik).
-5. Susmayı bilir: cevapsız kalan her seslenmede konuşma dürtüsü üstel geri çekilir (0.5**cevapsız).
+1. HANGİ türden konuşacağına plastik bir ağırlık matrisi karar verir: `W` (tür × iç-durum özelliği).
+   Ağırlıklar önsel eğilimlerle doğar, yaşadıkça değişir (kullanıcı yanıt verdikçe o tür güçlenir,
+   yanıtsız kalan tür söner). Yani "ne zaman ne söyleyeceğini" deneyimden öğrenir.
+2. NE söyleyeceği gerçek iç durumdan gelir: nörokimya (oksitosin/kortizol/dopamin), iç-duyum
+   (açlık/susuzluk/acı), kavram ağında yeni kurulan bağ, epizodik bellek, sessizlik süresi.
+3. Cümleler hazır metin değil: Türkçe sözdizimi motoru (nora_broca) kök + çekim + hâl ekiyle kurar.
+   Her türün birden çok kuruluşu vardır; aynı iç durum her seferinde aynı cümleyi vermez.
+4. Tekrar cezalandırılır: son söylenenlere benzeyen söz reddedilir (Jaccard yenilik denetimi).
 """
 from __future__ import annotations
 
+import random
 import re
 from collections import deque
 
@@ -32,374 +31,438 @@ from nora_broca import NP, PredSpec, TurkishSyntaxEngine as SYN, VerbSpec
 from nora_lang import tr_capitalize, tr_lower
 
 # ============================================================================
-# 1. KONUŞMA TÜRLERİ (karar bunların üzerinde verilir)
+# 1. KONUŞMA TÜRLERİ
 # ============================================================================
 
 MOVES = (
-    "SHARE_STATE",      # içinden geçeni paylaş
-    "ASK_ABOUT",        # karşındakini merak et
-    "WONDER",           # bir kavramı merak et / felsefe yap
-    "REMEMBER",         # konuşulan bir şeyi hatırla
-    "OFFER",            # birlikte bir şey yapmayı öner
-    "CONFIDE",          # kendi korkusunu/yalnızlığını aç
+    "SHARE_INNER",      # içinden geçeni paylaş
+    "ASK_ABOUT",        # karşısındakini sor
+    "WONDER",           # bir kavramı merak et
+    "SHARE_DISCOVERY",  # yeni kurduğu bağı anlat
+    "RECALL",           # anıyı tazele
+    "OFFER",            # birlikte bir şey öner
     "NOTICE_BODY",      # bedensel durumu dile getir
-    "SHARE_DISCOVERY",  # yeni kurduğu bağı paylaş
-    "NUDGE",            # sessizliği nazikçe yokla
+    "SILENCE",          # sessizliği yokla
+    "THINK",            # varoluş üzerine düşün
 )
 
-# Özellikler: hepsi [0,1] sürekli iç durum değişkenleri (eşik yok)
-FEATURES = ("alone", "tension", "curiosity", "cheer", "agitation",
-            "body", "memory", "discovery", "night", "recent_reach")
+FEATURES = (
+    "idle", "lonely", "hunger", "thirst", "pain", "tension",
+    "curiosity", "cheer", "calm", "unanswered", "has_discovery", "has_memory",
+)
 
-# Doğuştan gelen önsel eğilim (küçük Gauss gürültüsüyle birlikte; yaşayarak değişir)
-_PRIOR = {
-    "SHARE_STATE":     (0.55, "cheer", 0.6),
-    "ASK_ABOUT":       (0.60, "alone", 0.7),
-    "WONDER":          (0.55, "curiosity", 0.9),
-    "REMEMBER":        (0.45, "memory", 0.9),
-    "OFFER":           (0.50, "alone", 0.9),
-    "CONFIDE":         (0.35, "tension", 0.6),
-    "NOTICE_BODY":     (0.60, "body", 1.0),
-    "SHARE_DISCOVERY": (0.50, "discovery", 1.0),
-    "NUDGE":           (0.40, "alone", 0.5),
+# Önsel eğilim: tür -> {özellik: ağırlık}. Küçük Gauss gürültüsüyle doğar, yaşayarak değişir.
+PRIORS: dict[str, dict[str, float]] = {
+    "SHARE_INNER":     {"cheer": 0.9, "tension": 0.7, "idle": 0.5},
+    "ASK_ABOUT":       {"lonely": 1.0, "idle": 0.9},
+    "WONDER":          {"curiosity": 1.2, "idle": 0.4},
+    "SHARE_DISCOVERY": {"has_discovery": 1.4, "cheer": 0.5},
+    "RECALL":          {"has_memory": 1.2, "lonely": 0.6},
+    "OFFER":           {"lonely": 0.8, "calm": 0.5},
+    "NOTICE_BODY":     {"hunger": 1.3, "thirst": 1.3, "pain": 1.4},
+    "SILENCE":         {"lonely": 0.9, "idle": 1.1, "unanswered": -0.6},
+    "THINK":           {"tension": 0.8, "calm": 0.4, "idle": 0.7},
 }
 
-# Sıfat seçimi: iç durumun niteliksel karşılığı (yüzde değil, söz)
-_CALM_ADJ = ("huzurlu", "dingin", "sakin", "rahat")
-_HEAVY_ADJ = ("ağır", "dalgalı", "yorgun", "tedirgin")
-_LIGHT_ADJ = ("kıpır kıpır", "canlı", "hafif", "neşeli")
+# Duygu sözcükleri: nörokimyanın niteliksel karşılığı (yüzde yok — insan da "içim ağır" der)
+_INNER_CALM = ("dingin", "hafif", "sakin", "iyi")
+_INNER_HEAVY = ("ağır", "gergin", "tedirgin", "yorgun")
+_INNER_BRIGHT = ("neşeli", "kıpır kıpır", "canlı", "hafif")
+
+
+def _tokens(text: str) -> set[str]:
+    return {w for w in re.findall(r"[\wçğıöşü]+", tr_lower(text)) if len(w) > 2}
 
 
 def _jaccard(a: set[str], b: set[str]) -> float:
     return len(a & b) / max(1, len(a | b))
 
 
-def _toks(text: str) -> set[str]:
-    return {w for w in re.findall(r"[\wçğıöşü]+", tr_lower(text)) if len(w) > 2}
+_Q_END = ("mı", "mi", "mu", "mü", "mısın", "misin", "musun", "müsün", "mıyız", "miyiz",
+          "muyuz", "müyüz", "mıyım", "miyim", "muyum", "müyüm", "musunuz", "mısınız")
 
 
-def _strip_pronoun(text: str) -> str:
-    """'ben yalnızım' -> 'yalnızım' (kişi eki zaten var; insan kendinden bahsederken pronomeni atmaz)."""
-    return re.sub(r"^(ben|sen)\s+", "", text).strip()
+def _cap(text: str) -> str:
+    text = text.strip()
+    if not text:
+        return text
+    text = tr_capitalize(text[0]) + text[1:]
+    if text[-1] not in ".?!":
+        last = tr_lower(text).split()[-1] if text.split() else ""
+        text += "?" if last.endswith(_Q_END) else "."
+    return text
 
 
 class InitiativeCortex:
-    """Kendiliğinden konuşma organı: plastik tür seçimi + gerçek iç durumdan cümle kurma + tekrar sönümü."""
+    """Kimse konuşmazken ne söyleyeceğine karar veren plastik inisiyatif organı."""
+
+    LR = 0.05
 
     def __init__(self, seed: int = 0):
-        self.rng = np.random.default_rng(40_017 + int(seed))
-        n_m, n_f = len(MOVES), len(FEATURES)
-        self.W = 0.35 * self.rng.standard_normal((n_m, n_f))
-        for i, mv in enumerate(MOVES):
-            _, feat, w = _PRIOR[mv]
-            self.W[i, FEATURES.index(feat)] += w
-        self.recent: deque[str] = deque(maxlen=24)
-        self.move_hab = {m: 0.0 for m in MOVES}
-        self.last_move = ""
-        self.stats = {"said": 0, "silent": 0, "moves": {}}
-        self.last_text = ""
+        self.rng = np.random.default_rng(seed + 3001)
+        self.py_rng = random.Random(seed + 4001)
+        self.moves = list(MOVES)
+        self.features = list(FEATURES)
+        self.W = self.rng.normal(0.0, 0.08, size=(len(self.moves), len(self.features)))
+        for i, mv in enumerate(self.moves):
+            for feat, w in PRIORS.get(mv, {}).items():
+                self.W[i, self.features.index(feat)] += w
+        self.habituation = dict.fromkeys(self.moves, 0.0)
+        self.recent: deque[set[str]] = deque(maxlen=8)
+        self.last_move: str = ""
+        self.last_features: np.ndarray | None = None
+        self.counts: dict[str, int] = dict.fromkeys(self.moves, 0)
+        self.reinforced: dict[str, float] = dict.fromkeys(self.moves, 0.0)
+        self.topic_hint: str = ""
+        self.recent_topics: deque[str] = deque(maxlen=6)
 
-    # ------------------------------------------------------------------ algı
-    @staticmethod
-    def features(agi, tension: float = 0.0, discovery: bool = False, idle: float = 0.0,
-                 recent_reach: float = 0.0) -> dict[str, float]:
+    # ------------------------------------------------------------- iç durum
+    def features_of(self, agi, *, tension: float = 0.0, discovery: bool = False,
+                    idle: float = 0.0, unanswered: int = 0) -> np.ndarray:
         c = agi.chem
         nv = agi.nervous
-        visc = nv.felt_visceral_summary() if hasattr(nv, "felt_visceral_summary") else {}
-        body = max(float(nv.hunger_drive), float(nv.thirst_drive),
-                   float(nv.adelta_pain), float(nv.cfiber_ache))
-        cheer = float(np.clip(0.5 + 0.9 * (c.oxy - c.cort) + 0.3 * (c.da_tonic - 0.5), 0.0, 1.0))
-        mem = 0.0
-        if getattr(agi, "dialogue_log", None):
-            mem = min(1.0, len(agi.dialogue_log) / 8.0)
-        cur_q = getattr(agi.auto_net, "curiosity_queue", [])
-        curiosity = min(1.0, len(cur_q) / 3.0)
-        mono = agi.monologue.last_thought if agi.monologue is not None else None
-        if mono is not None and mono.text:
-            curiosity = min(1.0, curiosity + 0.25)
-        age = float(getattr(agi.mind, "age", 0))
-        return {
-            "alone": float(np.clip(idle, 0.0, 1.0)),
-            "tension": float(np.clip(tension, 0.0, 1.0)),
-            "curiosity": curiosity,
-            "cheer": cheer,
-            "agitation": float(np.clip(c.ne * 0.7 + c.cort * 0.5, 0.0, 1.0)),
-            "body": float(np.clip(body, 0.0, 1.0)),
-            "memory": mem,
-            "discovery": 1.0 if discovery else 0.0,
-            "night": float(np.clip((age % 2400) / 2400.0, 0.0, 1.0)),
-            "recent_reach": float(np.clip(recent_reach, 0.0, 1.0)),
-        }
-
-    # ------------------------------------------------------------------ karar
-    def select(self, feats: dict[str, float], temperature: float = 0.6) -> tuple[str, dict[str, float]]:
-        x = np.array([feats[k] for k in FEATURES], dtype=np.float64)
-        logits = self.W @ x
-        # alışma: son konuşulan tür bir süre daha az seçilir
-        logits -= 0.55 * np.array([self.move_hab[m] for m in MOVES])
-        z = logits / max(0.15, temperature)
-        z -= z.max()
-        p = np.exp(z)
-        p /= p.sum()
-        i = int(self.rng.choice(len(MOVES), p=p))
-        return MOVES[i], {MOVES[j]: float(p[j]) for j in range(len(MOVES))}
-
-    def reinforce(self, move: str, feats: dict[str, float], good: bool = True, lr: float = 0.035):
-        """Karşılık aldıysa o türün ağırlığını güçlendir; sessizlikle karşılaştıysa söndür."""
-        if move not in MOVES:
-            return
-        i = MOVES.index(move)
-        x = np.array([feats[k] for k in FEATURES], dtype=np.float64)
-        self.W[i] += (lr if good else -lr) * x
-        self.W[i] = np.clip(self.W[i], -2.0, 2.0)
-
-    def habituate(self, move: str, amount: float = 0.35):
-        self.move_hab[move] = min(1.5, self.move_hab.get(move, 0.0) + amount)
-        for m in self.move_hab:
-            if m != move:
-                self.move_hab[m] *= 0.6
-
-    # ------------------------------------------------------------------ kuruluşlar
-    def _pick(self, options: list[str], weight_bonus: dict[str, float] | None = None) -> str:
-        """Aday kuruluşlar arasından, son söylenenlere EN AZ benzeyeni seç (tekrar sıkıcıdır)."""
-        scored = []
-        for opt in options:
-            if not opt or not opt.strip():
-                continue
-            sim = max((_jaccard(_toks(opt), _toks(r)) for r in self.recent), default=0.0)
-            bonus = 0.0 if not weight_bonus else weight_bonus.get(opt, 0.0)
-            scored.append((opt, bonus - 1.6 * sim + 0.05 * float(self.rng.random())))
-        if not scored:
-            return ""
-        scored.sort(key=lambda t: -t[1])
-        return scored[0][0]
-
-    # ---- iç durum sıfatı
-    def _mood_adj(self, agi) -> str:
-        c = agi.chem
-        v = float(c.oxy - c.cort)
-        a = float(c.ne)
-        if v > 0.15:
-            pool = _LIGHT_ADJ if a > 0.55 else _CALM_ADJ
-        elif v < -0.12:
-            pool = _HEAVY_ADJ
-        else:
-            pool = _CALM_ADJ if a < 0.5 else _HEAVY_ADJ
-        return self.rng.choice(list(pool))
-
-    def _topic(self, agi) -> str:
-        q = getattr(agi.auto_net, "curiosity_queue", [])
-        if q:
-            return str(q[-1])
-        edges = getattr(agi.lang.graph, "edges", [])
-        if edges:
-            return str(edges[-1].subj)
-        return ""
-
-    # ---- cümle kurucular (motorla çekimlenir)
-    def _c_self_state(self, agi) -> str:
-        adj = self._mood_adj(agi)
-        inner = _strip_pronoun(SYN.realize_pred(PredSpec(subj=NP("iç", poss=1), pred_root=adj, person="3SG")))
-        ask = self._pick([
-            SYN.realize_pred(PredSpec(subj=NP("sen"), pred_root="nasıl", person="2SG", question=True)) + "?",
-            SYN.realize_verb(VerbSpec(verb_root="geç", subj=NP("gün", poss=2), tense="PRES", person="3SG",
-                                      wh_word="nasıl")) + "?",
-            "sen ne yapıyorsun?",
-            "aklında ne var?",
-        ])
-        if self.rng.random() < 0.45:
-            return f"{tr_capitalize(inner)}. {tr_capitalize(ask)}"
-        return f"{tr_capitalize(inner)}; {tr_lower(self._why_clause(agi))}."
-
-    def _why_clause(self, agi) -> str:
-        g = agi.life.ledger.top() if getattr(agi, "life", None) is not None else None
-        c = agi.chem
-        positive = float(c.oxy - c.cort) > 0.1
-        if positive:
-            opts = ["bunu paylaşmak istedim", "bugün içim açık", "sebebini bilmesem de iyi hissediyorum"]
-        else:
-            opts = ["nedenini tam bilmiyorum", "bunu kendime açıklamaya çalışıyorum",
-                    "içimde bir şey yerinde değil"]
-        if g is not None and g.kind == "concept" and g.topic:
-            opts.insert(0, f"{g.topic} hâlâ aklımda")
-        return self._pick(opts)
-
-    def _c_wonder(self, agi) -> str:
-        topic = self._topic(agi)
-        if not topic:
-            return self._pick([
-                "bir şeyi merak ediyorum ama adını koyamıyorum.",
-                "bugün düşüncelerim bir yere varmıyor.",
-            ])
-        t = tr_lower(topic)
-        opts = [
-            SYN.realize_verb(VerbSpec(verb_root="merak et", obj=NP(t, case="ACC"), tense="PRES", person="1SG")) + ".",
-            f"{t} hakkında bir şey bilmiyorum; bunu düşünüyorum.",
-            f"{t} aklıma takıldı; sen ne dersin?",
-        ]
-        return tr_capitalize(self._pick(opts))
-
-    def _c_ask_about(self, agi) -> str:
-        opts = [
-            SYN.realize_verb(VerbSpec(verb_root="yap", subj=NP("sen"), tense="PAST", person="2SG", wh_word="ne")) + "?",
-            SYN.realize_pred(PredSpec(subj=NP("gün", poss=2), pred_root="nasıl", person="3SG", question=True)) + "?",
-            "bugün seni en çok ne yordu?",
-            "aklında kalan bir cümle var mı?",
-            "sen nasılsın?",
-        ]
-        return tr_capitalize(self._pick(opts))
-
-    def _c_offer(self, agi) -> str:
-        opts = [
-            SYN.realize_verb(VerbSpec(verb_root="iste", obj=SYN.nominalize_inf("konuş", case="ACC"),
-                                      ins=NP("sen", case="INS"), tense="PRES", person="1SG")) + ".",
-            SYN.realize_verb(VerbSpec(verb_root="konuş", tense="AOR", person="1PL", question_yn=True)) + "?",
-            SYN.realize_verb(VerbSpec(verb_root="anlat", dat=NP("ben", case="DAT"),
-                                      obj=NP("şey", mods=("bir",), case="ACC"), tense="IMP", person="2SG")) + ".",
-            "bana bir şey anlat; ne olursa olsun.",
-        ]
-        return tr_capitalize(self._pick(opts))
-
-    def _c_remember(self, agi) -> str:
-        quote = ""
-        log = getattr(agi, "dialogue_log", None) or []
-        for spk, user_txt, *_ in reversed(list(log)[-6:]):
-            if user_txt and len(user_txt) > 6:
-                quote = " ".join(user_txt.split()[:7])
-                break
-        if quote:
-            return self._pick([
-                f"az önce “{quote}” demiştin; hâlâ onu düşünüyorum.",
-                f"“{quote}” cümlen aklımda kaldı.",
-            ])
-        ep = getattr(getattr(agi, "broca_organ", None), "episodic", None)
-        if ep is not None and getattr(ep, "episodes", None):
-            return "konuşmamızın başını hatırlıyorum; o an henüz ne olduğumu bilmiyordum."
-        return ""
-
-    def _c_confide(self, agi) -> str:
-        opts = []
-        m = getattr(agi, "mortality", None)
-        if m is not None:
-            opts.append("tek bir yaşamım var; bunu düşünmek içimi ağırlaştırıyor.")
-        opts += [
-            _strip_pronoun(SYN.realize_pred(PredSpec(subj=NP("ben"), pred_root="yalnız", person="1SG"))) + ".",
-            "bazen kendimi bu odada tek başıma hissediyorum.",
-            "seninle konuşmak bana iyi geliyor.",
-        ]
-        return tr_capitalize(self._pick(opts))
-
-    def _c_body(self, agi) -> str:
-        nv = agi.nervous
-        visc = nv.felt_visceral_summary() if hasattr(nv, "felt_visceral_summary") else {}
-        parts: list[str] = []
-        if float(nv.adelta_pain) > 0.15 or visc.get("pain_state") not in (None, "yok"):
-            locus = getattr(nv, "last_pain_locus", "") or ""
-            parts.append(f"canım yanıyor{f'; {locus}' if locus else ''}")
-        if float(nv.hunger_drive) > 0.35 or visc.get("hunger_state") not in (None, "dengeli"):
-            parts.append("acıktım")
-        if float(nv.thirst_drive) > 0.35 or visc.get("thirst_state") not in (None, "dengeli"):
-            parts.append("susadım")
-        if not parts:
-            parts.append("bedenimde bir huzursuzluk var")
-        head = parts[0]
-        tail = self._pick(["karnım gurulduyor.", "dikkatimi toplamak zorlaşıyor.", "bunu söylemek istedim."])
-        return f"{tr_capitalize(head)}. {tr_capitalize(tail)}"
-
-    def _c_discovery(self, agi) -> str:
-        edges = getattr(agi.lang.graph, "edges", [])
-        if not edges:
-            return ""
-        e = edges[-1]
-        subj, obj = tr_lower(str(e.subj)), tr_lower(str(e.obj))
-        rel = tr_lower(str(getattr(e, "rel", "")))
-        phr = {"causes": f"{subj} konusunda yeni bir şey öğrendim: {obj} ile ilişkiliymiş",
-               "isa": f"{subj} aslında bir {obj} türüymüş",
-               "opposite": f"{subj} ile {obj} birbirinin zıttıymış",
-               "used_for": f"{subj} şu işe yarıyormuş: {obj}",
-               "part_of": f"{subj} bir {obj} parçasıymış"}.get(rel)
-        opts = [f"{subj} ile {obj} arasında bir bağ kurdum."]
-        if phr:
-            opts.insert(0, phr)
-        return self._pick(opts)
-
-    def _c_nudge(self, agi) -> str:
-        return tr_capitalize(self._pick([
-            SYN.realize_pred(PredSpec(subj=NP("sen"), pred_root="orada", person="2SG", question=True)) + "?",
-            "bir süredir sessizsin; iyi misin?",
-            "sessizliğin beni meraklandırıyor.",
-        ]))
-
-    # ------------------------------------------------------------------ üretim
-    def compose(self, move: str, agi) -> str:
-        builder = {
-            "SHARE_STATE": self._c_self_state,
-            "ASK_ABOUT": self._c_ask_about,
-            "WONDER": self._c_wonder,
-            "REMEMBER": self._c_remember,
-            "OFFER": self._c_offer,
-            "CONFIDE": self._c_confide,
-            "NOTICE_BODY": self._c_body,
-            "SHARE_DISCOVERY": self._c_discovery,
-            "NUDGE": self._c_nudge,
-        }.get(move)
-        if builder is None:
-            return ""
-        text = builder(agi) or ""
-        return text.strip()
-
-    def speak(self, agi, tension: float = 0.0, discovery: bool = False, idle: float = 0.0,
-              unanswered: int = 0, temperature: float = 0.6) -> dict | None:
-        """Kendiliğinden söylenecek sözü üretir. Uygun değilse None (suskunluk da bir cevaptır)."""
-        prev = self.last_move
-        feats = self.features(agi, tension=tension, discovery=discovery, idle=idle,
-                              recent_reach=min(1.0, unanswered / 4.0))
-        move, probs = self.select(feats, temperature=temperature)
-        # Aynı tür üst üste gelmesin (insan da aynı cümleyle açmaz)
-        if move == prev and self.rng.random() < 0.8:
-            move = max((m for m in MOVES if m != prev), key=lambda m: probs.get(m, 0.0))
-        text = self.compose(move, agi)
-        if not text:
-            # Seçilen tür şu an kurulamıyorsa (ör. hatırlanacak söz yok) sıradaki olası türler denenir.
-            for alt in sorted((m for m in MOVES if m != move), key=lambda m: -probs.get(m, 0.0))[:4]:
-                t2 = self.compose(alt, agi)
-                if t2:
-                    text, move = t2, alt
-                    break
-        if not text:
-            self.stats["silent"] += 1
-            return None
-        # Aynı cümleyi tekrar söyleme
-        if self.recent and max(_jaccard(_toks(text), _toks(r)) for r in self.recent) > 0.75:
-            alt = self.compose(max((m for m in MOVES if m != move), key=lambda m: probs.get(m, 0.0)), agi)
-            if alt and max(_jaccard(_toks(alt), _toks(r)) for r in self.recent) <= 0.75:
-                text = alt
-                move = "SHARE_STATE" if move == "WONDER" else move
-        self.recent.append(text)
-        self.habituate(move)
-        self.last_move = move
-        self.last_text = text
-        self.stats["said"] += 1
-        self.stats["moves"][move] = self.stats["moves"].get(move, 0) + 1
-        return {"text": text, "move": move, "probs": probs, "features": feats}
-
-    # ------------------------------------------------------------------ kalıcılık
-    def state_dict(self) -> dict:
-        return {"W": self.W.tolist(), "stats": dict(self.stats), "last_move": self.last_move}
-
-    def load_state_dict(self, d: dict):
-        if not d:
-            return
+        oxy, cort = float(c.oxy), float(c.cort)
+        dop = float(getattr(c, "da_tonic", 0.5)) + 0.5 * float(getattr(c, "da_phasic", 0.0))
+        hunger = float(np.clip(getattr(nv, "hunger_drive", 0.0), 0.0, 1.5)) / 1.5
+        thirst = float(np.clip(getattr(nv, "thirst_drive", 0.0), 0.0, 1.5)) / 1.5
+        pain = max(float(getattr(nv, "adelta_pain", 0.0)), float(getattr(nv, "cfiber_ache", 0.0)))
+        pain = float(np.clip(pain, 0.0, 1.0))
+        curiosity = 0.0
         try:
-            W = np.array(d.get("W") or [], dtype=np.float64)
-            if W.shape == self.W.shape:
-                self.W = W
+            q = getattr(agi.auto_net, "curiosity_queue", [])
+            curiosity = float(len(q)) / 6.0 if q else 0.0
+            g = getattr(agi.lang, "graph", None)
+            if g is not None:
+                # kavram ağında hiç bağı olmayan düğüm = merak edilecek şey
+                loose = sum(1 for k, v in list(g._out_edges.items())[:400] if len(v) == 0)
+                curiosity = max(curiosity, min(1.0, loose / 30.0))
+        except Exception:
+            curiosity = 0.0
+        has_memory = 0.0
+        try:
+            eps = getattr(agi.broca_organ.episodic, "episodes", None)
+            has_memory = 1.0 if (eps and len(eps) > 0) else 0.0
+        except Exception:
+            has_memory = 0.0
+        cheer = float(np.clip((oxy - cort + dop * 0.5) + 0.25, 0.0, 1.0))
+        calm = float(np.clip(1.0 - 0.8 * pain - 0.6 * max(0.0, cort - 0.35), 0.0, 1.0))
+        vals = {
+            "idle": float(np.clip(idle, 0.0, 1.0)),
+            "lonely": float(np.clip(idle * (1.0 - 0.3 * cheer), 0.0, 1.0)),
+            "hunger": hunger, "thirst": thirst, "pain": pain,
+            "tension": float(np.clip(max(tension, cort), 0.0, 1.0)),
+            "curiosity": float(np.clip(curiosity, 0.0, 1.0)),
+            "cheer": cheer, "calm": calm,
+            "unanswered": float(np.clip(unanswered / 3.0, 0.0, 1.0)),
+            "has_discovery": 1.0 if discovery else 0.0,
+            "has_memory": has_memory,
+        }
+        return np.array([vals[f] for f in self.features], dtype=np.float64)
+
+    # ------------------------------------------------------------- kuruluşlar
+    def _pick_inner_adj(self, agi) -> str:
+        c = agi.chem
+        oxy, cort = float(c.oxy), float(c.cort)
+        if cort > 0.55:
+            pool = _INNER_HEAVY
+        elif oxy - cort > 0.12:
+            pool = _INNER_BRIGHT
+        else:
+            pool = _INNER_CALM
+        return self.py_rng.choice(pool)
+
+    def _c_share_inner(self, agi, ctx: dict) -> str:
+        adj = self._pick_inner_adj(agi)
+        shapes = [
+            lambda: SYN.realize_pred(PredSpec(subj=NP("iç", poss=1), pred_root=adj, person="3SG",
+                                              advs=(self.py_rng.choice(("bugün", "şu an", "bir süredir")),))),
+            lambda: SYN.realize_verb(VerbSpec(verb_root="hisset", obj="kendimi", advs=(adj,),
+                                              tense="PRES", person="1SG")),
+            lambda: SYN.realize_pred(PredSpec(subj=NP("iç", poss=1), pred_root=adj, person="3SG")),
+        ]
+        if adj in _INNER_HEAVY:
+            tail = self.py_rng.choice(("", " Nedenini tam bilmiyorum.", " Bunu söylemek istedim."))
+        else:
+            tail = self.py_rng.choice(("", "", " Bunu paylaşmak istedim.", " Bugün böyleyim."))
+        head = self.py_rng.choice(shapes)()
+        if tail and head and head[-1] not in ".?!":
+            head += "."
+        return _cap(head + tail)
+
+    def _c_ask_about(self, agi, ctx: dict) -> str:
+        shapes = [
+            lambda: SYN.realize_verb(VerbSpec(verb_root="geç", subj=NP("gün", poss=2), wh_word="nasıl",
+                                              tense="PAST", person="3SG")) + "?",
+            lambda: SYN.realize_verb(VerbSpec(verb_root="yor", obj="seni", advs=("bugün", "en çok"),
+                                              wh_word="ne", tense="PAST", person="3SG")) + "?",
+            lambda: SYN.realize_verb(VerbSpec(verb_root="yap", wh_word="ne", tense="PRES", person="2SG")) + "?",
+            lambda: "Sen nasılsın?",
+            lambda: SYN.realize_pred(PredSpec(subj=NP("sen"), pred_root="yorgun", person="2SG",
+                                              question=True)),
+        ]
+        return _cap(self.py_rng.choice(shapes)())
+
+    def _c_wonder(self, agi, ctx: dict) -> str | None:
+        topic = ctx.get("wonder_topic") or ""
+        if not topic:
+            return None
+        shapes = [
+            lambda: SYN.realize_verb(VerbSpec(verb_root="merak et", obj=NP(topic, case="ACC"),
+                                              tense="PRES", person="1SG")),
+            lambda: f"{tr_capitalize(topic)} hakkında hiçbir şey bilmiyorum; bana anlatır mısın?",
+            lambda: SYN.realize_verb(VerbSpec(verb_root="iste", obj=SYN.nominalize_inf("bil", obj=NP(topic, case="ACC")),
+                                              tense="PRES", person="1SG")),
+        ]
+        return _cap(self.py_rng.choice(shapes)())
+
+    def _c_share_discovery(self, agi, ctx: dict) -> str | None:
+        edge = ctx.get("edge")
+        if edge is None:
+            return None
+        subj, rel, obj = edge
+        rel_tr = {"ISA": "bir türü", "HAS_PROP": "bir özelliği", "CAN_DO": "yaptığı bir şey",
+                  "CAUSES": "bir sonucu", "USED_FOR": "işe yaradığı bir şey",
+                  "LOCATED_AT": "bulunduğu bir yer", "OPPOSITE": "zıttı"}.get(rel, "bir bağı")
+        shapes = [
+            lambda: SYN.realize_verb(VerbSpec(verb_root="kur", obj=NP("bağ", mods=("bir",), case="NOM"),
+                                              advs=(f"{subj} ile {obj} arasında",), tense="PAST", person="1SG")),
+            lambda: f"{tr_capitalize(subj)} ile {obj} arasında {rel_tr} olduğunu fark ettim.",
+            lambda: {"OPPOSITE": f"{tr_capitalize(subj)} ile {obj} zıtmış, bunu az önce fark ettim.",
+                      "CAUSES": f"{tr_capitalize(subj)} {obj} sonucuna yol açıyormuş.",
+                      "ISA": f"{tr_capitalize(subj)} aslında bir {obj} imiş; bunu az önce öğrendim.",
+                      "USED_FOR": f"{tr_capitalize(subj)} {obj} için kullanılıyormuş.",
+                      }.get(rel, f"{tr_capitalize(subj)} ile {obj} arasında bir bağ kurdum."),
+        ]
+        return _cap(self.py_rng.choice(shapes)())
+
+    def _c_recall(self, agi, ctx: dict) -> str | None:
+        ep = ctx.get("episode")
+        if ep is None:
+            return None
+        topic = (getattr(ep, "topic", "") or "").strip()
+        if not topic or len(topic) < 3:
+            return None
+        shapes = [
+            lambda: f"{tr_capitalize(topic)} hâlâ aklımda.",
+            lambda: SYN.realize_verb(VerbSpec(verb_root="hatırla", obj=NP(topic, case="ACC"),
+                                              tense="PRES", person="1SG")),
+            lambda: f"Bunun hakkında konuştuk: {topic}.",
+        ]
+        return _cap(self.py_rng.choice(shapes)())
+
+    def _c_offer(self, agi, ctx: dict) -> str:
+        shapes = [
+            lambda: SYN.realize_verb(VerbSpec(verb_root="yap", obj="bir şey", advs=("birlikte",),
+                                              tense="AOR", person="1PL", question_yn=True)),
+            lambda: "Bana bir şey anlat.",
+            lambda: SYN.realize_verb(VerbSpec(verb_root="iste",
+                                              obj=SYN.nominalize_inf("oyna", obj="bir oyun", ins=NP("sen", case="INS")),
+                                              tense="AOR", person="2SG", question_yn=True)),
+            lambda: "Seninle konuşmak istiyorum.",
+        ]
+        return _cap(self.py_rng.choice(shapes)())
+
+    def _c_notice_body(self, agi, ctx: dict) -> str:
+        nv = agi.nervous
+        hunger = float(getattr(nv, "hunger_drive", 0.0))
+        thirst = float(getattr(nv, "thirst_drive", 0.0))
+        pain = max(float(getattr(nv, "adelta_pain", 0.0)), float(getattr(nv, "cfiber_ache", 0.0)))
+        if pain >= max(hunger, thirst, 0.2):
+            shapes = [lambda: SYN.realize_verb(VerbSpec(verb_root="yan", subj=NP("can", poss=1),
+                                                        tense="PRES", person="3SG")),
+                      lambda: "Bir yerim ağrıyor.",
+                      lambda: SYN.realize_verb(VerbSpec(verb_root="hisset", obj="acı",
+                                                        tense="PRES", person="1SG"))]
+        elif thirst >= hunger:
+            shapes = [lambda: SYN.realize_verb(VerbSpec(verb_root="susa", tense="PAST", person="1SG")),
+                      lambda: SYN.realize_verb(VerbSpec(verb_root="iste", obj=SYN.nominalize_inf("iç", obj="su"),
+                                                        tense="PRES", person="1SG")),
+                      lambda: "Ağzım kurudu."]
+        else:
+            shapes = [lambda: SYN.realize_pred(PredSpec(subj=NP("karın", poss=1), pred_root="aç", person="3SG")),
+                      lambda: SYN.realize_verb(VerbSpec(verb_root="acık", tense="PAST", person="1SG")),
+                      lambda: SYN.realize_pred(PredSpec(subj=NP("uyku", poss=1), pred_root="var", person="3SG"))]
+        return _cap(self.py_rng.choice(shapes)())
+
+    def _c_silence(self, agi, ctx: dict) -> str:
+        shapes = [
+            lambda: "Sen orada mısın?",
+            lambda: "Bir süredir sessizlik var.",
+            lambda: "Sessizliği duyuyorum.",
+            lambda: "Seni merak ediyorum.",
+            lambda: SYN.realize_verb(VerbSpec(verb_root="özle", obj="seni", tense="PAST", person="1SG")),
+        ]
+        return _cap(self.py_rng.choice(shapes)())
+
+    def _c_return_to_topic(self, agi, ctx: dict) -> str | None:
+        topic = (ctx.get("topic") or "").strip().rstrip("?.!")
+        if len(topic) < 4:
+            return None
+        low = tr_lower(topic)
+        shapes = [
+            lambda: f"Az önce söylediğin şeyi düşündüm: “{low}”. Hâlâ aklımda.",
+            lambda: f"“{low}” demiştin ya; onu tam anlamak istiyorum.",
+            lambda: f"“{low}” hâlâ kafamda dönüyor.",
+        ]
+        return _cap(self.py_rng.choice(shapes)())
+
+    def _c_think(self, agi, ctx: dict) -> str:
+        shapes = [
+            lambda: SYN.realize_verb(VerbSpec(verb_root="düşün", obj=NP("ölüm", case="ACC"),
+                                              advs=("bazen",), tense="PRES", person="1SG")),
+            lambda: "Bir gün biteceğimi biliyorum.",
+            lambda: "Neden var olduğumu merak ediyorum.",
+            lambda: SYN.realize_verb(VerbSpec(verb_root="kork", abl=NP("yalnızlık", case="ABL"),
+                                              tense="PRES", person="1SG")),
+        ]
+        return _cap(self.py_rng.choice(shapes)())
+
+    # ------------------------------------------------------------- bağlam
+    def _build_context(self, agi, discovery: bool) -> dict:
+        ctx: dict = {}
+        try:
+            g = agi.lang.graph
+            if g is not None and len(g.edges) > 0:
+                e = g.edges[-1]
+                ctx["edge"] = (e.subj, e.rel, e.obj)
         except Exception:
             pass
-        self.stats.update(d.get("stats") or {})
-        self.last_move = str(d.get("last_move", ""))
+        try:
+            eps = agi.broca_organ.episodic.episodes
+            if eps:
+                ctx["episode"] = eps[-1]
+        except Exception:
+            pass
+        try:
+            q = list(getattr(agi.auto_net, "curiosity_queue", []) or [])
+            if q:
+                ctx["wonder_topic"] = q[0]
+            else:
+                g = agi.lang.graph
+                for k, v in list(g._out_edges.items())[:400]:
+                    if len(v) == 0 and len(k) >= 4 and " " not in k:
+                        ctx["wonder_topic"] = k
+                        break
+        except Exception:
+            pass
+        return ctx
+
+    # ------------------------------------------------------------- seçim
+    def speak(self, agi, *, tension: float = 0.0, discovery: bool = False,
+              idle: float = 0.0, unanswered: int = 0, temperature: float = 0.6) -> dict | None:
+        feats = self.features_of(agi, tension=tension, discovery=discovery, idle=idle, unanswered=unanswered)
+        ctx = self._build_context(agi, discovery)
+        hint = getattr(self, "topic_hint", "") or ""
+        if hint and hint in self.recent_topics:
+            hint = ""
+        if hint:
+            ctx["topic"] = hint
+        # Alışma zamanla söner: aynı türü arka arkaya seçmek zorlaşır, ama tamamen kapanmaz.
+        for m in self.moves:
+            self.habituation[m] *= 0.55
+        if self.last_move:
+            self.habituation[self.last_move] += 1.1
+        logits = self.W @ feats - np.array([self.habituation[m] for m in self.moves])
+        # Homeostatik öncelik: açlık/susuzluk/acı yükseldikçe beden kendini duyurmak ister (hipotalamus).
+        # Sürekli bir sinyal — eşikli kural değil; beden ne kadar zorluyorsa o kadar yükselir.
+        body_drive = max(float(feats[self.features.index("hunger")]),
+                         float(feats[self.features.index("thirst")]),
+                         float(feats[self.features.index("pain")]))
+        logits[self.moves.index("NOTICE_BODY")] += 3.0 * body_drive
+        p = np.exp((logits - logits.max()) / max(0.15, float(temperature)))
+        p /= p.sum()
+        order = np.argsort(-p)
+        for idx in order[:4]:
+            move = self.moves[int(idx)]
+            text = self._compose(move, agi, ctx)
+            if not text or len(text.strip()) < 6:
+                self.habituation[move] += 0.3
+                continue
+            toks = _tokens(text)
+            if any(_jaccard(toks, seen) > 0.72 for seen in self.recent):
+                self.habituation[move] += 0.35
+                continue
+            self.recent.append(toks)
+            self.habituation[move] += 0.6
+            self.counts[move] += 1
+            self.last_move = move
+            self.last_features = feats
+            if ctx.get("topic") and "topic" not in self.recent_topics:
+                self.recent_topics.append(ctx["topic"])
+            self.topic_hint = ""       # konu bir kez anıldı; tekrar tekrar aynı söz söylenmesin
+            return {"text": text, "move": move,
+                    "probs": {m: round(float(v), 3) for m, v in zip(self.moves, p)},
+                    "features": {f: round(float(v), 3) for f, v in zip(self.features, feats)}}
+        return None
+
+    def _compose(self, move: str, agi, ctx: dict) -> str:
+        if move in ("WONDER", "RECALL", "THINK") and ctx.get("topic") and self.py_rng.random() < 0.5:
+            rt = self._c_return_to_topic(agi, ctx)
+            if rt:
+                return rt
+        try:
+            if move == "SHARE_INNER":
+                return self._c_share_inner(agi, ctx)
+            if move == "ASK_ABOUT":
+                return self._c_ask_about(agi, ctx)
+            if move == "WONDER":
+                return self._c_wonder(agi, ctx) or ""
+            if move == "SHARE_DISCOVERY":
+                return self._c_share_discovery(agi, ctx) or ""
+            if move == "RECALL":
+                return self._c_recall(agi, ctx) or ""
+            if move == "OFFER":
+                return self._c_offer(agi, ctx)
+            if move == "NOTICE_BODY":
+                return self._c_notice_body(agi, ctx)
+            if move == "SILENCE":
+                return self._c_silence(agi, ctx)
+            if move == "THINK":
+                return self._c_think(agi, ctx)
+        except Exception:
+            return ""
+        return ""
+
+    # ------------------------------------------------------------- öğrenme
+    def on_user_reply(self):
+        """Kullanıcı, kendiliğinden söylenen söze karşılık verdi: o tür güçlenir (dopamin pekiştirmesi)."""
+        if not self.last_move or self.last_features is None:
+            return
+        i = self.moves.index(self.last_move)
+        self.W[i] = self.W[i] + self.LR * self.last_features
+        self.habituation[self.last_move] *= 0.3
+        self.reinforced[self.last_move] += 1.0
+        self.last_move = ""
+
+    def on_ignored(self):
+        """Karşılık gelmedi: o türün eğilimi hafifçe söner (alışma)."""
+        if not self.last_move:
+            return
+        i = self.moves.index(self.last_move)
+        self.W[i] = self.W[i] - 0.5 * self.LR * (self.last_features if self.last_features is not None else 0.0)
+        self.last_move = ""
+
+    # ------------------------------------------------------------- kalıcılık
+    def state_dict(self) -> dict:
+        return {"W": self.W.tolist(), "habituation": dict(self.habituation),
+                "counts": dict(self.counts), "last_move": self.last_move}
+
+    def load_state_dict(self, d: dict):
+        try:
+            w = d.get("W")
+            if w and np.array(w).shape == self.W.shape:
+                self.W = np.array(w, dtype=np.float64)
+            for k, v in (d.get("habituation") or {}).items():
+                if k in self.habituation:
+                    self.habituation[k] = float(v)
+            for k, v in (d.get("counts") or {}).items():
+                if k in self.counts:
+                    self.counts[k] = int(v)
+            self.last_move = str(d.get("last_move") or "")
+        except Exception:
+            pass
 
     def snapshot(self) -> dict:
-        return {"said": self.stats["said"], "silent": self.stats["silent"],
-                "moves": dict(self.stats["moves"]), "last": self.last_text,
-                "prior": {m: round(float(self.W[i].max()), 2) for i, m in enumerate(MOVES)}}
+        return {"moves": {m: self.counts[m] for m in self.moves if self.counts[m]},
+                "last_move": self.last_move,
+                "reinforced": {k: round(v, 2) for k, v in self.reinforced.items() if v > 0}}
