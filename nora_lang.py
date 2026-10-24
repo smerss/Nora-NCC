@@ -722,11 +722,12 @@ class TurkishMorphology:
         key = (id(lexicon), len(lexicon))
         hit = cls._VOCAB_CACHE.get(key)
         if hit is not None:
-            return hit
+            return hit[1]
         merged = set(lexicon) | COMMON_NOUNS
         if len(cls._VOCAB_CACHE) > 64:
             cls._VOCAB_CACHE.clear()
-        cls._VOCAB_CACHE[key] = merged
+        # Sözlüğün KENDİSİ de saklanır: id() yeniden kullanılamasın (yanlış eşleşme olmasın).
+        cls._VOCAB_CACHE[key] = (lexicon, merged)
         return merged
 
     @classmethod

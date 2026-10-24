@@ -838,6 +838,39 @@ class NoraAGI:
 
         # ZAMAN SORUSU: Nora zamanı bedeninde ve belleğinde ölçer (sandbox evreninin saati).
         _tl = tr_lower(raw)
+        # HATIRLAMA: geçmiş konuşmayı kendi belleğinden alıntılar (uydurmaz, yoksa yok der).
+        _topic_scoped = any(k in _tl for k in ("hakkında", "konusunda", "ile ilgili", "dair"))
+        _recall_user = (not _topic_scoped) and any(
+            k in _tl for k in ("ne söyledim", "ne dedim", "son cümlem", "ne anlattım"))
+        _recall_self = (not _topic_scoped) and (
+            any(k in _tl for k in ("ne cevap verdin", "ne söylemiştin", "cevabın neydi",
+                                   "bana ne demiştin"))
+            or ("ne dedin" in _tl and "hakkında" not in _tl))
+        if (_recall_user or _recall_self) and self.dialogue_log:
+            _prev = self.dialogue_log[-1]
+            _utxt = (_prev[1] or "").strip()
+            _rtxt = (_prev[2] or "").strip()
+            _rng = getattr(getattr(self, "discourse", None), "random", None)
+            if _recall_self:
+                _quote_t = _rtxt or _utxt
+                _lead = _rng.choice(("Az önce şöyle demiştim", "Son söylediğim şuydu",
+                                         "Kendi ağzımdan çıkan son söz"))
+            else:
+                _quote_t = _utxt or _rtxt
+                _lead = _rng.choice(("Son söylediğin şuydu", "Az önce şunu demiştin",
+                                         "Son cümlen aklımda"))
+            if any(ch in _quote_t for ch in "“”\""):
+                # Alıntının içinde zaten tırnak var: iç içe tırnak kurma, olduğu gibi aktar.
+                _ans_r = f"{_lead}: {_quote_t}"
+            else:
+                _ans_r = f"{_lead}: “{_quote_t}”"
+            if _quote_t and len(_quote_t.split()) > 2:
+                _tail_r = _rng.choice(("Yanlış mı hatırlıyorum?", "Öyle değil mi?",
+                                           "Bunu mu soruyordun?", "Yoksa başka bir şey mi vardı?"))
+                _ans_r = f"{_ans_r} {_tail_r}"
+            self._log_turn(speaker, raw, _ans_r, t0)
+            return _ans_r
+
         _clock_q = any(k in _tl for k in ("saat kaç", "saat kaçtır", "saat kaç oldu"))
         _elapsed_q = any(k in _tl for k in (
             "ne kadar oldu", "ne kadar zaman oldu", "ne zamandır", "ne kadar süredir",
@@ -2403,6 +2436,27 @@ class NoraAGI:
                 SYN.nominalize_dik("tart", poss=1, case="LOC", obj=NP("çevre", case="ACC")),
                 cur_sc,
             )
+
+        # ELLE YAPILAN EYLEMLER: bu evrende manipülatör organ yok — yapmış gibi yapmak yalan olur.
+        _HAND_VERBS = {"kapat", "aç", "getir", "al", "ver", "koy", "sil", "temizle", "yıka",
+                       "taşı", "çek", "it", "tut", "kır", "dik", "bağla", "kes", "boya", "çiz"}
+        if fr.rel in _HAND_VERBS and tgt_label:
+            try:
+                _neg_ab = morph.ability_form(fr.rel, "AOR", "1SG", neg=True)
+            except Exception:
+                _neg_ab = ""
+            if _neg_ab:
+                try:
+                    _tgt_acc = morph.inflect_noun(tgt_label, "ACC")
+                except Exception:
+                    _tgt_acc = tgt_label
+                _ask_h = ""
+                try:
+                    _ask_h = self.initiative._c_ask_about(self, {}) or ""
+                except Exception:
+                    _ask_h = ""
+                honest = f"{tr_capitalize(_tgt_acc)} {_neg_ab}; bende bunu yapacak bir organ yok"
+                return f"{honest}. {_ask_h}".strip() if _ask_h else honest + "."
 
         return self.schema_cortex.transform_clauses(
             f"kabul ediyorum ve '{tgt_label}' doğrultusunda yöneliyorum",
