@@ -731,8 +731,12 @@ def a28_autonomous_consciousness_network_and_curiosity_research():
     mock_internet = {
         "magnetar": "Magnetar güçlü bir nötron yıldızıdır. Magnetar sayesinde aşırı manyetik alanlar incelenir. Su zararlıdır."
     }
-    res = agi.autonomous_research(fetcher=lambda t, q: mock_internet.get(t, ""))
-    ok_filter = len(res) >= 1 and ("Su zararlıdır." in res[0]["rejected"]) and len(res[0]["learned"]) >= 2
+    f = lambda t, q: mock_internet.get(t, "")
+    res1 = agi.autonomous_research(fetchers=[("web:tr.wikipedia.org", f)])
+    only_hypothesis = len(res1) >= 1 and not res1[0]["learned"] and not agi.lang.graph._out_edges.get("magnetar")
+    res = agi.autonomous_research(fetchers=[("web:tdk.gov.tr", f)])   # ikinci BAĞIMSIZ kaynak: çapraz doğrulama
+    ok_filter = only_hypothesis and len(res) >= 1 and len(res[0]["learned"]) >= 2 and not any(
+        e.obj == "zararlı" for e in agi.lang.graph._out_edges.get("su", []))
 
     # 3) Artık insan öğretmeden kendi araştırdığı kavramı yanıtlar ve fiziksel bilinç ağında hücre topluluğu kurmuştur!
     r_after = agi.converse("Magnetar nedir?")
@@ -820,7 +824,7 @@ def a29_out_of_distribution_paraphrase_generalization():
 
 def a30_continuous_inner_monologue():
     """A30: Yalnız yaşarken (DMN) ve konuşmadan hemen önce (Vygotsky iç sesi) sıfır-kalıp Türkçe içsel monolog üretimi."""
-    agi = NoraAGI(seed=91, boot_thinker=False)
+    agi = NoraAGI(seed=91, boot_thinker=False, corpus=_DOC_CORPUS)   # iç ses de öğrenilmiş dilden kurulur
     agi.step_life(320)
     dmn_thoughts = list(agi.monologue.stream)
     ok_dmn = len(dmn_thoughts) >= 2 and all(len(t.text) >= 12 for t in dmn_thoughts)
@@ -828,7 +832,7 @@ def a30_continuous_inner_monologue():
     # Fiziksel acı verildiğinde içsel monolog da bedensel korunma düşüncesine döner!
     agi.inflict_pain(0.75, locus="kol", cause="diken")
     agi.step_life(60)
-    pain_thoughts = [t.text for t in agi.monologue.stream if t.trigger == "acı_refleksi" or "sızı" in tr_lower(t.text) or "yara" in tr_lower(t.text)]
+    pain_thoughts = [t.text for t in agi.monologue.stream if t.trigger == "acı_refleksi"]
     ok_pain_inner = len(pain_thoughts) >= 1
 
     # Konuşmadan hemen önce sessiz iç ses (dış yanıtın kopyası DEĞİL, içsel niyet/düşünce!)
@@ -1245,6 +1249,129 @@ def a40_epistemic_persistence_and_mortal_memory():
                 f"| yol={answer_before['path'] if answer_before else None}->{answer_after['path'] if answer_after else None} | kod={ok_code}")
 
 
+# ============================================================================
+# A41-A45: ARKA PLAN YAŞAMI, ÖĞRENEN SÖZ ORGANI, ÇAPRAZ DOĞRULAMA, EKSİK TAMAMLAMA, KARARLILIK
+# ============================================================================
+import ast as _ast
+
+_DOC_CORPUS = [os.path.join(os.path.dirname(os.path.abspath(__file__)), f) for f in ("NORA_EVREN.md", "HABER_ADAYLARI.md")]
+
+
+def a41_language_agnostic_learned_voice():
+    """Söz organında elle yazılmış sözcük yok: dil hiç duyulmadıysa sessiz, İngilizce okuduysa İngilizce,
+    Türkçe okuduysa Türkçe konuşur. Kaynak kodda Türkçe harfli hiçbir dize sabiti bulunmaz."""
+    import numpy as np
+    from nora_voice import LearnedVoice, NF
+    st = np.full(NF, 0.4)
+    v = LearnedVoice(1)
+    silent = v.speak(st, ["cat"]) is None
+    v.hear("The cat sat on the mat. The dog sat on the log. A cat likes the sun.", st)
+    en = v.speak(st, ["cat"]) or ""
+    w = LearnedVoice(2)
+    w.hear("Kedi minderin üstünde oturdu. Köpek kütüğün üstünde oturdu. Kedi güneşi sever.", st)
+    tr = w.speak(st, ["kedi"]) or ""
+    ok_lang = ("cat" in en.lower()) and ("kedi" in tr.lower()) and ("the" not in tr.lower().split())
+
+    tr_letters = set("çğıöşüÇĞİÖŞÜ")
+    bad = []
+    for fn in ("nora_voice.py", "nora_life.py"):
+        tree = _ast.parse(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), fn), encoding="utf-8").read())
+        docs = {id(n.body[0].value) for n in _ast.walk(tree)
+                if isinstance(n, (_ast.Module, _ast.ClassDef, _ast.FunctionDef)) and n.body
+                and isinstance(n.body[0], _ast.Expr) and isinstance(getattr(n.body[0], "value", None), _ast.Constant)}
+        for n in _ast.walk(tree):
+            if isinstance(n, _ast.Constant) and isinstance(n.value, str) and id(n) not in docs:
+                if tr_letters & set(n.value):
+                    bad.append((fn, n.value[:30]))
+    ok = silent and ok_lang and not bad
+    return ok, f"dilsiz=sessiz:{silent} | EN='{en}' | TR='{tr}' | koddaki-Türkçe-sabit={len(bad)} {bad[:2]}"
+
+
+def a42_cross_verification_hypothesis_pool():
+    """İnternet iddiası tek kaynaktan Sistem 1'e girmez (geçici hipotez); aynı alan adı tekrarı bağımsız sayılmaz;
+    ikinci BAĞIMSIZ alan adı gelince kavram ağına terfi eder; bedenle çelişen yalan reddedilir."""
+    agi = NoraAGI(seed=42, boot_thinker=False)
+    agi.step_life(1500)
+    agi.converse("Magnetar nedir?")
+    txt = {"magnetar": "Magnetar güçlü bir nötron yıldızıdır. Su zararlıdır."}
+    f = lambda t, q: txt.get(t, "")
+    agi.autonomous_research(fetchers=[("web:tr.wikipedia.org", f)])
+    in_graph_1 = bool(agi.lang.graph._out_edges.get("magnetar"))
+    trace1 = agi.life.pool.trace_for(agi, "magnetar")
+    agi.autonomous_research(fetchers=[("web:en.wikipedia.org", f)])
+    in_graph_same_domain = bool(agi.lang.graph._out_edges.get("magnetar"))
+    agi.autonomous_research(fetchers=[("web:tdk.gov.tr", f)])
+    in_graph_2 = bool(agi.lang.graph._out_edges.get("magnetar"))
+    water_poisoned = any(e.obj in ("zararlı",) for e in agi.lang.graph._out_edges.get("su", []))
+    ok = (not in_graph_1) and trace1 is not None and (not in_graph_same_domain) and in_graph_2 and (not water_poisoned)
+    return ok, (f"tek-kaynak-ağda={in_graph_1} iz={trace1} | aynı-alan-ağda={in_graph_same_domain} | "
+                f"2.bağımsız-kaynak-ağda={in_graph_2} | yalan-reddedildi={not water_poisoned}")
+
+
+def a43_self_completion_drive_social_gap():
+    """Girdiyi (sosyal kalıp) tanıyıp karşılığını bilmemek zihinsel gerilimdir; sessizlikte kendiliğinden
+    araştırılır; iki bağımsız kaynakta aynı karşılık görülünce yeterlilik doğar ve gerilim söner."""
+    agi = NoraAGI(seed=43, boot_thinker=False, corpus=_DOC_CORPUS)
+    agi.step_life(600)
+    for _ in range(4):
+        agi.converse("Nasılsın?")
+    g0 = agi.life.ledger.gaps.get("s:ASK_WELLBEING")
+    t_before = g0.tension if g0 else 0.0
+    dlg = "- Nasılsın?\n- İyiyim, sen nasılsın?"
+    agi.life.sources = [("web:tdk.gov.tr", lambda t, q: dlg), ("web:wikipedia.org", lambda t, q: dlg)]
+    agi.idle(9000)
+    comp = agi.life.repertoire.competence("ASK_WELLBEING")
+    g1 = agi.life.ledger.gaps.get("s:ASK_WELLBEING")
+    ok = (g0 is not None) and comp > 0.5 and (g1 is None or g1.resolved) and (g1 is None or g1.attempts >= 1)
+    return ok, (f"boşluk-var={g0 is not None} gerilim={t_before:.2f} | karşılık-yeterliliği={comp:.2f} | "
+                f"çözüldü={(g1.resolved if g1 else None)} | araştırma-denemesi={(g1.attempts if g1 else None)}")
+
+
+def a44_background_life_autonomy():
+    """Kullanıcı sustuğunda arka plan: CA3 tarama + özet, boşlukları gerilim defterine yazma, kendiliğinden mesaj
+    (spontaneous_action); mesajlar üstel geri-çekilmeyle sınırlı kalır (yağmur yok)."""
+    agi = NoraAGI(seed=44, boot_thinker=False, corpus=_DOC_CORPUS)
+    agi.step_life(600)
+    for q in ("Merhaba Nora! Nasılsın?", "Bugün çok yorgunum.", "Teşekkür ederim.", "Nasılsın?", "Mitokondri nedir?"):
+        agi.converse(q)
+    agi.idle(14000)
+    msgs = agi.drain_outbox()
+    sn = agi.life.snapshot()
+    ok_ca3 = len(agi.life.summaries) > 0 and any(s["replayed"] > 0 for s in agi.life.summaries)
+    ok_gaps = len(sn["gaps"]) >= 1
+    ok_msg = len(msgs) >= 1 and all(m["kind"] in ("gap_social", "gap_concept", "discovery", "summary") for m in msgs)
+    ok_bounded = len(msgs) <= 10 and sn["unanswered"] <= 10
+    agi.converse("Merhaba")
+    ok_reset = agi.life.unanswered == 0
+    ok = ok_ca3 and ok_gaps and ok_msg and ok_bounded and ok_reset and agi.mortality.is_alive
+    return ok, f"CA3-özet={ok_ca3} | gerilim-defteri={len(sn['gaps'])} | spontan-mesaj={len(msgs)} | eylemler={sn['actions']} | sıfırlandı={ok_reset}"
+
+
+def a45_background_loop_stability_o1():
+    """Arka plan döngüsü sonsuz döngüye girmez; tick maliyeti sabit (O(1)); tüm yapılar sınırlı; kaydet/yükle tutarlı."""
+    agi = NoraAGI(seed=45, boot_thinker=False, corpus=_DOC_CORPUS)
+    agi.step_life(300)
+    for q in ("Nasılsın?", "Naber?", "Teşekkürler", "Görüşürüz"):
+        agi.converse(q)
+    per = []
+    for _ in range(8):
+        t_a, s_a = agi.life.t, agi.life.tick_seconds
+        agi.idle(1500)
+        per.append((agi.life.tick_seconds - s_a) / max(1, agi.life.t - t_a))
+    q = 2
+    first, last = float(sum(per[:q]) / q), float(sum(per[-q:]) / q)
+    L = agi.life
+    bounded = (len(L.ledger.gaps) <= L.ledger.MAX_GAPS and len(L.outbox) <= 32 and len(L.summaries) <= 32
+               and len(L.rates_log) <= 256 and len(L.pool.pending) <= L.pool.MAX_PENDING)
+    with tempfile.TemporaryDirectory() as td:
+        pref = os.path.join(td, "nora_life")
+        agi.save(pref)
+        agi2 = NoraAGI.load(pref)
+        same = set(agi2.life.ledger.gaps) == set(L.ledger.gaps) and agi2.life.voice.heard_tokens == L.voice.heard_tokens
+    ok = last <= 3.0 * first + 2e-4 and bounded and same and agi.mortality.is_alive
+    return ok, f"tick {first * 1e3:.2f}->{last * 1e3:.2f} ms | sınırlı={bounded} | kalıcılık={same}"
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -1286,6 +1413,11 @@ TESTS = {
     "A38": ("yalnızca güvenilir kaynaklara erişim (allowlist, sızıntısız)", a38_trusted_sources_only),
     "A39": ("çalıştırarak doğrulanan Python sentezi (uydurma imkânsız)", a39_python_code_synthesis_verified),
     "A40": ("epistemik + kod becerisinin tek-yaşam belleğinde kalıcılığı", a40_epistemic_persistence_and_mortal_memory),
+    "A41": ("dilden bağımsız öğrenen söz organı (koda gömülü sözcük yok)", a41_language_agnostic_learned_voice),
+    "A42": ("çapraz doğrulama: tek kaynak hipotez, bağımsız 2. kaynak Sistem 1", a42_cross_verification_hypothesis_pool),
+    "A43": ("eksik tamamlama iradesi: sosyal kalıp boşluğu -> otonom araştırma", a43_self_completion_drive_social_gap),
+    "A44": ("arka plan yaşamı: CA3 tarama, gerilim defteri, kendiliğinden mesaj", a44_background_life_autonomy),
+    "A45": ("arka plan döngüsü kararlılığı: O(1) tick, sınırlı yapılar, kalıcılık", a45_background_loop_stability_o1),
 }
 
 
