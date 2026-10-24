@@ -1783,17 +1783,33 @@ class NoraAGI:
                                                    tense="PRES", person="1SG"))
             except Exception:
                 reason = ""
+        if not reason:
+            # Odak yoksa uydurma: kimyasal iç-duyumundan tek sözcük okunur ve cümle Broca'da kurulur.
+            try:
+                word = self.chem.intero_word_tr()
+                reason = SYN.realize_verb(VerbSpec(verb_root="hisset", loc=NP("içim", case="LOC"),
+                                                   obj=NP(word, case="NOM"), tense="PRES", person="1SG"))
+            except Exception:
+                reason = ""
         if reason:
             schema = self._speech_schema([adj], speaker, is_question=False)
             text = self.schema_cortex.transform_clauses(core, reason, "", schema)
             if tr_lower(reason).rstrip(".") not in tr_lower(text):
                 text = (text.rstrip(".") + ". " + tr_capitalize(reason) + ".").strip()
             self.lang.wernicke.last_explanation = (
-                "Mizaç sorusuna iç durumdan yanıt: şu an odağım " + topic + " (" + schema + ")")
+                "Mizaç sorusuna iç durumdan yanıt: " + (("odağım " + topic) if topic else "bedensel duyum") +
+                " (" + schema + ")")
         else:
             text = tr_capitalize(core) + "."
             self.lang.wernicke.last_explanation = "Mizaç sorusuna iç durumdan yanıt"
         q = self._ask_back(topic, kind="think") if topic else ""
+        if not q:
+            # Kendiliğinden soru organı: konu yoksa da karşı tarafa gerçek bir soru yöneltir.
+            try:
+                _ctx = self.initiative._build_context(self, False)
+                q = self.initiative._c_ask_about(self, _ctx) or ""
+            except Exception:
+                q = ""
         return (text + " " + q).strip() if q else text
 
     def _learned_gap_line(self, act):
@@ -1802,9 +1818,11 @@ class NoraAGI:
         try:
             c = SYN.realize_verb(VerbSpec(verb_root="öğren", obj=NP(act, case="ACC", verbal_noun=True),
                                           neg=True, tense="PAST", person="1SG"))
+            words = act.split()
+            thing = words[0] if len(words) > 1 and words[-1].endswith(("mak", "mek")) else ""
+            obj = NP(("bir " + thing) if thing else "bunu", case="NOM")
             q = SYN.realize_verb(VerbSpec(verb_root="öğret", dat=NP("ben", case="DAT"),
-                                          obj=NP("bir şaka", case="NOM"),
-                                          question_yn=True, tense="AOR", person="2SG"))
+                                          obj=obj, question_yn=True, tense="AOR", person="2SG"))
             line = tr_capitalize(c) + ". " + tr_capitalize(q) + "?"
             return line
         except Exception:

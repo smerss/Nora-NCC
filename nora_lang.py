@@ -1430,6 +1430,16 @@ class BrocaGenerator:
             v_form = self.morph.conjugate_verb(parts[-1], tense=p.tense, neg=is_neg, person=p.person)
             return f"{s} {' '.join(parts[:-1])} {v_form}".strip()
 
+        if r in ("CAUSES", "USED_FOR") and s.split() and s.split()[-1].endswith(("mak", "mek")):
+            # 'rüya görmek' -> 'rüya görmenin nedeni' (mastar, isim gibi çekilmez)
+            try:
+                from nora_broca import TurkishSyntaxEngine as _SYN
+                s_gen = _SYN.realize_verbal_noun(s, "GEN")
+            except Exception:
+                s_gen = s
+            if r == "CAUSES":
+                tail = self._copula_phrase(o)
+                return f"{s_gen} nedeni {tail}" if not p.neg else f"{s_gen} nedeni {o} değildir"
         if r == "CAUSES":
             # Çok sözcüklü ve iyelikli öbeklerde yönelme eki güvenilir değil ('basınç farkıya' gibi).
             # Doğal ve her öbekte doğru kalan kuruluş: "X'in nedeni Y'dir."
