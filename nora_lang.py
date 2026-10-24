@@ -42,6 +42,15 @@ ALL_VOWELS = BACK_VOWELS | FRONT_VOWELS
 HARD_CONS = set("fstkçşhp")
 
 
+
+def _stable_hash(x: str) -> int:
+    """Süreçler arası kararlı 32-bit FNV-1a (Python hash() PYTHONHASHSEED'e bağlıdır)."""
+    h = 2166136261
+    for b in x.encode("utf-8"):
+        h = ((h ^ b) * 16777619) & 0xFFFFFFFF
+    return h
+
+
 def tr_lower(s: str) -> str:
     return s.replace("İ", "i").replace("I", "ı").lower()
 
@@ -290,6 +299,9 @@ class TurkishMorphology:
             return v
         t = tense.upper()
         p = person.upper()
+        # 'de-' ve 'ye-' ünlü başlayan ekten önce daralır: diyorum, diyecek, yiyeyim (olumsuzda daralmaz: demiyorum)
+        if v in ("de", "ye") and not neg and t in ("PRES", "FUT", "OPT"):
+            v = "di" if v == "de" else "yi"
 
         if t == "IMP":
             if neg:
@@ -306,7 +318,9 @@ class TurkishMorphology:
                     v_pres = v[:-1] + "d"
                 else:
                     v_pres = v
-                if v_pres[-1] in ALL_VOWELS:
+                if v in ("di", "yi"):
+                    base = v + "yor"
+                elif v_pres[-1] in ALL_VOWELS:
                     stem_cut = v_pres[:-1]
                     v4 = cls.vowel_4(stem_cut if stem_cut else v_pres)
                     base = stem_cut + v4 + "yor"
@@ -856,8 +870,8 @@ class GroundedConceptGraph:
         s = f"<{tr_lower(text)}>"
         for i in range(max(1, len(s) - 2)):
             tri = s[i:i + 3]
-            h = (hash(tri) & 0x7FFFFFFF) % 128
-            h2 = ((hash(tri + "!") & 0x7FFFFFFF) % 128)
+            h = (_stable_hash(tri) & 0x7FFFFFFF) % 128
+            h2 = ((_stable_hash(tri + "!") & 0x7FFFFFFF) % 128)
             v[h] += 1.0
             v[h2] -= 0.5
         return v
@@ -1172,7 +1186,7 @@ class WernickeComprehender:
         for tok in s.split():
             for i in range(max(1, len(tok) - 1)):
                 bg = tok[i:i + 2]
-                v[(hash(bg) & 0x7FFFFFFF) % 128] += 1.0
+                v[(_stable_hash(bg) & 0x7FFFFFFF) % 128] += 1.0
         return v
 
     def _seed_intent_prototypes(self):

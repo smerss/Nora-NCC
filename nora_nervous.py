@@ -555,53 +555,66 @@ class AutonomousConsciousnessNetwork:
             "curiosity_backlog": list(self.curiosity_queue)[-6:],
         }
 
-    def _extract_open_world_relations(self, s_low: str, graph, morph: TurkishMorphology, source: str):
-        """Ansiklopedi/internet metinlerindeki virgüllü veya bağlaçlı doğal cümlelerden ilişkisel sinaps çıkarımı."""
+    def open_world_triples(self, s_low: str, graph, morph: TurkishMorphology):
+        """Ansiklopedi cümlelerinden (virgüllü/bağlaçlı) ilişki üçlüleri; ağa YAZMAZ, yalnızca çıkarır."""
         s = re.sub(r"[,;]", "", s_low).strip().rstrip(".")
-        added = []
-        # 'X sayesinde Y gerçekleşir / oluşur / sağlanır'
+        T = type("Tri", (), {})
+        def mk(a, r, b):
+            t = T(); t.subj, t.rel, t.obj = a, r, b
+            return t
         m1 = re.match(r"^([\wçğıöşü\s]{2,30}?)\s+sayesinde\s+(.+?)\s+(?:oluşur|gerçekleşir|sağlanır|üretilir)$", s)
         if m1:
             subj = morph.analyze_word(m1.group(1).strip().split()[-1], graph.lexicon)["stem"]
             prefix = " ".join(m1.group(1).strip().split()[:-1])
-            full_s = f"{prefix} {subj}".strip()
-            added.append(graph.add_edge(full_s, "CAUSES", m1.group(2).strip(), source=source, speaker=source, weight=0.92))
-            return added
-
-        # 'X Y üreten / sağlayan bir Z türüdür / sistemidir / organıdır'
+            return [mk(f"{prefix} {subj}".strip(), "CAUSES", m1.group(2).strip())]
         m2 = re.match(r"^([\wçğıöşü\s]{2,25}?)\s+(.+?)\s+(?:sağlayan|üreten|yapan)\s+bir\s+([\wçğıöşü\s]{2,25})$", s)
         if m2:
-            subj = m2.group(1).strip()
             cat = morph.analyze_word(m2.group(3).strip().split()[-1], graph.lexicon)["stem"]
             cat_pref = " ".join(m2.group(3).strip().split()[:-1])
-            full_cat = f"{cat_pref} {cat}".strip()
-            added.append(graph.add_edge(subj, "ISA", full_cat, source=source, speaker=source, weight=0.92))
-            added.append(graph.add_edge(subj, "USED_FOR", m2.group(2).strip(), source=source, speaker=source, weight=0.90))
-            return added
+            return [mk(m2.group(1).strip(), "ISA", f"{cat_pref} {cat}".strip()), mk(m2.group(1).strip(), "USED_FOR", m2.group(2).strip())]
+        return []
+
+    def _extract_open_world_relations(self, s_low: str, graph, morph: TurkishMorphology, source: str):
+        added = []
+        for t in self.open_world_triples(s_low, graph, morph):
+            w = 0.92 if t.rel != "USED_FOR" else 0.90
+            added.append(graph.add_edge(t.subj, t.rel, t.obj, source=source, speaker=source, weight=w))
         return added
 
-    def autonomous_internet_research(self, agi, fetcher=None, max_topics: int = 2) -> list[dict]:
-        """İnternet açık olduğunda Türkçe Wikipedia REST özet API'si üzerinden (veya verilen özel
-        fetcher fonksiyonuyla) Nora'nın KENDİ MERAK ETTİĞİ kavramları araştırıp öğrenmesi!"""
-        results = []
+    def autonomous_internet_research(self, agi, fetcher=None, max_topics: int = 2, fetchers=None) -> list[dict]:
+        """Merak ettiği kavramı bir ya da birkaç kaynaktan okur. Hiçbir iddia doğrudan kavram ağına (Sistem 1)
+        girmez: önce geçici hipotez havuzuna yazılır, ≥2 bağımsız alan adı ve kesinlik eşiğiyle terfi eder
+        (çapraz doğrulama). `fetchers`: [(kaynak_kimliği, fn(konu, soru)->metin)]. `fetcher` tek kaynak kısayoludur."""
+        if fetchers is None:
+            if fetcher is not None:
+                fetchers = [("web:kaynak-1", fetcher)]
+            else:
+                fetchers = list(agi.life.sources) or [("web:tr.wikipedia.org", lambda t, q: self._default_wiki_tr_fetch(t))]
+        results, tried = [], set()
         for _ in range(max_topics):
             target, query = self.top_curiosity_target(agi.lang.graph)
-            if target is None:
+            if target is None or target in tried:
                 break
+            tried.add(target)
             self.researched_concepts.add(target)
-            raw_article = ""
-            if fetcher is not None:
-                raw_article = str(fetcher(target, query) or "")
-            else:
-                raw_article = self._default_wiki_tr_fetch(target)
-
-            if raw_article.strip():
-                dig = self.digest_unsupervised_text(raw_article, agi, source="internet_keşfi")
-                rec = {"target": target, "query": query, "learned": dig["edges_learned"], "rejected": dig["rejected_by_self"]}
-                results.append(rec)
-                self.last_research_log.append(rec)
-                if len(self.last_research_log) > 25:
-                    self.last_research_log.pop(0)
+            staged, rejected = 0, []
+            for sid, fn in fetchers:
+                raw_article = str(fn(target, query) or "")
+                if raw_article.strip():
+                    r = agi.life.pool.ingest(agi, raw_article, sid, target)
+                    staged += len(r["staged"])
+                    rejected += r["rejected"]
+            promoted = agi.life.pool.promote_ready(agi)
+            self.autonomous_discoveries += len(promoted)
+            self.rejected_claims += len(rejected)
+            rec = {"target": target, "query": query, "learned": [p["triple"] for p in promoted],
+                   "staged": staged, "rejected": rejected}
+            results.append(rec)
+            self.last_research_log.append(rec)
+            if len(self.last_research_log) > 25:
+                self.last_research_log.pop(0)
+            if staged and not promoted:
+                self.researched_concepts.discard(target)   # tek kaynak yetmedi: konu merak listesinde kalır
         return results
 
     @staticmethod
