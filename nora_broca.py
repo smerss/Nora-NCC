@@ -1836,26 +1836,42 @@ class GenerativeBrocaOrgan:
             raw_thought_nodes.append(f"HOMEOSTATİK_UYARI({urgent_lbl}+azal)")
 
         if not clauses_out:
-            # Açık-uçlu yeni düşünce: çıplak köklerden seçilen şemaya uygun çalışma belleği yansıması
-            focus = u["stems"][0] if u["stems"] else "düşünce"
-            v_ref = self.lex_sel.pick("VERB_REFLECT", chem)
-            c_open = self.syn.realize_verb(VerbSpec(
-                verb_root=v_ref,
-                obj=NP(focus, mods=("paylaştığın",), case="ACC"),
-                loc=NP("zihin", poss=1, case="LOC"),
-                tense="PRES", person="1SG",
-            ))
-            c_open2 = self.syn.realize_verb(VerbSpec(
-                verb_root="ara",
-                obj=NP("bağ", mods=("yeni",), case="NOM"),
-                advs=(f"{focus} etrafında",),
-                tense="PRES", person="1SG",
-            ))
-            if schema_cx is not None:
-                clauses_out.append(schema_cx.transform_clauses(c_open, c_open2, inner_intro, schema_id))
+            # Söylem organı: anlaşılamayan sözde ne yapacağına plastik ağırlıklarla karar verir
+            # (alıntı + açıklama isteği / kavram komşusu / dürüst bilmiyorum / duygudaşlık).
+            # Fiil kökünü nesne sanıp "uyuyu düşünüyorum" demek yerine insan gibi davranır.
+            disc = getattr(agi, "discourse", None)
+            disc_res = None
+            if disc is not None:
+                try:
+                    tension_v = float(getattr(chem, "cort", 0.0))
+                    cheer_v = float(getattr(chem, "dop", 0.0))
+                    val_v = float(getattr(chem, "oxy", 0.0)) - float(getattr(chem, "cort", 0.0))
+                    disc_res = disc.respond(raw, agi, tension=tension_v, cheer=cheer_v, valence=val_v)
+                except Exception:
+                    disc_res = None
+            if disc_res and disc_res.get("text"):
+                clauses_out.append(disc_res["text"])
+                raw_thought_nodes.append(f"SÖYLEM[{disc_res['act']}]")
             else:
+                # Son çare: kökten kurulan, dilbilgisel olarak güvenli açık yansıma
+                focus_raw = u["stems"][0] if u["stems"] else "düşünce"
+                # Fiil kökü nesne olamaz: mastar hâline getir (uyu -> uyumak), isim ise olduğu gibi
+                _an = morph.analyze_word(focus_raw, graph.lexicon)
+                if _an.get("is_verb"):
+                    _v = tr_lower(focus_raw)
+                    _back = set("aıou")
+                    focus = _v + ("mak" if any(ch in _back for ch in _v) else "mek")
+                else:
+                    focus = focus_raw
+                v_ref = self.lex_sel.pick("VERB_REFLECT", chem)
+                c_open = self.syn.realize_verb(VerbSpec(
+                    verb_root="düşün",
+                    obj=NP("şey", mods=("paylaştığın",), case="NOM"),
+                    advs=(f"{focus} hakkında",),
+                    tense="PRES", person="1SG",
+                ))
                 clauses_out.append(tr_capitalize(c_open) + ".")
-            raw_thought_nodes.append(f"AÇIK_YANSIMA[{schema_id}]({focus}->{v_ref})")
+                raw_thought_nodes.append(f"AÇIK_YANSIMA[{schema_id}]({focus}->{v_ref})")
 
         # --- EDİM 8: İradeye Bağlı Karşı Soru Üretimi (YALNIZCA ask_back=True ise!) ---
         if plan["ask_back"] and not u["asks_curiosity_prompt"] and "?" not in clauses_out[-1]:
@@ -1975,19 +1991,40 @@ class GenerativeBrocaOrgan:
                 "speech_plan": plan_dict,
             }
 
-        focus = u["stems"][0] if u["stems"] else "düşünce"
-        v_ref = self.lex_sel.pick("VERB_REFLECT", chem)
-        c_open = self.syn.realize_verb(VerbSpec(
-            verb_root=v_ref,
-            obj=NP(focus, mods=("bu",), case="ACC"),
-            loc=NP("bellek", poss=1, mods=("çalışma",), case="LOC"),
-            tense="PRES", person="1SG",
-        ))
-        clauses.append(tr_capitalize(c_open) + ".")
-        nodes.append(f"ÇALIŞMA_BELLEĞİ({focus}->{v_ref})")
+        # --- SÖYLEM ORGANI: anlaşılamayan sözde ne yapacağına plastik ağırlıklarla karar verir ----
+        # (Fiil kökünü nesne sanıp "uyuyu düşünüyorum" demek yerine: alıntı + soru, kavram komşusu,
+        #  dürüst "bilmiyorum", duygudaşlık. Yüzey cümleler yine sözdizimi motorundan çıkar.)
+        disc_res = None
+        disc = getattr(agi, "discourse", None)
+        if disc is not None and not clauses:
+            try:
+                disc_res = disc.respond(raw, agi,
+                                        tension=float(getattr(chem, "cort", 0.0)),
+                                        cheer=float(getattr(chem, "dop", 0.0)),
+                                        valence=float(getattr(chem, "oxy", 0.0)) - float(getattr(chem, "cort", 0.0)))
+            except Exception:
+                disc_res = None
+        if disc_res and disc_res.get("text"):
+            clauses.append(disc_res["text"])
+            nodes.append(f"SÖYLEM[{disc_res['act']}]")
+            focus = u["stems"][0] if u["stems"] else "düşünce"
+        else:
+            focus = u["stems"][0] if u["stems"] else "düşünce"
+            _an = morph.analyze_word(focus, graph.lexicon)
+            if _an.get("is_verb"):
+                _v = tr_lower(focus)
+                focus = _v + ("mak" if any(ch in set("aıou") for ch in _v) else "mek")
+            c_open = self.syn.realize_verb(VerbSpec(
+                verb_root="düşün",
+                obj=NP("şey", mods=("paylaştığın",), case="NOM"),
+                advs=(f"{focus} hakkında",),
+                tense="PRES", person="1SG",
+            ))
+            clauses.append(tr_capitalize(c_open) + ".")
+            nodes.append(f"AÇIK_YANSIMA({focus})")
         monologue_a = getattr(agi, "monologue", None)
         allow_assoc_q = (monologue_a.last_thought.allow_question if (monologue_a is not None and monologue_a.last_thought is not None) else True)
-        if allow_assoc_q and agi.self_model.traits["meraklılık"] >= 0.48 and "?" not in raw and chem.trust_of(speaker) >= 0.35:
+        if (not disc_res) and (not clauses[-1].endswith("?")) and allow_assoc_q and agi.self_model.traits["meraklılık"] >= 0.48 and chem.trust_of(speaker) >= 0.35:
             q_open = self.syn.realize_verb(VerbSpec(
                 verb_root="iste",
                 obj=self.syn.nominalize_inf("aç", obj=NP(focus, mods=("bu",), case="ACC"), advs=("biraz",)),

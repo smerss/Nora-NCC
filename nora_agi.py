@@ -39,6 +39,7 @@ import numpy as np
 
 from dataclasses import dataclass
 from nora_life import BackgroundLife
+from nora_discourse import DiscourseCortex
 from nora_initiative import InitiativeCortex
 from nora_voice import state_vector
 from nora_world import Universe
@@ -354,6 +355,7 @@ class NoraAGI:
         self.life = BackgroundLife(seed=seed + 71)
         # Kimse konuşmazken konuşan organ: hangi hâlde ne söyleyeceğini yaşayarak öğrenir
         self.initiative = InitiativeCortex(seed=seed + 91)
+        self.discourse = DiscourseCortex(seed=seed + 137, lexicon=self.lang.graph.lexicon)
         self.last_proactive: dict | None = None
         for path in (corpus or []):
             self.read_corpus(path)
