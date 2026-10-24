@@ -1372,6 +1372,59 @@ def a45_background_loop_stability_o1():
     return ok, f"tick {first * 1e3:.2f}->{last * 1e3:.2f} ms | sınırlı={bounded} | kalıcılık={same}"
 
 
+def a46_neural_broca_structural_no_hallucination():
+    """Sinirsel Broca organı: içerik parçaları YALNIZCA zihnin verdiği çapadan seçilebilir (sözcük maskesi);
+    tek geçiş (epoch yok) çevrimiçi öğrenme kaybı düşürür; kayıt/yükleme aynı sözü verir."""
+    import torch
+    from nora_voice import SubwordTokenizer, NF
+    from nora_broca_net import BrocaOrgan
+    torch.manual_seed(0)
+    corpus = open(_DOC_CORPUS[0], encoding="utf-8").read().split("\n") + open(_DOC_CORPUS[1], encoding="utf-8").read().split("\n")
+    corpus = [l for l in corpus if len(l.split()) >= 5]
+    tk = SubwordTokenizer()
+    tk.train(corpus, vocab_size=1500)
+    org = BrocaOrgan(tk, seed=3, d=48, h=96)
+    st = np.full(NF, 0.4)
+    losses = [org.learn_batch(corpus[i:i + 32], st) for i in range(0, min(len(corpus), 640), 32)]
+    org.update_common(150)
+    ok_learn = float(np.mean(losses[-3:])) < float(np.mean(losses[:3]))
+    anchor = "zirkonyum"
+    seqs = org.generate(st, [anchor], n=12, temperature=1.0)
+    allowed = set(org.common_ids.tolist()) | set(tk.tk.encode(anchor).ids) | {org.net.eos}
+    leaked = [i for q in seqs for i in q if i not in allowed]
+    with tempfile.TemporaryDirectory() as td:
+        pth = os.path.join(td, "b.pt")
+        org.save(pth)
+        org2 = BrocaOrgan.load(pth)
+        same = all(torch.allclose(a, b) for a, b in zip(org.net.state_dict().values(), org2.net.state_dict().values()))
+    ok = ok_learn and not leaked and same
+    return ok, f"tek-geçiş kayıp {np.mean(losses[:3]):.2f}->{np.mean(losses[-3:]):.2f} | çapa-dışı içerik sızıntısı={len(leaked)} | kayıt tutarlı={same}"
+
+
+def a47_neural_broca_trained_stance_and_honesty():
+    """Eğitilmiş Broca (data/broca_tr.pt): bilmediği kavramı uydurmaz, çapayı anıp soru sorar; öğrendiğini bildirir;
+    sözün içeriği yalnızca zihnin verdiği çapalardan oluşur. (Ağırlık dosyası yoksa atlanır.)"""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "broca_tr.pt")
+    if not os.path.exists(path):
+        return True, "ağırlık dosyası yok: atlandı"
+    agi = NoraAGI(seed=47, boot_thinker=False, broca=path)
+    qs = []
+    for c in ("mitokondri", "magnetar", "entropi_x"):
+        r = agi.speak_unknown(c)
+        qs.append((c, r))
+    ok_q = all(r.rstrip().endswith("?") and c.split("_")[0][:5] in tr_lower(r) for c, r in qs)
+    org = agi.life.voice.organ
+    com = set(org.common_ids.tolist())
+    anchor_ids = set(org.tok.tk.encode("mitokondri").ids)
+    leaked = 0
+    from nora_voice import state_vector
+    st = state_vector(agi, nov=1.0, fam=0.0, conf=0.0, tension=0.5)
+    for q in org.generate(st, ["mitokondri"], n=24, temperature=1.0):
+        leaked += sum(1 for i in q if i not in com and i not in anchor_ids and i != org.net.eos)
+    ok = ok_q and leaked == 0
+    return ok, f"bilinmeyende soru+çapa={ok_q} {[r for _, r in qs]} | çapa-dışı içerik sızıntısı={leaked}"
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -1418,6 +1471,8 @@ TESTS = {
     "A43": ("eksik tamamlama iradesi: sosyal kalıp boşluğu -> otonom araştırma", a43_self_completion_drive_social_gap),
     "A44": ("arka plan yaşamı: CA3 tarama, gerilim defteri, kendiliğinden mesaj", a44_background_life_autonomy),
     "A45": ("arka plan döngüsü kararlılığı: O(1) tick, sınırlı yapılar, kalıcılık", a45_background_loop_stability_o1),
+    "A46": ("sinirsel Broca: tek geçiş öğrenme + yapısal halüsinasyon engeli", a46_neural_broca_structural_no_hallucination),
+    "A47": ("eğitilmiş Broca: bilmediğinde uydurmaz, çapayı anıp merak eder", a47_neural_broca_trained_stance_and_honesty),
 }
 
 
