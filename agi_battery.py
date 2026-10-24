@@ -1505,6 +1505,47 @@ def a49_initiative_content_and_habituation():
                 f"tekrarsız oran={unique_ratio:.2f} ({len(said)} söz)")
 
 
+def a50_world_knowledge_from_corpus():
+    """Dünya bilgisi hattı (nora_besle): kavram–ilişki–kavram besini tek geçişte yerleşir ve
+    Nora daha önce hiç duymadığı kavramları da (ISA kalıtımıyla) yanıtlayabilir."""
+    from nora_lang import tr_lower
+    from nora_besle import besle
+
+    agi = NoraAGI(seed=50, boot_thinker=False)
+    agi.step_life(200)
+    rep = besle(agi, verbose=False)
+    qs = ["Zürafa nedir?", "Merkür nedir?", "Kalp ne yapar?", "Beyin ne yapar?",
+          "Buz nedir?", "Ses boşlukta yayılır mı?", "Penguen uçar mı?",
+          "Antalya nerede?", "Güneş nedir?", "Ay nedir?", "Arı ne yapar?", "Matematik nedir?"]
+    answered = [q for q in qs if "bilgim yok" not in tr_lower(agi.converse(q))]
+    ok_cov = len(answered) >= 10
+    honest = "bilgim yok" in tr_lower(agi.converse("Ksilofonit nedir?"))
+    ok = ok_cov and honest and rep["graph_edges"] > 300
+    return ok, (f"kapsam {len(answered)}/{len(qs)} | dürüstlük={honest} | "
+                f"kenar={rep['graph_edges']} | kavram={rep['concepts']}")
+
+
+def a51_turkish_possession_and_case():
+    """Türkçe sahiplik/iyelik ve belirtisiz nesne: 'zürafanın uzun boynu var' doğru kurulur,
+    'boyundur' gibi hatalı koşaç yok; sözlükte olmayan kelime uydurma köke soyulmaz."""
+    from nora_lang import TurkishMorphology as M, tr_lower
+    from nora_besle import besle
+
+    agi = NoraAGI(seed=51, boot_thinker=False)
+    agi.step_life(150)
+    besle(agi, verbose=False)
+    r_z = tr_lower(agi.converse("Zürafa nedir?"))
+    ok_part = "boynu var" in r_z and "boyundur" not in r_z
+    r_f = tr_lower(agi.converse("Fil nedir?"))
+    ok_f = "hortumu var" in r_f
+    an = M.analyze_word("matematik", agi.lang.graph.lexicon)
+    ok_stem = an["stem"] == "matematik" and not an["is_verb"]
+    res = agi.proactive_line("", tension=0.3, idle=1.0)
+    ok_obj = res is None or "bir şeyi" not in tr_lower(res["text"])
+    ok = ok_part and ok_f and ok_stem and ok_obj
+    return ok, f"iyelik(parça)={ok_part} | hortum={ok_f} | kök-güvenliği={ok_stem} | nesne={ok_obj}"
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -1555,6 +1596,8 @@ TESTS = {
     "A47": ("eğitilmiş Broca: bilmediğinde uydurmaz, çapayı anıp merak eder", a47_neural_broca_trained_stance_and_honesty),
     "A48": ("sorulmadan konuşma: sessizlikte kendiliğinden söz, spam yok, diyaloğa dönüş", a48_spontaneous_speech_without_prompt),
     "A49": ("inisiyatif sözü içerikten gelir (bağ/beden), yüzde yok, alışmayla tekrarsız", a49_initiative_content_and_habituation),
+    "A50": ("corpus'tan dünya bilgisi (kavram/ilişki) ve bilinmeyende dürüstlük", a50_world_knowledge_from_corpus),
+    "A51": ("Türkçe iyelik/sahiplik ve sözlük-güvenli kök çözümleme", a51_turkish_possession_and_case),
 }
 
 
