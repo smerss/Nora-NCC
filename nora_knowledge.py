@@ -87,6 +87,15 @@ REVERSE_VOWEL_DROP: dict[str, str] = {v: k for k, v in VOWEL_DROP_STEMS.items() 
 # Orta-İleri Türkçe Temel Fiil Kökleri Dağarcığı (Günlük yaşam + iletişim + bilim + soyut muhakeme)
 # Kişinin kendi hâlini bildiren sıfatlar (1. kişi koşacıyla: 'yorgunum', 'yalnızım', 'mutluyum').
 # Bunlar bir OLGU değil, o anki yaşantıdır; Nora bunlara bilgi maddesiyle değil, duygudaşlıkla karşılık verir.
+# Özel adlar: Türkçede kesme işaretiyle çekimlenir ve büyük harfle yazılır
+# ("Himalaya'da", "Antalya'da", "Mars'ta").
+PROPER_NOUNS: set[str] = {
+    "himalaya", "everest", "antalya", "istanbul", "ankara", "izmir", "bursa", "adana", "konya",
+    "türkiye", "ankara", "mars", "jüpiter", "satürn", "venüs", "merih", "güneş", "ay",
+    "avrupa", "asya", "afrika", "amerika", "akdeniz", "karadeniz", "ege", "nora", "atlas",
+    "nil", "amazon", "sahra", "kafkas", "toros", "alpler", "pasifik", "atlantik",
+}
+
 STATE_ADJECTIVES: set[str] = {
     "yorgun", "yalnız", "mutlu", "üzgün", "kötü", "iyi", "aç", "tok", "susuz", "korkmuş",
     "heyecanlı", "sıkılmış", "sıkıntılı", "dingin", "huzurlu", "huzursuz", "gergin", "rahat",
