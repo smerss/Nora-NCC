@@ -149,20 +149,25 @@ def participle_form(cls, root: str, kind: str = "an", neg: bool = False,
     if not v:
         return ""
     k = str(kind or "").lower()
+    if v in ("de", "ye") and not neg and k in ("an", "en", "acak", "ecek", "is", "ış", "uş", "üş"):
+        v = "di" if v == "de" else "yi"          # diyen, diyecek, diyiş / yiyen, yiyecek
     v_s = soften_verb_t(v)
     buf = "y" if v_s[-1] in ALL_VOWELS else ""
     v4 = _v4(cls, v_s)
     ea = _ea(cls, v_s)
     body = (v + "m" + _ea(cls, v)) if neg else v
     if k in ("an", "en"):
-        return _possessive(cls, f"{body}{buf}{ea}n", poss, case)
+        # Olumlu: ünsüz yumuşaması ('git' -> giden). Olumsuz: -mA + y + An ('gelmeyen').
+        _stem = body if neg else v_s
+        _buf = "y" if _stem[-1] in ALL_VOWELS else ""
+        return _possessive(cls, f"{_stem}{_buf}{ea}n", poss, case)
     if k in ("dik", "dık", "diğ", "dig"):
         d = cls.dental_d_t(body)
         if poss:
             return _possessive_soft(cls, f"{body}{d}{v4}ğ", poss, case)
         return f"{body}{d}{v4}k"
     if k in ("acak", "ecek"):
-        base = f"{body}{buf}{'aca' if ea == 'a' else 'ece'}k"
+        base = f"{v_s if not neg else body}{buf}{'aca' if ea == 'a' else 'ece'}k"
         if poss:
             return _possessive_soft(cls, base[:-1] + "ğ", poss, case)
         return _possessive(cls, base, poss, case)
@@ -171,7 +176,7 @@ def participle_form(cls, root: str, kind: str = "an", neg: bool = False,
     if k in ("maz", "mez"):
         return _possessive(cls, f"{body}m{ea}z", poss, case)
     if k in ("is", "ış", "uş", "üş"):
-        return _possessive(cls, f"{body}{buf}{v4}ş", poss, case)
+        return _possessive(cls, f"{v_s if not neg else body}{buf}{v4}ş", poss, case)
     if k in ("ma", "me"):
         return _possessive(cls, f"{body}m{ea}", poss, case)
     return ""

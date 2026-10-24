@@ -152,6 +152,8 @@ CORE_TURKISH_VERBS: set[str] = {
     "okşa", "gülümse", "kızar", "çağır", "uyut", "emzir", "büyüt", "yetiştir", "öde", "borçlan", "satın",
     "sat", "kirala", "ödünç", "dile", "dua", "karar", "özlem", "anımsa", "çekiştir", "dürt", "tekmele",
     "yumrukla", "sık", "gevşet", "bağır", "inle", "ağla", "sızla", "titri", "terle", "kana", "uyukla",
+    # Sık kullanılan düzensiz/yardımcı kökler ('de-' -> diyor, 'ye-' -> yiyor)
+    "de", "koy", "san", "doy", "duy", "kay",
     # Hayvan sesleri ve doğa olayları
     "öt", "havla", "miyavla", "mele", "kişne", "anır", "böğür", "gıdakla", "ötüş", "uğulda", "şimşekle",
     "gürle", "patla", "fokurda", "damla", "karla", "yağmurla", "es",

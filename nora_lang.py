@@ -117,6 +117,8 @@ class TurkishMorphology:
             cls.KNOWN_VERB_ROOTS.discard(r)
         cls.LEARNED_VERB_ROOTS.clear()
         cls._VERB_EVIDENCE.clear()
+        cls._VERB_INDEX.clear()
+        cls._VERB_INDEX_ROOTS.clear()
         cls._ANALYZE_CACHE.clear()
 
     @classmethod
@@ -141,6 +143,8 @@ class TurkishMorphology:
             return False
         cls.KNOWN_VERB_ROOTS.add(r)
         cls.LEARNED_VERB_ROOTS.add(r)
+        if cls._VERB_INDEX_ROOTS:
+            cls._index_root(r)
         return True
 
     CONVERB_KINDS = ("erek", "ip", "inca", "ken", "dikce", "madan", "ali", "diginda", "maksizin")
@@ -156,18 +160,23 @@ class TurkishMorphology:
                 break
         if not v:
             return ""
+        # 'de-'/'ye-' ünlüyle başlayan ulaç ekinden önce daralır: diyerek, diyip, diyince, diyeli
+        if v in ("de", "ye") and not neg and k in ("erek", "arak", "ip", "ip ", "inca", "ince",
+                                                   "-inca", "nca", "ali", "eli", "-alı"):
+            v = "di" if v == "de" else "yi"
         v_s = soften_verb_t(v)
         buf = "y" if v_s[-1] in ALL_VOWELS else ""
         v4 = cls.vowel_4(v_s)
         ea = cls.vowel_e_a(v_s)
         body = (v + "m" + cls.vowel_e_a(v)) if neg else v
+        _negv4 = "ı" if ea == "a" else "i"          # -mA'dan sonra dar ünlü: okuma-y-ıp
         if k in ("erek", "arak"):
-            return f"{v_s}{buf}{ea}r{ea}k" if not neg else f"{body}{ea}r{ea}k"
+            return f"{v_s}{buf}{ea}r{ea}k" if not neg else f"{body}y{ea}r{ea}k"
         if k in ("ip", "ip "):
-            return f"{v_s}{buf}{v4}p" if not neg else f"{body}{v4}p"
+            return f"{v_s}{buf}{v4}p" if not neg else f"{body}y{_negv4}p"
         if k in ("inca", "ince", "-inca", "nca"):
             if neg:
-                return f"{body}{v4}n{c if False else ('ca' if v4 in 'ıu' else 'ce')}"
+                return f"{body}y{'ınca' if ea == 'a' else 'ince'}"      # gelmeyince, okumayınca
             return f"{v_s}{buf}{v4}n{('ca' if v4 in 'ıu' else 'ce')}"
         if k in ("ken", "-ken"):
             # Geniş zaman + ken: 'konuşurken', 'başlarken', 'konuşmazken'
@@ -176,7 +185,8 @@ class TurkishMorphology:
         if k in ("dikce", "dıkça", "dikçe", "-dıkça"):
             b = body
             dt = cls.dental_d_t(b)
-            return f"{b}{dt}{v4}k{'ça' if v4 in 'ıu' else 'çe'}"
+            b4 = cls.vowel_4(b)          # okumadıkça (ma->ı), gelmedikçe (me->i)
+            return f"{b}{dt}{b4}k{'ça' if b4 in 'ıu' else 'çe'}"
         if k in ("madan", "meden", "-madan"):
             return f"{v}m{ea}d{ea}n"
         if k in ("ali", "eli", "-alı"):
@@ -184,7 +194,8 @@ class TurkishMorphology:
         if k in ("diginda", "dığında", "diğinde", "-dığında"):
             b = body
             dt = cls.dental_d_t(b)
-            return f"{b}{dt}{v4}ğ{v4}nd{'a' if v4 in 'ıu' else 'e'}"
+            b4 = cls.vowel_4(b)          # okumadığında, gelmediğinde
+            return f"{b}{dt}{b4}ğ{b4}nd{'a' if b4 in 'ıu' else 'e'}"
         if k in ("maksizin", "meksizin", "-maksızın"):
             return f"{v}m{ea}k{'sızın' if ea == 'a' else 'sizin'}"
         return ""
@@ -649,6 +660,10 @@ class TurkishMorphology:
                 return f"{v}m{ea}y{cls.vowel_4(ea)}z"
             if p == "2SG":
                 return f"{v}m{ea}zs{cls.vowel_4(ea)}n"
+            if p == "2PL":
+                return f"{v}m{ea}zs{cls.vowel_4(ea)}n{cls.vowel_4(ea)}z"
+            if p in ("3PL", "PL"):
+                return f"{v}m{ea}zl{ea}r"
             return f"{v}m{ea}z"
 
         if v in {"git", "et"} or v.endswith("det"):
@@ -758,6 +773,99 @@ class TurkishMorphology:
 
     _FINITE_BY_LAST: dict[str, tuple] = {}
 
+    # --- ÇEKİM İNDEKSİ ---------------------------------------------------------
+    # Üretim tek kaynak: her kök için çekilebilen TÜM yüzeyler bir kez sentezlenir,
+    # çözümleme bu indeksten O(1) okur. Böylece üretim ile çözümleme asla ayrışmaz.
+    _VERB_INDEX: dict[str, tuple] = {}
+    _VERB_INDEX_ROOTS: set = set()
+    _INDEX_TENSES: tuple = ("PRES", "PAST", "FUT", "AOR", "NEC", "EVID", "OPT", "COND",
+                            "PRES_HIK", "AOR_HIK", "FUT_HIK", "EVID_HIK", "NEC_HIK",
+                            "PRES_RIV", "AOR_RIV", "FUT_RIV", "PRES_SART", "AOR_SART",
+                            "FUT_SART", "EVID_SART", "NEC_SART")
+
+    @classmethod
+    def _index_root(cls, root: str) -> None:
+        """Bir kökün çekilebilen TÜM yüzeylerini indekse yazar (fiil, ulaç, sıfat-fiil, emir)."""
+        if root in cls._VERB_INDEX_ROOTS or not root or len(root) < 2:
+            return
+        if root.endswith(("ma", "me")) and len(root) > 3 and (
+                root[:-2] in cls.KNOWN_VERB_ROOTS or cls._unsoften(root[:-2]) in cls.KNOWN_VERB_ROOTS):
+            cls._VERB_INDEX_ROOTS.add(root)      # 'okuma' bir AD; çekim onun kökünden gelir
+            return
+        cls._VERB_INDEX_ROOTS.add(root)
+
+        def put(surf: str, entry: tuple) -> None:
+            if not surf or surf == root:
+                return
+            bucket = cls._VERB_INDEX.get(surf)
+            if bucket is None:
+                cls._VERB_INDEX[surf] = (entry,)
+            elif entry not in bucket and len(bucket) < 5:
+                cls._VERB_INDEX[surf] = bucket + (entry,)
+
+        # 1) bitmiş fiil çekimleri (basit + birleşik zaman)
+        for t in cls._INDEX_TENSES:
+            for p in ("1SG", "2SG", "3SG", "1PL", "2PL", "3PL"):
+                for ng in (False, True):
+                    try:
+                        put(cls.conjugate_verb(root, t, neg=ng, person=p), (root, t, p, ng))
+                    except Exception:
+                        continue
+        # 2) ulaçlar
+        _conv_map = {"erek": "EREK", "arak": "EREK", "ip": "IP", "inca": "INCA", "ken": "KEN",
+                     "dikce": "DIKCA", "madan": "MADAN", "ali": "ALI", "diginda": "DIGINDA",
+                     "maksizin": "MAKSIZIN"}
+        if hasattr(cls, "converb_form"):
+            for k in cls.CONVERB_KINDS:
+                for ng in (False, True):
+                    try:
+                        surf = cls.converb_form(root, k, neg=ng)
+                    except Exception:
+                        continue
+                    put(surf, (root, "CONV:" + _conv_map.get(k, k.upper()), "", ng))
+        # 3) sıfat-fiiller / isim-fiiller
+        if hasattr(cls, "participle_form"):
+            for k in ("an", "dik", "acak", "mis", "maz", "is", "ma"):
+                try:
+                    surf = cls.participle_form(root, k)
+                except Exception:
+                    continue
+                put(surf, (root, "PART:" + k.upper(), "", False))
+        # 4) emir kipi (kişiye göre gövde değişir)
+        if hasattr(cls, "imperative_form"):
+            for p in ("2SG", "2PL", "3SG", "3PL"):
+                for ng in (False, True):
+                    try:
+                        surf = cls.imperative_form(root, p, neg=ng)
+                    except Exception:
+                        continue
+                    put(surf, (root, "IMP", p, ng))
+
+    @classmethod
+    def _ensure_verb_index(cls) -> None:
+        for r in tuple(cls.KNOWN_VERB_ROOTS):
+            if r not in cls._VERB_INDEX_ROOTS:
+                cls._index_root(r)
+
+    @classmethod
+    def _index_lookup(cls, w: str) -> dict | None:
+        cls._ensure_verb_index()
+        bucket = cls._VERB_INDEX.get(w)
+        if not bucket:
+            return None
+        root, tag, person, neg = bucket[0]
+        if tag.startswith("CONV:"):
+            return {"stem": root, "case": "NOM", "is_verb": True,
+                    "converb": tag[5:], "neg": neg}
+        if tag.startswith("PART:"):
+            pk = tag[5:]
+            out = {"stem": root, "case": "NOM", "is_verb": True, "participle": pk, "neg": neg}
+            if pk in ("MA", "IS"):
+                out["verbal_noun"] = pk
+            return out
+        return {"stem": root, "case": "NOM", "is_verb": True, "tense": tag,
+                "person": person, "neg": neg}
+
     @classmethod
     def _finite_index(cls) -> dict[str, tuple]:
         """Ekleri son harfe göre indeksler: her sözcükte 50 ek denemek yerine ~6 aday denenir (O(1) hız)."""
@@ -771,7 +879,11 @@ class TurkishMorphology:
     @classmethod
     def _finite_verb(cls, w: str) -> dict | None:
         """Bitmiş fiil biçimini (kök + zaman + kişi) çözer; yalnızca sözlükteki kökler kabul edilir."""
-        # Birleşik zaman (hikâye/rivayet/şart): 'geliyordum', 'gelirmiş', 'gelecektim'
+        # 1) SENTEZ İNDEKSİ — üretimin aynısı; üretilebilen her biçim çözülebilir.
+        _hit = cls._index_lookup(w)
+        if _hit is not None:
+            return _hit
+        # 2) Birleşik zaman (hikâye/rivayet/şart): 'geliyordum', 'gelirmiş', 'gelecektim'
         if hasattr(cls, "analyze_compound_tense") and re.search(
                 r"(du|dü|dı|di|tu|tü|tı|ti|muş|müş|mış|miş|sa|se)(m|n|k|niz|nız|nuz|nüz|ler|lar|um|üm|ım|im|sun|sün|sın|sin|uz|üz|ız|iz)?$", w):
             _cmp = cls.analyze_compound_tense(w)
