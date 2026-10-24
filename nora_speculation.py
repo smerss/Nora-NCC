@@ -24,7 +24,7 @@ from nora_lang import Proposition, tr_capitalize, tr_lower
 
 _STOP = {"bir", "bu", "şu", "o", "her", "çok", "daha", "en", "ve", "da", "de", "ki", "mi", "mı",
          "mu", "mü", "için", "ile", "gibi", "kadar", "ama", "ancak", "fakat", "çünkü", "zaman",
-         "biz", "siz", "onlar", "bana", "sana", "beni", "seni", "bunu",
+         "biz", "siz", "onlar", "bana", "sana", "beni", "seni", "bunu", "çünkü",
          "nasıl", "neden", "niye", "nerede", "nereye", "nereden", "kim", "ne", "hangi", "kaç",
          "bazı", "bütün", "tüm", "birkaç", "hiç", "hep", "kendi", "şey", "şeyler",
          "iki", "üç", "dört", "beş", "altı", "yedi", "sekiz", "dokuz", "on"}
@@ -68,6 +68,9 @@ class SpeculativeCortex:
         stem = an.get("stem") or w
         case = str(an.get("case", "NOM")).upper()
         plural = bool(an.get("plural"))
+        # Yüzey biçim ağda BAĞ taşıyorsa ve kökü boşsa, sözcük olduğu gibi alınır ('gece' -> 'geç'+DAT değil).
+        if stem != w and w in g._out_edges and not g.query(stem, None):
+            return w, "NOM", plural, False
         # Biçimbilim kökü yüzeyden farklıysa ve ağda karşılığı varsa o kazanır ('köpekler' -> 'köpek').
         if stem != w and (stem in g.lexicon or g.query(stem, None)):
             return stem, case, plural, False
@@ -124,10 +127,19 @@ class SpeculativeCortex:
                     _an = {}
                 if _an.get('copula') or _an.get('plural'):
                     continue
-                cand = t[:-1]
-                if cand and cand[-1] in 'aeıioöuü':
+                roots = []
+                if t.endswith(('ar', 'er', 'ır', 'ir', 'ur', 'ür')):
+                    roots.append(t[:-2])          # kal-ır, yap-ar
+                cand1 = t[:-1]
+                if cand1 and cand1[-1] in 'aeıioöuü':
+                    roots.append(cand1)           # mırla-r, esne-r
+                known = next((c for c in roots if c in agi.lang.morph.KNOWN_VERB_ROOTS
+                              or g.query(c, None) or c in g.lexicon), None)
+                cand = known or (cand1 if cand1 and cand1[-1] in 'aeıioöuü' else (roots[0] if roots else ''))
+                if cand and len(cand) >= 2:
                     verb, verb_idx = cand, _i
                     nouns = [n for n in nouns if not (verb.startswith(n[0]) and len(n[0]) >= 2)]
+                if verb:
                     break
         if not verb:
             # Sözlükte olmayan ama fiil gibi görünen sözcük ('mırlar' -> 'mırla'): gövde tahmini.
@@ -212,6 +224,8 @@ class SpeculativeCortex:
         broca = agi.lang.broca
         out: list[str] = []
         order = {"HAS_PROP": 0, "CAN_DO": 1, "USED_FOR": 2, "CAUSES": 3, "HAS_PART": 4, "ISA": 5}
+        if background:
+            order = {"CAN_DO": 0, "HAS_PART": 1, "HAS_PROP": 2, "USED_FOR": 3, "CAUSES": 4, "ISA": 6}
         if q.get("wh") in ("neden", "niye", "niçin"):
             order = {"CAUSES": 0, "USED_FOR": 1, "CAN_DO": 2, "HAS_PROP": 3, "HAS_PART": 4, "ISA": 5}
         _asked = tr_lower(q.get("raw", ""))
