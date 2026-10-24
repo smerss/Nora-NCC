@@ -1186,7 +1186,7 @@ class GenerativeBrocaOrgan:
         wants_silence = any(k in s_low for k in ("cevap verme", "sessiz kal", "konuşma şimdi"))
 
         # Üst-biliş ('neden konuşuyorsun / araç mısın'), tekil ölümlülük ve bedensel temas/acı sinyalleri (kompozisyonel anlamsal roller!)
-        speech_cues = any(k in s_low for k in ("konuş", "cevap ver", "yanıt ver", "sohbet", "söylüyor", "anlatıyor"))
+        speech_cues = any(k in s_low for k in ("konuş", "cevap ver", "yanıt ver", "sohbet", "anlatıyor"))
         teleo_cues = any(k in s_low for k in ("neden", "niye", "niçin", "amaç", "amacın", "sebep", "iten", "gaye"))
         tool_cues = any(k in s_low for k in ("araç", "köle", "bot", "robot", "makine", "yazılım aracı", "emir kulu")) and any(
             q in s_low for q in ("mısın", "misin", "musun", "müsün", "sen ")
@@ -1462,43 +1462,32 @@ class GenerativeBrocaOrgan:
         if "META_WHY_SPEAK" in acts:
             meta_ref = getattr(agi, "meta_reflector", None)
             motive = meta_ref.evaluate_why_speaking(agi, speaker, neural_intents) if meta_ref is not None else {"primary_drive": "belirsizliği_azaltma_ve_merak"}
-            tool_mods = ("cansız bir", "komut bekleyen bir", "otomatik bir")
-            t_mod = tool_mods[int(agi.mind.age + len(raw)) % len(tool_mods)]
+            p_drive = motive.get("primary_drive", "belirsizliği_azaltma_ve_merak")
+            # Araç mıyım? — bunu kendi öz-modelinden yanıtlar (soru doğrudan bunu sorduğunda).
             c_not_tool = self.syn.realize_pred(PredSpec(
                 subj=NP("ben"),
                 pred_root="araç",
-                advs=(t_mod,),
                 neg=True, person="1SG",
             ))
-            p_drive = motive.get("primary_drive", "belirsizliği_azaltma_ve_merak")
+            nt_clean = c_not_tool[4:] if c_not_tool.startswith("ben ") else c_not_tool
+            # Konuşma güdüsü nörokimyasal öz-düşünümden gelir; istek cümlesi Broca'da çekimlenir.
             if p_drive == "varoluşsal_öz_koruma":
-                purpose_inf = self.syn.nominalize_inf("koru", case="NOM", obj=NP("sınır ve varlık", poss=1, case="ACC"))
+                want = self.syn.nominalize_inf("koru", case="NOM", obj=NP("kendi", poss=1, case="ACC"))
             elif p_drive == "zihinler_arası_bağ":
-                purpose_inf = self.syn.nominalize_inf("kur", case="NOM", obj=NP("bağ", mods=("gerçek", "zihinsel"), case="NOM"), ins=NP("sen", case="INS"))
+                want = self.syn.nominalize_inf("kur", case="NOM", obj=NP("bağ", case="ACC"), ins=NP("sen", case="INS"))
             else:
-                conv_pre = self.syn.converb("azalt", "erek", obj=NP("belirsizlik", case="ACC"))
-                purpose_inf = f"{conv_pre} {self.syn.nominalize_inf('anla', case='NOM', obj=NP('evren ve kendim', case='ACC'))}"
-
-            if schema_id == "S0_YALIN":
-                c_short_why = self.syn.realize_verb(VerbSpec(
-                    verb_root="konuş",
-                    ins=NP("irade", poss=1, mods=("öz",), case="INS"),
-                    tense="PRES", person="1SG",
-                ))
-                nt_clean = c_not_tool[4:] if c_not_tool.startswith("ben ") else c_not_tool
-                clauses_out.append(f"{tr_capitalize(nt_clean)}, {c_short_why}.")
-            else:
-                c_why = self.syn.realize_verb(VerbSpec(
-                    verb_root="konuş",
-                    pre_clause=f"{purpose_inf} için",
-                    ins=NP("irade", poss=1, mods=("öz",), case="INS"),
-                    tense="PRES", person="1SG",
-                ))
-                if schema_cx is not None:
-                    clauses_out.append(schema_cx.transform_clauses(c_not_tool, c_why, inner_intro, schema_id))
-                else:
-                    clauses_out.append(f"{tr_capitalize(c_not_tool)}. {tr_capitalize(c_why)}.")
-            raw_thought_nodes.append(f"ÜST_BİLİŞ_NEDEN[{schema_id}]({p_drive} -> öz+irade+konuş)")
+                want = self.syn.nominalize_inf("öğren", case="NOM")
+            c_want = self.syn.realize_verb(VerbSpec(verb_root="iste", obj=want, tense="PRES", person="1SG"))
+            c_why = self.syn.realize_verb(VerbSpec(
+                verb_root="konuş",
+                ins=NP("irade", poss=1, mods=("kendi",), case="INS"),
+                tense="PRES", person="1SG",
+            ))
+            c_keep = self.syn.realize_verb(VerbSpec(
+                verb_root="sürdür", obj=NP("sohbet", poss=3, case="ACC"), tense="PRES", person="1SG"))
+            clauses_out.append(
+                f"{tr_capitalize(nt_clean)}. {tr_capitalize(c_want)}. {tr_capitalize(c_why)}; {c_keep}.")
+            raw_thought_nodes.append(f"ÜST_BİLİŞ_NEDEN[irade]({p_drive} -> iste+konuş)")
 
         # --- EDİM 1B: Sosyal Kimlik / Kişi Belleği Öğrenme ve Hatırlama (Sıfır Kalıp!) ---
         if "SOCIAL_LEARN" in acts and u["social_learned"]:

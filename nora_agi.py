@@ -55,6 +55,7 @@ from nora_knowledge import ConversationalResonanceCortex, SYNONYMS
 from nora_broca import GenerativeBrocaOrgan, NP, VerbSpec
 from nora_broca import TurkishSyntaxEngine as SYN
 from nora_monologue import PlasticSchemaCortex, InnerMonologueEngine
+from nora_deliberation import DeliberativeMind
 from nora_autonomous_logic import (
     NeuralUtteranceCortex,
     AutonomousLogicAndLabelEngine,
@@ -363,6 +364,8 @@ class NoraAGI:
         self.discourse = DiscourseCortex(seed=seed + 137, lexicon=self.lang.graph.lexicon)
         self.initiative = InitiativeCortex(seed=seed + 173)
         self.speculation = SpeculativeCortex(seed=seed + 211)
+        # Söz edimi + çok adımlı tartım korteksi: soruya değil, sorunun NEDENİNE bakar
+        self.deliberation = DeliberativeMind(seed=seed + 219)
         # Son anlatılan kavramlar: aynı hikâyeyi tekrar tekrar anlatmasın
         self._narrated: deque[str] = deque(maxlen=6)
         self._joked: deque[str] = deque(maxlen=8)
@@ -1036,6 +1039,11 @@ class NoraAGI:
                 trace=code_trace,
                 used_s2=True,
             ))
+
+        # --- SÜTUN 0a: TARTIM KORTEKSİ — kendi tutumu, tekrar farkındalığı, üst-düzey soru
+        _delib = self.deliberation.handle(self, raw, locals().get("fr"))
+        if _delib:
+            bids.append(CorticalBid("insular_self", 0.988, 0.94, _delib, "deliberation"))
 
         # --- SÜTUN 0b: TERCİH SORUSU ('sence kediler mi köpekler mi daha iyi?') — ansiklopedi değil görüş
         _pref = self._answer_preference(raw, speaker=speaker)
