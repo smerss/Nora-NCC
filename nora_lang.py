@@ -119,6 +119,7 @@ class TurkishMorphology:
         cls._VERB_EVIDENCE.clear()
         cls._VERB_INDEX.clear()
         cls._VERB_INDEX_ROOTS.clear()
+        cls._VERB_INDEX_PENDING.clear()
         cls._ANALYZE_CACHE.clear()
 
     @classmethod
@@ -144,7 +145,7 @@ class TurkishMorphology:
         cls.KNOWN_VERB_ROOTS.add(r)
         cls.LEARNED_VERB_ROOTS.add(r)
         if cls._VERB_INDEX_ROOTS:
-            cls._index_root(r)
+            cls._VERB_INDEX_PENDING.add(r)      # arka planda indekslenir
         return True
 
     CONVERB_KINDS = ("erek", "ip", "inca", "ken", "dikce", "madan", "ali", "diginda", "maksizin")
@@ -778,6 +779,7 @@ class TurkishMorphology:
     # çözümleme bu indeksten O(1) okur. Böylece üretim ile çözümleme asla ayrışmaz.
     _VERB_INDEX: dict[str, tuple] = {}
     _VERB_INDEX_ROOTS: set = set()
+    _VERB_INDEX_PENDING: set = set()
     _INDEX_TENSES: tuple = ("PRES", "PAST", "FUT", "AOR", "NEC", "EVID", "OPT", "COND",
                             "PRES_HIK", "AOR_HIK", "FUT_HIK", "EVID_HIK", "NEC_HIK",
                             "PRES_RIV", "AOR_RIV", "FUT_RIV", "PRES_SART", "AOR_SART",
@@ -846,6 +848,17 @@ class TurkishMorphology:
         for r in tuple(cls.KNOWN_VERB_ROOTS):
             if r not in cls._VERB_INDEX_ROOTS:
                 cls._index_root(r)
+
+    @classmethod
+    def drain_index_pending(cls) -> int:
+        """Yeni öğrenilen kökleri ARKA PLANDA indeksle (konuşma turuna yük binmesin)."""
+        n = 0
+        for r in tuple(cls._VERB_INDEX_PENDING):
+            if r in cls.KNOWN_VERB_ROOTS:
+                cls._index_root(r)
+                n += 1
+            cls._VERB_INDEX_PENDING.discard(r)
+        return n
 
     @classmethod
     def _index_lookup(cls, w: str) -> dict | None:
@@ -2600,3 +2613,6 @@ if __name__ == "__main__":
 from nora_turkce import attach as _attach_turkish  # noqa: E402
 from nora_turkce import COMPOUND_MAP  # noqa: E402
 _attach_turkish(TurkishMorphology)
+
+# Sentez indeksi hazır kurulur: ilk konuşma turu indeks kurma maliyetini ödemez.
+TurkishMorphology._ensure_verb_index()

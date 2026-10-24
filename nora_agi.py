@@ -602,6 +602,11 @@ class NoraAGI:
     def step_life(self, steps: int = 1) -> dict:
         """Ajanı fiziksel dünyada 'steps' adım yaşatır; sinir sistemi, kimya, öz-benlik ve bedeni senkronize eder."""
         ate_total = drank_total = hurt_total = deaths = 0
+        # Yeni öğrenilen fiil kökleri ARKA PLANDA indekslenir (tur gecikmesi O(1) kalır).
+        try:
+            self.lang.morph.drain_index_pending()
+        except Exception:
+            pass
         for _ in range(int(steps)):
             if not self.mortality.is_alive:
                 break

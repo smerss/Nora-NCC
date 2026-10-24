@@ -1205,6 +1205,15 @@ class GenerativeBrocaOrgan:
         has_greet = bool(words and words[0] in greet_set) or ("iyi akşamlar" in s_low or "iyi günler" in s_low)
         asks_wellbeing = any(k in s_low for k in ("nasılsın", "naber", "ne haber", "ne var ne yok", "iyi misin", "nasıl gidiyor", "keyifler nasıl"))
         asks_doing = any(k in s_low for k in ("ne yapıyorsun", "napıyorsun", "ne yapıyosun", "neler yapıyorsun"))
+        # Genelleme: 'ne/neler' + 2. kişi 'yap-' fiili HANGİ kipte olursa olsun ("ne yapmaktasın",
+        # "neler yaparsın", "ne yapardın") aynı sorudur — kalıp değil, çözümleme karar verir.
+        if not asks_doing and any(w in words for w in ("ne", "neler", "nelerdir")):
+            from nora_lang import TurkishMorphology as _MT
+            for _w in words:
+                _a = _MT.analyze_word(_w, None)
+                if _a.get("is_verb") and _a.get("stem") == "yap" and _a.get("person") in ("2SG", "2PL"):
+                    asks_doing = True
+                    break
         recip_wellbeing = any(k in s_low for k in ("ben de iyiyim", "iyiyim sağ ol", "iyiyim teşekkür", "fena değil", "idare eder", "çok şükür iyiyim")) or (
             words in (["iyiyim"], ["süperim"], ["harikayım"])
         )

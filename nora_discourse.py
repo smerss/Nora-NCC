@@ -375,6 +375,22 @@ class DiscourseCortex:
                 text = f"{tr_capitalize(role)} olduğunu öğrendim."
             return {"text": text, "act": "NARRATION_IDENTITY", "narration": True}
 
+        # Gereklilik: 'kalkmam gerekiyor' — '-mAm' burada olumsuzluk değil, isim-fiil+iyelik.
+        _nw = nar.get("words") or []
+        _ni = int(nar.get("index") or 0)
+        _nxt = _nw[_ni + 1] if _ni + 1 < len(_nw) else ""
+        if _nxt in ("gerekiyor", "gerek", "lazım", "gerekli", "gerekti", "gerekecek", "şart"):
+            try:
+                _vn = SYN.nominalize_inf(verb, short_ma=True, poss=2, case="NOM")
+            except Exception:
+                _vn = ""
+            if _vn:
+                _rest = " ".join(w for w in (nar.get("rest") or []) if w not in ("ben", "biz", "artık"))
+                lead = _cap(f"{_rest} {_vn} gerektiğini duyuyorum".strip())
+                follow = self._fresh(("Zor ama yapılabilir.", "Birlikte planlayalım mı?",
+                                      "Ne zaman başlamayı düşünüyorsun?", "Kendine zaman tanı."))
+                return {"text": f"{lead} {follow}", "act": "NARRATION_NECESSITY", "narration": True}
+
         if nar.get("state") or nar.get("tense") == "STATE":
             # Hâl bildirimi ('yalnızım', 'yorgunum', 'keyfim yok'): ders değil, duygudaşlık.
             adj = verb
@@ -417,11 +433,13 @@ class DiscourseCortex:
                 "Bunu yalnız taşımak zorunda değilsin.", "Biraz yavaşlayalım mı?", "Nefes al, buradayım.",
             ))
             return {"text": f"{lead} {follow}", "act": "NARRATION_EMPATHIZE", "narration": True}
+        # Konuşan 'biz' diyorsa dinleyen de o topluluğun içinde: 'gideceğimizi duyuyorum'.
+        _poss = 4 if str(nar.get("person")) == "1PL" else 2
         try:
-            if nar.get("tense") == "FUT":
-                obj = SYN.nominalize_acak(verb, poss=2, case="ACC", neg=nar["neg"])
+            if str(nar.get("tense") or "").startswith("FUT"):
+                obj = SYN.nominalize_acak(verb, poss=_poss, case="ACC", neg=nar["neg"])
             else:
-                obj = SYN.nominalize_dik(verb, poss=2, case="ACC", neg=nar["neg"])
+                obj = SYN.nominalize_dik(verb, poss=_poss, case="ACC", neg=nar["neg"])
         except Exception:
             obj = ""
         rest = [w for w in nar["rest"] if w not in ("ben", "biz", "bugün", "dün", "şimdi")]
@@ -478,7 +496,16 @@ class DiscourseCortex:
         lead = _cap(lead)
 
         act = self._pick_narration_act(nar)
-        if act == "REFLECT_ASK":
+        _future = str(nar.get("tense") or "").startswith("FUT") or any(
+            w in (nar.get("words") or []) for w in ("yarın", "haftaya", "gelecek", "sonra"))
+        if act == "REFLECT_ASK" and _future:
+            # Gelecek anlatısına geçmiş sorusu sorulmaz ('Nasıl geçti?' değil 'Neler planlıyorsun?').
+            q = self._fresh((
+                "Neler planlıyorsun?", "Heyecanlı mısın?", "Kiminle olacaksın?",
+                "Ne zaman?", "Seni ne bekliyor?", "Bunu sabırsızlıkla bekliyor musun?",
+            ))
+            text = f"{lead} {q}"
+        elif act == "REFLECT_ASK":
             q = self._fresh((
                 "Nasıl geçti?", "Bu seni nasıl etkiledi?", "En çok hangi yanı kaldı aklında?",
                 "Devamını merak ediyorum, anlatır mısın?", "O an ne hissettin?",
