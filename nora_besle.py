@@ -168,7 +168,7 @@ TRIPLES: list[tuple[str, str, str]] = [
     ("yalan", "USED_FOR", "kendini korumak"), ("yalan söylemek", "CAUSES", "güven kaybı"),
     ("insan", "CAN_DO", "yalan söylemek"),
     ("bilim insanı", "CAN_DO", "gözlem yapmak"), ("bilim insanı", "CAN_DO", "deney yapmak"),
-    ("uzay", "USED_FOR", "teleskopla gözlem"), ("teleskop", "USED_FOR", "uzayı gözlemlemek"),
+    ("uzay", "USED_FOR", "teleskopla gözlemlemek"), ("teleskop", "USED_FOR", "uzayı gözlemlemek"),
     ("ağız", "ISA", "organ"), ("ağız", "CAN_DO", "konuşmak"), ("ağız", "CAN_DO", "yemek yemek"),
     ("ağız", "HAS_PART", "dişler"),
     ("kuantum bilgisayar", "ISA", "bilgisayar"), ("bilgisayar", "ISA", "makine"),
