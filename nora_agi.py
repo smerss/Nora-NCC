@@ -1398,8 +1398,13 @@ class NoraAGI:
                         if isa_path:
                             via = isa_path[0].obj
                             # Özne bir kez söylenir (Türkçe özne düşürür): "X bir Y olduğu için hesaplar."
-                            _tail = txt[len(fr.subj):].strip() if txt.startswith(fr.subj) else txt
-                            txt = f"{fr.subj} bir {via} olduğu için {_tail}"
+                            _pref = fr.subj + " "
+                            _tail = txt[len(_pref):].strip() if txt.startswith(_pref) else txt
+                            # Üst kavram zaten ilk cümlede söylendiyse gerekçe yinelenmez.
+                            if any(via in c for c in clauses):
+                                txt = txt if _tail is txt else f"{tr_capitalize(fr.subj)} {_tail}"
+                            else:
+                                txt = f"{fr.subj} bir {via} olduğu için {_tail}"
                         clauses.append(txt)
                         used_objs.append(edge.obj or "")
                     wern.last_explanation = f"Kavram ağında {fr.subj} düğümünden {len(hits)} ilişkisel bağ buldum"

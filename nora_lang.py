@@ -1427,7 +1427,11 @@ class BrocaGenerator:
             # Sahiplik: 'zürafanın uzun boynu var' (parça/özellik adı iyelikli kurulur)
             parts = o.split()
             head = parts[-1] if parts else o
-            part = " ".join(parts[:-1] + [self.morph.inflect_noun(head, "NOM", poss3=True)]).strip()
+            # Öğe zaten 3. çoğul iyelik taşıyorsa ('duyu organları') yeniden iyeliklenmez.
+            if head.endswith(("ları", "leri")):
+                part = o
+            else:
+                part = " ".join(parts[:-1] + [self.morph.inflect_noun(head, "NOM", poss3=True)]).strip()
             if p.neg:
                 return f"{s} {self.morph.inflect_noun(s, 'GEN')} {part} yok"
             return f"{self.morph.inflect_noun(s, 'GEN')} {part} var"
