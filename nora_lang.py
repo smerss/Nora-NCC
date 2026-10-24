@@ -186,6 +186,11 @@ class TurkishMorphology:
         w = tr_lower(stem)
         if not w:
             return w
+        # Arapça kökenli ikiz ünsüzlü kökler: zıt -> zıddı, his -> hissi, hak -> hakkı, ret -> reddi.
+        _GEMINATE = {"zıt": "zıdd", "his": "hiss", "hak": "hakk", "ret": "redd", "tıp": "tıbb",
+                     "hac": "hacc", "sır": "sırr", "zam": "zamm", "af": "aff", "us": "uss", "hat": "hatt"}
+        if w in _GEMINATE:
+            return _GEMINATE[w]
         if w in cls.VOWEL_DROP and cls.VOWEL_DROP[w] != w:
             return cls.VOWEL_DROP[w]
         if w in cls.NO_SOFTEN or (len(w) <= 2 and w not in {"su", "ağ", "uç"}):
@@ -2036,6 +2041,36 @@ class NoraLanguage:
     def teach_sentence(self, text: str, speaker: str = "insan") -> list[RelationEdge]:
         """Bir Türkçe cümleyi ('ama/ancak/ve' bağlaçlarıyla bileşik cümleler dahil) 1-atışta (0 epoch) öğrenir."""
         clauses = re.split(r"\s+(?:ama|ancak|fakat)\s+|;\s*|\.\s+", text.strip())
+        # "X ... ve Y ..." birleşik YÜKLEM cümlesi iki ayrı iddiadır: her iki yarı da kendi başına
+        # yüklem taşıyorsa bölünür. Böylece bütün bir yan cümle, ilişki nesnesi olarak kaydedilmez
+        # ('sadıktır ve insana keyif ver' gibi). 'Köpek ve kedi evcildir' ise bölünmez (özne listesi).
+        _expanded: list[str] = []
+        for cl in clauses:
+            parts = re.split(r"\s+ve\s+", cl.strip())
+            if len(parts) == 2 and all(parts):
+                try:
+                    _l = self.wernicke.parse(parts[0].strip())
+                    _r = self.wernicke.parse(parts[1].strip())
+                    _ok = (_l.kind == "teach_fact" and _r.kind == "teach_fact"
+                           and getattr(_l, "obj", "") and getattr(_r, "obj", ""))
+                except Exception:
+                    _ok = False
+                if _ok:
+                    _expanded.extend([parts[0].strip(), parts[1].strip()])
+                    continue
+                # Sağ yarı öznesiz kaldıysa ('... ve insana keyif verir') sol yarının öznesi devredilir.
+                _subj = getattr(_l, "subj", "") or ""
+                if _subj and not getattr(_r, "subj", ""):
+                    _cand = f"{_subj} {parts[1].strip()}"
+                    try:
+                        _c2 = self.wernicke.parse(_cand)
+                    except Exception:
+                        _c2 = None
+                    if _c2 is not None and _c2.kind == "teach_fact" and getattr(_c2, "obj", ""):
+                        _expanded.extend([parts[0].strip(), _cand])
+                        continue
+            _expanded.append(cl)
+        clauses = _expanded
         learned: list[RelationEdge] = []
         for cl in clauses:
             cl = cl.strip()
@@ -2043,7 +2078,7 @@ class NoraLanguage:
                 continue
             fr = self.wernicke.parse(cl)
             if fr.kind == "teach_fact":
-                if fr.rel in ("ISA", "HAS_PROP", "HAS_PART") and not self._teachable_predicate(fr.obj):
+                if not self._teachable_predicate(fr.obj):
                     continue
                 if fr.rel == "ADJ_ISA":
                     adj, noun = fr.obj.split("|", 1)
@@ -2060,16 +2095,15 @@ class NoraLanguage:
         """Yüklem gerçekten tek bir özellik mi? 'organdır ve düşünmeyi sağlar' gibi bütün bir
         yan cümle ad yerine geçmişse kavram ağına YAZILMAZ (bozuk düğüm = bozuk dünya bilgisi)."""
         words = obj.split()
-        if len(words) > 4:
+        if len(words) > 6:
             return False
         if any(w in {"ve", "ama", "ancak", "fakat", "çünkü", "ki"} for w in words):
             return False
-        for w in words:
-            an = self.morph.analyze_word(w, self.graph.lexicon)
-            if an.get("is_verb") and an.get("tense") in ("PRES", "PAST", "AOR", "EVID", "FUT") \
-                    and str(an.get("person", "")).startswith("3"):
-                return False
-        return True
+        # Bütün bir yan cümle ad yerine geçmişse (çekimli yüklem eki taşıyorsa) kavram ağına yazılmaz.
+        _finite_tails = ("dır", "dir", "dur", "dür", "tır", "tir", "tur", "tür",
+                         "mış", "miş", "muş", "müş", "yor", "yım", "yim", "yız", "yiz",
+                         "sın", "sin", "sun", "sün")
+        return not any(w.endswith(_finite_tails) for w in words)
 
 
 if __name__ == "__main__":

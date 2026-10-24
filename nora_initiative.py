@@ -34,6 +34,18 @@ from nora_lang import tr_capitalize, tr_lower
 # 1. KONUŞMA TÜRLERİ
 # ============================================================================
 
+_MORPH = None
+
+
+def agi_morph(word: str) -> dict:
+    """Kelimenin çözümlemesi (sözdizimi motorunun morfoloji bilgisi); motor bir kez kurulur."""
+    global _MORPH
+    if _MORPH is None:
+        from nora_lang import TurkishMorphology
+        _MORPH = TurkishMorphology()
+    return _MORPH.analyze_word(word)
+
+
 MOVES = (
     "SHARE_INNER",      # içinden geçeni paylaş
     "ASK_ABOUT",        # karşısındakini sor
@@ -216,24 +228,71 @@ class InitiativeCortex:
         return _cap(self.py_rng.choice(shapes)())
 
     def _c_share_discovery(self, agi, ctx: dict) -> str | None:
+        """Az önce kurulan bağı paylaşır. Cümle kalıbı YOK: öğrenilen önerme, sıfat-fiil (-DIğInI)
+        ile bir zihin fiiline nesne olur ('köpeğin insana keyif verdiğini fark ettim')."""
         edge = ctx.get("edge")
         if edge is None:
             return None
         subj, rel, obj = edge
-        # "arasında bir türü olduğunu fark ettim" yalnızca simetrik ilişkilerde doğru olur (zıt);
-        # diğer bağlarda tamlayan kurulur: "suyun bir madde olduğunu fark ettim".
-        shapes = [
-            lambda: SYN.realize_verb(VerbSpec(verb_root="kur", obj=NP("bağ", mods=("bir",), case="NOM"),
-                                              advs=(f"{subj} ile {obj} arasında",), tense="PAST", person="1SG")),
-            lambda: (f"{tr_capitalize(subj)} ile {obj} zıtmış, bunu az önce fark ettim." if rel == "OPPOSITE"
-                     else f"{tr_capitalize(subj)} ile {obj} arasında bir bağ olduğunu fark ettim."),
-            lambda: {"OPPOSITE": f"{tr_capitalize(subj)} ile {obj} zıtmış, bunu az önce fark ettim.",
-                      "CAUSES": f"{tr_capitalize(subj)} {obj} sonucuna yol açıyormuş.",
-                      "ISA": f"{tr_capitalize(subj)} aslında bir {obj} imiş; bunu az önce öğrendim.",
-                      "USED_FOR": f"{tr_capitalize(subj)} {obj} için kullanılıyormuş.",
-                      }.get(rel, f"{tr_capitalize(subj)} ile {obj} arasında bir bağ kurdum."),
-        ]
-        return _cap(self.py_rng.choice(shapes)())
+        subj, obj = (subj or "").strip(), (obj or "").strip()
+        if not subj or not obj:
+            return None
+        clause = self._proposition_complement(subj, rel, obj)
+        if not clause:
+            # Yan cümle kurulamıyorsa bağı doğrudan söyler (yine Broca; kalıp cümle yok).
+            try:
+                from nora_lang import Proposition
+                direct = agi.lang.broca.realize_prop(Proposition(subj=subj, rel=rel, obj=obj))
+            except Exception:
+                return None
+            return _cap(direct) + "." if direct else None
+        verbs = ("fark et", "öğren", "anla", "gör")
+        verb = verbs[self.py_rng.randrange(len(verbs))]
+        try:
+            if verb == "gör":
+                out = SYN.realize_verb(VerbSpec(verb_root=verb, obj=clause, tense="PRES", person="1SG"))
+            else:
+                out = SYN.realize_verb(VerbSpec(verb_root=verb, obj=clause, tense="PAST", person="1SG"))
+        except Exception:
+            return None
+        return _cap(out) if out else None
+
+    def _proposition_complement(self, subj: str, rel: str, obj: str) -> str:
+        """Bir (özne, ilişki, nesne) üçlüsünü '-DIğInI' yan cümleciğine çevirir (tamamen sentaks).
+        'köpeğin insana keyif verdiğini', 'kedinin tatlı olduğunu'."""
+        from nora_lang import TurkishMorphology
+
+        def _copular() -> str:
+            pre = ("bir",) if (rel == "ISA" and not obj.startswith("bir ")) else ()
+            return SYN.nominalize_dik("ol", poss=3, case="ACC", subj=NP(subj, case="GEN"),
+                                      advs=pre + (obj,))
+
+        words = obj.split()
+        if not words:
+            return ""
+        last = words[-1]
+        if rel == "OPPOSITE":
+            # 'gecenin gündüzün zıttı olduğunu fark ettim' — karşıtlık, zıt kavramın kendisiyle kurulur.
+            try:
+                opp = SYN.realize_np(NP(obj, case="GEN")) + " " + SYN.realize_np(NP("zıt", poss=3))
+                return SYN.nominalize_dik("ol", poss=3, case="ACC", subj=NP(subj, case="GEN"), advs=(opp,))
+            except Exception:
+                return ""
+        if last.endswith(("mak", "mek")) and last[:-3] in TurkishMorphology.KNOWN_VERB_ROOTS:
+            last = last[:-3]
+            words = words[:-1] + [last]
+        # Nesne çekimli bir fiille bitiyorsa: 'insana keyif ver' -> 'köpeğin insana keyif verdiğini'
+        if rel in ("CAN_DO", "USED_FOR", "CAUSES") and last in TurkishMorphology.KNOWN_VERB_ROOTS:
+            prev = tuple(w for w in words[:-1] if w)
+            return SYN.nominalize_dik(last, poss=3, case="ACC", subj=NP(subj, case="GEN"), advs=prev)
+        if rel in ("CAN_DO", "USED_FOR"):
+            return ""                      # fiil tanınmadıysa bozuk cümle kurmaktansa susar
+        if rel == "USED_FOR":
+            return ""                      # edilgen anlam: doğrudan önerme daha doğru söylenir
+        try:
+            return _copular()
+        except Exception:
+            return ""
 
     def _c_recall(self, agi, ctx: dict) -> str | None:
         ep = ctx.get("episode")
