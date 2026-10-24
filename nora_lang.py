@@ -896,6 +896,12 @@ class TurkishMorphology:
         _hit = cls._index_lookup(w)
         if _hit is not None:
             return _hit
+        # AD + KOŞAÇ: 'güzeldi', 'hastaydı', 'soğuktu' (hal eki sanılmasın; indekste yoksa)
+        _nc = getattr(cls, "analyze_nominal_copula", None)
+        if _nc is not None:
+            _ncr = _nc(w, None)
+            if _ncr:
+                return _ncr
         # 2) Birleşik zaman (hikâye/rivayet/şart): 'geliyordum', 'gelirmiş', 'gelecektim'
         if hasattr(cls, "analyze_compound_tense") and re.search(
                 r"(du|dü|dı|di|tu|tü|tı|ti|muş|müş|mış|miş|sa|se)(m|n|k|niz|nız|nuz|nüz|ler|lar|um|üm|ım|im|sun|sün|sın|sin|uz|üz|ız|iz)?$", w):

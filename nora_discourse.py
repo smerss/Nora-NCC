@@ -473,13 +473,26 @@ class DiscourseCortex:
                     _tan = _morph.analyze_word(_w, _lex)
                 except Exception:
                     _tan = {}
-                if _tan.get("is_verb"):
+                if _tan.get("is_verb") and not _tan.get("copula"):
+                    # 'güzeldi' bir KOŞAÇtır; '-diğini' diye adlaştırılmaz ('güzel olduğunu' denir)
                     try:
                         _tail_clause = SYN.nominalize_dik(_tan["stem"], poss=2, case="ACC",
                                                           neg=bool(_tan.get("neg")))
                     except Exception:
                         _tail_clause = ""
                     break
+        # Algı fiili her turda aynı olmasın: duymak / anlamak / fark etmek / görmek.
+        # Hepsi aynı içeriği taşır, edimselliği değişir (ezber sesi kaybolur).
+        def _perceive() -> str:
+            from nora_lang import TurkishMorphology as _MT
+            _pick = self.random.choice(("duy", "anla", "fark et", "gör", "duy", "anla"))
+            _pref, _root = SYN.split_compound_verb(_pick)
+            try:
+                _form = _MT.conjugate_verb(_root, "PRES", person="1SG")
+            except Exception:
+                _form = "duyuyorum"
+            return f"{_pref} {_form}".strip() if _pref else _form
+
         if _nsub and obj and not nar.get("state"):
             # 'içim daralıyor' -> 'içinin daraldığını duyuyorum' (iyelikli özne tamlayana döner)
             try:
@@ -487,12 +500,13 @@ class DiscourseCortex:
             except Exception:
                 gen = _nsub
             _cpl = f"{obj} ve {_tail_clause}" if _tail_clause else obj
-            lead = f"{gen} {rest_txt} {_cpl} duyuyorum".replace("  ", " ")
+            lead = f"{gen} {rest_txt} {_cpl} {_perceive()}".replace("  ", " ")
         elif obj:
             _cpl = f"{obj} ve {_tail_clause}" if _tail_clause else obj
-            lead = f"{rest_txt} {_cpl} duyuyorum".strip()
+            lead = f"{rest_txt} {_cpl} {_perceive()}".strip()
         else:
-            lead = "seni duyuyorum"
+            lead = self._fresh(("Seni dinliyorum", "Seni anlıyorum", "Kulağım sende",
+                                "Söylediklerin bende"))
         lead = _cap(lead)
 
         act = self._pick_narration_act(nar)
@@ -506,7 +520,17 @@ class DiscourseCortex:
             ))
             text = f"{lead} {q}"
         elif act == "REFLECT_ASK":
-            q = self._fresh((
+            _qn: list[str] = []
+            # Anlatıdaki AD'lardan içeriğe özgü soru türet: 'film izledim' -> 'Hangi film?'
+            for _w in (nar.get("rest") or [])[-3:]:
+                try:
+                    _an = _morph.analyze_word(_w, _lex) if _morph is not None else {}
+                except Exception:
+                    _an = {}
+                if _an and not _an.get("is_verb") and len(_w) > 3 and "." not in _w:
+                    _qn.append(f"Hangi {_w}?")
+                    break
+            q = self._fresh(tuple(_qn) + (
                 "Nasıl geçti?", "Bu seni nasıl etkiledi?", "En çok hangi yanı kaldı aklında?",
                 "Devamını merak ediyorum, anlatır mısın?", "O an ne hissettin?",
                 "Bunu bana biraz daha açar mısın?",
