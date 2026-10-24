@@ -92,6 +92,7 @@ zaman mekân varlık yokluk yaşam ölüm doğum büyüme değişim düzen kaos 
 TRIPLES: list[tuple[str, str, str]] = [
     # ---------------------------------------------------------------- canlılar
     ("kedi", "ISA", "evcil hayvan"), ("köpek", "ISA", "evcil hayvan"),
+    ("kedi", "CAUSES", "huzur"), ("köpek", "CAUSES", "keyif"),
     ("evcil hayvan", "ISA", "hayvan"), ("hayvan", "ISA", "canlı"),
     ("bitki", "ISA", "canlı"), ("mantar", "ISA", "canlı"), ("insan", "ISA", "canlı"),
     ("kuş", "ISA", "hayvan"), ("balık", "ISA", "hayvan"), ("böcek", "ISA", "hayvan"),

@@ -1576,7 +1576,7 @@ class NoraAGI:
             val += 1.5 * float(own[0])
             ev += 1
         best = {"rel": "", "obj": "", "tag": "", "word": "", "v": 0.0}
-        for e, path in g.query(concept, ("HAS_PROP", "CAN_DO", "ISA")):
+        for e, path in g.query(concept, ("HAS_PROP", "CAN_DO", "CAUSES", "ISA")):
             hit = None
             for wd in reversed(e.obj.split()):
                 a = AL.get(wd)
@@ -1911,26 +1911,49 @@ class NoraAGI:
             cand = pool[int(self.mind.age + len(self._narrated)) % len(pool)][0]
         self._narrated.append(cand)
         hits = g.query(cand, None)
-        best: dict[str, tuple] = {}
-        for e, path in hits:
-            cur = best.get(e.rel)
-            if cur is None or (e.weight, -len(path or ())) > (cur[0].weight, -len(cur[1] or ())):
-                best[e.rel] = (e, path)
         order = ("HAS_PROP", "CAN_DO", "USED_FOR", "ISA", "HAS_PART", "CAUSES", "LOCATED_AT", "OPPOSITE")
+        # DOĞRUDAN bağ, kalıtımla gelen bağdan önce gelir: 'köpek bir evcil hayvandır' > 'köpek bir canlıdır'.
+        pool = [(order.index(e.rel), 0 if not path else 1, -float(e.weight), i, e, path)
+                for i, (e, path) in enumerate(hits) if e.rel in order]
+        pool.sort()
+        # Üst kavramdan miras alınan özellik ayırt edici değildir ('köpek evcildir' çünkü evcil hayvan evcildir).
+        _parents = {pe.obj for pe, _p in hits if pe.rel == "ISA"}
+        inherited: set[str] = set()
+        for par in _parents:
+            try:
+                inherited |= {e2.obj for e2, _p in g.query(par, ("HAS_PROP",))}
+            except Exception:
+                pass
         clauses: list[str] = []
         edges: list = []
         used_objs: list[str] = []
-        for rel in order:
-            if rel in best and len(clauses) < 2:
-                e, _path = best[rel]
-                # Yineleme ayıklama: 'evcildir' ile 'evcil hayvandır' aynı bilgiyi iki kez söylemez.
-                if any(e.obj in u or u in e.obj for u in used_objs if u != e.obj):
+        seen_rel: dict[str, int] = {}
+        for _oi, _inh, _w, _i, e, _path in pool:
+            if len(clauses) >= 2:
+                break
+            seen_rel[e.rel] = seen_rel.get(e.rel, 0) + 1
+            if e.rel != "HAS_PROP" and seen_rel[e.rel] > 1:
+                continue
+            if e.rel == "HAS_PROP" and seen_rel[e.rel] > 2:
+                continue
+            if e.rel == "HAS_PROP" and e.obj in inherited:
+                continue
+            if _path and e.rel == "ISA":
+                continue                      # kalıtımla gelen tür, doğrudan tür varken söylenmez
+            _conf = next((i for i, u in enumerate(used_objs) if u != e.obj and (e.obj in u or u in e.obj)), None)
+            if _conf is not None:
+                # Aynı bilgiyi iki kez söyleme; ama hangisi DAHA ÖZELSE o kalsın ('evcil' < 'evcil hayvan').
+                if len(e.obj) > len(used_objs[_conf]):
+                    clauses.pop(_conf)
+                    edges.pop(_conf)
+                    used_objs.pop(_conf)
+                else:
                     continue
-                txt = broca.realize_prop(Proposition(subj=cand, rel=e.rel, obj=e.obj))
-                if txt and txt not in clauses:
-                    clauses.append(txt)
-                    edges.append(e)
-                    used_objs.append(e.obj)
+            txt = broca.realize_prop(Proposition(subj=cand, rel=e.rel, obj=e.obj))
+            if txt and txt not in clauses:
+                clauses.append(txt)
+                edges.append(e)
+                used_objs.append(e.obj)
         if not clauses:
             return ""
         _clean = [clauses[0]]
