@@ -39,6 +39,7 @@ import numpy as np
 
 from dataclasses import dataclass
 from nora_life import BackgroundLife
+from nora_initiative import InitiativeCortex
 from nora_voice import state_vector
 from nora_world import Universe
 from nora_mind import Mind, I_E, I_W, I_I
@@ -351,6 +352,9 @@ class NoraAGI:
 
         # --- ARKA PLAN YAŞAMI + ÖĞRENEN SÖZ ORGANI (elle yazılmış sözcük/cümle yok; dil okunarak öğrenilir) ---
         self.life = BackgroundLife(seed=seed + 71)
+        # Kimse konuşmazken konuşan organ: hangi hâlde ne söyleyeceğini yaşayarak öğrenir
+        self.initiative = InitiativeCortex(seed=seed + 91)
+        self.last_proactive: dict | None = None
         for path in (corpus or []):
             self.read_corpus(path)
         if broca:
@@ -431,6 +435,27 @@ class NoraAGI:
         if out and out.strip().endswith("?") and tr_lower(concept) in tr_lower(out):
             return f"{tr_capitalize(concept)} hakkında henüz bilgim yok; merak listeme aldım. {out.strip()}"
         return out if self._voice_usable(out, [concept]) else fallback
+
+    def proactive_line(self, kind: str = "", topic: str = "", tension: float = 0.0,
+                       idle: float = 0.0, unanswered: int = 0) -> dict | None:
+        """Kendiliğinden söylenecek söz. Kaynak (haber/boşluk/özet) varsa onu çapalar; yoksa iç durumdan konuşur.
+        Karar ve cümle burada, öğrenilmiş inisiyatif korteksinde verilir; dışarıdan cümle verilmez."""
+        discovery = bool(kind == "discovery")
+        t = float(tension)
+        if kind == "discovery" and topic:
+            t = max(t, 0.6)
+        res = self.initiative.speak(self, tension=t, discovery=discovery, idle=idle,
+                                    unanswered=unanswered,
+                                    temperature=0.45 + 0.35 * float(self.chem.ne))
+        if not res:
+            return None
+        res.update({"age": int(self.mind.age), "kind": kind or res["move"], "topic": topic})
+        self.last_proactive = res
+        self.last_gw_trace = {
+            "winner": "initiative_cortex", "confidence": 0.9, "trace": f"initiative:{res['move']}",
+            "bids": {"initiative_cortex": 1.0},
+        }
+        return res
 
     def drain_outbox(self) -> list[dict]:
         """Kullanıcı yazmadan Nora'nın kendiliğinden gönderdiği mesajlar (spontaneous_action)."""
@@ -1714,6 +1739,7 @@ class NoraAGI:
             "episteme": self.episteme.state_dict(),
             "python_cortex": self.code_cortex.state_dict(),
             "life": self.life.state_dict(),
+            "initiative": self.initiative.state_dict(),
         }
         with open(path_prefix + ".agi.json", "w", encoding="utf-8") as f:
             json.dump(meta, f, ensure_ascii=False, indent=2)
@@ -1755,6 +1781,7 @@ class NoraAGI:
             pass
         try:
             agi.life.load_state_dict(meta.get("life") or {})
+            agi.initiative.load_state_dict(meta.get("initiative") or {})
         except Exception:
             pass
         if os.path.exists(path_prefix + ".voice.pkl.gz"):

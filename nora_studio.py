@@ -109,6 +109,8 @@ HTML_PAGE = r"""<!DOCTYPE html>
   .msg { padding: 8px 11px; border-radius: 9px; max-width: 92%; line-height: 1.45; }
   .msg.user { align-self: flex-end; background: #1e3366; border: 1px solid #335299; }
   .msg.nora { align-self: flex-start; background: #13283c; border: 1px solid #23536b; }
+  .msg.proactive { align-self: flex-start; background: #1a2b1f; border: 1px dashed #4b8f5e; }
+  .msg.proactive .who { color: #86e0a1; }
   .msg .who { font-size: 10px; color: var(--muted); margin-bottom: 3px; font-weight: 700; }
   .chips { display: flex; flex-wrap: wrap; gap: 5px; }
   .chip { font-size: 11px; padding: 4px 8px; background: #162040; border-radius: 6px; }
@@ -416,12 +418,15 @@ function renderState(st) {
   drawMap(st.map);
 
   const logEl = document.getElementById('chat-log');
-  if (logEl.dataset.len !== String(st.dialogue.length)) {
-    logEl.dataset.len = String(st.dialogue.length);
-    logEl.innerHTML = st.dialogue.map(d =>
-      `<div class="msg user"><div class="who">${d[0]}</div>${d[1]}</div>` +
-      `<div class="msg nora"><div class="who">Nora-AGI</div>${d[2]}</div>`
-    ).join('');
+  const flow = st.flow || [];
+  const flowKey = String(flow.length) + ':' + (flow.length ? flow[flow.length - 1].text : '');
+  if (logEl.dataset.key !== flowKey) {
+    logEl.dataset.key = flowKey;
+    logEl.innerHTML = flow.map(d => {
+      if (d.who === 'user') return `<div class="msg user"><div class="who">kullanıcı</div>${d.text}</div>`;
+      if (d.who === 'proactive') return `<div class="msg proactive"><div class="who">Nora — kendiliğinden</div>${d.text}</div>`;
+      return `<div class="msg nora"><div class="who">Nora-AGI</div>${d.text}</div>`;
+    }).join('');
     logEl.scrollTop = logEl.scrollHeight;
   }
 }
@@ -478,6 +483,9 @@ setInterval(poll, 450);
 class StudioRuntime:
     def __init__(self, seed: int = 1, think_iters: int = 600):
         self.lock = threading.Lock()
+        self.flow: list[tuple[str, str]] = []
+        self.proactive: list[dict] = []
+        self._seen_dialogue = 0
         self.agi = NoraAGI(name="Nora", seed=seed, boot_thinker=True, thinker_iters=think_iters)
         self.blind_mode = False
         self.paralysis_mode = False
@@ -541,6 +549,9 @@ class StudioRuntime:
             )
             self.agi.self_model.sync_from_mind(self.agi.mind, self.agi.obs, died=self.agi.died)
             self.agi.monologue.spontaneous_tick(self.agi)
+            # Arka plan yaşamı: kullanıcı yazmasa da zihin işler (dinlen/prova/araştır/seslen).
+            if self.agi.life.enabled and self.agi.mind.age % self.agi.life.stride == 0:
+                self.agi.life.tick(self.agi)
 
     def _episteme_snapshot(self) -> dict:
         """İnanç defteri: her önerme, güveni, kaç bağımsız kaynağa dayandığı ve otomatik olup olmadığı."""
@@ -570,7 +581,21 @@ class StudioRuntime:
         }
         return snap
 
+    def _drain_into_flow(self):
+        """Konuşma akışını tek zaman çizgisinde tutar: kullanıcı, Nora, Nora(kendiliğinden)."""
+        dl = self.agi.dialogue_log
+        while self._seen_dialogue < len(dl):
+            spk, utxt, ntxt = dl[self._seen_dialogue]
+            self.flow.append(("user", utxt))
+            self.flow.append(("nora", ntxt))
+            self._seen_dialogue += 1
+        for m in self.agi.drain_outbox():
+            text = str(m.get("text") or "…")
+            self.proactive.append(m)
+            self.flow.append(("proactive", text))
+
     def snapshot(self) -> dict:
+        self._drain_into_flow()
         w = self.agi.world
         m = self.agi.mind
         ob_rep = self.agi.obs.copy()
@@ -598,6 +623,10 @@ class StudioRuntime:
             "gw_trace": dict(self.agi.last_gw_trace),
             "speech_plan": dict(self.agi.broca_organ.last_speech_plan),
             "inner_monologue": self.agi.monologue.recent_dicts(6),
+            "flow": [{"who": a, "text": b} for a, b in self.flow],
+            "proactive": list(self.proactive)[-12:],
+            "initiative": self.agi.initiative.snapshot(),
+            "background": self.agi.life.snapshot(),
             "schema_stats": {
                 "recent_schemas": list(self.agi.schema_cortex.recent_schemas),
                 "observed_human_styles": dict(self.agi.schema_cortex.observed_human_styles),

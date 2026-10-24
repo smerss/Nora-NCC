@@ -129,6 +129,7 @@ class VerbSpec:
 
 
 class TurkishSyntaxEngine:
+    INDEFINITE_MODS = frozenset({"bir", "her", "bazı", "birkaç", "çok", "hiçbir"})
     """Sıfır şablonla çıplak köklerden tam çekimli Türkçe İsim Öbeği, Fiilimsi ve Cümle Üretici."""
 
     PRONOUN_CASES: dict[str, dict[str, str]] = {
@@ -157,11 +158,17 @@ class TurkishSyntaxEngine:
         prefix_words = head_parts[:-1]
         stem = head_parts[-1]
 
+        # Belirtisiz nesne kuralı: "bir/her/bazı/çok" ile kurulmuş öbek belirtme eki (-i) ALMAZ.
+        # 'bir şey + ACC' -> 'bir şey' (yanlış: 'bir şeyi'); 'her gün + ACC' -> 'her gün'.
+        _case = np_node.case
+        if _case.upper() == "ACC" and any(tr_lower(m).strip() in cls.INDEFINITE_MODS for m in np_node.mods):
+            _case = "NOM"
+
         # Zamir özel çekimi
         if stem in cls.PRONOUN_CASES and not np_node.plural and np_node.poss == 0:
-            inflected = cls.PRONOUN_CASES[stem].get(np_node.case.upper(), stem)
+            inflected = cls.PRONOUN_CASES[stem].get(_case.upper(), stem)
         else:
-            inflected = cls._inflect_full_noun(stem, poss=np_node.poss, plural=np_node.plural, case=np_node.case)
+            inflected = cls._inflect_full_noun(stem, poss=np_node.poss, plural=np_node.plural, case=_case)
 
         pieces: list[str] = []
         if np_node.gen_owner is not None:
@@ -181,7 +188,7 @@ class TurkishSyntaxEngine:
             orig_parts = orig_head.split()
             stem_orig = orig_parts[-1]
             spoken = _spoken_tail(stem_orig)
-            spoken_infl = cls._inflect_full_noun(spoken, poss=np_node.poss, plural=np_node.plural, case=np_node.case)
+            spoken_infl = cls._inflect_full_noun(spoken, poss=np_node.poss, plural=np_node.plural, case=_case)
             suffix = spoken_infl[len(spoken):] if spoken_infl.startswith(spoken) else ""
             if suffix:
                 single_word = len(orig_parts) == 1
