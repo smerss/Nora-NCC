@@ -197,6 +197,25 @@ def compose_noticing(meta: dict, agi=None, rng=None) -> str:
     return f"{_cap(body)}. {q}"
 
 
+def compose_insistence(meta: dict, agi=None, rng=None) -> str:
+    """Aynı söz üçüncü kez gelince: uzun serzeniş değil, KISA ve değişen bir soru.
+
+    "Bunu az önce de söylemiştin, ben de ... demiştim" cümlesi ilk tekrarda insanca;
+    ama ısrar eden her turda aynı cümleyi kurmak iskelet olur. Burada yalnızca tek
+    cümlelik, merak eden bir karşılık verilir.
+    """
+    import random
+    rng = rng or random
+    count = int(meta.get("count", 3))
+    qs = ("Hâlâ aynı yerde miyiz?",
+          "Cevabım seni tatmin etmiyor mu?",
+          "Başka bir yanını mı merak ediyorsun?",
+          "Israrın bir şeyi değiştirdi mi?",
+          "Söylediğimde eksik kalan ne?")
+    # Tur sayısına göre kayar: aynı soru üst üste gelmesin.
+    return qs[(count + int(getattr(agi, "mind", None).age if agi is not None and getattr(agi, "mind", None) is not None else 0)) % len(qs)]
+
+
 def compose_time_answer(seconds: float, turns: int = 0, *, kind: str = "elapsed",
                         steps: int = 0, rng=None) -> str:
     """Zaman sorusuna bedenin ve belleğin ÖLÇTÜĞÜYLE cevap.
