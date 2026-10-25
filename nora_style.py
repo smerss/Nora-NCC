@@ -70,7 +70,7 @@ def strip_prefixes(text: str) -> str:
             if t.startswith(note):
                 t = t[len(note):].strip()
                 changed = True
-        m = re.match(r"^İçimden '[^']{1,30}' diye geçirdim\.\s*", t)
+        m = re.match(r"^İçimden '[^']{1,80}' diye geçirdim\.\s*", t)
         if m:
             t = t[m.end():].strip()
             changed = True
@@ -137,11 +137,11 @@ class SpeechStyle:
         if allow_q and is_question and da > 0.52 and sht > 0.35:
             add("cevap+soru", 34)
         # 5) Kendi kendine mırıldanma: iç ses canlıysa.
-        if sht > 0.55 and cort < 0.45:
-            add("kendine", 20)
+        if sht > 0.45 and cort < 0.55:
+            add("kendine", 22)
         # 6) Kısa kesme: yalnızca anlatı/anlatım turlarında.
         if not is_question:
-            add("parça", 12)
+            add("parça", 16)
         # 7) Susma: yalnızca kimse sormadığında ve iç odak derinse (çok seyrek).
         if (not direct) and deficit < 0.35 and self.silences < 2:
             add("sessizlik", 4)
@@ -309,13 +309,13 @@ class SpeechStyle:
         try:
             ev = getattr(agi, "last_auditory", None)
             if ev is not None and getattr(ev, "distance_m", 0.0) > 1.5:
-                options.append("Ses uzaktan gelince içimde bir boşluk kaldı.")
+                options.append("İçimden 'ses uzaktan gelince içim boş kaldı' diye geçirdim.")
             drives = max(float(getattr(agi.nervous, a, 0.0) or 0.0)
                          for a in ("hunger_drive", "thirst_drive", "adelta_pain", "cfiber_ache"))
             if drives > 0.3:
-                options.append("Bedenim kendi derdini fısıldıyor.")
+                options.append("İçimden 'bedenim kendi derdini fısıldıyor' diye geçirdim.")
             if getattr(agi, "infer", None) is not None and getattr(agi.infer, "fresh", False):
-                options.append("Aklımın bir köşesi hâlâ yeni bağla meşgul.")
+                options.append("İçimden 'aklımın bir köşesi yeni bağla meşgul' diye geçirdim.")
         except Exception:
             pass
         if not options:

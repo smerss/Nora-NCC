@@ -342,7 +342,7 @@ dayanıyor; susuz Nora suyu kendi derdine bağlıyor; 3 anlatı isteği → 3 fa
 
 ## 11) Test durumu
 
-`python agi_battery.py` → **71/71** (364 s). Bu turda iki eski test ölçüm
+`python agi_battery.py` → **71/71** (360 s). Bu turda iki eski test ölçüm
 gürültüsünden arındırıldı:
 
 | Test | Eskiden | Şimdi |
@@ -372,4 +372,7 @@ kendi şansıdır. A57 (kendi sorusu) ve A10 (alt süreçle çalışan köprü t
 makine yüküne duyarlıdır; tek başına çalıştırıldıklarında geçerler. A21 (yalancıya
 karşı ketumluk) tam batarya yükü altında bir kez eşiğin altında kaldı; tek başına
 5/5 geçiyor — kimyasal eşik zamanlamasına bağlı, dile getirilen davranış değişmedi.
-Diğer testler deterministiktir.
+A3 (felç bildirimi) ve A69 (biçim çeşitliliği) de donanım entropisine duyarlıdır:
+A69 art arda gelen 18 turda en az üç ayrı biçim ister; şans eseri iki biçimde
+kalabildiği için eşik gevşetilmedi, biçim ağırlıkları dengelendi ve art arda üç
+tekrar koşusunda 3/3 geçti. Diğer testler deterministiktir.
