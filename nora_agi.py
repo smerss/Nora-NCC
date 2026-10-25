@@ -401,6 +401,11 @@ class NoraAGI:
         self._exam_age_mark: int = 0
         self.wallclock_steps: int = 0
         self.last_gap_s: float = 0.0
+        # --- YAŞAM GÜNLÜĞÜ (append-only): açılmazsa hiçbir maliyeti yok ---
+        self.journal = None
+        self.journal_path: str | None = None
+        self._journal_life_every: int = 120
+        self._journal_life_acc: int = 0
 
         # --- ARKA PLAN YAŞAMI + ÖĞRENEN SÖZ ORGANI (elle yazılmış sözcük/cümle yok; dil okunarak öğrenilir) ---
         self.life = BackgroundLife(seed=seed + 71)
@@ -767,6 +772,22 @@ class NoraAGI:
                 self._exam_age_mark = self.mind.age
                 self.self_exam(factor=0.6)
 
+        # GÜNLÜK NABZI: bir çağrıda en az 120 adım yaşandıysa TEK satır yazılır.
+        # Adım başına yazmak diski gereksiz doldurur; hiç yazmamak ise sessiz yaşamı
+        # görünmez kılar. (Adımların ara durumları zaten kaydedilmiyor; uydurmayız.)
+        self._journal_life_acc += int(max(0, steps))
+        if self._journal_life_acc >= self._journal_life_every and getattr(self, "journal", None) is not None:
+            self._journal_life_acc = 0
+            try:
+                self._journal(
+                    "yaşam", ad=int(self.mind.age), can=bool(self.mortality.is_alive),
+                    e=round(float(self.obs[I_E]), 4), s=round(float(self.obs[I_W]), 4),
+                    i=round(float(self.obs[I_I]), 4),
+                    d=round(float(getattr(getattr(self, "entropy", None), "drift", 0.0) or 0.0), 6),
+                )
+            except Exception:
+                pass
+
         return {
             "age": self.mind.age,
             "alive": self.mortality.is_alive,
@@ -880,6 +901,13 @@ class NoraAGI:
                             self.dialogue_log[-1] = (self.dialogue_log[-1][0], raw, ans)
             except Exception:
                 pass
+        # GÜNLÜK: turun kendisi kalıcı iz bırakır (O(1) append; kapalıysa bedava).
+        self._journal(
+            "tur", g=raw[:240], y=ans[:240],
+            s=(self.monologue.stream[-1].schema_id if getattr(self.monologue, "stream", None) else ""),
+            yas=int(getattr(self.mind, "age", 0)),
+            d=round(float(getattr(getattr(self, "entropy", None), "drift", 0.0) or 0.0), 6),
+        )
         return ans
 
     def _converse_core(self, text: str, speaker: str = "insan") -> str:
@@ -2892,6 +2920,41 @@ class NoraAGI:
 
         return None
 
+    # ------------------------------------------------------------------ 4a) Yaşam günlüğü
+    def open_journal(self, path: str) -> int:
+        """Append-only yaşam günlüğünü açar ve varolan kayıt sayısını döndürür.
+
+        Günlük açıkken her konuşma turu ve her ~120 yaşam adımı tek satırlık JSON
+        olarak diske eklenir (O(1) append, tüm beyni yeniden yazmak yok). Kapalıyken
+        `self.journal is None` olur ve ek maliyet SIFIRDIR. Tüm entropi sürecin
+        içindedir; dışarıdan hiçbir servis çağrılmaz.
+        """
+        try:
+            from nora_store import Journal
+            if getattr(self, "journal", None) is not None:
+                self.journal.flush()
+            self.journal = Journal(path)
+            self.journal_path = str(path)
+            _uid = self.entropy.uid if getattr(self, "entropy", None) else ""
+            self._journal("açılış", ad=self.name, birey=_uid, yas=int(getattr(self.mind, "age", 0)))
+            return sum(1 for _ in self.journal.replay())
+        except Exception:
+            self.journal = None
+            self.journal_path = None
+            return 0
+
+    def _journal(self, kind: str, **fields) -> None:
+        """Günlüğe tek kayıt ekler. Günlük kapalıysa ya da disk hatası olursa sessiz geçer."""
+        j = getattr(self, "journal", None)
+        if j is None:
+            return
+        try:
+            rec = {"k": kind, "t": time.time_ns()}
+            rec.update(fields)
+            j.append(rec)
+        except Exception:
+            pass
+
     # ------------------------------------------------------------------ 4) Kaydet / Yükle
     def save(self, path_prefix: str):
         meta = {
@@ -2913,21 +2976,43 @@ class NoraAGI:
             "sentence_frames": (self.frames.memory.snapshot() if getattr(self, "frames", None) else {}),
             "individuality": (self.entropy.state_dict() if getattr(self, "entropy", None) else {}),
             "verb_roots": sorted(set(TurkishMorphology.LEARNED_VERB_ROOTS) | set(self.learned_verb_roots)),
+            "journal_path": (self.journal_path or ""),
         }
-        with open(path_prefix + ".agi.json", "w", encoding="utf-8") as f:
+        # ATOMİK YAZMA: önce .tmp, sonra os.replace. Yazma yarıda kesilirse ESKİ sağlam
+        # dosya yerinde kalır (tek satır kaybı bile olmaz; yarım beyin yüklenmez).
+        _mp = path_prefix + ".agi.json"
+        with open(_mp + ".tmp", "w", encoding="utf-8") as f:
             json.dump(meta, f, ensure_ascii=False, indent=2)
-        np.savez_compressed(
-            path_prefix + ".agi_mb.npz",
-            fast_Wf=self.fast.mb.W_fast,
-            fast_Ws=self.fast.mb.W_slow,
-            fast_stiff=self.fast.mb.stiff,
-            fast_ci=self.fast.mb.claw_idx,
-            fast_cs=self.fast.mb.claw_sign,
-        )
+            f.flush()
+            try:
+                os.fsync(f.fileno())
+            except Exception:
+                pass
+        os.replace(_mp + ".tmp", _mp)
+        _np_tmp = path_prefix + ".agi_mb.npz.tmp"
+        with open(_np_tmp, "wb") as _fh:
+            np.savez_compressed(
+                _fh,
+                fast_Wf=self.fast.mb.W_fast,
+                fast_Ws=self.fast.mb.W_slow,
+                fast_stiff=self.fast.mb.stiff,
+                fast_ci=self.fast.mb.claw_idx,
+                fast_cs=self.fast.mb.claw_sign,
+            )
+            _fh.flush()
+            try:
+                os.fsync(_fh.fileno())
+            except Exception:
+                pass
+        os.replace(_np_tmp, path_prefix + ".agi_mb.npz")
         self.mind.save(path_prefix + ".mind.npz")
         self.life.voice.save_file(path_prefix + ".voice.pkl.gz")
         if self.life.voice.organ is not None:
             self.life.voice.organ.save(path_prefix + ".broca.pt")
+        # Günlük: kayıt anı da iz bırakır, tampon diske indirilir.
+        self._journal("kayıt", dosya=str(path_prefix), yas=int(getattr(self.mind, "age", 0)))
+        if getattr(self, "journal", None) is not None:
+            self.journal.flush()
 
     @classmethod
     def load(cls, path_prefix: str) -> "NoraAGI":
@@ -2986,7 +3071,21 @@ class NoraAGI:
         agi.fast.mb.W_slow = z["fast_Ws"]
         agi.fast.mb.stiff = z["fast_stiff"]
         agi.fast.mb.tags = np.zeros_like(agi.fast.mb.W_fast)
+        # Günlük varsa yaşam kaldığı yerden kaydedilmeye devam eder (kayıtlar korunur).
+        _jp = str(meta.get("journal_path") or "") or (path_prefix + ".journal.ndjson")
+        if os.path.exists(_jp):
+            agi.open_journal(_jp)
         return agi
+
+
+def _open_journal_if_asked(agi, args):
+    """--journal verildiyse yaşam günlüğünü açar; kaç eski kayıt olduğunu yazar."""
+    path = str(getattr(args, "journal", "") or "").strip()
+    if not path:
+        return 0
+    n = agi.open_journal(path)
+    print(f"[günlük] {path} açık — önceki kayıt: {n}")
+    return n
 
 
 def stage_demo(args):
@@ -2995,6 +3094,7 @@ def stage_demo(args):
     print("  NORA-AGI CANLI GÖSTERİM: Beden + Nörokimya + Öz-Benlik + Tek-Atış Dil + S2")
     print("=" * 78)
     agi = NoraAGI(name="Nora", seed=args.seed, boot_thinker=True, thinker_iters=args.think_iters)
+    _open_journal_if_asked(agi, args)
     print(f"[1] Beden evrende {args.life_steps} adım yaşıyor ve kendi deneyimlerini ediniyor...")
     life = agi.step_life(args.life_steps)
     print(f"    yaş={life['age']} | yedi={life['ate']} | içti={life['drank']} | yara={life['hurt']} | kimya={life['chem']}")
@@ -3029,6 +3129,7 @@ def stage_chat(args):
     import threading
     agi = NoraAGI(name="Nora", seed=args.seed, boot_thinker=True, thinker_iters=args.think_iters, corpus=args.corpus,
                   broca=args.broca if os.path.exists(args.broca) else None)
+    _open_journal_if_asked(agi, args)
     agi.step_life(1500)
     if args.internet:
         agi.life.enable_internet()
@@ -3081,6 +3182,7 @@ def stage_twins(args):
             "Kedi mi köpek mi?", "Zürafa nedir?", "Kendini yalnız hissediyor musun?"]
     a = NoraAGI(name="Nora-A", seed=args.seed, boot_thinker=False)
     b = NoraAGI(name="Nora-B", seed=args.seed, boot_thinker=False)
+    _open_journal_if_asked(a, args)
     same = bool((a.mind.Win == b.mind.Win).all() and (a.mind.Wr == b.mind.Wr).all())
     print(f"A kimliği: {a.entropy.identity_line()}")
     print(f"B kimliği: {b.entropy.identity_line()}")
@@ -3122,6 +3224,7 @@ def main():
     ap.add_argument("--corpus", nargs="*", default=[], help="Nora'nın okuyarak dil öğreneceği metin dosyaları (herhangi bir dil)")
     ap.add_argument("--broca", default="data/broca_tr.pt", help="eğitilmiş sinirsel Broca artikülasyon organı")
     ap.add_argument("--internet", action="store_true", help="arka plan araştırması için gerçek ağ kaynaklarını aç")
+    ap.add_argument("--journal", default="", help="append-only yaşam günlüğü dosyası (örn. data/nora_yasam.ndjson)")
     args = ap.parse_args()
     if args.stage == "demo":
         stage_demo(args)
