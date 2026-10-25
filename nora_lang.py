@@ -803,6 +803,14 @@ class TurkishMorphology:
             # Sözlükte bütün hâliyle duran sözcük, kök soyma tahmininden üstündür:
             # 'yemek' (aş) 'ye+mek' diye fiil köküne indirgenmemeli; 'hikâye' 'hikâ'+DAT olmamalı.
             return {**info, "stem": w, "case": "NOM", "is_verb": False, "neg": False}
+        # DOĞRULANMAMIŞ KÖK İŞARETİ: tek harfli bir hâl eki soyyorsa ama ne yüzey ne de
+        # gövde sözlükte varsa, gövde bir TAHMİNDİR ('pusula' -> 'pusul'? 'sepet-e' -> 'sepet'?).
+        # Çözümleme bozulmaz (DAT/LOC doğru kalır), ama bu kökü ADI GİBİ kullanmayız:
+        # söz üretirken duyulan biçime döneriz. Böylece ne 'sepet' kaybolur ne 'pusul' uydurulur.
+        if (w not in known and stem not in known and not info.get("is_verb")
+                and info.get("case") in ("DAT", "ACC", "GEN", "LOC", "ABL")
+                and len(w) - len(stem) == 1 and len(stem) >= 3):
+            info["unverified_stem"] = True
         if (w not in known and stem not in known and info.get("is_verb")
                 and not info.get("voice") and stem not in cls.KNOWN_VERB_ROOTS):
             # 'matematik' -> 'mat' (fiil) gibi köksüz çözümlemeler anlamayı bozar; sözlükte
@@ -1490,6 +1498,13 @@ class TurkishMorphology:
                             _res = _h
                         elif cls._undouble(_stem_c) in known:
                             _res = cls._undouble(_stem_c)
+                    if _res is None and _ps in ("ımız", "imiz", "umuz", "ümüz") \
+                            and len(_stem_c) >= 2 and not _stem_c.endswith(("diğ", "dığ", "duğ", "düğ",
+                                                                        "tiğ", "tığ", "tuğ", "tüğ", "y")):
+                        # 'evimizde' -> 'ev' (sözlükte 'ev' yokken bile): -ImIz eki
+                        # ad üzerinde TEK anlamlıdır, uydurma kök riski yok.
+                        _res = _stem_c
+                        info["poss_unverified"] = True
                     if _res is not None:
                         if _pl_hit:
                             info["plural"] = True
@@ -1503,6 +1518,22 @@ class TurkishMorphology:
                             info["poss_person"] = ("1PL" if _ps in ("ımız", "imiz", "umuz", "ümüz")
                                                    else "2PL")
                         return info
+
+        # 3C) YALIN 1. ÇOĞUL İYELİK: 'evimiz' -> 'ev', 'hepimiz' -> 'hep', 'içimiz' -> 'iç'.
+        #     -ImIz ad üzerinde tek anlamlıdır; kök sözlükte olmasa da (henüz duyulmamışsa)
+        #     iki harflik gövde kabul edilir. -DIk sıfat-fiili ('geldiğimiz') dışarıda tutulur.
+        for _p1pl in ("ımız", "imiz", "umuz", "ümüz"):
+            if len(w) - len(_p1pl) >= 2 and w.endswith(_p1pl) and w not in known:
+                _cand = w[:-len(_p1pl)]
+                if _cand.endswith(("diğ", "dığ", "duğ", "düğ", "tiğ", "tığ", "tuğ", "tüğ")):
+                    break
+                _hard = cls._unsoften(_cand)
+                _base = _hard if _hard in known else _cand
+                info["stem"] = _base
+                info["poss"] = 2
+                info["poss_person"] = "1PL"
+                info["poss_unverified"] = _base not in known
+                return info
 
         # 4) Çoğul eki (-lar/-ler) ve iyelik (-ım/-im/-um/-üm / -ı/-i/-u/-ü) + Ünlü Düşmesi geri kazanımı
         for pl in ("lar", "ler"):
@@ -1527,6 +1558,14 @@ class TurkishMorphology:
                     info["poss1"] = True
                     info["poss"] = 1
                     info["poss_person"] = "1SG"
+                    break
+                if poss in ("ımız", "imiz", "umuz", "ümüz") and len(cand) >= 2 \
+                        and not cand.endswith(("diğ", "dığ", "duğ", "düğ", "tiğ", "tığ", "tuğ", "tüğ")):
+                    # 'evimiz' -> 'ev': 1. çoğul iyelik eki ad üzerinde tek anlamlı
+                    cur = cand
+                    info["poss"] = 2
+                    info["poss_person"] = "1PL"
+                    info["poss_unverified"] = True
                     break
                 # 'yollarım' -> 'yol' + lar (çoğul) + ım (1. tekil iyelik)
                 for _pl in ("lar", "ler"):
@@ -2438,7 +2477,10 @@ class WernickeComprehender:
         if has_q and len(words) >= 2 and not has_2sg_q:
             # Çok sözcüklü kavram ('yapay zekâ', 'kara delik'): en uzun bilinen öneki özne say.
             # Bilinen önek yoksa Türkçenin baş-sonda kuralı: öbek başı SON sözcüktür ('kuantum bilgisayar').
-            subj = self.morph.analyze_word(words[0], self.graph.lexicon)["stem"]
+            _an0 = self.morph.analyze_word(words[0], self.graph.lexicon)
+            # Kök sözlükle DOĞRULANMADIYSA duyulan biçim kullanılır: 'Pusula ne işe yarar?'
+            # sorusunda 'pusul' (uydurma kök) değil 'pusula' konuşulur.
+            subj = words[0] if _an0.get("unverified_stem") else _an0["stem"]
             _found = False
             for n_w in (3, 2):
                 if len(words) > n_w:

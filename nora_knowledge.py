@@ -121,6 +121,10 @@ COMMON_ADJECTIVES: set[str] = {
     "gerekli", "gereksiz", "önemli", "önemsiz", "doğru", "yanlış", "gerçek", "sahte",
     "aynı", "farklı", "benzer", "tek", "çok", "az", "bol", "nadir", "sık", "yakın", "uzak",
     "erken", "geç", "hazır", "hazırlıklı", "şanslı", "şanssız", "haklı", "haksız",
+    # RENKLER: Türkçede renk adları sıfattır ve ad çekimi almaz. Bu liste olmadan
+    # 'kara' -> 'kar'+DAT (kar yağışına) diye çözülüyor, 'kara delik' terimi kayboluyordu.
+    "kara", "siyah", "beyaz", "ak", "kırmızı", "mavi", "yeşil", "sarı", "mor", "turuncu",
+    "pembe", "gri", "kahverengi", "lacivert", "turkuaz", "bordo",
 }
 
 COMMON_NOUNS: set[str] = {
