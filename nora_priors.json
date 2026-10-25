@@ -1068,6 +1068,26 @@
               "shape": "presence"
             }
           }
+        },
+        {
+          "id": "res.thr.a",
+          "text": "Ölçüm: {name} = {n}. Eşik {threshold_desc}; koşul {cond_word}. Kurala göre: {label}.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "shape": "threshold"
+            }
+          }
+        },
+        {
+          "id": "res.thr.b",
+          "text": "'{target}' için {name} {n}. {threshold_desc} sınırına göre koşul {cond_word}; etiket: {label}.",
+          "bias": 0.96,
+          "when": {
+            "eq": {
+              "shape": "threshold"
+            }
+          }
         }
       ]
     },
@@ -2042,6 +2062,26 @@
           "when": {
             "eq": {
               "stage": "reused"
+            }
+          }
+        },
+        {
+          "id": "fg.invented_ambiguous",
+          "text": "Hiçbir yerleşik ölçüm bu veriyi ayırmıyordu; kendime yeni bir ölçüm yazdım: {name}. Ama sınırı veri belirlemedi — {n_cand} aday kaldı. '{probe}' hangi etiketi alır?",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "stage": "invented_ambiguous"
+            }
+          }
+        },
+        {
+          "id": "fg.invented_ambiguous2",
+          "text": "Bu veriye yerleşik ölçümler yetmedi, yeni bir ölçüm icat ettim: {name}. Eşiğin nerede olduğunu örnekler söylemiyor ({n_cand} aday). '{probe}' hangi etiketi alır?",
+          "bias": 0.95,
+          "when": {
+            "eq": {
+              "stage": "invented_ambiguous"
             }
           }
         }

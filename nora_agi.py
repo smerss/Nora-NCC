@@ -3138,7 +3138,8 @@ class NoraAGI:
     def _threshold_desc(rule) -> str:
         """Eşik ifadesini ölçüm diline çevir ('3'ten az', 'en az 4')."""
         t = int(getattr(rule, "threshold", 0))
-        return {"lt": f"{t}'ten az", "le": f"en çok {t}",
+        _na = __import__("nora_apply").num_abl(t)
+        return {"lt": f"{t}'{_na} az", "le": f"en çok {t}",
                 "gt": f"{t}'ten çok", "ge": f"en az {t}"}.get(getattr(rule, "op", "lt"), str(t))
 
     @staticmethod
@@ -3149,7 +3150,9 @@ class NoraAGI:
         if sh == "threshold":
             t = getattr(rule, "threshold", 0)
             op = getattr(rule, "op", "lt")
-            cond = {"lt": f"{t}'ten az", "le": f"en çok {t}", "gt": f"{t}'ten çok",
+            _na = __import__("nora_apply").num_abl(t)
+            cond = {"lt": f"{t}'{_na} az", "le": f"en çok {t}",
+                    "gt": f"{t}'{_na} çok",
                     "ge": f"en az {t}"}.get(op, f"{t}")
             return f"{cond} -> {m.get('cond')}, değilse {m.get('else')}"
         if sh == "rank":
@@ -3346,13 +3349,20 @@ class NoraAGI:
                     "cands": "; ".join((res.get("candidates") or [])[:3]),
                     "probe": "-", "why": self._forge_why_map().get("ayırt-edici-yok", ""),
                 }, ctx={"stage": "no_probe"})
+            # Adaylar kalıbı MİNİK: bu turda İCAT EDİLMİŞ bir ölçüm varsa söz bunu
+            # söyler (ve sınırın veriden gelmediğini de). Yerleşik ölçümler arasındaki
+            # belirsizlikte "yeni ölçüm yazdım" demek yalan olurdu.
+            _now = list(getattr(fg, "invented_now", None) or [])
+            _inv = "invented_ambiguous" if (_now and not pending) else \
+                   ("progress" if pending else "ambiguous")
             return self._say("meta.forge", {
                 "desc": "-", "n_ex": len(fg.examples), "n_cand": int(res.get("n") or 0),
+                "name": (__import__("nora_apply").FEATURES.get(
+                    getattr(_now[0], "feature", ""), ("-",))[0] if _now else "-"),
                 "human": counts.get("human"), "self": counts.get("self"),
                 "cands": "; ".join((res.get("candidates") or [])[:3]),
                 "probe": probe, "why": "-",
-            }, ctx={"stage": ("progress" if pending else "ambiguous")},
-                )
+            }, ctx={"stage": _inv})
         # insufficient: uydurma yok, gerekçe adıyla
         self._forge_pending = None
         _why = str(res.get("why") or "veri yetmiyor")
