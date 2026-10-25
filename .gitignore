@@ -25,3 +25,4 @@ runs/tok.json
 _probe*.py
 _t*.py
 _patch*.py
+runs/operators_self.json

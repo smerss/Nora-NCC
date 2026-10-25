@@ -463,6 +463,18 @@ class NoraAGI:
             self.apply_eng = Interpreter()
         except Exception:
             self.apply_eng = None
+        # --- OPERATÖR OCAĞI: kuralı insan değil, Nora ÖRNEKLERDEN kendi yazar ------
+        # Ölçülen şey: insanın yazdığı operatör sayısı SABİT, Nora'nın kendi yazdığı
+        # operatör sayısı ARTAN. Defter insan rejistrisinden AYRI tutulur ki
+        # `nora_operators.json` (insan yazımı) dondurulmuş kalsın.
+        try:
+            from nora_forge import OperatorForge
+            self.forge = OperatorForge(interpreter=self.apply_eng,
+                                       ledger_path="runs/operators_self.json",
+                                       step=int(getattr(self.mind, "age", 0)))
+        except Exception:
+            self.forge = None
+        self._forge_pending = None
         self.last_auditory = None
         self.audio_log: list = []
         self._prev_answers: dict[str, str] = {}
@@ -1256,6 +1268,15 @@ class NoraAGI:
         if _cfv:
             self._log_turn(speaker, raw, _cfv, t0)
             return _cfv
+
+        # --- OPERATÖR OCAĞI: "şu örneklerden kural çıkar" — kuralı BİZ yazmayız ----
+        try:
+            _fg = self._handle_forge(raw, speaker=speaker)
+        except Exception:
+            _fg = None
+        if _fg:
+            self._log_turn(speaker, raw, _fg, t0)
+            return _fg
 
         # --- UYGULAMA OPERATÖRLERİ: kural bağla / uygula / say / transfer ---------
         # Bunlar retrieve değil APPLY'dir: kural nesne olarak bağlanır, yeni girdiye
@@ -3134,6 +3155,196 @@ class NoraAGI:
         if sh == "rank":
             return f"en çok -> {m.get('max')}, en az -> {m.get('min')}"
         return f"tek -> {m.get('odd')}, çift -> {m.get('even')}"
+
+    # ======================================================================
+    # OPERATÖR OCAĞI: örneklerden kendi kuralını yaz
+    # ======================================================================
+    FORGE_TRIGGERS = ("kural çıkar", "kural türet", "kendi kural", "kendi operatör",
+                      "örneklerden", "örnekten", "kendin yaz", "operatör yaz", "sen yaz")
+
+    def _forge_pool(self, n: int = 400) -> list[str]:
+        """Adayları ayırt edecek sözcük havuzu: sözlükten, deterministik sıralı."""
+        try:
+            lex = getattr(getattr(self.lang, "graph", None), "lexicon", None) or {}
+            words = list(lex.keys()) if hasattr(lex, "keys") else list(lex)
+            out = [str(w) for w in words if str(w).isalpha() and 2 <= len(str(w)) <= 14]
+            return sorted(set(out))[:n]
+        except Exception:
+            return []
+
+    def _forge_pairs(self, raw: str) -> list[tuple[str, str]]:
+        """'karınca=kırmızı, bilgisayar=mavi' -> [(karınca,kırmızı), ...].
+
+        Ayırıcı önceliği: '=' , '->' , '→' , sonra ':' (yalnız sağı tek sözcükse).
+        Komut öneki ('Kural çıkar:') atılır; etiket tek sözcük olmalı.
+        """
+        out: list[tuple[str, str]] = []
+        for chunk in re.split(r"[;\n]|,|\s+ve\s+", raw or ""):
+            c = chunk.strip(" .!?")
+            if not c:
+                continue
+            t = lab = ""
+            for sep in ("=", "->", "→"):
+                if sep in c:
+                    t, lab = c.rsplit(sep, 1)
+                    break
+            if not t and ":" in c:
+                left, right = c.rsplit(":", 1)
+                if right.strip() and len(right.strip().split()) == 1:
+                    t, lab = left, right
+            if not t:
+                continue
+            # 'Kural çıkar: karınca' -> 'karınca' (komut öneki metne karışmaz)
+            t = t.split(":")[-1].strip(" .!?-")
+            lab = tr_lower(lab).strip(" .!?-\"\u201c\u201d")
+            if not t or not lab or len(lab.split()) != 1:
+                continue
+            if tr_lower(t) in self.FORGE_TRIGGERS or len(t) < 2:
+                continue
+            out.append((t, lab))
+        return out
+
+    def _forge_check(self, pairs, pool=None) -> str:
+        """Kendi kuralımı örnekle sına: tutuyorsa söyle, tutmuyorsa YENİDEN TÜRET."""
+        fg = self.forge
+        rule = fg.adopted
+        # `Rule.apply` kullanılır: kuralın KENDİ yolu (istisna -> ölç -> eşle).
+        bad = [(t, l) for t, l in pairs if rule.apply(t)[0] != l]
+        good = [(t, l) for t, l in pairs if rule.apply(t)[0] == l]
+        if not bad:
+            t, l = (good[0] if good else ("-", "-"))
+            self._apply_tag("islem", 1)
+            return self._say("meta.forge", {
+                "desc": rule.source_text or "", "n_ex": len(fg.examples),
+                "n_cand": len(fg.cands), "human": fg.human_count(),
+                "self": len(fg.authored), "cands": "-", "probe": "-", "why": "-",
+                "item": t, "label": l, "got": rule.apply(t)[0],
+            }, ctx={"stage": "confirmed"})
+        # Çürütme: eski örneklerin TAMAMI + yeni örneklerle yeniden türet.
+        t, l = bad[0]
+        got = rule.apply(t)[0]
+        # Çürütülen operatör deftere yazılır: kendi yazdığım şeyi sessizce silmem.
+        try:
+            fg.mark_refuted(rule, t, l, got)
+        except Exception:
+            pass
+        res = fg.observe(list(fg.examples) + bad, pool=pool)
+        st = str(res.get("status") or "")
+        counts = res.get("counts") or {}
+        self._apply_tag("islem", 1)
+        if st == "adopted":
+            return self._say("meta.forge", {
+                "desc": res.get("desc") or "", "n_ex": len(fg.examples),
+                "n_cand": len(fg.cands), "human": counts.get("human"),
+                "self": counts.get("self"), "cands": "-", "probe": "-", "why": "-",
+                "item": t, "label": l, "got": got,
+            }, ctx={"stage": "revised"})
+        if st == "ambiguous":
+            probe = res.get("probe")
+            self._forge_pending = {"probe": probe}
+            return self._say("meta.forge", {
+                "desc": "-", "n_ex": len(fg.examples), "n_cand": int(res.get("n") or 0),
+                "human": counts.get("human"), "self": counts.get("self"),
+                "cands": "; ".join((res.get("candidates") or [])[:3]),
+                "probe": probe or "-", "why": "-", "item": t, "label": l, "got": got,
+            }, ctx={"stage": "revise_ambiguous"})
+        _why = str(res.get("why") or "veri yetmiyor")
+        self._forge_pending = None
+        return self._say("meta.forge", {
+            "desc": "-", "n_ex": len(fg.examples), "n_cand": 0,
+            "human": counts.get("human"), "self": counts.get("self"),
+            "cands": "-", "probe": "-", "item": t, "label": l, "got": got,
+            "why": self._forge_why_map().get(_why, _why),
+        }, ctx={"stage": "revise_failed"})
+
+    @staticmethod
+    def _forge_why_map() -> dict:
+        """Ocağın gerekçe kodları -> insan dili. Cümle KODDA değil VERİDE durur
+        (`nora_priors.json: forge_why`), iskelet mandalı bu ayrımı ölçer."""
+        try:
+            import json as _json
+            import nora_priors as _pr
+            blob = _json.loads(_pr.JSON_PATH.read_text(encoding="utf-8"))
+            return {str(k): str(v) for k, v in (blob.get("forge_why") or {}).items()}
+        except Exception:
+            return {}
+
+    def _handle_forge(self, raw: str, speaker: str = "insan") -> str | None:
+        """Kuralı Nora yazar: örnekler -> adaylar -> (gerekirse) ayırt edici örnek -> operatör."""
+        fg = getattr(self, "forge", None)
+        if fg is None:
+            return None
+        lo = tr_lower(raw or "")
+        pairs = self._forge_pairs(raw)
+        started = any(k in lo for k in self.FORGE_TRIGGERS)
+        pending = getattr(self, "_forge_pending", None)
+        # --- (0) KENDİ KURALIMA KARŞI ÖRNEK: tetikleyici olmadan da denetlenir ------
+        # Elde BENİM yazdığım bir operatör varsa ve gelen etiket onun sözlüğündense bu
+        # bir öğretme/çürütme örneğidir; sessizce "anladım" deyip geçmek yanlış olur.
+        if not started and not pending and fg.adopted is not None and pairs:
+            labels = {str(v).lower() for v in (fg.adopted.mapping or {}).values()}
+            if all(lab in labels for _, lab in pairs):
+                return self._forge_check(pairs, pool=self._forge_pool())
+        if not started and not pending:
+            return None
+        # Bekleyen ayırt edici soruya ÇIPLAK etiket cevabı: "mavi"
+        if not pairs and pending and re.fullmatch(r"[a-zçğıöşü]{2,20}", lo.strip(" .!?")):
+            pairs = [(str(pending.get("probe") or ""), lo.strip(" .!?"))]
+        if not pairs:
+            # Örnek NİYETİ yoksa (soru/sohbet) yolu işgal etmeyiz; yalnız "örnek"/"="
+            # geçen bir tetikleyici için örnek istenir.
+            if started and ("=" in raw or "örnek" in lo):
+                return self._say("meta.forge", {"desc": "-", "n_ex": 0, "n_cand": 0,
+                                                "human": fg.human_count(),
+                                                "self": len(fg.authored), "cands": "-",
+                                                "probe": "-", "why": "örnek yok"},
+                                 ctx={"stage": "insufficient"})
+            return None
+        pool = self._forge_pool()
+        if started or not pending:
+            res = fg.observe(pairs, pool=pool)
+        else:
+            res = None
+            for t, lab in pairs:
+                res = fg.add_example(t, lab, pool=pool)
+        st = str(res.get("status") or "")
+        counts = res.get("counts") or {}
+        self._apply_tag("islem", 1)
+        if st == "adopted":
+            self._forge_pending = None
+            self.apply_eng.wm.write("last_rule_kind", "kendi", "forge")
+            return self._say("meta.forge", {
+                "desc": res.get("desc") or "",
+                "n_ex": len(fg.examples), "n_cand": len(fg.cands),
+                "human": counts.get("human"), "self": counts.get("self"),
+                "cands": "-", "probe": "-", "why": "-",
+            }, ctx={"stage": "adopted"})
+        if st == "ambiguous":
+            probe = res.get("probe")
+            self._forge_pending = {"probe": probe}
+            if not probe:
+                return self._say("meta.forge", {
+                    "desc": "-", "n_ex": len(fg.examples), "n_cand": int(res.get("n") or 0),
+                    "human": counts.get("human"), "self": counts.get("self"),
+                    "cands": "; ".join((res.get("candidates") or [])[:3]),
+                    "probe": "-", "why": self._forge_why_map().get("ayırt-edici-yok", ""),
+                }, ctx={"stage": "no_probe"})
+            return self._say("meta.forge", {
+                "desc": "-", "n_ex": len(fg.examples), "n_cand": int(res.get("n") or 0),
+                "human": counts.get("human"), "self": counts.get("self"),
+                "cands": "; ".join((res.get("candidates") or [])[:3]),
+                "probe": probe, "why": "-",
+            }, ctx={"stage": ("progress" if pending else "ambiguous")},
+                )
+        # insufficient: uydurma yok, gerekçe adıyla
+        self._forge_pending = None
+        _why = str(res.get("why") or "veri yetmiyor")
+        return self._say("meta.forge", {
+            "desc": "-", "n_ex": len(fg.examples), "n_cand": 0,
+            "human": counts.get("human"), "self": counts.get("self"),
+            "cands": "-", "probe": "-",
+            "why": self._forge_why_map().get(_why, _why),
+        }, ctx={"stage": "insufficient"})
 
     #: Karşıolgusal irade sorusunda "hangi kanal çıkarılsın" sözlüğü (beden kanalı adları).
     ABLATE_WORDS = {

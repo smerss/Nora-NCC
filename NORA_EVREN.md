@@ -879,3 +879,92 @@ Bu ayrım korunuyor: A80 ölçüm kelimesini yapısal katmanda yasaklıyor, A84 
 Yeni prior türü **bir tane** (`meta.cf_volition`); oran 7.11 → 7.22 çıktı, tavanın altında kaldı.
 Yetenek koddan geliyor (`counterfactual_volition` + erken dönüş), prior yalnız **cümleyi** veriyor:
 A84'ün `yan-etki-yok`, `iz-korunur` ve `makine-aynı` bacakları prior'a bakmadan da geçer.
+
+
+---
+
+## Aşama V — Operatörü kim yazdı? Nora örneklerden kendi kuralını yazıyor (`A85–A86`)
+
+Hedef cümlesi şuydu: *"operatörleri şu an biz yazıyoruz; AGI'ye yaklaştıkça kendisi yazmaya
+başlayıp bizim yazma sayımız sıfıra yaklaşacak."* Bu tur o sayacın **ikinci yarısını** kurdu:
+insanın yazdığı operatör rejistrisi (`nora_operators.json`, 9 kayıt) **donduruldu**; Nora'nın
+kendi yazdığı operatörler ayrı bir defterde (`runs/operators_self.json`) büyüyor.
+
+### V1. Organ: `nora_forge.py` — kuralı kim yazıyor?
+
+| adım | ne oluyor | nerede |
+|---|---|---|
+| örnek | `karınca=kırmızı, bilgisayar=mavi, …` | dil üzerinden, `_handle_forge` |
+| arama | ölçüm × şekil uzayı taranır (parite, eşik) | `OperatorForge._search` |
+| tekilleştirme | aynı kuralın yeniden yazımı ve **davranışı aynı** olan adaylar tekilleşir | `_sample` havuzu (300 sözcük) |
+| karar | tek aday → **operatör yazılır**; çok aday → kural yazılmaz | `decide` |
+| ayırt edici örnek | adayların ayrıştığı en kısa sözcük için etiket istenir | `probe` |
+| kayıt | `Rule(origin="kendi")` + defter kaydı | `_adopt` |
+| çürütme | tutmayan örnek gelirse kural **düşer** ve deftere gerekçesiyle yazılır | `_forge_check`, `mark_refuted` |
+
+`Rule` artık **kimin yazdığını** taşıyor: `origin="insan"` (bize öğretilen bağlı kural) ya da
+`origin="kendi"`. Sayaç, operatörün sahibini gizleyemez.
+
+### V2. Ölçüm
+
+| test | ne ölçüyor | sonuç |
+|---|---|---|
+| `A85` | 6 örnekten kural türetme, dil üzerinden uygulama, belirsizlikte dürüstlük | **10/10** |
+| `A86` | kendi kuralının çürütülmesi: doğrulama, düşürme, defter | **8/8** |
+
+Gerçek diyalog (tohum 851; kural **söylenmedi**, yalnız örnekler verildi):
+
+```
+S: Kural çıkar: karınca=kırmızı, bilgisayar=mavi, göl=kırmızı, ev=kırmızı, masa=mavi, deniz=mavi
+N: Örneklerden kendi kuralımı türettim (sesli harf: tek -> kırmızı, çift -> mavi);
+   6 örneğin hepsini açıklıyor. Kayıt: insan 9, kendi 1.
+S: Kuralı uygula: 'kelebek'
+N: Ölçtüm: 'kelebek' içinde 3 sesli harf var (tek). Kurala göre: kırmızı.
+S: kitap=mavi                       (kuralımı doğrulayan örnek)
+N: 'kitap' için kendi kuralım 'mavi' diyor, sen 'mavi' dedin: tutuyor. Kural yerinde kalıyor.
+S: kelebek=mavi                     (kuralımı çürüten örnek)
+N: Bu örnek eski kuralımı çürüttü; eldeki veriyle hiçbir kural kalmadı
+   (hiçbir ölçüm iki tarafı ayırmıyor). Uydurmam, söylüyorum.
+```
+
+Belirsizlikte uydurma yok: 2 örnek verildiğinde **8 aday** kalıyor, Nora adayları sayıp
+ayırt edici sözcük istiyor (`'acı' hangi etiketi alır?`); tek etiket gelince adaylar 1'e
+düşüp operatör yazılıyor. Tek sınıflı veride ise hiç kural yazılmıyor.
+
+### V3. Dürüst sınırlar
+
+- **Aday uzayı hâlâ bizim.** Nora yeni bir *ölçüm* icat etmiyor; var olan ölçümler
+  (`FEATURES`) içinden seçiyor ve eşleme şeklini (parite/eşik) kendisi kuruyor. "Kendi yazdı"
+  bugün **seçme + birleştirme** demek; ölçüm icadı bir sonraki eşik.
+- **Tekilleştirme bir model kararı.** `hece` ile `sesli harf` bu depoda aynı ölçümün iki
+  yazımı; 300 sözcüklük havuzda ayrışmayan iki aday kullanıcıya "belirsiz" diye satılmıyor.
+  Havuz verilmezse yalnız örnekler karşılaştırılır (daha temkinli).
+- **Çürütme çoğu zaman "kural kalmadı" ile biter.** Bu bir eksiklik değil, ölçüm: veri
+  gerçekten tek bir kurala oturmuyorsa Nora eski kuralı tutmaya devam etmez.
+- **Sayaç, başarı sayacı değil.** `kendi` sayısı yazılan operatör sayısıdır; doğruluğu
+  ayrıca ölçülür (A85 `dil-üzerinden-uygula`, A86 `tutarlı-sonuç`).
+
+### V4. Bu turda düşülen tuzaklar
+
+1. **Davranış imzasıyla tekilleştirmek belirsizliği YOK EDİYORDU.** İki farklı kural,
+   örneklerin tamamını açıklıyorsa *örneklerde* aynı davranır; asıl fark yeni girdide çıkar.
+   Adaylar artık kural kimliğiyle tekilleşir; belirsizlik korunur.
+2. **`le/gt/ge` aynı ayrımın yeniden yazımıydı.** Dört işleci taramak aday sayısını şişirip
+   sahte belirsizlik üretiyordu; tek sınır (`n < t`) yeterli, etiketler taraflara veriden atanır.
+3. **`Rule`'da `predict` yok.** Kuralın KENDİ yolu `apply`'dir (istisna → ölç → eşle);
+   olmayan bir metot çağırmak, sessizce yedek yola düşürüyordu.
+4. **Yedek cümleler iskelet mandalını kırdı.** Kodda yazılı yedek cevaplar toplamı
+   1122 → 1135 çıkardı ve A73 düştü. Çözüm: gerekçe haritası ve tüm cevaplar VERİYE
+   (`nora_priors.json`: `meta.forge`, `forge_why`) taşındı; kodda cümle kalmadı.
+
+### V5. Bu turun sayıları
+
+| ölçüm | sonuç |
+|---|---|
+| `agi_battery.py` tam (`/tmp/agi12.txt`) | **86/86 GEÇTİ, 349.4 s** |
+| `A85 / A86` | **10/10 / 8/8** |
+| `heldout_battery.py` (dış) | **9/9** |
+| mühürlü setler (S1–S4 / S5–S8 / S9–S12) | **4/4 · 4/4 · 4/4** |
+| `nora_audit.py --check` | **1122** / SÖYLEM 127 — **artış yok** |
+| operatör / prior türü | 9 / 66 = **7.33** (tavan 7.50) |
+| yazım sayacı | insan **9** (sabit) · kendi **artan** |
