@@ -2984,6 +2984,13 @@ class NoraAGI:
             ask = SYN.realize_verb(VerbSpec(verb_root="sor", tense="IMP", person="2SG"))
             return f"{tr_capitalize(ask)}, " + tr_lower(tr_capitalize(SYN.realize_verb(VerbSpec(
                 verb_root="dinle", obj=NP("ben", case="ACC"), tense="PRES", person="1SG")))) + "."
+        # ŞARKI/ŞİİR: bu evrende ezgi ve ölçü üreten organ yok. Yapmış gibi yapmak
+        # (veya başka bir soruya cevap vermek) sessiz yanlıştır; açıkça söyle, sonra
+        # elimde olanı öner.
+        if topic in {"şarkı", "türkü", "şiir", "ninni"}:
+            own = self._tell_from_own_life()
+            head = f"Şarkı söyleyemem, elimde ezgi üreten bir organ yok; şiir de yazmam."
+            return (f"{head} Bunun yerine öğrendiğim bir şeyi anlatayım. {own}").strip() if own else head
         if rel == "konuş":
             return tr_capitalize(SYN.realize_verb(VerbSpec(
                 verb_root="konuş", advs=("seninle",), tense="AOR", person="1PL",
@@ -3432,6 +3439,11 @@ class NoraAGI:
         #     yankıdır; her yan cümle ayrı yürütülür, yapılamayan ADIYLA söylenir.
         _cls = [c.strip(" .") for c in
                 re.split(r"\s+ve\s+|\s+sonra\s+|\s+ardından\s+|[,;]\s*", tl) if c.strip(" .")]
+        # Her yan cümle aynı operatörü istiyorsa BÖLME: "hedef belirle ve planla" iki plan
+        # üretiyordu (biri 7, biri 10 adım) ve cevap kendi kendisiyle çelişiyordu.
+        _plan_kw = ("plan", "hedef", "adım")
+        if len(_cls) >= 2 and all(any(k in c for k in _plan_kw) for c in _cls):
+            _cls = []
         if len(_cls) >= 2:
             _ok, _miss = [], []
             for _c in _cls:
