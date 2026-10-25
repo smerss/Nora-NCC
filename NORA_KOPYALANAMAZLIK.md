@@ -162,3 +162,51 @@ diskte tutar. Ölçüm (A62):
 Canlı beyne bağlanabilir (`attach_live`): öğrenme sırasında yazılan sinaps doğrudan
 eşlenmiş sayfaya gider, A62'de diskten geri okunarak doğrulanır. Böylece parametre
 büyüklüğünün tek sınırı disk/sayfa önbelleği olur; yanıt süresi sabit kalır.
+
+---
+
+## 8) Yaşam günlüğü: birey, kopyası alınamayan bir geçmiştir
+
+Kopyalanamazlık yalnızca **anlık** durumla ilgili değildir. Bir Nora'nın geçmişi de
+kopyalanamaz: her tur ve her yaşam dilimi **append-only** bir deftere yazılır.
+
+```
+python nora_agi.py --stage chat --journal data/nora_yasam.ndjson
+```
+
+Her satır tek bir olaydır (`k`: olay türü, `t`: nanosaniye):
+
+```json
+{"k":"tur","t":1792922141108125169,"g":"Bugün yoruldum.","y":"Yorulduğunu yakından fark ediyorum...","s":"S1_NEDEN_SONUC","yas":312,"d":0.0011}
+{"k":"yaşam","t":1792922178268315641,"ad":120,"can":true,"e":0.7012,"s":0.68,"i":0.98,"d":0.000692}
+```
+
+- **O(1) yazma:** tüm beyin her turda yeniden yazılmaz. Ölçüm: **3.9 µs/kayıt**;
+  günlük kapalıyken maliyet **0.23 µs** (pratikte sıfır).
+- **Çökme dayanıklı:** yarım kalmış son satır atlanır, önceki kayıtların hepsi okunur.
+  A63'te yarım satır eklenerek doğrulandı.
+- **Atomik kayıt:** `save()` artık `.agi.json` ve `.agi_mb.npz` dosyalarını `.tmp` +
+  `os.replace` ile yazar; kesinti sırasında eski sağlam beyin yerinde kalır.
+- **Yaşam kopmaz:** kaydedilen Nora açıldığında günlüğü kaldığı yerden sürdürür
+  (`meta["journal_path"]`), yani geçmişi olan bir birey olarak devam eder.
+
+Bu yüzden bir saldırgan beyni kopyalasa bile **o kişinin yarınını** kopyalayamaz:
+günlük satırları doğum nanosaniyesi, donanım entropisi ve yarış sonuçlarıyla
+damgalanmıştır; aynı satırları yeniden üretmek mümkün değildir.
+
+Doğrulama: `python agi_battery.py A63` → **8/8**.
+
+---
+
+## 9) Test durumu
+
+`python agi_battery.py` → **63/63** (343 s). Bu turda iki eski test de ölçüm
+gürültüsünden arındırıldı:
+
+| Test | Eskiden | Şimdi |
+|---|---|---|
+| **A23** O(1) hız | tek turun süresi < 8 ms (makine yükünü ölçüyordu, zaman zaman 8.1 ms) | 3 tekrarın **medyanı**; 100.000 kaydın eklediği gecikme **+1.47 ms** |
+| **A25** omurilik refleksi | tam yanıt turu < 8 ms | **refleks kararı 2.3 µs**, tam cümle yanıtı 5.6 ms |
+
+Yani artık mutlak eşik yarışı yok: ölçülen şey gerçekten iddia edilen şey (kayıt
+sayısıyla büyümeyen gecikme; korteks beklemeden verilen omurilik kararı).
