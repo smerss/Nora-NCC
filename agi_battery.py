@@ -3953,6 +3953,100 @@ def a90_bilesik_olcum_icadi():
                                f"spec={spec} eşik={getattr(rule, 'threshold', None)}")
 
 
+def a91_olcum_guveni():
+    """A91 — ÖLÇÜM GÜVENİ: kendi yazdığı ölçümün güvenini KANITTAN kazanır.
+
+    A89 ölçümü envantere koydu ama güveni yoktu: bir kez yanılan ölçüm de, hiç sınanmamış
+    ölçüm de aynı yerde duruyordu. Burada güven SAYILIR: kaç kez tuttu, kaç kez yanıldı
+    (Laplace: (tutma+1)/(tutma+yanılma+2)). Ölçüt:
+    (1) yeni icat edilen ölçüm 0.5 güvenle başlar (ne iyi ne kötü) ve önerilir,
+    (2) doğrulanan örnekler güveni ARTIRIR; kural aynı kalır (yeni operatör yazılmaz),
+    (3) bir çürütme güveni DÜŞÜRÜR ama tek başına ölçümü atmaz (kanıt hâlâ yeterli),
+    (4) hiç tutmayan ve iki kez yanılan ölçüm ARANMAZ — envanterde durur, önerilmez,
+    (5) envanter sayıları dürüst: kaç ölçüm var, kaçı güvenilir,
+    (6) insan rejistrisi ve insan operatör sayısı değişmez.
+    """
+    import hashlib
+    import json
+    from pathlib import Path
+
+    import nora_apply as AP
+
+    ok = {}
+    led = Path("runs/operators_self.json")
+    reg = Path("nora_operators.json")
+    h0 = hashlib.sha256(reg.read_bytes()).hexdigest()
+    led.unlink(missing_ok=True)
+    for _k in [k for k in AP.FEATURES if k.startswith("kendi.")]:
+        AP.FEATURES.pop(_k, None)
+
+    g = NoraAGI(seed=991, boot_thinker=False)
+    g.step_life(150)
+    g.converse("Kural çıkar: kitaplık=soyut, tuzluk=soyut, güzellik=soyut, bolluk=soyut, "
+               "portakal=somut, masa=somut, deniz=somut")
+    k1 = str(getattr(g.forge.adopted, "feature", "") or "")
+    ok["icat-güven"] = (bool(k1) and g.forge.trust(k1) == 0.5
+                        and k1 in g.forge.search_features())
+
+    # (2) iki doğrulama: aynı kural, kanıt artar
+    r1 = tr_lower(strip_prefixes(g.converse("kalemlik=soyut")))
+    r2 = tr_lower(strip_prefixes(g.converse("defterlik=soyut")))
+    _rec = next((x for x in g.forge.measurements if str(x.get("key")) == k1), {})
+    t_after = g.forge.trust(k1)
+    ok["doğrulama-sayılır"] = (int(_rec.get("hits") or 0) == 2 and t_after > 0.6
+                               and k1 in g.forge.search_features())
+    ok["doğrulama-söz"] = (("tut" in r1 or "doğrul" in r1)
+                           and ("tut" in r2 or "doğrul" in r2))
+
+    # (3) bir çürütme: güven düşer, ölçüm atılmaz
+    g.converse("çiçek=soyut")
+    _rec = next((x for x in g.forge.measurements if str(x.get("key")) == k1), {})
+    t_ref = g.forge.trust(k1)
+    ok["çürütme-düşürür"] = int(_rec.get("misses") or 0) == 1 and t_ref < t_after
+    ok["güvenli-kalır"] = t_ref >= g.forge.TRUST_FLOOR and k1 in g.forge.search_features()
+
+    # (4) ikinci, hiç tutmayan ölçüm: iki yanılma sonrası ARANMAZ
+    # NOT: çürütme sonrası yeniden türetme KENDİLİĞİNDEN yeni bir ölçüm de icat
+    # edebilir (burada `-Vk` doğdu). Bu yüzden sabit sayı değil, ARTIŞ ölçülür.
+    m_before = g.forge.counts()["measured"]
+    g.converse("Kural çıkar: zeytin=soyut, zambak=soyut, kavun=somut, mendil=somut")
+    k2 = str(getattr(g.forge.adopted, "feature", "") or "")
+    ok["ikinci-icat"] = (bool(k2) and k2 != k1 and k2 in AP.FEATURES
+                         and g.forge.trust(k2) == 0.5
+                         and g.forge.counts()["measured"] == m_before + 1)
+    tr_invent = g.forge.counts()["trusted"]     # yeni ölçüm de güvenilir sayılıyor
+    _probe_rule = AP.Rule(rid="guven-test", feature=k2, mapping={"var": "soyut", "yok": "somut"},
+                          shape="presence", feature_spec={})
+    g.forge.mark_refuted(_probe_rule, "deneme1", "somut", "soyut")
+    g.forge.mark_refuted(_probe_rule, "deneme2", "somut", "soyut")
+    t2 = g.forge.trust(k2)
+    blob = {}
+    try:
+        blob = json.loads(led.read_text(encoding="utf-8"))
+    except Exception:
+        blob = {}
+    rows = blob.get("self_measurements") or []
+    row2 = next((m for m in rows if str(m.get("key")) == k2), {})
+    ok["güvensiz-aranmaz"] = (t2 < g.forge.TRUST_FLOOR
+                              and k2 not in g.forge.search_features())
+    ok["envanterde-durur"] = (k2 in AP.FEATURES and int(row2.get("misses") or 0) == 2
+                              and bool(row2.get("refuted")))
+    _calc = sum(1 for r in g.forge.measurements
+                if g.forge.trust(str(r.get("key") or "")) >= g.forge.TRUST_FLOOR)
+    ok["sayaç-dürüst"] = (g.forge.counts()["measured"] == len(g.forge.measurements)
+                          and g.forge.counts()["trusted"] == _calc
+                          and _calc == tr_invent - 1)
+
+    ok["insan-sabit"] = (hashlib.sha256(reg.read_bytes()).hexdigest() == h0
+                         and len(AP.OPERATORS) == 9 and g.forge.counts()["human"] == 9)
+
+    led.unlink(missing_ok=True)
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), (f"{passed}/{len(ok)} — {detail} | "
+                               f"güven: {t_after} -> {t_ref} | atılan: {t2}")
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -4030,6 +4124,7 @@ TESTS = {
     "A88": ("ünlü uyumlu ek kalıbı: -lık/-lik/-luk/-lük tek morfem", a88_unlu_uyumlu_kalip_icadi),
     "A89": ("ölçüm envanteri: kendi icat ettiği ölçüm sonraki oturumda hazır", a89_olcum_envanteri),
     "A90": ("bileşik ölçüm: iki ölçümün farkı icat edilir, eşik veriden sorulur", a90_bilesik_olcum_icadi),
+    "A91": ("ölçüm güveni: kendi aletinin güvenini kanıttan kazanır", a91_olcum_guveni),
     "A70": ("kendi çıkarımı: kimse söylemeden türetme + iç monolog", a70_own_inference_and_monologue),
     "A69": ("söz biçimi çeşitliliği, soru alışkanlığının kırılması ve kendi derdi", a69_speech_shape_variety_and_self_interest),
     "A68": ("kulak yolu: ses olayı, gürültüde eksik duyma, etiketsiz kimlik", a68_ear_path_perception),

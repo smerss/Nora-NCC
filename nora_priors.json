@@ -2084,6 +2084,16 @@
               "stage": "invented_ambiguous"
             }
           }
+        },
+        {
+          "id": "fg.confirmed3",
+          "text": "Verdiğin örnek kuralımı doğruluyor: '{item}' -> {label}. Kuralı kendi ölçümüm taşıyor; o ölçüm şimdiye kadar {hits} kez tuttu, {misses} kez yanıldı.",
+          "bias": 0.98,
+          "when": {
+            "eq": {
+              "stage": "confirmed"
+            }
+          }
         }
       ]
     }

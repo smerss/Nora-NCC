@@ -167,9 +167,10 @@ class OperatorForge:
         feat = str(getattr(rule, "feature", "") or "")
         if feat:
             for rec in self.measurements:
-                if str(rec.get("key") or "") == feat and not rec.get("refuted"):
-                    rec["refuted"] = {"item": str(item), "actual": str(actual),
-                                      "claimed": claimed, "step": int(self.step)}
+                if str(rec.get("key") or "") == feat:
+                    rec["misses"] = int(rec.get("misses") or 0) + 1
+                    rec.setdefault("refuted", {"item": str(item), "actual": str(actual),
+                                               "claimed": claimed, "step": int(self.step)})
         self.refuted.append({"id": getattr(rule, "rid", ""),
                              "desc": getattr(rule, "source_text", ""),
                              "refuted_by": {"item": str(item), "claimed": claimed,
@@ -204,12 +205,37 @@ class OperatorForge:
         aleti tekrar önermek, çürütmeyi duymamış olmak demektir.
         """
         keys = list(BASE_FEATURES)
-        for rec in self.measurements:
-            k = str(rec.get("key") or "")
-            if not k or rec.get("refuted") or k in keys or k not in FEATURES:
-                continue
-            keys.append(k)
+        mine = [str(r.get("key") or "") for r in self.measurements
+                if str(r.get("key") or "") in FEATURES and str(r.get("key")) not in keys]
+        # GÜVEN SIRASI: çok tutan ölçüm önce denenir. Güven EŞİĞİN ALTINDAYSa hiç
+        # önerilmez — yanlış çıkmış bir aleti tekrar önermek, çürütmeyi duymamaktır.
+        mine.sort(key=lambda k: -self.trust(k))
+        keys.extend(k for k in mine if self.trust(k) >= self.TRUST_FLOOR)
         return tuple(keys)
+
+    #: Güven, bildirilen bir inanç değil KAZANILMIŞ bir orandır: kaç kez tuttu / kaç kez
+    #: yanıldı. Laplace düzeltmesi (artı bir) kanıtsız ölçümü 0.5'te başlatır: ne iyi ne
+    #: kötü. Bu eşiğin altındaki ölçüm envanterde durur ama ARANMAZ.
+    TRUST_FLOOR = 0.4
+
+    def trust(self, key: str) -> float:
+        rec = next((r for r in self.measurements if str(r.get("key")) == str(key)), None)
+        if rec is None:
+            return 0.0
+        h = int(rec.get("hits") or 0)
+        m = int(rec.get("misses") or 0)
+        return round((h + 1) / (h + m + 2), 4)
+
+    def mark_confirmed(self, rule) -> None:
+        """Kendi ölçümüm bir örnekte TUTTU: bu kanıt sayılır (söz değil, sonuç)."""
+        feat = str(getattr(rule, "feature", "") or "")
+        if not feat:
+            return
+        for rec in self.measurements:
+            if str(rec.get("key")) == feat:
+                rec["hits"] = int(rec.get("hits") or 0) + 1
+                self._save_ledger()
+                return
 
     @staticmethod
     def human_count() -> int:
@@ -220,6 +246,8 @@ class OperatorForge:
         return {"human": h, "self": s, "refuted": len(self.refuted),
                 "measured": len(self.measurements),
                 "measured_refuted": sum(1 for r in self.measurements if r.get("refuted")),
+                "trusted": sum(1 for r in self.measurements
+                               if self.trust(str(r.get("key") or "")) >= self.TRUST_FLOOR),
                 "ratio": round(s / max(1, h + s), 4) if (h + s) else 0.0}
 
     # ================================================================= tümevarım
