@@ -2713,6 +2713,55 @@ def a72_iskelet_olceri_ve_ogrenilen_soz_onceleri():
                                f"iskelet_oranı={rep['iskelet_orani']:.2f} topluluk={n_prior}")
 
 
+def a73_iskelet_azaltma_mandali():
+    """A73 — GİDEREK AZALTMA: koddaki söz sayısı geri büyüyemez, yalnız azalabilir.
+
+    `nora_audit.py` her söylem modülündeki uzun Türkçe dizgeleri sayar; baseline
+    (`nora_audit_baseline.json`) bugünkü seviyeyi tutar. Ölçüt:
+    (1) hiçbir modül baseline'ı aşmıyor (mandal/ratchet),
+    (2) bu turda `nora_anlatim` çerçeveleri ve `nora_style` girişleri veriye taşındı:
+        anlatımda yazılı cümle kalmadı, biçim organı hedefin altında,
+    (3) taşınan sözler `nora_priors.json` içinde topluluk olarak duruyor ve yarışıyor,
+    (4) anlatım hâlâ çalışıyor: çerçeve veriden gelse de cümle kuruluyor.
+    """
+    import json
+
+    import nora_audit as AUD
+    import nora_priors
+
+    ok = {}
+    rep = AUD.scan_all()
+    base = AUD.load_baseline()
+    cmp = AUD.compare(rep, base)
+    ok["mandal"] = bool(base) and not cmp["artan"]
+    ok["soylem-mandal"] = cmp["soylem_fark"] <= 0
+    ok["anlatim-temiz"] = rep["modul"].get("nora_anlatim.py", {}).get("adet", 0) == 0
+    ok["bicim-altinda"] = rep["modul"].get("nora_style.py", {}).get("adet", 99) <= 6
+
+    with open(nora_priors.JSON_PATH, "r", encoding="utf-8") as f:
+        blob = json.load(f)
+    kinds = blob.get("kinds") or {}
+    n_all = sum(len(v.get("priors") or []) for v in kinds.values())
+    ok["veride-tasinmis"] = (n_all >= 50 and "narration.frame" in kinds
+                             and "style.lead_in" in kinds and "style.mutter" in kinds
+                             and "style.need" in kinds)
+
+    # Çerçeve veriden geliyor ama cümle yine kuruluyor: aynı soruya iki farklı anlatım
+    agi = NoraAGI(seed=730, boot_thinker=False)
+    outs = [tr_lower(core_reply(agi.converse("Su nedir?"))) for _ in range(3)]
+    ok["anlatim-calisiyor"] = (len(set(outs)) >= 2 and all("su" in o for o in outs))
+    # Çerçeve seçimi de öğrenilebilir: aynı alan üst üste aynı çerçeveyi söylemez
+    f = nora_priors.PriorField()
+    picks = [f.pick("narration.frame", {"frame": "order"},
+                    {"subj": "Su", "a": "a", "b": "b"}) for _ in range(4)]
+    ok["cerceve-yarisi"] = len(set(picks)) >= 2
+
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), (f"{passed}/{len(ok)} — {detail} | söylem={rep['soylem']} "
+                               f"toplam={rep['toplam']} topluluk={n_all}")
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -2772,6 +2821,7 @@ TESTS = {
     "A56": ("tam Türkçe kapsamı: 8 kip, birleşik zaman, yeterlilik, emir, -mAktA, -DIr/-ki/-CA", a56_full_turkish_morphology),
     "A71": ("ansiklopedi değil: aynı soruya her seferinde başka anlatım", a71_ansiklopedi_degil_ayni_soru_farkli_anlatim),
     "A72": ("iskelet koddan çıkıyor: söz bankaları veride, seçim nöral yarış", a72_iskelet_olceri_ve_ogrenilen_soz_onceleri),
+    "A73": ("iskelet azaltma mandalı: koddaki söz sayısı yalnız düşer", a73_iskelet_azaltma_mandali),
     "A70": ("kendi çıkarımı: kimse söylemeden türetme + iç monolog", a70_own_inference_and_monologue),
     "A69": ("söz biçimi çeşitliliği, soru alışkanlığının kırılması ve kendi derdi", a69_speech_shape_variety_and_self_interest),
     "A68": ("kulak yolu: ses olayı, gürültüde eksik duyma, etiketsiz kimlik", a68_ear_path_perception),

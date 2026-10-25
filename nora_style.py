@@ -216,12 +216,13 @@ class SpeechStyle:
             if mutter:
                 # ÖLÇER: mırıldanmanın çerçevesi tasarımdan (kalıp), İÇERİĞİ bedenden
                 # ya da kendi çıkarımından gelir. Kaynak, sözün nereden doğduğunu söyler.
+                # Çerçeveyi alan (kalip/ogrenim) yazdı; burada yalnız İÇERİĞİN kaynağı.
                 if "aklımın bir köşesi" in mutter:
-                    self._tag(agi, "kalip", "cikarim")
+                    self._tag(agi, "cikarim")
                 elif "ses uzaktan" in mutter:
-                    self._tag(agi, "kalip", "duyum")
+                    self._tag(agi, "duyum")
                 else:
-                    self._tag(agi, "kalip", "beden")
+                    self._tag(agi, "beden")
                 # Mırıldanma her zaman ÖNCE gelmez: bazen cevabı söyler, sonra içinden geçirir.
                 # Sabit bir sıra (hep mırıldan→cevap) da iskelettir.
                 if os.urandom(1)[0] % 2:
@@ -232,14 +233,14 @@ class SpeechStyle:
         if shape == "cevap+düşünce":
             thought = self._own_thought(agi, text=text, topic=topic)
             if thought:
-                self._tag(agi, "kalip", "cikarim")
+                self._tag(agi, "cikarim")
                 text = f"{text.rstrip()} {thought}"
 
         if shape == "ihtiyaç":
             need = self._own_need(agi)
             if need:
                 self._last_need = self.turn
-                self._tag(agi, "kalip", "beden")
+                self._tag(agi, "beden")
                 text = f"{need} {text}"
 
         if shape == "cevap+soru":
@@ -283,7 +284,7 @@ class SpeechStyle:
                     # Çıkarım motoru cümleyi kendi başlangıcıyla verir; üstüne bir de
                     # "şunu fark ettim" eklenirse "şunu fark ettim: kendi kendime şunu
                     # çıkardım:" gibi çift başlangıç olur.
-                    _lead = self._lead_in()
+                    _lead = self._lead_in(agi)
                     for _pre in ("Kendi kendime şunu çıkardım:", "Kendi kendime şunu çıkardım",
                                  "İçimden şu geçti:"):
                         if line.startswith(_pre):
@@ -302,17 +303,30 @@ class SpeechStyle:
                 if not (tw & {w for w in re.split(r"[^a-zçğıöşüâîû]+", body) if len(w) >= 4}):
                     continue
                 self._said.append(body)
-                lead = self._lead_in()
+                lead = self._lead_in(agi)
                 return f"{lead} {body.rstrip('.')}."
         except Exception:
             pass
         return ""
 
-    def _lead_in(self) -> str:
-        """İç sesi söze sokan kalıp her tur aynı olmasın."""
-        choices = ("Kendi kendime şunu çıkardım:", "İçimden şu geçti:",
-                   "Az önce kendi kendime bağladım:", "Şunu fark ettim kendi kendime:")
-        return choices[int.from_bytes(os.urandom(1), "big") % len(choices)]
+    def _lead_in(self, agi=None) -> str:
+        """İç sesi söze sokan giriş: cümle kodda değil, topluluklar yarışır."""
+        txt = self._pick(agi, "style.lead_in", {}, {})
+        return txt if txt is not None else ""
+
+    # ---------------------------------------------------------------- veri
+    @staticmethod
+    def _pick(agi, kind: str, ctx: dict, slots: dict):
+        """Söz toplulukları alanından yarışla seç (yoksa None)."""
+        try:
+            f = getattr(agi, "priors", None)
+            if f is None:
+                from nora_priors import default_field
+                f = default_field()
+            prov = getattr(agi, "provenance", None)
+            return f.pick(kind, ctx, slots, prov=prov)
+        except Exception:
+            return None
 
     def _own_mutter(self, agi) -> str:
         """Kendi kendine mırıldanma: beden/kimya durumundan, karşı tarafa değil.
@@ -325,44 +339,46 @@ class SpeechStyle:
             word = chem.intero_word_tr()
         except Exception:
             word = ""
-        options = []
+        # Hangi iç hâller AKTİF? Cümleler kodda değil; yarışa girecek durumlar burası.
+        states = []
         if word:
-            options.append(f"İçimden '{word}' diye geçirdim.")
-        # Beden/kimya dışındaki iç hâller: son duyum, son düşünce, beden sürüşü.
+            states.append("intero")
         try:
             ev = getattr(agi, "last_auditory", None)
             if ev is not None and getattr(ev, "distance_m", 0.0) > 1.5:
-                options.append("İçimden 'ses uzaktan gelince içim boş kaldı' diye geçirdim.")
+                states.append("sound")
             drives = max(float(getattr(agi.nervous, a, 0.0) or 0.0)
                          for a in ("hunger_drive", "thirst_drive", "adelta_pain", "cfiber_ache"))
             if drives > 0.3:
-                options.append("İçimden 'bedenim kendi derdini fısıldıyor' diye geçirdim.")
+                states.append("drive")
             if getattr(agi, "infer", None) is not None and getattr(agi.infer, "fresh", False):
-                options.append("İçimden 'aklımın bir köşesi yeni bağla meşgul' diye geçirdim.")
+                states.append("infer")
         except Exception:
             pass
-        if not options:
+        if not states:
             return ""
-        recent = set(list(self._said)[-3:])
-        for opt in options:
-            if opt not in recent:
-                self._said.append(opt)
-                return opt
-        return options[0]
+        txt = self._pick(agi, "style.mutter", {"mutter": states}, {"word": word})
+        if not txt:
+            return ""
+        self._said.append(txt)
+        return txt
 
     def _own_need(self, agi) -> str:
         """Kendi bedensel derdi — karşı tarafın sorusundan önce gelir."""
         try:
             visc = agi.nervous.felt_visceral_summary()
-            for key, line in (("thirst_state", "Suyum azaldı; önce onu düşünmem gerek."),
-                              ("hunger_state", "Karnım aç; aklım orada."),
-                              ("pain_state", "Canım yanıyor; dikkatim orada.")):
-                v = str(visc.get(key, "") or "")
-                if v and v not in ("yok", "tok", "None"):
-                    return line
         except Exception:
-            pass
-        return ""
+            return ""
+        # Bedenin hangi dertleri GERÇEKTEN var? (yok/tok/None = yok)
+        active = []
+        for key, need in (("thirst_state", "thirst"), ("hunger_state", "hunger"),
+                          ("pain_state", "pain")):
+            v = str(visc.get(key, "") or "")
+            if v and v not in ("yok", "tok", "None"):
+                active.append(need)
+        if not active:
+            return ""
+        return self._pick(agi, "style.need", {"need": active}, {}) or ""
 
     def _topic_question(self, agi, topic: str) -> str:
         """Konuya özgü soru: bilgi boşluğu varsa onu sorar, yoksa kısa bir merak sorusu."""

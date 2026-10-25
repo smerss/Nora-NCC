@@ -1,0 +1,135 @@
+{
+  "toplam": 1125,
+  "soylem": 133,
+  "modul": {
+    "nora_agi.py": {
+      "adet": 183
+    },
+    "nora_anlatim.py": {
+      "adet": 0
+    },
+    "nora_autonomous_logic.py": {
+      "adet": 120
+    },
+    "nora_besle.py": {
+      "adet": 272
+    },
+    "nora_bridge.py": {
+      "adet": 0
+    },
+    "nora_broca.py": {
+      "adet": 22
+    },
+    "nora_broca_net.py": {
+      "adet": 0
+    },
+    "nora_chem.py": {
+      "adet": 5
+    },
+    "nora_code.py": {
+      "adet": 8
+    },
+    "nora_deliberation.py": {
+      "adet": 5
+    },
+    "nora_discourse.py": {
+      "adet": 68
+    },
+    "nora_ear.py": {
+      "adet": 6
+    },
+    "nora_egit.py": {
+      "adet": 3
+    },
+    "nora_entropy.py": {
+      "adet": 0
+    },
+    "nora_episteme.py": {
+      "adet": 20
+    },
+    "nora_frames.py": {
+      "adet": 31
+    },
+    "nora_gw.py": {
+      "adet": 0
+    },
+    "nora_infer.py": {
+      "adet": 2
+    },
+    "nora_initiative.py": {
+      "adet": 14
+    },
+    "nora_knowledge.py": {
+      "adet": 127
+    },
+    "nora_lang.py": {
+      "adet": 21
+    },
+    "nora_life.py": {
+      "adet": 0
+    },
+    "nora_life_experiment.py": {
+      "adet": 9
+    },
+    "nora_meta.py": {
+      "adet": 4
+    },
+    "nora_mind.py": {
+      "adet": 30
+    },
+    "nora_mirror.py": {
+      "adet": 0
+    },
+    "nora_monologue.py": {
+      "adet": 4
+    },
+    "nora_nervous.py": {
+      "adet": 18
+    },
+    "nora_neuron.py": {
+      "adet": 7
+    },
+    "nora_okul.py": {
+      "adet": 45
+    },
+    "nora_priors.py": {
+      "adet": 0
+    },
+    "nora_provenance.py": {
+      "adet": 0
+    },
+    "nora_self.py": {
+      "adet": 2
+    },
+    "nora_selfexam.py": {
+      "adet": 0
+    },
+    "nora_speculation.py": {
+      "adet": 1
+    },
+    "nora_stem.py": {
+      "adet": 65
+    },
+    "nora_store.py": {
+      "adet": 0
+    },
+    "nora_studio.py": {
+      "adet": 10
+    },
+    "nora_style.py": {
+      "adet": 4
+    },
+    "nora_think.py": {
+      "adet": 19
+    },
+    "nora_turkce.py": {
+      "adet": 0
+    },
+    "nora_voice.py": {
+      "adet": 0
+    },
+    "nora_world.py": {
+      "adet": 0
+    }
+  }
+}
