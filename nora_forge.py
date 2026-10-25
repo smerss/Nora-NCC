@@ -298,7 +298,7 @@ class OperatorForge:
             lo = min(n for n, _ in meas)
             kind = kind_of.get(feat, "")
 
-            if kind in ("suffix", "prefix", "letter", "suffix_pattern"):
+            if kind in ("suffix", "prefix", "letter", "suffix_pattern", "and"):
                 b: dict[str, set] = {}
                 for n, lab in meas:
                     b.setdefault("var" if int(n) else "yok", set()).add(lab)
@@ -534,10 +534,47 @@ class OperatorForge:
                 continue
             if all(ch in t.lower() for t in pos) and not any(ch in t.lower() for t in neg):
                 add("letter", ch, f"'{ch}' harfi")
+        # BİRLEŞİM: iki harf TEK BAŞINA yetmiyorsa, İKİSİ BİRLİKTE ayırıyor olabilir.
+        # (XOR yapısı: her negatif iki harften en az birini taşımıyor, pozitiflerin
+        # hepsi ikisini de taşıyor.) Tek başına ayıran bir aday varsa buraya gelinmez.
+        if not out:
+            out.extend(self._conjunction(pos, neg, pos_lab, other))
         # SON BASAMAK: ham ölçüm yoksa BİLEŞİK ölçüm (iki ölçümün farkı). İkili bir aday
         # bulunduysa bileşik aranmaz: aynı veriyi iki aday açıklarsa belirsizlik doğar.
         if not out:
             out.extend(self._composite(ex))
+        return out
+
+    def _conjunction(self, pos: list[str], neg: list[str], pos_lab, other) -> list[Hypothesis]:
+        """İKİ HARFİN BİRLEŞİMİ: 'z' ve 'm' birlikte -> soyut.
+
+        Tek harf adayları zaten denendi ve düştü (her harf en az bir negatifte var).
+        Ama harflerin ÇİFTİ ayrı bir ölçüm olabilir: her negatif ikisinden en az birini
+        taşımıyorsa, "ikisi birlikte" sınıfı temiz ayırır. Bu, tek ölçüm uzayının
+        dışına çıkan ilk MANTIKSAL birleşimdir.
+        """
+        lp = [set(w.lower()) for w in pos]
+        ln = [set(w.lower()) for w in neg]
+        if not lp or not ln:
+            return []
+        shared = [ch for ch in sorted(set.intersection(*lp)) if ch.isalpha()]
+        out: list[Hypothesis] = []
+        for i, x in enumerate(shared):
+            for y in shared[i + 1:]:
+                if all(x in s for s in ln) or all(y in s for s in ln):
+                    continue        # tek başına ayırıyor: birleşim gereksiz
+                if any(x in s and y in s for s in ln):
+                    continue        # bir negatif ikisini de taşıyor: birleşim ayırmaz
+                spec = {"kind": "and", "a": {"kind": "letter", "arg": x},
+                        "b": {"kind": "letter", "arg": y}}
+                key = f"kendi.and.{x}{y}"
+                if key not in FEATURES:
+                    try:
+                        register_feature(key, f"'{x}' ve '{y}' birlikte", spec)
+                    except Exception:
+                        continue
+                out.append(Hypothesis(key, "presence", (("var", pos_lab), ("yok", other)),
+                                      spec=spec))
         return out
 
     # ================================================================= karar

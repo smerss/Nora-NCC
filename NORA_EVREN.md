@@ -1375,3 +1375,73 @@ Bacaklar: `icat-güven`, `doğrulama-sayılır`, `doğrulama-söz`, `çürütme-
 | mühürlü setler | **4/4 · 4/4 · 4/4** |
 | `nora_audit.py --check` | **1122** / SÖYLEM 127 — artış yok |
 | operatör / prior türü | 9 / 66 = **7.33** (yeni tür yok) |
+
+
+---
+
+## Aşama AB — Birleşim ölçümü: iki ölçüm tek başına yetmezse İKİSİ BİRLİKTE ayırır (`A92`)
+
+Aşama Z ölçümleri **aritmetik** olarak birleştiriyordu (`sesli - sessiz`). Bu turda
+**mantıksal** birleşim var: `"'z' ve 'm' birlikte"`. Veri XOR yapısında: her negatif iki
+harften en az birini taşımıyor, her pozitif ikisini de taşıyor. Yani tek harf **hiçbir
+zaman** ayırmıyor — ancak çifti ayırıyor.
+
+### AB1. Ne yapıldı
+
+| parça | yer | işlev |
+|---|---|---|
+| `and` ölçüm türü | `nora_apply.feature_spec_fn` | iki ikili ölçümün İKİSİ de doğruysa 1 |
+| `_conjunction` | `nora_forge.py` | ortak harf çiftlerini dener: her negatif en az birini taşımıyorsa birleşim ayrıştırır |
+| arama türü | `_search` | `and` ikili ölçüm sayılır → yalnız `presence` şekli |
+
+Sıra: tek harf → **harf çifti (birleşim)** → fark (bileşik) → yok. Tek başına ayıran bir
+aday varsa birleşim aranmaz; aynı veriyi iki aday açıklarsa belirsizlik doğar.
+
+### AB2. Ölçüm (A92, 10/10)
+
+```
+S: Kural çıkar: zambak=soyut, müzik=soyut, zümre=soyut, müze=soyut,
+   zeytin=somut, zebra=somut, masa=somut, kalem=somut, kemer=somut
+N: Bu veride yerleşik ölçümlerin hiçbiri iki tarafı ayırmıyordu; yeni bir ölçüm icat
+   ettim: 'm' ve 'z' birlikte. Kural: var -> soyut, yok -> somut. 9 örnek tutuyor.
+
+S: Kuralı uygula: 'müzik'    N: ... 'm' ve 'z' birlikte -> var ... soyut
+S: Kuralı uygula: 'zeytin'   N: ... -> yok ... somut      (yalnız z)
+S: Kuralı uygula: 'masa'     N: ... -> yok ... somut      (yalnız m)
+```
+
+Bacaklar: `bileşim-icat`, `söz-bileşim`, `tek-başına-yetmez`, `veriyi-açıklıyor`,
+`uygula-ikisi-de`, `uygula-yalnız-z`, `uygula-yalnız-m`, `defter-and`, `sayaç`,
+`insan-sabit`.
+
+### AB3. Dürüst sınırlar
+
+- **Yalnız VE (and) var.** VEYA (or), DEĞİL (not) ve üçlü birleşim yok. Bu yüzden bazı
+  XOR-benzeri veriler hâlâ "örüntü yok" diyebilir.
+- **Yalnız harf ölçümleri birleştiriliyor.** Son ek + harf, son ek + son ek gibi
+  birleşimler denenmiyor; aday uzayı bilinçli olarak dar.
+- **Birleşim, nedeni söylemez.** "'m' ve 'z' birlikte" bir ayrımın tarifidir; dilde neden
+  öyle olduğunu iddia etmez.
+- **Aşırı uyum riski artar.** İki harfin birlikte ayrışması, tek harften daha kolay
+  tesadüf olabilir; örnek sayısı 2+2 eşiğini geçse de anlamlılık testi yok.
+
+### AB4. Bu turda düşülen tuzak
+
+- **Yeni prior varyantı, RNG akışını kaydırır.** `meta.forge`/`apply.result` içine eklenen
+  varyantlar tüm koşunun rastgele çekilişlerini değiştirdi ve **A54** (takip sorusu:
+  dört cevaptan en az birinde "?" var) bir koşuda düştü. Test tek örneklemli bir
+  olasılığı ölçüyordu; artık aynı oturumda sekiz anlatı veriyor ve soruyu hepsinde arıyor.
+  Kural: **kapasite testi tek atışa bağlanmaz**.
+- **Birleşim, tek başına ayıran adayı gölgeleyebilirdi.** `_conjunction` yalnız hiçbir tek
+  aday kalmadığında çalışır; aksi halde aynı veriye iki açıklama doğar.
+
+### AB5. Bu turun sayıları
+
+| ölçüm | sonuç |
+|---|---|
+| `agi_battery.py` tam | **92/92 GEÇTİ, 378.2 s** |
+| `A92` | **10/10** |
+| `heldout_battery.py` (dış) | **9/9** |
+| mühürlü setler | **4/4 · 4/4 · 4/4** |
+| `nora_audit.py --check` | **1122** / SÖYLEM 127 — artış yok |
+| operatör / prior türü | 9 / 66 = **7.33** (yeni tür yok) |

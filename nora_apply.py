@@ -96,6 +96,12 @@ def feature_spec_fn(spec: dict):
         return lambda s: 1 if str(s or "").lower().startswith(arg) else 0
     if kind == "letter":
         return lambda s: 1 if arg and arg in str(s or "").lower() else 0
+    if kind == "and":
+        # BİLEŞİK (MANTIKSAL): iki ikili ölçümün İKİSİ de doğruysa. Tek başına hiçbiri
+        # ayırmıyorsa, ikisi BİRLİKTE ayırabilir; kural artık bir birleşim.
+        fa = feature_spec_fn(dict((spec or {}).get("a") or {}))
+        fb = feature_spec_fn(dict((spec or {}).get("b") or {}))
+        return lambda s: 1 if (fa(s) and fb(s)) else 0
     if kind == "diff":
         # BİLEŞİK ÖLÇÜM: iki ölçümün FARKI. Tek başına hiçbiri ayırmıyorsa aradaki fark
         # ayırabilir; kural ilişkisel olur ("sesli eksi sessiz 1'den az" gibi) ve hiçbir
