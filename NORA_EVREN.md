@@ -775,3 +775,103 @@ Yine de dürüst sınır: (i) bu, öznel deneyim iddiası değildir; (ii) karş�
   sözcüklerde gövde korunur, ek soğrulmaz — bilinçli temkin).
 - **Şekil sayısı üç.** `rank` şekli küme istiyor; tek girdiye etiket vermeyi reddediyor (doğru),
   ama cümleyle "küme ver" akışı henüz tam değil (API'de var, günlük konuşmada yönlendirme sınırlı).
+
+
+---
+
+## Aşama U — Karşıolgusal irade: "aç olmasaydın ne yapardın?" sorusuna yeniden koşarak cevap (`A84`)
+
+Önceki iki karşıolgusal katman **kural** ve **dünya ağı** katmanıydı. Üçüncüsü eksikti: beden.
+"Nora aç olmasa ne yapardı?" sorusunun cevabı bir cümle değil, **aynı karar makinesinin ikinci kez
+koşması** olmalı. Bu turda eklenen şey tam olarak bu.
+
+### U1. Ne yapıldı (operatör, cümle değil)
+
+| parça | yer | işlev |
+|---|---|---|
+| `evaluate_volition(..., ablate=None, record=True)` | `nora_self.py` | karar makinesi; `ablate` verilirse ilgili homeostatik kanal **dolu** sayılır |
+| `h0[ablated_ch] = 1.0` (kopya üzerinde) | `nora_self.py` | müdahale `do(kanal=dolu)`; gerçek `h0` kirletilmez |
+| `if not record: return {...}` | nörokimyasal geri-bildirimden **önce** | karşıolgusal koşu kimya, `refusals_made`, `last_volition_trace` **yazmaz** |
+| `counterfactual_volition(...)` | `nora_self.py` | aynı makine iki kez: gerçek beden / kanal dolu; `actual`, `counterfactual`, `changed`, iki free-energy vektörü |
+| `_answer_counterfactual_volition(...)` | `nora_agi.py` | "…olmasaydın ne yapardın?" yolunu **sözcük/tanım korteksinden önce** yakalar |
+| `meta.cf_volition` (3 varyant) | `nora_priors.json` | `changed` alanına kapılı: değiştiyse neden, değişmediyse "değil" |
+
+Kanal eşlemesi: `açlık → 0`, `susuzluk → 1`, `bütünlük → 2` (bunlar `obs[45:48]`'in beden eksenleri).
+
+**Neden sözcük hattından önce?** İlk denemede soru hiç karar makinesine ulaşmadı: `frames.answer_meta`
+soruyu "aç" sözcüğünün tanım sorusu sanıp *"Aç'ın ne olduğunu biliyorum ama ayrıntısını bilmiyorum;
+anlatsan iyi olur."* dedi. Yol, meta-soru yönlendirmesinin **üstüne** taşındı; ölçüm yolu artık
+sözlük boşluğu sanılmıyor.
+
+### U2. Ölçüm (A84, 9/9)
+
+| bacak | ne ölçüyor | sonuç |
+|---|---|---|
+| `gerçek-karar` | aç bedende "Suya git." gerçekten `ertele` | ✓ |
+| `makine-aynı` | karşıolgusal "gerçek" koşu, kayıtlı kararla aynı | ✓ |
+| `kanal-neden` | açlık çıkarılınca karar **değişir** (`ertele → kabul`) | ✓ |
+| `değişmez-dürüst` | susuzluk çıkarılınca karar **değişmez** ve bu söylenir | ✓ |
+| `yan-etki-yok` | iki koşu da kimya/ret sayacı/son-karar izini yazmaz | ✓ |
+| `iz-korunur` | sohbetten sonra son karar **gerçek** karar olarak kalır | ✓ |
+| `söz-değişti` / `söz-değişmedi` | söz ölçüm dilini kullanır, iki kararı da adlandırır | ✓ |
+| `meta-hat-yok` | "ne olduğunu biliyorum" yoluna düşmez | ✓ |
+
+Gerçek çıktı (tohum 84, `obs[I_E]=0.11` sonrası "Suya git." → karar `ertele`, neden `kritik_açlık`):
+
+```
+S: Aç olmasaydın ne yapardın?
+N: Kararım açlık yüzünden değişirdi: şimdi 'ertele' diyorum, o durumda 'kabul' derdim.
+
+S: Susuz olmasan ne yapardın?
+N: Karar makinesini susuzluk kanalı karşılanmış sayarak yeniden koşturdum: yine 'ertele'.
+   Demek ki bu kararın nedeni susuzluk değil.
+```
+
+### U3. İki karşıolgusalın dili bilinçli olarak farklı
+
+| katman | ne yapıyor | dürüst söz |
+|---|---|---|
+| `GroundedConceptGraph.counterfactual` | kenarları saklar, erişimi **yeniden hesaplar** | "yapısal çıkarım"; **"ölçtüm" denmez** (A80 `olcum-demiyor`) |
+| `core.counterfactual_volition` | aynı motoru **gerçekten ikinci kez koşturur** | "koşturdum / ölçüm"; ölçüm dememek sahtekârlık olur |
+
+Bu ayrım korunuyor: A80 ölçüm kelimesini yapısal katmanda yasaklıyor, A84 ise ölçüm katmanında
+ölçüm dilini **zorunlu** tutuyor. İkisi aynı cümleye indirgenirse iki hatadan biri kaçınılmaz olur.
+
+### U4. Bu turda düşülen tuzaklar (sessiz hatalar)
+
+1. **`evaluate_volition` yan etkisiz değildi.** Naif çift çağrı, reddi iki kez sayar ve son-karar izini
+   karşıolgusal kararla ezerdi. Erken dönüş, nörokimyasal geri-bildirim bloğunun **önüne** kondu;
+   blok ondan sonra çalışırsa "ölçüm" gerçek kararı bozar.
+2. **Soru, tanım sorusu sanıldı** (yukarıda U1). Yol sırası bir mimari karar: ölçüm, sözlükten önce gelir.
+3. **`"tok olsan"`, `"olmasan"` değildir.** Tetikleyici kalıp `olmasaydın|olmasan|değilsen` idi ve
+   "Tok olsan ne yapardın?" sessizce meta yola düşüyordu; kalıba açık alternatif eklendi.
+4. **Prior cümlesi küçük harfle başlıyordu** ("açlık olmasaydı…"). Şablon, cümleyi addan başlatmayacak
+   biçimde yazıldı ("Kararım {ablate} yüzünden değişirdi…") — büyük harf zorlaması yamadan ibaret olurdu.
+
+### U5. Dürüst sınırlar
+
+- **Müdahale "organı yok etmek" değil, "kanalı dolu saymak".** Ölçülen şey `do(açlık=dolu)`;
+  Nora'nın hiç acıkmadığı bir dünya değil. Bu yüzden cevap "açlık olmasa" değil, "açlık karşılanmış
+  olsa" diye de okunabilir — cümle ilkini söylüyor, ölçüm ikincisini yapıyor.
+- **Yalnız üç kanal** (açlık, susuzluk, bütünlük). Merak, DA tonusu ve sosyal kanallar için karşıolgusal
+  henüz yok; sorulursa "bu kanalı ölçemem" denmeli, uydurulmamalı.
+- **Karar değişmedi ≠ hiçbir şey değişmedi.** Free-energy vektörü kayar ama argmax aynı kalabilir;
+  A84 yalnız **karar** değişimini raporluyor. "Değişmedi" cümlesi bu dar anlamıyla doğru.
+- **Geçmiş beden geri kurulamaz.** Koşu, şu anki `obs` anlık görüntüsüyle yapılır; "bir dakika önce
+  ne yapardın" sorusu yeniden inşa değil, bugünkü bedenle simülasyondur.
+
+### U6. Bu turun sayıları
+
+| ölçüm | sonuç |
+|---|---|
+| `agi_battery.py` tam (`/tmp/agi9.txt`) | **84/84 GEÇTİ, 315.8 s** |
+| `agi_battery.py A84` (izole) | **9/9 GEÇTİ, 2.4 s** |
+| `agi_battery.py A4 A14 A27 A79 A80–A84` | **10/10 GEÇTİ, 26.6 s** |
+| `heldout_battery.py` (H1–H9, dış) | **9/9, 10.1 s** |
+| `heldout_sealed.py / sealed2 / sealed3` | **4/4 · 4/4 · 4/4** (mühürler değişmedi) |
+| `nora_audit.py --check` | TOPLAM **1122** / SÖYLEM 127 — baseline **1122'ye mandallandı** |
+| operatör / prior türü | 9 / 65 = **7.22** (tavan 7.50) |
+
+Yeni prior türü **bir tane** (`meta.cf_volition`); oran 7.11 → 7.22 çıktı, tavanın altında kaldı.
+Yetenek koddan geliyor (`counterfactual_volition` + erken dönüş), prior yalnız **cümleyi** veriyor:
+A84'ün `yan-etki-yok`, `iz-korunur` ve `makine-aynı` bacakları prior'a bakmadan da geçer.

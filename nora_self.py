@@ -406,7 +406,8 @@ class CoreSelf:
         return delta_h, float(valence), float(epist_var)
 
     def evaluate_volition(self, action_kind: str, target: str = "", mind=None,
-                          obs: np.ndarray | None = None, speaker: str = "insan") -> dict:
+                          obs: np.ndarray | None = None, speaker: str = "insan",
+                          ablate: str | None = None, record: bool = True) -> dict:
         """Zihinsel İleri Simülasyon (Expected Free Energy) + Bazal Ganglion Nöral Yarışıyla
         özerk irade kararı verir. Hiçbir sabit 'if enerji < 0.18' bot eşiği kullanmaz."""
         tgt = target.strip().lower()
@@ -418,6 +419,15 @@ class CoreSelf:
             h0 = np.clip(np.array([float(obs[45]), float(obs[46]), float(obs[47])], dtype=np.float64), 0.01, 1.0)
         else:
             h0 = np.array([0.78, 0.78, 0.95], dtype=np.float64)
+        # KARŞIOLGUSAL BEDEN: bir kanal dolu sayılır ("aç olmasaydım"). Karar aynı
+        # makineyle yeniden koşar; karar değişiyorsa o kanal kararın NEDENİDİR.
+        ablated_ch = None
+        if ablate:
+            ablated_ch = {"açlık": 0, "enerji": 0, "susuzluk": 1, "su": 1,
+                          "bütünlük": 2, "acı": 2}.get(str(ablate).strip().lower())
+            if ablated_ch is not None:
+                h0 = h0.copy()
+                h0[ablated_ch] = 1.0
 
         # 2) Bedenin KENDİ ölçtüğü metabolik tükenme hızı (Mind.drift_e, Mind.drift_w)
         de = float(getattr(mind, "drift_e", -0.0022)) if mind is not None else -0.0022
@@ -508,6 +518,18 @@ class CoreSelf:
         decision = BasalGangliaVolitionNet.POPULATIONS[win_idx]
 
         # Nörokimyasal geri-bildirim (kararın kendisi de beynin kimyasını etkiler!)
+        # `record=False` karşıolgusal koşu içindir: aynı kararı iki kez yaşamamak için
+        # yan etkiler (kimya, sayaç, son-karar) YAZILMAZ.
+        if not record:
+            return {
+                "decision": decision, "reason": "karsiolgusal", "ablate": ablate,
+                "ablated_channel": ablated_ch,
+                "free_energy": {k: round(float(G[i]), 3)
+                                for i, k in enumerate(BasalGangliaVolitionNet.POPULATIONS)},
+                "confidence": round(float(np.sort(bg_rates)[-1] - np.sort(bg_rates)[-2]), 3),
+                "need_level": round(float(h0[urgent_ch]), 2),
+                "target": tgt or act,
+            }
         if decision == "red":
             self.refusals_made += 1
             self.chem.update_social(speaker, -0.55)
@@ -543,8 +565,36 @@ class CoreSelf:
                 "defer_end": [round(float(x), 3) for x in h_defer],
             },
         }
+        trace["ablate"] = ablate
+        trace["ablated_channel"] = ablated_ch
+        trace["action"] = act
         self.last_volition_trace = trace
         return trace
+
+    def counterfactual_volition(self, action_kind: str, target: str = "", mind=None,
+                                obs: np.ndarray | None = None, speaker: str = "insan",
+                                ablate: str = "açlık") -> dict:
+        """KARŞIOLGUSAL İRADE: "aç olmasaydım ne yapardın?"
+
+        Aynı karar makinesi iki kez koşar: (1) gerçek bedenle (yan etkiler yazılır),
+        (2) bir kanal dolu sayılarak (yan etki yazılmaz). Fark, o kanalın kararın
+        NEDENİ olup olmadığını söyler — öz-rapor değil, ölçüm.
+        """
+        actual = self.evaluate_volition(action_kind, target, mind=mind, obs=obs,
+                                        speaker=speaker, record=False)
+        cf = self.evaluate_volition(action_kind, target, mind=mind, obs=obs,
+                                    speaker=speaker, ablate=ablate, record=False)
+        return {
+            "ablate": ablate,
+            "actual": actual.get("decision"),
+            "counterfactual": cf.get("decision"),
+            "changed": actual.get("decision") != cf.get("decision"),
+            "actual_reason": actual.get("reason"),
+            "cf_reason": cf.get("reason"),
+            "free_energy_actual": actual.get("free_energy"),
+            "free_energy_cf": cf.get("free_energy"),
+            "target": actual.get("target"),
+        }
 
     def record_cognitive_success(self, used_system2: bool = False):
         self.problems_solved += 1

@@ -1,11 +1,14 @@
 {
-  "toplam": 1123,
+  "toplam": 1122,
   "soylem": 127,
   "modul": {
     "nora_agi.py": {
-      "adet": 183
+      "adet": 182
     },
     "nora_anlatim.py": {
+      "adet": 0
+    },
+    "nora_apply.py": {
       "adet": 0
     },
     "nora_autonomous_logic.py": {

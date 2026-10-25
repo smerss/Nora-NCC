@@ -1813,6 +1813,41 @@
           "bias": 0.95
         }
       ]
+    },
+    "meta.cf_volition": {
+      "desc": "Karşıolgusal irade: bir beden kanalı çıkarıldığında karar değişiyor mu?",
+      "priors": [
+        {
+          "id": "cfv.a",
+          "text": "Kararım {ablate} yüzünden değişirdi: şimdi '{actual}' diyorum, o durumda '{cf}' derdim.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "changed": true
+            }
+          }
+        },
+        {
+          "id": "cfv.b",
+          "text": "Karar makinesini {ablate} kanalı karşılanmış sayarak yeniden koşturdum: yine '{actual}'. Demek ki bu kararın nedeni {ablate} değil.",
+          "bias": 0.97,
+          "when": {
+            "eq": {
+              "changed": false
+            }
+          }
+        },
+        {
+          "id": "cfv.c",
+          "text": "Aynı karar makinesi, {ablate} kanalı karşılanmış hâlde '{cf}' dedi; gerçekte '{actual}' diyorum. Fark varsa neden odur, yoksa değildir — ölçüm bu.",
+          "bias": 0.94,
+          "when": {
+            "eq": {
+              "changed": true
+            }
+          }
+        }
+      ]
     }
   }
 }

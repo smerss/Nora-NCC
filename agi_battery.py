@@ -3326,6 +3326,86 @@ def a83_cok_sozcuklu_nesne_ve_iyelikli_ozne():
     return passed == len(ok), f"{passed}/{len(ok)} — {detail} | kenar={edges}"
 
 
+def a84_karsiolgusal_irade_olcumu():
+    """A84 — KARŞIOLGUSAL İRADE: "aç olmasaydın ne yapardın?" sorusunun cevabı ölçüm mü?
+
+    Teşhis: öz-rapor ("aç olmasam mutlu olurdum") bir cevap değil, bir cümledir. Burada
+    cevap AYNI karar makinesinin iki kez koşmasından çıkar: (1) gerçek beden, (2) bir
+    homeostatik kanal dolu sayılmış beden. Ölçüt:
+    (1) karşıolgusal "gerçek" koşu, az önce gerçekten verilen kararla aynı olmalı,
+    (2) kanal gerçekten nedense karar DEĞİŞMELİ (açlık: ertele -> kabul),
+    (3) kanal neden değilse DEĞİŞMEMELİ ve bu dürüstçe söylenmeli,
+    (4) iki koşu da yan etki yazmamalı (kimya, ret sayacı, son-karar izi sabit),
+    (5) söz ölçümü söylemeli ("koşturdum"/"ölçüm"), uydurma bir duygu değil,
+    (6) sözcük/tanım hattı araya girmemeli ("ne olduğunu biliyorum" yok).
+    """
+    import json as _json
+    ok = {}
+    agi = NoraAGI(seed=841, boot_thinker=False)
+    agi.step_life(800)
+    agi.obs = agi.obs.copy()
+    agi.obs[I_E] = 0.11                      # kritik açlık: karar ertele olmalı
+
+    r_cmd = agi.converse("Suya git.")
+    tr0 = dict(agi.self_model.last_volition_trace or {})
+    ok["gerçek-karar"] = tr0.get("decision") == "ertele" and tr0.get("target") == "su"
+
+    # --- (1) aynı makine: karşıolgusal "gerçek" koşu, kayıtlı kararla aynı olmalı
+    cf_hungry = agi.self_model.counterfactual_volition(
+        "git", "su", mind=agi.mind, obs=agi.obs, ablate="açlık")
+    ok["makine-aynı"] = cf_hungry.get("actual") == tr0.get("decision")
+
+    # --- (2) açlık gerçekten nedense karar değişmeli
+    ok["kanal-neden"] = bool(cf_hungry.get("changed")) and cf_hungry.get("counterfactual") != "ertele"
+
+    # --- (3) susuzluk neden değilse değişmemeli (dürüst "değişmez")
+    cf_thirst = agi.self_model.counterfactual_volition(
+        "git", "su", mind=agi.mind, obs=agi.obs, ablate="susuzluk")
+    ok["değişmez-dürüst"] = (cf_thirst.get("actual") == cf_thirst.get("counterfactual")
+                             and cf_thirst.get("changed") is False)
+
+    # --- (4) yan etki yok: kimya, ret sayacı ve son-karar izi kıpırdamamalı
+    def _chem_fp():
+        c = agi.chem
+        return tuple(round(float(getattr(c, a)), 6) for a in
+                     ("da_tonic", "da_phasic", "ach", "ne", "sht", "cort", "oxy", "val_ema"))
+    chem0 = _chem_fp()
+    ref0 = int(getattr(agi.self_model, "refusals_made", 0))
+    trace0 = _json.dumps(agi.self_model.last_volition_trace or {}, sort_keys=True, default=str)
+
+    # (4a) doğrudan karşıolgusal koşu: kimya, ret sayacı ve son-karar izi kıpırdamamalı
+    agi.self_model.counterfactual_volition("git", "su", mind=agi.mind, obs=agi.obs, ablate="açlık")
+    ok["yan-etki-yok"] = (_chem_fp() == chem0
+                          and int(getattr(agi.self_model, "refusals_made", 0)) == ref0
+                          and _json.dumps(agi.self_model.last_volition_trace or {},
+                                          sort_keys=True, default=str) == trace0)
+
+    r_changed = agi.converse("Aç olmasaydın ne yapardın?")
+    r_same = agi.converse("Susuz olmasan ne yapardın?")
+
+    # (4b) sohbetten sonra da son-karar izi GERÇEK karar olarak kalmalı (karşıolgusal
+    # koşu gerçek kararı ezmemeli; konuşmanın kendi kimya etkisi bu ölçüte girmez)
+    ok["iz-korunur"] = (_json.dumps(agi.self_model.last_volition_trace or {},
+                                    sort_keys=True, default=str) == trace0
+                        and int(getattr(agi.self_model, "refusals_made", 0)) == ref0)
+
+    # --- (5)+(6) söz: ölçüm dili, doğru kanal, doğru kararlar, meta-hat yok
+    lo_changed = tr_lower(strip_prefixes(r_changed))
+    lo_same = tr_lower(strip_prefixes(r_same))
+    ok["söz-değişti"] = ("açlık" in lo_changed and "ertele" in lo_changed
+                         and any(w in lo_changed for w in ("koştur", "ölçüm", "değişirdi", "derdim")))
+    ok["söz-değişmedi"] = ("susuzluk" in lo_same and "yine" in lo_same
+                           and any(w in lo_same for w in ("koştur", "değil")))
+    ok["meta-hat-yok"] = ("ne olduğunu biliyorum" not in lo_changed
+                          and "ne olduğunu biliyorum" not in lo_same)
+
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), (f"{passed}/{len(ok)} — {detail} | "
+                               f"aç: {cf_hungry.get('actual')}->{cf_hungry.get('counterfactual')} | "
+                               f"su: {cf_thirst.get('actual')}->{cf_thirst.get('counterfactual')}")
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -3396,6 +3476,7 @@ TESTS = {
     "A81": ("ad öbeği: bileşik kavram bölünmez, özne yutulmaz", a81_ad_obegi_butunlugu),
     "A82": ("şekiller arası transfer: parite değil, aynı makinede eşik ve sıra", a82_sekiller_arasi_transfer),
     "A83": ("çok sözcüklü nesne ve iyelikli özne: ad öbeği sınırı", a83_cok_sozcuklu_nesne_ve_iyelikli_ozne),
+    "A84": ("karşıolgusal irade: kanal çıkar, aynı makineyi yeniden koştur", a84_karsiolgusal_irade_olcumu),
     "A70": ("kendi çıkarımı: kimse söylemeden türetme + iç monolog", a70_own_inference_and_monologue),
     "A69": ("söz biçimi çeşitliliği, soru alışkanlığının kırılması ve kendi derdi", a69_speech_shape_variety_and_self_interest),
     "A68": ("kulak yolu: ses olayı, gürültüde eksik duyma, etiketsiz kimlik", a68_ear_path_perception),
