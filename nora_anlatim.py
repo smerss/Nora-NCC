@@ -202,7 +202,9 @@ class Narrator:
         if others:
             rel2, obj2 = others[0]
             self._use_edge(key, rel2, obj2)
-            text += " " + self._one(agi, subj, rel2, obj2)
+            # İkinci cümlede özne düşer: "Kitabın işi ... . Bilgi ve hayal gücünü aktarır."
+            second = _drop_subject(self._one(agi, subj, rel2, obj2), subj)
+            text += " " + (tr_capitalize(second) if second else "")
         return text
 
     def _f_single(self, agi, subj, key, e) -> str | None:
@@ -225,7 +227,7 @@ class Narrator:
         self._use_edge(key, rel, obj)
         tail = _drop_subject(self._one(agi, subj, rel, obj), subj)
         frames = (f"{tr_capitalize(subj)} konusunda kendi deneyimim yok; bildiğim şu: {tr_lower(tail)}.",
-                  f"{tr_capitalize(subj)}'i henüz kendim yaşamadım. Bilişsel ağımda {tr_lower(tail)} diye duruyor.",
+                  f"{tr_capitalize(subj)} bana anlatılanlardan biliniyor: {tr_lower(tail)}.",
                   f"Bana anlatılanlardan biliyorum: {tr_lower(tail)}.")
         return frames[self.turn % len(frames)]
 

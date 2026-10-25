@@ -1034,7 +1034,7 @@ class NoraAGI:
                     # Aynı söz üçüncü kez gelirse susmak olmaz: insan da ısrara bir cevap verir.
                     _speak_notice = (_first_repeat or _self_repeat
                                      or int(_meta.get("count", 1)) >= 3
-                                     or os.urandom(1)[0] % 100 < 18)
+                                     or os.urandom(1)[0] % 100 < 8)
                     if _speak_notice and _key_prev:
                         self._notice_spoken.add(_key_prev)
                     if not _quiet and "sessiz" not in _low and _speak_notice:
