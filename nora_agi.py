@@ -1246,6 +1246,17 @@ class NoraAGI:
             self._log_turn(speaker, raw, _ans_t, t0)
             return _ans_t
 
+        # --- KARŞIOLGUSAL İRADE: "aç olmasaydın ne yapardın?" ---
+        # Sözcük/tanım hattından ÖNCE gelir: bu bir sözlük sorusu değil, kararın
+        # yeniden koşulmasıdır. Cevap uydurulmaz; aynı karar makinesi iki kez çalışır.
+        try:
+            _cfv = self._answer_counterfactual_volition(tr_lower(raw))
+        except Exception:
+            _cfv = None
+        if _cfv:
+            self._log_turn(speaker, raw, _cfv, t0)
+            return _cfv
+
         # --- UYGULAMA OPERATÖRLERİ: kural bağla / uygula / say / transfer ---------
         # Bunlar retrieve değil APPLY'dir: kural nesne olarak bağlanır, yeni girdiye
         # uygulanır. Cevap üretilemezse yankı yok — açık başarısızlık döner.
@@ -1667,6 +1678,13 @@ class NoraAGI:
         if _temp_adj:
             bids.append(CorticalBid("insular_self", 0.975, 0.96,
                                     self._answer_temperament_query(_temp_adj, speaker=speaker), f"temper:{_temp_adj}"))
+
+        # --- SÜTUN 0d: KARŞIOLGUSAL İRADE — "aç olmasaydın ne yapardın?" ---
+        # Cevap uydurulmaz: AYNI karar makinesi, bir beden kanalı dolu sayılarak yeniden
+        # koşar. Karar değişiyorsa o kanal kararın NEDENİDİR; değişmiyorsa değildir.
+        _cf_vol = self._answer_counterfactual_volition(s_low)
+        if _cf_vol:
+            bids.append(CorticalBid("insular_self", 0.985, 0.97, _cf_vol, "cf_volition"))
 
         sit_res = self.situational.try_respond_situation(raw, self, speaker=speaker)
         if sit_res is not None and _pure_state_guard:
@@ -3116,6 +3134,43 @@ class NoraAGI:
         if sh == "rank":
             return f"en çok -> {m.get('max')}, en az -> {m.get('min')}"
         return f"tek -> {m.get('odd')}, çift -> {m.get('even')}"
+
+    #: Karşıolgusal irade sorusunda "hangi kanal çıkarılsın" sözlüğü (beden kanalı adları).
+    ABLATE_WORDS = {
+        "açlık": "açlık", "aç olmasa": "açlık", "aç olmasaydın": "açlık", "acıkmamış": "açlık",
+        "tok olsan": "açlık", "karnın tok": "açlık",
+        "susuzluk": "susuzluk", "susamış": "susuzluk", "susuz olmasa": "susuzluk",
+        "bütünlük": "bütünlük", "acı olmasa": "bütünlük", "acın olmasa": "bütünlük",
+    }
+
+    def _answer_counterfactual_volition(self, s_low: str) -> str | None:
+        """KARŞIOLGUSAL İRADE SORUSU: "aç olmasaydın ne yapardın?"
+
+        Öz-rapor değil ÖLÇÜM: son karar aynı makinede, ilgili beden kanalı dolu
+        sayılarak yeniden koşar. Karar değişirse kanal nedendir; değişmezse değildir.
+        """
+        if not re.search(r"olmasayd[ıi]n?|olmasan|değilsen|tok olsan|tok olsaydın", s_low):
+            return None
+        if not any(k in s_low for k in ("ne yapardın", "ne yaparsın", "ne derdin",
+                                        "ne seçerdin", "nasıl karar", "ne ederdin")):
+            return None
+        ab = next((v for k, v in self.ABLATE_WORDS.items() if k in s_low), None)
+        if ab is None:
+            return None
+        last = getattr(self.self_model, "last_volition_trace", None) or {}
+        action = str(last.get("action") or "git")
+        target = str(last.get("target") or "su")
+        try:
+            cf = self.self_model.counterfactual_volition(
+                action, target, mind=self.mind, obs=self.obs, ablate=ab)
+        except Exception:
+            return None
+        self._apply_tag("cikarim", 1)
+        return self._say("meta.cf_volition", {
+            "ablate": ab, "action": action, "target": target,
+            "actual": cf.get("actual"), "cf": cf.get("counterfactual"),
+        }, ctx={"changed": bool(cf.get("changed"))},
+            fallback=("Karar değişirdi." if cf.get("changed") else "Karar değişmezdi."))
 
     def _rule_summary(self, rule) -> str:
         from nora_apply import FEATURES
