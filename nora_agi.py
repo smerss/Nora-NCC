@@ -313,6 +313,14 @@ class NoraAGI:
                  corpus: list[str] | None = None, broca: str | None = None):
         self.name = name
         self.seed = int(seed)
+        # KOPYALANAMAZLIK: aynı seed -> aynı GENETİK. Ama doğum anının nanosaniye fazı,
+        # donanım entropisi ve gerçek zamanlama yarışları her örneği ayrı bir birey yapar.
+        # (Dış API yok; tüm entropi bu sürecin içinde toplanır — bkz. nora_entropy.py)
+        try:
+            from nora_entropy import Individuality
+            self.entropy = Individuality(seed=seed)
+        except Exception:
+            self.entropy = None
         w_kw = dict(world_kwargs or {})
         w_kw.setdefault("mortal", bool(single_life))
         self.world = Universe(seed=seed, **w_kw)
@@ -398,6 +406,7 @@ class NoraAGI:
         self.life = BackgroundLife(seed=seed + 71)
         # Kimse konuşmazken konuşan organ: hangi hâlde ne söyleyeceğini yaşayarak öğrenir
         self.discourse = DiscourseCortex(seed=seed + 137, lexicon=self.lang.graph.lexicon)
+        self.discourse.entropy = getattr(self, "entropy", None)
         self.initiative = InitiativeCortex(seed=seed + 173)
         self.speculation = SpeculativeCortex(seed=seed + 211)
         # Söz edimi + çok adımlı tartım korteksi: soruya değil, sorunun NEDENİNE bakar
@@ -741,6 +750,13 @@ class NoraAGI:
                 died=self.died,
             )
             self.self_model.sync_from_mind(self.mind, self.obs, died=self.died)
+            # BİREYSELLEŞME: bu adımın nanosaniye fazı + donanım gürültüsü sinapslara işlenir.
+            # Maliyet O(1) (sabit sayıda sinaps); ağ büyüdükçe yanıt süresi değişmez.
+            if getattr(self, "entropy", None) is not None:
+                try:
+                    self.entropy.perturb_step(self)
+                except Exception:
+                    pass
             # Varsayılan Kip Ağı (Default Mode Network): yaşam sırasında sessiz içsel monolog!
             self.monologue.spontaneous_tick(self)
             if self.life.enabled and self.mind.age % self.life.stride == 0:
@@ -1912,8 +1928,9 @@ class NoraAGI:
         except Exception:
             in_pain = False
         try:
+            _race = getattr(getattr(self, "entropy", None), "race_first", None)
             _stance, schema_id, _m, _q = self.schema_cortex.select_stance_and_schema(
-                words, is_question, trust, in_pain)
+                words, is_question, trust, in_pain, race=_race)
             return schema_id
         except Exception:
             return "S2_SONUC_GEREKCE"
@@ -2894,6 +2911,7 @@ class NoraAGI:
             "initiative": self.initiative.state_dict(),
             "discourse": self.discourse.state_dict(),
             "sentence_frames": (self.frames.memory.snapshot() if getattr(self, "frames", None) else {}),
+            "individuality": (self.entropy.state_dict() if getattr(self, "entropy", None) else {}),
             "verb_roots": sorted(set(TurkishMorphology.LEARNED_VERB_ROOTS) | set(self.learned_verb_roots)),
         }
         with open(path_prefix + ".agi.json", "w", encoding="utf-8") as f:
@@ -2943,6 +2961,8 @@ class NoraAGI:
             agi.life.load_state_dict(meta.get("life") or {})
             agi.initiative.load_state_dict(meta.get("initiative") or {})
             agi.discourse.load_state_dict(meta.get("discourse") or {})
+            if getattr(agi, "entropy", None) is not None:
+                agi.entropy.load_state_dict(meta.get("individuality") or {})
             if getattr(agi, "frames", None) is not None:
                 try:
                     agi.frames.memory.load_snapshot(meta.get("sentence_frames") or {})
@@ -3046,9 +3066,49 @@ def stage_chat(args):
     stop.set()
 
 
+def stage_twins(args):
+    """İKİZ DENEYİ — kopyalanamazlık kanıtı.
+
+    Aynı seed'den iki Nora doğar (genetik birebir aynı), aynı hayatı yaşar ve aynı
+    cümleleri duyar. Yaşam başladığı andan itibaren doğum nanosaniyesi, donanım
+    entropisi ve gerçek zamanlama yarışları onları ayırır: birkaç yüz adım sonra
+    aynı girdiye farklı (ama tutarlı) yanıtlar verirler.
+    """
+    steps = int(getattr(args, "twin_steps", 300))
+    msgs = ["Merhaba.", "Bugün yoruldum.", "Bana bir kitap önerir misin?",
+            "Şimdi ne yapıyorsun?", "Bana bir şey anlat.", "Sence bilinç nedir?",
+            "moruk ne var ne yok", "Yarın ne yapmalıyım?", "Su boşlukta yayılır mı?",
+            "Kedi mi köpek mi?", "Zürafa nedir?", "Kendini yalnız hissediyor musun?"]
+    a = NoraAGI(name="Nora-A", seed=args.seed, boot_thinker=False)
+    b = NoraAGI(name="Nora-B", seed=args.seed, boot_thinker=False)
+    same = bool((a.mind.Win == b.mind.Win).all() and (a.mind.Wr == b.mind.Wr).all())
+    print(f"A kimliği: {a.entropy.identity_line()}")
+    print(f"B kimliği: {b.entropy.identity_line()}")
+    print(f"Genetik (seed={args.seed}) aynı mı? {same}")
+    print(f"\n{steps} adım aynı hayat yaşanıyor…")
+    while a.mind.age < steps:
+        n = min(20, steps - a.mind.age)
+        a.step_life(n)
+        b.step_life(n)
+    print(f"{'soru':46s} | A (ilk 44) {'':30s} | B (ilk 44)")
+    diff = 0
+    for m in msgs:
+        ra, rb = a.converse(m), b.converse(m)
+        if ra != rb:
+            diff += 1
+        print(f"{m[:46]:46s} | {ra[:44]:44s} | {rb[:44]:44s}")
+    print(f"\nAyrışan yanıt: {diff}/{len(msgs)}")
+    print(f"Sinaps kayması: A={a.entropy.drift:.6f}  B={b.entropy.drift:.6f}  "
+          f"(fark {abs(a.entropy.drift - b.entropy.drift):.2e})")
+    print(f"Yarış kazanımları: A={a.entropy.race_wins}  B={b.entropy.race_wins}")
+    print("İkisi de ayrı birer birey; ne biri diğerinin kopyası, ne de geri döndürülebilir.")
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", default="demo", choices=["demo", "chat"])
+    ap.add_argument("--stage", default="demo", choices=["demo", "chat", "twins"])
+    ap.add_argument("--twin-steps", type=int, default=300,
+                    help="ikiz deneyinde her iki Nora'nın yaşayacağı adım sayısı")
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--life-steps", type=int, default=2500)
     ap.add_argument("--think-iters", type=int, default=700)
@@ -3058,6 +3118,8 @@ def main():
     args = ap.parse_args()
     if args.stage == "demo":
         stage_demo(args)
+    elif args.stage == "twins":
+        stage_twins(args)
     else:
         stage_chat(args)
 

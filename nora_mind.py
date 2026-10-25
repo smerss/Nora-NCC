@@ -1204,7 +1204,10 @@ class Mind:
             self.valence = float(np.clip(raw - 30.0 * hurt, -2.0, 2.0)) if not died else -2.0
             if self.intro_on and self._prev_tok >= 0 and self.goal >= 0 and not self.freeze:
                 tk = min(self._prev_tok, Introspector.K_MAX - 1)
-                wm = self.ctxs[self.cur]["W_meta"]
+                # Kayıttan yüklenen bağlamda W_meta yoksa (npz'de saklanmıyor) sıfırdan açılır:
+                # yüklenen Nora da yaşamaya devam edebilmeli.
+                wm = self.ctxs[self.cur].setdefault(
+                    "W_meta", np.zeros((Introspector.K_MAX, len(SPEC)), np.float32))
                 wm[tk, self.goal] = float(np.clip(
                     wm[tk, self.goal] + 0.05 * (self.valence - wm[tk, self.goal]), -0.35, 0.35
                 ))
