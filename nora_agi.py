@@ -956,10 +956,25 @@ class NoraAGI:
             # TANIM sorusunda kavram ZATEN biliniyorsa söz, mevcut tanım korteksinindir;
             # sözcük korteksi yalnız 'bilmiyorum + araştırma' yolunu açar (yoksa daha zayıf
             # bir tanım metni ana hattı gölgeler: 'zürafanın uzun boynu var' kaybolurdu).
-            _defer = False
-            if _mq is not None and _mq.kind == "DEFINITION":
+            # BAĞLAM: sözcük/SORU, demin konuşulan bir şeyin üzerine kurulduysa (hikâye, anlatı,
+            # sohbet) bu bir SÖZLÜK boşluğu değil, söylem sorusudur; akıl yürütme hattı yanıtlar.
+            if _mq is not None and _mq.kind in ("DEFINITION", "UNKNOWN_Q"):
                 try:
-                    _defer = bool(self.frames.known_word(_mq.target, self))
+                    from nora_lang import tr_lower as _tl
+                    _t = _tl(getattr(_mq, "target", "") or "")
+                    _recent = " ".join(_tl(str(t[1])) for t in self.dialogue_log[-6:])
+                    if _t and _t in _recent:
+                        _mq = None
+                except Exception:
+                    pass
+            _defer = False
+            if _mq is not None and _mq.kind in ("DEFINITION", "UNKNOWN_Q"):
+                try:
+                    # Yalnız SÖZCÜĞÜ tanımak yetmez: bilgi hattı ancak kavram hakkında
+                    # gerçek bir ilişki varsa yanıtlayabilir. Yoksa boşluk dürüstçe söylenir.
+                    _tgt = (getattr(_mq, "target", "") or "").strip()
+                    _has_facts = bool(self.lang.graph._out_edges.get(_tgt)) if _tgt else False
+                    _defer = bool(_has_facts and self.frames.known_word(_mq.target, self))
                 except Exception:
                     _defer = False
             if _mq is not None and not _defer:
