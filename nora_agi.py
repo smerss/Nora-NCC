@@ -364,6 +364,24 @@ class NoraAGI:
             self._ensure_cognition()
 
         self.dialogue_log: list[tuple[str, str, str]] = []
+        # CÜMLE YAPISI KORTEKSİ: yapı/valans öğrenimi ve 'nasıl denilir / ne demek' soruları.
+        # (Cümle kalıbı değil; biçimbilimsel roller + gözlemden sayılan valans.)
+        try:
+            from nora_frames import ConstructionCortex
+            self.frames = ConstructionCortex(self.lang.morph, getattr(self.lang.graph, "lexicon", None),
+                                             seed=seed)
+        except Exception:
+            self.frames = None
+        self.pending_research: list[str] = []
+        self.last_meta_question: dict | None = None
+        self.last_structure: dict | None = None
+        # Açık kaynak isteğe bağlı: NORA_INTERNET=1 ise gerçek ağ kaynakları devreye girer.
+        try:
+            import os as _os
+            if _os.environ.get("NORA_INTERNET", "") in ("1", "true", "yes") and not self.life.sources:
+                self.life.enable_internet()
+        except Exception:
+            pass
         # ÜST-BİLİŞ: aynı sözün tekrarı ve geçen zaman (ACC çakışma izleme + episodik bellek)
         self.acc = ConflictMonitor() if ConflictMonitor is not None else None
         self.last_meta_repeat: dict | None = None
@@ -625,12 +643,46 @@ class NoraAGI:
         except Exception as exc:            # pragma: no cover
             return {"total": 0, "passed": 0, "domains": {}, "failures": [str(exc)], "ratio": 0.0}
 
+    # ---------------------------------------------------------------- YAPI PEKİŞTİRME
+    def _queue_structure(self, text: str) -> None:
+        """Sözü yapı pekiştirme kuyruğuna at (O(1); çözümleme sonra)."""
+        if getattr(self, "frames", None) is None or not text:
+            return
+        if len(text.split()) > 60:
+            return
+        q = getattr(self, "_structure_queue", None)
+        if q is None:
+            q = self._structure_queue = []
+        q.append(text)
+        if len(q) > 256:
+            del q[:-192]
+
+    def drain_structure_pending(self, limit: int = 16) -> int:
+        """Konuşma sonrası boşlukta iskelet/valans pekiştirmesi (arka plan)."""
+        if getattr(self, "frames", None) is None:
+            return 0
+        q = getattr(self, "_structure_queue", None) or []
+        done = 0
+        while q and done < limit:
+            text = q.pop(0)
+            try:
+                self.frames.observe(text)
+                done += 1
+            except Exception:
+                pass
+        return done
+
     def step_life(self, steps: int = 1) -> dict:
         """Ajanı fiziksel dünyada 'steps' adım yaşatır; sinir sistemi, kimya, öz-benlik ve bedeni senkronize eder."""
         ate_total = drank_total = hurt_total = deaths = 0
         # Yeni öğrenilen fiil kökleri ARKA PLANDA indekslenir (tur gecikmesi O(1) kalır).
         try:
             self.lang.morph.drain_index_pending()
+        except Exception:
+            pass
+        # Cümle iskeletleri de boşlukta pekiştirilir (tur içinde maliyet yok).
+        try:
+            self.drain_structure_pending(limit=max(4, steps))
         except Exception:
             pass
         for _ in range(int(steps)):
@@ -787,6 +839,11 @@ class NoraAGI:
         if self.acc is not None and raw:
             try:
                 self.acc.note_turn(raw, ans, now)
+                # CÜMLE YAPISI ÖĞRENİMİ (pekiştirme kuyruğu): kendi sözü de karşıdakinin sözü de
+                # iskelet+valans olarak sayılır; ama biçimbilimsel çözümleme turun İÇİNDE değil,
+                # konuşma sonrası boşlukta (step_life) yapılır -> yanıt gecikmesi O(1) kalır.
+                self._queue_structure(raw)
+                self._queue_structure(ans)
                 if _meta is not None:
                     self.acc.repeats_noticed += 1
                     self.last_meta_repeat = _meta
@@ -887,6 +944,36 @@ class NoraAGI:
 
         # Konuşmadan ÖNCE içsel monolog (Vygotsky iç sesi + insan şeması gözlemi + kendi şema seçimi!)
         self._begin_inner_monologue(raw, speaker)
+
+        # CÜMLE YAPISI: soru bir SÖZCÜK/EYLEM hakkında mı? ('Selam nasıl denilir?').
+        # Bahsetme (mention) kullanımdan ayrılır: 'Merhaba!' selamlaşmadır, 'Merhaba nasıl
+        # denilir?' ise sözcüğün kendisi hakkında bir sorudur ve selamlaşma yoluna GİRMEZ.
+        if getattr(self, "frames", None) is not None:
+            try:
+                _mq = self.frames.meta_question(raw)
+            except Exception:
+                _mq = None
+            # TANIM sorusunda kavram ZATEN biliniyorsa söz, mevcut tanım korteksinindir;
+            # sözcük korteksi yalnız 'bilmiyorum + araştırma' yolunu açar (yoksa daha zayıf
+            # bir tanım metni ana hattı gölgeler: 'zürafanın uzun boynu var' kaybolurdu).
+            _defer = False
+            if _mq is not None and _mq.kind == "DEFINITION":
+                try:
+                    _defer = bool(self.frames.known_word(_mq.target, self))
+                except Exception:
+                    _defer = False
+            if _mq is not None and not _defer:
+                try:
+                    _ans_m = self.frames.answer_meta(_mq, self)
+                except Exception:
+                    _ans_m = ""
+                if _ans_m:
+                    self.last_meta_question = {"kind": _mq.kind, "target": _mq.target,
+                                               "verb": _mq.verb}
+                    self._queue_structure(raw)
+                    self._queue_structure(_ans_m)
+                    self._log_turn(speaker, raw, _ans_m, t0)
+                    return _ans_m
 
         # 0) Kendi kendine söylem genişlemesi ('X demek Y demektir' -> Plastik Kenyon Niyet Korteksi 1-atış öğrenir!)
         ok_eq, lhs_eq, intent_eq = self.plastic_discourse.try_self_supervised_equivalence(tr_lower(raw))
@@ -1667,6 +1754,35 @@ class NoraAGI:
         except Exception:
             return None, "", 0.0
         return None, "", 0.0
+
+    # ------------------------------------------------------------------ CÜMLE YAPISI
+    def explain_structure(self, text: str) -> dict:
+        """Bir cümleyi rol rol aç: özne/nesne/tümleç/yüklem + öğrenilmiş valans."""
+        if getattr(self, "frames", None) is None:
+            return {}
+        cl = self.frames.parse(text)
+        val = {}
+        try:
+            val = dict(self.frames.memory.valency.get(cl.verb) or {})
+        except Exception:
+            pass
+        out = {"text": text, "roles": cl.roles_tr(), "verb": cl.verb, "tense": cl.verb_tense,
+               "person": cl.person, "voice": cl.voice, "subject": cl.subject, "object": cl.obj,
+               "object_case": cl.obj_case, "dative": cl.dative,
+               "signature": " + ".join(cl.signature),
+               "frame_seen": int(self.frames.memory.frames.get(cl.signature, 0)),
+               "valency_learned": val}
+        self.last_structure = out
+        return out
+
+    def learn_structure(self, text: str) -> dict:
+        """Bir cümleyi yapı olarak öğren (fiil + nesne hâli + iskelet) ve raporla."""
+        if getattr(self, "frames", None) is None:
+            return {}
+        cl = self.frames.observe(text)
+        rep = self.explain_structure(text)
+        rep["learned_objects"] = dict(self.frames.memory.verb_objects.get(cl.verb) or {})
+        return rep
 
     def research_topic(self, topic: str, urls: list[str] | None = None) -> str:
         """Yalnızca allowlist'teki güvenilir kaynaklardan öğrenir; her iddia güvenilirlik ağırlığıyla girer."""
