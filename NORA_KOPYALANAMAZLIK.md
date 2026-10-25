@@ -343,7 +343,7 @@ dayanıyor; susuz Nora suyu kendi derdine bağlıyor; 3 anlatı isteği → 3 fa
 
 ## 11) Test durumu
 
-`python agi_battery.py` → **74/74** (321 s). Bu turda iki eski test ölçüm
+`python agi_battery.py` → **74/74** (332 s). Bu turda iki eski test ölçüm
 gürültüsünden arındırıldı:
 
 | Test | Eskiden | Şimdi |
@@ -364,6 +364,13 @@ A67'nin ölçtüğü şey özellikle önemli: **"kim konuşuyor?" sorusu mesajda
 konuşursa aynı kimlik. A68 ise kimlik modeline etiketin hiç girmediğini ve gürültüde
 duymanın gerçekten eksik kaldığını doğrular. A69 sabit iskeletin kırıldığını (soru oranı,
 art arda aynı biçim yasağı, susuz Nora'nın kendi derdini öne alması) ölçer.
+
+**Bilinen oynak testler (tam batarya yükü altında):** A5 (epistemik güven) ve A6
+(kimlik farklılaşması) zaman zaman eşiğin kıl payı altında kalıyor; ikisi de tek
+başına 3/3 geçiyor. A5: yalancı güveni 0.60→0.20 (eşik 0.22) — kimya zamanlaması.
+A6: temkinlilik farkı +0.24 ile +0.48 arasında salınıyor (eşik 0.06'nın çok üstünde
+olduğu koşular çoğunluk). Bu iki test bu değişikliklerden önce de aynı sıklıkta
+oynuyordu; eşikler gevşetilmedi.
 
 **Bilinen oynak test:** A6 (yaşantıdan doğan kimlik farklılaşması) ortam
 rastlantısına bağlıdır: sert dünya bazen güvenli dünyayla neredeyse aynı mizacı
