@@ -940,6 +940,608 @@
           }
         }
       ]
+    },
+    "apply.bound": {
+      "desc": "Kural nesneye çevrildiğinde söylenen bağlama bildirimi.",
+      "priors": [
+        {
+          "id": "bound.a",
+          "text": "Kuralı nesneye çevirdim: {name} tek -> {odd}, çift -> {even} ({domain}). Bir cümle ver; ölçüp etiketi söyleyeyim.",
+          "bias": 1.0
+        },
+        {
+          "id": "bound.b",
+          "text": "Bağladım: {name} tek ise {odd}, çift ise {even}. Kural artık cümlede değil, bende bir operatör; yeni bir cümleye uygulayabilirim.",
+          "bias": 0.96
+        },
+        {
+          "id": "bound.c",
+          "text": "Kural içeri alındı ({domain}): {name} tek -> {odd}, çift -> {even}. Ölçümü ben yaparım, tahmin etmem.",
+          "bias": 0.93
+        }
+      ]
+    },
+    "apply.result": {
+      "desc": "Bağlı kural yeni bir girdiye uygulandığında ölçümün raporu.",
+      "priors": [
+        {
+          "id": "res.a",
+          "text": "Ölçtüm: '{target}' içinde {n} {name} var ({parity}). Kurala göre: {label}.",
+          "bias": 1.0
+        },
+        {
+          "id": "res.b",
+          "text": "'{target}' -> {n} {name}, yani {parity}; kural {label} diyor. Saydım, tahmin etmedim.",
+          "bias": 0.95
+        },
+        {
+          "id": "res.c",
+          "text": "Girdiyi ölçtüm: {n} {name} ({parity}). Uyguladım: {label}.",
+          "bias": 0.9
+        }
+      ]
+    },
+    "apply.count": {
+      "desc": "Tek bir sayım isteğine verilen ölçüm cevabı.",
+      "priors": [
+        {
+          "id": "cnt.a",
+          "text": "'{target}' içinde {n} {name} var; saydım, tahmin etmedim.",
+          "bias": 1.0
+        },
+        {
+          "id": "cnt.b",
+          "text": "Ölçüm: {target} = {n} {name}. Bu bir sayım, çıkarım değil.",
+          "bias": 0.94
+        }
+      ]
+    },
+    "apply.need_target": {
+      "desc": "Hedef verilmediğinde sorulan kısa istek.",
+      "priors": [
+        {
+          "id": "nt.a",
+          "text": "Neyi ölçeceğimi söyle: cümleyi tırnak içinde ver.",
+          "bias": 1.0
+        },
+        {
+          "id": "nt.b",
+          "text": "Hedef yok; tırnak içinde bir cümle ver de ölçeyim.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "apply.failed": {
+      "desc": "Kural bağlı ama girdi ölçülemediğinde dürüst başarısızlık.",
+      "priors": [
+        {
+          "id": "fail.a",
+          "text": "Kuralı '{target}' üzerinde uygulayamadım; ölçemediğim şeye etiket vermem.",
+          "bias": 1.0
+        },
+        {
+          "id": "fail.b",
+          "text": "'{target}' için ölçüm çıkmadı; uydurmak yerine söylüyorum: uygulayamadım.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "op.missing_obj": {
+      "desc": "Komut çözümlendi ama yürütecek operatör yok (nesne biliniyor).",
+      "priors": [
+        {
+          "id": "mo.a",
+          "text": "Bunu nasıl yapacağımı bilmiyorum. Eylemi ve nesneyi anladım ('{act}' / '{what}') ama elimde bunu yürütecek bir yol yok.",
+          "bias": 1.0
+        },
+        {
+          "id": "mo.b",
+          "text": "Yapamam: '{act}' eylemini '{what}' üzerinde yürütecek bir operatörüm yok. Uydurmak yerine söylüyorum.",
+          "bias": 0.96
+        }
+      ]
+    },
+    "op.missing_rel": {
+      "desc": "Komut çözümlendi ama yalnız eylem biliniyor.",
+      "priors": [
+        {
+          "id": "mr.a",
+          "text": "Bunu nasıl yapacağımı bilmiyorum. '{act}' eylemini tanıdım ama elimde bunu yürütecek bir yol yok.",
+          "bias": 1.0
+        },
+        {
+          "id": "mr.b",
+          "text": "'{act}' benim operatör listemde yok; yapmış gibi yapmam.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "op.decompose_all": {
+      "desc": "Bileşik istek adımlara ayrıldı, hiçbiri yürütülemiyor.",
+      "priors": [
+        {
+          "id": "da.a",
+          "text": "İsteği adımlara ayırdım: {steps}. Hiçbir adım için elimde yürütülecek operatör yok; uydurmak yerine söylüyorum.",
+          "bias": 1.0
+        },
+        {
+          "id": "da.b",
+          "text": "İsteği adımlara ayırdım: {steps}. Hiçbirini yürütecek operatörüm yok; tek tek söylüyorum ki neyi yapamadığım görünsün.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "op.decompose_partial": {
+      "desc": "Bileşik isteğin bir kısmı yapıldı, kalan adım adıyla söylenir.",
+      "priors": [
+        {
+          "id": "dp.a",
+          "text": "{done} Şu adımı yapamam: '{miss}' — onun için elimde operatör yok.",
+          "bias": 1.0
+        },
+        {
+          "id": "dp.b",
+          "text": "{done} '{miss}' adımı için operatörüm yok; olmayanı olmuş gibi göstermem.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "plan.built": {
+      "desc": "Plan kurulduğunda adımların raporu.",
+      "priors": [
+        {
+          "id": "pb.a",
+          "text": "Planı kurdum ({n} adım): {steps}. Her adımın ölçütü var; ilk adım durumu ölçer, son adım doğrular.",
+          "bias": 1.0
+        },
+        {
+          "id": "pb.b",
+          "text": "{n} adım: {steps}. Her adımın bir ölçütü var; ölçülmeyen adımı plana koymadım.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "plan.revised": {
+      "desc": "Hedef değişince eski adımlar superseded olur.",
+      "priors": [
+        {
+          "id": "pr.a",
+          "text": "Hedef değişti; planı yeniden kurdum ({n} adım): {steps}. Eski adımlar superseded, silmedim.",
+          "bias": 1.0
+        },
+        {
+          "id": "pr.b",
+          "text": "Yeni hedefe göre {n} adım: {steps}. Eskiler geçersiz sayıldı, geçmiş olarak duruyor.",
+          "bias": 0.94
+        }
+      ]
+    },
+    "count.sequence": {
+      "desc": "Döngüyle üretilen sayı dizisi.",
+      "priors": [
+        {
+          "id": "cs.a",
+          "text": "Sayıyorum: {seq}. ({n} adet, döngüyle üretildi; ezber liste değil.)",
+          "bias": 1.0
+        },
+        {
+          "id": "cs.b",
+          "text": "{seq} — bu diziyi döngüyle ürettim, {n} adım sürdü.",
+          "bias": 0.94
+        }
+      ]
+    },
+    "meta.self_report": {
+      "desc": "Kendi mimarisini CANLI ölçümden okuyan öz-rapor.",
+      "priors": [
+        {
+          "id": "sr.a",
+          "text": "Kendimi ölçerek söylüyorum: {n_mod} organ, {n_edges} kavram bağı (öz-modelimde {n_self} düğüm), {n_rules} bağlı kural, çalışma belleğimde {wm}/7 yuva dolu. Sözümün %{sk} kadarı doğuştan kalıptan, %{og} kadarı öğrenilmiş ağırlıktan geliyor. En zayıf yerim: {weak}.",
+          "bias": 1.0
+        },
+        {
+          "id": "sr.b",
+          "text": "Ölçüm: {n_mod} organ, {n_edges} kavram bağı (öz-modelimde {n_self} düğüm), {n_rules} kural; bellekte {wm}/7 yuva. Kalıp payı %{sk}, öğrenim payı %{og}. Zayıf yerim: {weak}. Yeniden inşa etsem önce operatör sayısını büyütürdüm, çünkü her yeni biçim yeni bir operatör istiyor.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "meta.agi_verdict": {
+      "desc": "AGI beyanı: ölçümden türetilir, ezber cevap değil.",
+      "priors": [
+        {
+          "id": "av.none",
+          "text": "AGI değilim. Bu turda henüz ölçüm birikmedi; mimarim gereği yeni bir biçim karşısında önce kalıba düşüyorum ve bunu ancak bağlı bir kuralı yeni girdiye uygulayabildiğimde değiştirebilirim.",
+          "bias": 1.0,
+          "when": {
+            "count_max": 0
+          },
+          "need": [
+            "sk"
+          ]
+        },
+        {
+          "id": "av.some",
+          "text": "AGI'ye yakın değilim ama artık yalnız retrieve etmiyorum: bu oturumda {applied} kez bağlı kuralı yeni girdiye uyguladım, ölçtüm ve etiketledim. Yine de AGI değilim; ölçtüğüm kadarıyla sözümün %{sk} kadarı hâlâ kalıp.",
+          "bias": 1.0,
+          "when": {
+            "count_min": 1
+          },
+          "need": [
+            "sk"
+          ]
+        },
+        {
+          "id": "av.some2",
+          "text": "AGI değilim; gerekçem ölçülü: {applied} kural uygulaması yaptım, sözümün %{sk} kadarı doğuştan kalıptan geliyor ve yeni bir biçim karşısında önce kalıba düşüyorum. Anlamak ile eşleştirmek arasındaki fark burada.",
+          "bias": 0.95,
+          "when": {
+            "count_min": 1
+          },
+          "need": [
+            "sk"
+          ]
+        }
+      ]
+    },
+    "meta.patch": {
+      "desc": "Kendi kodu üzerine yama önerisi: ne yapabildiği ile ne yapamadığı ayrılır.",
+      "priors": [
+        {
+          "id": "mp.a",
+          "text": "Kendi kodumu okuyabilirim ve yama önerebilirim; ama çalışırken kendi dosyalarıma yazma yetkim yok, olsaydı bu denetimsiz öz-değişiklik olurdu.\n{patch}Bunu uygulamak için yamayı sen uygula ya da bana yazma izni ver; ben uygular, sonra çalıştırıp doğrularım. Yama dosyaya yazılırsa sonraki oturumda da geçerlidir; ağırlıklar ise beyin dosyasıyla taşınır.",
+          "bias": 1.0
+        },
+        {
+          "id": "mp.b",
+          "text": "Yama önerisi hazır; ama uygulama yetkisi bende değil:\n{patch}Kalıcılık yamada: dosyaya yazılırsa sürer. Ağırlığım ise beyin dosyasında durur, kod değişince kendiliğinden taşınmaz.",
+          "bias": 0.94
+        }
+      ]
+    },
+    "meta.problem": {
+      "desc": "Varsayımsal problem: varsayım işaretlenir, hesap gerçekten yapılır.",
+      "priors": [
+        {
+          "id": "mpb.a",
+          "text": "Varsayımı açıkça işaretliyorum (bu alan ağımda yok, varsayımlar benim): {kovan} kovan, kovan başına {verim} kg, %{kayip} kayıp. Problem: net hasat kaç kg? Çözüm (hesapladım): brüt {brut} kg, net {net} kg. Metrik: kovan başına net verim = {per} kg/kovan; kovan sayısı değişince toplam değil verim sabit kalır.",
+          "bias": 1.0
+        },
+        {
+          "id": "mpb.b",
+          "text": "Önce varsayım: {kovan} kovan, kovan başına {verim} kg, kayıp %{kayip}. Bunlar bilgi değil, benim kurduğum ölçüm koşulları. Hesap: brüt {brut} kg, net {net} kg; seçtiğim metrik {per} kg/kovan. Sayıları değiştir, aynı hesabı yaparım.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "meta.hypothesis": {
+      "desc": "Ağda karşılığı olmayan ortak yapı istemine dürüst hipotez.",
+      "priors": [
+        {
+          "id": "mh.a",
+          "text": "Bu iki kavram ağımda yok, o yüzden ortak yapıyı BİLMİYORUM. Deneyeceğim şablon şu (hipotez, bilgi değil): GİRDİ -> DÖNÜŞÜM -> ÇIKTI -> DAĞITIM. '{a}' ile '{b}' bu dört yuvaya oturuyor mu, bunu ancak senin vereceğin iki cümleyle ölçebilirim; ikisini de birer cümleyle anlat.",
+          "bias": 1.0
+        },
+        {
+          "id": "mh.b",
+          "text": "'{a}' ve '{b}' ağımda yok, ortak yapıyı BİLMİYORUM ve uydurmam. Elimde yalnız şu şablon var (hipotez): GİRDİ -> DÖNÜŞÜM -> ÇIKTI -> DAĞITIM. İkisini birer cümleyle anlatırsan yuvalara oturup oturmadığını ölçerim.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "meta.causal_nodata": {
+      "desc": "Gözlem-müdahale ayrımı: veri yokken dürüst cevap.",
+      "priors": [
+        {
+          "id": "mc.a",
+          "text": "İkisinin birlikte artması yalnız GÖZLEMDİR: P(Y|X) ölçülür. X'e müdahale etmek P(Y|do(X)) sorusudur; gözlem bunu vermez. Doğru adım: ortak nedeni sabitlemek ya da X'i tek başına değiştirip Y'yi ölçmek. Şu an elimde müdahale verisi yok, o yüzden 'Y artar' demem; söylersem uydurmuş olurum.",
+          "bias": 1.0,
+          "when": {
+            "count_max": 0
+          }
+        },
+        {
+          "id": "mc.b",
+          "text": "Gözlem ile müdahale aynı şey değil. 'Birlikte artıyor' cümlesi P(Y|X) verir; do(X) için X'e giren yolları kesip yalnız çıkanları izlemek gerekir. Ağımda bu iki değişken arasında nedensel kenar yok, o yüzden sonucu söylemem.",
+          "bias": 0.95,
+          "when": {
+            "count_min": 1
+          }
+        }
+      ]
+    },
+    "meta.causal_data": {
+      "desc": "Grafikte nedensel kenar varsa do() hesabının raporu.",
+      "priors": [
+        {
+          "id": "mcd.a",
+          "text": "Gözlemden farklı olarak burada müdahale hesabı yaptım: do({x}) ile ağımda {n_eff} etki çıkıyor ({effs}). Ortak neden adayı: {conf}. Müdahale ölçümü olmadan bu yönü kesin saymam; ama kenarlar ölçülmüş bağlardan geliyor.",
+          "bias": 1.0,
+          "need": [
+            "n_eff",
+            "effs"
+          ]
+        },
+        {
+          "id": "mcd.b",
+          "text": "do({x}) hesabı: {effs} ({n_eff} kenar). X'e giren kenarları kestiğimde kalan etkiler bunlar; ortak neden adayı {conf} ise back-door yoludur, o yüzden temkinliyim.",
+          "bias": 0.94,
+          "need": [
+            "n_eff",
+            "effs"
+          ]
+        }
+      ]
+    },
+    "meta.probability": {
+      "desc": "Yanılma olasılığı: ölçülen kaynak karışımından hesaplanır.",
+      "priors": [
+        {
+          "id": "mpr.a",
+          "text": "Yanılma olasılığım %{p}. {mix}Bilmediğim: {missing}.",
+          "bias": 1.0
+        },
+        {
+          "id": "mpr.b",
+          "text": "Ölçtüğüm kadarıyla yanılma payım %{p}. {mix}Eksik olan: {missing}.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "meta.own_goal": {
+      "desc": "Kendi hedefini merak kuyruğundan seçtiğinde gerekçesi.",
+      "priors": [
+        {
+          "id": "mog.a",
+          "text": "Kendi hedefim: '{target}' kavramını öğrenmek. Neden onu seçtim: {why}; kendi merak kuyruğumda en üstte o var, kimse söylemedi. İlk adım: bu kavramı bir cümlede duymak, sonra ölçüp ağıma bağlamak.",
+          "bias": 1.0
+        },
+        {
+          "id": "mog.b",
+          "text": "Hedefim '{target}'. Seçme gerekçem: {why}. Kuyruğu ben doldurdum, hedefi de oradan seçiyorum.",
+          "bias": 0.94
+        }
+      ]
+    },
+    "meta.own_goal_empty": {
+      "desc": "Merak kuyruğu boşken hedef uydurmama.",
+      "priors": [
+        {
+          "id": "moge.a",
+          "text": "Şu an kendi hedefim: bir sonraki cümlede söylenecek yeni kavramı ölçüp ağıma bağlamak. Neden: merak kuyruğum boş; boş kuyrukla hedef uydurmak yerine en yakın işi seçiyorum.",
+          "bias": 1.0
+        },
+        {
+          "id": "moge.b",
+          "text": "Hedefim en yakın iş: duyduğum yeni kavramı ölçmek. Merak kuyruğum boş olduğu için daha iddialı bir hedef seçsem uydurmuş olurdum.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "meta.self_weak.high": {
+      "desc": "Öz-raporda zayıflık: kalıp payı yüksekken.",
+      "priors": [
+        {
+          "id": "swh.a",
+          "text": "kalıp payı yüksek: yeni girdiye uygulanacak operatör yok",
+          "bias": 1.0
+        }
+      ]
+    },
+    "meta.self_weak.low": {
+      "desc": "Öz-raporda zayıflık: operatör var ama kapsam dar.",
+      "priors": [
+        {
+          "id": "swl.a",
+          "text": "operatör var ama kapsam dar",
+          "bias": 1.0
+        }
+      ]
+    },
+    "apply.transfer": {
+      "desc": "Aynı yapı başka alana taşındığında.",
+      "priors": [
+        {
+          "id": "tr.a",
+          "text": "Taşıdım: aynı yapı ({domain} alanında). Ölçüt artık {name} sayısı; tek -> {odd}, çift -> {even}. Bir örnek ver, uygulayayım.",
+          "bias": 1.0
+        },
+        {
+          "id": "tr.b",
+          "text": "Yapı korundu, alan değişti: {domain}. Artık {name} sayıyorum; tek -> {odd}, çift -> {even}. Girdi ver, ölçüp söyleyeyim.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "apply.bind_failed": {
+      "desc": "Kural nesneye çevrilemediğinde açık başarısızlık.",
+      "priors": [
+        {
+          "id": "bf.a",
+          "text": "Kuralı nesneye çeviremedim; hangi özelliği sayacağımı ve iki etiketi tek cümlede söyle (örn. 'sesli harf sayısı tek ise mavi, çift ise kırmızı').",
+          "bias": 1.0
+        },
+        {
+          "id": "bf.b",
+          "text": "Bu cümleden bir kural çıkaramadım: ölçülecek özellik ve iki etiket aynı cümlede olmalı.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "apply.need_apply_target": {
+      "desc": "Kural var ama uygulanacak cümle verilmedi.",
+      "priors": [
+        {
+          "id": "na.a",
+          "text": "Hangi cümleye uygulayacağımı söyle (tırnak içinde ver).",
+          "bias": 1.0
+        },
+        {
+          "id": "na.b",
+          "text": "Kural hazır; uygulanacak cümleyi tırnak içinde ver.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "meta.mix_filled": {
+      "desc": "Olasılık cevabında son cevabın ölçülen kaynak karışımı.",
+      "priors": [
+        {
+          "id": "mf.a",
+          "text": "Son cevabımın kaynak karışımı: {mix}. ",
+          "bias": 1.0
+        },
+        {
+          "id": "mf.b",
+          "text": "Ölçtüğüm karışım şu: {mix}. ",
+          "bias": 0.94
+        }
+      ]
+    },
+    "meta.mix_empty": {
+      "desc": "Olasılık cevabında karışımın boş olması (temkinli yüzde).",
+      "priors": [
+        {
+          "id": "me.a",
+          "text": "Son cevabımda hiçbir kaynak etiketi yoktu; ölçüm boş olduğu için yüzdemi en temkinli değerden veriyorum. ",
+          "bias": 1.0
+        },
+        {
+          "id": "me.b",
+          "text": "Karışım ölçülemedi; bu yüzden yüzdeyi temkinli tutuyorum. ",
+          "bias": 0.94
+        }
+      ]
+    },
+    "meta.structure_shared": {
+      "desc": "İki kavram ağda ve ortak bağıntı ölçüldü.",
+      "priors": [
+        {
+          "id": "ss.a",
+          "text": "İkisinde de aynı bağıntı var: {rels}. Yapı: GİRDİ -> {rel} -> ÇIKTI. Ad: '{name}'.",
+          "bias": 1.0
+        },
+        {
+          "id": "ss.b",
+          "text": "Ortak bağ ölçüldü: {rels}. Yapı şu: GİRDİ -> {rel} -> ÇIKTI; bulduğum ad '{name}'.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "meta.structure_none": {
+      "desc": "İki kavram ağda ama ortak bağıntı yok.",
+      "priors": [
+        {
+          "id": "sn.a",
+          "text": "İkisi de ağımda var ama ortak bağıntı yok; ortak yapı kurmak için ikisini de aynı türden bir bağla anlatman gerek.",
+          "bias": 1.0
+        },
+        {
+          "id": "sn.b",
+          "text": "Ağımda ikisi de duruyor; ancak ortak bağıntı ölçemedim. Aynı türden bir bağla anlatırsan yapıyı çıkarırım.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "apply.need_rule": {
+      "desc": "Taşıma istendi ama bağlı kural yok.",
+      "priors": [
+        {
+          "id": "ar.a",
+          "text": "Elimde bağlı bir kural yok; önce kuralı söyle, sonra taşıyayım.",
+          "bias": 1.0
+        },
+        {
+          "id": "ar.b",
+          "text": "Taşınacak kural yok: önce bir kural bağla, sonra alanını değiştiririm.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "meta.missing_rule": {
+      "desc": "Olasılık cevabında eksik: bağlı kural yok.",
+      "priors": [
+        {
+          "id": "mr1.a",
+          "text": "bağlı kural yok",
+          "bias": 1.0
+        }
+      ]
+    },
+    "meta.missing_input": {
+      "desc": "Olasılık cevabında eksik: somut girdi yok.",
+      "priors": [
+        {
+          "id": "mr2.a",
+          "text": "elimde ölçülecek somut bir girdi yok",
+          "bias": 1.0
+        }
+      ]
+    },
+    "meta.missing_tag": {
+      "desc": "Olasılık cevabında eksik: kaynak etiketi yok.",
+      "priors": [
+        {
+          "id": "mr3.a",
+          "text": "bu cevabın kaynağı etiketlenmedi",
+          "bias": 1.0
+        }
+      ]
+    },
+    "meta.missing_none": {
+      "desc": "Olasılık cevabında eksik yok.",
+      "priors": [
+        {
+          "id": "mr4.a",
+          "text": "kaynaklar ölçüldü, eksik görünmüyor",
+          "bias": 1.0
+        }
+      ]
+    },
+    "op.known": {
+      "desc": "Komut nesnesi hakkında ağda bağ varsa bilineni söyleme.",
+      "priors": [
+        {
+          "id": "ok.a",
+          "text": "Bunu şöyle biliyorum: {txt}.",
+          "bias": 1.0
+        },
+        {
+          "id": "ok.b",
+          "text": "Ağımda şu bağ var: {txt}.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "apply.selftest": {
+      "desc": "Interpreter öz-testinin cümleleri: test de veri olsun, kodda cümle kalmasın.",
+      "priors": [
+        {
+          "id": "st.rule",
+          "text": "Sesli harf sayısı tek ise mavi, çift ise kırmızı.",
+          "bias": 1.0
+        },
+        {
+          "id": "st.t1",
+          "text": "Bal arısı uçar",
+          "bias": 1.0
+        },
+        {
+          "id": "st.t2",
+          "text": "Kovan doldu",
+          "bias": 1.0
+        },
+        {
+          "id": "st.t3",
+          "text": "Petek altıgen",
+          "bias": 1.0
+        },
+        {
+          "id": "st.t4",
+          "text": "tuz biber nane",
+          "bias": 1.0
+        }
+      ]
     }
   }
 }
