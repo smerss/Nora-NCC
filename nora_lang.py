@@ -379,6 +379,10 @@ class TurkishMorphology:
             return w
         if w.endswith("nk"):
             return w[:-1] + "g"
+        # Ünsüz kümesinden sonra gelen -k YUMUŞAMAZ: 'kuark' -> 'kuarkın', 'park' -> 'parkı'
+        # ('renk' gibi -nk'liler yukarıdaki kurala girer; bu kural sözlük gerektirmez).
+        if w.endswith("k") and len(w) >= 2 and w[-2] not in ALL_VOWELS:
+            return w
         rep = {"p": "b", "ç": "c", "t": "d", "k": "ğ"}
         return (w[:-1] + rep[w[-1]]) if w[-1] in rep else w
 

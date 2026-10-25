@@ -1873,6 +1873,54 @@ def a58_sentence_structure_valency_and_meta_questions():
     return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
 
 
+def a59_unknown_question_gap_and_research_across_wh_types():
+    """A59: 'nasıl denilir' yalnızca bir kalıp değil — soru HANGİ türde olursa olsun (ne zaman,
+    ne işe yarar, nereyi, nasıl çalışır) Nora bahsedilen kavramı BİLMİYORSA boşluğu adıyla söyler,
+    sorunun hangi yönünü bilmediğini belirtir, merak listesine alır ve kaynak açılınca ARAŞTIRIR.
+
+    Ayrıca: kalıp sözler (selamlaşma) ve sohbet-üstü sorular sözcük sorusu sayılmaz; bilinen
+    kavram sorularına bu korteks karışmaz (asıl bilgi hattı yanıtlar)."""
+    from nora_lang import tr_lower
+
+    agi = NoraAGI(seed=59, boot_thinker=False)
+    agi.step_life(80)
+    ok = {}
+
+    r_time = tr_lower(agi.converse("Zemheri ne zaman gelir?"))
+    ok["zaman"] = ("zemheri" in r_time and "bilmiyorum" in r_time and "ne zaman" in r_time)
+
+    r_use = tr_lower(agi.converse("Nabız ne işe yarar?"))
+    queued = ("nabız" in list(agi.auto_net.curiosity_queue)) or ("nabız" in list(getattr(agi, "pending_research", [])))
+    ok["işlev"] = ("nabız" in r_use and "bilmiyorum" in r_use and queued)
+
+    r_dir = tr_lower(agi.converse("Pusula nereyi gösterir?"))
+    ok["yön"] = ("pusula" in r_dir and "gösterdiğini" in r_dir and "bilmiyorum" in r_dir)
+
+    r_how = tr_lower(agi.converse("Kuark nasıl çalışır?"))
+    ok["nasıl-kavram"] = ("kuark" in r_how and "çalıştığını" in r_how and "bilmiyorum" in r_how)
+
+    # Kalıp söz sözcük sorusu değildir: bilinen selamlaşma yanıtı gelir, 'bilmiyorum' demez.
+    r_hello = tr_lower(agi.converse("Merhaba!"))
+    ok["kalıp-söz"] = ("bilmiyorum" not in r_hello and ("selam" in r_hello or "merhaba" in r_hello))
+
+    # Bilinen kavram (hakkında gerçek ilişki var): sözcük korteksi susar, bilgi hattı yanıtlar.
+    agi.converse("Zürafa bir hayvandır. Zürafanın boynu uzundur.")
+    r_known = tr_lower(agi.converse("Zürafa nedir?"))
+    ok["bilinen"] = ("bilgim yok" not in r_known and "zürafa" in r_known)
+
+    # Kaynak açılınca: sorulan kavram için GERÇEKTEN araştırma ve öğrenme
+    article = "Zemheri kışın en soğuk günleridir. Zemheri kırk gün sürer."
+    agi.life.sources = [("web:tr.wikipedia.org", lambda t, q: article),
+                        ("web:www.wikidata.org", lambda t, q: article)]
+    r_res = tr_lower(agi.converse("Zemheri ne zaman gelir?"))
+    edges = {(e.subj, e.rel, e.obj) for e in agi.lang.graph.edges}
+    ok["araştırma"] = ("araştırdım" in r_res and
+                       any(s == "zemheri" for s, _r, _o in edges))
+
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -1930,6 +1978,8 @@ TESTS = {
     "A54": ("kişisel anlatıyı dinleme: yansıtma + soru, ağ kirlenmesi yok", a54_personal_narration_listening),
     "A55": ("günlük konuşma: anlatı, olumsuzluk, davet, kutlama, istek", a55_conversational_understanding_of_daily_speech),
     "A56": ("tam Türkçe kapsamı: 8 kip, birleşik zaman, yeterlilik, emir, -mAktA, -DIr/-ki/-CA", a56_full_turkish_morphology),
+    "A59": ("soru türünden bağımsız bilgi boşluğu, araştırma ve kalıp söz ayrımı",
+            a59_unknown_question_gap_and_research_across_wh_types),
     "A58": ("cümle yapısı, fiil valansı ve 'nasıl denilir' sorularının genellenmesi",
             a58_sentence_structure_valency_and_meta_questions),
     "A57": ("tekrar farkındalığı, geçmiş cevabı anma, cevap çeşitliliği ve zaman bilinci", a57_repetition_awareness_time_and_variety),

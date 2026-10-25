@@ -273,6 +273,14 @@ class ClauseParser:
     @staticmethod
     def _target_of(cl: Clause) -> str:
         toks = cl.tokens
+        # Sorulan kavram genellikle cümlenin BAŞINDAKİ addır ('Elma gerçekte nerededir?', 'Kapı nasıl
+        # açılır?'). Soru belirtecinden geriye bakmak, araya giren zarfları ('gerçekte') hedef sanıyordu.
+        for t in toks:
+            if t.role == "WH":
+                break
+            if t.role in ("NOUN", "ADJ") and t.word not in NON_SUBJECT \
+                    and t.word not in WH_WORDS and t.lemma not in WH_WORDS:
+                return t.lemma
         wh_i = next((i for i, t in enumerate(toks) if t.role == "WH"), -1)
         if wh_i > 0:
             for j in range(wh_i - 1, -1, -1):
@@ -352,10 +360,11 @@ class FrameMemory:
 
 @dataclass
 class MetaQuestion:
-    kind: str          # HOW_SAY | HOW_DO | MEANING | DEFINITION
+    kind: str          # HOW_SAY | HOW_DO | MEANING | DEFINITION | UNKNOWN_Q
     target: str        # sorulan sözcük
     verb: str
     clause: Clause
+    wh_phrase: str = ""  # UNKNOWN_Q: sorunun neyi sorduğu ('ne zaman', 'ne işe yarar')
 
 
 class ConstructionCortex:
@@ -440,8 +449,16 @@ class ConstructionCortex:
         _low0 = tr_lower(text or "")
         if any(c in _low0 for c in ("sence", "bence", "ne düşün", "fikrin", "için ne")):
             return None
-        if not re.search(r"nasıl|nedir|kimdir|ne demek|anlam[ıi]|ne anlama|söyleniş|okunuş|"
-                         r"ne demektir", _low0):
+        # SOHBET ÜSTÜ sorular sözcük sorusu değildir: 'Az önce ne konuştuk?', 'ne demiştim?'
+        if any(c in _low0 for c in ("konuş", "söyledi", "demiş", "dediğim", "hatırla", "bahset",
+                                   "sorduğum", "sorumu", "anladın", "demek istedi")):
+            return None
+        if not re.search(r"\b(ne|nedir|nasıl|neden|niçin|niye|kim|kimdir|nere\w*|kaç|hangi|"
+                         r"ne zaman|ne kadar|ne işe|ne yapar)\b|demek|anlam", _low0):
+            return None
+        # ÇOK CÜMLELİ tur: cevap önceki cümlelerden ÇIKARIM ister (A>B>C). Sözcük korteksi karışmaz.
+        _parts = [p for p in re.split(r"(?<=[.!?])\s+", (text or "").strip()) if p.strip()]
+        if len(_parts) > 1:
             return None
         focus = self._question_sentence(text)
         if focus is None:
@@ -512,6 +529,16 @@ class ConstructionCortex:
         # 6) NASIL + YAPMA FİİLİ (edilgen ya da ettirgen): 'X nasıl açılır?'
         if wh == "nasıl" and (lemma in DO_VERBS or passive):
             return MetaQuestion("HOW_DO", target, lemma, cl)
+        # 7) DİĞER SORU TÜRLERİ: 'Zemheri ne zaman gelir?', 'Nabız ne işe yarar?'
+        #    Soru BİLİNMEYEN bir kavramın üzerine kuruluysa (herhangi bir wh) boşluk dürüstçe
+        #    adlandırılır. Bilinen kavramda susulur (o zaman ana bilgi hattı yanıtlar).
+        # Yalnız YÜKLEMLİ soru bir kavram hakkında sorudur: 'ne var ne yok' gibi kalıp
+        # sözler (selamlaşma, argo) yüklem taşımaz ve sözcük sorusu sayılmaz.
+        _CUES = ("ne zaman", "ne kadar", "ne işe yarar", "ne yapar", "kaç",
+                 "nereyi", "nereye", "nerede", "nereden")
+        _pred = next((k for k in _CUES if k in low), "")
+        if wh and (cl.verb or cl.copula or _pred):
+            return MetaQuestion("UNKNOWN_Q", target, lemma, cl, wh_phrase=_pred or wh)
         return None
 
     @staticmethod
@@ -575,6 +602,30 @@ class ConstructionCortex:
             except Exception:
                 nom = "yapıldığını"
             extra = f"bu yüzden nasıl {nom} de bilmiyorum"
+        elif mq.kind == "UNKNOWN_Q":
+            # Sorunun NEYİ sorduğu adlandırılır: 'ne zaman gelir' -> 'ne zaman geldiğini'.
+            _wp = (mq.wh_phrase or "").strip()
+            _verb = mq.verb or ""
+            _nom = ""
+            if _verb:
+                try:
+                    from nora_broca import TurkishSyntaxEngine as SYN
+                    _nom = SYN.nominalize_dik(self._verb_lemma(_verb), poss=3, case="ACC")
+                except Exception:
+                    _nom = ""
+            _qmap = {"ne zaman": "ne zaman", "ne kadar": "ne kadar", "ne işe yarar": "ne işe yaradığını",
+                     "ne yapar": "ne yaptığını", "kaç": "kaç olduğunu", "nerede": "nerede",
+                     "nereyi": "nereyi", "nereye": "nereye", "nereden": "nereden",
+                     "nere": "nerede", "neden": "neden", "niçin": "niçin", "kim": "kim",
+                     "nasıl": "nasıl", "ne": "ne", "hangi": "hangi"}
+            _cue = _qmap.get(_wp, _wp)
+            if _nom and _cue in ("ne zaman", "ne kadar", "nasıl", "ne", "neden", "niçin", "kim",
+                                 "nerede", "nereyi", "nereye", "nereden"):
+                extra = f"bu yüzden {_cue} {_nom} de bilmiyorum"
+            elif _nom:
+                extra = f"bu yüzden {_cue} olduğunu ({_nom}) da bilmiyorum"
+            else:
+                extra = "bu yüzden sorunun cevabını da bilmiyorum"
         else:
             extra = "bu yüzden anlamını açıklayamam"
         # 3) Araştırma: kaynak açıksa gerçekten dene, yoksa merak listesine al (uydurma yok)
