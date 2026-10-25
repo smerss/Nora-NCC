@@ -261,7 +261,6 @@ class PriorField:
                 changed["punished"].append(pid)
             else:
                 a.w = min(W_MAX, float(a.w) + REWARD)
-                a.wins += 1
                 changed["rewarded"].append(pid)
         return changed
 
