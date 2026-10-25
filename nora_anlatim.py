@@ -140,9 +140,11 @@ class Narrator:
         # Bütün çerçeveler tükendi: en az kullanılan bağa dön, ama cümleyi yeniden kur.
         rel, obj = min(e, key=lambda ro: self._edge_score(key, ro[0], ro[1]))
         self._use_edge(key, rel, obj)
-        txt = self._one(agi, subj, rel, obj)
+        tail = tr_lower(_drop_subject(self._one(agi, subj, rel, obj), subj))
+        txt = f"Bildiğim bu: {tail}"
         if self._already_said(key, txt):
-            txt = f"{txt.rstrip('.')}; bildiğim bu, söyleyişim değişti."
+            # Söyleyecek yeni bir yan kalmadıysa bunu saklamaz: sınırını söyler.
+            txt = f"{txt.rstrip('.')}; ötesini henüz bilmiyorum."
         return self._remember(key, txt)
 
     # ------------------------------------------------------------------ yardımcı cümle
