@@ -156,7 +156,7 @@ def compose_noticing(meta: dict, agi=None, rng=None) -> str:
     same = bool(meta.get("exact"))
     count = int(meta.get("count", 1))
     turns = int(meta.get("turns_ago") or 1)
-    prev = _quote(meta.get("prev_reply", ""), limit=60)
+    prev = _quote(meta.get("prev_reply", ""), limit=40)
 
     # 1) Farkındalık cümlesi
     if gap < 45:
@@ -180,7 +180,7 @@ def compose_noticing(meta: dict, agi=None, rng=None) -> str:
     # 3) Kaçıncı tekrar: ısrar ediyorsa nedeni merak edilir
     if count >= 3:
         qs = ("Aynı soruyu artık üçüncü kez soruyorsun; bende mi bir şey eksik kaldı?",
-              "Israrla sorduğuna göre cevabım seni ikna etmemiş.",
+              "Israrla sorduğuna göre cevabım seni ikna etmedi mi?",
               "Yoksa ben mi aynı şeyi söyleyip duruyorum?")
     elif count == 2 and turns > 2:
         qs = ("Aradan birkaç tur geçti, yine aynı yere döndük; aklında kalan ne?",

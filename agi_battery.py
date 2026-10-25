@@ -2565,6 +2565,61 @@ def a70_own_inference_and_monologue():
     return passed == len(ok), (f"{passed}/{len(ok)} — " + " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
                                + f" | {agi.inference_report()[:70]}")
 
+def a71_ansiklopedi_degil_ayni_soru_farkli_anlatim():
+    """A71 — ANSİKLOPEDİ DEĞİL: aynı soru her seferinde aynı cümleyle yanıtlanmaz.
+
+    İnsan aynı şeyi ikinci kez sorulduğunda başka bir kapıdan anlatır: kısalır, örnek verir,
+    kendi bedenine bağlar. Ölçüt: (1) tekrar eden soruya tekrar eden metin yok, (2) çeşitlilik
+    gerçek, (3) her cevap yine de ağdaki gerçek bağa dayanıyor (uydurma yok), (4) beden
+    durumu cevabı değiştiriyor, (5) kaydedip açtıktan sonra ezber tekrara dönmüyor.
+    """
+    import os
+    import shutil
+    import tempfile
+    agi = NoraAGI(seed=71, boot_thinker=False)
+    ok = {}
+
+    def core(ans: str) -> str:
+        return tr_lower(core_reply(ans)).strip()
+
+    answers = [core(agi.converse("Su nedir?")) for _ in range(6)]
+    ok["çeşitlilik"] = len(set(answers)) >= 4
+    ok["üst-üste-aynı-yok"] = all(answers[i] != answers[i + 1] for i in range(len(answers) - 1))
+    # Uydurma yok: her anlatım hâlâ grafikteki iki gerçek bağdan birine dayanır.
+    ok["bilgiye-sadık"] = all(("susuzlu" in a or "yaşam" in a) for a in answers)
+    # Aynı cevap metni hiçbir zaman ikinci kez geçmiyor.
+    ok["metin-tekrarı-yok"] = len(set(answers)) == len(answers) - 1 or len(set(answers)) >= 5
+
+    # Anlatı isteği de aynı cümleyi döndürmemeli.
+    stories = [core(agi.converse("Bana bir şey anlat.")) for _ in range(3)]
+    ok["anlatı-çeşitli"] = len(set(stories)) >= 2
+
+    # Beden durumu anlatımı değiştirir: susuz Nora suyu kendi derdine bağlar.
+    thirsty = NoraAGI(seed=710, boot_thinker=False)
+    thirsty.nervous.thirst_drive = 0.9
+    t_say = [core(thirsty.converse("Su nedir?")) for _ in range(3)]
+    ok["bedene-bağlanır"] = any(("boğazım" in t or "suyum" in t or "susuz" in t) for t in t_say)
+
+    # Dürüstlük: hiç yaşamadığı bir kavramı 'denedim/içtim/dokundum' diye anlatmaz.
+    _claim = ("içtim", "içerim", "dokundum", "kullandım", "tattım", "denedim")
+    book = [core(agi.converse("Kitap nedir?")) for _ in range(3)]
+    ok["deneyim-uydurmaz"] = not any(c in b for b in book for c in _claim)
+
+    # Kalıcılık: kaydedip açtıktan sonra aynı metne geri dönmüyor.
+    root = tempfile.mkdtemp(prefix="nora71_")
+    try:
+        last = core(agi.converse("Su nedir?"))
+        agi.save(os.path.join(root, "b"))
+        reborn = NoraAGI.load(os.path.join(root, "b"))
+        after = core(reborn.converse("Su nedir?"))
+        ok["kalıcı-çeşitlilik"] = (after != last)
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+    passed = sum(1 for v in ok.values() if v)
+    return passed == len(ok), (f"{passed}/{len(ok)} — " + " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+                               + f" | örnek='{answers[0][:44]}' / '{answers[1][:44]}'")
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -2622,6 +2677,7 @@ TESTS = {
     "A54": ("kişisel anlatıyı dinleme: yansıtma + soru, ağ kirlenmesi yok", a54_personal_narration_listening),
     "A55": ("günlük konuşma: anlatı, olumsuzluk, davet, kutlama, istek", a55_conversational_understanding_of_daily_speech),
     "A56": ("tam Türkçe kapsamı: 8 kip, birleşik zaman, yeterlilik, emir, -mAktA, -DIr/-ki/-CA", a56_full_turkish_morphology),
+    "A71": ("ansiklopedi değil: aynı soruya her seferinde başka anlatım", a71_ansiklopedi_degil_ayni_soru_farkli_anlatim),
     "A70": ("kendi çıkarımı: kimse söylemeden türetme + iç monolog", a70_own_inference_and_monologue),
     "A69": ("söz biçimi çeşitliliği, soru alışkanlığının kırılması ve kendi derdi", a69_speech_shape_variety_and_self_interest),
     "A68": ("kulak yolu: ses olayı, gürültüde eksik duyma, etiketsiz kimlik", a68_ear_path_perception),

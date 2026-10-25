@@ -426,8 +426,16 @@ class NoraAGI:
             self.style = SpeechStyle(seed=seed + 193)
         except Exception:
             self.style = None
+        # --- ANLATIM: aynı bilgiyi her seferinde aynı cümleyle söylememek (ansiklopedi değil)
+        try:
+            from nora_anlatim import Narrator
+            self.narrator = Narrator(seed=seed + 227)
+        except Exception:
+            self.narrator = None
         self.last_auditory = None
         self.audio_log: list = []
+        self._prev_answers: dict[str, str] = {}
+        self._notice_spoken: set = set()
         self._voice_label: dict[str, str] = {}
         try:
             self.chem.alias_resolver = self._canonical_voice
@@ -955,6 +963,29 @@ class NoraAGI:
                     self.ear.learn_name(_vid, _nm)
         except Exception:
             pass
+        # ÇEKİRDEK CEVAP: biçim ve algı notu eklenmeden önceki hâli. Aynı soruya verilen
+        # cevap GERÇEKTEN tekrar mı, yoksa aynı soruya başka bir anlatım mı — buradan anlaşılır.
+        _ans_core = ans or ""
+        _key_prev = tr_lower(raw or "").strip(" .!?…")
+        _prev_ans = None
+        try:
+            if _key_prev:
+                _prev_ans = (self._prev_answers or {}).get(_key_prev)
+        except Exception:
+            _prev_ans = None
+        _self_repeat = False
+        if _prev_ans:
+            try:
+                # Sözcük İKİLİLERİ karşılaştırılır: aynı iki olguyu başka sırayla/başka
+                # çerçeveyle anlatmak tekrar değildir; aynı cümleyi kurmak tekrardır.
+                def _bigrams(t: str) -> set[str]:
+                    w = re.findall(r"[a-zçğıöşüâîû0-9]+", tr_lower(t))
+                    return {f"{a} {b}" for a, b in zip(w, w[1:])}
+                _a, _b = _bigrams(_ans_core), _bigrams(_prev_ans)
+                _self_repeat = bool(_a and _b) and len(_a & _b) / max(1, len(_a | _b)) >= 0.75
+            except Exception:
+                _self_repeat = False
+
         # SÖZ BİÇİMİ: cevabın iskeleti her tur aynı olmasın; bedenin derdi varsa o öne geçsin.
         try:
             if getattr(self, "style", None) is not None and ans and not ans.startswith("["):
@@ -995,14 +1026,44 @@ class NoraAGI:
                     _quiet = bool(_plan.get("guarded")) or bool(_plan.get("silence")) or \
                         bool(_plan.get("wants_silence"))
                     _low = tr_lower(ans)
-                    if not _quiet and "sessiz" not in _low:
+                    # Aynı soruya BAŞKA bir anlatımla cevap verdiysek "bunu söylemiştin"
+                    # demek yersiz: tekrar eden soru, tekrar eden cevap değildir.
+                    # İlk tekrarda fark ettiğini SÖYLER (insan da öyle yapar); ısrar eden
+                    # tekrarlarda her tur aynı serzenişi yinelemek ise iskelet olur -> seyrek.
+                    _first_repeat = bool(_key_prev) and _key_prev not in self._notice_spoken
+                    # Aynı söz üçüncü kez gelirse susmak olmaz: insan da ısrara bir cevap verir.
+                    _speak_notice = (_first_repeat or _self_repeat
+                                     or int(_meta.get("count", 1)) >= 3
+                                     or os.urandom(1)[0] % 100 < 18)
+                    if _speak_notice and _key_prev:
+                        self._notice_spoken.add(_key_prev)
+                    if not _quiet and "sessiz" not in _low and _speak_notice:
                         _rng = getattr(self, "rng", None) or getattr(self, "random", None)
-                        _note = compose_noticing(_meta, self, _rng)
+                        # Cevap zaten başka türlü söylendiyse eski cevabı ALINTILAMAK yersiz;
+                        # yalnız "bunu sormuştun" farkındalığı kalır.
+                        _meta_for_note = dict(_meta)
+                        if not _self_repeat:
+                            # Cevap değiştiyse uzun alıntı yok; yine de ne dediğini HATIRLAR
+                            # (kısa bir iz): "az önce ... demiştim".
+                            _meta_for_note["prev_reply"] = " ".join(
+                                str(_meta.get("prev_reply") or "").split()[:4])
+                        _note = compose_noticing(_meta_for_note, self, _rng)
                         ans = f"{ans.rstrip()} {_note}"
                         if self.dialogue_log and self.dialogue_log[-1][1] == raw:
                             self.dialogue_log[-1] = (self.dialogue_log[-1][0], raw, ans)
             except Exception:
                 pass
+        # Aynı soruya verilen çekirdek cevabı hatırla (tekrar ölçütü için).
+        try:
+            if _key_prev and _ans_core:
+                if self._prev_answers is None:
+                    self._prev_answers = {}
+                self._prev_answers[_key_prev] = _ans_core
+                if len(self._prev_answers) > 256:
+                    for _k in list(self._prev_answers)[:64]:
+                        self._prev_answers.pop(_k, None)
+        except Exception:
+            pass
         # GÜNLÜK: önce DUYUM (kim, hangi ses, ne kadar uzaktan), sonra tur.
         try:
             _ev = getattr(self, "last_auditory", None)
@@ -1886,6 +1947,15 @@ class NoraAGI:
                     elif _gap and not _cov:
                         _joined = (_joined.rstrip(".") + ". " + tr_capitalize(_gap)).strip()
                     _join_txt = _joined if _joined.endswith((".", "?", "!")) else _joined + "."
+                    # ANLATIM: aynı kavram ikinci kez sorulduğunda aynı cümle verilmez.
+                    # (Tam düşünme metni/boşluk cümlesi devreye girdiyse ona dokunulmaz.)
+                    if getattr(self, "narrator", None) is not None and not (_strict and _spec and not _cov):
+                        try:
+                            _edges_n = [(e.rel, e.obj) for e, _p in hits]
+                            _join_txt = self.narrator.render(self, fr.subj, _edges_n, _join_txt,
+                                                             speaker=speaker) or _join_txt
+                        except Exception:
+                            pass
                     bids.append(CorticalBid("hippocampal_concept", 0.95, 0.94, _join_txt, f"wh:{fr.subj}"))
                 else:
                     srec = self.self_model.somatic.get(fr.subj)
@@ -2730,6 +2800,13 @@ class NoraAGI:
         self.lang.wernicke.last_explanation = (
             f"Anlatı isteğine kavram ağımdan yanıt verdim: {cand} düğümünde {len(edges)} bağ seçtim"
         )
+        # Aynı kavramı ikinci kez anlatırken aynı cümleyi kurma (bkz. nora_anlatim).
+        try:
+            if getattr(self, "narrator", None) is not None:
+                _e = [(e.rel, e.obj) for e in edges]
+                body = self.narrator.render(self, cand, _e, body) or body
+        except Exception:
+            pass
         return f"{body} {stance}".strip()
 
     def _looks_like_request(self, raw: str) -> bool:
@@ -3272,6 +3349,7 @@ class NoraAGI:
             "school": (self.school.state_dict() if getattr(self, "school", None) is not None else {}),
             "style": (self.style.state_dict() if getattr(self, "style", None) is not None else {}),
             "inference": (self.infer.state_dict() if getattr(self, "infer", None) is not None else {}),
+            "anlatim": (self.narrator.state_dict() if getattr(self, "narrator", None) is not None else {}),
         }
         # ATOMİK YAZMA: önce .tmp, sonra os.replace. Yazma yarıda kesilirse ESKİ sağlam
         # dosya yerinde kalır (tek satır kaybı bile olmaz; yarım beyin yüklenmez).
@@ -3377,6 +3455,8 @@ class NoraAGI:
             pass
         # Söz biçimi geçmişi: monotonluğa düşmemek için.
         try:
+            if getattr(agi, "narrator", None) is not None:
+                agi.narrator.load_state_dict(meta.get("anlatim") or {})
             if getattr(agi, "style", None) is not None:
                 agi.style.load_state_dict(meta.get("style") or {})
         except Exception:
