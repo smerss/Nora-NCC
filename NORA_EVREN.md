@@ -815,6 +815,7 @@ sözlük boşluğu sanılmıyor.
 | `iz-korunur` | sohbetten sonra son karar **gerçek** karar olarak kalır | ✓ |
 | `söz-değişti` / `söz-değişmedi` | söz ölçüm dilini kullanır, iki kararı da adlandırır | ✓ |
 | `meta-hat-yok` | "ne olduğunu biliyorum" yoluna düşmez | ✓ |
+| `ölçülemeyen-kanal` | "merakım olmasaydı" → uydurma yok: "kanal girişi yok, ölçemem" | ✓ |
 
 Gerçek çıktı (tohum 84, `obs[I_E]=0.11` sonrası "Suya git." → karar `ertele`, neden `kritik_açlık`):
 
@@ -853,8 +854,11 @@ Bu ayrım korunuyor: A80 ölçüm kelimesini yapısal katmanda yasaklıyor, A84 
 - **Müdahale "organı yok etmek" değil, "kanalı dolu saymak".** Ölçülen şey `do(açlık=dolu)`;
   Nora'nın hiç acıkmadığı bir dünya değil. Bu yüzden cevap "açlık olmasa" değil, "açlık karşılanmış
   olsa" diye de okunabilir — cümle ilkini söylüyor, ölçüm ikincisini yapıyor.
-- **Yalnız üç kanal** (açlık, susuzluk, bütünlük). Merak, DA tonusu ve sosyal kanallar için karşıolgusal
-  henüz yok; sorulursa "bu kanalı ölçemem" denmeli, uydurulmamalı.
+- **Yalnız üç kanal ayarlanabilir** (açlık, susuzluk, bütünlük). Merak, korku, sosyal, dopamin, ödül,
+  haz, öfke ve utanç için karar makinesinde bir kanal girişi yok; bu sorular artık **açıkça** reddediliyor:
+  *"Elimde merak için bir kanal girişi yok: bu karşıolgusalı ölçemem, uydurmam. Ölçtüğüm kanallar açlık,
+  susuzluk ve bütünlük."* Bu cümle, aynı soruyu dünya-ağı karşıolgusalına (yapısal çıkarım) kaptırmıyor —
+  "merak" bir kavram düğümü değil, ölçülemeyen bir beden kanalı olarak sınıflanıyor.
 - **Karar değişmedi ≠ hiçbir şey değişmedi.** Free-energy vektörü kayar ama argmax aynı kalabilir;
   A84 yalnız **karar** değişimini raporluyor. "Değişmedi" cümlesi bu dar anlamıyla doğru.
 - **Geçmiş beden geri kurulamaz.** Koşu, şu anki `obs` anlık görüntüsüyle yapılır; "bir dakika önce
@@ -864,10 +868,10 @@ Bu ayrım korunuyor: A80 ölçüm kelimesini yapısal katmanda yasaklıyor, A84 
 
 | ölçüm | sonuç |
 |---|---|
-| `agi_battery.py` tam (`/tmp/agi9.txt`) | **84/84 GEÇTİ, 315.8 s** |
-| `agi_battery.py A84` (izole) | **9/9 GEÇTİ, 2.4 s** |
+| `agi_battery.py` tam (`/tmp/agi10.txt`) | **84/84 GEÇTİ, 332.7 s** |
+| `agi_battery.py A84` (izole, 3 koşu) | **10/10 GEÇTİ, 2.4–2.5 s** (kararlı) |
 | `agi_battery.py A4 A14 A27 A79 A80–A84` | **10/10 GEÇTİ, 26.6 s** |
-| `heldout_battery.py` (H1–H9, dış) | **9/9, 10.1 s** |
+| `heldout_battery.py` (H1–H9, dış) | **9/9, 11.5 s** |
 | `heldout_sealed.py / sealed2 / sealed3` | **4/4 · 4/4 · 4/4** (mühürler değişmedi) |
 | `nora_audit.py --check` | TOPLAM **1122** / SÖYLEM 127 — baseline **1122'ye mandallandı** |
 | operatör / prior türü | 9 / 65 = **7.22** (tavan 7.50) |
