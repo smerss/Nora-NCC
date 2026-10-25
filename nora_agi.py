@@ -970,8 +970,10 @@ class NoraAGI:
         # Doğuştan eğilim (ps) her turda biraz daha söner -> söz öğrenilmiş olur.
         try:
             if self.priors is not None:
-                self.priors.learn(repeated=_meta is not None)
+                # SIRA ÖNEMLİ: önce geçen turun seçimleri "son tur"a devredilir, sonra
+                # o seçimler bu turun sonucuna göre cezalandırılır/pekiştirilir.
                 self.priors.begin_turn()
+                self.priors.learn(repeated=_meta is not None)
         except Exception:
             pass
         ans = self._converse_core(_heard, _vid)

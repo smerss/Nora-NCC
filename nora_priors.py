@@ -55,8 +55,11 @@ PUNISH = 0.30
 W_MIN, W_MAX = -1.50, 2.50
 
 #: Tazelik: son N seçimde konuşan topluluk bu kadar aktivasyon kaybeder.
+#: Ceza, öğrenilmiş ağırlığın TAVANINDAN büyüktür: alışkanlık çeşitliliği ezemez.
+#: Yani Nora bir sözü öğrense bile onu üst üste söylemez; öğrenme, taze olanlar
+#: arasındaki TERCİHİ belirler.
 FRESH_WINDOW = 3
-FRESH_PENALTY = 1.40
+FRESH_PENALTY = W_MAX + 0.5
 
 
 def _safe_format(template: str, slots: dict) -> str:
@@ -220,7 +223,10 @@ class PriorField:
         recent.append(best.id)
         self.picks += 1
         self.turn_ids.append(best.id)
-        learned = abs(float(best.w)) >= (ps * float(best.bias))
+        # "Öğrenilmiş" demek için: POZİTİF ve doğuştan eğilimi GEÇMİŞ bir ağırlık.
+        # Negatif ağırlık öğrenilmiş bir KAÇINMADIR (o söz işe yaramadı), öğrenilmiş bir
+        # tercih değil; w≈0 ise hiçbir şey öğrenilmemiştir -> söz hâlâ doğuştan eğilimdir.
+        learned = float(best.w) > 0.0 and float(best.w) >= (ps * float(best.bias))
         self.log.append({"kind": kind, "id": best.id, "a": round(best_act, 3),
                          "ps": round(ps, 3), "learned": bool(learned), "w": round(best.w, 3)})
         if prov is not None:
@@ -245,12 +251,17 @@ class PriorField:
             a = self._by_id.get(pid)
             if a is None:
                 continue
-            if repeated:
+            # Yalnızca "onarım sorusu" tekrarın ölçüsüdür: karşı taraf aynı şeyi yeniden
+            # sorduysa o soru işe yaramamıştır. Açılış/kapanış sözleri bundan sorumlu
+            # değildir; onlar konuşmanın sürmesiyle pekişir (Hebbian: birlikte akan söz).
+            judged = a.kind.endswith(".question")
+            if repeated and judged:
                 a.w = max(W_MIN, float(a.w) - PUNISH)
                 a.losses += 1
                 changed["punished"].append(pid)
             else:
                 a.w = min(W_MAX, float(a.w) + REWARD)
+                a.wins += 1
                 changed["rewarded"].append(pid)
         return changed
 

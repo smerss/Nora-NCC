@@ -398,9 +398,18 @@ Her söz parçası doğduğu yere göre etiketlenir:
 | `kalip` | doğuştan eğilim — yani **iskelet** |
 | `ogrenim` | doğuştan eğilimi geçmiş **öğrenilmiş** ağırlık (artık iskelet değil) |
 
-`iskelet_orani = kalip / toplam`. Bugün 7 turluk bir sohbette **0.47**; sönümleme ve
-pekiştirme ilerledikçe düşer. Ölçer, `converse` sonunda `provenance.report()` ile okunur,
-beyinle birlikte kaydedilir.
+`iskelet_orani = kalip / toplam`. Bugün 7 turluk bir sohbette **0.47**.
+
+Ölçerin iki ayrı iğnesi var, karıştırılmamalı:
+
+* **iskelet_orani** yalnızca metin *yazılmış bir bankadan* geldiğinde düşer. Yani bu oranı
+  düşürmenin yolu öğrenme değil, içeriği ağa/belleğe/çıkarıma taşımaktır (Faz 2–3).
+* **ogrenim_orani** ise *seçimin* öğrenilip öğrenilmediğini söyler: söz yine bankadan
+  geliyor olabilir ama hangi sözün seçildiğine Nora'nın kendi ağırlığı karar veriyor.
+  30 turluk sohbette 0.03, pekiştirme ilerledikçe yükseliyor.
+
+Bu ayrımı yapmadan "iskelet eridi" demek kendini kandırmak olurdu. Ölçer, `converse`
+sonunda `provenance.report()` ile okunur ve beyinle birlikte kaydedilir.
 
 ### Faz 1 — cümleler kodda değil (`nora_priors.json` + `nora_priors.py`)
 
@@ -412,11 +421,19 @@ saat/süre kapanışları) **koddan silindi**, 32 motor topluluğu olarak JSON'a
 
 * `ps = prior_strength = 1 − seçim/600`: doğumda 1.0, 600 seçim sonra **0.0**. O andan
   sonra cümleyi yalnızca öğrenilmiş `w` seçer. Yani iskelet koddan değil, **zihinden** çıkar.
-* **Tazelik cezası** (−1.40, son 3 seçim): aynı topluluk üst üste konuşamaz. Çeşitlilik
-  artık `rng.choice`'ın şansına değil, yarışın kuralına bağlı.
-* **Öğrenme dayatılmaz:** aynı söz hemen tekrar geldiyse geçen turda konuşan topluluklar
-  `−0.30` (işe yaramadı), konuşma ilerlediyse `+0.06` (işe yaradı). Sinyal Nora'nın kendi
+* **Tazelik cezası** (−3.0, son 3 seçim) öğrenilmiş ağırlığın **tavanından (2.5) büyüktür**:
+  alışkanlık çeşitliliği ezemez. Nora bir sözü öğrense bile onu üst üste söylemez; öğrenme,
+  taze olanlar arasındaki *tercihi* belirler. Çeşitlilik artık `rng.choice`'ın şansına değil,
+  yarışın kuralına bağlı.
+* **Öğrenme dayatılmaz:** aynı söz hemen tekrar geldiyse o tur konuşan **onarım sorusu**
+  `−0.30` (işe yaramadı), konuşma ilerlediyse `+0.06` (işe yaradı). Yalnızca `.question`
+  türündeki topluluklar tekrarın ölçüsüdür: karşı taraf aynı şeyi yeniden sorduysa suç
+  sorunun; açılış/kapanış sözleri konuşmanın sürmesiyle pekişir. Sinyal Nora'nın kendi
   sonucundan gelir; kullanıcıya "beğendim" dedirtilmez.
+* **Gerçek ölçüm (aynı tohum, 400 turluk ömür):** `prior_strength` 1.00 → 0.18,
+  `ogrenim_orani` 0.00 → **0.15**, `iskelet_orani` 0.55 → **0.42**. İlk turda cümleleri
+  doğuştan eğilim seçiyor; 400. turda seçimin altıda birini Nora'nın kendi pekiştirdiği
+  ağırlıklar belirliyor.
 * Öğrenilmiş ağırlıklar ve `ps` ilerlemesi `state_dict` ile taşınır (A72 kontrol ediyor).
 
 ### Neden "iskelet" hâlâ var ama artık iskelet değil
