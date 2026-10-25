@@ -163,6 +163,10 @@ class Rule:
     shape: str = "parity"
     threshold: int = 0
     op: str = "lt"          # lt: <, le: <=, gt: >, ge: >=   (yalnız threshold)
+    #: KİM YAZDI: "insan" (bize öğretilen bağlı kural) ya da "kendi" (nora_forge'un
+    #: örneklerden türettiği operatör). Sayaç, operatör yazımının kime ait olduğunu
+    #: gizlemesin diye kuralın kendisinde durur.
+    origin: str = "insan"
 
     def measure(self, item: str) -> int:
         fn = FEATURES.get(self.feature, FEATURES["letter_count"])[1]

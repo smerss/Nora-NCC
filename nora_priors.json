@@ -1871,6 +1871,128 @@
           }
         }
       ]
+    },
+    "meta.forge": {
+      "desc": "Operatör ocağı: örneklerden kural türetme, belirsizlik ve yetersiz veri dürüstlüğü.",
+      "priors": [
+        {
+          "id": "fg.adopted",
+          "text": "Operatörü ben yazdım: {desc}. {n_ex} örnekten çıktı; yazım sayısı — insan {human}, kendi {self}.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "stage": "adopted"
+            }
+          }
+        },
+        {
+          "id": "fg.adopted2",
+          "text": "Örneklerden kendi kuralımı türettim ({desc}); {n_ex} örneğin hepsini açıklıyor. Kayıt: insan {human}, kendi {self}.",
+          "bias": 0.96,
+          "when": {
+            "eq": {
+              "stage": "adopted"
+            }
+          }
+        },
+        {
+          "id": "fg.ambiguous",
+          "text": "{n_cand} aday kural aynı örnekleri açıklıyor: {cands}. Hangisi olduğunu uydurmam; ayırt edici bir örnek ver: '{probe}' hangi etiketi alır?",
+          "bias": 0.99,
+          "when": {
+            "eq": {
+              "stage": "ambiguous"
+            }
+          }
+        },
+        {
+          "id": "fg.progress",
+          "text": "Örnek eklendi, {n_cand} aday kaldı: {cands}. Bir tane daha: '{probe}' hangi etiketi alır?",
+          "bias": 0.98,
+          "when": {
+            "eq": {
+              "stage": "progress"
+            }
+          }
+        },
+        {
+          "id": "fg.no_probe",
+          "text": "Adaylar ayrışmıyor ({why}): {cands}. Havuzda ayırt edici sözcük bulamadım; farklı uzunlukta bir örnek ver.",
+          "bias": 0.95,
+          "when": {
+            "eq": {
+              "stage": "no_probe"
+            }
+          }
+        },
+        {
+          "id": "fg.insufficient",
+          "text": "Bu örneklerden kural çıkmıyor ({why}); uydurmak yerine söylüyorum. İki etiketli, birbirinden farklı örnekler gerek.",
+          "bias": 0.99,
+          "when": {
+            "eq": {
+              "stage": "insufficient"
+            }
+          }
+        },
+        {
+          "id": "fg.confirmed",
+          "text": "Verdiğin örnek kuralımı doğruluyor: '{item}' -> {label}; kuralım da aynı etiketi veriyor. Yeni operatör yazmadım.",
+          "bias": 0.99,
+          "when": {
+            "eq": {
+              "stage": "confirmed"
+            }
+          }
+        },
+        {
+          "id": "fg.confirmed2",
+          "text": "'{item}' için kendi kuralım '{got}' diyor, sen '{label}' dedin: tutuyor. Kural yerinde kalıyor.",
+          "bias": 0.95,
+          "when": {
+            "eq": {
+              "stage": "confirmed"
+            }
+          }
+        },
+        {
+          "id": "fg.revised",
+          "text": "Kuralım yanıldı: '{item}' için '{got}' dedim, sen '{label}' dedin. Eski örneklerle birlikte yeniden türettim: {desc}. Kendi yazdığım operatör sayısı {self}.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "stage": "revised"
+            }
+          }
+        },
+        {
+          "id": "fg.revise_ambiguous",
+          "text": "Bu örnek eski kuralımı çürüttü ama tek bir kurala da oturmuyor: {n_cand} aday kaldı ({cands}). '{probe}' hangi etiketi alır?",
+          "bias": 0.99,
+          "when": {
+            "eq": {
+              "stage": "revise_ambiguous"
+            }
+          }
+        },
+        {
+          "id": "fg.revise_failed",
+          "text": "Bu örnek eski kuralımı çürüttü; eldeki veriyle hiçbir kural kalmadı ({why}). Uydurmam, söylüyorum.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "stage": "revise_failed"
+            }
+          }
+        }
+      ]
     }
+  },
+  "forge_why": {
+    "tek-sınıf": "bütün etiketler aynı",
+    "çelişki": "aynı girdiye iki farklı etiket verilmiş",
+    "örüntü-yok": "hiçbir ölçüm iki tarafı ayırmıyor",
+    "az-veri": "en az iki örnek gerekli",
+    "ayırt-edici-yok": "havuzda adayları ayıran sözcük yok"
   }
 }

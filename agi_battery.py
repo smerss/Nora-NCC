@@ -3413,6 +3413,175 @@ def a84_karsiolgusal_irade_olcumu():
                                f"su: {cf_thirst.get('actual')}->{cf_thirst.get('counterfactual')}")
 
 
+def a85_operator_oz_yazimi():
+    """A85 — OPERATÖRÜ KİM YAZDI? Kuralı insan değil, Nora örneklerden kendisi yazsın.
+
+    AGI'ye yaklaşmanın ölçülebilir tanımı: İNSANIN yazdığı operatör sayısı sabitken
+    NORA'NIN kendi yazdığı operatör sayısı artar. Bu testte hiçbir kural öğretilmiyor:
+    yalnız "girdi=etiket" örnekleri veriliyor; ölçülecek özellik (sesli harf), şekil
+    (tek/çift) ve eşleme Nora tarafından TÜRETİLİYOR. Ölçüt:
+    (1) 6 örnekten doğru kural türetilir (özellik+şekil+eşleme) ve `origin="kendi"`,
+    (2) türetilen operatör, öğretilmemiş sözcüklere DİL üzerinden uygulanır,
+    (3) 2 örnek yetmiyorsa kural UYDURULMAZ: aday sayısı söylenir, ayırt edici örnek istenir,
+    (4) ayırt edici örnek gelince kural kesinleşir (tek aday),
+    (5) tek sınıflı veriden kural çıkmaz (dürüst ret),
+    (6) `nora_operators.json` (insan rejistrisi) BİT BİT AYNI kalır; insan sayısı 9,
+    (7) kendi yazdığı operatör deftere `origin="kendi"` olarak yazılır.
+    """
+    import hashlib
+    import json
+    from pathlib import Path
+
+    import nora_apply as AP
+
+    ok = {}
+    reg = Path("nora_operators.json")
+    h0 = hashlib.sha256(reg.read_bytes()).hexdigest()
+
+    g = NoraAGI(seed=851, boot_thinker=False)
+    g.step_life(200)
+    before = g.forge.counts()
+
+    q1 = ("Kural çıkar: karınca=kırmızı, bilgisayar=mavi, göl=kırmızı, "
+          "ev=kırmızı, masa=mavi, deniz=mavi")
+    r1 = tr_lower(strip_prefixes(g.converse(q1)))
+    rule = g.forge.adopted
+    ok["örnekten-kural"] = (rule is not None
+                            and rule.feature == "vowel_count" and rule.shape == "parity"
+                            and dict(rule.mapping) == {"odd": "kırmızı", "even": "mavi"})
+    ok["kendi-imzası"] = (rule is not None and getattr(rule, "origin", "") == "kendi")
+    ok["söz-doğru"] = ("sesli harf" in r1 and "kendi" in r1 and "insan" in r1)
+
+    # (2) dil üzerinden uygulama: etiket kelimesi cevapta olmalı
+    truth = {"kelebek": "kırmızı", "kitap": "mavi", "su": "kırmızı",
+             "çiçek": "mavi", "portakal": "kırmızı"}
+    hits = 0
+    for w, lab in truth.items():
+        rep = tr_lower(strip_prefixes(g.converse(f"Kuralı uygula: '{w}'")))
+        hits += int(lab in rep)
+    ok["dil-üzerinden-uygula"] = hits == len(truth)
+
+    # (3)-(4) belirsizlik: 2 örnek -> kural yok, ayırt edici örnek iste
+    g2 = NoraAGI(seed=852, boot_thinker=False)
+    g2.step_life(100)
+    r2 = tr_lower(strip_prefixes(g2.converse("Kural çıkar: karınca=kırmızı, bilgisayar=mavi")))
+    probe = (g2._forge_pending or {}).get("probe")
+    ok["belirsiz-dürüst"] = (g2.forge.adopted is None and probe
+                             and "aday" in r2 and probe.lower() in r2)
+    # ayırt edici örneğin GERÇEK etiketi: sesli harf paritesi (kırmızı=tek, mavi=çift)
+    if probe:
+        n_v = sum(1 for ch in probe if ch in "aeıioöuü")
+        lab = "kırmızı" if n_v % 2 else "mavi"
+        r2b = tr_lower(strip_prefixes(g2.converse(lab)))
+        ok["ayırt-edici-örnek"] = (g2.forge.adopted is not None
+                                   and len(g2.forge.cands) == 1
+                                   and ("kendi" in r2b or "türettim" in r2b))
+    else:
+        ok["ayırt-edici-örnek"] = False
+
+    # (5) tek sınıf: kural çıkmaz
+    g3 = NoraAGI(seed=853, boot_thinker=False)
+    g3.step_life(100)
+    r3 = tr_lower(strip_prefixes(g3.converse("Kural çıkar: ev=mavi, su=mavi, masa=mavi")))
+    ok["tek-sınıf-ret"] = (g3.forge.adopted is None and "kural çıkmıyor" in r3
+                           and "aynı" in r3)
+
+    # (6)-(7) insan rejistrisi sabit, kendi defteri büyüdü
+    h1 = hashlib.sha256(reg.read_bytes()).hexdigest()
+    after = g.forge.counts()
+    ok["insan-sayısı-sabit"] = (h0 == h1 and len(AP.OPERATORS) == 9
+                                and after["human"] == 9 and before["human"] == 9)
+    ok["kendi-defteri"] = (after["self"] >= before["self"] + 1
+                           and after["ratio"] > before["ratio"])
+    led = {}
+    try:
+        led = json.loads(Path("runs/operators_self.json").read_text(encoding="utf-8"))
+    except Exception:
+        led = {}
+    recs = led.get("self_authored") or []
+    ok["defter-kaydı"] = bool(recs) and recs[-1].get("origin") == "kendi" \
+        and str(recs[-1].get("id", "")).startswith("kendi.")
+
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), (f"{passed}/{len(ok)} — {detail} | "
+                               f"insan={after['human']} kendi={after['self']} "
+                               f"kural={rule.feature if rule else None}/{rule.shape if rule else None}")
+
+
+def a86_kendi_operatorunu_duzeltme():
+    """A86 — KENDİ OPERATÖRÜNÜ ÇÜRÜTME: veri kuralı yalanlarsa ne olur?
+
+    A85 kuralları yazdırıyordu. Asıl sınav, yazdığı kuralın YANLIŞ çıkması: sessizce
+    tutmaya devam mı ediyor, yoksa ölçüp düzeltiyor mu? Ölçüt:
+    (1) tutan örnek kuralı doğrular, yeni operatör yazılmaz, sayaç değişmez,
+    (2) çürüten örnek sessizce yutulmaz ("anladım" deyip geçmez),
+    (3) çürütülen operatör DÜŞER; yerine ancak TÜM veriyi açıklayan bir kural geçebilir,
+    (4) çürütme deftere gerekçesiyle yazılır (iddia vs gerçek),
+    (5) kural kalmadıysa bu dürüstçe söylenir, uydurulmaz,
+    (6) insan rejistrisi (`nora_operators.json`) bit bit aynı kalır.
+    """
+    import hashlib
+    import json
+    from pathlib import Path
+
+    import nora_apply as AP
+
+    ok = {}
+    reg = Path("nora_operators.json")
+    h0 = hashlib.sha256(reg.read_bytes()).hexdigest()
+
+    g = NoraAGI(seed=861, boot_thinker=False)
+    g.step_life(150)
+    g.converse("Kural çıkar: karınca=kırmızı, bilgisayar=mavi, göl=kırmızı, "
+               "ev=kırmızı, masa=mavi, deniz=mavi")
+    old_rule = g.forge.adopted
+    old_rid = getattr(old_rule, "rid", "")
+    ok["kuruldu"] = old_rule is not None and getattr(old_rule, "origin", "") == "kendi"
+    base = g.forge.counts()
+    all_pairs = list(g.forge.examples)
+
+    # (1) tutan örnek: doğrulama, yeni yazım yok
+    r_ok = tr_lower(strip_prefixes(g.converse("kitap=mavi")))
+    ok["doğrulama"] = (("tutuyor" in r_ok) or ("doğruluyor" in r_ok)) \
+        and g.forge.counts()["self"] == base["self"] \
+        and getattr(g.forge.adopted, "rid", "") == old_rid
+
+    # (2)-(5) çürüten örnek
+    r_bad = strip_prefixes(g.converse("kelebek=mavi"))
+    lo_bad = tr_lower(r_bad)
+    ok["çürütme-sessiz-değil"] = ("çürü" in lo_bad or "yanıldı" in lo_bad) and "anladım" not in lo_bad
+    new_rule = g.forge.adopted
+    ok["eski-kural-düştü"] = getattr(new_rule, "rid", "") != old_rid
+    if new_rule is not None:
+        consistent = all(new_rule.apply(t)[0] == lab for t, lab in all_pairs + [("kelebek", "mavi")])
+    else:
+        consistent = ("kalmadı" in lo_bad or "hiçbir" in lo_bad)
+    ok["tutarlı-sonuç"] = consistent
+
+    # (4) çürütme defteri
+    led = {}
+    try:
+        led = json.loads(Path("runs/operators_self.json").read_text(encoding="utf-8"))
+    except Exception:
+        led = {}
+    refs = led.get("refuted") or []
+    ok["çürütme-defteri"] = bool(refs) and refs[-1].get("id") == old_rid \
+        and (refs[-1].get("refuted_by") or {}).get("actual") == "mavi"
+    ok["sayaç-dürüst"] = g.forge.counts()["refuted"] >= 1 \
+        and (g.forge.counts()["self"] == base["self"] if new_rule is None
+             else g.forge.counts()["self"] == base["self"] + 1)
+
+    # (6) insan rejistrisi dokunulmadı
+    ok["rejistri-sabit"] = hashlib.sha256(reg.read_bytes()).hexdigest() == h0 \
+        and len(AP.OPERATORS) == 9
+
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), (f"{passed}/{len(ok)} — {detail} | "
+                               f"eski={old_rid} yeni={getattr(new_rule, 'rid', None)}")
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -3484,6 +3653,8 @@ TESTS = {
     "A82": ("şekiller arası transfer: parite değil, aynı makinede eşik ve sıra", a82_sekiller_arasi_transfer),
     "A83": ("çok sözcüklü nesne ve iyelikli özne: ad öbeği sınırı", a83_cok_sozcuklu_nesne_ve_iyelikli_ozne),
     "A84": ("karşıolgusal irade: kanal çıkar, aynı makineyi yeniden koştur", a84_karsiolgusal_irade_olcumu),
+    "A85": ("operatörü kim yazdı: insan sabit, Nora örneklerden kendi yazıyor", a85_operator_oz_yazimi),
+    "A86": ("kendi operatörünü çürütme: veri yalanlarsa kural düşer", a86_kendi_operatorunu_duzeltme),
     "A70": ("kendi çıkarımı: kimse söylemeden türetme + iç monolog", a70_own_inference_and_monologue),
     "A69": ("söz biçimi çeşitliliği, soru alışkanlığının kırılması ve kendi derdi", a69_speech_shape_variety_and_self_interest),
     "A68": ("kulak yolu: ses olayı, gürültüde eksik duyma, etiketsiz kimlik", a68_ear_path_perception),
