@@ -745,9 +745,18 @@ class DiscourseCortex:
         return {"text": text, "act": f"NARRATION_{act}", "narration": True}
 
     def _fresh(self, options: tuple[str, ...]) -> str:
-        """Son söylenenlerle aynı olan takip sözünü seçme: konuşmada tekrar insanı yorar."""
+        """Son söylenenlerle aynı olan takip sözünü seçme: konuşmada tekrar insanı yorar.
+
+        Seçim BİREYSELDİR: aynı seed'den gelen iki Nora, donanım entropisi + yaşam anı
+        fazı sayesinde aynı durumda farklı (ama eşdeğer) sözü seçebilir.
+        """
         avail = [o for o in options if o not in self.recent_followups]
-        pick = self.random.choice(avail or list(options))
+        pool = avail or list(options)
+        ent = getattr(self, "entropy", None)
+        if ent is not None:
+            pick = pool[ent.tie_break(len(pool)) % len(pool)]
+        else:
+            pick = self.random.choice(pool)
         self.recent_followups.append(pick)
         return pick
 
@@ -858,6 +867,22 @@ class DiscourseCortex:
         ask = self._fresh(("Şu an önünde kaç seçenek var?", "En çok neyi kaybetmekten korkuyorsun?",
                            "Hangi seçenek seni bir adım ileri taşır?"))
         return f"{lead}. {ask}"
+
+    def _render(self, act: str, raw: str, meta: dict, agi) -> str:
+        """Bir söz edimini yüzeye kur (yarışta adaylar eşzamanlı çağrılabilir)."""
+        if act == "QUOTE_ASK":
+            return self._speak_quote_ask(raw, meta, agi)
+        if act == "CONCEPT_PEEK":
+            return self._speak_concept_peek(raw, meta, agi)
+        if act == "HONEST_UNKNOWN":
+            return self._speak_honest_unknown(raw, meta, agi)
+        if act == "EMPATHIZE":
+            return self._speak_empathize(raw, meta, agi)
+        if act == "OFFER":
+            return self._speak_offer(raw, meta, agi)
+        if act == "WONDER":
+            return self._speak_wonder(raw, meta, agi)
+        return self._speak_ack(raw, meta, agi)
 
     def _pick_narration_act(self, nar: dict) -> str:
         # Ton içerikten: olumsuz fiil/ağır söz -> sadece dinle; sıcak söz -> içten karşılık.
@@ -1020,21 +1045,27 @@ class DiscourseCortex:
                 act, probs = "QUOTE_ASK", np.full(len(self.acts), 1.0 / len(self.acts))
             else:
                 act, probs = self._pick(feats)
+            # YARIŞ: iki söz edimi neredeyse eşit olasılıktaysa hangisinin önce dile
+            # geleceğini argmax değil, GERÇEK zamanlama belirler. İki aday eşzamanlı
+            # iş parçacıklarında kurulur; ilk biten konuşur. Aynı seed'den gelen iki
+            # Nora böylece aynı durumda farklı (ama eşdeğer) bir söz seçebilir.
+            ent = getattr(self, "entropy", None)
+            _alt_act = ""
+            if ent is not None and k < attempts:
+                _order = np.argsort(-probs)
+                _a, _b = int(_order[0]), int(_order[1])
+                if float(probs[_a] - probs[_b]) < 0.05:
+                    _cands = [self.acts[_a], self.acts[_b]]
+                    _w = ent.race_first([lambda c=c: self._render(c, raw, meta, agi) for c in _cands],
+                                        fallback=0) % 2
+                    act, _alt_act = _cands[_w], _cands[1 - _w]
             seen.append(act)
-            if act == "QUOTE_ASK":
-                text = self._speak_quote_ask(raw, meta, agi)
-            elif act == "CONCEPT_PEEK":
-                text = self._speak_concept_peek(raw, meta, agi)
-            elif act == "HONEST_UNKNOWN":
-                text = self._speak_honest_unknown(raw, meta, agi)
-            elif act == "EMPATHIZE":
-                text = self._speak_empathize(raw, meta, agi)
-            elif act == "OFFER":
-                text = self._speak_offer(raw, meta, agi)
-            elif act == "WONDER":
-                text = self._speak_wonder(raw, meta, agi)
-            else:
-                text = self._speak_ack(raw, meta, agi)
+            text = self._render(act, raw, meta, agi)
+            if not text and _alt_act:
+                # yarışı kazanan edim susarsa diğeri konuşur (suskunluk yok)
+                text = self._render(_alt_act, raw, meta, agi)
+                if text:
+                    act = _alt_act
             if not text:
                 self.habituate(act, 0.5)
                 continue

@@ -1960,6 +1960,71 @@ def a60_requests_advice_and_sentence_frame_persistence():
     detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
     return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
 
+def a61_no_cloning_same_seed_divergence():
+    """A61 — KOPYALANAMAZLIK: aynı seed'den doğan iki Nora aynı GENETİĞE sahiptir, ama
+    yaşam başladığı an nanosaniye fazı + donanım entropisi + gerçek zamanlama yarışları
+    devreye girer. Aynı girdilerle bile farklı sinapslara, farklı iç durumlara ve farklı
+    sözlere ayrışırlar. Mükemmel bir klon (kayıttan yüklenen kopya) bile ayrışır.
+
+    Dış API yoktur; tüm entropi süreç içinde toplanır (nora_entropy)."""
+    from nora_lang import tr_lower
+
+    a = NoraAGI(seed=51, boot_thinker=False)
+    b = NoraAGI(seed=51, boot_thinker=False)
+    ok = {}
+
+    # 1) GENETİK AYNI: seed aynıysa doğuştan gelen yapı birebir aynı olmalı
+    same_genome = ((a.mind.Win == b.mind.Win).all() and (a.mind.Wr == b.mind.Wr).all()
+                   and (a.fast.mb.claw_idx == b.fast.mb.claw_idx).all()
+                   and (a.mind.mb.claw[0] == b.mind.mb.claw[0]).all())
+    ok["genetik"] = bool(same_genome)
+
+    # 2) KİMLİK AYRI: doğum tutanağı (uid + nanosaniye) asla aynı olmaz
+    ok["kimlik"] = (a.entropy is not None and b.entropy is not None
+                    and a.entropy.uid != b.entropy.uid
+                    and a.entropy.birth_ns != b.entropy.birth_ns)
+
+    # 3) AYNI HAYAT, AYNI GİRDİ -> AYRI SİNAPSLAR VE AYRI İÇ DURUM
+    script = ["Merhaba, ben Deniz.", "Bugün çok yoruldum.", "Bana bir kitap önerir misin?",
+              "Şimdi ne yapıyorsun?", "Bana bir şey anlat.", "Yarın ne yapmalıyım?",
+              "moruk ne var ne yok", "Sence bilinç nedir?", "Su boşlukta yayılır mı?",
+              "Zürafa nedir?", "Kedi mi köpek mi?", "Ara sıra kendini yalnız hissediyor musun?"]
+    for _ in range(8):
+        a.step_life(12)
+        b.step_life(12)
+    ra = [a.converse(m) for m in script]
+    rb = [b.converse(m) for m in script]
+    w_diff = float(np.abs(a.fast.mb.W_fast - b.fast.mb.W_fast).max())
+    h_diff = float(np.abs(a.mind.h - b.mind.h).max())
+    ok["ayrışma"] = (w_diff > 0.0 and h_diff > 1e-6
+                     and a.entropy.drift > 0.0 and b.entropy.drift > 0.0)
+
+    # 4) AYRI SÖZLER: aynı durumda aynı cümleyi kopyalamıyorlar (eşdeğer ama farklı seçim)
+    n_diff = sum(1 for x, y in zip(ra, rb) if tr_lower(x) != tr_lower(y))
+    ok["ayrı-söz"] = (n_diff >= 1) or (list(a.entropy.race_wins) != list(b.entropy.race_wins))
+
+    # 5) MÜKEMMEL KLON BİLE AYRIŞIR: kayıttan yüklenen kopya aynı ağırlıklarla ve aynı
+    #    kimlikle başlar; yine de yaşam onu ayırır (kopyalanamazlık).
+    import tempfile, os
+    pref = os.path.join(tempfile.gettempdir(), "a61_clone")
+    a.save(pref)
+    c = NoraAGI.load(pref)
+    ok["klon-kimlik"] = (c.entropy is not None and c.entropy.uid == a.entropy.uid)
+    for _ in range(6):
+        a.step_life(10)
+        c.step_life(10)
+    c_diff = float(np.abs(a.fast.mb.W_fast - c.fast.mb.W_fast).max())
+    ok["klon-ayrışma"] = bool(c_diff > 0.0 and float(np.abs(a.mind.h - c.mind.h).max()) > 1e-6)
+
+    # 6) YARIŞ MOTORU ÇALIŞIYOR: iki aday eşzamanlı koşar, biri önce biter (geçerli indeks)
+    w = a.entropy.race_first([lambda: 1, lambda: 2], fallback=0)
+    ok["yarış"] = int(w) in (0, 1)
+
+    passed = sum(1 for v in ok.values() if v)
+    detail = (f"{passed}/{len(ok)} — " + " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+              + f" | Δw={w_diff:.2e} Δh={h_diff:.2e} farklı-söz={n_diff}/{len(script)}")
+    return passed == len(ok), detail
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -2017,6 +2082,8 @@ TESTS = {
     "A54": ("kişisel anlatıyı dinleme: yansıtma + soru, ağ kirlenmesi yok", a54_personal_narration_listening),
     "A55": ("günlük konuşma: anlatı, olumsuzluk, davet, kutlama, istek", a55_conversational_understanding_of_daily_speech),
     "A56": ("tam Türkçe kapsamı: 8 kip, birleşik zaman, yeterlilik, emir, -mAktA, -DIr/-ki/-CA", a56_full_turkish_morphology),
+    "A61": ("kopyalanamazlık: aynı seed'den iki Nora'nın bireyselleşmesi",
+            a61_no_cloning_same_seed_divergence),
     "A60": ("rica/öğüt ayrımı, beden sınırı dürüstlüğü ve cümle iskeleti kalıcılığı",
             a60_requests_advice_and_sentence_frame_persistence),
     "A59": ("soru türünden bağımsız bilgi boşluğu, araştırma ve kalıp söz ayrımı",

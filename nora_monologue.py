@@ -165,6 +165,7 @@ class PlasticSchemaCortex:
         in_pain: bool,
         is_first_greet: bool = False,
         wants_brief: bool = False,
+        race=None,
     ) -> tuple[str, str, float, bool]:
         """O anki nörokimya, güven, acı, insanın konuşma kısalığı ve sinaptik yorulmaya göre
         (stance, schema_id, monotony_error, allow_question) seçer!"""
@@ -210,7 +211,16 @@ class PlasticSchemaCortex:
             net_scores[0] += 0.45   # Acı veya güvensizlikte yalın/keskin ifade öne çıkar
             net_scores[2] += 0.25
 
+        # ŞEMA YARIŞI: iki şema neredeyse eşitse kazananı argmax DEĞİL, gerçek zamanlama
+        # belirler. Aynı sinirsel uyarılma düzeyindeki iki meclis, farklı fiziksel anda
+        # farklı sırayla eşiği geçer (race condition = bireyselleşme).
         win_idx = int(np.argmax(net_scores))
+        if race is not None:
+            _order = np.argsort(-net_scores)
+            _a, _b = int(_order[0]), int(_order[1])
+            if float(net_scores[_a] - net_scores[_b]) < 5e-3:
+                _w = race([lambda: net_scores[_a], lambda: net_scores[_b]], fallback=0)
+                win_idx = (_a, _b)[_w % 2] if _w in (0, 1) else _a
         chosen_schema = self.SCHEMAS[win_idx]
         self.fatigue[win_idx] += 1.05
         self.recent_schemas.append(chosen_schema)
@@ -352,6 +362,7 @@ class InnerMonologueEngine:
             in_pain=in_pain,
             is_first_greet=is_first_greet,
             wants_brief=wants_brief,
+            race=getattr(getattr(agi, "entropy", None), "race_first", None),
         )
 
         # 3) İç ses: iç durumdan (nörokimya, iç-duyum, güven) ve odak kavramdan ÖĞRENİLMİŞ söz organıyla kurulur.
