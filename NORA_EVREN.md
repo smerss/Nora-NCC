@@ -968,3 +968,86 @@ düşüp operatör yazılıyor. Tek sınıflı veride ise hiç kural yazılmıyo
 | `nora_audit.py --check` | **1122** / SÖYLEM 127 — **artış yok** |
 | operatör / prior türü | 9 / 66 = **7.33** (tavan 7.50) |
 | yazım sayacı | insan **9** (sabit) · kendi **artan** |
+
+
+---
+
+## Aşama W — Ölçüm icadı: hiçbir ölçüm ayırmıyorsa ölçümü de Nora yazar (`A87`)
+
+Aşama V'de Nora **var olan** ölçümlerden seçip kural yazıyordu. Bu turda bir basamak daha:
+yerleşik ölçümlerin hiçbiri veriyi ayırmadığında **yeni bir ölçüm icat ediyor**. Yani "bizim
+yazdığımız" şey yalnız operatör değil, artık ölçüm de azalıyor.
+
+### W1. Ne yapıldı
+
+| parça | yer | işlev |
+|---|---|---|
+| `presence` şekli | `nora_apply.Rule.bucket` | ölçüm sayı değil **varlık**: `var` / `yok` |
+| `register_feature(key, name, spec)` | `nora_apply.py` | yeni ölçümü çalışma zamanında kaydeder |
+| `Rule.feature_spec` | `nora_apply.py` | kural **kendi ölçümünü yanında taşır**; başka süreçte yeniden kurulur |
+| `OperatorForge._invent` | `nora_forge.py` | ortak **son ek / ön ek / yalnız bir sınıfta olan harf** arar |
+| `self_measurements` | `runs/operators_self.json` | icat edilen ölçümlerin defteri; açılışta yeniden kaydedilir |
+| **zayıf kanıt kapısı** | `_invent` | en az 2 pozitif + 2 negatif yoksa ölçüm **icat edilmez** |
+
+İcat edilen ölçüm `FEATURES`'a yazılır; kural onu `feature_spec` ile taşıdığı için başka bir
+oturumda kayıt yoksa bile `Rule.measure` ölçümü yeniden kurar — sessizce başka bir ölçüme
+düşmez.
+
+### W2. Ölçüm (A87, 11/11)
+
+Veri: `güzellik, şekerlik, bebeklik, çiçeklik → soyut` / `portakal, masa, deniz → somut`.
+Bu kümede sesli/sessiz/harf/sözcük/hece sayılarının hiçbiri iki tarafı ayırmıyor
+(`portakal` ile `güzellik` aynı harf sayısında ve farklı etikette; `masa` iki tarafta da var).
+
+```
+S: Kural çıkar: güzellik=soyut, şekerlik=soyut, bebeklik=soyut, çiçeklik=soyut,
+   portakal=somut, masa=somut, deniz=somut
+N: Var olan ölçümlerle kural çıkmıyordu, ben de yeni bir ölçüm yazdım: 'lik' ile bitiş.
+   var -> soyut, yok -> somut. 7 örneğin hepsi tutuyor; kendi yazdığım ölçüm sayısı 1.
+S: Kuralı uygula: 'kalemlik'
+N: 'kalemlik': 'lik' ile bitiş -> var; ölçüm bu, etiket soyut. Uydurmadım.
+S: Kuralı uygula: 'kitap'
+N: Ölçtüm: 'kitap' için 'lik' ile bitiş -> yok. Kurala göre: somut.
+```
+
+Bacaklar: `ölçüm-icadı`, `söz-icat`, `uygula-var`, `uygula-yok`, `defter-ölçüm`,
+`kalıcılık` (yeni oturumda ölçüm yeniden kurulur), `insan-sabit` (rejistri hash'i değişmez),
+`sayaç`, `çelişki-ret` (aynı girdiye iki etiket → kural yazılmaz), `zayıf-kanıt-icat-yok`
+(tek örnekten ölçüm çıkarılmaz), `gereksiz-icat-yok` (yerleşik ölçüm yetiyorsa icat yok).
+
+### W3. Dürüst sınırlar
+
+- **İcat grameri küçük.** Yalnız son ek / ön ek / harf varlığı aranıyor. Ayrıca Türkçe'nin
+  **ünlü uyumu** henüz yok: `-lık` ile `-lik` iki ayrı ek sayılıyor. Örnekler karışık
+  eklerle verilirse ortak son ek bulunamaz (bir sonraki eşik: `-lXk` gibi kalıp çıkarmak).
+- **İstatistiksel anlamlılık yok.** Kapı yalnız "en az 2 + 2 örnek" diyor; daha güçlü bir
+  sınav (örneğin karıştırma testi) eklenmedi. Tek harflik ölçümler tesadüf olabilir.
+- **Ölçüm nicelik değil ayrım.** İcat edilen ölçüm 0/1'lik bir ayrımdır; "kaç tane" sorusunu
+  cevaplamaz. Sayısal ölçüm icadı (ör. "ilk üç harfin sesli sayısı") açık.
+- **Sonek bir vekil olabilir.** `-lik` alan her sözcük soyut değildir; Nora bunu "kural"
+  olarak yazıyor ve veri çürütürse düşürüyor (A86 mekanizması burada da geçerli).
+
+### W4. Bu turda düşülen tuzaklar
+
+1. **İkinci bir başlangıç = yankı.** Monolog satırı zaten "Kendi kendime şunu çıkardım:"
+   ile yazılmışsa üstüne bir daha giriş ekleniyor ve cümle "kendi kendime … kendi kendime …"
+   oluyordu. Girişler artık kaç kez gelirse gelsin sıyrılıyor; tek giriş ekleniyor.
+2. **`parça` biçimi ölçüm raporunu kesiyordu.** İlk cümleye indirme kuralı, "7 örnek tutuyor /
+   kayıt: insan 9" kanıtını siliyordu. Kural artık **sayı içeren raporu kısaltmıyor**.
+3. **İcat, yerleşik ölçüm varken de çalışabilirdi.** A87'nin `gereksiz-icat-yok` bacağı bunu
+   kilitliyor: standart arama aday bulursa icat hiç denenmez.
+4. **Tek örnekten harf icadı tesadüf.** `masa`/`deniz` gibi iki örnekle "a harfi" ölçümü
+   uydurulabilirdi; en az 2+2 kanıt kapısı eklendi.
+
+### W5. Bu turun sayıları
+
+| ölçüm | sonuç |
+|---|---|
+| `agi_battery.py` tam (`/tmp/agi14.txt`) | **87/87 GEÇTİ, 369.6 s** |
+| `A87` | **11/11** |
+| `A85 / A86` (regresyon) | **10/10 · 8/8** |
+| `heldout_battery.py` (dış) | **9/9** |
+| mühürlü setler (S1–S4 / S5–S8 / S9–S12) | **4/4 · 4/4 · 4/4** |
+| `nora_audit.py --check` | **1122** / SÖYLEM 127 — artış yok |
+| operatör / prior türü | 9 / 66 = **7.33** (tavan 7.50) |
+| yazım sayacı | insan **9** (sabit) · kendi operatör **artıyor** · icat edilen ölçüm **artıyor** |

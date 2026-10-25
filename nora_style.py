@@ -208,7 +208,9 @@ class SpeechStyle:
             # zaten öz). Yalnızca UZUN ve çok cümleli cevaplar kısaltılır.
             parts = re.split(r"(?<=[.!?])\s+", text.strip())
             first = parts[0].strip()
-            if len(parts) >= 3 and len(first) >= 45:
+            # ÖLÇÜM RAPORU KISALTILMAZ: içinde sayı geçen cevap gerekçeyi taşır; ilk
+            # cümleye indirmek "7 örnek tutuyor / kayıt: insan 9" gibi kanıtı siler.
+            if len(parts) >= 3 and len(first) >= 45 and not re.search(r"\d", text):
                 text = first
 
         if shape == "kendine":
@@ -290,12 +292,10 @@ class SpeechStyle:
                     # "şunu fark ettim" eklenirse "şunu fark ettim: kendi kendime şunu
                     # çıkardım:" gibi çift başlangıç olur.
                     _lead = self._lead_in(agi)
-                    for _pre in ("Kendi kendime şunu çıkardım:", "Kendi kendime şunu çıkardım",
-                                 "İçimden şu geçti:"):
-                        if line.startswith(_pre):
-                            line = line[len(_pre):].strip()
-                            break
-                    return f"{_lead} {line}"
+                    line = self._strip_lead(line)
+                    if _lead and line.startswith(_lead):
+                        return line
+                    return f"{_lead} {line}".strip()
             tw = {w for w in re.split(r"[^a-zçğıöşüâîû]+", tr_lower(f"{text} {topic}")) if len(w) >= 4}
             if not tw:
                 return ""
@@ -309,10 +309,28 @@ class SpeechStyle:
                     continue
                 self._said.append(body)
                 lead = self._lead_in(agi)
-                return f"{lead} {body.rstrip('.')}."
+                # MONOLOG SATIRI zaten süslü olabilir (kendi girişiyle akışa yazılmış):
+                # başına bir giriş daha eklemek "kendi kendime ... kendi kendime ..." yapar.
+                body = self._strip_lead(body.strip())
+                if lead and body.startswith(lead):
+                    return body
+                return f"{lead} {body.rstrip('.')}.".strip()
         except Exception:
             pass
         return ""
+
+    @staticmethod
+    def _strip_lead(text: str) -> str:
+        """Bilinen iç-ses girişlerini (kaç kez olursa olsun) sıyır: yankı yok."""
+        pres = ("Kendi kendime şunu çıkardım:", "Kendi kendime şunu çıkardım",
+                "İçimden şu geçti:", "İçimden şu geçti")
+        t = (text or "").strip()
+        for _ in range(4):
+            hit = next((p for p in pres if t.startswith(p)), None)
+            if not hit:
+                break
+            t = t[len(hit):].strip()
+        return t
 
     def _lead_in(self, agi=None) -> str:
         """İç sesi söze sokan giriş: cümle kodda değil, topluluklar yarışır."""

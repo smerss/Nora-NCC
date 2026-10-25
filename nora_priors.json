@@ -1048,6 +1048,26 @@
               "shape": "threshold"
             }
           }
+        },
+        {
+          "id": "res.presence.a",
+          "text": "Ölçtüm: '{target}' için {name} -> {value}. Kurala göre: {label}.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "shape": "presence"
+            }
+          }
+        },
+        {
+          "id": "res.presence.b",
+          "text": "'{target}': {name} -> {value}; ölçüm bu, etiket {label}. Uydurmadım.",
+          "bias": 0.96,
+          "when": {
+            "eq": {
+              "shape": "presence"
+            }
+          }
         }
       ]
     },
@@ -1982,6 +2002,26 @@
           "when": {
             "eq": {
               "stage": "revise_failed"
+            }
+          }
+        },
+        {
+          "id": "fg.invented",
+          "text": "Bu veride yerleşik ölçümlerin hiçbiri iki tarafı ayırmıyordu; yeni bir ölçüm icat ettim: {name}. Kural: {map}. {n_ex} örnek tutuyor. Kayıt: insan {human}, kendi {self}.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "stage": "invented"
+            }
+          }
+        },
+        {
+          "id": "fg.invented2",
+          "text": "Var olan ölçümlerle kural çıkmıyordu, ben de yeni bir ölçüm yazdım: {name}. {map}. {n_ex} örneğin hepsi tutuyor; kendi yazdığım ölçüm sayısı {measured}.",
+          "bias": 0.96,
+          "when": {
+            "eq": {
+              "stage": "invented"
             }
           }
         }

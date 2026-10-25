@@ -36,7 +36,8 @@ VOWELS = set("aeıioöuüAEIİOÖUÜ")
 
 #: Kural ŞEKİLLERİNİN adları. Şekil, ölçümden etikete giden yolun biçimidir;
 #: yeni bir şekil yeni bir CÜMLE değil, aynı makinenin yeni bir eşlemesidir.
-SHAPE_NAMES = {"parity": "tek/çift", "threshold": "eşik", "rank": "sıra"}
+SHAPE_NAMES = {"parity": "tek/çift", "threshold": "eşik", "rank": "sıra",
+               "presence": "varlık"}
 
 #: Ölçüm fonksiyonları: kural nesnesinin "özellik" alanı bunlardan birine çözülür.
 def _tokens(text: str) -> list[str]:
@@ -51,6 +52,30 @@ FEATURES = {
     "letter_count": ("harf", lambda s: sum(1 for ch in (s or "") if ch.isalpha())),
     "syllable_count": ("hece", lambda s: max(1, sum(1 for ch in (s or "") if ch in VOWELS))),
 }
+
+def feature_spec_fn(spec: dict):
+    """İCAT EDİLMİŞ ölçümü yeniden kur: kural kendi ölçümünü YANINDA taşır.
+
+    `nora_forge` yeni bir ölçüm icat ettiğinde onu `FEATURES`'a kaydeder; ama bir kural
+    başka bir süreçte yüklenirse o kayıt yoktur. Bu yüzden kural, ölçümün TARİFİNİ
+    (`feature_spec`) taşır ve gerekirse buradan yeniden kurulur — sessizce başka bir
+    ölçüme düşmez.
+    """
+    kind = str((spec or {}).get("kind") or "")
+    arg = str((spec or {}).get("arg") or "").lower()
+    if kind == "suffix":
+        return lambda s: 1 if str(s or "").lower().endswith(arg) else 0
+    if kind == "prefix":
+        return lambda s: 1 if str(s or "").lower().startswith(arg) else 0
+    if kind == "letter":
+        return lambda s: 1 if arg and arg in str(s or "").lower() else 0
+    return lambda s: 0
+
+
+def register_feature(key: str, name: str, spec: dict) -> None:
+    """Ölçümü kaydet: bundan sonra `Rule.measure` bu anahtarı çözebilir."""
+    FEATURES[str(key)] = (str(name), feature_spec_fn(spec))
+
 
 #: Özellik sözünü (kullanıcının söylediği) FEATURES anahtarına çevir.
 FEATURE_WORDS = {
@@ -167,9 +192,16 @@ class Rule:
     #: örneklerden türettiği operatör). Sayaç, operatör yazımının kime ait olduğunu
     #: gizlemesin diye kuralın kendisinde durur.
     origin: str = "insan"
+    #: İCAT EDİLMİŞ ÖLÇÜMÜN TARİFİ: {"kind": "suffix", "arg": "lık"}. Boşsa ölçüm
+    #: `FEATURES`'taki yerleşik ölçümlerden biridir. Dolu ise kural kendi ölçümünü taşır.
+    feature_spec: dict = field(default_factory=dict)
 
     def measure(self, item: str) -> int:
-        fn = FEATURES.get(self.feature, FEATURES["letter_count"])[1]
+        spec = getattr(self, "feature_spec", None)
+        if spec and self.feature not in FEATURES:
+            fn = feature_spec_fn(spec)          # icat edilmiş ölçüm kendini taşır
+        else:
+            fn = FEATURES.get(self.feature, FEATURES["letter_count"])[1]
         return int(fn(item))
 
     def bucket(self, n: int) -> str:
@@ -184,6 +216,9 @@ class Rule:
             return "cond" if cond else "else"
         if self.shape == "rank":
             return "rank"     # küme gerekir: tek öğe üzerinde etiket YOK
+        if self.shape == "presence":
+            # İCAT EDİLMİŞ ölçüm: ölçüm 0/1'dir, eşleme "var/yok" üzerinden kurulur.
+            return "var" if int(n) else "yok"
         return "odd" if n % 2 else "even"
 
     def apply(self, item: str) -> tuple[str | None, dict]:
