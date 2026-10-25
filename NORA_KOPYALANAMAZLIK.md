@@ -132,3 +132,22 @@ a.entropy.race_first([f, g])                    # gerçek yarış
 
 Test: `python3 agi_battery.py A61` → 7/7
 (genetik, kimlik, ayrışma, ayrı-söz, klon-kimlik, klon-ayrışma, yarış).
+
+---
+
+## 7) Disk: büyüyen beyin, sabit yanıt süresi
+
+Sinapsler RAM'e kopyalanmaz; `nora_store.BrainStore` matrisleri `numpy.memmap` ile
+diskte tutar. Ölçüm (A62):
+
+| Ölçüm | Sonuç |
+|---|---|
+| 128 MB sinaps dosyasını açmak | **0.58 ms** (tüm dosya okunmaz) |
+| 64 rastgele sinapsa yazmak | **RSS +728 KB** (yalnız dokunulan sayfalar) |
+| Yeniden açma + okuma | **0.21 ms** |
+| Günlüğe kayıt ekleme | **5.1 µs/kayıt**, 2000 kaydın tamamı geri okunur |
+| Anlık görüntü | `.tmp` + `os.replace` → atomik, yarım dosya yok |
+
+Canlı beyne bağlanabilir (`attach_live`): öğrenme sırasında yazılan sinaps doğrudan
+eşlenmiş sayfaya gider, A62'de diskten geri okunarak doğrulanır. Böylece parametre
+büyüklüğünün tek sınırı disk/sayfa önbelleği olur; yanıt süresi sabit kalır.

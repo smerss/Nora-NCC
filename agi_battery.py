@@ -2025,6 +2025,84 @@ def a61_no_cloning_same_seed_divergence():
               + f" | Δw={w_diff:.2e} Δh={h_diff:.2e} farklı-söz={n_diff}/{len(script)}")
     return passed == len(ok), detail
 
+def a62_brain_on_disk_constant_cost():
+    """A62 — DİSK SINIRI: beyin büyüdükçe RAM'e kopyalanmaz. Sinaps matrisleri memmap ile
+    diskte durur; dosyayı açmak O(1), bir sinapsa dokunmak yalnızca bir sayfa (4 KB).
+    Günlük append-only (O(1)/tur), anlık görüntü atomik. Böylece parametre büyüse de
+    yanıt süresi değişmez; tek fiziksel sınır disk/sayfa önbelleği olur."""
+    import os
+    import shutil
+    import tempfile
+    import numpy as np
+    from nora_store import BrainStore, Journal, snapshot_atomic, attach_live, brain_rss_kb
+
+    root = tempfile.mkdtemp(prefix="nora63_")
+    ok = {}
+    try:
+        # 1) 128 MB sinaps dosyası: açma O(1), tüm dosya okunmuyor
+        st = BrainStore(root)
+        t0 = time.perf_counter()
+        W = st.array("big", (4096, 8192), np.float32, create=True)
+        open_ms = (time.perf_counter() - t0) * 1000.0
+        ok["açma-O(1)"] = (open_ms < 50.0 and W.shape == (4096, 8192)
+                           and st.bytes_on_disk() >= 128 * 1024 * 1024)
+
+        # 2) RAM yalnızca dokunulan sayfa kadar: 64 rastgele hücre -> küçük RSS artışı
+        rng = np.random.default_rng(0)
+        rss0 = brain_rss_kb()
+        for _ in range(64):
+            W[int(rng.integers(0, 4096)), int(rng.integers(0, 8192))] = 1.0
+        st.flush()
+        rss1 = brain_rss_kb()
+        rss_delta = (rss1 - rss0) if (rss0 > 0 and rss1 > 0) else 0
+        st.close()
+
+        # 3) Yeniden açma: veri diskte, açma yine hızlı
+        t0 = time.perf_counter()
+        st2 = BrainStore(root)
+        W2 = st2.array("big")
+        reopen_ms = (time.perf_counter() - t0) * 1000.0
+        ok["diskten-geri"] = (reopen_ms < 50.0 and float((W2 == 1.0).sum()) == 64)
+        ok["ram-sınırı"] = (rss_delta < 65536)      # 64 MB'tan az (dosya 128 MB)
+        st2.close()
+
+        # 4) Günlük: 2000 kayıt O(1) ekleme, hepsi geri okunuyor
+        j = Journal(os.path.join(root, "journal.ndjson"))
+        t0 = time.perf_counter()
+        for i in range(2000):
+            j.append({"i": i, "söz": "deneme"})
+        j.flush()
+        per_us = (time.perf_counter() - t0) * 1e6 / 2000.0
+        n_replay = sum(1 for _ in j.replay())
+        ok["günlük"] = (per_us < 500.0 and n_replay == 2000)
+
+        # 5) Atomik anlık görüntü: yarım .tmp kalmaz
+        snap = snapshot_atomic(os.path.join(root, "snap.npz"),
+                               {"W": np.zeros((8, 8), np.float32)}, {"adım": 1})
+        ok["atomik"] = (os.path.exists(snap) and not os.path.exists(snap + ".tmp"))
+
+        # 6) CANLI BEYİN: gerçek Nora'nın sinapsları diske eşlenir, öğrenme oraya yazılır
+        agi = NoraAGI(seed=62, boot_thinker=False)
+        info = attach_live(agi, os.path.join(root, "live"))
+        ok["canlı-eşleme"] = ("fast_mb_w_fast" in info and
+                              type(agi.fast.mb.W_fast).__name__ == "memmap")
+        agi.converse("Zürafa bir hayvandır. Zürafanın boynu uzundur.")
+        agi.converse("Zürafa nedir?")
+        agi.step_life(40)
+        agi._brain_store.flush()
+        st3 = BrainStore(os.path.join(root, "live"))
+        Wd = st3.array("fast_mb_w_fast")
+        ok["öğrenme-diske"] = (int((Wd != 0).sum()) > 0)
+        st3.close()
+
+        passed = sum(1 for v in ok.values() if v)
+        detail = (f"{passed}/{len(ok)} — " + " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+                  + f" | açma={open_ms:.2f} ms yeniden={reopen_ms:.2f} ms "
+                    f"RSS+={rss_delta} KB günlük={per_us:.1f} µs")
+        return passed == len(ok), detail
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -2082,6 +2160,8 @@ TESTS = {
     "A54": ("kişisel anlatıyı dinleme: yansıtma + soru, ağ kirlenmesi yok", a54_personal_narration_listening),
     "A55": ("günlük konuşma: anlatı, olumsuzluk, davet, kutlama, istek", a55_conversational_understanding_of_daily_speech),
     "A56": ("tam Türkçe kapsamı: 8 kip, birleşik zaman, yeterlilik, emir, -mAktA, -DIr/-ki/-CA", a56_full_turkish_morphology),
+    "A62": ("beyin diskte: memmap sinapslar, append-only günlük, atomik anlık görüntü",
+            a62_brain_on_disk_constant_cost),
     "A61": ("kopyalanamazlık: aynı seed'den iki Nora'nın bireyselleşmesi",
             a61_no_cloning_same_seed_divergence),
     "A60": ("rica/öğüt ayrımı, beden sınırı dürüstlüğü ve cümle iskeleti kalıcılığı",
