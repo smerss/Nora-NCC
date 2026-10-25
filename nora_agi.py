@@ -1882,8 +1882,15 @@ class NoraAGI:
                 # Sosyal nezaket kalıbı olgusal bilgi değildir ('kolay gelsin, işim var'): öğrenme yok.
                 pass
             elif fr.kind == "teach_fact" and conv_res is None and narration is None and self._turn_mint_label:
-                # Bu cümle zaten Nora'nın kendi mantık motorunda yapısal kural olarak kodlandı;
-                # kaba sözcük-dizisi kenarı üretmek kavram ağını kirletir, onun yerine öz-etiketini bildirir.
+                # Bu cümle zaten Nora'nın kendi mantık motorunda yapısal kural olarak kodlandı.
+                # AMA yapısal kural kavram ağının YERİNE geçmez: "kodladım" dedikten sonra
+                # "X neyden olur?" sorusunun cevapsız kalması sahte anlamadır. Nedensel
+                # çerçeve çözüldüyse kenar da yazılır (iki ayrı bellek, ikisi de gerçek).
+                if fr.rel in ("CAUSES", "IF_THEN") and fr.subj and fr.obj:
+                    try:
+                        self.lang.teach_sentence(raw, speaker=speaker)
+                    except Exception:
+                        pass
                 syn_tf = self.broca_organ.syn
                 c_tf = syn_tf.realize_verb(VerbSpec(
                     verb_root="kodla", obj=NP("ilişki", mods=("bu",), case="ACC"),
@@ -3082,6 +3089,34 @@ class NoraAGI:
             return m.group(1).strip()
         return ""
 
+    @staticmethod
+    def _shape_name(rule) -> str:
+        """Şeklin ADI veriden değil, kural nesnesinin alanından okunur."""
+        from nora_apply import SHAPE_NAMES
+        return SHAPE_NAMES.get(getattr(rule, "shape", "parity"), "tek/çift")
+
+    @staticmethod
+    def _threshold_desc(rule) -> str:
+        """Eşik ifadesini ölçüm diline çevir ('3'ten az', 'en az 4')."""
+        t = int(getattr(rule, "threshold", 0))
+        return {"lt": f"{t}'ten az", "le": f"en çok {t}",
+                "gt": f"{t}'ten çok", "ge": f"en az {t}"}.get(getattr(rule, "op", "lt"), str(t))
+
+    @staticmethod
+    def _rule_map_text(rule) -> str:
+        """Eşlemeyi TEK biçimde yaz: şekle göre anahtar adları değişir."""
+        m = getattr(rule, "mapping", {}) or {}
+        sh = getattr(rule, "shape", "parity")
+        if sh == "threshold":
+            t = getattr(rule, "threshold", 0)
+            op = getattr(rule, "op", "lt")
+            cond = {"lt": f"{t}'ten az", "le": f"en çok {t}", "gt": f"{t}'ten çok",
+                    "ge": f"en az {t}"}.get(op, f"{t}")
+            return f"{cond} -> {m.get('cond')}, değilse {m.get('else')}"
+        if sh == "rank":
+            return f"en çok -> {m.get('max')}, en az -> {m.get('min')}"
+        return f"tek -> {m.get('odd')}, çift -> {m.get('even')}"
+
     def _rule_summary(self, rule) -> str:
         from nora_apply import FEATURES
         name = FEATURES.get(rule.feature, ("harf",))[0]
@@ -3103,6 +3138,27 @@ class NoraAGI:
         for sym, mean in re.findall(r"(\S{1,3})\s+(tek|çift)\s+demek", tl):
             eng.teach_alias(sym, mean)
         tl = eng._expand(tl)
+
+        # --- (A0a) KARŞIOLGUSAL ÖZ-ERİŞİM: "kural olmasaydı ne derdin?" ---
+        # Cevap uydurulmaz: AYNI girdi kural DEVRE DIŞI bırakılarak yeniden yürütülür.
+        # Böylece "hangi parçam hangi sözü üretiyor" sorusu ölçülebilir olur.
+        # YALNIZ kendi kuralıma dair sorularda: "kuraklık olmasaydı ne olurdu?" dünya
+        # sorusudur ve dünya karşıolgusalına gitmeli, buraya değil.
+        if re.search(r"olmasayd[ıi]|silsem", tl) and (
+                "kural" in tl or "ne derdin" in tl or "ne söylerdin" in tl or "ne cevap" in tl
+        ) and any(k in tl for k in ("ne derdin", "ne söylerdin", "ne olurdu", "ne yapardın",
+                                    "ne cevap", "ne söylerdin")):
+            item = self._quoted(raw) or str(eng.wm.read("item", "") or "") \
+                or str(eng.wm.read("last_utterance", "") or "")
+            if not item:
+                return self._say("meta.cf_need_item", {}, fallback="Hedef yok.")
+            cf = eng.counterfactual_apply(item)
+            self._apply_tag("cikarim", 1)
+            return self._say("meta.counterfactual_self", {
+                "item": item, "with": cf.get("with") or "—",
+                "without": cf.get("without") or "etiket yok",
+                "n": cf.get("measured") if cf.get("measured") is not None else "—",
+                "name": cf.get("feature_name") or "ölçüm"}, fallback="Karşıolgusal yok.")
 
         # --- (A0b) SIRALAMA: ölçüt -> sıra. Parite ailesinden farklı bir şekil. ---
         # DİKKAT: "diz" alt dizge olarak aranmaz — "4, 9, 14, 19 dizisinde sıradaki sayı kaç?"
@@ -3161,11 +3217,20 @@ class NoraAGI:
                 "domain": new_rule.domain,
                 "name": __import__("nora_apply").FEATURES[new_rule.feature][0],
                 "odd": new_rule.mapping.get("odd"), "even": new_rule.mapping.get("even"),
-            }, fallback="Taşındı.")
+                "map": self._rule_map_text(new_rule), "shape_name": self._shape_name(new_rule),
+            }, ctx={"shape": getattr(new_rule, "shape", "parity")}, fallback="Taşındı.")
 
-        # --- (B) BAĞLA: "X tek ise A, çift ise B" ---
-        if ("ise" in tl or "olursa" in tl) and ("tek" in tl or "çift" in tl) \
-                and any(w in tl for w in FEATURE_WORDS):
+        # --- (B) BAĞLA: "X tek ise A, çift ise B" / eşik / sıra ---
+        # ŞEKİL AYRIMI ÖNEMLİ: "tek/çift" yalnız BİR şekildir. Eşik ("3'ten az ise") ve
+        # sıra ("en çok olan") aynı kural nesnesinin başka eşlemeleridir; bağlama yolu aynı.
+        _shape_hint = bool(re.search(
+            r"\d+\s*'?[dt][ea]n\b|en\s+(?:az|çok|fazla)\s+\d", tl))
+        # Sıra şekli "ise" istemez: "en çok olan uzun, en az olan kısa" bir kural cümlesidir.
+        # Yine de İKİ uç da yoksa bağlama denenmez (soru cümlesini kural sanmayalım).
+        _rank_hint = eng._parse_rank(tl) is not None
+        if (("ise" in tl or "olursa" in tl) or _rank_hint) \
+                and any(w in tl for w in FEATURE_WORDS) \
+                and ("tek" in tl or "çift" in tl or _shape_hint or _rank_hint):
             rule = eng.bind(raw)
             if rule is not None:
                 self._apply_tag("islem", 1)
@@ -3176,7 +3241,9 @@ class NoraAGI:
                 return self._say("apply.bound", {
                     "name": __import__("nora_apply").FEATURES[rule.feature][0],
                     "odd": rule.mapping.get("odd"), "even": rule.mapping.get("even"),
-                    "domain": rule.domain, "ex": _ex}, fallback="Bağlandı.")
+                    "map": self._rule_map_text(rule), "shape_name": self._shape_name(rule),
+                    "domain": rule.domain, "ex": _ex},
+                    ctx={"shape": getattr(rule, "shape", "parity")}, fallback="Bağlandı.")
             # Bağlanamadı: yankı YOK, açık başarısızlık.
             return self._say("apply.bind_failed", {}, fallback="Bağlayamadım.")
 
@@ -3225,8 +3292,10 @@ class NoraAGI:
                 return self._say("apply.need_apply_target", {}, fallback="Hedef yok.")
             label, tr = eng.apply(target)
             self._apply_tag("islem", 1)
+            _rshape = getattr(eng.last, "shape", "parity")
             if label is None:
-                return self._say("apply.failed", {"target": target}, fallback="Uygulanamadı.")
+                return self._say("apply.failed", {"target": target},
+                                 ctx={"shape": _rshape}, fallback="Uygulanamadı.")
             if tr.get("kind") == "chain":
                 eng.wm.write("item", target, "apply")
                 _s1 = tr.get("step1") or {}
@@ -3241,10 +3310,19 @@ class NoraAGI:
                                   "label": label}, fallback="İstisna.")
             eng.wm.write("item", target, "apply")
             name = tr.get("feature_name", "harf")
+            # ŞEKLE GÖRE AÇIKLAMA: eşik kuralında "tek/çift" demek YANLIŞ gerekçedir.
+            # Ölçüm aynı, eşlemenin dili farklı; gerekçe de eşlemeyi anlatmalı.
+            if _rshape == "threshold":
+                return self._say("apply.result", {
+                    "target": target, "n": tr["measured"], "name": name,
+                    "threshold_desc": self._threshold_desc(eng.last),
+                    "cond_word": "sağlıyor" if tr.get("bucket") == "cond" else "sağlamıyor",
+                    "parity": "eşik", "label": label,
+                }, ctx={"shape": "threshold"}, fallback="Uygulandı.")
             return self._say("apply.result", {
                 "target": target, "n": tr["measured"], "name": name,
                 "parity": "tek" if tr["parity"] == "odd" else "çift", "label": label,
-            }, fallback="Uygulandı.")
+            }, ctx={"shape": _rshape}, fallback="Uygulandı.")
 
         # --- (F) YANILMA OLASILIĞI: ölçülen kaynak karışımından, uydurma değil ---
         if any(k in tl for k in ("yanlış olma", "yanılma", "olasılık", "yüzde kaç", "ne kadar emin")):
@@ -3340,14 +3418,26 @@ class NoraAGI:
         # --- (L2) AÇIKLAYICI NEDEN (collider): iki neden tek etkiye çıkıyorsa seçilemez ---
         if any(k in tl for k in ("sebep", "neden", "yüzünden")) and ("mi" in tl or "mı" in tl
                                                                      or "hangisi" in tl):
+            # Etki ADI çok sözcüklü olabilir ("kök çürümesi"): tek sözcük aramak,
+            # bileşik kavramı kaçırıp "bilmiyorum"a düşürüyordu. 3'lü/2'li/1'li sırayla ara.
             _eff = ""
-            for _w in re.findall(r"[a-zçğıöşü]{4,}", tl):
-                if _w in ("sebep", "neden", "hangisi", "veya", "yoksa"):
-                    continue
-                _st = self._graph_stem(_w)
-                if self.lang.graph._in_edges.get(_st):
-                    _eff = _st
+            _words = [w for w in re.findall(r"[a-zçğıöşü]{2,}", tl)
+                      if w not in ("sebep", "neden", "hangisi", "veya", "yoksa", "varsa",
+                                   "sulama", "gübre", "gübreleme", "toprak", "aşırı")]
+            for _n in (3, 2, 1):
+                for _i in range(len(_words) - _n + 1):
+                    _cand = " ".join(self._graph_stem(w) for w in _words[_i:_i + _n])
+                    if self.lang.graph._in_edges.get(_cand):
+                        _eff = _cand
+                        break
+                if _eff:
                     break
+            if not _eff:
+                for _w in re.findall(r"[a-zçğıöşü]{4,}", tl):
+                    _st = self._graph_stem(_w)
+                    if self.lang.graph._in_edges.get(_st):
+                        _eff = _st
+                        break
             _ea = self._explain_away(_eff) if _eff else None
             if _ea:
                 return _ea
@@ -3374,6 +3464,41 @@ class NoraAGI:
         # kişisel anlatı yanlışlıkla kod yaması cevabına düşer (sessiz yanlış cevap).
         if re.search(r"kendi kod|\byama|kendini değiştir", tl):
             return self._self_patch_answer(tl)
+
+        # --- (L0) KARŞIOLGUSAL: "X olmasaydı ne olurdu?" ---
+        # Yapısal model X'siz yeniden koşturulur; X'in çıkan kenarları yok sayılır.
+        # Fark = X'in yapıdaki nedensel katkısı. Bu bir MODEL çıkarımıdır, ölçüm değil.
+        if re.search(r"olmasayd[ıi]|olmasa ne|müdahale etmeseydim|müdahale etmesem", tl):
+            node = self._cf_node(tl)
+            # UZMAN ARBİTRASYONU: nicel bir korteks (fizik) soruyu TAM olarak çözebiliyorsa
+            # dünya-grafiği ablasyonu onu gasp etmez. "Sürtünme olmasaydı ne olurdu?" bir
+            # yasa sorusudur (eylemsizlik), grafikteki bir kenarın silinmesi değil.
+            if node and getattr(self, "physics_cortex", None) is not None:
+                try:
+                    if self.physics_cortex.try_solve(raw, mind=None) is not None:
+                        node = ""
+                except Exception:
+                    pass
+            if node:
+                cf = self.lang.graph.counterfactual(node)
+                self._apply_tag("cikarim", 1)
+                eng = getattr(self, "apply_eng", None)
+                if eng is not None:
+                    eng.wm.write("cf", cf, "counterfactual")
+                # ETKİ düğümü: ondan çıkan nedensel kenar yoksa "ne olurdu" sorusu
+                # "hiç olmazdı" demektir; ama nedeni de söylenebilir. Sessiz boş cevap yok.
+                if not cf["effects"]:
+                    causes = [e.subj for e in self.lang.graph._in_edges.get(node, ())
+                              if getattr(e, "rel", "") in ("CAUSES", "IF_THEN")]
+                    return self._say("meta.cf_effect_node", {
+                        "node": node, "causes": ", ".join(dict.fromkeys(causes)) or "yok"},
+                        fallback="Etki düğümü.")
+                return self._say("meta.counterfactual_world", {
+                    "node": node,
+                    "lost": ", ".join(cf["lost"]) or "hiçbir şey",
+                    "kept": ", ".join(cf["kept"]) or "hiçbir şey",
+                    "n": len(cf["effects"])}, {"count": len(cf["kept"])},
+                    fallback="Karşıolgusal yok.")
 
         # --- (L) NEDENSELLİK: gözlem ile müdahale ayrılır ---
         if any(k in tl for k in ("müdahale", "birlikte artıyor", "nedensel", "gözlem mi")):
@@ -3439,6 +3564,23 @@ class NoraAGI:
             if g is not None and (c in getattr(g, "_out_edges", {}) or c in getattr(g, "_in_edges", {})):
                 return c
         return cands[1] if len(cands) > 1 else w
+
+    def _cf_node(self, tl: str) -> str:
+        """Karşıolgusal hedefi bul: grafikte ÇIKAN kenarı olan en uzun ad öbeği.
+
+        "kuraklık olmasaydı" -> 'kuraklık'; "kök çürümesi olmasaydı" -> 'kök çürüme'.
+        Tek sözcük aramak bileşik kavramı kaçırır; bu yüzden 3'lü/2'li/1'li denenir.
+        """
+        g = self.lang.graph
+        stop = {"olmasaydı", "olmasa", "müdahale", "etmeseydim", "ne", "olurdu", "acaba",
+                "peki", "sence", "eğer", "bir", "bu", "şu", "ve", "ise"}
+        words = [w for w in re.findall(r"[a-zçğıöşü]{2,}", tl) if w not in stop]
+        for n in (3, 2, 1):
+            for i in range(len(words) - n + 1):
+                cand = " ".join(self._graph_stem(w) for w in words[i:i + n])
+                if g._out_edges.get(cand) or g._in_edges.get(cand):
+                    return cand
+        return ""
 
     def _explain_away(self, effect: str) -> str | None:
         """COLLIDER: bir etkiye birden çok neden çıkıyorsa, etkiden neden SEÇİLEMEZ.

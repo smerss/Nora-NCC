@@ -21,6 +21,7 @@ from nora_lang import TurkishMorphology, tr_lower
 from nora_broca import TurkishSyntaxEngine, NP, PredSpec, VerbSpec
 from nora_agi import NoraAGI
 from nora_mind import I_E, I_W, I_I
+from nora_style import strip_prefixes
 
 
 def a1_morphology_and_generation():
@@ -3076,7 +3077,8 @@ def a79_operator_prior_orani():
             "plan": lambda: it.plan("hedef", 5),
             "revise": lambda: it.revise(it.plan("hedef", 5), "yeni hedef", 4),
             "transfer": lambda: it.transfer({"odd": "tuzlu", "even": "tatlı"},
-                                            feature="word_count", domain="mutfak")}
+                                            feature="word_count", domain="mutfak"),
+            "counterfactual": lambda: it.counterfactual_apply("kelebek")}
     ok["dekoratif-değil"] = all(k in impl and impl[k]() is not None for k in ops)
 
     kinds = json.loads(nora_priors.JSON_PATH.read_text(encoding="utf-8")).get("kinds") or {}
@@ -3097,6 +3099,231 @@ def a79_operator_prior_orani():
     detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
     return passed == len(ok), (f"{passed}/{len(ok)} — {detail} | operatör={n_ops} "
                                f"prior-türü={n_kinds} oran={ratio:.2f} (tavan {ceiling:.2f})")
+
+
+def a80_karsiolgusal_oz_erisim():
+    """A80 — KARŞIOLGUSAL ÖZ-ERİŞİM: "kural olmasaydı ne derdin?"
+
+    Öz-model dekoratif olabilir: "ben şöyleyim" demek ölçüm gerektirmez. Karşıolgusal
+    öz-rapor ölçüm gerektirir: aynı girdi, kural DEVRE DIŞI bırakılarak yeniden yürütülür.
+    Ölçüt:
+    (1) kural varken etiket üretilir, kural yokken etiket üretilmez ama ÖLÇÜM sürer,
+    (2) cevap bu ayrımı söyler (eşleme vs ölçüm),
+    (3) dünya karşıolgusalı: zincirde düğüm çıkarılınca etkiler kaybolur (`lost`),
+    (4) etki düğümünde dürüst ret ("ileri koşamam") — uydurma yok,
+    (5) sonuç "ölçüm" diye etiketlenmez, yapısal çıkarım olarak işaretlenir.
+    """
+    ok = {}
+    from nora_apply import Interpreter
+
+    it = Interpreter()
+    it.bind("Sesli harf sayısı tek ise mavi, çift ise kırmızı.")
+    cf = it.counterfactual_apply("kelebek")
+    ok["soyutlama"] = (cf["with"] == "mavi" and cf["without"] is None
+                       and cf["measured"] == 3 and cf["ablatable"])
+    empty = Interpreter().counterfactual_apply("kelebek")
+    ok["kural-yokken"] = (empty["with"] is None and empty["without"] is None
+                          and empty["ablatable"] is False)
+
+    agi = NoraAGI(seed=801, boot_thinker=False)
+    agi.converse("Sesli harf sayısı tek ise mavi, çift ise kırmızı.")
+    agi.converse("'kelebek' hangi renk?")
+    r = tr_lower(agi.converse("Kural olmasaydı ne derdin?"))
+    ok["soz-ayirir"] = ("mavi" in r and ("etiket yok" in r or "eşleme" in r)
+                        and "3 sesli harf" in r)
+    ok["olcum-demiyor"] = ("saydım" not in r and "ölçtüm" not in r)
+
+    g = NoraAGI(seed=802, boot_thinker=False)
+    g.converse("Kuraklık kıtlığa yol açar.")
+    g.converse("Kıtlık göçe yol açar.")
+    gw = g.lang.graph.counterfactual("kuraklık")
+    ok["dunya-ablasyon"] = (gw["lost"] == ["kıtlık", "göç"] and gw["effects_without"] == []
+                            and gw["structural"] is True)
+    rw = tr_lower(g.converse("Kuraklık olmasaydı ne olurdu?"))
+    ok["dunya-soz"] = ("kıtlık" in rw and "göç" in rw and "yapısal" in rw)
+    re_ = tr_lower(g.converse("Göç olmasaydı ne olurdu?"))
+    ok["etki-durust"] = ("ileri" in re_ or "etki düğümü" in re_) and "olurdu" not in re_.split("öyle")[0][:0] + "ileri" in re_
+
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
+
+
+def a81_ad_obegi_butunlugu():
+    """A81 — AD ÖBEĞİ: bileşik kavram bölünmez, özne yutulmaz.
+
+    Teşhis: "kök çürümesi" -> özne "kök", nesne "çürüme" diye BÖLÜNÜYORDU; "aşırı sulama
+    kök çürümesine" -> özne "aşırı sulama kök". Bu, ağda yanlış düğümler ve collider'da
+    kirli adlar üretiyordu. Ölçüt:
+    (1) iyelikli baş tamamlayanıyla tek kavram ("kök çürüme"),
+    (2) çok sözcüklü özne korunur ("aşırı sulama"),
+    (3) hâl ekli çok sözcüklü nesne ("kök çürümesine" -> "kök çürüme"),
+    (4) "-den olur" kaynak yapısı CAUSES olarak okunur,
+    (5) collider'da neden adları TEMİZ (fiil/ad karışması yok),
+    (6) iyelikli özne ("arı kovanı") tek kavram kalır.
+    """
+    ok = {}
+    agi = NoraAGI(seed=811, boot_thinker=False)
+    w = agi.lang.wernicke
+
+    sj, ob = w.split_svo(["kök", "çürümesine"])
+    ok["iyelik-birlesir"] = (ob is not None and ob["canonical"] == "kök çürüme")
+    sj2, ob2 = w.split_svo(["aşırı", "sulama", "kök", "çürümesine"])
+    ok["özne-korunur"] = (sj2 is not None and sj2["canonical"] == "aşırı sulama"
+                          and ob2 is not None and ob2["canonical"] == "kök çürüme")
+
+    f1 = w.parse("Kök çürümesi su birikmesinden olur.")
+    # YÖN: "-den olur" yapısında KAYNAK (su birikmesi) nedendir, cümlenin öznesi (kök
+    # çürümesi) etkidir. Kenar daima NEDEN -> ETKİ kurulur; yüzey sırası yön değildir.
+    ok["kaynak-yönü"] = (f1.rel == "CAUSES" and f1.subj == "su birikme"
+                         and f1.obj == "kök çürüme")
+    f2 = w.parse("Kara delik ışığı yutar.")
+    ok["çok-sözcüklü-özne"] = (f2.subj == "kara delik" and "ışık" in (f2.obj or ""))
+
+    c = NoraAGI(seed=812, boot_thinker=False)
+    for t in ("Aşırı gübre kök çürümesine yol açar.",
+              "Aşırı sulama kök çürümesine yol açar.",
+              "Sıkışık toprak kök çürümesine yol açar."):
+        c.converse(t)
+    causes = sorted({e.subj for e in c.lang.graph._in_edges.get("kök çürüme", ())})
+    ok["temiz-adlar"] = causes == ["aşırı gübre", "aşırı sulama", "sıkışık toprak"]
+    r = tr_lower(c.converse("Kök çürümesi varsa sebep hangisi?"))
+    ok["collider-adlar"] = all(x in r for x in ("aşırı gübre", "aşırı sulama", "sıkışık toprak"))
+
+    f3 = w.parse("Arı kovanı doldu.")
+    ok["iyelik-özne"] = f3.subj in ("arı kovanı", "arı kovan")
+
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), f"{passed}/{len(ok)} — {detail} | adlar={causes}"
+
+
+def a82_sekiller_arasi_transfer():
+    """A82 — ŞEKİLLER ARASI TRANSFER: yetenek tek bir şekle bağlı mı?
+
+    Teşhis (kullanıcı): bugüne kadarki transfer TEK şekildi (söyle -> parite -> etiket).
+    Bir sistem "kural öğrendim" diyorsa, ölçümden etikete giden yol DEĞİŞTİĞİNDE de
+    çalışmalı: parite (tek/çift), eşik (3'ten az), sıra (en çok olan). Ölçüt:
+    (1) parite şekli (eski yetenek) hâlâ çalışıyor,
+    (2) eşik şekli HİÇ görülmemiş bir cümleden bağlanıp yeni girdiye uygulanıyor,
+    (3) sıra şekli küme üzerinde uçları seçiyor (orta etiketsiz kalıyor),
+    (4) üçü de AYNI makine: aynı Rule sınıfı, aynı apply yolu (şekle özel sınıf yok),
+    (5) transfer ŞEKLİ koruyor, yalnız ölçüt ve alan değişiyor,
+    (6) dille: eşik kuralı cümleden bağlanıp cümleyle uygulanıyor ve gerekçe
+        "tek/çift" demiyor (yanlış gerekçe sessiz yalandır),
+    (7) bu yetenekler için prior türü ARTMIYOR (yetenek koddan geliyor).
+    """
+    import json
+
+    import nora_apply as AP
+    import nora_priors
+
+    ok = {}
+    kinds_before = len(json.loads(nora_priors.JSON_PATH.read_text(encoding="utf-8"))
+                       .get("kinds") or {})
+    it = AP.Interpreter()
+
+    # (1) parite
+    r_par = it.bind("sesli harf sayısı tek ise mavi, çift ise kırmızı")
+    lab_par, tr_par = it.apply("kelebek")
+    ok["parite-şekli"] = (r_par is not None and r_par.shape == "parity"
+                          and lab_par == "mavi" and tr_par.get("measured") == 3)
+
+    # (2) eşik — bu cümle bataryada daha önce hiç geçmedi
+    r_th = it.bind("hece sayısı 4'ten az ise kısa, değilse uzun")
+    a1, t1 = it.apply("karınca")      # ka-rın-ca = 3 hece -> kısa
+    a2, t2 = it.apply("bilgisayar")   # bil-gi-sa-yar = 4 hece -> uzun
+    ok["eşik-şekli"] = (r_th is not None and r_th.shape == "threshold"
+                        and r_th.threshold == 4 and r_th.op == "lt"
+                        and a1 == "kısa" and a2 == "uzun"
+                        and t2.get("bucket") == "else")
+
+    # (3) sıra — etiket kümenin İÇİNDE doğar
+    r_rk = it.bind("sözcük sayısı en çok olan uzun, en az olan kısa")
+    rows, tr_set = it.apply_set(["su", "bal arısı", "kara delik ışığı yutar"])
+    lab = {r["item"]: r["label"] for r in rows}
+    ok["sıra-şekli"] = (r_rk is not None and r_rk.shape == "rank"
+                        and lab["kara delik ışığı yutar"] == "uzun"
+                        and lab["su"] == "kısa" and lab["bal arısı"] is None)
+
+    # (4) tek makine: üç kural da aynı sınıf, aynı apply yolu
+    same_cls = len({type(r).__name__ for r in (r_par, r_th, r_rk)}) == 1
+    same_path = (type(r_par).apply is type(r_th).apply is type(r_rk).apply)
+    ok["tek-makine"] = bool(same_cls and same_path and len(it.rules) >= 3)
+
+    # (5) transfer şekli korur, ölçüt değişir
+    it.last = r_th
+    tr_rule = it.transfer(feature="word_count", domain="mutfak")
+    l3, t3 = it.apply("tuz ve karabiber")   # 3 sözcük < 4 -> kısa
+    ok["transfer-şekil"] = (tr_rule.shape == "threshold" and tr_rule.threshold == 4
+                            and tr_rule.op == "lt" and tr_rule.feature == "word_count"
+                            and l3 == "kısa" and t3.get("measured") == 3)
+
+    # (6) dil üzerinden: bağla -> uygula, gerekçe doğru şekli anlatmalı
+    g = NoraAGI(seed=821, boot_thinker=False)
+    g.converse("hece sayısı 4'ten az ise kısa, değilse uzun")
+    rep = tr_lower(strip_prefixes(g.converse("'bilgisayar' hangi etiketi alır?")))
+    ok["dil-üzerinden"] = ("uzun" in rep and "çift" not in rep and "tek " not in rep
+                           and "4" in rep)
+
+    # (7) sıfır yeni prior: tüm bunlar cümle eklemeden yapıldı
+    kinds_after = len(json.loads(nora_priors.JSON_PATH.read_text(encoding="utf-8"))
+                      .get("kinds") or {})
+    ok["sıfır-yeni-prior"] = kinds_after == kinds_before
+
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), (f"{passed}/{len(ok)} — {detail} | ölçümler="
+                               f"karınca:{t1.get('measured')} bilgisayar:{t2.get('measured')} "
+                               f"eşik:{r_th.threshold} prior={kinds_after}")
+
+
+def a83_cok_sozcuklu_nesne_ve_iyelikli_ozne():
+    """A83 — ÇOK SÖZCÜKLÜ NESNE VE İYELİKLİ ÖZNE: sınır nerede?
+
+    Teşhis: "Deniz kirliliği plastik atıktan olur." cümlesinde sınır yanlış yere
+    konuyordu: özne "deniz kirliliği plastik", nesne "atık" oluyordu — yani niteleyici
+    yanlış tarafa yazılıyor ve ağda iki uydurma düğüm doğuyordu. Doğrusu: özne
+    iyelikli bir tamlamayla bitiyorsa sınır ORADADIR; sağındaki niteleyici NESNEYE aittir.
+    Ölçüt:
+    (1) "deniz kirliliği | plastik atık" (nesne tamlayanı özneye kaçmaz),
+    (2) "arı kovanı | bal üretim" (iyelikli özne + tamlamalı nesne),
+    (3) bilinen çözümler bozulmaz (kök çürüme | su birikme),
+    (4) iyeliksiz üç adlı cümlede sınır değişmez (kuraklık | kıtlık),
+    (5) cümle gerçekten öğretildiğinde kenar DOĞRU yönde kurulur (NEDEN -> ETKİ),
+    (6) öğretilen kavram ağdan geri okunabilir (uydurma düğüm yok),
+    (7) "kodladım" dendiyse aynı ilişki SORUYLA da geri gelir (sahte anlama yok).
+    """
+    ok = {}
+    g = NoraAGI(seed=831, boot_thinker=False)
+    w = g.lang.wernicke
+
+    f1 = w.parse("Deniz kirliliği plastik atıktan olur.")
+    # "-den olur": kaynak (plastik atık) NEDEN, cümlenin öznesi (deniz kirliliği) ETKİ.
+    ok["nesne-tamlayanı"] = (f1.rel == "CAUSES" and f1.subj == "plastik atık"
+                             and f1.obj == "deniz kirlilik")
+    f2 = w.parse("Arı kovanı bal üretimine yol açar.")
+    ok["iyelikli-özne"] = (f2.subj in ("arı kovanı", "arı kovan")
+                           and f2.obj == "bal üretim")
+    f3 = w.parse("Kök çürümesi su birikmesinden olur.")
+    ok["eski-çözüm"] = (f3.subj == "su birikme" and f3.obj == "kök çürüme")
+    f4 = w.parse("Kuraklık kıtlığa yol açar.")
+    ok["sınır-değişmez"] = (f4.subj == "kuraklık" and f4.obj == "kıtlık")
+
+    g.converse("Deniz kirliliği plastik atıktan olur.")
+    edges = [(e.subj, e.obj) for e in g.lang.graph._out_edges.get("plastik atık", ())
+             if getattr(e, "rel", "") == "CAUSES"]
+    ok["kenar-yönü"] = edges == [("plastik atık", "deniz kirlilik")]
+    nodes = set(g.lang.graph._out_edges) | set(g.lang.graph._in_edges)
+    ok["uydurma-düğüm-yok"] = ("deniz kirliliği plastik" not in nodes
+                               and "atık" not in nodes
+                               and "deniz kirlilik" in nodes)
+    # Öğretilen ilişki SORUYLA geri okunabilmeli: "kodladım" dediyse cevabı da olmalı.
+    ans = tr_lower(strip_prefixes(g.converse("Deniz kirliliği neyden olur?")))
+    ok["sorudan-geri-okuma"] = ("plastik atık" in ans and "deniz kirlili" in ans)
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), f"{passed}/{len(ok)} — {detail} | kenar={edges}"
 
 
 TESTS = {
@@ -3165,6 +3392,10 @@ TESTS = {
     "A77": ("yankı öldü: anlamadığını açıkça söyle, tekrarlama", a77_yanki_oldu_acik_basarisizlik),
     "A78": ("öz-model düğümleri + do(): gözlem ile müdahale ayrı", a78_oz_model_ve_do),
     "A79": ("operatör/prior oranı: yetenek koddan mı cümleden mi geliyor", a79_operator_prior_orani),
+    "A80": ("karşıolgusal öz-erîşim: kural olmasaydı ne derdim", a80_karsiolgusal_oz_erisim),
+    "A81": ("ad öbeği: bileşik kavram bölünmez, özne yutulmaz", a81_ad_obegi_butunlugu),
+    "A82": ("şekiller arası transfer: parite değil, aynı makinede eşik ve sıra", a82_sekiller_arasi_transfer),
+    "A83": ("çok sözcüklü nesne ve iyelikli özne: ad öbeği sınırı", a83_cok_sozcuklu_nesne_ve_iyelikli_ozne),
     "A70": ("kendi çıkarımı: kimse söylemeden türetme + iç monolog", a70_own_inference_and_monologue),
     "A69": ("söz biçimi çeşitliliği, soru alışkanlığının kırılması ve kendi derdi", a69_speech_shape_variety_and_self_interest),
     "A68": ("kulak yolu: ses olayı, gürültüde eksik duyma, etiketsiz kimlik", a68_ear_path_perception),

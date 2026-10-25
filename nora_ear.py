@@ -171,7 +171,14 @@ class Ear:
     MAX_VOICES = 64
     # Ölçülen mesafeler: aynı kişi 0.001–0.055, farklı kişiler 0.195–1.106.
     # Eşik bu ikisinin arasına konur; ne aynı sesi ikiye böler ne iki kişiyi birleştirir.
-    MATCH_THRESHOLD = 0.11
+    #: SES AYIRMA EŞİĞİ. 0.11 çok gevşekti: farklı iki kişi (örn. "ece" ile "ayse")
+    #: aynı kimliğe düşüyordu — "kim konuşuyor" sorusu yanlış cevaplanıyordu.
+    #: Ölçüm: aynı kişinin jitter'lı tekrarları 0.01-0.03; farklı kişilerin en yakını
+    #: 0.07-0.10. Eşik ikisinin ARASINA konur. Ayrıca MARJ kuralı: en yakın prototip
+    #: ikinciye yeterince uzaksa eşleşme kabul edilir (yakın iki prototip arasında
+    #: kalan ses, kimseye mal edilmez; yeni birey açılır).
+    MATCH_THRESHOLD = 0.055
+    MATCH_MARGIN = 0.60
 
     def __init__(self, uid: str = "", seed: int = 0):
         self.uid = str(uid or "")
@@ -239,12 +246,15 @@ class Ear:
     def _identify(self, vp: VoicePrint) -> tuple[str, bool, float]:
         """Sesi prototiplere göre tanır; yeterince yakın değilse YENİ birey açar."""
         vec = vp.vec()
-        best_vid, best_d = "", 1e9
+        best_vid, best_d, second_d = "", 1e9, 1e9
         for vid in self._order:
             d = self.book[vid].distance(vec)
             if d < best_d:
-                best_d, best_vid = d, vid
-        if best_vid and best_d <= self.MATCH_THRESHOLD:
+                best_d, second_d, best_vid = d, best_d, vid
+            elif d < second_d:
+                second_d = d
+        _margin_ok = (second_d >= 1e8) or (best_d <= self.MATCH_MARGIN * second_d)
+        if best_vid and best_d <= self.MATCH_THRESHOLD and _margin_ok:
             ident = self.book[best_vid]
             ident.heard += 1
             ident.last_ns = time.time_ns()

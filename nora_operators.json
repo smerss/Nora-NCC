@@ -7,7 +7,8 @@
     "chain": "iki adımlı zincir kur",
     "plan": "hedefi adımlara ayır",
     "revise": "hedef değişince planı yenile",
-    "transfer": "kuralı başka alana taşı"
+    "transfer": "kuralı başka alana taşı",
+    "counterfactual": "kuralı ya da düğümü çıkar, yeniden koştur"
   },
   "missing_organ": [
     "görüntü/resim",

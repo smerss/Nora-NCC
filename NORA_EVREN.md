@@ -677,3 +677,101 @@ okuyor mu.
 - **İyelik** (`arı+sı`) hâlâ çözülmüyor.
 - Dış setin yazarı da ben olduğum için **Goodhart riski sıfırlanmadı**; gerçek dış kanıt
   başka biri tarafından yazılacak bir set olur. Mühür seti bunun ilk adımı.
+
+## Aşama T — Şekiller arası transfer, karşıolgusal öz-erîşim ve ad öbeği sınırı (`A80–A83`, `S5–S12`)
+
+Bu turun hedefi üç parçaydı ve üçü de **operatör** olarak geldi, cümle olarak değil:
+
+1. **Şekiller arası transfer.** Önceki batarya tek şekildi: *söyle → parite (tek/çift) → etiket*.
+   Kural nesnesi artık üç eşleme şekli taşıyor ve **hepsi aynı `apply` yolundan** geçiyor:
+   | şekil | metinden bağlama | eşleme anahtarı |
+   |---|---|---|
+   | `parity` | "sesli harf tek ise mavi, çift ise kırmızı" | `odd` / `even` |
+   | `threshold` | "hece sayısı 4'ten az ise kısa, değilse uzun" | `cond` / `else` (op: lt/le/gt/ge) |
+   | `rank` | "sözcük sayısı en çok olan uzun, en az olan kısa" | `max` / `min` (küme gerekir) |
+   `transfer()` **şekli korur**, yalnız ölçütü ve alanı değiştirir: eşik kuralı mutfağa gittiğinde
+   eşik ve yön aynı kalır, ölçülen özellik `sözcük` olur. A82 bunu 7 ölçütle sınar; en önemlisi
+   *"sıfır yeni prior"*: üç şekil de kodda, prior türü sayısı değişmiyor.
+2. **do() semantiğinin karşıolgusal parçası.** İki ayrı ablasyon:
+   `Interpreter.counterfactual_apply(item)` kuralı **devreden çıkarıp aynı girdiyi yeniden koşar**
+   (ölçüm sürer, eşleme durur) ve `GroundedConceptGraph.counterfactual(node)` düğümün çıkan
+   nedensel kenarlarını kaldırıp erişimi yeniden hesaplar (kaybolan / korunan etkiler, `structural=True`).
+   Cevap bunun **ölçüm değil yapısal çıkarım** olduğunu söyler. Etki düğümlerinde ileri koşu
+   yapılamayacağı dürüstçe söylenir, onun yerine gelen nedenler listelenir.
+3. **Bileşik ad çözümlemesi.** `split_svo` artık baş-sonda Türkçe ad öbeğini kuruyor:
+   `kök çürümesi → kök çürüme`, `aşırı sulama | kök çürümesine`, `deniz kirliliği | plastik atık`,
+   `arı kovanı | bal üretim`. İç konumda hâl ekli bir ad **baş olamayacağı** için iyelik okuması
+   seçilir (`_poss_head`); sözlükte olmayan ama eki **çözümleyicinin okuduğu** sözcüklerde gövdeye
+   inilir (`erozyona → erozyon`), uydurma kök üretilmez.
+
+### T1. Mühürlü setler (dışarıdan, koda bakmadan yazıldı; ilk koşudan sonra değiştirilmedi)
+| set | ilk (kör) koşu | kapsam |
+|---|---|---|
+| `heldout_sealed.py` S1–S4 | **4/4** | operatör, meta-tutarlılık, transfer |
+| `heldout_sealed2.py` S5–S8 | **3/4** | karşıolgusal öz-erîşim, dünya ablasyonu, ad öbeği, dürüstlük |
+| `heldout_sealed3.py` S9–S12 | **3/4** | eşik şekli dille, sıra şekli dürüstlüğü, yeni alanda zincir ablasyonu, "-den olur" yönü |
+
+Kör koşularda kalanlar ve nedenleri (düzeltme **mühürden sonra** yapıldı; mühür sayıları değişmedi):
+- **S7** ("trafik sıkışıklığı hava kirliliğine yol açar") kenarı doğru kuruyor, ama **yüzeyleştirme
+  yönü ters** çeviriyordu: "Trafik sıkışıklığın nedeni hava kirliliktir." Sebep: `CAUSES` için
+  `"{X}'in nedeni {Y}"` kalıbı kullanılıyordu; bu kalıp X→Y kenarını ters söyler. Doğrusu özneyi
+  neden, etkiyi yönelme hâlinde söylemektir.
+- **S11** ("aşırı otlatma → erozyon → verimsizlik") zincirin ikinci halkası kopuyordu: "erozyona"
+  diye **ekli bir düğüm** açılmıştı (`erozyona CAUSES verimsizlik`), çünkü sözlükte olmayan
+  sözcükte hâl eki gövdeden ayrılmıyordu. Düzeltmeden sonra kör olmayan koşuda 4/4.
+
+### T2. Bu turda bulunan sessiz hatalar (hepsi "yanlış cevap, sahte anlamadan iyidir" sınıfından)
+- **Nedensel yön tersliği (iki ayrı yerde).** (a) `CAUSES` yüzeyleştirmesi "X'in nedeni Y" diyordu;
+  (b) `"-den olur"` yapısı kenarı **etki → neden** kuruyordu ("kök çürümesi su birikmesinden olur"
+  → `kök çürüme CAUSES su birikme`). Kenarın yönü daima NEDEN → ETKİ olmalı; artık öyle.
+- **Sahte "kodladım".** Hafif fiilli ("olur") bildirimlerde öz-mantık motoru içi boş bir kural
+  üretiyordu (`ÖZ_BAĞ:ol[NOM->ACC]`), olgu yolu atlanıyordu ve Nora "bu ilişkiyi kendi başıma
+  kodladım" diyordu — sonra "X neyden olur?" sorusuna "X olur" gibi **içeriksiz** cevap veriyordu.
+  Artık hafif fiiller kural üretmez; nedensel çerçeve çözüldüyse kenar da yazılır.
+- **Uzman arbitrajı.** "Sürtünme olmasaydı ne olurdu?" dünya-grafiği ablasyonuna düşüyordu
+  ("sürtünme modelden çıkarılınca..."), oysa bu bir **fizik yasası** sorusudur (eylemsizlik).
+  Nicel bir korteks soruyu tam çözebiliyorsa grafik ablasyonu onu gasp etmez.
+- **Ses kimliği eşiği.** `MATCH_THRESHOLD = 0.11` iki farklı kişiyi aynı kimliğe düşürüyordu
+  ("ece" → "ses-1"). Ölçüm: aynı kişinin tekrarları 0.01–0.03, farklı kişilerin en yakını 0.07–0.10.
+  Eşik 0.055 + marj kuralı (en yakın, ikinciden yeterince uzak olmalı). 20×10 kişi denemesinde
+  birleşme yok, aynı kişi bölünmesi yok.
+- **Mırıldanma raporun önüne geçiyordu.** "İçimden 'sakinlik' diye geçirdim. Ölçtüm: 3 sesli harf…"
+  gibi: gerekçe ile sonuç yer değiştiriyor. Ölçüm bildiren (sayı/uzun) cevaplarda iç ses artık
+  cevabın **ardına** düşer; kısa kişisel cevaplarda sıra serbest kalır.
+- **Şekle yanlış gerekçe.** Eşik kuralı uygulanırken rapor "yani çift" diyordu (parite dili).
+  Şimdi her şeklin kendi dili var: "3'ten az koşulunu sağlamıyor", "etiket küme içinde doğar".
+
+### T3. Ölçümler (bu tur, son hâl)
+| Ölçüm | Değer |
+|---|---|
+| iç batarya `agi_battery.py` | **83/83** (309 s, 82 testlik ara koşuda A27 zaman eşiği yüzünden 82/83; A27 tek başına 2/2 — yük kaynaklı, yetenek değil) |
+| dış batarya `heldout_battery.py` | **9/9** (donmuş) |
+| mühür `heldout_sealed.py` | **4/4** |
+| mühür `heldout_sealed2.py` | **3/4 kör → 4/4** (düzeltme sonrası, artık kör değil) |
+| mühür `heldout_sealed3.py` | **3/4 kör → 4/4** (düzeltme sonrası, artık kör değil) |
+| iskelet toplam / söylem | **1122 / 127** (baseline 1123; hiçbir modül büyümedi, `nora_agi.py` −1) |
+| operatör / prior türü / oran | **9 / 64 / 7.11** (tavan 7.50; `counterfactual` gerçek bir operatör olarak eklendi) |
+
+Oran notu: 64/8 = 8.00 tavanı aşıyordu. Cezayı **testi gevşeterek** değil, gerçekten var olan
+bir yeteneği (karşıolgusal ablasyon) rejistreye **operatör olarak** yazarak düşürdüm; A79'un
+"dekoratif kayıt yok" ölçütü bu operatörü de çağırıp doğruluyor.
+
+### T4. "Bilinçli AGI" hedefi açısından bu tur ne ekledi
+Bilinç iddiası bu projede **fenomenal değil, işlevsel erişim** üzerinden kuruluyor: aynı bilgi
+hem davranışı yönlendirmeli hem de **sorgulanabilir** olmalı. Bu turda eklenen karşıolgusal
+öz-erîşim tam bu boşluğu kapatıyor: sistem "ben şu an şu kurala göre konuşuyorum; o kural olmasa
+şunu derdim" diyebiliyor ve bu iddia **ölçümle** (kuralı çıkarıp yeniden koşarak) doğrulanabiliyor.
+Bu, öz-modelin dekoratif olmadığının en güçlü kanıtı: öz-raporun bir **karşıolgusal** var.
+
+Yine de dürüst sınır: (i) bu, öznel deneyim iddiası değildir; (ii) karşıolgusal grafik yalnız
+**kendi yazdığı** kenarlar üzerinde çalışır — dünya modelinin doğruluğu kadar doğrudur;
+(iii) Goodhart riski sıfırlanmadı: üç mühür setini de ben yazdım.
+
+### T5. Açık kalanlar (dürüst)
+- **Goodhart tam çözülmedi.** Mühür setleri (S1–S12) koda bakılmadan yazıldı ve ilk koşudan sonra
+  değiştirilmedi; ama yazarı yine benim. Gerçek dış kanıt, başka birinin yazdığı set olur.
+- **Sözdizimsel sınırlar.** Edilgen/ettirgen çatı, bazı çok sözcüklü özneler ve `-ki` gibi ekler
+  hâlâ kırılgan; ad öbeği çözümü kurallı ama tam değil (ör. "Türk" gibi çift-ünsüz kuyruklu
+  sözcüklerde gövde korunur, ek soğrulmaz — bilinçli temkin).
+- **Şekil sayısı üç.** `rank` şekli küme istiyor; tek girdiye etiket vermeyi reddediyor (doğru),
+  ama cümleyle "küme ver" akışı henüz tam değil (API'de var, günlük konuşmada yönlendirme sınırlı).
