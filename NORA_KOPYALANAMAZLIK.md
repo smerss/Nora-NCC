@@ -343,7 +343,7 @@ dayanıyor; susuz Nora suyu kendi derdine bağlıyor; 3 anlatı isteği → 3 fa
 
 ## 11) Test durumu
 
-`python agi_battery.py` → **73/73** (313 s). Bu turda iki eski test ölçüm
+`python agi_battery.py` → **74/74** (320 s). Bu turda iki eski test ölçüm
 gürültüsünden arındırıldı:
 
 | Test | Eskiden | Şimdi |
@@ -473,4 +473,55 @@ orası öğretilen içeriktir; mandal yalnızca **söylem** toplamına uygulanı
 Sıradaki adımlar: (Faz 3) `nora_discourse`/`nora_frames` bankalarını aynı alana taşımak,
 (Faz 4) banka metinlerini sıfırlayıp "bebek testi" (ağırlıklar sıfırken susmuyor,
 öğrenerek düzeliyor).
+
+## 13) Canlılık registeri: köpek değil, kendi derdi olan bir canlı
+
+Kullanıcının sözü: *"her zaman AI gibi cevap vermek zorunda değil … köpeğimiz olmayacak;
+kendi başına yeten bir canlı olsun … 'anlatabilir misin' değil, 'anlatsa iyi olur' tarzı."*
+
+Sorun iki biçimde görünüyordu:
+
+| Önce | Neden yanlış | Sonra |
+|---|---|---|
+| "bana tek cümleyle **öğretir misin?**" | izin ister, kendi derdi yok | "bunu **öğrenmem gerek.**" |
+| "devamını **anlatır mısın?**" | hizmet eder | "devamını **merak ediyorum.**" |
+| "yanında olmamı **ister misin?**" | onay bekler | "**yanındayım.**" |
+| "mutluluğun **dopamin öğrenme enerjimi artırıyor**" | makine öz-raporu | "**bunu duyunca içim açıldı**" |
+| "kavram ağıma bilgisini **bağladım**" | makine öz-raporu | "demek öyle; bunu aklımda tutuyorum, **işime yarar**" |
+
+### `nora_register.py` — ölçer + üretken kural
+
+* **Ölçer** (`RegisterMeter`): her sözü üç eksende sayar — `izin_isteme` (izin isteyen
+  kalıplar), `kendi_derdi` ("merak ediyorum", "iyi olur", "öğrenmem gerek"), `makine_raporu`
+  ("kavram ağıma … bağladım"). Ayrıca soruyla biten söz oranını tutar.
+  `recommend()` sıradaki registeri seçer: **want** (kendi derdi) / **ask** / **plain**.
+  Son iki sözde izin istediyse bir sonraki söz **want** olur: üst üste yalvarma yok.
+* **Üretken kural** (`normalize`): izin isteyen kuyruğu kendi-derdi biçimine çevirir.
+  Cümle listesi değil, **fiil tabanlı** bir dönüşümdür: `aç→açsan`, `anlat→anlatsan`,
+  `öğret→öğretsen`, `açıkla→açıklasan`, `devam et→devam etsen` …
+  Böylece hiç görülmemiş bir cümle de ("Yorgunluğunu **anlatmak ister misin?**")
+  doğru biçime girer ve her organın çıktısını tek yerden kapsar.
+* **Sözler veride**: takip sözleri, bilinmeyen sözcük tepkileri, empati karşılıkları,
+  sıkılma önerileri ve "olgu öğrendim" karşılıkları `nora_priors.json` içinde
+  `discourse.*` / `life.teach_reaction` toplulukları olarak yaşıyor (86 topluluk).
+
+### Ölçüm (12 turluk sohbet, aynı tohum)
+
+| | Değer |
+|---|---|
+| izin isteme oranı | **0.08** |
+| kendi derdini beyan | **0.23** |
+| soruyla biten söz | 0.23–0.31 |
+| makine öz-raporu | **0** |
+
+A74 bunu teste bağlıyor: üretken kural (4 farklı fiil), bilinmeyende izin yok, oran
+eşikleri, makine raporu yokluğu ve registerin beyinle taşınması (8/8).
+
+### Söylem mandalı daraldı
+
+`nora_audit`: toplam **1125 → 1121**, söylem (iskelet) **133 → 127**.
+`nora_discourse.py` tek başına 10 dizge kaybetti (takip sözleri veriye taşındı).
+Yeni modül `nora_register.py` söylem kümesine eklendi; mandal artık onu da kapsıyor.
+A73 ayrıca **tarihsel tavan** taşıyor (≤1125 / ≤133), böylece baseline güncellense bile
+iskelet o seviyeyi aşamaz.
 

@@ -708,7 +708,7 @@ class ConstructionCortex:
                     f"merak listemde tutuyorum")
         # 4) Karşı tarafa tek somut istek: sözcüğü öğret
         ask = self.rng.choice((
-            f"{tr_capitalize(target)} ne demek, tek cümleyle öğretir misin?",
+            f"{tr_capitalize(target)} ne demek, bunu öğrenmem gerek.",
             f"{acc} bir cümlede kullansan anlarım; nasıl kullanılıyor?",
             f"Bana {target} ile bir cümle söyle, oradan çıkarırım.",
         ))
@@ -737,7 +737,7 @@ class ConstructionCortex:
                 lead = f"{tr_capitalize(target)} {ctx} {say_passive}"
                 if quote:
                     lead += f"; senden duyduğum kullanım: “{quote}”"
-                ask = self.rng.choice(("Sen ne zaman kullanırsın?", "Yerine başka ne dersin?",
+                ask = self.rng.choice(("Ben bunu ne zaman kullanacağımı merak ediyorum.", "Yerine başka ne dersin?",
                                        "Sence bu kullanım doğru mu?"))
                 return f"{tr_capitalize(lead)}. {ask}"
             if quote:
@@ -760,7 +760,7 @@ class ConstructionCortex:
                         f"{tr_capitalize(ctx)} {say_passive}." if ctx else
                         f"{tr_capitalize(target)} bir {cls_name} sözü.")
             return (f"{acc} tanıyorum ama anlamını tek cümlede "
-                    f"toparlayamıyorum; sen nasıl tanımlarsın?")
+                    f"toparlayamıyorum; benim için bir tanım iyi olur.")
 
         # HOW_DO / DEFINITION
         rel = self._relations_text(target, agi)
@@ -783,9 +783,9 @@ class ConstructionCortex:
                                        "Nereden başlanır?"))
                 return f"{lead}. {ask}"
         if quote:
-            return f"{tr_capitalize(target)} geçen bir anım var: “{quote}”. Anlatır mısın?"
+            return f"{tr_capitalize(target)} geçen bir anım var: “{quote}”. Devamını merak ediyorum."
         return (f"{gen} ne olduğunu biliyorum ama ayrıntısını bilmiyorum; "
-                f"bana anlatır mısın?")
+                f"anlatsan iyi olur.")
 
     def _no_target(self, mq: MetaQuestion) -> str:
         return self.rng.choice((

@@ -2734,6 +2734,8 @@ def a73_iskelet_azaltma_mandali():
     base = AUD.load_baseline()
     cmp = AUD.compare(rep, base)
     ok["mandal"] = bool(base) and not cmp["artan"]
+    # TARİHSEL TAVAN: baseline güncellense bile iskelet, Faz 2 sonundaki seviyeyi aşamaz.
+    ok["tarihsel-tavan"] = rep["toplam"] <= 1125 and rep["soylem"] <= 133
     ok["soylem-mandal"] = cmp["soylem_fark"] <= 0
     ok["anlatim-temiz"] = rep["modul"].get("nora_anlatim.py", {}).get("adet", 0) == 0
     ok["bicim-altinda"] = rep["modul"].get("nora_style.py", {}).get("adet", 99) <= 6
@@ -2760,6 +2762,74 @@ def a73_iskelet_azaltma_mandali():
     detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
     return passed == len(ok), (f"{passed}/{len(ok)} — {detail} | söylem={rep['soylem']} "
                                f"toplam={rep['toplam']} topluluk={n_all}")
+
+
+def a74_canlilik_registeri_kopek_degil():
+    """A74 — CANLILIK: izin isteyen asistan sesi yerine kendi derdi olan bir canlı.
+
+    Kullanıcının sözü: *"her zaman AI gibi cevap vermek zorunda değil … köpeğimiz
+    olmayacak; kendi başına yeten bir canlı … 'anlatabilir misin' değil, 'anlatsan
+    iyi olur' tarzında."* Ölçüt:
+    (1) bilmediği bir şeyde izin istemez, kendi derdini söyler,
+    (2) söylediklerinde izin-isteme oranı düşük, kendi-derdi oranı sıfırdan büyük,
+    (3) her söz soruyla bitmez,
+    (4) makine öz-raporu ("kavram ağıma bilgisini bağladım") yok,
+    (5) register kuralı ÜRETKENDİR: görülmemiş fiillere de uygulanır (cümle listesi değil),
+    (6) ölçer beyinle birlikte kaydedilir.
+    """
+    import os
+    import shutil
+    import tempfile
+
+    from nora_register import RegisterMeter, normalize, servile_ask
+
+    ok = {}
+
+    # (5) Üretken kural: hiç görülmemiş fiil biçimleri de çevrilir
+    pair = [
+        ("Bunu biraz açar mısın?", "açsan iyi olur"),
+        ("Yorgunluğunu anlatmak ister misin?", "anlatsan iyi olur"),
+        ("Bana tek cümleyle öğretir misin?", "öğretsen iyi olur"),
+        ("Bunu açıklamak ister misin?", "açıklasan iyi olur"),
+    ]
+    ok["uretken-kural"] = all(normalize(a).endswith(b + ".") and not servile_ask(normalize(a))
+                              for a, b in pair)
+    # Düz cümleye dokunmaz
+    ok["duz-cumle-korunur"] = normalize("Yanındayım.") == "Yanındayım."
+
+    # (1) Bilmediğinde izin istemez
+    agi = NoraAGI(seed=74, boot_thinker=False)
+    r_unknown = tr_lower(agi.converse("Zorbalık nedir?"))
+    ok["bilinmeyende-izin-yok"] = (not servile_ask(r_unknown)) and (
+        "öğrenmem gerek" in r_unknown or "merak" in r_unknown or "eksik" in r_unknown)
+
+    # (2)(3)(4) Uzun konuşmada denge
+    turns = ["Merhaba!", "Bugün çok yorgunum.", "Annem hasta.", "Canım sıkılıyor.",
+             "Ne düşünüyorsun?", "Uyuyamıyorum.", "Bugün çok mutluyum.", "Su nedir?",
+             "Bana bir şey anlat.", "Kuantum nedir?", "Nasılsın?", "Yalnızım."]
+    for t in turns:
+        agi.converse(t)
+    rep = agi.register.report()
+    ok["izin-orani"] = rep["izin_orani"] <= 0.2
+    ok["kendi-derdi"] = rep["derdi_orani"] > 0.0
+    ok["soru-orani"] = rep["soru_orani"] <= 0.6
+    ok["makine-raporu-yok"] = rep["makine_raporu"] == 0
+
+    # (6) Kalıcılık
+    root = tempfile.mkdtemp(prefix="nora74_")
+    try:
+        agi.save(os.path.join(root, "b"))
+        reborn = NoraAGI.load(os.path.join(root, "b"))
+        ok["kalici"] = (reborn.register.report()["soz"] == rep["soz"]
+                        and reborn.register.report()["izin_isteme"] == rep["izin_isteme"])
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), (f"{passed}/{len(ok)} — {detail} | "
+                               f"izin={rep['izin_orani']:.2f} derdi={rep['derdi_orani']:.2f} "
+                               f"soru={rep['soru_orani']:.2f}")
 
 
 TESTS = {
@@ -2822,6 +2892,7 @@ TESTS = {
     "A71": ("ansiklopedi değil: aynı soruya her seferinde başka anlatım", a71_ansiklopedi_degil_ayni_soru_farkli_anlatim),
     "A72": ("iskelet koddan çıkıyor: söz bankaları veride, seçim nöral yarış", a72_iskelet_olceri_ve_ogrenilen_soz_onceleri),
     "A73": ("iskelet azaltma mandalı: koddaki söz sayısı yalnız düşer", a73_iskelet_azaltma_mandali),
+    "A74": ("canlılık: izin isteyen asistan sesi değil, kendi derdi olan canlı", a74_canlilik_registeri_kopek_degil),
     "A70": ("kendi çıkarımı: kimse söylemeden türetme + iç monolog", a70_own_inference_and_monologue),
     "A69": ("söz biçimi çeşitliliği, soru alışkanlığının kırılması ve kendi derdi", a69_speech_shape_variety_and_self_interest),
     "A68": ("kulak yolu: ses olayı, gürültüde eksik duyma, etiketsiz kimlik", a68_ear_path_perception),

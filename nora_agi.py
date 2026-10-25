@@ -446,6 +446,14 @@ class NoraAGI:
             self.provenance = Provenance()
         except Exception:
             self.provenance = None
+        # --- CANLILIK REGİSTERİ: izin isteyen "asistan" sesi yerine kendi derdi ----
+        # Son sözlerde ne kadar izin istediğini sayar; oran yükselirse söylem organı
+        # "anlatsan iyi olur" gibi kendi derdini beyan eden biçimi seçer.
+        try:
+            from nora_register import RegisterMeter
+            self.register = RegisterMeter()
+        except Exception:
+            self.register = None
         self.last_auditory = None
         self.audio_log: list = []
         self._prev_answers: dict[str, str] = {}
@@ -1114,6 +1122,21 @@ class NoraAGI:
             yas=int(getattr(self.mind, "age", 0)),
             d=round(float(getattr(getattr(self, "entropy", None), "drift", 0.0) or 0.0), 6),
         )
+        # REGISTER: izin isteyen kuyruk ("anlatır mısın?") kendi-derdi biçimine çevrilir
+        # ("anlatsan iyi olur."). Köpek değil, kendi derdi olan bir canlı.
+        # Kural üretkendir (her fiile uygulanır), cümle listesi değildir; bu yüzden
+        # tek tek metin yazmadan tüm organların çıktısını kapsar.
+        try:
+            from nora_register import normalize as _reg_norm
+            ans = _reg_norm(ans)
+        except Exception:
+            pass
+        # CANLILIK: bu söz izin mi istedi, kendi derdini mi söyledi, makine raporu mu?
+        try:
+            if getattr(self, "register", None) is not None:
+                self.register.observe(ans)
+        except Exception:
+            pass
         # ÖLÇER: bu turda sözün kaç parçası etiketlendi? (iskelet oranı buradan düşer)
         try:
             if getattr(self, "provenance", None) is not None:
@@ -1849,14 +1872,31 @@ class NoraAGI:
                     wern.last_explanation = f"{e0.subj} ile {e0.obj} arasında {e0.rel} sinapsını epoch kullanmadan tek-atışta kurdum"
                     cur_sc = self.monologue.last_thought.schema_id if self.monologue.last_thought is not None else "S1_NEDEN_SONUC"
                     _prop_txt = broca.realize_prop(Proposition(subj=e0.subj, rel=e0.rel, obj=e0.obj))
+                    # Cümle ortasında küçük harfle başlamasın; insan sözü büyük harfle kurulur.
+                    _prop_txt = tr_capitalize(str(_prop_txt).strip().rstrip(".")) + "."
                     # Gerekçe: az önce kurulan önermenin kendisi. Çekirdek: öğrenme eylemi Broca'da çekimlenir.
                     _bind = SYN.realize_verb(VerbSpec(
                         verb_root="bağla", obj=NP("bilgi", poss=3, case="ACC"),
                         dat=NP("kavram ağı", poss=1, case="DAT"), tense="PAST", person="1SG"))
-                    _rep_fb = self.schema_cortex.transform_clauses(
-                        _bind, _prop_txt,
-                        SYN.converb("evir", kind="ip", obj=NP("bilgi", case="ACC", mods=("yeni",)))
-                        + " " + SYN.converb("çevir", kind="ip", loc=NP("iç", poss=1, case="LOC")), cur_sc)
+                    # CANLI KARŞILIK: "kavram ağıma bilgisini bağladım" gibi makine öz-raporu
+                    # insan sözü değildir. Önce kendi tepkisini söyler, sonra olguyu anar.
+                    _reg = "want"
+                    try:
+                        _m = getattr(self, "register", None)
+                        _cur = float(getattr(self.chem, "da", 0.5))
+                        if _m is not None:
+                            _reg = _m.recommend(curiosity=_cur, bored=False, unknown=False)
+                    except Exception:
+                        _reg = "want"
+                    _react = None
+                    try:
+                        from nora_priors import _safe_format  # cümle veriden gelir
+                        _f2 = getattr(self, "priors", None)
+                        _react = _f2.pick("life.teach_reaction", {"register": _reg}, {},
+                                          prov=getattr(self, "provenance", None)) if _f2 else None
+                    except Exception:
+                        _react = None
+                    _rep_fb = (_react + " " + _prop_txt) if _react else _prop_txt
                     rep_f = self.speak_or(_rep_fb, anchors=[e0.subj, e0.obj], nov=1.0 - _fam, fam=_fam,
                                           conf=max(0.55, self._speaker_trust(speaker)))
                     bids.append(CorticalBid("hippocampal_concept", 0.94, 0.93, rep_f, f"1shot:{e0.subj}->{e0.obj}"))
@@ -2015,7 +2055,7 @@ class NoraAGI:
                                                     f"wh_spec:{fr.subj}"))
                         elif _strict:
                             # Hiç dayanak yoksa uydurma: soruyu geri verip öğrenmeye açık ol.
-                            _miss = f"Bunu henüz bilmiyorum: “{raw.strip()}” — bana bir cümleyle öğretir misin?"
+                            _miss = f"Bunu henüz bilmiyorum: “{raw.strip()}” — bunu öğrenmem gerek."
                             bids.append(CorticalBid("hippocampal_concept", 0.72, 0.75, _miss,
                                                     f"wh_unknown_strict:{fr.subj}"))
                         else:
@@ -3393,6 +3433,7 @@ class NoraAGI:
             "anlatim": (self.narrator.state_dict() if getattr(self, "narrator", None) is not None else {}),
             "priors": (self.priors.state_dict() if getattr(self, "priors", None) is not None else {}),
             "provenance": (self.provenance.state_dict() if getattr(self, "provenance", None) is not None else {}),
+            "register": (self.register.state_dict() if getattr(self, "register", None) is not None else {}),
         }
         # ATOMİK YAZMA: önce .tmp, sonra os.replace. Yazma yarıda kesilirse ESKİ sağlam
         # dosya yerinde kalır (tek satır kaybı bile olmaz; yarım beyin yüklenmez).
@@ -3479,6 +3520,8 @@ class NoraAGI:
                 agi.priors.load_state_dict(meta.get("priors") or {})
             if getattr(agi, "provenance", None) is not None:
                 agi.provenance.load_state_dict(meta.get("provenance") or {})
+            if getattr(agi, "register", None) is not None:
+                agi.register.load_state_dict(meta.get("register") or {})
         except Exception:
             pass
         if os.path.exists(path_prefix + ".voice.pkl.gz"):
