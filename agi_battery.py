@@ -3670,6 +3670,77 @@ def a87_olcum_icadi():
                                f"spec={getattr(rule, 'feature_spec', None)}")
 
 
+def a88_unlu_uyumlu_kalip_icadi():
+    """A88 — ÜNLÜ UYUMU KALIBI: `-lık/-lik/-luk/-lük` AYNI ektir, dört ek değil.
+
+    A87 son eki somut arıyordu; örnekler karışık ünlüyle gelince ("kitaplık, tuzluk,
+    güzellik, bolluk") somut son ek YOK. Türkçe'de bunlar tek bir morfemin allomorfudur;
+    Nora ünlüleri 'V' ile soyutlayıp `-lVk` kalıbını İCAT eder. Ölçüt:
+    (1) kalıp ölçümü kurulur (spec kind="suffix_pattern"),
+    (2) söz kalıbı adlandırır, saklamaz,
+    (3) kalıp, öğretilmemiş sözcüklere doğru uygulanır (hem uyan hem uymayan),
+    (4) defter kalıbı `origin="kendi"` olarak tutar,
+    (5) insan rejistrisi değişmez,
+    (6) ortak KALIP da yoksa kural yazılmaz (uydurma yok).
+    """
+    import hashlib
+    import json
+    from pathlib import Path
+
+    import nora_apply as AP
+
+    ok = {}
+    reg = Path("nora_operators.json")
+    h0 = hashlib.sha256(reg.read_bytes()).hexdigest()
+
+    g = NoraAGI(seed=891, boot_thinker=False)
+    g.step_life(150)
+    q = ("Kural çıkar: kitaplık=soyut, tuzluk=soyut, güzellik=soyut, bolluk=soyut, "
+         "portakal=somut, masa=somut, deniz=somut")
+    rep = strip_prefixes(g.converse(q))
+    lo = tr_lower(rep)
+    rule = g.forge.adopted
+    spec = dict(getattr(rule, "feature_spec", None) or {})
+    ok["kalıp-icadı"] = (rule is not None and spec.get("kind") == "suffix_pattern"
+                         and spec.get("arg") == "lvk")
+    # Türkçe yumuşama: "kalıp" -> "kalıbı". Kökü değil GÖVDESİNİ ara.
+    ok["söz-kalıp"] = (("kalıb" in lo or "kalıp" in lo) and "lvk" in lo)
+
+    # (3) dil üzerinden: kalıba UYAN ve UYMAYAN sözcükler
+    r1 = tr_lower(strip_prefixes(g.converse("Kuralı uygula: 'kalemlik'")))
+    r2 = tr_lower(strip_prefixes(g.converse("Kuralı uygula: 'kitap'")))
+    r3 = tr_lower(strip_prefixes(g.converse("Kuralı uygula: 'sokak'")))
+    ok["uygula-uyan"] = "soyut" in r1
+    ok["uygula-uymayan"] = ("somut" in r2) and ("somut" in r3)
+
+    # (4) defter
+    led = {}
+    try:
+        led = json.loads(Path("runs/operators_self.json").read_text(encoding="utf-8"))
+    except Exception:
+        led = {}
+    ms = led.get("self_measurements") or []
+    ok["defter-kalıp"] = bool(ms) and (ms[-1].get("spec") or {}).get("kind") == "suffix_pattern" \
+        and ms[-1].get("origin") == "kendi"
+
+    # (5) insan rejistrisi
+    ok["insan-sabit"] = hashlib.sha256(reg.read_bytes()).hexdigest() == h0 \
+        and len(AP.OPERATORS) == 9
+
+    # (6) ortak kalıp yoksa yazma yok: pozitifler farklı sessizle bitiyor
+    g2 = NoraAGI(seed=892, boot_thinker=False)
+    g2.step_life(100)
+    r4 = tr_lower(strip_prefixes(g2.converse(
+        "Kural çıkar: kitaplık=soyut, tuzsuz=soyut, kalemsiz=soyut, evsiz=soyut, "
+        "portakal=somut, masa=somut, deniz=somut")))
+    ok["kalıpsız-ret"] = g2.forge.adopted is None and ("çıkmıyor" in r4 or "kalmadı" in r4)
+
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), (f"{passed}/{len(ok)} — {detail} | "
+                               f"kalıp={spec.get('arg')} kural={getattr(rule, 'feature', None)}")
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -3744,6 +3815,7 @@ TESTS = {
     "A85": ("operatörü kim yazdı: insan sabit, Nora örneklerden kendi yazıyor", a85_operator_oz_yazimi),
     "A86": ("kendi operatörünü çürütme: veri yalanlarsa kural düşer", a86_kendi_operatorunu_duzeltme),
     "A87": ("ölçüm icadı: hiçbir ölçüm ayırmıyorsa yeni ölçüm yazılır", a87_olcum_icadi),
+    "A88": ("ünlü uyumlu ek kalıbı: -lık/-lik/-luk/-lük tek morfem", a88_unlu_uyumlu_kalip_icadi),
     "A70": ("kendi çıkarımı: kimse söylemeden türetme + iç monolog", a70_own_inference_and_monologue),
     "A69": ("söz biçimi çeşitliliği, soru alışkanlığının kırılması ve kendi derdi", a69_speech_shape_variety_and_self_interest),
     "A68": ("kulak yolu: ses olayı, gürültüde eksik duyma, etiketsiz kimlik", a68_ear_path_perception),

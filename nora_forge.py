@@ -305,6 +305,28 @@ class OperatorForge:
                 return pre
         return ""
 
+    @staticmethod
+    def _harmonized(s: str) -> str:
+        """Ünlüleri 'v' ile değiştir: -lık/-lik/-luk/-lük aynı kalıba insin."""
+        from nora_apply import VOWELS
+        return "".join("v" if ch in VOWELS else ch for ch in str(s or "").lower())
+
+    def _pattern_suffix(self, pos: list[str], neg: list[str]) -> str:
+        """Ortak ÜNLÜ-UYUMLU son ek kalıbı ('lVk'). En az bir sessiz içermeli."""
+        hs = [self._harmonized(w) for w in pos]
+        if not hs:
+            return ""
+        first = hs[0]
+        # Somut son ek zaten denendi; kalıp ancak ONU GEÇEN bir şeyse anlamlı.
+        for n in range(min(len(first), 8), 1, -1):
+            pat = first[-n:]
+            if not any(ch not in "v" for ch in pat):
+                continue     # yalnız ünlülerden oluşan "kalıp" ölçüm değildir
+            if all(h.endswith(pat) for h in hs[1:]) and \
+                    not any(self._harmonized(w).endswith(pat) for w in neg):
+                return pat
+        return ""
+
     def _invent(self, ex) -> list[Hypothesis]:
         """Veriden YENİ ÖLÇÜM türet: ortak son ek / ön ek / yalnız bir sınıfta olan harf.
 
@@ -342,6 +364,14 @@ class OperatorForge:
         pre = self._common_prefix(pos)
         if pre and not any(t.lower().startswith(pre) for t in neg):
             add("prefix", pre, f"'{pre}' ile başlangıç")
+        # ÜNLÜ UYUMU: somut son ek tutmuyorsa KALIBI dene (`lık|lik|luk|lük` -> `lVk`).
+        # Somut ek zaten eklendiyse kalıp onun genellemesidir; ikisi AYNI veriyi açıklarsa
+        # aday ikiye çıkar ve sistem dürüstçe belirsiz der. Bu yüzden kalıp yalnız somut
+        # ek BULUNAMADIĞINDA denenir.
+        pat = "" if suf else self._pattern_suffix(pos, neg)
+        if pat:
+            add("suffix_pattern", pat, "'-" + pat.replace("v", "V") + "' kalıbı")
+
         letters = set("".join(pos).lower())
         for ch in sorted(letters):
             if not ch.isalpha():

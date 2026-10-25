@@ -326,7 +326,11 @@ class SpeechStyle:
                 "İçimden şu geçti:", "İçimden şu geçti")
         t = (text or "").strip()
         for _ in range(4):
-            hit = next((p for p in pres if t.startswith(p)), None)
+            # KÜÇÜK HARF DUYARSIZ: monolog satırı küçük harfe çevrilerek saklanıyor;
+            # büyük/küçük farkı yüzünden giriş sıyrılmazsa cümle "içimden … kendi
+            # kendime …" diye iki girişle çıkıyordu (yankı).
+            low = t.lower()
+            hit = next((p for p in pres if low.startswith(p.lower())), None)
             if not hit:
                 break
             t = t[len(hit):].strip()

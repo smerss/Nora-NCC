@@ -1051,3 +1051,75 @@ Bacaklar: `ölçüm-icadı`, `söz-icat`, `uygula-var`, `uygula-yok`, `defter-ö
 | `nora_audit.py --check` | **1122** / SÖYLEM 127 — artış yok |
 | operatör / prior türü | 9 / 66 = **7.33** (tavan 7.50) |
 | yazım sayacı | insan **9** (sabit) · kendi operatör **artıyor** · icat edilen ölçüm **artıyor** |
+
+
+---
+
+## Aşama X — Ünlü uyumu kalıbı: `-lık/-lik/-luk/-lük` dört ek değil, TEK morfem (`A88`)
+
+Aşama W'de icat edilen ölçüm somut bir son ekti (`'lik' ile bitiş`). Türkçe'de asıl birim
+kalıptır: `-lık`, `-lik`, `-luk`, `-lük` aynı ekin ünlü uyumuna girmiş biçimleridir. Bu turda
+Nora, örnekler karışık ünlüyle geldiğinde **ünlüleri `V` ile soyutlayıp** kalıbı kendisi
+çıkarıyor.
+
+### X1. Ne yapıldı
+
+| parça | yer | işlev |
+|---|---|---|
+| `suffix_pattern` ölçüm türü | `nora_apply.feature_spec_fn` | son `n` harf `[sessiz]V[sessiz]…` kalıbına uyuyor mu |
+| `_harmonized` | `nora_forge.py` | ünlüleri `v` yapar: `lık/lik/luk/lük` → `lvk` |
+| `_pattern_suffix` | `nora_forge.py` | ortak ÜNLÜ-UYUMLU son eki arar; en az bir sessiz şart |
+| sıra kuralı | `_invent` | somut son ek bulunduysa kalıp **denenmez** (aynı veriyi iki aday açıklamasın) |
+
+Kalıp da `feature_spec` ile kuralın içinde taşınır; başka oturumda kendini yeniden kurar.
+
+### X2. Ölçüm (A88, 7/7)
+
+```
+S: Kural çıkar: kitaplık=soyut, tuzluk=soyut, güzellik=soyut, bolluk=soyut,
+   portakal=somut, masa=somut, deniz=somut
+N: Bu veride yerleşik ölçümlerin hiçbiri iki tarafı ayırmıyordu; yeni bir ölçüm icat
+   ettim: '-lVk' kalıbı. Kural: var -> soyut, yok -> somut. 7 örnek tutuyor.
+   Kayıt: insan 9, kendi 1.
+S: Kuralı uygula: 'kalemlik'
+N: Ölçtüm: 'kalemlik' için '-lVk' kalıbı -> var. Kurala göre: soyut.
+S: Kuralı uygula: 'sokak'
+N: ... '-lVk' kalıbı -> yok ... somut.
+```
+
+Bacaklar: `kalıp-icadı`, `söz-kalıp`, `uygula-uyan`, `uygula-uymayan`, `defter-kalıp`,
+`insan-sabit`, `kalıpsız-ret` (ortak kalıp da yoksa kural yazılmaz).
+
+### X3. Dürüst sınırlar
+
+- **Ünlü sınıfı ayrımı yok.** `V` her ünlüyü kabul eder; bu yüzden `-lAk` kalıbı `-lek`'e de
+  uyar. Gerçek ünlü uyumu (art/lik, düzlük/yuvarlaklık) modellenmedi — kalıp, uyumun
+  *varlığını* değil *yerini* ölçüyor.
+- **Ünsüz yumuşaması yok.** `kitap → kitab(ı)`, `ağaç → ağac(ı)`. Kalıp ham yüzeyle çalışır;
+  `-lVk` gibi eklerde bu sorun çıkmadı ama `-cA` gibi eklerde çıkar.
+- **Kalıp bir morfem olduğunu kanıtlamaz.** `-lVk` ile biten her sözcük o eki taşımıyor
+  olabilir; Nora bunu "verinin çürütebileceği bir kural" olarak tutuyor (A86 mekanizması).
+- **Uzunluk sabit.** Kalıp, en uzun ortak soyut son ektir; iç içe ekler (`-lIk-lAr`) için
+  ayrı bir ayrıştırma yok.
+
+### X4. Bu turda düşülen tuzak
+
+- **`kalıp` ≠ `kalıbı`.** Test, cevapta "kalıp" sözcüğünü arıyordu; Türkçe yumuşama yüzünden
+  cümlede "kalıbı" geçiyor ve test yanlış yere düşüyordu. Kural: **kökü değil gövdeyi ara**
+  (`kalıb`/`kalıp`).
+- **Küçük harfe çevrilen monolog yüzünden yankı.** Monolog satırı küçük harfe çevrilerek
+  saklandığı için büyük harfli giriş ("Kendi kendime şunu çıkardım:") sıyrılmıyor, cümle
+  "İçimden şu geçti: kendi kendime şunu çıkardım: …" diye iki girişle çıkıyordu. Sıyırma
+  artık **büyük/küçük duyarsız**.
+
+### X5. Bu turun sayıları
+
+| ölçüm | sonuç |
+|---|---|
+| `agi_battery.py` tam (`/tmp/agi15.txt`) | **88/88 GEÇTİ, 381.3 s** |
+| `A88` | **7/7** |
+| `A85 / A86 / A87` (regresyon) | **10/10 · 8/8 · 11/11** |
+| `heldout_battery.py` (dış) | **9/9** |
+| mühürlü setler | **4/4 · 4/4 · 4/4** |
+| `nora_audit.py --check` | **1122** / SÖYLEM 127 — artış yok |
+| operatör / prior türü | 9 / 66 = **7.33** (tavan 7.50) |
