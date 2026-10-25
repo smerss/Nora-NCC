@@ -122,7 +122,11 @@ def compare(report: dict, baseline: dict) -> dict:
         b = int((base_mods.get(name) or {}).get("adet", 0))
         d = int(rec["adet"]) - b
         if d > 0:
-            artan[name] = d
+            # MANDAL yalnızca SÖYLEM modüllerine uygulanır. Bilgi/örgü modüllerinde
+            # (broca, stem, knowledge …) cümle sayısı bilgi eklemekle doğal olarak artar;
+            # orası iskelet değil içeriktir. Genel tavan ise ayrıca (tarihsel) korunur.
+            if name in SOYLEM or name not in base_mods:
+                artan[name] = d
         elif d < 0:
             eksilen[name] = -d
     for name, rec in base_mods.items():

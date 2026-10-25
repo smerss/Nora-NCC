@@ -1,5 +1,5 @@
 {
-  "toplam": 1121,
+  "toplam": 1123,
   "soylem": 127,
   "modul": {
     "nora_agi.py": {
@@ -18,7 +18,7 @@
       "adet": 0
     },
     "nora_broca.py": {
-      "adet": 24
+      "adet": 26
     },
     "nora_broca_net.py": {
       "adet": 0

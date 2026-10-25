@@ -200,6 +200,10 @@ class Narrator:
         if self._already_said(key, txt):
             # Söyleyecek yeni bir yan kalmadıysa bunu saklamaz: sınırını söyler.
             txt = _frame(agi, "limit", {"head": txt.rstrip(".")}) or txt
+        # Cümle bitişi garanti: "… kullanılır Söylediğimde" gibi yapışma olmasın.
+        txt = str(txt).strip()
+        if txt and not txt.endswith((".", "?", "!")):
+            txt += "."
         _tag(agi, "fallback", 1)
         return self._remember(key, txt)
 

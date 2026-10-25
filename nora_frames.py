@@ -709,8 +709,8 @@ class ConstructionCortex:
         # 4) Karşı tarafa tek somut istek: sözcüğü öğret
         ask = self.rng.choice((
             f"{tr_capitalize(target)} ne demek, bunu öğrenmem gerek.",
-            f"{acc} bir cümlede kullansan anlarım; nasıl kullanılıyor?",
-            f"Bana {target} ile bir cümle söyle, oradan çıkarırım.",
+            f"{acc} bir cümlede duyarsam anlarım.",
+            f"{target} bir cümlede geçerse oradan çıkarırım.",
         ))
         return f"{tr_capitalize(body)}. {ask}"
 

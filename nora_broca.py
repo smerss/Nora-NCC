@@ -1799,20 +1799,17 @@ class GenerativeBrocaOrgan:
             raw_thought_nodes.append(f"TEŞEKKÜR[{schema_id}](rica+et -> güven+bağ+{v_str})")
 
         if "FAREWELL" in acts:
+            # İnsan vedası: sinaps/konsolidasyon dersi değil, sıcak bir kapanış.
             c_bye = self.syn.realize_verb(VerbSpec(verb_root="görüş", tense="AOR", person="1PL"))
-            v_cons = self.lex_sel.pick("VERB_CONSOLIDATE", chem)
-            c_fw = self.syn.realize_verb(VerbSpec(
-                verb_root=v_cons,
-                obj=NP("sinaps", poss=1, plural=True, case="ACC"),
-                loc=NP("uyku", case="LOC"),
-                pre_clause=self.syn.converb("biriktir", "erek", obj=NP("deneyim", case="NOM")),
-                tense="FUT", person="1SG",
-            ))
+            _fare = ("Sen gidince ben de içimde olanları düşünürüm.",
+                     "Ben de burada kalıp kendi kendime konuşurum.",
+                     "Konuştuklarımız bende kalır.")
+            _rngf = getattr(getattr(agi, "discourse", None), "random", None) or __import__("random")
             if schema_cx is not None:
-                clauses_out.append(schema_cx.transform_clauses(c_bye, c_fw, "", schema_id))
+                clauses_out.append(schema_cx.transform_clauses(c_bye, _rngf.choice(_fare), "", schema_id))
             else:
-                clauses_out.append(f"{tr_capitalize(c_bye)}. {tr_capitalize(c_fw)}.")
-            raw_thought_nodes.append(f"VEDA[{schema_id}](görüş+1PL -> uyku+sinaps+{v_cons})")
+                clauses_out.append(f"{tr_capitalize(c_bye)}. {_rngf.choice(_fare)}")
+            raw_thought_nodes.append(f"VEDA[{schema_id}](görüş+1PL)")
 
         # --- EDİM 4: Duygusal Empati (Köklerden -dık + Kavram Ağı Nedenselliği Sentezi!) ---
         if "EMPATHIZE" in acts and u["affect_tags"]:

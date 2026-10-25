@@ -365,17 +365,17 @@ class SpeechStyle:
 
     def _own_need(self, agi) -> str:
         """Kendi bedensel derdi — karşı tarafın sorusundan önce gelir."""
-        try:
-            visc = agi.nervous.felt_visceral_summary()
-        except Exception:
-            return ""
-        # Bedenin hangi dertleri GERÇEKTEN var? (yok/tok/None = yok)
-        active = []
-        for key, need in (("thirst_state", "thirst"), ("hunger_state", "hunger"),
-                          ("pain_state", "pain")):
-            v = str(visc.get(key, "") or "")
-            if v and v not in ("yok", "tok", "None"):
-                active.append(need)
+        # Bedenin hangi dertleri GERÇEKTEN var? Sürüş şiddeti ÖLÇÜLÜR; sıra ondan gelir.
+        # ("dengeli" bir dert değildir: eşiğin altındaki sürüş konuşmaz.)
+        drives = {}
+        for key, need in (("thirst_drive", "thirst"), ("hunger_drive", "hunger"),
+                          ("adelta_pain", "pain"), ("cfiber_ache", "pain")):
+            try:
+                v = float(getattr(agi.nervous, key, 0.0) or 0.0)
+            except Exception:
+                v = 0.0
+            drives[need] = max(drives.get(need, 0.0), v)
+        active = [k for k, v in sorted(drives.items(), key=lambda kv: -kv[1]) if v > 0.3]
         if not active:
             return ""
         return self._pick(agi, "style.need", {"need": active}, {}) or ""

@@ -368,7 +368,7 @@
       "priors": [
         {
           "id": "need.thirst",
-          "text": "Suyum azaldı; önce onu düşünmem gerek.",
+          "text": "Susadım; önce su içmem gerek.",
           "bias": 1.0,
           "when": {
             "eq": {
