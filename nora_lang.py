@@ -2543,6 +2543,20 @@ class WernickeComprehender:
         if len(words) < 2:
             return SemanticFrame(kind="chat", raw=s_raw)
 
+        # EMİR: "bana yardım et", "kapıyı aç", "bunu yap" — öğretilecek olgu değil, istektir.
+        _last_w = words[-1]
+        _IMP = {"et", "yap", "gel", "git", "bak", "aç", "kapat", "söyle", "anlat", "ver", "al",
+                "dur", "başla", "kalk", "otur", "dinle", "oku", "yaz", "çiz", "göster", "bul"}
+        if _last_w in _IMP and len(words) >= 2:
+            return SemanticFrame(kind="command", raw=s_raw, rel=_last_w, obj=" ".join(words[:-1]))
+
+        # KENDİ BEDENİ: "canım sıkılıyor", "karnım ağrıyor", "başım dönüyor".
+        # Bu bir dünya olgusu değil, o anki hâldir; "canım sıkılır" diye genellenemez.
+        if words[0].endswith(("m", "ım", "im", "um", "üm")) and tr_lower(words[0]) in {
+                "canım", "karnım", "başım", "içim", "gözüm", "kolum", "bacağım", "dişim",
+                "boğazım", "midem", "sırtım", "elim", "ayağım", "yüreğim", "kalbim"}:
+            return SemanticFrame(kind="chat", raw=s_raw, subj=words[0], sub_kind="own_state")
+
         # Değer bildiren cümleler ('su zararlıdır', 'bence su tehlikeli bir maddedir', 'su sağlığa zarar verir')
         pos_cues = {"faydalı", "faydalıdır", "besleyici", "besleyicidir", "güvenli", "güvenlidir", "iyidir", "şifalı", "şifalıdır", "yararlı", "yararlıdır"}
         neg_cues = {"zararlı", "zararlıdır", "zehirli", "zehirlidir", "tehlikeli", "tehlikelidir", "öldürücü", "öldürücüdür", "kötüdür"}

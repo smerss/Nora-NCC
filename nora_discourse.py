@@ -80,10 +80,53 @@ _NEG = ("yorgun", "kötü", "üzgün", "üzül", "kork", "ağrı", "acı", "sık
 _POS = ("güzel", "mutlu", "sevindim", "harika", "iyi", "keyif", "sevdim", "başardım",
         "teşekkür", "sağ ol", "bravo", "umut", "huzur", "neşe", "güldüm")
 _BORED = ("sıkıldım", "sıkılıyor", "canım sıkılıyor", "yalnızım", "tek başıma", "boşluk", "ne yapsam")
+# Kendi bedeninden söz eden iyelikli sözcükler: bunlar "bilinmeyen sözcük" değildir.
+_BODY_OWN = frozenset({
+    "canım", "karnım", "başım", "içim", "gözüm", "kolum", "bacağım", "dişim", "boğazım",
+    "midem", "sırtım", "elim", "ayağım", "yüreğim", "kalbim", "kulağım", "saçım", "tenim",
+    "bedenim", "nefesim", "sesim", "uykum", "iştahım", "gücüm", "hâlim", "halim",
+})
+
 _STOP = frozenset({"bir", "bu", "şu", "o", "ve", "ama", "çok", "daha", "ben", "sen", "biz", "siz",
                    "için", "gibi", "kadar", "ile", "de", "da", "ki", "mi", "mı", "mu", "mü", "ne",
                    "var", "yok", "beni", "bana", "seni", "sana", "bugün", "dün", "yarın", "şimdi",
                    "artık", "biraz", "hiç", "her", "bazı", "en", "çünkü", "eğer", "sonra", "önce"})
+
+
+def _pick_line(agi, kind: str, ctx: dict, slots: dict) -> str | None:
+    """Söz toplulukları alanından yarışla seç. Cümleler kodda değil, veride."""
+    try:
+        f = getattr(agi, "priors", None)
+        if f is None:
+            from nora_priors import default_field
+            f = default_field()
+        return f.pick(kind, ctx, slots, prov=getattr(agi, "provenance", None))
+    except Exception:
+        return None
+
+
+def _register(agi, meta: dict) -> str:
+    """Sıradaki söz hangi registerde? (izin isteme / kendi derdi / düz söz)
+
+    Ölçüt Nora'nın kendi hâli: merak, sıkılma, bilinmeyen. Ayrıca son sözlerde çok fazla
+    izin istediyse (köpek tonu) register kendi derdine çevrilir.
+    """
+    m = getattr(agi, "register", None)
+    cur = 0.5
+    try:
+        cur = float(getattr(getattr(agi, "chem", None), "da", 0.5))
+    except Exception:
+        pass
+    unknown = bool(meta.get("unknown"))
+    bored = bool(meta.get("bored"))
+    if m is None:
+        if bored or unknown:
+            return "want"
+        return "ask" if cur < 0.62 else "want"
+    try:
+        return m.recommend(curiosity=cur, bored=bored, unknown=unknown)
+    except Exception:
+        return "want"
 
 
 def _cap(text: str) -> str:
@@ -187,6 +230,8 @@ class DiscourseCortex:
             for w in content:
                 if w in _FUNCTION or w in known:
                     continue
+                if w in _BODY_OWN:
+                    continue      # "canım sıkılıyor" bir bilinmeyen sözcük değil, bir hâldir
                 _a = _M.analyze_word(w, known)
                 if _a.get("is_verb") or _a.get("case") not in (None, "NOM") or _root_in_lexicon(w, known):
                     continue      # çekimli fiil/hâl ekli sözcük ya da tanıdık kök: "bilmiyorum" sahtelik olur
@@ -726,8 +771,8 @@ class DiscourseCortex:
                     break
             q = self._fresh(tuple(_qn) + (
                 "Nasıl geçti?", "Bu seni nasıl etkiledi?", "En çok hangi yanı kaldı aklında?",
-                "Devamını merak ediyorum, anlatır mısın?", "O an ne hissettin?",
-                "Bunu bana biraz daha açar mısın?",
+                "Devamını merak ediyorum.", "O an ne hissettin?",
+                "Bunu biraz daha anlatsan iyi olur.",
             ))
             text = f"{lead} {q}"
         elif act == "SHARE_FEELING":
@@ -832,7 +877,7 @@ class DiscourseCortex:
             topic = obj or "bir şey"
             ask = self._fresh((
                 f"{topic} önerebilmem için neyi sevdiğini bilmem gerek. Neyden hoşlanırsın?",
-                f"Elimde {topic} hakkında yeterince deneyim yok; sen bana bir tane anlatır mısın?",
+                f"Elimde {topic} hakkında yeterince deneyimim yok; anlatsan iyi olur.",
                 f"{topic} konusunda senin zevkini bilmiyorum. Son beğendiğin neydi?",
             ))
             return ask
@@ -921,15 +966,13 @@ class DiscourseCortex:
 
     def _speak_quote_ask(self, raw: str, meta: dict, agi) -> str:
         quote = raw.strip().rstrip(".!?…")
-        # Alıntı birebir: çekim hatası imkânsız, insanın "öyle mi dedin" refleksi
-        ask = self.random.choice((
-            "bunu biraz açar mısın?",
-            "senin için en çok hangi yanı ağır?",
-            "neden şimdi aklına geldi?",
-            "anlat bakalım, dinliyorum.",
-            "bunu duyunca içimde bir şey kıpırdadı; devamını anlatır mısın?",
-        ))
-        return f"“{quote}” dedin; {ask}"
+        # Alıntı birebir: çekim hatası imkânsız, insanın "öyle mi dedin" refleksi.
+        # Karşılık artık izin istemez: register "want" ise kendi derdini beyan eder.
+        reg = _register(agi, meta)
+        tail = _pick_line(agi, "discourse.quote_tail", {"register": reg}, {})
+        if not tail:
+            tail = "bunu merak ediyorum."
+        return f"“{quote}” dedin; {tail}"
 
     def _speak_concept_peek(self, raw: str, meta: dict, agi) -> str | None:
         graph = getattr(getattr(agi, "lang", None), "graph", None)
@@ -964,7 +1007,9 @@ class DiscourseCortex:
         if not cands:
             return None
         w = cands[0]
-        return f"“{w}” sözcüğünü henüz bilmiyorum; bana tek bir cümleyle öğretir misin?"
+        reg = _register(agi, meta)
+        line = _pick_line(agi, "discourse.unknown", {"register": reg}, {"w": w})
+        return line or f"“{w}” sözcüğünü bilmiyorum."
 
     def _speak_empathize(self, raw: str, meta: dict, agi) -> str | None:
         # Duygudaşlık YALNIZCA karşıdaki bir hâl bildirdiğinde anlamlıdır: nötr bir soruya
@@ -981,31 +1026,23 @@ class DiscourseCortex:
                     heavy = False
             except Exception:
                 pass
-        if heavy:
-            body = self.random.choice(("içim ağırlaştı", "içimde bir düğüm oldu", "içim burkuldu"))
-            tail = self.random.choice(("yanındayım.", "burada kalalım biraz.", "anlat, dinliyorum."))
-            return f"Bunu duyunca {body}; {tail}"
-        body = self.random.choice(("içim kıpırdadı", "içim hafifledi", "sevindim"))
-        return f"Bunu duyunca {body}. {tr_capitalize(self.random.choice(('anlat', 'devam et', 'seni dinliyorum')))}."
+        # Karşılık artık veriden: register "want" ise kendi derdini de söyler, izin istemez.
+        reg = _register(agi, meta)
+        line = _pick_line(agi, "discourse.empathize",
+                          {"valence": "neg" if heavy else "pos", "register": reg}, {})
+        return line or ("Bunu duyunca içim ağırlaştı; yanındayım." if heavy else "Bunu duyunca içim hafifledi.")
 
     def _speak_offer(self, raw: str, meta: dict, agi) -> str:
-        if agi is not None and meta["bored"]:
-            c = self.random.choice(("küçük bir oyun", "birlikte bir hikâye", "bir soru", "bir deney"))
-            return f"İstersen {c} kuralım; ben başlayabilirim."
-        return "Birlikte bir şey düşünelim istersen; aklıma bir soru geldi."
+        # Hizmet teklifi değil, kendi can sıkıntısından doğan ortak iş.
+        c = self.random.choice(("küçük bir oyun", "birlikte bir hikâye", "bir soru", "bir deney"))
+        line = _pick_line(agi, "discourse.offer", {"bored": bool(meta.get("bored"))}, {"c": c})
+        return line or "Aklıma bir soru geldi; onu düşünüyorum."
 
     def _speak_wonder(self, raw: str, meta: dict, agi) -> str:
         quote = raw.strip().rstrip("?.!…")
-        c = meta["content"][0] if meta["content"] else "bu"
-        if meta.get("question"):
-            return self.random.choice((
-                f"“{quote}” diye sordun; bunu tam çözemedim, biraz açar mısın?",
-                f"“{quote}” — bu sorunun ardında ne var, merak ettim.",
-            ))
-        return self.random.choice((
-            f"{tr_capitalize(c)} neden şimdi aklında?",
-            f"“{quote}” dedin; tam olarak neyi kastettiğini çözemedim, biraz açar mısın?",
-        ))
+        reg = _register(agi, meta)
+        line = _pick_line(agi, "discourse.wonder", {"register": reg}, {"q": quote})
+        return line or f"“{quote}” sorusu bende yarım kaldı."
 
     def _speak_ack(self, raw: str, meta: dict, agi) -> str:
         return self.random.choice(("Seni duyuyorum.", "Buradayım, dinliyorum.", "Duyuyorum seni."))

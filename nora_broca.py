@@ -1833,11 +1833,11 @@ class GenerativeBrocaOrgan:
                 # Ders değil soru: karşıdaki yorgunken ansiklopedi maddesi okunmaz, hâli sorulur.
                 try:
                     c_emp2 = agi.discourse._fresh((
-                        "Ne zamandır böyle?", "Bugün ne oldu?", "Anlatmak ister misin?",
-                        "Yanında olmamı ister misin?", "Biraz yavaşlayalım mı?",
+                        "Ne zamandır böyle?", "Bugün ne oldu?", "Anlatsan iyi olur.",
+                        "Yanındayım.", "Biraz yavaşlayalım.",
                     ))
                 except Exception:
-                    c_emp2 = "Anlatmak ister misin?"
+                    c_emp2 = "Anlatsan iyi olur."
                 welcome = ""
                 if "okul" in s_low and any(k in s_low for k in ("döndüm", "geldim")):
                     addr_w = f" {uname}" if (uname and not vocative_prefix) else ""
@@ -1852,14 +1852,12 @@ class GenerativeBrocaOrgan:
                 raw_thought_nodes.append(f"EMPATİ({v_root}+2SG+DIK -> {v_emp}; soru -> {c_emp2})")
             else:
                 chem.da_phasic = float(np.clip(chem.da_phasic + 0.22, -1.0, 1.0))
-                dik_obj = self.syn.nominalize_dik(v_root, poss=2, case="DAT")
-                c_joy = self.syn.realize_verb(VerbSpec(
-                    verb_root="artır",
-                    subj=NP(n_root, poss=2),
-                    obj=NP("enerji", poss=1, mods=("dopamin", "öğrenme"), case="ACC"),
-                    tense="PRES", person="3SG",
-                ))
-                clauses_out.append(tr_capitalize(c_joy) + ".")
+                # İnsan sözü: "mutluluğun dopamin enerjimi artırıyor" demez, "sevindim" der.
+                # Sevinç karşısındakinin hâlinden gelir; ölçüm değil, karşılıktır.
+                _joy = ("Senin adına sevindim", "Bunu duyunca içim açıldı",
+                        "İyi geliyor bunu duymak")
+                _rngj = getattr(getattr(agi, "discourse", None), "random", None) or __import__("random")
+                clauses_out.append(_rngj.choice(_joy) + ".")
                 raw_thought_nodes.append(f"SEVİNÇ_EMPATİSİ({n_root}+2SG -> dopamin+artır)")
 
         # --- EDİM 5: O(1) Epizodik Diyalog Anısı Geri Çağırma ---

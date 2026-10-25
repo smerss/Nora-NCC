@@ -221,7 +221,7 @@ class InitiativeCortex:
         shapes = [
             lambda: SYN.realize_verb(VerbSpec(verb_root="merak et", obj=NP(topic, case="ACC"),
                                               tense="PRES", person="1SG")),
-            lambda: f"{tr_capitalize(topic)} hakkında hiçbir şey bilmiyorum; bana anlatır mısın?",
+            lambda: f"{tr_capitalize(topic)} hakkında hiçbir şey bilmiyorum; anlatsan iyi olur.",
             lambda: SYN.realize_verb(VerbSpec(verb_root="iste", obj=SYN.nominalize_inf("bil", obj=NP(topic, case="ACC")),
                                               tense="PRES", person="1SG")),
         ]

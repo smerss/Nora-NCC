@@ -1,6 +1,6 @@
 {
-  "toplam": 1125,
-  "soylem": 133,
+  "toplam": 1121,
+  "soylem": 127,
   "modul": {
     "nora_agi.py": {
       "adet": 183
@@ -18,7 +18,7 @@
       "adet": 0
     },
     "nora_broca.py": {
-      "adet": 22
+      "adet": 24
     },
     "nora_broca_net.py": {
       "adet": 0
@@ -33,7 +33,7 @@
       "adet": 5
     },
     "nora_discourse.py": {
-      "adet": 68
+      "adet": 58
     },
     "nora_ear.py": {
       "adet": 6
@@ -48,7 +48,7 @@
       "adet": 20
     },
     "nora_frames.py": {
-      "adet": 31
+      "adet": 32
     },
     "nora_gw.py": {
       "adet": 0
@@ -97,6 +97,9 @@
     },
     "nora_provenance.py": {
       "adet": 0
+    },
+    "nora_register.py": {
+      "adet": 3
     },
     "nora_self.py": {
       "adet": 2

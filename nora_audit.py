@@ -48,7 +48,7 @@ SOYLEM = {
     "nora_style.py", "nora_meta.py", "nora_anlatim.py", "nora_discourse.py",
     "nora_frames.py", "nora_monologue.py", "nora_initiative.py",
     "nora_deliberation.py", "nora_self.py", "nora_speculation.py",
-    "nora_selfexam.py",
+    "nora_selfexam.py", "nora_register.py",
 }
 
 
