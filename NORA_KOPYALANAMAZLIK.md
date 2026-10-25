@@ -343,7 +343,7 @@ dayanıyor; susuz Nora suyu kendi derdine bağlıyor; 3 anlatı isteği → 3 fa
 
 ## 11) Test durumu
 
-`python agi_battery.py` → **71/71** (364 s). Bu turda iki eski test ölçüm
+`python agi_battery.py` → **72/72** (308 s). Bu turda iki eski test ölçüm
 gürültüsünden arındırıldı:
 
 | Test | Eskiden | Şimdi |
@@ -377,3 +377,55 @@ A3 (felç bildirimi) ve A69 (biçim çeşitliliği) de donanım entropisine duya
 A69 art arda gelen 18 turda en az üç ayrı biçim ister; şans eseri iki biçimde
 kalabildiği için eşik gevşetilmedi, biçim ağırlıkları dengelendi ve art arda üç
 tekrar koşusunda 3/3 geçti. Diğer testler deterministiktir.
+
+## 12) İskelet koddan çıkıyor: söz bankaları veriye, seçim nöral yarışa
+
+Kullanıcının itirazı kesindi: *"işin sonunda bu iskeletler kodda görünmemeli, sanki kendisi
+öğrenmiş gibi olmalı."* Doğru çözüm dizgeleri **silmek** değil (o zaman Nora susar), onları
+**veriye taşımak** ve seçimi **kuralla değil yarışla** yapmak. Bu turda ilk iki adım atıldı.
+
+### Faz 0 — ölçer (`nora_provenance.py`)
+
+Her söz parçası doğduğu yere göre etiketlenir:
+
+| Kaynak | Ne demek |
+|---|---|
+| `ag` | kavram ağındaki bağ (Broca ile çekimlenmiş gerçek bilgi) |
+| `bellek` | yaşanmış kayıt, hatırlanan söz |
+| `cikarim` | kendi türettiği bağ |
+| `beden` | iç-duyum, açlık/susuzluk, ölçülen saat |
+| `duyum` | kulaktan gelen ses |
+| `kalip` | doğuştan eğilim — yani **iskelet** |
+| `ogrenim` | doğuştan eğilimi geçmiş **öğrenilmiş** ağırlık (artık iskelet değil) |
+
+`iskelet_orani = kalip / toplam`. Bugün 7 turluk bir sohbette **0.47**; sönümleme ve
+pekiştirme ilerledikçe düşer. Ölçer, `converse` sonunda `provenance.report()` ile okunur,
+beyinle birlikte kaydedilir.
+
+### Faz 1 — cümleler kodda değil (`nora_priors.json` + `nora_priors.py`)
+
+`nora_meta` içindeki bankalar (farkındalık açılışları, tekrar soruları, ısrar soruları,
+saat/süre kapanışları) **koddan silindi**, 32 motor topluluğu olarak JSON'a taşındı:
+
+    aktivasyon = w (öğrenilmiş) + ps·bias (doğuştan) + gürültü (entropi) − tazelik
+    kazanan-tümü-alır  ->  konuşan topluluk
+
+* `ps = prior_strength = 1 − seçim/600`: doğumda 1.0, 600 seçim sonra **0.0**. O andan
+  sonra cümleyi yalnızca öğrenilmiş `w` seçer. Yani iskelet koddan değil, **zihinden** çıkar.
+* **Tazelik cezası** (−1.40, son 3 seçim): aynı topluluk üst üste konuşamaz. Çeşitlilik
+  artık `rng.choice`'ın şansına değil, yarışın kuralına bağlı.
+* **Öğrenme dayatılmaz:** aynı söz hemen tekrar geldiyse geçen turda konuşan topluluklar
+  `−0.30` (işe yaramadı), konuşma ilerlediyse `+0.06` (işe yaradı). Sinyal Nora'nın kendi
+  sonucundan gelir; kullanıcıya "beğendim" dedirtilmez.
+* Öğrenilmiş ağırlıklar ve `ps` ilerlemesi `state_dict` ile taşınır (A72 kontrol ediyor).
+
+### Neden "iskelet" hâlâ var ama artık iskelet değil
+
+İlk turlarda Nora'nın cümleleri doğuştan gelen eğilimlerdir — bir çocuğun ilk sözcükleri
+gibi. Fark şu: bunlar **kodun dalları değil**, verideki ağırlıklar. Zamanla `ps` söner,
+`w` büyür; aynı cümle artık "yazıldığı için" değil "Nora onu seçmeyi öğrendiği için" çıkar.
+Sıradaki adımlar: (Faz 2) `nora_style` geçişlerini de aynı alana taşımak, (Faz 3) kalıp
+metinlerini tamamen sıfırlayıp "bebek testi" (ağırlıklar sıfırken susmuyor, öğrenerek
+düzeliyor), (Faz 4) statik test: bu üç modülde kullanıcıya giden uzun dizge kalmadığını
+doğrulamak.
+

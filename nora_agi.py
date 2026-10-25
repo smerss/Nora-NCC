@@ -432,6 +432,20 @@ class NoraAGI:
             self.narrator = Narrator(seed=seed + 227)
         except Exception:
             self.narrator = None
+        # --- SÖZ ÖNCELERİ (doğuştan eğilim) + İSKELET ÖLÇERİ -------------------
+        # Cümleler artık kodda gömülü değil: `nora_priors.json` içinde motor toplulukları
+        # olarak yaşar, seçim rng.choice değil AKTİVASYON YARIŞIDIR (bkz. nora_priors).
+        # Doğuştan eğilim her seçimde söner; yerini Nora'nın kendi pekiştirdiği ağırlıklar alır.
+        try:
+            from nora_priors import PriorField
+            self.priors = PriorField(entropy=getattr(self, "entropy", None))
+        except Exception:
+            self.priors = None
+        try:
+            from nora_provenance import Provenance
+            self.provenance = Provenance()
+        except Exception:
+            self.provenance = None
         self.last_auditory = None
         self.audio_log: list = []
         self._prev_answers: dict[str, str] = {}
@@ -950,6 +964,16 @@ class NoraAGI:
                 _meta = self.acc.observe(raw, now)
             except Exception:
                 _meta = None
+        _prov0 = self.provenance.total if getattr(self, "provenance", None) is not None else 0
+        # ÖĞRENME SİNYALİ (dışarıdan dayatılmaz): aynı söz hemen tekrar geldiyse geçen turda
+        # konuşan topluluklar "işe yaramadı" diye zayıflar; konuşma ilerlediyse güçlenir.
+        # Doğuştan eğilim (ps) her turda biraz daha söner -> söz öğrenilmiş olur.
+        try:
+            if self.priors is not None:
+                self.priors.learn(repeated=_meta is not None)
+                self.priors.begin_turn()
+        except Exception:
+            pass
         ans = self._converse_core(_heard, _vid)
         # Ses defteri: bu sesle yaşanan güven, sesin kimliğine yazılır; dünyanın
         # kullandığı etiket yalnızca bir takma addır (eski sorgular için eşlenir).
@@ -1088,6 +1112,14 @@ class NoraAGI:
             yas=int(getattr(self.mind, "age", 0)),
             d=round(float(getattr(getattr(self, "entropy", None), "drift", 0.0) or 0.0), 6),
         )
+        # ÖLÇER: bu turda sözün kaç parçası etiketlendi? (iskelet oranı buradan düşer)
+        try:
+            if getattr(self, "provenance", None) is not None:
+                self.provenance.turns += 1
+                if self.provenance.total > _prov0:
+                    self.provenance.tagged_turns += 1
+        except Exception:
+            pass
         return ans
 
     def _converse_core(self, text: str, speaker: str = "insan") -> str:
@@ -1158,10 +1190,11 @@ class NoraAGI:
             "kaç dakika oldu", "kaç saat oldu", "ne kadar süre"))
         if self.acc is not None and (_clock_q or _elapsed_q):
             if _clock_q and not _elapsed_q:
-                _ans_t = compose_time_answer(0.0, kind="clock", rng=getattr(self.discourse, "random", None))
+                _ans_t = compose_time_answer(0.0, kind="clock", agi=self,
+                                             rng=getattr(self.discourse, "random", None))
             else:
                 _ans_t = compose_time_answer(self.acc.since_session(), len(self.dialogue_log),
-                                             kind="elapsed", steps=int(self.mind.age),
+                                             kind="elapsed", steps=int(self.mind.age), agi=self,
                                              rng=getattr(self.discourse, "random", None))
             self._log_turn(speaker, raw, _ans_t, t0)
             return _ans_t
@@ -3356,6 +3389,8 @@ class NoraAGI:
             "style": (self.style.state_dict() if getattr(self, "style", None) is not None else {}),
             "inference": (self.infer.state_dict() if getattr(self, "infer", None) is not None else {}),
             "anlatim": (self.narrator.state_dict() if getattr(self, "narrator", None) is not None else {}),
+            "priors": (self.priors.state_dict() if getattr(self, "priors", None) is not None else {}),
+            "provenance": (self.provenance.state_dict() if getattr(self, "provenance", None) is not None else {}),
         }
         # ATOMİK YAZMA: önce .tmp, sonra os.replace. Yazma yarıda kesilirse ESKİ sağlam
         # dosya yerinde kalır (tek satır kaybı bile olmaz; yarım beyin yüklenmez).
@@ -3435,6 +3470,13 @@ class NoraAGI:
                     agi.frames.memory.load_snapshot(meta.get("sentence_frames") or {})
                 except Exception:
                     pass
+        except Exception:
+            pass
+        try:
+            if getattr(agi, "priors", None) is not None:
+                agi.priors.load_state_dict(meta.get("priors") or {})
+            if getattr(agi, "provenance", None) is not None:
+                agi.provenance.load_state_dict(meta.get("provenance") or {})
         except Exception:
             pass
         if os.path.exists(path_prefix + ".voice.pkl.gz"):

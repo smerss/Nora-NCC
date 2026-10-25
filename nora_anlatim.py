@@ -48,6 +48,39 @@ from collections import Counter, deque
 from nora_lang import Proposition, tr_capitalize, tr_lower
 
 
+#: Her çerçevenin söz parçaları: kaç kavram ağı bağı + hangi bedensel/bilişsel kaynak.
+#: "kalip" her çerçevede 1'dir: cümlenin İSKELETİ (bağlayıcı, kalıp) tasarımdan gelir.
+_FRAME_TAGS = {
+    "_f_core":      {"ag": 2},
+    "_f_nominal":   {"ag": 1},
+    "_f_single":    {"ag": 1},
+    "_f_heard":     {"ag": 1},
+    "_f_body":      {"ag": 1, "beden": 1},
+    "_f_memory":    {"ag": 1, "bellek": 1},
+    "_f_inference": {"ag": 1, "cikarim": 1},
+    "_f_order":     {"ag": 2},
+}
+
+
+def _tag(agi, name: str, edges: int = 0) -> None:
+    """Anlatımın kaynağını iskelet ölçerine yaz (O(1), hata sessiz)."""
+    try:
+        m = getattr(agi, "provenance", None)
+        if m is None:
+            return
+    except Exception:
+        return
+    try:
+        spec = dict(_FRAME_TAGS.get(name) or {})
+        if not spec:
+            spec = {"ag": max(1, int(edges))}
+        m.record("kalip", 1)
+        for src, k in spec.items():
+            m.record(src, int(k))
+    except Exception:
+        pass
+
+
 def _verbal_to_inf(obj: str) -> str:
     """"susuzluk giderme" -> "susuzluk gidermek", "bilgi aktarma" -> "bilgi aktarmak"."""
     o = (obj or "").strip()
@@ -115,6 +148,7 @@ class Narrator:
         if first_time and not force and core_text and not self._already_said(key, core_text):
             for rel, obj in e:
                 self._use_edge(key, rel, obj)
+            _tag(agi, "core", len(e))
             return self._remember(key, core_text)
 
         # Çerçeve sırası her turda kayar: aynı çerçeve üst üste gelmez.
@@ -135,6 +169,7 @@ class Narrator:
                 text += "."
             if self._already_said(key, text):
                 continue
+            _tag(agi, getattr(build, "__name__", ""), len(e))
             return self._remember(key, text)
 
         # Bütün çerçeveler tükendi: en az kullanılan bağa dön, ama cümleyi yeniden kur.
@@ -145,6 +180,7 @@ class Narrator:
         if self._already_said(key, txt):
             # Söyleyecek yeni bir yan kalmadıysa bunu saklamaz: sınırını söyler.
             txt = f"{txt.rstrip('.')}; ötesini henüz bilmiyorum."
+        _tag(agi, "fallback", 1)
         return self._remember(key, txt)
 
     # ------------------------------------------------------------------ yardımcı cümle

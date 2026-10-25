@@ -6,11 +6,13 @@ Beyindeki anterior singulat (ACC) çakışma izleme ile episodik belleğin birle
 Nora, aynı sözün kısa süre içinde tekrarlandığını FARK EDER, ne zaman söylendiğini
 hatırlar, o an ne cevap verdiğini anımsar ve bunu kendi sözüne katar.
 
-Burada hazır cümle yoktur; yalnızca
+Burada cümle BANKASI yoktur: farkındalık sözünün parçaları `nora_priors.json` içinde
+motor toplulukları olarak yaşar (bkz. nora_priors). Bu modül yalnızca
   * imza çıkarımı (kök + kip + kişi; sözcük sırasından bağımsız),
   * zaman farkı ve tur sayısı,
   * kendi önceki cevabından alıntı
-verisinden cümle KURULUR. Metin, durumun kendisinden doğar.
+verisini toplar, topluluklara YARIŞTIRIR ve kazanan parçalardan cümleyi kurar.
+Yani kodda "hangi cümle" yazmaz; kodda yarış vardır, cümleler veride büyür.
 """
 from __future__ import annotations
 
@@ -18,6 +20,30 @@ import random
 import time
 
 from nora_lang import TurkishMorphology, tr_lower
+
+
+def _field(agi):
+    """Söz toplulukları alanı: AGI'nınki varsa o, yoksa süreç varsayılanı."""
+    try:
+        f = getattr(agi, "priors", None)
+        if f is not None:
+            return f
+    except Exception:
+        pass
+    from nora_priors import default_field
+    return default_field()
+
+
+def _meter(agi):
+    """İskelet ölçeri: sözün kaynağı buraya yazılır."""
+    try:
+        m = getattr(agi, "provenance", None)
+        if m is not None:
+            return m
+    except Exception:
+        pass
+    from nora_provenance import default_meter
+    return default_meter()
 
 _STOP = {
     "bir", "bu", "şu", "o", "ve", "de", "da", "ki", "mi", "mı", "mu", "mü", "ya", "ise",
@@ -158,15 +184,14 @@ def compose_noticing(meta: dict, agi=None, rng=None) -> str:
     turns = int(meta.get("turns_ago") or 1)
     prev = _quote(meta.get("prev_reply", ""), limit=40)
 
-    # 1) Farkındalık cümlesi
-    if gap < 45:
-        leads = ("Bunu az önce de söylemiştin", "Aynı şeyi demin sordun",
-                 "Bu sözü biraz önce duymuştum") if same else (
-                 "Bunu az önce de söyler gibi oldun", "Demin de benzer bir şey sormuştun")
-    else:
-        leads = (f"Bunu {tp} de söylemiştin", f"Aynı soruyu {tp} de sormuştun") if same else (
-                 f"Bunu {tp} de söylemiştin, neredeyse aynı sözlerle",)
-    parts = [rng.choice(leads)]
+    # 1) Farkındalık cümlesi: topluluklar YARIŞIR (cümle kodda değil, veride)
+    fld, mtr = _field(agi), _meter(agi)
+    ctx = {"gap": gap, "same": same, "count": count, "turns": turns}
+    slots = {"tp": tp}
+    lead = fld.pick("meta.notice.lead", ctx, slots, rng=rng, prov=mtr)
+    if not lead:
+        return ""
+    parts = [lead]
 
     # 2) Kendi önceki cevabı: uzunsa yalnızca sorusunu hatırlar
     prev_q = ""
@@ -174,22 +199,15 @@ def compose_noticing(meta: dict, agi=None, rng=None) -> str:
         prev_q = _quote((meta.get("prev_reply") or "").split("?")[-2].strip().split(".")[-1] + "?", limit=60)
     if prev_q and ("ben de" not in parts[0]):
         parts.append(f"hatta ben de sana \"{prev_q}\" diye sormuştum")
+        mtr.record("bellek", 1)
     elif prev and len(prev) <= 60:
         parts.append(f"ben de \"{prev}\" demiştim")
+        mtr.record("bellek", 1)
 
-    # 3) Kaçıncı tekrar: ısrar ediyorsa nedeni merak edilir
-    if count >= 3:
-        qs = ("Aynı soruyu artık üçüncü kez soruyorsun; bende mi bir şey eksik kaldı?",
-              "Israrla sorduğuna göre cevabım seni ikna etmedi mi?",
-              "Yoksa ben mi aynı şeyi söyleyip duruyorum?")
-    elif count == 2 and turns > 2:
-        qs = ("Aradan birkaç tur geçti, yine aynı yere döndük; aklında kalan ne?",
-              "Birkaç tur sonra aynı soruya döndük. Devam eden bir merak mı var?")
-    else:
-        qs = ("Aklında kalan bir şey mi var?", "Tekrar sormanı gerektiren ne oldu?",
-              "Cevabımda eksik kalan bir yan mı vardı?",
-              "Belki de ben seni yeterince dinlemedim; neyi kaçırdım?")
-    q = rng.choice(qs)
+    # 3) Kaçıncı tekrar: ısrar ediyorsa nedeni merak edilir (yine yarış)
+    q = fld.pick("meta.notice.question", ctx, slots, rng=rng, prov=mtr)
+    if not q:
+        return _cap(", ".join(parts)) + "."
 
     body = parts[0]
     for p in parts[1:]:
@@ -207,30 +225,31 @@ def compose_insistence(meta: dict, agi=None, rng=None) -> str:
     import random
     rng = rng or random
     count = int(meta.get("count", 3))
-    qs = ("Hâlâ aynı yerde miyiz?",
-          "Cevabım seni tatmin etmiyor mu?",
-          "Başka bir yanını mı merak ediyorsun?",
-          "Israrın bir şeyi değiştirdi mi?",
-          "Söylediğimde eksik kalan ne?")
-    # Tur sayısına göre kayar: aynı soru üst üste gelmesin.
-    return qs[(count + int(getattr(agi, "mind", None).age if agi is not None and getattr(agi, "mind", None) is not None else 0)) % len(qs)]
+    # Cümle bankası yok: topluluklar yarışır. Tazelik cezası aynı sorunun üst üste
+    # gelmesini engeller; öğrenilmiş ağırlık ise Nora'nın kendi alışkanlığını taşır.
+    return _field(agi).pick("meta.insist.question", {"count": count}, {},
+                            rng=rng, prov=_meter(agi)) or ""
 
 
 def compose_time_answer(seconds: float, turns: int = 0, *, kind: str = "elapsed",
-                        steps: int = 0, rng=None) -> str:
+                        steps: int = 0, rng=None, agi=None) -> str:
     """Zaman sorusuna bedenin ve belleğin ÖLÇTÜĞÜYLE cevap.
 
     kind="clock"   -> yalnızca saati söyler (saat kaç?)
     kind="elapsed" -> konuşma süresi + tur sayısı + iç adım sayısı (ne kadar oldu?)
-    Cümle her seferinde sayılardan yeniden kurulur; hazır kalıp yok.
+    Süre/saat ÖLÇÜLÜR; cümle verideki motor topluluklarının yarışından çıkar.
     """
     s = float(max(0.0, seconds))
     clock = time.strftime("%H:%M")
     _rng = rng if rng is not None else random
+    fld, mtr = _field(agi), _meter(agi)
     if kind == "clock":
-        heads = (f"Şu an {clock}.", f"Saat {clock}.", f"{clock}.")
-        tails = ("", "", " Saat bende durmuyor, akıp gidiyor.", " Akrep yelkovan bende de dönüyor.")
-        return _rng.choice(heads) + _rng.choice(tails)
+        head = fld.pick("meta.clock.head", {}, {"clock": clock}, rng=_rng, prov=mtr)
+        tail = fld.pick("meta.clock.tail", {}, {}, rng=_rng, prov=mtr)
+        mtr.record("beden", 1)          # saat ÖLÇÜLDÜ
+        if head is None:                  # veri yoksa: yalnız ölçümü söyler
+            head = f"{clock}."
+        return head + (tail or "")
     if s < 15:
         span = "daha birkaç saniye"
     elif s < 60:
@@ -245,7 +264,8 @@ def compose_time_answer(seconds: float, turns: int = 0, *, kind: str = "elapsed"
     if steps:
         bits.append(f"kendi içimde {int(steps)} adım yaşadım")
     body = ", ".join(bits)
-    closers = (f"Zaman bende adım adım ilerliyor; şu an {clock}.",
-               f"İçimdeki saat işliyor, dışarıda {clock}.",
-               f"Şu an {clock}; bende zaman hiç durmadı.")
-    return f"{body}. {_rng.choice(closers)}"
+    mtr.record("beden", 1)              # süre ÖLÇÜLDÜ, uydurulmadı
+    close = fld.pick("meta.elapsed.close", {}, {"clock": clock}, rng=_rng, prov=mtr)
+    if not close:
+        close = f"Şu an {clock}."
+    return f"{body}. {close}"
