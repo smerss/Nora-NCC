@@ -962,8 +962,12 @@ class NoraAGI:
                 try:
                     from nora_lang import tr_lower as _tl
                     _t = _tl(getattr(_mq, "target", "") or "")
-                    _recent = " ".join(_tl(str(t[1])) for t in self.dialogue_log[-6:])
-                    if _t and _t in _recent:
+                    _now = _tl(raw).strip(" ?.!")
+                    # Aynı soru TEKRAR sorulduysa bu bir söylem sorusu değil, aynı bilgi
+                    # boşluğudur: korteks yanıtlar (tekrar farkındalığı ayrıca eklenir).
+                    _others = [_tl(str(t[1])) for t in self.dialogue_log[-6:]
+                               if _tl(str(t[1])).strip(" ?.!") != _now]
+                    if _t and any(_t in _o for _o in _others):
                         _mq = None
                 except Exception:
                     pass
@@ -989,6 +993,31 @@ class NoraAGI:
                     self._queue_structure(_ans_m)
                     self._log_turn(speaker, raw, _ans_m, t0)
                     return _ans_m
+
+        # SORU KILIGINDAKI RİCA ve ÖĞÜT İSTEMİ ('Kapıyı açar mısın?', 'Sence ne yapmalıyım?'):
+        # sözcük/tanım hattından ÖNCE gelir; çünkü asıl edim bir istektir, bilgi sorusu değil.
+        if getattr(self, "discourse", None) is not None:
+            _adv = _req_txt = ""
+            try:
+                _adv = self.discourse.respond_advice(raw, self) or ""
+            except Exception:
+                _adv = ""
+            if not _adv:
+                try:
+                    _req = self.discourse.request_of(
+                        raw, self.lang.morph, getattr(self.lang.graph, "lexicon", None))
+                    if _req:
+                        _req_txt = self.discourse.respond_request(_req, self) or ""
+                except Exception:
+                    _req_txt = ""
+            _act_txt = _adv or _req_txt
+            if _act_txt:
+                _act_txt = tr_capitalize(_act_txt)
+                self._request_met = True
+                self._queue_structure(raw)
+                self._queue_structure(_act_txt)
+                self._log_turn(speaker, raw, _act_txt, t0)
+                return _act_txt
 
         # 0) Kendi kendine söylem genişlemesi ('X demek Y demektir' -> Plastik Kenyon Niyet Korteksi 1-atış öğrenir!)
         ok_eq, lhs_eq, intent_eq = self.plastic_discourse.try_self_supervised_equivalence(tr_lower(raw))
@@ -2864,6 +2893,7 @@ class NoraAGI:
             "life": self.life.state_dict(),
             "initiative": self.initiative.state_dict(),
             "discourse": self.discourse.state_dict(),
+            "sentence_frames": (self.frames.memory.snapshot() if getattr(self, "frames", None) else {}),
             "verb_roots": sorted(set(TurkishMorphology.LEARNED_VERB_ROOTS) | set(self.learned_verb_roots)),
         }
         with open(path_prefix + ".agi.json", "w", encoding="utf-8") as f:
@@ -2913,6 +2943,11 @@ class NoraAGI:
             agi.life.load_state_dict(meta.get("life") or {})
             agi.initiative.load_state_dict(meta.get("initiative") or {})
             agi.discourse.load_state_dict(meta.get("discourse") or {})
+            if getattr(agi, "frames", None) is not None:
+                try:
+                    agi.frames.memory.load_snapshot(meta.get("sentence_frames") or {})
+                except Exception:
+                    pass
         except Exception:
             pass
         if os.path.exists(path_prefix + ".voice.pkl.gz"):

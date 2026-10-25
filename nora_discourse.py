@@ -987,6 +987,29 @@ class DiscourseCortex:
         if not raw:
             return None
         self.turns += 1
+        # SORU KILIGINDAKI RICA ve ÖĞÜT İSTEMİ: kalıp yanıt değil, bedenine ve bilgisine bakarak
+        # karar verir. Rica yapılamıyorsa yalan söylemez; öğüt isteniyorsa kendi deneyiminden konuşur.
+        try:
+            if agi is not None:
+                _adv = self.respond_advice(raw, agi)
+                if _adv:
+                    self.recent.append(tr_lower(_adv))
+                    return {"text": _adv, "act": "ADVICE_FROM_EXPERIENCE",
+                            "probs": {a: 0.0 for a in self.acts}, "features": {},
+                            "tried": ["ADVICE_FROM_EXPERIENCE"]}
+                _morph = getattr(getattr(agi, "lang", None), "morph", None)
+                _lex = getattr(getattr(getattr(agi, "lang", None), "graph", None), "lexicon", None)
+                if _morph is not None:
+                    _req = self.request_of(raw, _morph, _lex)
+                    if _req:
+                        _out = self.respond_request(_req, agi)
+                        if _out:
+                            self.recent.append(tr_lower(_out))
+                            return {"text": _out, "act": "ANSWER_REQUEST",
+                                    "probs": {a: 0.0 for a in self.acts}, "features": {},
+                                    "tried": ["ANSWER_REQUEST"]}
+        except Exception:
+            pass
         feats, meta = self.features_of(raw, tension=tension, cheer=cheer, valence=valence)
         if not feats.any():
             feats[self.features.index("short")] = 1.0

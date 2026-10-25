@@ -348,14 +348,14 @@ class FrameMemory:
     def snapshot(self) -> dict:
         return {"verbs": dict(self.verb_counts.most_common(200)),
                 "valency": {k: dict(v) for k, v in list(self.valency.items())[:200]},
-                "frames": [(" ".join(k), n) for k, n in self.frames.most_common(200)]}
+                "frames": [("|".join(k), n) for k, n in self.frames.most_common(200)]}
 
     def load_snapshot(self, d: dict | None) -> None:
         if not d:
             return
         self.verb_counts = Counter(d.get("verbs") or {})
         self.valency = defaultdict(Counter, {k: Counter(v) for k, v in (d.get("valency") or {}).items()})
-        self.frames = Counter({" ".join(k.split()): n for k, n in (d.get("frames") or [])})
+        self.frames = Counter({tuple(str(k).split("|")): n for k, n in (d.get("frames") or [])})
 
 
 @dataclass
