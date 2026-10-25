@@ -3219,11 +3219,20 @@ class NoraAGI:
         if not bad:
             t, l = (good[0] if good else ("-", "-"))
             self._apply_tag("islem", 1)
+            # Kanıt SAYILIR: kendi ölçümüm bu örnekte tuttu (söz değil, sonuç).
+            try:
+                fg.mark_confirmed(rule)
+            except Exception:
+                pass
+            _tkey = str(getattr(rule, "feature", "") or "")
+            _rec = next((r for r in (fg.measurements or [])
+                         if str(r.get("key")) == _tkey), {})
             return self._say("meta.forge", {
                 "desc": rule.source_text or "", "n_ex": len(fg.examples),
                 "n_cand": len(fg.cands), "human": fg.human_count(),
                 "self": len(fg.authored), "cands": "-", "probe": "-", "why": "-",
                 "item": t, "label": l, "got": rule.apply(t)[0],
+                "hits": int(_rec.get("hits") or 0), "misses": int(_rec.get("misses") or 0),
             }, ctx={"stage": "confirmed"})
         # Çürütme: eski örneklerin TAMAMI + yeni örneklerle yeniden türet.
         t, l = bad[0]

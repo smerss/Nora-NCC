@@ -1299,3 +1299,79 @@ Bacaklar: `bileşik-icat`, `söz-yeni-ölçüm`, `eşik-belirsiz`, `prob-sor`, `
 | mühürlü setler | **4/4 · 4/4 · 4/4** |
 | `nora_audit.py --check` | **1122** / SÖYLEM 127 — artış yok |
 | operatör / prior türü | 9 / 66 = **7.33** (yeni tür yok) |
+
+
+---
+
+## Aşama AA — Ölçüm güveni: kendi aletinin güvenini KANITTAN kazanır (`A91`)
+
+Aşama Y'de ölçüm envantere girdi ama güveni yoktu: hiç sınanmamış ölçüm de, bir kez
+yanılmış ölçüm de aynı rafta duruyordu. Bu turda güven **sayılıyor**: ölçüm kaç kez tuttu,
+kaç kez yanıldı. Güven bir öz-rapor değil, **sonuçların oranı**.
+
+### AA1. Ne yapıldı
+
+| parça | yer | işlev |
+|---|---|---|
+| `trust(key)` | `nora_forge.py` | Laplace: `(tutma+1) / (tutma+yanılma+2)` — kanıtsız ölçüm 0.5'te başlar |
+| `mark_confirmed` | `nora_forge.py` | dil üzerinden gelen **tutan** örnek sayacı artırır |
+| `misses` | `mark_refuted` | yanılma sayacı; `refuted` kaydı gerekçesiyle durur (silinmez) |
+| `TRUST_FLOOR = 0.4` | `search_features` | eşiğin altındaki ölçüm envanterde KALIR ama ARANMAZ |
+| güven sırası | `search_features` | önce çok tutan ölçüm denenir (envanter artık sıralı) |
+| `trusted` | `counts()` | "envanterde kaç ölçüm var, kaçı güvenilir" dürüst sayım |
+
+### AA2. Ölçüm (A91, 10/10)
+
+```
+S: Kural çıkar: kitaplık=soyut, tuzluk=soyut, güzellik=soyut, bolluk=soyut,
+   portakal=somut, masa=somut, deniz=somut
+N: ... yeni bir ölçüm yazdım: '-lVk' kalıbı ... kendi yazdığım ölçüm sayısı 1.
+   [güven 0.50 — ne iyi ne kötü, hiç sınanmadı]
+
+S: kalemlik=soyut
+N: Verdiğin örnek kuralımı doğruluyor: 'kalemlik' -> soyut. Kuralı kendi ölçümüm
+   taşıyor; o ölçüm şimdiye kadar 1 kez tuttu, 0 kez yanıldı.   [güven 0.67]
+
+S: defterlik=soyut
+N: ... 2 kez tuttu, 0 kez yanıldı.                               [güven 0.75]
+
+S: çiçek=soyut
+N: Kuralım yanıldı: 'çiçek' için 'somut' dedim, sen 'soyut' dedin. ... [güven 0.60]
+   — ölçüm ATILMAZ: kanıt hâlâ eşiğin üstünde, önerilmeye devam eder
+
+[hiç tutmayan, iki kez yanılan ölçüm: güven 0.25 -> ARANMAZ, defterde durur]
+```
+
+Bacaklar: `icat-güven`, `doğrulama-sayılır`, `doğrulama-söz`, `çürütme-düşürür`,
+`güvenli-kalır`, `ikinci-icat`, `güvensiz-aranmaz`, `envanterde-durur`, `sayaç-dürüst`,
+`insan-sabit`.
+
+### AA3. Dürüst sınırlar
+
+- **Güven bağlama duyarlı değil.** `-lVk` bir alanda 3 kez tutup bir alanda 1 kez
+  yanıldıysa tek bir oran taşır; "hangi alanda" bilgisi tutulmuyor.
+- **Zamanla eskime yok.** Eski kanıt yeni kanıt kadar ağır sayılır; unutma/bozunma yok.
+- **Oran bir anlamlılık testi değil.** 2/0 ile 20/0 aynı güveni (0.75 / 0.95) vermez ama
+  "bu ölçüm güvenilir" iddiası istatistiksel bir testle değil, sayımla söyleniyor.
+- **Eşik (0.4) insan seçimi.** Ölçüm ne zaman rafa kalkar sorusunun cevabı veriden değil,
+  kodda duran bir sabitten geliyor — bu turda kapanmayan bir bağımlılık.
+
+### AA4. Bu turda düşülen tuzak
+
+- **Çürütme, yeniden türetmede YENİ bir ölçüm doğurabilir.** `çiçek=soyut` çürütmesinden
+  sonra sistem `-lVk` yerine `-Vk` kalıbını icat etti; ölçüm sayısı 2 değil 3 oldu.
+  Test sabit sayıya değil **artışa** bakmalı (`m_before + 1`).
+- **Sayaç iddiası kendi kendini doğrulamamalı.** `trusted` sayısını sabit beklemek yerine
+  envanterden yeniden hesaplayıp karşılaştırmak gerekti.
+
+### AA5. Bu turun sayıları
+
+| ölçüm | sonuç |
+|---|---|
+| `agi_battery.py` tam | **91/91 GEÇTİ, 381.0 s** |
+| `A91` | **10/10** |
+| `A85–A90` (regresyon) | **10/10 · 8/8 · 11/11 · 7/7 · 14/14 · 12/12** |
+| `heldout_battery.py` (dış) | **9/9** |
+| mühürlü setler | **4/4 · 4/4 · 4/4** |
+| `nora_audit.py --check` | **1122** / SÖYLEM 127 — artış yok |
+| operatör / prior türü | 9 / 66 = **7.33** (yeni tür yok) |
