@@ -1921,6 +1921,45 @@ def a59_unknown_question_gap_and_research_across_wh_types():
     detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
     return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
 
+def a60_requests_advice_and_sentence_frame_persistence():
+    """A60: Soru kılığındaki RİCA ile bilgi sorusu ayrılır. Rica yapılamıyorsa beden sınırı
+    dürüstçe söylenir ('açamam; organ yok'), öğüt isteniyorsa kendi deneyiminden konuşulur.
+    Ayrıca cümle iskeleti/valans belleği kayıtta kalır: yeniden yüklenen Nora öğrendiği
+    yapıyı hatırlar (kendi başına gelişme için şart)."""
+    import tempfile, os
+    from nora_lang import tr_lower
+
+    agi = NoraAGI(seed=60, boot_thinker=False)
+    agi.step_life(120)
+    ok = {}
+
+    r_req = tr_lower(agi.converse("Kapıyı açar mısın?"))
+    ok["rica-dürüst"] = ("açamam" in r_req and ("organ" in r_req or "el yok" in r_req))
+
+    r_song = tr_lower(agi.converse("Bana bir şarkı söyler misin?"))
+    ok["söylem-ricası"] = any(k in r_song for k in ("olur", "anlat", "başla", "bildiğini"))
+
+    r_adv = tr_lower(agi.converse("Sence ne yapmalıyım?"))
+    ok["öğüt"] = ("?" in r_adv and len(r_adv) > 25 and "bilmiyorum" not in r_adv)
+
+    # Bilgi sorusu rica sayılmaz: tanım hattı yanıtlar.
+    r_def = tr_lower(agi.converse("Kitap nedir?"))
+    ok["soru-rica-değil"] = ("kitap" in r_def and "açar mısın" not in r_def)
+
+    # İskelet/valans kalıcılığı
+    agi.learn_structure("Kapıyı açtım.")
+    pref = os.path.join(tempfile.gettempdir(), "a60_frames")
+    agi.save(pref)
+    b = NoraAGI.load(pref)
+    rep = b.explain_structure("Perdeyi açtım.")
+    val = b.frames.memory.valency.get("aç") or {}
+    ok["kalıcılık"] = (rep.get("verb") == "aç" and rep.get("object_case") == "ACC"
+                       and dict(val).get("ACC", 0) >= 1)
+
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -1978,6 +2017,8 @@ TESTS = {
     "A54": ("kişisel anlatıyı dinleme: yansıtma + soru, ağ kirlenmesi yok", a54_personal_narration_listening),
     "A55": ("günlük konuşma: anlatı, olumsuzluk, davet, kutlama, istek", a55_conversational_understanding_of_daily_speech),
     "A56": ("tam Türkçe kapsamı: 8 kip, birleşik zaman, yeterlilik, emir, -mAktA, -DIr/-ki/-CA", a56_full_turkish_morphology),
+    "A60": ("rica/öğüt ayrımı, beden sınırı dürüstlüğü ve cümle iskeleti kalıcılığı",
+            a60_requests_advice_and_sentence_frame_persistence),
     "A59": ("soru türünden bağımsız bilgi boşluğu, araştırma ve kalıp söz ayrımı",
             a59_unknown_question_gap_and_research_across_wh_types),
     "A58": ("cümle yapısı, fiil valansı ve 'nasıl denilir' sorularının genellenmesi",
