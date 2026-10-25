@@ -225,7 +225,12 @@ class SpeechStyle:
                     self._tag(agi, "beden")
                 # Mırıldanma her zaman ÖNCE gelmez: bazen cevabı söyler, sonra içinden geçirir.
                 # Sabit bir sıra (hep mırıldan→cevap) da iskelettir.
-                if os.urandom(1)[0] % 2:
+                # AMA iç ses bir RAPORUN önüne geçmez: sayı/uzunluk içeren (ölçüm bildiren)
+                # cevapta mırıldanma öne konursa gerekçe ile sonuç yer değiştirir ve cevap
+                # "içimden şunu geçirdim" gibi bir gerekçeyle başlar. O durumda sıra sabit:
+                # önce cevap, sonra iç ses. Kısa ve kişisel cevaplarda ikisi de serbest.
+                _is_report = bool(re.search(r"\d", text)) or len(text) > 120
+                if (not _is_report) and (os.urandom(1)[0] % 2):
                     text = f"{mutter} {tr_capitalize(text[0]) + text[1:] if text else text}"
                 else:
                     text = f"{text.rstrip()} {mutter}"

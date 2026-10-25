@@ -947,17 +947,52 @@
         {
           "id": "bound.a",
           "text": "Kuralı nesneye çevirdim: {name} tek -> {odd}, çift -> {even} ({domain}). Bir cümle ver; ölçüp etiketi söyleyeyim. {ex}",
-          "bias": 1.0
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "shape": "parity"
+            }
+          }
         },
         {
           "id": "bound.b",
           "text": "Bağladım: {name} tek ise {odd}, çift ise {even}. Kural artık cümlede değil, bende bir operatör; yeni bir cümleye uygulayabilirim. {ex}",
-          "bias": 0.96
+          "bias": 0.96,
+          "when": {
+            "eq": {
+              "shape": "parity"
+            }
+          }
         },
         {
           "id": "bound.c",
           "text": "Kural içeri alındı ({domain}): {name} tek -> {odd}, çift -> {even}. Ölçümü ben yaparım, tahmin etmem. {ex}",
-          "bias": 0.93
+          "bias": 0.93,
+          "when": {
+            "eq": {
+              "shape": "parity"
+            }
+          }
+        },
+        {
+          "id": "bound.d",
+          "text": "Kuralı nesneye çevirdim ({shape_name}): {name} için {map} ({domain}). Cümle ver; ölçüp etiketi söyleyeyim. {ex}",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "shape": "threshold"
+            }
+          }
+        },
+        {
+          "id": "bound.e",
+          "text": "Kural bağlandı ({shape_name}): {name} içinde {map} ({domain}). Bir küme ver; uçları ben seçerim, ezberden değil. {ex}",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "shape": "rank"
+            }
+          }
         }
       ]
     },
@@ -967,17 +1002,52 @@
         {
           "id": "res.a",
           "text": "Ölçtüm: '{target}' içinde {n} {name} var ({parity}). Kurala göre: {label}.",
-          "bias": 1.0
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "shape": "parity"
+            }
+          }
         },
         {
           "id": "res.b",
           "text": "'{target}' -> {n} {name}, yani {parity}; kural {label} diyor. Saydım, tahmin etmedim.",
-          "bias": 0.95
+          "bias": 0.95,
+          "when": {
+            "eq": {
+              "shape": "parity"
+            }
+          }
         },
         {
           "id": "res.c",
           "text": "Girdiyi ölçtüm: {n} {name} ({parity}). Uyguladım: {label}.",
-          "bias": 0.9
+          "bias": 0.9,
+          "when": {
+            "eq": {
+              "shape": "parity"
+            }
+          }
+        },
+        {
+          "id": "res.d",
+          "text": "Ölçtüm: '{target}' içinde {n} {name} var; {threshold_desc} koşulunu {cond_word}. Kurala göre: {label}.",
+          "bias": 1.05,
+          "when": {
+            "eq": {
+              "shape": "threshold"
+            }
+          }
+        },
+        {
+          "id": "res.e",
+          "text": "Ölçüm {n} {name}. Eşik: {threshold_desc}. Koşul {cond_word}; etiket: {label}.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "shape": "threshold"
+            }
+          }
         }
       ]
     },
@@ -1017,12 +1087,32 @@
         {
           "id": "fail.a",
           "text": "Kuralı '{target}' üzerinde uygulayamadım; ölçemediğim şeye etiket vermem.",
-          "bias": 1.0
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "shape": "parity"
+            }
+          }
         },
         {
           "id": "fail.b",
           "text": "'{target}' için ölçüm çıkmadı; uydurmak yerine söylüyorum: uygulayamadım.",
-          "bias": 0.95
+          "bias": 0.95,
+          "when": {
+            "eq": {
+              "shape": "parity"
+            }
+          }
+        },
+        {
+          "id": "fail.c",
+          "text": "'{target}' tek başına etiketlenemez: kural SIRA şeklinde, etiket ancak küme içinde doğar. En az iki öğe ver.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "shape": "rank"
+            }
+          }
         }
       ]
     },
@@ -1344,12 +1434,42 @@
         {
           "id": "tr.a",
           "text": "Taşıdım: aynı yapı ({domain} alanında). Ölçüt artık {name} sayısı; tek -> {odd}, çift -> {even}. Bir örnek ver, uygulayayım.",
-          "bias": 1.0
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "shape": "parity"
+            }
+          }
         },
         {
           "id": "tr.b",
           "text": "Yapı korundu, alan değişti: {domain}. Artık {name} sayıyorum; tek -> {odd}, çift -> {even}. Girdi ver, ölçüp söyleyeyim.",
-          "bias": 0.95
+          "bias": 0.95,
+          "when": {
+            "eq": {
+              "shape": "parity"
+            }
+          }
+        },
+        {
+          "id": "tr.c.threshold",
+          "text": "Yapı korundu, alan değişti: {domain}. Şekil aynı ({shape_name}); ölçüt artık {name}: {map}. Girdi ver, uygulayayım.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "shape": "threshold"
+            }
+          }
+        },
+        {
+          "id": "tr.c.rank",
+          "text": "Yapı korundu, alan değişti: {domain}. Şekil aynı ({shape_name}); ölçüt artık {name}: {map}. Girdi ver, uygulayayım.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "shape": "rank"
+            }
+          }
         }
       ]
     },
@@ -1593,12 +1713,12 @@
       "priors": [
         {
           "id": "mc2.a",
-          "text": "'{effect}' etkisine ağımda birden çok neden çıkıyor: {causes}. Etkiden geriye bakarak hangisi olduğunu SEÇEMEM; ikisi de olabilir. Ayırt etmek için birini sabitleyip diğerini değiştirmek gerekir.",
+          "text": "'{effect}' etkisine ağımda {causes} nedenleri çıkıyor. Etkiden geriye bakarak hangisi olduğunu SEÇEMEM; bunların birden fazlası olabilir. Ayırt etmek için birini sabitleyip diğerini değiştirmek gerekir.",
           "bias": 1.0
         },
         {
           "id": "mc2.b",
-          "text": "Tuzak burada: {causes} ikisi de '{effect}' etkisine yol açıyor. Gözlem 'hangisi' sorusunu yanıtlamaz; müdahale gerekir. Ölçümüm yok, o yüzden tek neden söylemem.",
+          "text": "Tuzak burada: {causes} hepsi '{effect}' etkisine yol açıyor. Gözlem 'hangisi' sorusunu yanıtlamaz; müdahale gerekir. Ölçümüm yok, o yüzden tek neden söylemem.",
           "bias": 0.95
         }
       ]
@@ -1629,6 +1749,67 @@
         {
           "id": "rc.b",
           "text": "Ölçüm {n} {name}, birinci adım {mid}, ikinci adım {final}. Zincir baştan sona çalıştı ({target}).",
+          "bias": 0.95
+        }
+      ]
+    },
+    "meta.counterfactual_self": {
+      "desc": "Kural soyutlanarak yürütülen karşıolgusal öz-rapor.",
+      "priors": [
+        {
+          "id": "cfs.a",
+          "text": "'{item}' için iki kez yürüttüm. Kural varken: {with}. Kuralı çıkarınca: {without} — ölçüm yine {n} {name}, ama etiketi eşleyecek bir şey yok. Demek ki kuralım ölçümde değil EŞLEMEDE; ölçümü kural olmadan da yapabiliyorum.",
+          "bias": 1.0
+        },
+        {
+          "id": "cfs.b",
+          "text": "Karşıolgusal: '{item}' -> kural varken {with}; kural devre dışıyken {without}. Aradaki fark {n} {name} ölçümünde değil, o ölçümü etikete bağlayan kuralda. Yani kendimi soyutlayabildiğim yerde tam olarak şu var: eşleme.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "meta.counterfactual_world": {
+      "desc": "Dünya karşıolgusalı: kavramı modelden çıkarıp yeniden koşma.",
+      "priors": [
+        {
+          "id": "cfw.lost",
+          "text": "'{node}' modelden çıkarılınca {lost} ortaya çıkmıyor; başka bir yol da yok, yani tek yol buydu. Bu yapısal bir çıkarım, ölçüm değil: ağımdaki kenarları kullanıyorum, dünyadan yeni veri almıyorum.",
+          "bias": 1.0,
+          "when": {
+            "count_max": 0
+          }
+        },
+        {
+          "id": "cfw.both",
+          "text": "'{node}' modelden çıkarılınca {lost} ortaya çıkmıyor, ama {kept} başka yoldan da sürüyor. Toplam {n} etkinin yalnız bir kısmı bu düğüme bağlı. Yapısal çıkarım; müdahale ölçümü değil.",
+          "bias": 1.0,
+          "when": {
+            "count_min": 1
+          }
+        }
+      ]
+    },
+    "meta.cf_need_item": {
+      "desc": "Karşıolgusal için ölçülecek girdi yok.",
+      "priors": [
+        {
+          "id": "cfn.a",
+          "text": "Karşıolgusalı hangi girdi üzerinde koşacağımı söyle: bir cümle ver.",
+          "bias": 1.0
+        }
+      ]
+    },
+    "meta.cf_effect_node": {
+      "desc": "Karşıolgusal hedefi bir ETKİ düğümüyse (çıkan nedensel kenarı yok).",
+      "priors": [
+        {
+          "id": "cfe.a",
+          "text": "'{node}' bir ETKİ düğümü: ondan çıkan nedensel kenar yok, o yüzden olmasaydı 'ne olurdu' diye ileri koşamam. Bildiğim şu: ona giden nedenler {causes}. Bir etkinin olmaması, nedenini tek başına söylemez.",
+          "bias": 1.0
+        },
+        {
+          "id": "cfe.b",
+          "text": "'{node}' modelden çıkarıldığında ileriye giden bir yol kalmıyor, çünkü bu düğüm sonuç. Girdiği nedenler: {causes}. Ters yönde çıkarım yapmam; gözlem nedeni seçmez.",
           "bias": 0.95
         }
       ]

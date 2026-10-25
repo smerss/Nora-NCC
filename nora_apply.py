@@ -34,6 +34,10 @@ from dataclasses import dataclass, field
 
 VOWELS = set("aeıioöuüAEIİOÖUÜ")
 
+#: Kural ŞEKİLLERİNİN adları. Şekil, ölçümden etikete giden yolun biçimidir;
+#: yeni bir şekil yeni bir CÜMLE değil, aynı makinenin yeni bir eşlemesidir.
+SHAPE_NAMES = {"parity": "tek/çift", "threshold": "eşik", "rank": "sıra"}
+
 #: Ölçüm fonksiyonları: kural nesnesinin "özellik" alanı bunlardan birine çözülür.
 def _tokens(text: str) -> list[str]:
     return re.findall(r"[^\W\d_]+", text or "", flags=re.UNICODE)
@@ -152,10 +156,31 @@ class Rule:
     #: İSTİSNA: [{"pattern": "bal", "label": "kırmızı"}]. Ana kuraldan ÖNCE bakılır.
     #: Kural "bağlanan" bir şeyse, istisna da kuralın parçasıdır; ayrı bir metin değil.
     exceptions: list = field(default_factory=list)
+    #: ŞEKİL: ölçümden ETİKETE giden yol. Kuralın kendisi değil, eşlemenin biçimi.
+    #:   parity    — ölçüm tek/çift (varsayılan, tek şekilli geçmiş)
+    #:   threshold — ölçüm eşiğin altında/üstünde ("3'ten az ise")
+    #:   rank      — ölçüm küme içinde en büyük/en küçük ("en çok olan")
+    shape: str = "parity"
+    threshold: int = 0
+    op: str = "lt"          # lt: <, le: <=, gt: >, ge: >=   (yalnız threshold)
 
     def measure(self, item: str) -> int:
         fn = FEATURES.get(self.feature, FEATURES["letter_count"])[1]
         return int(fn(item))
+
+    def bucket(self, n: int) -> str:
+        """Ölçümü EŞLEME ANAHTARINA çevir. Tek fonksiyon, üç şekil.
+
+        Eşik şekli anahtarı 'cond'/'else' olarak verir: eşik ifadesinin kendisi
+        doğruysa 'cond' (cümlenin ilk etiketi), değilse 'else'.
+        """
+        if self.shape == "threshold":
+            t, o = int(self.threshold), str(self.op)
+            cond = {"lt": n < t, "le": n <= t, "gt": n > t, "ge": n >= t}.get(o, n < t)
+            return "cond" if cond else "else"
+        if self.shape == "rank":
+            return "rank"     # küme gerekir: tek öğe üzerinde etiket YOK
+        return "odd" if n % 2 else "even"
 
     def apply(self, item: str) -> tuple[str | None, dict]:
         """Yeni girdiye uygula: İSTİSNA -> ölç -> eşle -> etiket. İz (trace) döner."""
@@ -169,20 +194,46 @@ class Rule:
                     "exception": pat, "mapped": str(ex.get("label")), "domain": self.domain,
                     "measured": None, "parity": "exception"}
         n = self.measure(item)
-        parity = "odd" if n % 2 else "even"
-        label = self.mapping.get(parity)
+        key = self.bucket(n)
+        label = None if key == "rank" else self.mapping.get(key)
         self.uses += 1
         trace = {"rule": self.rid, "feature": self.feature,
                  "feature_name": FEATURES.get(self.feature, ("harf",))[0],
-                 "item": item, "measured": n, "parity": parity,
-                 "mapped": label, "domain": self.domain}
+                 "item": item, "measured": n, "bucket": key, "parity": key,
+                 "mapped": label, "domain": self.domain, "shape": self.shape,
+                 "threshold": self.threshold, "op": self.op}
         return label, trace
 
+    def apply_set(self, items: list[str]) -> tuple[list[dict], dict]:
+        """SIRA ŞEKLİ: etiket kümenin İÇİNDE belirlenir (en çok -> A, en az -> B)."""
+        rows = [{"item": it, "measured": self.measure(it), "label": None} for it in items]
+        if self.shape != "rank" or not rows:
+            self.uses += 1
+            return rows, {"rule": self.rid, "shape": self.shape, "kind": "apply_set",
+                          "note": "sıra şekli değil"}
+        hi = max(r["measured"] for r in rows)
+        lo = min(r["measured"] for r in rows)
+        tie = hi == lo
+        for r in rows:
+            if not tie and r["measured"] == hi:
+                r["label"] = self.mapping.get("max")
+            elif not tie and r["measured"] == lo:
+                r["label"] = self.mapping.get("min")
+        self.uses += 1
+        trace = {"rule": self.rid, "shape": self.shape, "kind": "apply_set",
+                 "rows": rows, "tie": tie, "domain": self.domain}
+        return rows, trace
+
     def transfer(self, feature: str, mapping: dict[str, str], domain: str) -> "Rule":
-        """Yapıyı koru, alanı değiştir: aynı operatörün yeni bağlanışı."""
+        """Yapıyı koru, alanı değiştir: aynı operatörün yeni bağlanışı.
+
+        ŞEKİL de taşınır: eşik kuralı başka alana gittiğinde eşik olarak kalır
+        (eşik ve yön korunur); yalnız ölçülen özellik ve etiketler değişir.
+        """
         return Rule(rid=f"{self.rid}->{domain}",
                     feature=feature, mapping=dict(mapping), domain=domain,
-                    source_text=self.source_text, derived_from=self.rid)
+                    source_text=self.source_text, derived_from=self.rid,
+                    shape=self.shape, threshold=self.threshold, op=self.op)
 
 
 @dataclass
@@ -325,6 +376,37 @@ class Interpreter:
         if feature is None:
             feature = "letter_count"
 
+        # ŞEKİL 2 — EŞİK: "3'ten az ise kısa, değilse uzun" / "en az 4 ise uzun"
+        th = self._parse_threshold(low)
+        if th is not None:
+            mapping, threshold, op = th
+            rid = f"R{len(self.rules) + 1}"
+            rule = Rule(rid=rid, feature=feature, mapping=mapping,
+                        domain=self._domain_of(low), source_text=t,
+                        shape="threshold", threshold=threshold, op=op)
+            self.rules[rid] = rule
+            self.last = rule
+            self.chain = None
+            self.wm.write("rule", rid, "bind")
+            self.wm.write("rule_map", dict(mapping), "bind")
+            self._trace("bind", {"rule": rid, "feature": feature, "map": mapping,
+                                 "shape": "threshold", "threshold": threshold, "op": op})
+            return rule
+
+        # ŞEKİL 3 — SIRA: "sesli harfi en çok olan uzun, en az olan kısa"
+        rk = self._parse_rank(low)
+        if rk is not None:
+            rid = f"R{len(self.rules) + 1}"
+            rule = Rule(rid=rid, feature=feature, mapping=rk,
+                        domain=self._domain_of(low), source_text=t, shape="rank")
+            self.rules[rid] = rule
+            self.last = rule
+            self.chain = None
+            self.wm.write("rule", rid, "bind")
+            self.wm.write("rule_map", dict(rk), "bind")
+            self._trace("bind", {"rule": rid, "feature": feature, "map": rk, "shape": "rank"})
+            return rule
+
         # eşleme: "tek ise X", "çift ise Y" (sıra serbest)
         pairs = re.findall(r"(tek|çift)\s*(?:sayı\s*)?(?:ise|olursa|->|:)\s*([^,;.]+)", low)
         mapping: dict[str, str] = {}
@@ -358,6 +440,38 @@ class Interpreter:
         self._trace("bind", {"rule": rid, "feature": feature, "map": mapping,
                              "exceptions": exceptions})
         return rule
+
+    @staticmethod
+    def _parse_threshold(low: str) -> tuple[dict, int, str] | None:
+        """Eşikli kuralı metinden çıkar: (eşleme, eşik, yön). Cümle listesi değil, biçim."""
+        m = re.search(r"(\d+)\s*(?:'?[dt]en|'?[dt]an)\s+(az|küçük|aşağı|çok|fazla|büyük|yukarı)", low)
+        if m:
+            t, w = int(m.group(1)), m.group(2)
+            op = "lt" if w in ("az", "küçük", "aşağı") else "gt"
+        else:
+            m2 = re.search(r"en\s+(az|çok|fazla)\s+(\d+)", low)
+            if not m2:
+                return None
+            t = int(m2.group(2))
+            op = "ge" if m2.group(1) == "az" else "le"
+        after = low[m.end():] if m else low[m2.end():]
+        cond = (re.search(r"\bise\b\s*([a-zçğıöşü]{1,12})", after)
+                or re.search(r"\bise\b\s*([a-zçğıöşü]{1,12})", low))
+        other = (re.search(r"(?:değilse|aksi\s+halde|yoksa)\s+([a-zçğıöşü]{1,12})", low))
+        if not (cond and other):
+            return None
+        return {"cond": cond.group(1), "else": other.group(1)}, t, op
+
+    @staticmethod
+    def _parse_rank(low: str) -> dict | None:
+        """Sıra şekli: en çok/en az olanın etiketi. Tek öğe etiketlenemez, küme gerekir."""
+        if re.search(r"\d", low):
+            return None
+        hi = re.search(r"en\s+(?:çok|fazla|yüksek)\s+olan\w*\s+([a-zçğıöşü]{1,12})", low)
+        lo = re.search(r"en\s+(?:az|düşük)\s+olan\w*\s+([a-zçğıöşü]{1,12})", low)
+        if not (hi and lo):
+            return None
+        return {"max": hi.group(1), "min": lo.group(1)}
 
     # ------------------------------------------------------------------ zincir
     def bind_chain(self, text: str) -> "ChainRule | None":
@@ -399,7 +513,8 @@ class Interpreter:
         rid = f"{self.last.rid}~{len(self.rules) + 1}"
         rule = Rule(rid=rid, feature=feature or self.last.feature, mapping=dict(mapping),
                     domain=self.last.domain, source_text=self.last.source_text,
-                    derived_from=self.last.rid, exceptions=list(self.last.exceptions or []))
+                    derived_from=self.last.rid, exceptions=list(self.last.exceptions or []),
+                    shape=self.last.shape, threshold=self.last.threshold, op=self.last.op)
         self.rules[rid] = rule
         self.last = rule
         self.chain = None
@@ -444,6 +559,50 @@ class Interpreter:
         label, tr = r.apply(item)
         self._trace("apply", tr)
         return label, tr
+
+    def apply_set(self, items: list[str], rule: "Rule | None" = None) -> tuple[list[dict], dict]:
+        """Küme üzerinde uygula: sıra şekli burada anlam kazanır ('en çok olan')."""
+        r = rule or self.last
+        if r is None:
+            self.failures.append("apply_set:no_rule")
+            return [], {"error": "no_rule"}
+        rows, tr = r.apply_set(list(items))
+        self._trace("apply_set", tr)
+        return rows, tr
+
+    def counterfactual_apply(self, item: str) -> dict:
+        """KARŞIOLGUSAL ÖZ-ERİŞİM: "kural olmasaydı ne derdim?"
+
+        Aynı girdi iki kez yürütülür: (1) bağlı kural/ zincir varken, (2) kural
+        DEVRE DIŞI bırakılarak. İkinci koşuda ölçüm yine yapılır — çünkü ölçüm
+        operatörü kuraldan bağımsızdır; ama ETİKET verilemez. Fark, kuralın
+        katkısının tam olarak nerede olduğunu gösterir: ölçümde değil, eşlemede.
+        """
+        saved_last, saved_chain = self.last, self.chain
+        with_label, with_trace = self.apply(item)
+        self.last, self.chain = None, None
+        try:
+            without_label, without_trace = self.apply(item)
+        finally:
+            self.last, self.chain = saved_last, saved_chain
+        measured = None
+        for src in (with_trace or {}, without_trace or {}):
+            if src.get("measured") is not None:
+                measured = src.get("measured")
+                break
+            step = (src or {}).get("step1") or {}
+            if step.get("measured") is not None:
+                measured = step.get("measured")
+                break
+        feat = (with_trace or {}).get("feature")
+        if feat is None:
+            feat = ((with_trace or {}).get("step1") or {}).get("feature")
+        name = FEATURES.get(feat or "", ("ölçüm",))[0]
+        self._trace("counterfactual", {"item": item, "with": with_label,
+                                       "without": without_label, "measured": measured})
+        return {"item": item, "with": with_label, "without": without_label,
+                "measured": measured, "feature_name": name,
+                "rule": getattr(saved_last, "rid", ""), "ablatable": saved_last is not None}
 
     def count(self, feature: str, item: str) -> int:
         n = int(FEATURES.get(feature, FEATURES["letter_count"])[1](item))

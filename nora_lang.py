@@ -92,6 +92,8 @@ class TurkishMorphology:
         "ısıt", "soğut", "azalt", "artır", "ver", "al", "yap", "et", "ol", "yaşa", "öl",
         "reddet", "kabul", "inan", "güven", "çöz", "hesapla", "ara", "bul", "göster", "taş", "yayıl", "üret",
         "ilet", "yansıt", "soğur", "buharlaş", "yoğunlaş", "genleş", "çek", "it", "taşı", "erime", "eri", "don",
+        "yakala", "tüket", "boz", "kur", "düzelt", "sakla", "kaydet", "ölç", "say", "sırala",
+        "dönüştür", "böl", "birleştir", "kır", "aç", "kapat", "doldur", "boşalt",
     } | CORE_TURKISH_VERBS
 
     # --- ÜRETKEN SÖZCÜK EDİNİMİ -------------------------------------------------
@@ -1984,6 +1986,57 @@ class GroundedConceptGraph:
             "in_edges": [(e.subj, e.rel) for e in incoming],
         }
 
+    def counterfactual(self, node: str, max_hops: int = 3) -> dict:
+        """KARŞIOLGUSAL: "X olmasaydı ne olurdu?" — yapısal modeli X'siz yeniden koştur.
+
+        Müdahale (do) modeli DEĞİŞTİRİR: X'e giren kenarlar kesilir, çıkanlar izlenir.
+        Karşıolgusal ise X'i modelden ÇIKARIR: X'in çıkan kenarları da yok sayılır ve
+        etki kümesi yeniden hesaplanır. İkisinin farkı, X'in yapıdaki nedensel katkısıdır.
+
+        Dönen `lost` = yalnız X varken oluşan etkiler ("olmasaydı olmayacaktı"),
+        `kept` = X olmadan da ulaşılan etkiler ("başka yoldan da olurdu").
+        Bu bir MODEL çıkarımıdır: ölçüm değil. Bu yüzden cevapta "ölçtüm" denmez.
+        """
+        s = tr_lower(node).strip()
+        base = self.do(s, max_hops=max_hops)
+        actual = list(base.get("effects") or [])
+        # X'i modelden çıkar: çıkan nedensel kenarları geçici olarak devre dışı bırak.
+        hidden = []
+        saved = []
+        for e in self._out_edges.get(s, ()):
+            if e.rel in ("CAUSES", "IF_THEN") and e.weight > 0.25:
+                hidden.append(e)
+        for e in hidden:
+            try:
+                self._out_edges[e.subj].remove(e)
+                saved.append(e)
+            except ValueError:
+                pass
+        try:
+            without: list[str] = []
+            visited = {s}
+            frontier = [s]
+            for _ in range(max(1, int(max_hops))):
+                nxt = []
+                for cur in frontier:
+                    for e in self._out_edges.get(cur, ()):
+                        if e.rel in ("CAUSES", "IF_THEN") and e.weight > 0.25 and e.obj not in visited:
+                            visited.add(e.obj)
+                            without.append(e.obj)
+                            nxt.append(e.obj)
+                frontier = nxt
+                if not frontier:
+                    break
+        finally:
+            for e in saved:
+                self._out_edges.setdefault(e.subj, []).append(e)
+        lost = [x for x in actual if x not in without]
+        kept = [x for x in actual if x in without]
+        return {"node": s, "effects": actual, "effects_without": without,
+                "lost": lost, "kept": kept, "paths": base.get("paths") or [],
+                "confounders": base.get("confounders") or [],
+                "identified": bool(base.get("identified")), "structural": True}
+
     def check_relation(self, subj: str, target_pred: str) -> dict:
         """'X Y yapar mı / X Y midir / X Y'ye yol açar mı?' sorusu için geçişli kanıt zinciri arar."""
         s = tr_lower(subj).strip()
@@ -2064,14 +2117,35 @@ class BrocaGenerator:
             return phrase
         return " ".join(parts[:-1] + [self.morph.inflect_noun(parts[-1], "GEN")])
 
+    def _head_case(self, head: str, case: str, compound: bool) -> str:
+        """Ad tamlamasının BAŞINA hâl ekini doğru takar ('besin üretimi' -> 'üretimine')."""
+        an = self.morph.analyze_word(head)
+        if an.get("poss3") and not an.get("is_verb"):
+            return self.morph.inflect_noun(an.get("stem") or head, case, poss3=True)
+        # Belirtisiz ad tamlamasında baş iyelik taşır: 'oksijen ve besin üretimi' içindeki
+        # 'üretimi' = üretim+iyelik, 'üretim+i(hâl)' değil. Ayrıştırıcı ikisini de geçerli
+        # sayabildiği için (ACC okuması) tamlama bağlamında iyelik okuması seçilir.
+        if (compound and case != "NOM" and len(head) >= 5 and head[-1] in "ıiuü"
+                and head[-2] not in "aeıioöuü"):
+            stem = head[:-1]
+            if stem.endswith("ğ"):
+                stem = stem[:-1] + "k"
+            if len(stem) >= 3 and stem[-1] not in "aeıioöuü":
+                return self.morph.inflect_noun(stem, case, poss3=True)
+        return self.morph.inflect_noun(head, case)
+
     def _case_phrase(self, phrase: str, case: str, poss: int = 0) -> str:
         """Çok sözcüklü öbekte hâl eki YALNIZCA son sözcüğe gelir ('oksijen ve besin üretimine')."""
         parts = phrase.split()
         if not parts:
             return phrase
         head = parts[-1]
-        tail = (self.morph.inflect_noun(head, case, poss3=(poss == 3)) if poss in (0, 3)
-                else self.morph.inflect_noun(head, case))
+        if poss == 3:
+            tail = self.morph.inflect_noun(head, case, poss3=True)
+        elif poss == 0:
+            tail = self._head_case(head, case, compound=len(parts) > 1)
+        else:
+            tail = self.morph.inflect_noun(head, case)
         return " ".join(parts[:-1] + [tail])
 
     def realize_prop(self, p: Proposition) -> str:
@@ -2141,9 +2215,18 @@ class BrocaGenerator:
                 tail = self._copula_phrase(o)
                 return f"{s_gen} nedeni {tail}" if not p.neg else f"{s_gen} nedeni {o} değildir"
         if r == "CAUSES":
-            # Çok sözcüklü ve iyelikli öbeklerde yönelme eki güvenilir değil ('basınç farkıya' gibi).
-            # Doğal ve her öbekte doğru kalan kuruluş: "X'in nedeni Y'dir."
-            if o.endswith(("ı", "i", "u", "ü")) or len(o.split()) > 1:
+            # DİKKAT: "X'in nedeni Y'dir" YÖNÜ TERS çevirir — kenar X->Y iken "X'in nedeni Y"
+            # demek, Y'yi neden yapar. Doğru kuruluş: neden özne, etki yönelme hâlinde.
+            # Çok sözcüklü öbekte eki YALNIZ son sözcüğe ver ('basınç farkı' -> 'basınç farkına').
+            if len(o.split()) > 1:
+                # _case_phrase eki ZATEN yalnız son sözcüğe takar; tamlama bağlamını
+                # korumak için öbeğin tamamı verilir ('besin üretimine', 'üretimiye' değil).
+                try:
+                    dat = self._case_phrase(o, "DAT")
+                except Exception:
+                    dat = o
+                return (f"{s} {dat} yol açmaz" if p.neg else f"{s} {dat} yol açar")
+            if o.endswith(("ı", "i", "u", "ü")):
                 gen = self._gen_phrase(s)
                 return f"{gen} nedeni {self._copula_phrase(o)}" if not p.neg else f"{gen} nedeni {o} değildir"
             if p.neg:
@@ -2251,6 +2334,181 @@ class WernickeComprehender:
         self.last_explanation: str = ""
         self.turn_count: int = 0
         self._seed_intent_prototypes()
+
+    # ------------------------------------------------------------------ AD ÖBEĞİ
+    #: Sıfat işlevli sözcükler: ad öbeğinde ÖNEK olarak kalır, ayrı kavram olmaz.
+    ADJ_SEED = frozenset((
+        "aşırı", "yetersiz", "büyük", "küçük", "kara", "ak", "yapay", "sanal", "hızlı", "yavaş",
+        "sıcak", "soğuk", "kuru", "ıslak", "temiz", "kirli", "açık", "kapalı", "yeni", "eski",
+        "zor", "kolay", "önemli", "basit", "karmaşık", "erken", "geç", "uzun", "kısa",
+    ))
+    #: Ad öbeğinde yüzey eki alabilen hâller: nesne sınırını bunlar belirler.
+    OBLIQUE = frozenset(("ACC", "DAT", "ABL", "LOC", "INS"))
+
+    #: Sözcük sonunda sıyrılabilen hâl ekleri (uzundan kısaya).
+    _CASE_SUF = ("ndan", "nden", "ndan", "nın", "nin", "nun", "nün",
+                 "dan", "den", "tan", "ten", "na", "ne", "ya", "ye",
+                 "da", "de", "ta", "te", "ın", "in", "un", "ün",
+                 "ı", "i", "u", "ü", "a", "e")
+
+    def _base_of(self, w: str, an: dict | None = None) -> str:
+        """Sözlükte olmayan (doğrulanmamış) yüzeyin KAVRAM GÖVDESİ.
+
+        "kıtlığa" -> 'kıtlığ' (yanlış) değil, "kıtlık". Sıra: ek sıyır → yumuşamayı
+        geri al (ğ->k) → sözlükte olan ilk adayı seç. Sözlükte hiçbiri yoksa
+        yumuşatılmış biçim kullanılır; uydurma bir kök ağa yazılmaz.
+        """
+        an = an or self.morph.analyze_word(w, self.graph.lexicon)
+        if not an.get("unverified_stem"):
+            return an.get("stem", w)
+        stems = getattr(self.morph, "KNOWN_VERB_ROOTS", set())
+        for suf in self._CASE_SUF:
+            if len(w) - len(suf) >= 3 and w.endswith(suf):
+                base = w[: -len(suf)]
+                # "-ma/-me" ile türemiş AD ("sulama", "birikme"): son ünlüyü sıyırmak
+                # onu bozar. Fiil kökü tanınıyorsa yüzey olduğu gibi kalır.
+                if suf in ("a", "e") and base in stems:
+                    return w
+                cands = []
+                if base.endswith("ğ"):
+                    cands.append(base[:-1] + "k")
+                cands.extend([base + "k", base])
+                for c in cands:
+                    if c in self.graph.lexicon:
+                        return c
+                # Sözlükte yok. Yalnız YUMUŞAMA GERİ ALINABİLİYORSA gövdeye in
+                # ("kıtlığa" -> "kıtlık"); aksi halde yüzey korunur ("sulama"), çünkü
+                # uydurma kök ağa yazılırsa aynı kavram iki düğüme bölünür.
+                if base.endswith("ğ"):
+                    return base[:-1] + "k"
+                # ÇÖZÜMLEYİCİ EKİ ZATEN OKUDU: hâl eki tanındıysa ve gövde ünsüzle
+                # kapanıyorsa, UYDURMADAN gövdeye inmek doğrudur ("erozyona" -> "erozyon";
+                # yoksa ağda "erozyona" diye bir düğüm açılıyor ve zincir kopuyordu).
+                # "-ma/-me" adlaştırması hariç: orada son ünlü gövdenin parçasıdır.
+                # Kök, TEK ünsüzle kapanmalı (ünlü+ünsüz). "gübr"/"kumany" gibi
+                # çift-ünsüz kuyruklar Türkçe gövde değildir; orada yüzey korunur.
+                _st = str(an.get("stem") or "")
+                _coda_ok = (len(_st) >= 3 and _st[-1] not in "aeıioöuü"
+                            and (len(_st) < 2 or _st[-2] in "aeıioöuü"))
+                if (_st and _st != w and _coda_ok and not w.endswith(("ma", "me"))):
+                    return _st
+                return w
+        return w
+
+    def _tok(self, w: str) -> dict:
+        an = dict(self.morph.analyze_word(w, self.graph.lexicon))
+        an["surface"] = w
+        an["head"] = self._base_of(w, an)
+        return an
+
+    @staticmethod
+    def _np_name(tokens: list[str], head: dict | None) -> str:
+        """Öbeğin KAVRAM ADI: niteleyiciler yüzeyiyle, baş gövdesiyle.
+
+        Neden gövde? "kök çürümesi / kök çürümesine / kök çürümeleri" aynı düğüme
+        bağlanmalı; yüzey eki düğüm adına girerse ağ parçalanır.
+        """
+        if not tokens:
+            return ""
+        if head is None:
+            return " ".join(tr_lower(t) for t in tokens)
+        return " ".join([tr_lower(t) for t in tokens[:-1]] + [tr_lower(str(head.get("head") or tokens[-1]))]).strip()
+
+    @staticmethod
+    def _poss_head(tok: dict) -> bool:
+        """İYELİKLİ BAŞ: "kirliliği" (kirlilik+i), "kovanı" (kovan+ı), "çürümesi".
+
+        Ayrıştırıcı bunları çoğu zaman ACC sanır (yalın okuma da geçerli olduğu için).
+        Öbek İÇİNDE hâl ekli bir ad BAŞ OLAMAZ; demek ki o ek iyeliktir.
+        Ölçüt: iyelik bayrağı VEYA yüksek ünlüyle biten, gövdesi ünsüzle kapanan biçim.
+        """
+        if tok.get("poss3"):
+            return True
+        surf = str(tok.get("surface") or "")
+        stem = str(tok.get("stem") or "")
+        return bool(tok.get("case") in ("ACC", "NOM") and len(surf) >= 4
+                    and surf[-1] in "ıiuü" and len(stem) >= 3
+                    and stem[-1] not in "aeıioöuü")
+
+    def split_svo(self, words: list[str]) -> tuple[dict | None, dict | None]:
+        """Cümleyi (özne öbeği, nesne öbeği) olarak ayır. Yüklem çağıranda kalır.
+
+        Türkçe ad öbeği BAŞ-SONALIDIR. Nesne sınırı, hâl eki taşıyan SON baştır:
+            "aşırı sulama | kök çürümesine"  -> özne "aşırı sulama", nesne "kök çürüme"
+            "kara delik | ışığı"             -> özne "kara delik",  nesne "ışık"
+        Baş iyelikliyse (belirtisiz ad tamlaması) hemen solundaki ad TAMAMLAYANDIR;
+        böylece "kök çürümesi" tek kavram olur, "kök" ile "çürüme" iki ayrı düğüm olmaz.
+        """
+        words = [w for w in words if w]
+        if not words:
+            return None, None
+        toks = [self._tok(w) for w in words]
+        obj_end = None
+        for i, t in enumerate(toks):
+            if t.get("is_verb"):
+                break
+            if t["case"] in self.OBLIQUE and not t.get("is_verb"):
+                obj_end = i
+        if obj_end is None:
+            name = self._np_name(words, toks[-1])
+            return ({"canonical": name, "surface": " ".join(words),
+                     "case": toks[-1]["case"], "head": toks[-1]["head"]} if name else None), None
+        head = toks[obj_end]
+        start = obj_end
+        if head.get("poss3") and obj_end >= 1:
+            start = obj_end - 1           # belirtisiz ad tamlaması: tamamlayan + baş
+        else:
+            # NESNE TAMLAYANI: baş iyelik taşımıyorsa da nesne çok sözcüklü olabilir
+            # ("deniz kirliliği | plastik atıktan"). ÖZNENİN başı iyelikliyse (belirtisiz
+            # ad tamlaması) sınır ORADADIR: tamamlayanın solu özne, sağı nesne.
+            # Bu kural yalnız sınırı SAĞA taşır; iyelik yoksa hiçbir şey değişmez.
+            for j in range(obj_end - 1, 0, -1):
+                if toks[j].get("is_verb"):
+                    break
+                if self._poss_head(toks[j]):
+                    start = j + 1
+                    break
+        # "unverified_stem" tamamlayan ekleme gerekçesi DEĞİLDİR: "kuraklık kıtlığa yol
+        # açar"da baş doğrulanmamış; tamamlayan sanılıp ÖZNE yutuluyordu.
+        obj = {"canonical": self._np_name(words[start:obj_end + 1], head),
+               "surface": " ".join(words[start:obj_end + 1]),
+               "case": head["case"], "head": head["head"]}
+        subj = None
+        if start > 0:
+            subj_toks = toks[:start]
+            subj = {"canonical": self._np_name(words[:start], subj_toks[-1]),
+                    "surface": " ".join(words[:start]),
+                    "case": subj_toks[-1]["case"], "head": subj_toks[-1]["head"]}
+        return subj, obj
+
+    #: Soru sözcükleri: özne öbeğinin BİTTİĞİ yer.
+    Q_MARKS = ("neden", "niçin", "niye", "neyden", "nedeni", "ne", "neye", "neyi",
+               "nasıl", "kaç", "kim", "hangisi", "hangi", "sebep", "sebebi", "olur",
+               "oldu", "olmuş", "hakkında", "biliyorsun", "mı", "mi", "mu", "mü",
+               "mıdır", "midir", "musun", "misin", "var", "yok")
+
+    def _query_subject_np(self, words: list[str]) -> str:
+        """Soru öznesini AD ÖBEĞİ olarak kur ("kök çürümesi" -> "kök çürüme").
+
+        Tek sözcüklü kök aramak bileşik kavramı kaçırıyordu: "Kök çürümesi neyden
+        olur?" sorusu 'çürüme' diye aranıp ağdaki 'kök çürüme' bulunamıyordu.
+        Baş-sonda kuralı: öbek, soru sözcüğünden ÖNCEKİ son addır.
+        """
+        pre: list[str] = []
+        for w in words:
+            if w in self.Q_MARKS:
+                break
+            pre.append(w)
+        if not pre:
+            return ""
+        toks = [self._tok(w) for w in pre]
+        parts = []
+        for i, (w, t) in enumerate(zip(pre, toks)):
+            if i == len(pre) - 1 or self._poss_head(t):
+                parts.append(str(t.get("head") or w))
+            else:
+                parts.append(w)
+        return " ".join(parts).strip()
 
     def _sent_vec(self, text: str) -> np.ndarray:
         v = np.zeros(128, dtype=np.float32)
@@ -2552,6 +2810,11 @@ class WernickeComprehender:
                 if _wq in words:
                     _wh = _wq
                     break
+            # AĞA DOĞRULANMIŞ AD ÖBEĞİ: "kök çürümesi" -> "kök çürüme". Tek kök aramak
+            # bileşik kavramı kaçırıyor ("çürüme hakkında bilgim yok" gibi sahte bilgisizlik).
+            _np_cand = self._query_subject_np(words)
+            if _np_cand and (_np_cand in self.graph._out_edges or _np_cand in self.graph._in_edges):
+                subj = _np_cand
             is_infinitive_subj = words[0].endswith(("mak", "mek", "maktan", "mekten", "maktaki", "mekteki", "maya", "meye"))
             if subj not in non_encyclopedic_subjs and not is_infinitive_subj:
                 self.last_topic = subj
@@ -2705,6 +2968,20 @@ class WernickeComprehender:
             ch = "enerji" if ("enerji" in rest_words or "enerjiyi" in rest_words) else "bütünlük"
             return SemanticFrame(kind="teach_val", raw=s_raw, subj=subj, rel="CAUSES" if len(rest_words) > 1 else "HAS_PROP", obj=rest, valence=-0.80, sub_kind=ch)
 
+        # "...-den olur": kaynak/neden yapısı ("kök çürümesi su birikmesinden olur").
+        # Bu, "X olur" (varoluş) değil "X, Y'den olur" (neden) demektir; özne/nesne
+        # ad öbeğiyle ayrılır, yoksa "kök" + "çürümesi su birikmesinden" gibi bölünür.
+        if words and words[-1] == "olur" and len(words) >= 3:
+            sj, ob = self.split_svo(words[:-1])
+            if ob is not None and sj is not None and ob.get("case") in ("ABL", "INS"):
+                # YÖN: "X, Y'den olur" demek Y'nin X'in NEDENİ olduğu demektir.
+                # Çerçeve (özne, nesne) sırasını yüzeyden alırsa kenar ters kurulur:
+                # "kök çürümesi su birikmesinden olur" -> (kök çürüme)CAUSES(su birikme)
+                # YANLIŞ. Nedensel kenarın yönü daima NEDEN -> ETKİ'dir.
+                self.last_topic = sj["canonical"]
+                return SemanticFrame(kind="teach_fact", raw=s_raw, subj=ob["canonical"],
+                                     rel="CAUSES", obj=sj["canonical"])
+
         # '... için kullanılır' / '... işe yarar' / '... yol gösterir'
         if "için" in rest_words and ("kullanılır" in rest_words or "yarar" in rest_words):
             idx_ic = rest_words.index("için")
@@ -2721,8 +2998,18 @@ class WernickeComprehender:
             # Yukarıda hesaplanan `subj` burada YETMEZ (tek sözcüğe kırpılmış olabilir).
             cue = next((i for i, w in enumerate(words) if w in ("yol", "neden", "sebep")), -1)
             if cue > 0:
-                cause_obj = self._strip_governed_dative(words[cue - 1])
-                cause_subj = self._clean_np(" ".join(words[: cue - 1])) or subj
+                sj, ob = self.split_svo(words[:cue])
+                if ob is not None:
+                    cause_obj = ob.get("canonical")
+                    cause_subj = (sj or {}).get("canonical") or subj
+                elif cue >= 2:
+                    # Hâl eki okunamadı ("göçe" yalın sanıldı) ama YAPI belli:
+                    # nedensellikte son ad NESNE, öncesi ÖZNE. Ek sıyrılır, uydurulmaz.
+                    cause_obj = self._strip_governed_dative(words[cue - 1])
+                    cause_subj = self._np_name(words[: cue - 1], self._tok(words[cue - 2])) or subj
+                else:
+                    cause_obj = self._strip_governed_dative(words[cue - 1])
+                    cause_subj = subj
             else:
                 cause_subj = subj
                 cause_obj = self._strip_governed_dative(rest_words[0]) if rest_words else ""
@@ -2748,7 +3035,16 @@ class WernickeComprehender:
             return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj, rel="LOCATED_AT", obj=loc_an["stem"])
 
         # Fiil mi koşaçlı sıfat mı? ('kuşlar uçar', 'penguen uçmaz' vs 'ateş sıcaktır')
-        last_an = self.morph.analyze_word(rest_words[-1], self.graph.lexicon)
+        last_an = dict(self.morph.analyze_word(rest_words[-1], self.graph.lexicon))
+        if not last_an.get("is_verb") and not last_an.get("copula"):
+            # Sözlükte olmayan çekimli fiil: "-ar/-er/-ır..." eki + tanınan kök.
+            _w = rest_words[-1]
+            _roots = getattr(self.morph, "KNOWN_VERB_ROOTS", set())
+            for _k in (1, 2, 3):
+                if len(_w) - _k >= 2 and _w[:-_k] in _roots:
+                    last_an = dict(last_an, is_verb=True, stem=_w[:-_k], tense="AOR", person="3SG",
+                                   neg=False)
+                    break
         if last_an["copula"] or (not last_an["is_verb"] and len(rest_words) == 1):
             prop = last_an["stem"]
             neg = "değil" in rest_words or "değildir" in rest_words
@@ -2768,14 +3064,32 @@ class WernickeComprehender:
                 return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj_adj, rel="HAS_PROP",
                                      obj=rest_words[-1])
 
-        # Eylem: 'kuşlar uçar', 'penguen uçmaz', 'balıklar suda yüzer'
+        # Eylem: 'kuşlar uçar', 'penguen uçmaz', 'balıklar suda yüzer',
+        #        'kara delik ışığı yutar' (çok sözcüklü özne + hâl ekli nesne)
         rel_type = "CANNOT_DO" if last_an["neg"] else "CAN_DO"
-        act_obj = " ".join(rest_words[:-1] + [last_an["stem"]]).strip()
-        return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj, rel=rel_type, obj=act_obj)
+        _sj, _ob = self.split_svo([w for w in words if w != words[-1]] or words[:-1])
+        _subj = (_sj or {}).get("canonical") or subj
+        # Nesne yalnız ACC/DAT ise fiilin nesnesidir; LOC/ABL/INS zarf tümlecidir
+        # ("balıklar suda yüzer" -> eylem "yüz", yer "su"). Böylece özne, nesne
+        # sanılıp yutulmaz.
+        if _ob is not None and _ob.get("canonical") and _ob.get("case") in ("ACC", "DAT"):
+            act_obj = f"{_ob['canonical']} {last_an['stem']}".strip()
+        else:
+            act_obj = last_an["stem"]
+        if _subj:
+            self.last_topic = _subj
+        return SemanticFrame(kind="teach_fact", raw=s_raw, subj=_subj, rel=rel_type, obj=act_obj)
 
     def _strip_governed_dative(self, word: str) -> str:
         """Yönelme durumu (+DAT) yöneten fiillerin ('yol aç-', 'neden ol-', 'sebep ol-') tümlecinden -ya/-ye/-a/-e ekini söker."""
         w = tr_lower(word).strip()
+        if " " in w:
+            # Çok sözcüklü öbek: eki YALNIZ baştan sıyır (öbeğin tamamına uygulanmaz).
+            parts = w.split()
+            return " ".join(parts[:-1] + [self._strip_governed_dative(parts[-1])])
+        if len(w) > 4 and w.endswith(("ma", "me")):
+            # "tuzlanma", "sulama": son ünlü hâl eki değil, türetim eki.
+            return w
         an = self.morph.analyze_word(w, self.graph.lexicon)
         if an["case"] == "DAT" or an["stem"] != w:
             return an["stem"]
