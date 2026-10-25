@@ -53,6 +53,33 @@ FEATURES = {
     "syllable_count": ("hece", lambda s: max(1, sum(1 for ch in (s or "") if ch in VOWELS))),
 }
 
+#: Ölçüm adlarının KISA biçimi: bileşik ölçüm adı ("sessiz-sesli farkı") böyle kurulur.
+SHORT_NAMES = {"vowel_count": "sesli", "consonant_count": "sessiz",
+               "letter_count": "harf", "word_count": "sözcük", "syllable_count": "hece"}
+
+#: Sayının OKUNUŞUNA göre ayrılma eki: 3 -> "ten" (üçten), 6 -> "dan" (altıdan),
+#: 1 -> "den" (birden), 0 -> "dan" (sıfırdan). Sabit "'ten az" yazmak "-1'ten az"
+#: gibi yanlış bir yüzey üretiyordu; ek artık sayıdan geliyor.
+_ABL_UNIT = {0: "dan", 1: "den", 2: "den", 3: "ten", 4: "ten", 5: "ten",
+             6: "dan", 7: "den", 8: "den", 9: "dan"}
+_ABL_TEEN = {10: "dan", 11: "den", 12: "den", 13: "ten", 14: "ten", 15: "ten",
+             16: "dan", 17: "den", 18: "den", 19: "dan"}
+_ABL_TEN = {2: "den", 3: "dan", 4: "tan", 5: "den", 6: "dan", 7: "den",
+            8: "den", 9: "dan"}
+
+
+def num_abl(n: int) -> str:
+    """`n` sayısı okunduğunda ayrılma eki ne olur: 3 -> 'ten', -1 -> 'den'."""
+    n = abs(int(n))
+    if n < 10:
+        return _ABL_UNIT[n]
+    if n < 20:
+        return _ABL_TEEN[n]
+    if n % 10 == 0:
+        return _ABL_TEN.get(n // 10 % 10, "den")
+    return _ABL_UNIT[n % 10]
+
+
 def feature_spec_fn(spec: dict):
     """İCAT EDİLMİŞ ölçümü yeniden kur: kural kendi ölçümünü YANINDA taşır.
 
@@ -69,6 +96,13 @@ def feature_spec_fn(spec: dict):
         return lambda s: 1 if str(s or "").lower().startswith(arg) else 0
     if kind == "letter":
         return lambda s: 1 if arg and arg in str(s or "").lower() else 0
+    if kind == "diff":
+        # BİLEŞİK ÖLÇÜM: iki ölçümün FARKI. Tek başına hiçbiri ayırmıyorsa aradaki fark
+        # ayırabilir; kural ilişkisel olur ("sesli eksi sessiz 1'den az" gibi) ve hiçbir
+        # yerleşik ölçüm bunu tek başına söyleyemez.
+        fa = (FEATURES.get(str((spec or {}).get("a") or "")) or (None, lambda s: 0))[1]
+        fb = (FEATURES.get(str((spec or {}).get("b") or "")) or (None, lambda s: 0))[1]
+        return lambda s: int(fa(s)) - int(fb(s))
     if kind == "suffix_pattern":
         # ÜNLÜ UYUMU KALIBI: 'lVk' -> son üç harf [sessiz][ünlü][sessiz] ise eşleşir.
         # Türkçe'de -lık/-lik/-luk/-lük AYNI ektir; kalıp, dört ayrı ek görmek yerine

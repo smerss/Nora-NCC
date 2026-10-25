@@ -1215,3 +1215,87 @@ Bacaklar: `envanter-icat`, `envanter-sayı`, `bellek-bos`, `defterden-kuruldu`,
 | `nora_audit.py --check` | **1122** / SÖYLEM 127 — artış yok |
 | operatör / prior türü | 9 / 66 = **7.33** (bu turda **yeni prior türü yok**, yalnız varyant) |
 | insan ölçümü / kendi ölçümü | 6 / **2** (A89 sonunda envanter) |
+
+
+---
+
+## Aşama Z — Bileşik ölçüm: tek ölçüm ayırmıyorsa İKİ ÖLÇÜMÜN FARKI ayırır (`A90`)
+
+A87/A88/A89 ham ölçüm icat ediyordu (son ek, harf, kalıp). Ama ham bir düzenlilik yoksa
+Nora'nın elinde hiçbir şey kalmıyordu. Bu turda **iki yerleşik ölçümü birleştirip** yeni bir
+*ilişkisel* ölçüm yazıyor: `sesli-sessiz farkı`. Hiçbir yerleşik ölçüm bunu tek başına
+söyleyemez; kural artık bir karşılaştırma.
+
+### Z1. Ne yapıldı
+
+| parça | yer | işlev |
+|---|---|---|
+| `diff` ölçüm türü | `nora_apply.feature_spec_fn` | `{"kind":"diff","a":…,"b":…}` → iki ölçümün farkı (negatif olabilir) |
+| `_composite` | `nora_forge.py` | ham aday yoksa tüm ölçüm çiftlerini dener, ayıran **farkı** icat eder |
+| `_scan_threshold` | `nora_forge.py` | tek biçimli eşik taraması; bileşik ölçümde negatif sınırlara da iner |
+| `num_abl` | `nora_apply.py` | sayının okunuşuna göre ek: `3'ten`, `6'dan`, `0'dan`, `-1'den` |
+| `invented_ambiguous` | `nora_agi.py` + priors | "ölçümü yazdım ama sınırı veri belirlemedi" dürüstlüğü |
+
+**Sıra kuralı:** ham aday (son ek/ön ek/harf) bulunduysa bileşik ölçüm aranmaz. Aynı veriyi
+iki aday açıklarsa sistem uydurmak yerine belirsiz der.
+
+### Z2. Ölçüm (A90, 12/12)
+
+Veri: `kaplan/zambak/portakal=soyut`, `masa/boyacı/ayakkabı=somut`. Ünlü, sessiz ve harf
+sayıları iki tarafı AYIRMIYOR; yalnız `sesli - sessiz` farkı ayırıyor.
+
+```
+S: Kural çıkar: kaplan=soyut, zambak=soyut, portakal=soyut, masa=somut,
+   boyacı=somut, ayakkabı=somut
+N: Bu veriye yerleşik ölçümler yetmedi, yeni bir ölçüm icat ettim: sesli-sessiz farkı.
+   Eşiğin nerede olduğunu örnekler söylemiyor (2 aday). 'aktarma' hangi etiketi alır?
+
+S: soyut
+N: Var olan ölçümlerle kural çıkmıyordu, ben de yeni bir ölçüm yazdım: sesli-sessiz farkı.
+   0'dan az -> soyut, değilse somut. 7 örneğin hepsi tutuyor; kendi yazdığım ölçüm sayısı 1.
+
+S: Kuralı uygula: 'zeytin'
+N: Ölçüm: sesli-sessiz farkı = -2. Eşik 0'dan az; koşul sağlıyor. Kurala göre: soyut.
+```
+
+Kural nesnesi ölçümünü yanında taşır:
+`(kendi.diff.vowel_count-consonant_count, threshold, spec={'kind':'diff',...}, op='lt')`.
+
+Bacaklar: `bileşik-icat`, `söz-yeni-ölçüm`, `eşik-belirsiz`, `prob-sor`, `prob-cevaplandı`,
+`kural-specli`, `yön-okunur`, `veriyi-açıklıyor`, `uygula-uyan`, `uygula-uymayan`,
+`defter-diff`, `insan-sabit`.
+
+### Z3. Dürüst sınırlar
+
+- **Fark, nedensellik değildir.** `sesli - sessiz` bir ayrım bulur; neden ayrıldığını
+  söylemez. Ölçüm "bu veride tutuyor" der, "dil böyle işliyor" demez.
+- **İki ölçümle sınırlı.** Üç ölçümün birleşimi (a+b-c), oran (a/b), çarpım yok. Aday
+  uzayı çiftlerle sınırlı; bu yüzden bazı veriler hâlâ "örüntü yok" diyebilir.
+- **Eşik seçimi veriden gelmiyor.** Veri yalnız sınırın iki değer arasında olduğunu
+  söyler; Nora uydurmaz, aday sayısını söyler ve tek ayırt edici örnek ister. Örnek
+  gelmezse kural yazılmaz.
+- **Yön tercihi biçimsel.** Aynı ayrımın iki yazımından negatif olmayan sınırı seçiyor
+  (okunuş için); bu bir ölçüm tercihi değil, dil tercihi.
+
+### Z4. Bu turda düşülen tuzaklar
+
+- **Test verisi yine kendi kendini çürüttü.** "kanat/ayak" verisinde `-kanat` sessiz harf
+  sayısını da ayırıyordu; "harf sayısı tek/çift" kuralı çıktı. Kural: marjinal ölçümlerin
+  ayrışmadığını ÖNCE elle doğrula (fark ölçümü `L = d + 2c` yüzünden aynı pariteyi taşır).
+- **Sabit sayı eki yanlış yüzey üretiyordu.** "'ten az" şablonu `-1'ten az` gibi bozuk
+  Türkçe veriyordu; ek artık sayının okunuşundan geliyor (`num_abl`).
+- **Eşik "seçilirse" dürüstlük kaybolur.** İlk yazımda negatif olmayan eşiği *tek* aday
+  olarak alıyordum; oysa veri sınırı belirlemiyordu. Doğrusu: bütün eşikler aday kalır,
+  ayırt edici örnek istenir.
+
+### Z5. Bu turun sayıları
+
+| ölçüm | sonuç |
+|---|---|
+| `agi_battery.py` tam | **90/90 GEÇTİ — iki kez (596.5 s / 382.8 s), exit 0** |
+| `A90` | **12/12** |
+| `A87 / A88 / A89` (regresyon) | **11/11 · 7/7 · 14/14** |
+| `heldout_battery.py` (dış) | **9/9** |
+| mühürlü setler | **4/4 · 4/4 · 4/4** |
+| `nora_audit.py --check` | **1122** / SÖYLEM 127 — artış yok |
+| operatör / prior türü | 9 / 66 = **7.33** (yeni tür yok) |

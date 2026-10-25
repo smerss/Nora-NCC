@@ -33,7 +33,8 @@ import json
 import pathlib
 from dataclasses import dataclass
 
-from nora_apply import FEATURES, OPERATORS, Interpreter, Rule, register_feature
+from nora_apply import (FEATURES, OPERATORS, SHORT_NAMES, Interpreter, Rule,
+                        num_abl, register_feature)
 
 #: İNSANIN verdiği ölçümler. Tümevarım bunlarla başlar; ama tavan değildir: Nora'nın
 #: kendi icat ettiği ölçümler de (envanter) arama uzayına girer — bkz. `search_features`.
@@ -89,8 +90,9 @@ class Hypothesis:
         if self.shape == "presence":
             return f"{name}: var -> {m.get('var')}, yok -> {m.get('yok')}"
         if self.shape == "threshold":
-            cond = {"lt": f"{self.threshold}'ten az", "le": f"en çok {self.threshold}",
-                    "gt": f"{self.threshold}'ten çok", "ge": f"en az {self.threshold}"}
+            _a = num_abl(self.threshold)
+            cond = {"lt": f"{self.threshold}'{_a} az", "le": f"en çok {self.threshold}",
+                    "gt": f"{self.threshold}'{_a} çok", "ge": f"en az {self.threshold}"}
             return f"{name}: {cond.get(self.op, self.threshold)} -> {m.get('cond')}, değilse {m.get('else')}"
         return f"{name}: tek -> {m.get('odd')}, çift -> {m.get('even')}"
 
@@ -253,24 +255,36 @@ class OperatorForge:
             return []
         found: list[Hypothesis] = []
         feats = self.search_features()
-        # Kendi icat ettiğim ölçümler İKİLİDİR (var/yok). Onlara parite/eşik uygulamak
-        # kategorik bir yanlış okuma olurdu: bir son ekin "tek/çift"i yoktur.
-        binary = {str(r.get("key") or "") for r in self.measurements}
+        # İCAT EDİLMİŞ ölçümün TÜRÜ, hangi ŞEKİLDE taranacağını belirler:
+        #   son ek / ön ek / harf / kalıp -> İKİLİ, yalnız "varlık" (var/yok)
+        #   fark (bileşik)               -> SÜREKLİ, yalnız "eşik"
+        # Bir son ekin "tek/çift"i olmaz, bir farkın "var/yok"u olmaz: kategorik yanlış
+        # okuma, uydurma kadar kötüdür.
+        kind_of = {str(r.get("key") or ""): str((r.get("spec") or {}).get("kind") or "")
+                   for r in self.measurements}
+        spec_of = {str(r.get("key") or ""): dict(r.get("spec") or {})
+                   for r in self.measurements}
         for feat in feats:
             meas = [(int(FEATURES[feat][1](t)), lab) for t, lab in ex]
             hi = max(n for n, _ in meas)
+            lo = min(n for n, _ in meas)
+            kind = kind_of.get(feat, "")
 
-            if feat in binary:
+            if kind in ("suffix", "prefix", "letter", "suffix_pattern"):
                 b: dict[str, set] = {}
                 for n, lab in meas:
                     b.setdefault("var" if int(n) else "yok", set()).add(lab)
                 if len(b) == 2 and all(len(v) == 1 for v in b.values()):
                     lv, ly = next(iter(b["var"])), next(iter(b["yok"]))
                     if lv != ly:
-                        spec = next((dict(r.get("spec") or {}) for r in self.measurements
-                                     if str(r.get("key")) == feat), {})
                         found.append(Hypothesis(feat, "presence",
-                                                (("var", lv), ("yok", ly)), spec=spec))
+                                                (("var", lv), ("yok", ly)),
+                                                spec=spec_of.get(feat)))
+                continue
+
+            if kind:      # bileşik (fark) ölçüm: yalnız eşik, negatif değerler dahil
+                found.extend(self._scan_threshold(feat, meas, lo, hi + 1,
+                                                  spec=spec_of.get(feat)))
                 continue
 
             # --- parite: her iki taraf da GÖRÜLMÜŞ ve tek etiketli olmalı
@@ -278,24 +292,15 @@ class OperatorForge:
             for n, lab in meas:
                 sides.setdefault("odd" if n % 2 else "even", set()).add(lab)
             if len(sides) == 2 and all(len(v) == 1 for v in sides.values()):
-                lo, le = next(iter(sides["odd"])), next(iter(sides["even"]))
-                if lo != le:
+                lo_lab, le = next(iter(sides["odd"])), next(iter(sides["even"]))
+                if lo_lab != le:
                     found.append(Hypothesis(feat, "parity",
-                                            (("even", le), ("odd", lo))))
+                                            (("even", le), ("odd", lo_lab))))
 
             # --- eşik: YALNIZ "n < t" biçimi. `le/gt/ge` aynı ayrımın yeniden
             #     yazımıdır (etiketler taraflara zaten veriden atanıyor); hepsini
             #     taramak sahte belirsizlik üretir. Tek sınır, tek yazım.
-            for t in range(1, min(MAX_T, hi + 2) + 1):
-                hs = Hypothesis(feat, "threshold", (("cond", None), ("else", None)), t, "lt")
-                buckets: dict[str, set] = {}
-                for n, lab in meas:
-                    buckets.setdefault(hs.bucket(n), set()).add(lab)
-                if len(buckets) == 2 and all(len(v) == 1 for v in buckets.values()):
-                    lc, lel = next(iter(buckets["cond"])), next(iter(buckets["else"]))
-                    if lc != lel:
-                        found.append(Hypothesis(feat, "threshold",
-                                                (("cond", lc), ("else", lel)), t, "lt"))
+            found.extend(self._scan_threshold(feat, meas, 1, min(MAX_T, hi + 2)))
 
         # --- AYNI KURALIN yeniden yazımını tekilleştir: anahtar (şekil, ölçüm,
         #     sınır). DAVRANIŞ imzasıyla tekilleştirmek YANLIŞ olurdu: iki farklı kural
@@ -328,6 +333,28 @@ class OperatorForge:
             key = sig if len(sig) > len(ex) else (h.shape, h.feature, int(h.threshold), str(h.op))
             uniq.setdefault(key, h)
         return list(uniq.values())
+
+    @staticmethod
+    def _scan_threshold(feat: str, meas, lo: int, hi_end: int, spec: dict | None = None):
+        """Eşik taraması: YALNIZ "n < t". Aralık, ölçümün gerçek değerlerinden gelir.
+
+        Bileşik ölçümler NEGATİF olabilir (sesli - sessiz), bu yüzden alt sınır sabit 1
+        değil, verinin en küçük değeridir.
+        """
+        out: list[Hypothesis] = []
+        for t in range(int(lo), int(hi_end) + 1):
+            hs = Hypothesis(feat, "threshold", (("cond", None), ("else", None)), t, "lt",
+                            spec=spec)
+            buckets: dict[str, set] = {}
+            for n, lab in meas:
+                buckets.setdefault(hs.bucket(n), set()).add(lab)
+            if len(buckets) == 2 and all(len(v) == 1 for v in buckets.values()):
+                lc, lel = next(iter(buckets["cond"])), next(iter(buckets["else"]))
+                if lc != lel:
+                    out.append(Hypothesis(feat, "threshold",
+                                          (("cond", lc), ("else", lel)), t, "lt",
+                                          spec=spec))
+        return out
 
     # ================================================================= ölçüm icadı
     @staticmethod
@@ -375,6 +402,58 @@ class OperatorForge:
                     not any(self._harmonized(w).endswith(pat) for w in neg):
                 return pat
         return ""
+
+    def _composite(self, ex) -> list[Hypothesis]:
+        """BİLEŞİK ÖLÇÜM İCADI: iki ölçümün FARKI sınıfları ayırıyor mu?
+
+        Tek bir ölçüm ayırmıyorsa, iki ölçümün ARASINDAKİ fark ayırabilir. Bu, ölçüm
+        icadının ikinci basamağı: yeni bir HAM ölçüm (son ek, harf) yoksa var olan iki
+        ölçüm birleştirilir. Kural ilişkiseldir ("sesli eksi sessiz 1'den az") ve hiçbir
+        yerleşik ölçüm bunu tek başına söyleyemez — yani insanın verdiği ölçüm listesi
+        burada da tavandır değildir.
+
+        Adaylar ÖLÇÜM SIRASINA göre tek yönlüdür (a, b) ve a<b; ters yön aynı ayrımın
+        yeniden yazımı olurdu (sahte belirsizlik).
+        """
+        out: list[Hypothesis] = []
+        for i, a in enumerate(BASE_FEATURES):
+            for b in BASE_FEATURES[i + 1:]:
+                # İKİ YÖN denenir (a-b ve b-a): aynı ayrımın iki yazımıdır. Hangisi
+                # NEGATİF OLMAYAN bir sınır veriyorsa o tutulur — "-1'den az" yerine
+                # "1'den çok" gibi okunur bir kural. Davranış aynı, söz daha temiz.
+                best = None
+                for x, y in ((a, b), (b, a)):
+                    vals = [(int(FEATURES[x][1](t)) - int(FEATURES[y][1](t)), lab)
+                            for t, lab in ex]
+                    lo_v = min(n for n, _ in vals)
+                    hi_v = max(n for n, _ in vals)
+                    if lo_v == hi_v:
+                        continue          # fark sabit: hiçbir şey ayırmaz
+                    spec = {"kind": "diff", "a": x, "b": y}
+                    hits = self._scan_threshold(f"kendi.diff.{x}-{y}", vals,
+                                                lo_v, hi_v + 1, spec=spec)
+                    if not hits:
+                        continue
+                    # EŞİK SEÇİLMEZ: veri sınırı belirlemiyorsa bütün eşikler aday kalır
+                    # (belirsizlik dürüsttür, ayırt edici örnek istenir). Yalnız YÖN
+                    # seçilir, o da okunuşu temiz olsun diye: negatif olmayan sınır.
+                    nonneg = any(int(h.threshold) >= 0 for h in hits)
+                    if best is None or (nonneg and not best[2]):
+                        best = (hits, spec, nonneg)
+                    if nonneg:
+                        break
+                if best is None:
+                    continue
+                hits, spec, _nn = best
+                key, nm = hits[0].feature, (f"{SHORT_NAMES.get(spec['a'], spec['a'])}-"
+                                            f"{SHORT_NAMES.get(spec['b'], spec['b'])} farkı")
+                if key not in FEATURES:
+                    try:
+                        register_feature(key, nm, spec)
+                    except Exception:
+                        continue
+                out.extend(hits)
+        return out
 
     def _invent(self, ex) -> list[Hypothesis]:
         """Veriden YENİ ÖLÇÜM türet: ortak son ek / ön ek / yalnız bir sınıfta olan harf.
@@ -427,6 +506,10 @@ class OperatorForge:
                 continue
             if all(ch in t.lower() for t in pos) and not any(ch in t.lower() for t in neg):
                 add("letter", ch, f"'{ch}' harfi")
+        # SON BASAMAK: ham ölçüm yoksa BİLEŞİK ölçüm (iki ölçümün farkı). İkili bir aday
+        # bulunduysa bileşik aranmaz: aynı veriyi iki aday açıklarsa belirsizlik doğar.
+        if not out:
+            out.extend(self._composite(ex))
         return out
 
     # ================================================================= karar

@@ -3848,6 +3848,111 @@ def a89_olcum_envanteri():
                                f"envanter={g3.forge.counts()['measured']} kural={key}")
 
 
+def a90_bilesik_olcum_icadi():
+    """A90 — BİLEŞİK ÖLÇÜM: tek ölçüm ayırmıyorsa İKİ ÖLÇÜMÜN FARKI ayırır.
+
+    A87/A88 ham ölçüm (son ek, harf, kalıp) icat ediyordu. Burada ham hiçbir şey yok:
+    sözcüklerin sonu/önü/harfleri ortak değil; ama "sesli eksi sessiz" farkı iki sınıfı
+    temiz ayırıyor. Nora iki YERLEŞİK ölçümü birleştirip YENİ bir ilişkisel ölçüm yazar:
+    {'kind': 'diff', 'a': 'vowel_count', 'b': 'consonant_count'}.
+
+    Kritik dürüstlük: farkı bulmak eşiği belirlemez. Veri yalnız "sınır bu iki değerin
+    arasında" der; Nora bunu saklamaz, kaç aday kaldığını söyler ve AYIRT EDİCİ örnek
+    ister. Verilen etiketle tek kurala iner. Ölçüt:
+    (1) bileşik ölçüm `FEATURES`'a kaydedilir (spec kind="diff"),
+    (2) söz yeni ölçümü adıyla söyler, "icat ettim" der,
+    (3) eşik belirsizken UYDURMAZ: aday sayısını söyler, tek ayırt edici örnek ister,
+    (4) o örnek gelince kural tek başına kalır ve ölçümü YANINDA taşır,
+    (5) kural altı örneğin hepsini açıklar,
+    (6) dil üzerinden yeni sözcüklere doğru uygulanır (iki taraf da),
+    (7) defter ölçümü `origin="kendi"` olarak tutar; insan rejistrisi değişmez.
+    """
+    import hashlib
+    import json
+    from pathlib import Path
+
+    import nora_apply as AP
+
+    ok = {}
+    led = Path("runs/operators_self.json")
+    reg = Path("nora_operators.json")
+    h0 = hashlib.sha256(reg.read_bytes()).hexdigest()
+    led.unlink(missing_ok=True)
+    for _k in [k for k in AP.FEATURES if k.startswith("kendi.")]:
+        AP.FEATURES.pop(_k, None)
+
+    # (1) veri: marjinal ölçümler AYIRMIYOR (ünlü/sessiz/harf sayıları çakışıyor),
+    #     yalnız "sesli - sessiz" farkı ayırıyor.
+    D = [("kaplan", "soyut"), ("zambak", "soyut"), ("portakal", "soyut"),
+         ("masa", "somut"), ("boyacı", "somut"), ("ayakkabı", "somut")]
+    q = "Kural çıkar: " + ", ".join(f"{w}={l}" for w, l in D)
+    g = NoraAGI(seed=981, boot_thinker=False)
+    g.step_life(150)
+    lo = tr_lower(strip_prefixes(g.converse(q)))
+
+    diff_keys = [k for k in AP.FEATURES if k.startswith("kendi.diff.")]
+    ok["bileşik-icat"] = bool(diff_keys)
+    ok["söz-yeni-ölçüm"] = (("yeni bir ölçüm" in lo or "ölçüm yazdım" in lo)
+                            and "fark" in lo)
+
+    # (2) EŞİK BELİRSİZ: uydurmaz, aday sayısını söyler ve ayırt edici örnek ister
+    pending = getattr(g, "_forge_pending", None) or {}
+    ok["eşik-belirsiz"] = (g.forge.adopted is None and bool(pending.get("probe")))
+    ok["prob-sor"] = ("hangi etiketi" in lo or "hangi etiket" in lo)
+
+    # (3) ayırt edici örneği etiketle: sınır veriden gelsin (v-c < 0 -> soyut)
+    def _lab(w):
+        return "soyut" if int(AP.FEATURES["vowel_count"][1](w)) - \
+            int(AP.FEATURES["consonant_count"][1](w)) < 0 else "somut"
+    for _ in range(3):
+        if g.forge.adopted is not None:
+            break
+        w = str((getattr(g, "_forge_pending", None) or {}).get("probe") or "")
+        if not w:
+            break
+        g.converse(_lab(w))
+    rule = g.forge.adopted
+    ok["prob-cevaplandı"] = rule is not None
+
+    # (4) kural ölçümünü YANINDA taşır
+    spec = dict(getattr(rule, "feature_spec", None) or {})
+    ok["kural-specli"] = (spec.get("kind") == "diff"
+                          and spec.get("a") in __import__("nora_forge").BASE_FEATURES
+                          and spec.get("b") in __import__("nora_forge").BASE_FEATURES
+                          and str(getattr(rule, "shape", "")) == "threshold")
+    # yön okunuşu temiz olsun: negatif sınır yerine negatif olmayan yön seçilir
+    ok["yön-okunur"] = int(getattr(rule, "threshold", -99)) >= 0 if rule else False
+
+    # (5) kural veriyi açıklıyor
+    ok["veriyi-açıklıyor"] = bool(rule) and all(
+        rule.apply(w)[0] == lab for w, lab in D)
+
+    # (6) dil üzerinden yeni sözcükler: iki taraf da
+    r1 = tr_lower(strip_prefixes(g.converse("Kuralı uygula: 'zeytin'")))
+    r2 = tr_lower(strip_prefixes(g.converse("Kuralı uygula: 'masa'")))
+    ok["uygula-uyan"] = "soyut" in r1
+    ok["uygula-uymayan"] = "somut" in r2
+
+    # (7) defter + insan tarafı
+    rec = {}
+    try:
+        blob = json.loads(led.read_text(encoding="utf-8"))
+        ms = blob.get("self_measurements") or []
+        rec = ms[-1] if ms else {}
+    except Exception:
+        rec = {}
+    ok["defter-diff"] = ((rec.get("spec") or {}).get("kind") == "diff"
+                         and rec.get("origin") == "kendi")
+    ok["insan-sabit"] = (hashlib.sha256(reg.read_bytes()).hexdigest() == h0
+                         and len(AP.OPERATORS) == 9 and g.forge.counts()["human"] == 9)
+
+    led.unlink(missing_ok=True)
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), (f"{passed}/{len(ok)} — {detail} | "
+                               f"spec={spec} eşik={getattr(rule, 'threshold', None)}")
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -3924,6 +4029,7 @@ TESTS = {
     "A87": ("ölçüm icadı: hiçbir ölçüm ayırmıyorsa yeni ölçüm yazılır", a87_olcum_icadi),
     "A88": ("ünlü uyumlu ek kalıbı: -lık/-lik/-luk/-lük tek morfem", a88_unlu_uyumlu_kalip_icadi),
     "A89": ("ölçüm envanteri: kendi icat ettiği ölçüm sonraki oturumda hazır", a89_olcum_envanteri),
+    "A90": ("bileşik ölçüm: iki ölçümün farkı icat edilir, eşik veriden sorulur", a90_bilesik_olcum_icadi),
     "A70": ("kendi çıkarımı: kimse söylemeden türetme + iç monolog", a70_own_inference_and_monologue),
     "A69": ("söz biçimi çeşitliliği, soru alışkanlığının kırılması ve kendi derdi", a69_speech_shape_variety_and_self_interest),
     "A68": ("kulak yolu: ses olayı, gürültüde eksik duyma, etiketsiz kimlik", a68_ear_path_perception),
