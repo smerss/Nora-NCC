@@ -332,7 +332,8 @@ dayanıyor; susuz Nora suyu kendi derdine bağlıyor; 3 anlatı isteği → 3 fa
 
 | Hata | Neden | Çözüm |
 |---|---|---|
-| Her tekrarda "Bunu az önce de söylemiştin…" nutku | tekrar farkındalığı her turda konuşuyordu | ilk tekrarda söylenir, sonrakiler seyrek; cevap değiştiyse alıntı kısaltılır |
+| Her tekrarda "Bunu az önce de söylemiştin…" nutku | tekrar farkındalığı her turda konuşuyordu | ilk tekrarda söylenir; üçüncü ısrarda uzun serzeniş yerine tek cümlelik, değişen soru ("Israrın bir şeyi değiştirdi mi?") |
+| Alıntılanan "önceki cevap" algı notu oluyordu | hatırlanan metin süslü yüzeydi | belleğe çekirdek cevap yazılır, algı notu/süs alıntılanmaz |
 | "Şunu fark ettim kendi kendime: kendi kendime şunu çıkardım: …" | çıkarım cümlesinin kendi başlangıcı iki kez ekleniyordu | hazır başlangıç ayıklanır, tek giriş kalır |
 | Ketum planda bile iç ses / karşı soru | biçim organı söz planını okumuyordu | `guarded` planda yalnız yalın cevap |
 | "İçimden 'sakinlik' diye geçirdim." her turda | iç durum sabitken sözcük de sabitti | son üç mırıltı tekrarlanmaz; beden/duyum/çıkarım seçenekleri eklenir |
@@ -342,7 +343,7 @@ dayanıyor; susuz Nora suyu kendi derdine bağlıyor; 3 anlatı isteği → 3 fa
 
 ## 11) Test durumu
 
-`python agi_battery.py` → **71/71** (360 s). Bu turda iki eski test ölçüm
+`python agi_battery.py` → **71/71** (364 s). Bu turda iki eski test ölçüm
 gürültüsünden arındırıldı:
 
 | Test | Eskiden | Şimdi |

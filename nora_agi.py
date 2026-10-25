@@ -1008,7 +1008,8 @@ class NoraAGI:
             pass
         if self.acc is not None and raw:
             try:
-                self.acc.note_turn(raw, ans, now)
+                # Hatırlanacak cevap: algı notu ve süs değil, ÇEKİRDEK cevap.
+                self.acc.note_turn(raw, _ans_core or ans, now)
                 # CÜMLE YAPISI ÖĞRENİMİ (pekiştirme kuyruğu): kendi sözü de karşıdakinin sözü de
                 # iskelet+valans olarak sayılır; ama biçimbilimsel çözümleme turun İÇİNDE değil,
                 # konuşma sonrası boşlukta (step_life) yapılır -> yanıt gecikmesi O(1) kalır.
@@ -1042,12 +1043,17 @@ class NoraAGI:
                         # Cevap zaten başka türlü söylendiyse eski cevabı ALINTILAMAK yersiz;
                         # yalnız "bunu sormuştun" farkındalığı kalır.
                         _meta_for_note = dict(_meta)
-                        if not _self_repeat:
-                            # Cevap değiştiyse uzun alıntı yok; yine de ne dediğini HATIRLAR
-                            # (kısa bir iz): "az önce ... demiştim".
-                            _meta_for_note["prev_reply"] = " ".join(
-                                str(_meta.get("prev_reply") or "").split()[:4])
-                        _note = compose_noticing(_meta_for_note, self, _rng)
+                        if int(_meta.get("count", 1)) >= 3:
+                            # Üçüncü ısrarda uzun serzeniş yok: tek cümlelik, değişen soru.
+                            from nora_meta import compose_insistence
+                            _note = compose_insistence(_meta, self, _rng)
+                        else:
+                            if not _self_repeat:
+                                # Cevap değiştiyse uzun alıntı yok; yine de ne dediğini
+                                # HATIRLAR (kısa bir iz): "az önce ... demiştim".
+                                _meta_for_note["prev_reply"] = " ".join(
+                                    str(_meta.get("prev_reply") or "").split()[:4])
+                            _note = compose_noticing(_meta_for_note, self, _rng)
                         ans = f"{ans.rstrip()} {_note}"
                         if self.dialogue_log and self.dialogue_log[-1][1] == raw:
                             self.dialogue_log[-1] = (self.dialogue_log[-1][0], raw, ans)
