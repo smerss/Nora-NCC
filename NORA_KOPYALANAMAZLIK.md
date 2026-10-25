@@ -343,7 +343,7 @@ dayanıyor; susuz Nora suyu kendi derdine bağlıyor; 3 anlatı isteği → 3 fa
 
 ## 11) Test durumu
 
-`python agi_battery.py` → **74/74** (320 s). Bu turda iki eski test ölçüm
+`python agi_battery.py` → **74/74** (321 s). Bu turda iki eski test ölçüm
 gürültüsünden arındırıldı:
 
 | Test | Eskiden | Şimdi |
@@ -516,6 +516,14 @@ Sorun iki biçimde görünüyordu:
 
 A74 bunu teste bağlıyor: üretken kural (4 farklı fiil), bilinmeyende izin yok, oran
 eşikleri, makine raporu yokluğu ve registerin beyinle taşınması (8/8).
+
+Bu turda ayrıca üç yerde dil/ölçüm hatası düzeldi:
+
+| Belirti | Neden | Düzeltme |
+|---|---|---|
+| "`canım sıkılıyor`" → "**canım** sözcüğünü bilmiyorum" | iyelikli beden sözcüğü sözlükte yok | `_BODY_OWN` listesi; kendi bedeni bilinmeyen sözcük değildir |
+| "`bana yardım et`" → "**bana yardım ettir**" (olgulaştırma) | emir cümlesi `teach_fact` sayılıyordu | emir kalıbı `command`, iyelikli özne `own_state` |
+| susuz Nora "karnım aç" diyordu | `dengeli` de "dert var" sayılıyordu | dert, sürüş **şiddetinden** seçilir (>0.3); "Susadım; önce su içmem gerek." |
 
 ### Söylem mandalı daraldı
 
