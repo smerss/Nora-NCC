@@ -751,6 +751,114 @@ class DiscourseCortex:
         self.recent_followups.append(pick)
         return pick
 
+    # ---------------------------------------------------------------- RİCA / ÖĞÜT
+    _HAND_VERBS = {"kapat", "aç", "getir", "al", "ver", "koy", "sil", "temizle", "yıka",
+                   "taşı", "çek", "it", "tut", "kır", "dik", "bağla", "kes", "boya", "çiz"}
+    _SPEECH_VERBS = {"anlat", "söyle", "öner", "göster", "oku", "yaz", "açıkla", "öğret"}
+
+    def request_of(self, raw: str, morph, lex) -> dict | None:
+        """Soru kılığındaki rica: 'kapıyı açar mısın', 'bir kitap önerir misin'.
+
+        Yalnızca biçimbilim karar verir: son sözcük soru eki mi, ondan önceki fiil mi?
+        """
+        words = [w for w in re.split(r"[\s,.;:!?]+", tr_lower(raw)) if w]
+        if len(words) < 2:
+            return None
+        _q = {"mısın", "misin", "musun", "müsün", "mısınız", "misiniz", "musunuz", "müsünüz"}
+        if words[-1] not in _q:
+            return None
+        _prev = words[-2]
+        try:
+            an = morph.analyze_word(_prev, lex)
+        except Exception:
+            an = {}
+        if not (an.get("is_verb") and str(an.get("tense")) in ("AOR", "PRES")):
+            return None
+        verb = an.get("stem") or ""
+        if not verb:
+            return None
+        # Ricanın nesnesi: fiilden önceki ad öbeği (belirtme/hâl ekli ilk ad)
+        obj = ""
+        for w in reversed(words[:-2]):
+            if w in ("bana", "beni", "sen", "lütfen", "biraz", "şimdi", "hemen"):
+                continue
+            try:
+                _oa = morph.analyze_word(w, lex)
+            except Exception:
+                _oa = {}
+            if _oa.get("is_verb"):
+                break
+            if _oa.get("case") in ("ACC", "NOM") and len(w) > 2:
+                obj = _oa.get("stem") or w
+                break
+        return {"verb": verb, "obj": obj, "neg": bool(an.get("neg"))}
+
+    def respond_request(self, req: dict, agi) -> str | None:
+        """Rica gerçekten yapılabilir mi? Organ yoksa yalan söylemez; bilgi gerekiyorsa sorar."""
+        verb, obj = req.get("verb", ""), req.get("obj", "")
+        morph = getattr(getattr(agi, "lang", None), "morph", None)
+        if not verb or morph is None:
+            return None
+        try:
+            neg_ab = morph.ability_form(verb, "AOR", "1SG", neg=True)
+        except Exception:
+            neg_ab = ""
+        if verb in self._HAND_VERBS:
+            acc = obj or ""
+            try:
+                if acc:
+                    acc = morph.inflect_noun(acc, "ACC")
+            except Exception:
+                pass
+            head = self._fresh((
+                f"{tr_capitalize(acc)} {neg_ab}; bende bunu yapacak bir organ yok" if acc
+                else f"Bunu {neg_ab}; bende bunu yapacak bir organ yok",
+                f"Bu evrende elim yok, {neg_ab}" if not acc else
+                f"{tr_capitalize(acc)} {neg_ab}: bende el yok",
+            ))
+            ask = self._fresh(("Sen mi yapacaksın?", "Başka nasıl yardımcı olabilirim?",
+                               "Bunu tarif edersen belki başka türlü yardım edebilirim."))
+            return f"{head}. {tr_capitalize(ask)}"
+        if verb in ("öner", "tavsiye et"):
+            topic = obj or "bir şey"
+            ask = self._fresh((
+                f"{topic} önerebilmem için neyi sevdiğini bilmem gerek. Neyden hoşlanırsın?",
+                f"Elimde {topic} hakkında yeterince deneyim yok; sen bana bir tane anlatır mısın?",
+                f"{topic} konusunda senin zevkini bilmiyorum. Son beğendiğin neydi?",
+            ))
+            return ask
+        if verb in self._SPEECH_VERBS:
+            ask = self._fresh((
+                f"Anlatırım; {obj or 'konuyu'} nereden başlayayım?",
+                f"{obj or 'Bunu'} anlatabilirim. Senin için en önemli yanı hangisi?",
+                f"Olur, {obj or 'anlatayım'}; ama önce ne kadarını bildiğini duymak isterim.",
+            ))
+            return ask
+        return None
+
+    def respond_advice(self, raw: str, agi, morph=None) -> str | None:
+        """'Sence ne yapmalıyım?' — hazır öğüt değil: kendi deneyiminden çıkarım + tek somut soru."""
+        low = tr_lower(raw)
+        if not any(k in low for k in ("ne yapmalıyım", "ne yapmalıyız", "ne önerirsin",
+                                      "ne yapmam lazım", "sence ne yapmalı", "ne yapsam")):
+            return None
+        # Kendi bedenine ve belleğine bak: kararsızlık çoğu zaman eksik bilgi ya da yorgunluktan.
+        energy = float(getattr(agi, "obs", [0, 0, 0])[0]) if getattr(agi, "obs", None) is not None else 0.5
+        _known = len(getattr(getattr(getattr(agi, "lang", None), "graph", None), "edges", []) or [])
+        if energy < 0.45:
+            lead = self._fresh(("Önce bedeni düşün: ben açken hiçbir karar bana net görünmüyor",
+                                "Kendi deneyimimde yorgunken verilen kararlar yanlış çıkıyor"))
+        elif _known < 20:
+            lead = self._fresh(("Bende işe yarayan yol: kararı, hakkında en az bilgi sahibi olduğum "
+                                "yerden başlayarak küçültmek",
+                                "Kararsızlık çoğu zaman eksik bilgiden geliyor, irade zayıflığından değil"))
+        else:
+            lead = self._fresh(("Kendi içime baktığımda, seçenekleri küçük adımlara bölmek işe yarıyor",
+                                "Bende iki duygu çatıştığında önce hangisinin sesi daha yüksek, ona bakıyorum"))
+        ask = self._fresh(("Şu an önünde kaç seçenek var?", "En çok neyi kaybetmekten korkuyorsun?",
+                           "Hangi seçenek seni bir adım ileri taşır?"))
+        return f"{lead}. {ask}"
+
     def _pick_narration_act(self, nar: dict) -> str:
         # Ton içerikten: olumsuz fiil/ağır söz -> sadece dinle; sıcak söz -> içten karşılık.
         neg = bool(nar.get("neg"))

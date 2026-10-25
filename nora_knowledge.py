@@ -177,6 +177,43 @@ COMMON_NOUNS: set[str] = {
     "hız", "mesafe", "yer", "gök", "dünya", "evren", "doğa", "insan", "toplum", "kültür", "tarih",
 }
 
+# SÖZ EDİMLERİ: bir sözcüğün hangi toplumsal işi gördüğü (sözlük bilgisi, cümle kalıbı değil).
+WORD_CLASSES: dict[str, str] = {
+    "merhaba": "selamlaşma", "selam": "selamlaşma", "günaydın": "selamlaşma",
+    "iyi akşamlar": "selamlaşma", "iyi geceler": "selamlaşma", "hoş geldin": "selamlaşma",
+    "hoşça kal": "veda", "görüşürüz": "veda", "güle güle": "veda", "elveda": "veda",
+    "teşekkür": "teşekkür", "sağ ol": "teşekkür", "eyvallah": "teşekkür", "rica": "rica",
+    "özür": "özür", "pardon": "özür", "affedersin": "özür",
+    "lütfen": "nezaket", "buyur": "nezaket", "efendim": "nezaket",
+    "evet": "onay", "hayır": "ret", "tamam": "onay", "olur": "onay", "peki": "onay",
+    "bravo": "takdir", "aferin": "takdir", "geçmiş olsun": "teselli", "üzgünüm": "teselli",
+    "kutlarım": "kutlama", "tebrikler": "kutlama", "hayırlı olsun": "kutlama",
+    "nasılsın": "hâl hatır", "naber": "hâl hatır", "iyi misin": "hâl hatır",
+}
+
+# Sınıfın tipik SÖYLENME KOŞULU (anlam bilgisi): 'selamlaşma' karşılaşınca olur.
+WORD_CLASS_CONTEXT: dict[str, str] = {
+    "selamlaşma": "karşılaşınca",
+    "veda": "ayrılırken",
+    "teşekkür": "bir iyilik gördükten sonra",
+    "rica": "bir istekten önce ya da sonra",
+    "özür": "bir hata yapıldığında",
+    "nezaket": "bir istek kurarken",
+    "onay": "bir öneri kabul edilirken",
+    "ret": "bir öneri reddedilirken",
+    "takdir": "bir başarı görüldüğünde",
+    "teselli": "bir sıkıntı duyulduğunda",
+    "kutlama": "güzel bir haber alındığında",
+    "hâl hatır": "bir yakınla karşılaşınca",
+}
+
+# SÖZ EDİMİ FİİLLERİ: söylemekle yapılan eylemler (eylem sınıfı, cümle değil).
+SPEECH_ACT_VERBS: set[str] = {
+    "teşekkür et", "özür dile", "rica et", "söz ver", "vedalaş", "selamla", "selam ver",
+    "kutla", "tebrik et", "söyle", "anlat", "sor", "cevapla", "seslen", "adlandır",
+    "haykır", "fısılda", "bağır", "yalvar", "davet et",
+}
+
 CORE_TURKISH_VERBS: set[str] = {
     # Gündelik anlatı (konuşma dilinin en sık fiilleri)
     "izle", "seyret", "başla", "bitir", "oku", "yaz", "dinle", "hazırla", "temizle", "gez",
@@ -240,6 +277,7 @@ NO_SOFTEN_EXTENDED: set[str] = {
     "robot", "pilot", "uzay", "evrak", "ittifak", "hakikat", "adalet", "cesaret", "nezaket", "felaket", "hareket",
     "bereket", "memleket", "şirket", "dikkat", "şefkat", "sohbet", "gurbet", "hasret", "ücret", "nöbet",
     "saat", "sanat", "iftar", "sabah", "silah", "sabır",
+    "bisiklet", "ceket",
 }
 
 # Eş anlamlılar ve zıt anlamlılar sözlüğü

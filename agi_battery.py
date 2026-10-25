@@ -1795,6 +1795,84 @@ def a57_repetition_awareness_time_and_variety():
                 f"zaman={ok_time} ({tr_lower(t_ans)[:48]}…) | iç-ses={ok_inner}")
 
 
+
+def a58_sentence_structure_valency_and_meta_questions():
+    """A58: Cümleyi YAPI olarak öğrenme (fiil + nesne hâli + iskelet) ve "nasıl denilir / ne
+    demek / nedir" sorularının SÖZCÜĞE bağlı kalmadan genellenmesi.
+
+    Ana ilke: bahsetme (mention) kullanımdan ayrılır. "Merhaba!" selamlaşmadır; "Merhaba nasıl
+    denilir?" sözcüğün kendisi hakkında sorudur. Sorulan sözcük bilinmiyorsa Nora anlam
+    boşluğunu ADIYLA söyler, sorunun cevabını da bu yüzden veremediğini açıklar ve araştırır.
+    """
+    from nora_lang import tr_lower
+
+    agi = NoraAGI(seed=88, boot_thinker=False)
+    agi.step_life(60)
+    cx = agi.frames
+    ok = {}
+
+    # 1) YAPI + VALANS: cümlelerden fiil-nesne hâli öğrenilir (kalıp değil, gözlem)
+    for t in ("Kapıyı açtım.", "Kitabı okudum.", "Elmayı yedim.", "Eve gittim."):
+        agi.learn_structure(t)
+    val = cx.memory.valency
+    ok["valans"] = (val["aç"].most_common(1)[0][0] == "ACC"
+                    and val["oku"].most_common(1)[0][0] == "ACC"
+                    and val["git"].most_common(1)[0][0] == "DAT")
+    rep = agi.explain_structure("Pencereyi açtım.")
+    ok["yapı"] = (rep.get("verb") == "aç" and rep.get("object") == "pencere"
+                  and rep.get("object_case") == "ACC" and "yüklem" in rep.get("roles", "")
+                  and rep.get("frame_seen", 0) >= 1)
+    # Aynı iskelet, görülmemiş sözcükle de tanınır (ezber değil, iskelet)
+    ok["iskelet"] = (agi.explain_structure("Perdeyi açtım.")["signature"]
+                     == agi.explain_structure("Kapıyı açtım.")["signature"])
+
+    # 2) KULLANIM vs BAHSETME: selamlaşma sözü, soru olarak gelince selamlaşma sayılmaz
+    use = tr_lower(agi.converse("Merhaba!"))
+    say_selam = tr_lower(agi.converse("Selam nasıl denilir?"))
+    ok["bahsetme"] = (("selam" in use or "merhaba" in use) and "söylenir" not in use
+                      and "selam" in say_selam and "söylenir" in say_selam
+                      and "huzurlu" not in say_selam and "dingin" not in say_selam)
+
+    # 3) AYNI YAPI, FARKLI SÖZCÜK: 'nasıl denilir' sözcüğe değil YAPIYA bağlı
+    r_teşekkür = tr_lower(agi.converse("Teşekkür nasıl edilir?"))
+    ok["farklı-sözcük"] = ("teşekkür" in r_teşekkür and "söylenir" in r_teşekkür
+                           and "teşekkür edilir" not in r_teşekkür)
+
+    # 4) BİLİNMEYEN EYLEM: 'nasıl sürülür' -> '-diğini bilmiyorum', genel 'yapıldığını' değil
+    r_sür = tr_lower(agi.converse("Bisiklet nasıl sürülür?"))
+    ok["eylem-özgü"] = ("sürüldüğünü" in r_sür and "bisiklet" in r_sür)
+
+    # 5) BİLİNMEYEN SÖZCÜK: anlam boşluğu adıyla söylenir + merak listesine girer + araştırma
+    r_k = tr_lower(agi.converse("Zorbalık nedir?"))
+    queued = "zorbalık" in list(agi.auto_net.curiosity_queue) or "zorbalık" in getattr(agi, "pending_research", [])
+    ok["boşluk"] = ("zorbalık" in r_k and "bilmiyorum" in r_k and queued)
+
+    # 6) ARAŞTIRMA: kaynak açıkken sorulan SÖZCÜK hedefli araştırma yapar ve öğrenir
+    article = ("Kuantum, fiziğin en küçük ölçeklerdeki enerji paketlerini inceleyen dalıdır. "
+               "Kuantum bir enerji birimidir.")
+    agi.life.sources = [("web:tr.wikipedia.org", lambda t, q: article),
+                        ("web:www.wikidata.org", lambda t, q: article)]
+    r_head = tr_lower(agi.converse("Kuantum nedir?"))
+    edges = {(e.subj, e.rel, e.obj) for e in agi.lang.graph.edges}
+    learned_edge = ("kuantum", "ISA", "enerji birimi") in edges
+    ok["araştırma"] = (learned_edge and "araştırdım" in r_head and "kuantum" in r_head)
+
+    # 7) ÖĞRENİLENİ KULLANMA: aynı soru artık boşluk değil, ağdan yanıtlanır
+    r_again = tr_lower(agi.converse("Kuantum ne demek?"))
+    ok["kullanma"] = ("enerji birimi" in r_again and "bilmiyorum" not in r_again)
+
+    # 8) OVERFITTING: aynı yapı, görülmemiş sözcüklerle — cevaplar ezber değil, AYRIŞIYOR
+    reps = [tr_lower(agi.converse(f"{w} nasıl söylenir?"))
+            for w in ("Nabız", "Zemheri", "Turşu")]
+    ok["genelleme"] = (all(any(w.lower() in r for w in ("nabız", "zemheri", "turşu")) for r in reps)
+                       and len(set(reps)) >= 2
+                       and all(("huzurlu" not in r and "dingin" not in r) for r in reps))
+
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -1852,6 +1930,8 @@ TESTS = {
     "A54": ("kişisel anlatıyı dinleme: yansıtma + soru, ağ kirlenmesi yok", a54_personal_narration_listening),
     "A55": ("günlük konuşma: anlatı, olumsuzluk, davet, kutlama, istek", a55_conversational_understanding_of_daily_speech),
     "A56": ("tam Türkçe kapsamı: 8 kip, birleşik zaman, yeterlilik, emir, -mAktA, -DIr/-ki/-CA", a56_full_turkish_morphology),
+    "A58": ("cümle yapısı, fiil valansı ve 'nasıl denilir' sorularının genellenmesi",
+            a58_sentence_structure_valency_and_meta_questions),
     "A57": ("tekrar farkındalığı, geçmiş cevabı anma, cevap çeşitliliği ve zaman bilinci", a57_repetition_awareness_time_and_variety),
 }
 

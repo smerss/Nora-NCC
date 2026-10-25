@@ -241,6 +241,10 @@ def voice_stem(cls, v: str, voice: str) -> str:
         return v
     v4 = _v4(cls, v)
     vowel_end = v[-1] in ALL_VOWELS
+    # t -> d yumuşaması ÜNLÜYLE başlayan çatı ekinden önce: et->edil, git->gidil, hisset->hissedil.
+    # Yalnızca sözlükte yumuşadığı bilinen köklerde (at->atıl kalır).
+    if not vowel_end and callable(globals().get("soften_verb_t")):
+        v = soften_verb_t(v)
     if vo == "PASSIVE":
         if vowel_end:
             return v + "n"
@@ -313,10 +317,68 @@ def analyze_compound_tense(cls, w: str) -> dict:
 
 
 # ============================================================================ ÇATI ÇÖZÜMLEME
+_VOICE_GATE = re.compile(
+    r"(?:[aeıioöuü]n|il|ıl|ul|ül|in|ın|un|ün|iş|ış|uş|üş|it|ıt|ut|üt)"
+    r"(?:(?:il|ıl|ul|ül|in|ın|un|ün|it|ıt|ut|üt|tır|tir|tur|tür|dır|dir|dur|dür))?"
+    r"(?:ir|ır|ur|ür|iyor|ıyor|ecek|acak|mış|miş|meli|malı|[dt][ıiudü]"
+    r"|im|ım|um|üm|iz|ız|uz|üz|sin|sın|sun|sün|ler|lar|r|n|k|m)")
+
+
 def analyze_voice(cls, w: str) -> dict:
     low = tr_lower(w)
     if len(low) < 4:
         return {}
+    # UCUZ KAPI: çatılı bitmiş fiil, gövdeden sonra bir çatı eki + kip/kişi eki taşımak ZORUNDA.
+    # ('yapılır', 'söylenir', 'yıkandı'). Bu kapıdan geçmeyen sözcük için pahalı arama yapılmaz.
+    if not _VOICE_GATE.search(low):
+        return {}
+    # Pahalı arama (kök kesme x çatı x 6 kip x 6 kişi) her sözcük için bir kez yapılır.
+    cache = cls.__dict__.get("_VOICE_CACHE")
+    if cache is None:
+        cache = {}
+        cls._VOICE_CACHE = cache
+    if low in cache:
+        return dict(cache[low])
+    res = cls._analyze_voice_search(low)
+    if len(cache) > 40000:
+        cache.clear()
+    cache[low] = dict(res)
+    return res
+
+
+def _finite_guesses(cls, low: str) -> tuple:
+    """Sondan kip daraltması: 36 (kip x kişi) birleşimini değil, ekin söylediği kipleri dene."""
+    tenses = []
+    if low.endswith(("dı", "di", "du", "dü", "tı", "ti", "tu", "tü")):
+        tenses.append("PAST")
+    if re.search(r"(ecek|acak)$", low) or "eceğ" in low[-5:] or "acağ" in low[-5:]:
+        tenses.append("FUT")
+    if re.search(r"(mış|miş|muş|müş)$", low):
+        tenses.append("EVID")
+    if re.search(r"(meli|malı)$", low):
+        tenses.append("NEC")
+    if re.search(r"[ıiuü]yor", low):
+        tenses.append("PRES")
+    if low.endswith("r") or re.search(r"(rım|rim|ruz|rüz|rsun|rsunuz|rlar|rler)$", low):
+        tenses.append("AOR")
+    tenses = tuple(tenses) or ("PRES", "AOR", "PAST", "FUT", "NEC", "EVID")
+    # Kişi daraltması: çekimli fiilin son sesi kişiyi söyler (m->1SG, n->2SG, k->1PL, z->2PL, ler->3PL).
+    if re.search(r"(niz|nız|nuz|nüz)$", low) or low.endswith("z"):
+        persons = ("2PL",)
+    elif low.endswith(("ler", "lar")):
+        persons = ("3PL",)
+    elif low.endswith("m") and low[-2:] not in ("mı", "mi", "mu", "mü"):
+        persons = ("1SG",)
+    elif low.endswith("n"):
+        persons = ("2SG",)
+    elif low.endswith("k"):
+        persons = ("1PL",)
+    else:
+        persons = ("3SG", "1SG", "2SG", "1PL", "2PL", "3PL")
+    return tenses, persons
+
+
+def _analyze_voice_search(cls, low: str) -> dict:
     for cut in range(1, min(9, len(low) - 2) + 1):
         cand = low[:-cut]
         for base in (cand, cls._unsoften(cand)):
@@ -341,8 +403,9 @@ def analyze_voice(cls, w: str) -> dict:
                     vname, vstem = "", item
                 if not vstem:
                     continue
-                for t in ("PRES", "PAST", "FUT", "AOR", "NEC", "EVID"):
-                    for p in ("1SG", "2SG", "3SG", "1PL", "2PL", "3PL"):
+                _tenses, _persons = cls._finite_guesses(low)
+                for t in _tenses:
+                    for p in _persons:
                         if cls.conjugate_verb(vstem, t, person=p) == low:
                             return {"stem": base, "voice_stem": vstem, "voice": vname,
                                     "tense": t, "person": p, "is_verb": True}
@@ -710,14 +773,20 @@ def analyze_nominal_copula(cls, w: str, known: set | None = None) -> dict | None
     def _norm(base: str) -> str:
         return base[:-1] if base.endswith("y") and len(base) >= 4 else base
 
-    def _cands(base: str):
-        """Yalnızca SÖZLÜKTE/SIFAT LİSTESİNDE olan kök kabul edilir (uydurma kök yok)."""
+    def _cands(base: str, allow_verbroot: bool = False):
+        """Yalnızca SÖZLÜKTE/SIFAT LİSTESİNDE olan kök kabul edilir (uydurma kök yok).
+
+        Fiil köküyle çakışan sıfatlar ('aç' hem aç-mak hem aç/tok) -DI/-mIş/-sA eklerinde
+        FİİL okumasına bırakılır: 'açtım' = aç-tı-m (açtım), 'açtım (tok değildim)' değil.
+        """
         out = []
-        if base in words:
-            out.append(base)
-        b2 = _norm(base)
-        if b2 != base and b2 in words:
-            out.insert(0, b2)                       # 'iyi-y-di' -> iyi (kaynaştırma y düşer)
+        for cand in (base, _norm(base)):
+            if not cand or cand in out:
+                continue
+            if not allow_verbroot and cand in cls.KNOWN_VERB_ROOTS:
+                continue
+            if cand in words:
+                out.append(cand)
         return out
 
     _PSUF = ("nız", "niz", "nuz", "nüz", "lar", "ler", "m", "n", "k", "")
@@ -760,7 +829,9 @@ def analyze_nominal_copula(cls, w: str, known: set | None = None) -> dict | None
         if not w.endswith(suf) or len(w) - len(suf) < 3:
             continue
         base = w[: -len(suf)]
-        for c in _cands(base):
+        _allow_vr = suf in ("yım", "yim", "yum", "yüm", "ım", "im", "um", "üm",
+                            "yız", "yiz", "yuz", "yüz", "ız", "iz", "uz", "üz")
+        for c in _cands(base, allow_verbroot=_allow_vr):
             if sadece_sifat and c not in adjs:
                 continue
             return {"stem": c, "case": "NOM", "is_verb": False, "copula": True,
@@ -804,6 +875,8 @@ def attach(morph_cls) -> None:
     morph_cls.that_clause = classmethod(that_clause)
     morph_cls.derive_noun = classmethod(derive_noun)
     morph_cls.analyze_voice = classmethod(analyze_voice)
+    morph_cls._finite_guesses = classmethod(_finite_guesses)
+    morph_cls._analyze_voice_search = classmethod(_analyze_voice_search)
     morph_cls.analyze_compound_tense = classmethod(analyze_compound_tense)
     morph_cls.int_to_words_full = classmethod(int_to_words_full)
     morph_cls.ordinal_tr = classmethod(ordinal_tr)

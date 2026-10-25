@@ -495,7 +495,28 @@ class TurkishMorphology:
 
     @classmethod
     def conjugate_verb(cls, stem: str, tense: str = "AOR", neg: bool = False, person: str = "3SG") -> str:
-        """Fiil çekimi: PRES (-iyor), PAST (-di), FUT (-ecek), AOR (-ir/-ar), NEC (-meli), IMP."""
+        """Fiil çekimi: PRES (-iyor), PAST (-di), FUT (-ecek), AOR (-ir/-ar), NEC (-meli), IMP.
+
+        Aynı (kök, kip, olumsuzluk, kişi) dörtlüsü sıkça sorulur (çözümleme + üretim + çatı araması);
+        sonuç önbelleklenir -> tur gecikmesi O(1) kalır.
+        """
+        _k = (stem, tense, bool(neg), person)
+        _c = cls.__dict__.get("_CONJ_CACHE")
+        if _c is None:
+            _c = {}
+            cls._CONJ_CACHE = _c
+        _hit = _c.get(_k)
+        if _hit is not None:
+            return _hit
+        _out = cls._conjugate_verb_uncached(stem, tense, neg, person)
+        if len(_c) > 60000:
+            _c.clear()
+        _c[_k] = _out
+        return _out
+
+    @classmethod
+    def _conjugate_verb_uncached(cls, stem: str, tense: str = "AOR", neg: bool = False,
+                                 person: str = "3SG") -> str:
         v = tr_lower(stem).strip()
         for inf in ("mek", "mak"):
             if len(v) > 3 and v.endswith(inf):
@@ -994,6 +1015,13 @@ class TurkishMorphology:
                 _r = _f(w)
                 if _r:
                     return _r
+        # ÇATI: 'yapılır', 'açılır', 'edilir', 'sürülür', 'gidilir' — edilgen/ettirgen gövde.
+        # Kök sözlükte olduğu için uydurma yok; çatı bilgisi anlamı belirler (nasıl YAPILIR).
+        _vv = cls.analyze_voice(w) if hasattr(cls, "analyze_voice") else {}
+        if _vv.get("is_verb"):
+            return {"stem": _vv.get("stem"), "case": "NOM", "is_verb": True,
+                    "tense": _vv.get("tense"), "person": _vv.get("person"),
+                    "voice": _vv.get("voice") or "", "voice_stem": _vv.get("voice_stem")}
         # Olumsuz geniş zaman: 'gelmem', 'gelmezsin', 'bitmez', 'atmazlar', 'okumayız'
         _na = re.match(r"^(.+?)m([ae])(z(sınız|siniz|sunuz|sünüz|lar|ler|sın|sin|sun|sün)?|y(ız|iz|uz|üz)|m|n)?$", w)
         if _na:
