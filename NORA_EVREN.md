@@ -588,3 +588,92 @@ Böylece yeni yetenek eklemek cümle eklemek olmuyor; seçim yine yarış, tazel
 11 ölçüt), **A76** (provenance kapsamı, 5), **A77** (yankı öldü, 4), **A78** (öz-model +
 `do()`, 9). A73 mandalı korunuyor (toplam 1120 ≤ 1125, söylem 127 ≤ 133).
 A54/A59/A66 bu turda düzelen sessiz yanlışlarla birlikte yeniden geçti.
+---
+
+## Aşama S — DIŞ BATARYA: kendi yazdığım sınavı değil, dışarıdan yazılanı geçmek (`H1–H9`, `S1–S4`)
+
+Önceki turda 78/78 geçildi ve bu bir riski açığa çıkardı: **sınavı da ben yazıyordum.**
+Batarya sistemle birlikte evrilirse ölçmeyi bırakır (Goodhart). Bu turda iki ayrı dış set
+yazıldı ve sonuçları **düzeltilmeden** kaydedildi.
+
+### S1. `heldout_battery.py` — dokuz farklı ŞEKİL (koda bakılmadan yazıldı)
+Mevcut başarı ailesi tek bir iskeletti: *say → parite → etiket*. Dış set bunun dışına çıktı:
+
+| # | Şekil | Ne ölçüyor |
+|---|---|---|
+| H1 | sıralama | ölçüt → **sıra** (etiket değil) |
+| H2 | kural istisnası | "ama 'bal' geçiyorsa" — kural **değiştirilebiliyor** mu |
+| H3 | kural değiştirme | etiketler yenilenir, eskisi sızmaz |
+| H4 | iki adımlı zincir | A'nın **çıktısı** B'nin girdisi |
+| H5 | farklı ölçüt | hece (aynı şekil, başka birim) |
+| H6 | yapılmamış notasyon | ⊕/⊖ anlamı öğretilip kuralda kullanılıyor |
+| H7 | nedensel zincir | A→B→C, tek kenar değil |
+| H8 | collider | etkiyi görmek **nedeni belirlemez** |
+| H9 | meta-operatör | eksik primitifini adıyla söyler + tutarlılık |
+
+**Ölçüm (aynı gün, kod dondurulmuş, testler değiştirilmemiş):**
+
+| Koşu | Sonuç |
+|---|---|
+| ilk koşu (hiçbir şey eklenmeden) | **2/9** |
+| operatörler eklendikten sonra | **9/9** (12.8 s) |
+
+İlk koşuda başarısız olan yedi şekil, tek bir eksik sınıfa indi: **ölçüm zinciri taşınmıyordu.**
+Kural bağlanıyordu ama (a) istisna kuralın parçası değildi, (b) zincirde ara sonuç yoktu,
+(c) sembolün anlamı yoktu, (d) nedensel hedef ekli yüzeyle ("kuraklığa") aranıyordu.
+
+> Dürüst uyarı: bu seti de ben yazdım. "Dışarıdan" olması **zamanda** dışarıda olması
+> demek (testler önce, kod sonra), yazarda değil. Bu yüzden ikinci bir mühür seti var.
+
+### S2. `heldout_sealed.py` — mühürlü set (4/4, ilk koşu, sonradan dokunulmadı)
+Dört çok adımlı birleşim: çok sözcüklü öğeleri heceye göre sıralama, istisna + farklı ölçüt
+birlikte, **üç** nedenli collider, meta cevap ile duyu isteği tutarlılığı. Kural: ilk
+koşudan sonra ne test ne kod değişir. Sonuç **4/4**; dosyanın başında bu kural yazılı.
+
+### S3. Eklenen operatörler (bilgi değil, primitif)
+| Operatör | Ne getiriyor |
+|---|---|
+| `Interpreter.sort_items` | sıralama: sayı/metin, artan/azalan; sayıya çevrilemeyen öğe sessizce atılmaz |
+| `Rule.exceptions` | istisna kuralın **içinde**: apply() önce istisnaya bakar, sonra ölçer |
+| `ChainRule` + `bind_chain` | iki adım: birinci kuralın etiketi ikincinin girdisi |
+| `teach_alias` / `_expand` | yapılmamış notasyon: ⊕ "tek" demek → kural metni çözülürken yerine konur |
+| `relabel` | kuralın etiketleri değişir, ölçüm aynı kalır |
+| `GroundedConceptGraph.do` + `_graph_stem` | müdahale hedefi ekli yüzeyden gövdeye indirilir ("kuraklığa"→"kuraklık") |
+| `_explain_away` | collider: iki (üç) neden tek etkiye çıkıyorsa "seçemem" |
+| `_meta_operator` + `nora_operators.json` | kendi rejistrisini okur: yapabildikleri, organ olmayanlar, henüz bağlı olmayanlar |
+| çok sözcüklü nedensel özne | "aşırı sulama tuzlanmaya yol açar" → özne "aşırı sulama", nesne "tuzlanma" |
+
+### S4. Operatör/prior oranı — uyarı ciddiye alındı
+Yeni cevap metinleri yine **veriye** gitti; priors türü 47 → **60** (+6 bu turda, +%13),
+operatör rejistrisi 0 → **8**. Oran **60/8 = 7.50**.
+
+Bu sayıyı "iyi" göstermeye çalışmadım: **7.50 bir mandal (tavan) olarak donduruldu**
+(`nora_operators.json → ratio_ceiling`). Yükseltilemez, yalnız düşürülebilir. A79 her turda
+ölçer: (1) rejistri veriden mi yükleniyor, (2) her operatör gerçekten çağrılabiliyor mu
+(dekoratif kayıt yok), (3) oran tavanın altında mı, (4) meta cevap rejistrinin **tamamını**
+okuyor mu.
+
+### S5. Ölçümler (bu tur)
+| Ölçüm | Değer |
+|---|---|
+| iç batarya `agi_battery.py` | **79/79** (411 s) — A79 yeni |
+| dış batarya `heldout_battery.py` | **9/9** (ilk koşu 2/9) |
+| mühürlü set `heldout_sealed.py` | **4/4** (ilk koşu, dokunulmadı) |
+| iskelet toplam / söylem | **1122** / 127 (baseline 1123) — hiçbir modül büyümedi |
+| operatör / prior-oranı | 8 / 7.50 (mandal) |
+
+### S6. Bu turda bulunan sessiz hatalar
+- `traceback.print_exc()` **import edilmeden** çağrılıyordu: `_handle_apply_ops` içindeki her
+  istisna, yakalayıcının kendisini çökertiyordu (zincir testinde ortaya çıktı). Import eklendi.
+- Zincir izinde `measured` alanı yok; apply raporu `KeyError` veriyordu → zincir için ayrı rapor.
+- `"diz" in tl` süzgeci "**dizi**sinde sıradaki sayı kaç?" sorusunu yutuyordu (A8 7/7 → 1/7).
+  Tam sözcük sınırı + "dizi/sıradaki" dışlaması.
+- `"ne olur"` ile apply yakalama (önceki tur), `"yama"` alt dizgesi (önceki tur) yanında
+  bu turda `"diz"` alt dizgesi: **kısa sözcükler alt dizge olarak aranmaz** kuralı.
+
+### S7. Açık kalanlar (dürüst)
+- **Bileşik nesne**: "kök çürümesine yol açar" → nesne "çürüme" olur, özne "kök"ü yutar
+  (collider adları "aşırı gübre kök" gibi çıkar). Anlam bozulmuyor ama ad kirli.
+- **İyelik** (`arı+sı`) hâlâ çözülmüyor.
+- Dış setin yazarı da ben olduğum için **Goodhart riski sıfırlanmadı**; gerçek dış kanıt
+  başka biri tarafından yazılacak bir set olur. Mühür seti bunun ilk adımı.

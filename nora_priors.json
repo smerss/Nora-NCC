@@ -946,17 +946,17 @@
       "priors": [
         {
           "id": "bound.a",
-          "text": "Kuralı nesneye çevirdim: {name} tek -> {odd}, çift -> {even} ({domain}). Bir cümle ver; ölçüp etiketi söyleyeyim.",
+          "text": "Kuralı nesneye çevirdim: {name} tek -> {odd}, çift -> {even} ({domain}). Bir cümle ver; ölçüp etiketi söyleyeyim. {ex}",
           "bias": 1.0
         },
         {
           "id": "bound.b",
-          "text": "Bağladım: {name} tek ise {odd}, çift ise {even}. Kural artık cümlede değil, bende bir operatör; yeni bir cümleye uygulayabilirim.",
+          "text": "Bağladım: {name} tek ise {odd}, çift ise {even}. Kural artık cümlede değil, bende bir operatör; yeni bir cümleye uygulayabilirim. {ex}",
           "bias": 0.96
         },
         {
           "id": "bound.c",
-          "text": "Kural içeri alındı ({domain}): {name} tek -> {odd}, çift -> {even}. Ölçümü ben yaparım, tahmin etmem.",
+          "text": "Kural içeri alındı ({domain}): {name} tek -> {odd}, çift -> {even}. Ölçümü ben yaparım, tahmin etmem. {ex}",
           "bias": 0.93
         }
       ]
@@ -1540,6 +1540,96 @@
           "id": "st.t4",
           "text": "tuz biber nane",
           "bias": 1.0
+        }
+      ]
+    },
+    "op.sorted": {
+      "desc": "Sıralama operatörünün raporu.",
+      "priors": [
+        {
+          "id": "so.a",
+          "text": "Sıraladım ({mode}): {items}.",
+          "bias": 1.0
+        },
+        {
+          "id": "so.b",
+          "text": "{mode} sıra şu: {items}. Ölçütü ben uyguladım, ezber liste değil.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "apply.chain_bound": {
+      "desc": "İki adımlı zincir bağlandığında.",
+      "priors": [
+        {
+          "id": "cb.a",
+          "text": "Zinciri kurdum: önce ölçüm, sonra etiket; ara sonuç ikinci adımın girdisi ({steps}). Bir girdi ver, iki adımı birlikte yürüteyim.",
+          "bias": 1.0
+        },
+        {
+          "id": "cb.b",
+          "text": "İki adım bağlandı: {steps}. Tek adım yetmez, çünkü ikinci adım birincinin çıktısını okuyor.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "apply.result_exception": {
+      "desc": "Girdi istisnaya uyduğunda ana kurala bakılmaz.",
+      "priors": [
+        {
+          "id": "re.a",
+          "text": "'{target}' istisnaya uydu ('{pattern}' geçiyor); ana kurala bakmadım, etiket: {label}.",
+          "bias": 1.0
+        },
+        {
+          "id": "re.b",
+          "text": "İstisna devrede: '{pattern}' -> {label}. '{target}' için ölçüm yapmadım, çünkü kural önce istisnaya bakıyor.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "meta.collider": {
+      "desc": "Collider/explaining-away: iki neden tek etkiye çıkıyorsa etkiden neden seçilemez.",
+      "priors": [
+        {
+          "id": "mc2.a",
+          "text": "'{effect}' etkisine ağımda birden çok neden çıkıyor: {causes}. Etkiden geriye bakarak hangisi olduğunu SEÇEMEM; ikisi de olabilir. Ayırt etmek için birini sabitleyip diğerini değiştirmek gerekir.",
+          "bias": 1.0
+        },
+        {
+          "id": "mc2.b",
+          "text": "Tuzak burada: {causes} ikisi de '{effect}' etkisine yol açıyor. Gözlem 'hangisi' sorusunu yanıtlamaz; müdahale gerekir. Ölçümüm yok, o yüzden tek neden söylemem.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "meta.operator": {
+      "desc": "Meta-operatör: kayıtlı ve eksik yeteneklerin canlı dökümü.",
+      "priors": [
+        {
+          "id": "mo2.a",
+          "text": "Kayıtlı {n_have} operatörüm var: {have}. Bende OLMAYANLAR: {missing}. Bunların hiçbirini yapmış gibi yapmam; isteyince de yapamam derim.",
+          "bias": 1.0
+        },
+        {
+          "id": "mo2.b",
+          "text": "Yapabildiklerim: {have}. Yapamadıklarım (adıyla): {missing}. Liste sabit değil; hangi kural/zincir/sembol bağlıysa o an güncelleniyor.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "apply.result_chain": {
+      "desc": "İki adımlı zincir uygulandığında ara ve son sonucun raporu.",
+      "priors": [
+        {
+          "id": "rc.a",
+          "text": "'{target}': {n} {name} -> ara sonuç {mid} -> sonuç {final}. İki adımı da ben yürüttüm.",
+          "bias": 1.0
+        },
+        {
+          "id": "rc.b",
+          "text": "Ölçüm {n} {name}, birinci adım {mid}, ikinci adım {final}. Zincir baştan sona çalıştı ({target}).",
+          "bias": 0.95
         }
       ]
     }
