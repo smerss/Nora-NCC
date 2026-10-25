@@ -1941,6 +1941,49 @@ class GroundedConceptGraph:
                 break
         return out
 
+    def do(self, node: str, value: str | None = None, max_hops: int = 3) -> dict:
+        """Pearl'ün do() operatörü: GÖZLEM (P(Y|X)) ile MÜDAHALE (P(Y|do(X))) farkı.
+
+        Müdahalede X'e GİREN kenarlar KESİLİR (X'in nedeni artık X'i belirlemez);
+        yalnız X'ten ÇIKAN nedensel kenarlar izlenir. X'e giren nedensel kenar varsa
+        gözlemden müdahale çıkarımı yapılamaz (back-door): `identified` False döner ve
+        ortak neden adayları `confounders` içinde ADIYLA söylenir. Bu yüzden bu operatör
+        "Y artar" demez; ne ölçüldüğünü ve neyin eksik olduğunu söyler.
+        """
+        s = tr_lower(node).strip()
+        incoming = list(self._in_edges.get(s, ()))
+        backdoor = [e for e in incoming if e.rel in ("CAUSES", "IF_THEN")]
+        effects: list[str] = []
+        paths: list[list[RelationEdge]] = []
+        visited = {s}
+        frontier: list[tuple[str, list[RelationEdge]]] = [(s, [])]
+        for _ in range(max(1, int(max_hops))):
+            nxt: list[tuple[str, list[RelationEdge]]] = []
+            for cur, path in frontier:
+                for e in self._out_edges.get(cur, ()):
+                    if e.rel not in ("CAUSES", "IF_THEN") or e.weight <= 0.25:
+                        continue
+                    if e.obj in visited:
+                        continue
+                    visited.add(e.obj)
+                    npath = path + [e]
+                    paths.append(npath)
+                    effects.append(e.obj)
+                    nxt.append((e.obj, npath))
+            frontier = nxt
+            if not frontier:
+                break
+        return {
+            "intervened": s,
+            "value": value,
+            "effects": effects,
+            "paths": paths,
+            "confounders": sorted({e.subj for e in backdoor}),
+            "identified": not backdoor,
+            "observed_edges": [e.obj for e in self._out_edges.get(s, ())],
+            "in_edges": [(e.subj, e.rel) for e in incoming],
+        }
+
     def check_relation(self, subj: str, target_pred: str) -> dict:
         """'X Y yapar mı / X Y midir / X Y'ye yol açar mı?' sorusu için geçişli kanıt zinciri arar."""
         s = tr_lower(subj).strip()
@@ -2549,6 +2592,27 @@ class WernickeComprehender:
                 "dur", "başla", "kalk", "otur", "dinle", "oku", "yaz", "çiz", "göster", "bul"}
         if _last_w in _IMP and len(words) >= 2:
             return SemanticFrame(kind="command", raw=s_raw, rel=_last_w, obj=" ".join(words[:-1]))
+
+        # İSTEK: "bana bir zımbırtı uyarla ve sonra tarat" — 'bana' ile kurulan söz
+        # dünya olgusu değildir. Son sözcük çekimli fiil/koşaç ya da sözlükteki AD değilse
+        # (üretken emir biçimi: 'uyarla', 'tarat'), cümle İSTEKtir. Olgu diye öğrenilirse
+        # Nora kullanıcının kendi isteğini papağan gibi tekrarlar (yankı).
+        if "bana" in words:
+            _la = self.morph.analyze_word(_last_w, self.graph.lexicon)
+            if (not _la.get("is_verb") and not _la.get("copula")
+                    and _last_w not in self.graph.lexicon and len(_last_w) >= 4):
+                _fill = {"bana", "bir", "sonra", "ve", "lütfen", "şimdi", "hemen", "biraz",
+                         "ardından", "bunu", "şunu"}
+                _tgt = ""
+                for _w in words[:-1]:
+                    if _w in _fill:
+                        continue
+                    _an = self.morph.analyze_word(_w, self.graph.lexicon)
+                    if not _an.get("is_verb"):
+                        _tgt = _an["stem"] if _an.get("unverified_stem") else _w
+                if _tgt:
+                    self.last_topic = _tgt
+                return SemanticFrame(kind="command", raw=s_raw, rel=_last_w, obj=_tgt)
 
         # KENDİ BEDENİ: "canım sıkılıyor", "karnım ağrıyor", "başım dönüyor".
         # Bu bir dünya olgusu değil, o anki hâldir; "canım sıkılır" diye genellenemez.

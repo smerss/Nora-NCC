@@ -9,6 +9,7 @@ tasarımcının yazdığı bir kalıptan mı geldi — bunu kimse saymıyordu.
 Bu organ her söz PARÇASINI doğduğu yere göre etiketler:
 
     ag       kavram ağındaki bağ (broca ile çekimlenmiş gerçek bilgi)
+    islem    OPERATÖRLE hesaplanmış (sayma, kural uygulama, plan adımı) — retrieve değil
     bellek   yaşanmış kayıt / hatırlanan söz
     cikarim  kendi türettiği bağ
     beden    iç-duyum, açlık/susuzluk, ölçülen zaman
@@ -23,7 +24,7 @@ from __future__ import annotations
 
 from collections import Counter
 
-SOURCES = ("ag", "bellek", "cikarim", "beden", "duyum", "kalip", "ogrenim")
+SOURCES = ("ag", "bellek", "cikarim", "beden", "duyum", "islem", "kalip", "ogrenim")
 
 LABELS = {
     "ag": "kavram ağı",
@@ -31,6 +32,7 @@ LABELS = {
     "cikarim": "kendi çıkarımı",
     "beden": "beden/ölçüm",
     "duyum": "duyum",
+    "islem": "hesaplanmış",
     "kalip": "doğuştan eğilim",
     "ogrenim": "öğrenilmiş söz",
 }

@@ -497,3 +497,88 @@ Klasik LLM'lerin binlerce veriyle olasılıksal sonraki-token tahmini veya önce
 
 
 
+---
+
+## Aşama R — Uygulama Operatörü: kuralı *bağla*, yeni girdiye *uygula*, *taşı* (`A75–A78`, Toplam `78/78 GEÇTİ`)
+
+19. turun sınavı 11/11 kalmıştı. Teşhis şuydu: bunlar on bir ayrı başarısızlık değil,
+**tek bir eksik primitifin on bir yüzüydü**. Nora bir kuralı *retrieve* edebiliyor ama
+**apply** edemiyordu; kural tümevarımı, aktarım, sayma, planlama ve öz-gözlem aynı
+delikten düşüyordu. Bu turda bilgi eklenmedi — **operatör** eklendi.
+
+### R1. `nora_apply.py` — eksik olan tek primitif
+- **`Rule(rid, feature, mapping{odd,even}, domain, source_text, uses, derived_from)`**:
+  kullanıcının söylediği cümle bir *metin* olarak değil, **ölçülebilir bir nesne** olarak
+  yaşar. `measure()` özelliği sayar (ünlü/harf/ünsüz/sözcük/hece), `apply()` pariteye
+  göre etiket döndürür, `transfer()` yapıyı korur — alanı ve ölçütü değiştirir.
+- **`Interpreter`**: `bind()` (cümle → Rule), `apply()`, `count()`, `plan()`, `revise()`,
+  `trace` (son 200 işlem), `state_dict()/load_state_dict()` (kural ve çalışma belleği
+  beyin dosyasıyla taşınır).
+- **`WorkingMemory(capacity=7)`**: 3–7 yuva; taşan her öğe `evicted` günlüğüne yazılır —
+  sessiz kayıp yok.
+
+### R2. Düzeltme sırası (kullanıcının verdiği sıra korundu)
+1. **Provenance kapsamı**: `islem` (hesaplanmış) kaynağı eklendi; `_compete_workspace`
+   sonrası `_tag_bid` kazanan sözün modülünü kaynağa yazar; tur başına kaynak farkı
+   `_last_turn_src` olarak ölçülür. **Bulunan hata:** ilk turda `_prov_snap` boş sözlük
+   olduğu için `and _prov_snap` koşulu tüm etiketleri yutuyordu — düzeltildi.
+2. **Çalışma belleği** (7 yuva, tahliye günlüğü).
+3. **bind/apply/eval** (`nora_apply.py`).
+4. **Yankıyı öldür**: "kabul ediyorum ve '<kullanıcının sözcüğü>' doğrultusunda yöneliyorum"
+   cümlesi silindi. Yerine **decompose → dene → açıkça "yapamıyorum"**.
+   Bileşik istek ("X uyarla ve sonra Y tarat") **adımlara ayrılır**, yürütülemeyen adım
+   **adıyla** söylenir.
+5. **Sayı + dizi**, 6. **öz-model düğümleri**, 7. **yönlü/nedensel kenarlar + `do()`**.
+
+### R3. Artık gerçekten yapılanlar (sınavın kapı soruları)
+| İstek | Cevap (canlı) |
+|---|---|
+| "Sesli harf sayısı tek ise mavi, çift ise kırmızı." | Kural nesneye çevrildi; "tek -> mavi, çift -> kırmızı" |
+| "'Bal arısı uçar' hangi renk?" | Ölçtüm: 6 ünlü (çift) → **kırmızı** |
+| "'Petek altıgen' hangi renk?" | 5 ünlü (tek) → **mavi** |
+| "Aynı kuralı mutfağa taşı…" | Aynı yapı, yeni alan: 3 sözcük (tek) → **tuzlu** |
+| "Lojistiğe taşı…" | 2 sözcük (çift) → **normal** |
+| "On adımlık plan" | 10 adım, her adımda ölçüt; hedef değişince eskiler `superseded` |
+| "Yanılma olasılığın yüzde kaç?" | Ölçülen kaynak karışımından hesaplanır; karışım yoksa **temkinli** yüzde ve eksik listesi |
+| "X ve Y birlikte artıyor; X'e müdahale edersem?" | `P(Y|X)` ≠ `P(Y|do(X))`; grafikte kenar yoksa **"sonucu söylemem"** |
+| "Nasıl çalışıyorsun?" | Canlı ölçüm: organ, kavram bağı, **öz-modelimde N düğüm**, kural, bellek yükü, kalıp payı |
+
+### R4. `do()` operatörü ve öz-model düğümleri
+- **`GroundedConceptGraph.do(node)`**: X'e **giren** nedensel kenarları keser, yalnız
+  X'ten **çıkan** kenarları izler. Ortak neden (back-door) varsa `identified=False` ve
+  ortak neden **adıyla** döner. Bu yüzden do() "Y artar" demez; ne ölçüldüğünü ve neyin
+  eksik olduğunu söyler. Öğretilen "kuraklık kıtlığa yol açar" bağı üzerinde
+  `do(kuraklık) → kıtlık` gerçekten hesaplanır (A78).
+- **`_sync_self_graph()`**: `nora` düğümü kavram grafiğine yazılır — canlı ölçümler
+  `HAS_STATE` (`kalip_payi=…`), yetenekler `CAN_DO`, sınırlar `CANNOT_DO`. Öz-rapor bu
+  düğümleri **okur**; metin ezberi değil.
+
+### R5. İskelet mandalı korundu (büyümedi, küçüldü)
+Yeni cevap metinleri koda yazılmadı: **`nora_priors.json`** içine 24 yeni topluluk türü
+olarak taşındı (`apply.result`, `plan.built`, `meta.self_report`, `meta.causal_*`, …).
+Böylece yeni yetenek eklemek cümle eklemek olmuyor; seçim yine yarış, tazelik ve
+öğrenme ağırlıklarıyla yapılıyor.
+
+| Ölçüm | Önce | Sonra |
+|---|---|---|
+| `nora_audit` toplam söz | 1123 | **1120** |
+| söylem (iskelet) | 127 | 127 |
+| `nora_apply.py` (yeni modül) | — | **0** (test cümleleri de veride) |
+| priors topluluk türü | 16 | **47** |
+
+### R6. Bu turda bulunan ve kapatılan sessiz yanlışlar
+- **Alt dizi çakışması**: "uyuyamadım" içindeki `yama`, kişisel anlatıyı kod yaması
+  cevabına düşürüyordu → kelime sınırı (`\byama`).
+- **"ne olur" tek başına apply sayılıyordu**: "X'e müdahale edersem Y ne olur?" sorusuna
+  bir önceki kuralın etiketi cevap veriyordu → nedensellik sorusu apply dalından çıkarıldı.
+- **"kutu"/"kalem" alan sözcükleri**: "Kutuda 7 kalem var, kaç kalem kaldı?" sayım dalına
+  düşüp sözel problemi yutuyordu → sayım dalı yalnız metin ölçümünde çalışır.
+- **"nasıl çalışır"**: "Kuark nasıl çalışır?" öz-rapora düşüyordu → öz-rapor yalnız 2. kişi.
+- **Emir cümlesi olgu diye öğreniliyordu**: "bana bir zımbırtı uyarla" cümlesi kavram
+  ağına ISA kenarı olarak yazılıyordu (yankının en derin biçimi) → istek/olgu ayrımı.
+
+### R7. Test durumu
+`python agi_battery.py` → **78/78** (420 s). Yeni testler: **A75** (bağla/uygula/taşı,
+11 ölçüt), **A76** (provenance kapsamı, 5), **A77** (yankı öldü, 4), **A78** (öz-model +
+`do()`, 9). A73 mandalı korunuyor (toplam 1120 ≤ 1125, söylem 127 ≤ 133).
+A54/A59/A66 bu turda düzelen sessiz yanlışlarla birlikte yeniden geçti.

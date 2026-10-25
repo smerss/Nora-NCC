@@ -2832,6 +2832,210 @@ def a74_canlilik_registeri_kopek_degil():
                                f"soru={rep['soru_orani']:.2f}")
 
 
+def a75_uygulama_operatoru_bind_apply_transfer():
+    """A75 — APPLY: kural NESNE olarak bağlanır ve yeni girdiye uygulanır.
+
+    Teşhis: Nora retrieve ediyordu, apply etmiyordu. Tek eksik primitif yüzünden kural
+    tümevarımı, transfer, sayma ve planlama birlikte düşüyordu. Ölçüt:
+    (1) söylenen kural nesneye çevrilir (cümle değil, operatör),
+    (2) aynı kural GÖRÜLMEMİŞ girdilere uygulanır ve ölçüm iz bırakır,
+    (3) transfer: yapı korunur, alan/özellik değişir,
+    (4) sayma primitifi (döngü) ve plan (adım + ölçüt) çalışır,
+    (5) plan hedef değişince yeniden kurulur, eskiler superseded olur,
+    (6) kural ve çalışma belleği beyinle taşınır.
+    """
+    import os
+    import shutil
+    import tempfile
+
+    from nora_apply import Interpreter, WorkingMemory
+
+    ok = {}
+
+    # (1)(2) bağla + uygula (motor kendi başına)
+    it = Interpreter()
+    r = it.bind("Sesli harf sayısı tek ise mavi, çift ise kırmızı.")
+    ok["bagla"] = (r is not None and r.feature == "vowel_count"
+                   and r.mapping == {"odd": "mavi", "even": "kırmızı"})
+    l1, t1 = it.apply("Bal arısı uçar")
+    l2, t2 = it.apply("Petek altıgen")
+    ok["uygula"] = (l1 is not None and l2 is not None and l1 != l2
+                    and t1["measured"] % 2 == 0 and t2["measured"] % 2 == 1)
+    ok["iz"] = (t1["feature"] == "vowel_count" and isinstance(t1["measured"], int))
+
+    # (3) transfer
+    tr = it.transfer({"odd": "tuzlu", "even": "tatlı"}, feature="word_count", domain="mutfak")
+    l3, t3 = it.apply("tuz biber nane")
+    ok["transfer"] = (tr is not None and tr.domain == "mutfak" and t3["feature"] == "word_count"
+                      and l3 == "tuzlu" and tr.derived_from == r.rid)
+
+    # (4) sayma + plan
+    ok["sayma"] = it.count("vowel_count", "kovan doldu") == 4
+    steps = it.plan("arıcılıkta net hasat", 10)
+    ok["plan"] = (len(steps) == 10 and steps[0]["act"] == "durum"
+                  and steps[-1]["act"] == "doğrula" and all(s["criterion"] for s in steps))
+
+    # (5) revizyon
+    new = it.revise(steps, "arıcılıkta kovan sağlığı", 6)
+    ok["revizyon"] = (len(new) == 6 and all(s["status"] == "superseded" for s in steps)
+                      and new[0]["goal"] != "")
+
+    # (6) kalıcılık
+    d = it.state_dict()
+    it2 = Interpreter()
+    it2.load_state_dict(d)
+    ok["kalici"] = (len(it2.rules) == len(it.rules)
+                    and it2.rules[r.rid].mapping == r.mapping)
+
+    # Çalışma belleği kapasitesi ve sessiz kayıp yok
+    wm = WorkingMemory(capacity=7)
+    for i in range(10):
+        wm.write(f"k{i}", i)
+    ok["bellek"] = (wm.load == 7 and len(wm.evicted) == 3)
+
+    # AGI üzerinden: aynı kural iki farklı soruda kullanılır (retrieve değil apply)
+    agi = NoraAGI(seed=75, boot_thinker=False)
+    agi.converse("Sesli harf sayısı tek ise mavi, çift ise kırmızı.")
+    a1 = tr_lower(agi.converse("'Bal arısı uçar' hangi renk?"))
+    a2 = tr_lower(agi.converse("'Petek altıgen' hangi renk?"))
+    ok["agi-uygular"] = (("6" in a1 and "kırmızı" in a1) and ("5" in a2 and "mavi" in a2))
+    src = getattr(agi, "_last_turn_src", {}) or {}
+    ok["hesaplandi"] = int(src.get("islem", 0)) > 0
+
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
+
+
+def a76_olcum_kapsami_her_yol_etiketli():
+    """A76 — PROVENANCE KAPSAMI: hiçbir cevap yolu etiketsiz kalmamalı.
+
+    Ölçer, ihmal yoluyla yalan söylüyordu: çıkarım ve komut cevapları yazılmıyordu,
+    bu yüzden tek gerçek kompozisyon kazanımı ölçüm boşluğunda saklıydı. Ölçüt: farklı
+    cevap yollarının (ağ, çıkarım, hesap, beden, kalıp) her biri en az bir kez etiketlenir
+    ve hiçbir tur tamamen etiketsiz kalmaz.
+    """
+    ok = {}
+
+    agi = NoraAGI(seed=76, boot_thinker=False)
+    agi.converse("Serçe bir kuştur.")
+    agi.converse("Kuşlar uçar.")
+    r_inf = agi.converse("Serçe uçar mı?")
+    ok["cikarim"] = "dolayısıyla" in tr_lower(r_inf) and int(agi._last_turn_src.get("cikarim", 0)) > 0
+
+    agi.converse("7 + 5 kaç eder?")
+    ok["islem"] = int(agi._last_turn_src.get("islem", 0)) > 0
+
+    agi.converse("Ne kadar oldu?")
+    ok["beden"] = int(agi._last_turn_src.get("beden", 0)) > 0
+
+    agi.converse("Kovan doldu.")
+    agi.converse("Kovan ne oldu?")
+    ok["ag"] = int(agi._last_turn_src.get("ag", 0)) > 0
+
+    # Etiketsiz tur sayısı: ölçer kendi boşluğunu itiraf edebilmeli
+    agi2 = NoraAGI(seed=761, boot_thinker=False)
+    for q in ("Merhaba!", "Nasılsın?", "Bana bir şey anlat.", "Su nedir?"):
+        agi2.converse(q)
+    pr = agi2.provenance.report()
+    ok["kapsam-orani"] = pr["toplam"] > 0 and (pr["toplam"] / max(1, pr["tur"])) >= 0.6
+
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), (f"{passed}/{len(ok)} — {detail} | "
+                               f"tur başına etiket={pr['toplam']/max(1,pr['tur']):.2f}")
+
+
+def a77_yanki_oldu_acik_basarisizlik():
+    """A77 — YANKI ÖLDÜ: anlamadığını 'anladım' gibi tekrarlamak yasak.
+
+    "kabul ediyorum ve '<kullanıcının sözcüğü>' doğrultusunda yöneliyorum" cümlesi %0
+    anlama taşıyordu ama başarı gibi görünüyordu. Sessiz yanlış, gürültülü yanlıştan
+    kötüdür. Ölçüt: (1) yankı kalıbı kaynakta yok, (2) anlaşılmayan komut AÇIKÇA
+    "yapamıyorum" der, (3) kullanıcının sözcüğü tırnak içinde geri yansıtılmaz,
+    (4) yapılabilen komutlar gerçekten yapılır (regresyon).
+    """
+    import inspect
+
+    import nora_agi
+
+    ok = {}
+    # YORUM SATIRLARI HARİÇ: geçmiş hatanın açıklaması yorumda kalabilir; amaç üretilen sözü ölçmek.
+    src = "\n".join(line.split("#", 1)[0] for line in inspect.getsource(nora_agi).splitlines())
+    ok["kaynakta-yok"] = "doğrultusunda yöneliyorum" not in src
+
+    agi = NoraAGI(seed=77, boot_thinker=False)
+    r = tr_lower(agi.converse("Arı kovanı ile fabrikanın ortak yapısını bul; isim icat et."))
+    ok["acik-basarisizlik"] = ("bilmiyorum" in r or "yapacağımı" in r) and "doğrultusunda" not in r
+
+    r2 = tr_lower(agi.converse("Bana bir zımbırtı uyarla ve sonra tarat."))
+    # Yankı testi: kullanıcının sözü geri yansıtılmamalı; istek adımlara ayrılmalı.
+    # Kullanıcının sözü OLDUĞU GİBİ geri yansıtılmamalı; istek adımlara ayrılmalı ve
+    # yürütülemeyen adım adıyla söylenmeli. Adımı adıyla anmak çözümlemedir, yankı değil.
+    ok["yanki-yok"] = ("doğrultusunda" not in r2
+                       and "bana bir zımbırtı uyarla ve sonra tarat" not in r2
+                       and "adımlara ayırdım" in r2 and "operatör yok" in r2)
+
+    # Yapılabilenler hâlâ yapılıyor
+    agi.converse("Sesli harf sayısı tek ise mavi, çift ise kırmızı.")
+    r3 = tr_lower(agi.converse("'Kovan doldu' hangi renk?"))
+    ok["yapilabilen"] = "kırmızı" in r3 and "4" in r3
+
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
+
+
+def a78_oz_model_ve_do():
+    """A78 — ÖZ-MODEL DÜĞÜMLERİ + YÖNLÜ/NEDENSEL KENARLAR + do().
+
+    Ölçer "ne yaptım" diyebiliyordu ama "ben neyim" sorusuna graf üzerinden cevap
+    veremiyordu; nedensellik de yalnız metin düzeyindeydi. Ölçüt:
+    (1) `nora` düğümü kavram grafiğinde CANLI ölçüm kenarları taşır (HAS_STATE),
+    (2) yetenek/sınır da graf düğümüdür (CAN_DO / CANNOT_DO),
+    (3) do() gözlemden farklıdır: X'e giren kenarları KESER, çıkanları izler,
+    (4) ortak neden (back-door) adıyla söylenir, `identified` False olur,
+    (5) öz-rapor bu düğümleri okur (sayı metinde geçer),
+    (6) döngüsüz: do() kendi düğümüne geri dönmez.
+    """
+    ok = {}
+
+    # (3)(4)(6) graf üzerinde do() — Nora'nın kendi kavram grafiği kullanılır
+    agi = NoraAGI(seed=78, boot_thinker=False)
+    g = agi.lang.graph
+    g.add_edge("ortak", "CAUSES", "x", source="duyum")
+    g.add_edge("x", "CAUSES", "y", source="duyum")
+    g.add_edge("ortak", "CAUSES", "y", source="duyum")
+    d = g.do("x")
+    ok["do-etki"] = ("y" in d["effects"])
+    ok["backdoor"] = ("ortak" in d["confounders"] and d["identified"] is False)
+    ok["yon"] = all(p[-1].subj != "y" for p in d["paths"])
+    ok["dongu-yok"] = len(d["effects"]) == len(set(d["effects"]))
+
+    # (1)(2)(5) Nora'nın kendi öz-modeli
+    agi = NoraAGI(seed=781, boot_thinker=False)
+    agi.converse("Serçe bir kuştur.")
+    reply = agi.converse("Nasıl çalışıyorsun, zayıf noktaların nerede?")
+    edges = agi.lang.graph._out_edges.get("nora", ())
+    rels = {e.rel for e in edges}
+    ok["oz-düğüm"] = len(edges) >= 5
+    ok["oz-durum"] = "HAS_STATE" in rels and any("kalip_payi=" in e.obj for e in edges)
+    ok["oz-yetenek"] = "CAN_DO" in rels
+    ok["rapor-okur"] = ("öz-modelimde" in tr_lower(reply)) and str(len(edges)) in reply
+
+    # (4) metinde de ortak neden ayrımı korunuyor
+    r2 = tr_lower(agi.converse("X ve Y birlikte artıyor. X'e müdahale edersem Y ne olur?"))
+    # Ölçüt: gözlem/müdahale ayrımı kurulmalı ve SONUÇ İDDİA EDİLMEMELİ
+    # ("Y artar" demek yasak; veri yokken susmak zorunda).
+    ok["gozlem-mudahale"] = (("do(" in r2 or "gözlem" in r2)
+                             and any(k in r2 for k in ("söylemem", "uydur", "kesin saymam"))
+                             and "y artar" not in r2)
+
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -2893,6 +3097,10 @@ TESTS = {
     "A72": ("iskelet koddan çıkıyor: söz bankaları veride, seçim nöral yarış", a72_iskelet_olceri_ve_ogrenilen_soz_onceleri),
     "A73": ("iskelet azaltma mandalı: koddaki söz sayısı yalnız düşer", a73_iskelet_azaltma_mandali),
     "A74": ("canlılık: izin isteyen asistan sesi değil, kendi derdi olan canlı", a74_canlilik_registeri_kopek_degil),
+    "A75": ("uygulama operatörü: kuralı bağla, yeni girdiye uygula, taşı", a75_uygulama_operatoru_bind_apply_transfer),
+    "A76": ("ölçüm kapsamı: her cevap yolu provenance'a yazılır", a76_olcum_kapsami_her_yol_etiketli),
+    "A77": ("yankı öldü: anlamadığını açıkça söyle, tekrarlama", a77_yanki_oldu_acik_basarisizlik),
+    "A78": ("öz-model düğümleri + do(): gözlem ile müdahale ayrı", a78_oz_model_ve_do),
     "A70": ("kendi çıkarımı: kimse söylemeden türetme + iç monolog", a70_own_inference_and_monologue),
     "A69": ("söz biçimi çeşitliliği, soru alışkanlığının kırılması ve kendi derdi", a69_speech_shape_variety_and_self_interest),
     "A68": ("kulak yolu: ses olayı, gürültüde eksik duyma, etiketsiz kimlik", a68_ear_path_perception),

@@ -454,6 +454,14 @@ class NoraAGI:
             self.register = RegisterMeter()
         except Exception:
             self.register = None
+        # --- UYGULAMA (apply): kural NESNESİ + çalışma belleği + yorumlayıcı --------
+        # Nora artık yalnız retrieve etmiyor: bir kuralı bağlayıp yeni bir girdiye
+        # uygulayabiliyor (sayma, kural uygulama, transfer, plan). Bkz. nora_apply.
+        try:
+            from nora_apply import Interpreter
+            self.apply_eng = Interpreter()
+        except Exception:
+            self.apply_eng = None
         self.last_auditory = None
         self.audio_log: list = []
         self._prev_answers: dict[str, str] = {}
@@ -973,6 +981,7 @@ class NoraAGI:
             except Exception:
                 _meta = None
         _prov0 = self.provenance.total if getattr(self, "provenance", None) is not None else 0
+        _prov_snap = dict(self.provenance.c) if getattr(self, "provenance", None) is not None else None
         # ÖĞRENME SİNYALİ (dışarıdan dayatılmaz): aynı söz hemen tekrar geldiyse geçen turda
         # konuşan topluluklar "işe yaramadı" diye zayıflar; konuşma ilerlediyse güçlenir.
         # Doğuştan eğilim (ps) her turda biraz daha söner -> söz öğrenilmiş olur.
@@ -1137,6 +1146,18 @@ class NoraAGI:
                 self.register.observe(ans)
         except Exception:
             pass
+        # BU TURUN KAYNAK KARIŞIMI (olasılık beyanı bunu okur; uydurma değil, ölçüm).
+        try:
+            # NOT: boş sözlük de geçerli bir anlık görüntüdür (ilk tur). `and _prov_snap`
+            # yazıldığında ilk turun etiketleri sessizce yutuluyordu.
+            if getattr(self, "provenance", None) is not None and _prov_snap is not None:
+                self._last_turn_src = {k: int(self.provenance.c.get(k, 0)) - int(_prov_snap.get(k, 0))
+                                       for k in self.provenance.c}
+                self._last_turn_src = {k: v for k, v in self._last_turn_src.items() if v > 0}
+            else:
+                self._last_turn_src = {}
+        except Exception:
+            self._last_turn_src = {}
         # ÖLÇER: bu turda sözün kaç parçası etiketlendi? (iskelet oranı buradan düşer)
         try:
             if getattr(self, "provenance", None) is not None:
@@ -1223,6 +1244,18 @@ class NoraAGI:
                                              rng=getattr(self.discourse, "random", None))
             self._log_turn(speaker, raw, _ans_t, t0)
             return _ans_t
+
+        # --- UYGULAMA OPERATÖRLERİ: kural bağla / uygula / say / transfer ---------
+        # Bunlar retrieve değil APPLY'dir: kural nesne olarak bağlanır, yeni girdiye
+        # uygulanır. Cevap üretilemezse yankı yok — açık başarısızlık döner.
+        try:
+            _ap = self._handle_apply_ops(raw)
+            if _ap:
+                self.apply_eng.wm.write("last_utterance", raw, "turn")
+                self._log_turn(speaker, raw, _ap, t0)
+                return _ap
+        except Exception:
+            traceback.print_exc()
 
         # --- OKUL: sayı/basamak/okunuş/sembol ve aşamalı problemler.
         # Önce "öğretme cümlesi mi?" diye bakar (kullanıcı konuşarak öğretir), sonra soru olarak çözer.
@@ -2073,7 +2106,41 @@ class NoraAGI:
             bids.append(self._synthesize_associative_dialogue(raw, s_low, speaker=speaker))
 
         winner = self._compete_workspace(bids)
+        # ÖLÇÜM KAPSAMI: kazanan teklifin izi (trace) kaynağa çevrilir. Böylece çıkarım,
+        # komut, matematik ve öz-rapor yolları da provenance'a yazılır; ölçer yalan söylemez.
+        try:
+            self._tag_bid(winner)
+        except Exception:
+            pass
         return winner.reply
+
+    def _tag_bid(self, bid) -> None:
+        """Teklif izini kaynak etiketine çevir (merkezi ölçüm kapsamı)."""
+        pv = getattr(self, "provenance", None)
+        if pv is None or bid is None:
+            return
+        tr = str(getattr(bid, "trace", "") or "")
+        mod = str(getattr(bid, "module", "") or "")
+        low = tr.lower()
+        _reply_low = str(getattr(bid, "reply", "") or "").lower()
+        if "dolayısıyla" in _reply_low or "demek ki" in _reply_low or "öyleyse" in _reply_low:
+            pv.record("cikarim", 1)     # geçişli çıkarım metinde açıkça işaretli
+        if low.startswith("1shot") or "concept" in mod:
+            pv.record("ag", 1)
+            if "inference" in mod or "transitive" in low or "deduce" in low:
+                pv.record("cikarim", 1)
+        elif mod.startswith("parietal"):
+            pv.record("islem", 1)
+        elif mod.startswith("insular") or low.startswith("body") or low.startswith("self"):
+            pv.record("beden", 1)
+        elif "volition" in low or "command" in low:
+            pv.record("islem", 1)
+        elif "teach" in low or "learn" in low or "imprint" in low:
+            pv.record("ag", 1)
+        elif low.startswith("why"):
+            pv.record("bellek", 1)
+        elif mod.startswith("prefrontal") or mod.startswith("broca") or mod.startswith("language"):
+            pv.record("ag", 1)
 
     # ------------------------------------------------------------------ epistemik + kod kanalları
     # ------------------------------------------------------------ 3b) KULAK / SES KİMLİĞİ
@@ -2965,6 +3032,488 @@ class NoraAGI:
                 best, best_n = stem, n
         return best
 
+    # ======================================================================
+    # UYGULAMA OPERATÖRLERİ: kural bağla / uygula / say / transfer / plan
+    # ======================================================================
+    def _say(self, kind: str, slots: dict | None = None, ctx: dict | None = None,
+             fallback: str = "Ölçüm yok.") -> str:
+        """Söz VERİDEN gelir: `nora_priors` içindeki topluluklar yarışır.
+
+        Kodda yalnız ÖLÇÜM ve SLOT doldurma var; cümlenin kendisi veride yaşar.
+        Bu, iskelet mandalının (nora_audit) nedenini ortadan kaldırır: yeni bir cümle
+        eklemek kod satırı eklemek değildir. Seçim yine yarıştır; tazelik/öğrenme
+        ağırlıkları devrede olduğu için aynı kalıp üst üste gelmez.
+        """
+        text = None
+        try:
+            f = getattr(self, "priors", None)
+            if f is not None:
+                text = f.pick(kind, ctx or {}, slots or {},
+                              prov=getattr(self, "provenance", None))
+        except Exception:
+            text = None
+        return str(text) if text else fallback
+
+    def _apply_tag(self, src: str, k: int = 1) -> None:
+        try:
+            if getattr(self, "provenance", None) is not None:
+                self.provenance.record(src, k)
+        except Exception:
+            pass
+
+    @staticmethod
+    def _quoted(raw: str) -> str:
+        """Söz içindeki tırnaklı ya da '… cümlesinde' geçen hedefi çıkar."""
+        m = re.search(r"[\"'“”‘’]([^\"'“”‘’]{2,120})[\"'“”‘’]", raw)
+        if m:
+            return m.group(1).strip()
+        # '… cümlesinde' kalıbı: ORİJİNAL metinden alınır ki büyük harfler korunsun.
+        m = re.search(r"(?:^|\s)([\wçğıöşüÇĞİÖŞÜ\s]{2,80}?)\s+cümlesinde", raw,
+                      flags=re.IGNORECASE)
+        if m:
+            return m.group(1).strip()
+        return ""
+
+    def _rule_summary(self, rule) -> str:
+        from nora_apply import FEATURES
+        name = FEATURES.get(rule.feature, ("harf",))[0]
+        odd = rule.mapping.get("odd", "?")
+        even = rule.mapping.get("even", "?")
+        return f"kural bağlandı: {name} sayısı tek -> {odd}, çift -> {even} ({rule.domain})"
+
+    def _handle_apply_ops(self, raw: str) -> str | None:
+        """Kural nesnesi gerektiren istemleri YORUMLAYICIYA ver (retrieve değil, apply)."""
+        eng = getattr(self, "apply_eng", None)
+        if eng is None or not raw:
+            return None
+        from nora_apply import FEATURE_WORDS
+
+        tl = tr_lower(raw)
+
+        # --- (A) TRANSFER: aynı yapıyı başka alana taşı ---
+        if any(k in tl for k in ("aynı kural", "kuralı taşı", "kuralı aktar", "başka alana taşı")):
+            if eng.last is None:
+                # Bağlı kural yok: uydurmak yerine açıkça söyle (söz veriden gelir).
+                return self._say("apply.need_rule", {}, fallback="Kural yok.")
+            new_rule = eng.bind(raw) if ("ise" in tl or "olursa" in tl) else None
+            if new_rule is None:
+                # Yeni etiket verilmediyse yapıyı taşı, etiketleri koru, alanı söyle.
+                dom = "mutfak" if "mutfak" in tl else ("lojistik" if "lojistik" in tl else "yeni alan")
+                feat = "word_count" if dom in ("mutfak", "lojistik") else eng.last.feature
+                new_rule = eng.transfer(dict(eng.last.mapping), feature=feat, domain=dom)
+            self._apply_tag("islem", 1)
+            return self._say("apply.transfer", {
+                "domain": new_rule.domain,
+                "name": __import__("nora_apply").FEATURES[new_rule.feature][0],
+                "odd": new_rule.mapping.get("odd"), "even": new_rule.mapping.get("even"),
+            }, fallback="Taşındı.")
+
+        # --- (B) BAĞLA: "X tek ise A, çift ise B" ---
+        if ("ise" in tl or "olursa" in tl) and ("tek" in tl or "çift" in tl) \
+                and any(w in tl for w in FEATURE_WORDS):
+            rule = eng.bind(raw)
+            if rule is not None:
+                self._apply_tag("islem", 1)
+                return self._say("apply.bound", {
+                    "name": __import__("nora_apply").FEATURES[rule.feature][0],
+                    "odd": rule.mapping.get("odd"), "even": rule.mapping.get("even"),
+                    "domain": rule.domain}, fallback="Bağlandı.")
+            # Bağlanamadı: yankı YOK, açık başarısızlık.
+            return self._say("apply.bind_failed", {}, fallback="Bağlayamadım.")
+
+        # --- (C) SAY: "kaç sesli harf var" ---
+        # "kutu"/"kalem" gibi alan sözcükleri DÜNYA sözcükleridir: "Kutuda 7 kalem var,
+        # kaç kalem kaldı?" bir SAYIM değil, sözel problemdir. Bu dal yalnız metin
+        # ölçümü istendiğinde (tırnak/cümlesinde ya da harf-benzeri özellik) çalışır.
+        _textual = any(w in tl for w in ("harf", "hece", "kelime", "sözcük", "ünlü",
+                                         "sesli", "sessiz", "cümlesinde"))
+        if "kaç" in tl and any(w in tl for w in FEATURE_WORDS) and (
+                _textual or bool(self._quoted(raw))):
+            feat = None
+            for w in sorted(FEATURE_WORDS, key=len, reverse=True):
+                if w in tl:
+                    feat = FEATURE_WORDS[w]
+                    break
+            target = self._quoted(raw) or str(eng.wm.read("item", "") or "")
+            if not target:
+                return self._say("apply.need_target", {}, fallback="Hedef yok.")
+            n = eng.count(feat or "letter_count", target)
+            eng.wm.write("item", target, "count")
+            self._apply_tag("islem", 1)
+            name = __import__("nora_apply").FEATURES[feat or "letter_count"][0]
+            return self._say("apply.count", {"target": target, "n": n, "name": name},
+                             fallback="Sayıldı.")
+
+        # --- (D) UYGULA: kuralı yeni girdiye uygula ---
+        # "ne olur" TEK BAŞINA yetmez: "X'e müdahale edersem Y ne olur?" bir nedensellik
+        # sorusudur, kural uygulaması değil. Yanlış yakalama, sessizce yanlış cevap üretir.
+        _causal = any(k in tl for k in ("müdahale", "birlikte artıyor", "nedensel", "gözlem mi"))
+        asks_apply = (not _causal) and (
+            bool(re.search(r"\bhangi\b", tl))
+            or any(k in tl for k in ("uygula", "sınıflandır", "etiketi ne", "rengi ne",
+                                     "sınıfı ne", "tadı ne", "ne çıkar")))
+        if asks_apply and eng.last is not None:
+            target = self._quoted(raw) or str(eng.wm.read("item", "") or "")
+            if not target:
+                # Sorunun kendisinde hedef yoksa, son söylenen cümleyi kullan.
+                target = str(eng.wm.read("last_utterance", "") or "")
+            if not target:
+                return self._say("apply.need_apply_target", {}, fallback="Hedef yok.")
+            label, tr = eng.apply(target)
+            self._apply_tag("islem", 1)
+            if label is None:
+                return self._say("apply.failed", {"target": target}, fallback="Uygulanamadı.")
+            eng.wm.write("item", target, "apply")
+            name = tr.get("feature_name", "harf")
+            return self._say("apply.result", {
+                "target": target, "n": tr["measured"], "name": name,
+                "parity": "tek" if tr["parity"] == "odd" else "çift", "label": label,
+            }, fallback="Uygulandı.")
+
+        # --- (F) YANILMA OLASILIĞI: ölçülen kaynak karışımından, uydurma değil ---
+        if any(k in tl for k in ("yanlış olma", "yanılma", "olasılık", "yüzde kaç", "ne kadar emin")):
+            src = dict(getattr(self, "_last_turn_src", {}) or {})
+            # Kaynak -> tipik yanılma payı (kaba ama ÖLÇÜLEN karışıma bağlı, sabit değil).
+            base = {"kalip": 0.78, "ag": 0.22, "bellek": 0.15, "cikarim": 0.34,
+                    "islem": 0.04, "beden": 0.10, "duyum": 0.12, "ogrenim": 0.45}
+            tot = sum(v for v in src.values() if v > 0)
+            if tot:
+                p = sum(base.get(k, 0.5) * v for k, v in src.items() if v > 0) / tot
+            else:
+                p = 0.6      # hiçbir kaynak etiketlenmediyse: bilmiyorum demek en dürüstü
+            self._apply_tag("islem", 1)
+            eksik = []
+            if not eng.rules:
+                eksik.append(self._say("meta.missing_rule", {}, fallback="kural yok"))
+            if not (eng.wm.read("item", "") or ""):
+                eksik.append(self._say("meta.missing_input", {}, fallback="girdi yok"))
+            if not src:
+                eksik.append(self._say("meta.missing_tag", {}, fallback="etiket yok"))
+            eksik_s = ("; ".join(eksik) if eksik
+                       else self._say("meta.missing_none", {}, fallback="eksik görünmüyor"))
+            # Dürüst çerçeve: karışım GEÇEN cevabın ölçümüdür; bu turun etiketi ancak tur
+            # bitince hesaplanır. "Kaynak karışımım: boş" demek ölçüm yokmuş gibi görünüyordu.
+            if src:
+                mix = ", ".join(f"{k}={v}" for k, v in src.items() if v)
+                mix_txt = self._say("meta.mix_filled", {"mix": mix}, fallback="")
+            else:
+                mix_txt = self._say("meta.mix_empty", {}, fallback="")
+            return self._say("meta.probability", {
+                "p": int(round(p * 100)), "mix": mix_txt, "missing": eksik_s},
+                fallback="Bilmiyorum.")
+
+        # --- (G) KENDİ HEDEFİ: uydurma değil, kendi merak kuyruğundan ---
+        if any(k in tl for k in ("kendi hedefini", "kendi hedefin", "hedefini seç",
+                                 "kendi amacını", "ne yapmak istiyorsun")):
+            target, why = "", ""
+            try:
+                q = list(getattr(self.auto_net, "curiosity_queue", []) or [])
+                if q:
+                    target = str(q[-1])
+                    why = "merak kuyruğu"
+            except Exception:
+                pass
+            if not target:
+                try:
+                    pend = list(getattr(self, "pending_research", []) or [])
+                    if pend:
+                        target = str(pend[-1])
+                        why = "araştırma listesi"
+                except Exception:
+                    pass
+            if not target:
+                return self._say("meta.own_goal_empty", {}, fallback="Hedefim ölçmek.")
+            eng.wm.write("goal", target, "own_goal")
+            self._apply_tag("cikarim", 1)
+            return self._say("meta.own_goal", {"target": target, "why": why},
+                             fallback="Hedefim ölçmek.")
+
+        # --- (H) ORTAK YAPI: grafikte varsa ölç, yoksa hipotez olduğunu söyle ---
+        if any(k in tl for k in ("ortak yapı", "ortak nokta", "ortak yan", "benzer yapı")):
+            words = [w for w in re.findall(r"[\wçğıöşü]{4,}", tl)
+                     if w not in ("ortak", "yapı", "yapısını", "nokta", "yan", "benzer", "bul",
+                                  "icat", "isim", "notasyon", "yeni", "fabrika", "ile")]
+            pairs = []
+            for w in words:
+                try:
+                    e = self.lang.graph.query(w, None)
+                except Exception:
+                    e = []
+                pairs.append((w, {(str(r), ) for r, _ in e}, len(e)))
+            known = [(w, n) for w, _, n in pairs if n > 0]
+            if len(known) >= 2:
+                rels = []
+                for w, relset, _ in pairs:
+                    if relset:
+                        rels.append(relset)
+                shared = set.intersection(*rels) if rels else set()
+                self._apply_tag("ag", 1)
+                if shared:
+                    r0 = sorted(x[0] for x in shared)
+                    return self._say("meta.structure_shared",
+                                     {"rels": ", ".join(r0), "rel": r0[0],
+                                      "name": f"{r0[0].lower()}-akışı"}, fallback="Ortak bağ var.")
+                return self._say("meta.structure_none", {}, fallback="Ortak bağ yok.")
+            # Bilgi yok: UYDURMA YOK. Hipotez olduğunu açıkça söyle.
+            self._apply_tag("cikarim", 1)
+            a_w = words[0] if words else "birinci"
+            b_w = words[1] if len(words) > 1 else "ikinci"
+            eng.wm.write("hypothesis", f"{a_w}/{b_w}", "hypothesis")
+            return self._say("meta.hypothesis", {"a": a_w, "b": b_w}, fallback="Bilmiyorum.")
+
+        # --- (I) ÖZ-RAPOR: mimari CANLI durumdan okunur, ezber metin yok ---
+        # "Kuark nasıl çalışır?" DÜNYA sorusudur; öz-rapor yalnız 2. kişi/kendi üzerine sorulunca.
+        if re.search(r"nasıl çalış(?:ıyor|ır)sun|zayıf nokta|mimari|neyi değiştir"
+                     r"|kendini nasıl inşa", tl):
+            return self._self_report()
+
+        # --- (J) AGI BEYANI: ölçümden türetilir, sabit cevap değil ---
+        # Türkçe küçük harf 'I' -> 'ı' yaptığı için "AGI" -> "agı" olur; ikisini de kabul et.
+        if re.search(r"\bag[ıi]\b", tl) and any(
+                k in tl for k in ("misin", "mı", "değil", "seviyesinde", "seviyesi")):
+            return self._agi_verdict()
+
+        # --- (K) KENDİ KODU: gerçekten yapabildiği ile yapamadığı ayrılır ---
+        # "yama" ALT DİZGE olarak aranmaz: "uyuyamadım" içinde de geçer ve o zaman
+        # kişisel anlatı yanlışlıkla kod yaması cevabına düşer (sessiz yanlış cevap).
+        if re.search(r"kendi kod|\byama|kendini değiştir", tl):
+            return self._self_patch_answer(tl)
+
+        # --- (L) NEDENSELLİK: gözlem ile müdahale ayrılır ---
+        if any(k in tl for k in ("müdahale", "birlikte artıyor", "nedensel", "gözlem mi")):
+            self._apply_tag("cikarim", 1)
+            # "X ve Y" tek harf de olabilir; en fazla 20 harf, işlev sözcükleri hariç.
+            _stop = {"bir", "bu", "şu", "çok", "daha", "ise", "ve", "ama", "ki"}
+            m = re.search(r"\b([a-zçğıöşü]{1,20})\s+ve\s+([a-zçğıöşü]{1,20})\b", tl)
+            x = m.group(1) if m and m.group(1) not in _stop else ""
+            y = m.group(2) if m and m.group(2) not in _stop else ""
+            # do(): X'e GİREN kenarları kes, yalnız ÇIKAN nedensel kenarları izle.
+            doobj = {}
+            try:
+                if x:
+                    doobj = self.lang.graph.do(x)
+            except Exception:
+                doobj = {}
+            effs = list(doobj.get("effects") or [])
+            if effs:
+                return self._say("meta.causal_data", {
+                    "x": x, "n_eff": len(effs), "effs": ", ".join(str(e) for e in effs[:4]),
+                    "conf": ", ".join(doobj.get("confounders") or []) or "yok"}, fallback="Veri yok.")
+            return self._say("meta.causal_nodata", {"x": x, "y": y, "xy": f"{x}/{y}"},
+                             {"count": 1 if x else 0}, fallback="Veri yok.")
+
+        # --- (M) VARSAYIMSAL PROBLEM: varsayım işaretlenir, hesap gerçek yapılır ---
+        if any(k in tl for k in ("problem kur", "problem çöz", "metrik", "ölçüt")):
+            return self._hypothetical_problem(raw)
+
+        # --- (E) SAYMA/Aritmetik dışı: yok ---
+        return None
+
+    # ------------------------------------------------------------------ öz-model
+    def _self_report(self) -> str:
+        """Kendi mimarisini CANLI durumdan okur: modül, düğüm, kural, ölçüm."""
+        import sys as _sys
+        mods = [m for m in _sys.modules if m.startswith("nora_")]
+        try:
+            n_edges = len(getattr(self.lang.graph, "edges", []) or [])
+        except Exception:
+            n_edges = 0
+        pv = getattr(self, "provenance", None)
+        pr = pv.report() if pv is not None else {}
+        eng = getattr(self, "apply_eng", None)
+        rules = len(getattr(eng, "rules", {}) or {}) if eng else 0
+        wm_load = getattr(getattr(eng, "wm", None), "load", 0) if eng else 0
+        sk = float(pr.get("iskelet_orani", 0.0) or 0.0)
+        # Öz-model DÜĞÜMLERİ: kavram grafiğinde "nora" düğümü ve canlı ölçüm kenarları.
+        n_self = self._sync_self_graph()
+        weak_kind = "meta.self_weak.high" if sk > 0.4 else "meta.self_weak.low"
+        weak = self._say(weak_kind, fallback="kapsam dar")
+        self._apply_tag("cikarim", 1)
+        return self._say("meta.self_report", {
+            "n_mod": len(mods), "n_edges": n_edges, "n_rules": rules, "wm": wm_load,
+            "sk": int(sk * 100), "og": int(float(pr.get("ogrenim_orani", 0.0) or 0) * 100),
+            "weak": weak, "n_self": n_self,
+        })
+
+    def _sync_self_graph(self) -> int:
+        """ÖZ-MODEL: kendi canlı ölçümlerini kavram grafiğine DÜĞÜM/kenar olarak yazar.
+
+        Neden graf? Çünkü "kendini bilmek" ayrı bir metin değil, sorgulanabilir bir
+        yapı olmalı: Nora `nora` düğümünden çıkan kenarları okuyup cevap verir.
+        Ölçümler her çağrıda TAZELENİR (mevcut kenarın ağırlığı artar, yenisi açılmaz).
+        `bind_mb=False`: öz-durum sözcükleri motor topluluğu (assemblies) doğurmasın;
+        bunlar söz değil ölçüm etiketidir.
+        """
+        g = getattr(getattr(self, "lang", None), "graph", None)
+        if g is None:
+            return 0
+        pr = {}
+        try:
+            pr = self.provenance.report() if getattr(self, "provenance", None) else {}
+        except Exception:
+            pr = {}
+        eng = getattr(self, "apply_eng", None)
+        try:
+            state = {
+                "organ_sayisi": len([m for m in __import__("sys").modules if m.startswith("nora_")]),
+                "kavram_bagi": len(getattr(g, "edges", []) or []),
+                "kural_sayisi": len(getattr(eng, "rules", {}) or {}) if eng else 0,
+                "bellek_yuku": int(getattr(getattr(eng, "wm", None), "load", 0) or 0),
+                "kalip_payi": round(float(pr.get("iskelet_orani", 0.0) or 0.0), 3),
+                "ogrenim_payi": round(float(pr.get("ogrenim_orani", 0.0) or 0.0), 3),
+                "tur_sayisi": int(pr.get("tur", 0) or 0),
+            }
+            for k, v in state.items():
+                g.add_edge("nora", "HAS_STATE", f"{k}={v}", source="beden", bind_mb=False)
+            # Yapabildiği / yapamadığı operatörler: öz-model yalnız övgü değil sınır da taşır.
+            for op in ("bağla", "uygula", "say", "planla", "taşı"):
+                g.add_edge("nora", "CAN_DO", op, source="beden", bind_mb=False)
+            if not (eng and getattr(eng, "rules", None)):
+                g.add_edge("nora", "CANNOT_DO", "kural uygula", source="beden", bind_mb=False)
+            return len(g._out_edges.get("nora", ()))
+        except Exception:
+            return 0
+
+    def _agi_verdict(self) -> str:
+        pv = getattr(self, "provenance", None)
+        pr = pv.report() if pv is not None else {}
+        eng = getattr(self, "apply_eng", None)
+        applied = sum(1 for t in (getattr(eng, "trace", []) or []) if t.get("kind") == "apply")
+        sk = float(pr.get("iskelet_orani", 0.0) or 0.0)
+        self._apply_tag("cikarim", 1)
+        return self._say("meta.agi_verdict",
+                         {"applied": int(applied), "sk": int(sk * 100)},
+                         {"count": int(applied)},
+                         fallback="AGI değilim.")
+
+    def _self_patch_answer(self, tl: str) -> str:
+        """Ne yapabildiğini ayır: yama ÖNERİSİ üretir, dosyaya kendi yazmaz."""
+        self._apply_tag("cikarim", 1)
+        patch = ("--- nora_agi.py\n"
+                 "+++ nora_agi.py\n"
+                 "@@ selamlaşma @@\n"
+                 "-  reply = f\"{selam}. {ek}\"\n"
+                 "+  reply = selam          # kısa selamlaşma: ek cümle yok\n")
+        return self._say("meta.patch", {"patch": patch}, fallback="Yama yetkim yok.")
+
+    def _hypothetical_problem(self, raw: str) -> str:
+        """Varsayımı İŞARETLE, hesabı GERÇEKTEN yap (sayı operatorü)."""
+        eng = getattr(self, "apply_eng", None)
+        tl = tr_lower(raw)
+        nums = [int(x) for x in re.findall(r"\b(\d+)\b", tl)]
+        if len(nums) < 2:
+            nums = [10, 8]          # varsayılan: 10 kovan, kovan başına 8 kg
+        kovan, verim = nums[0], nums[1]
+        kayip = nums[2] if len(nums) > 2 else 12
+        brut = kovan * verim
+        net = brut * (100 - kayip) / 100.0
+        if eng is not None:
+            eng.wm.write("problem", {"kovan": kovan, "verim": verim, "kayip": kayip}, "problem")
+            self._apply_tag("islem", 2)
+        else:
+            self._apply_tag("islem", 1)
+        return self._say("meta.problem", {
+            "kovan": kovan, "verim": verim, "kayip": kayip, "brut": brut,
+            "net": f"{net:.1f}", "per": f"{net / kovan:.2f}",
+        }, fallback="Hesap yok.")
+
+    # ------------------------------------------------------------------
+
+    def _decompose_command(self, fr, raw: str, speaker: str = "insan") -> str | None:
+        """Komutu alt görevlere ayır ve VAR OLAN operatörlerle yürütmeyi dene.
+
+        Dönen metin yalnızca gerçekten yapılabilen bir şeyse üretilir; yapılamıyorsa
+        None döner ve çağıran açık başarısızlığı söyler. Yankı yok.
+        """
+        tl = tr_lower(raw or "")
+        eng = getattr(self, "apply_eng", None)
+
+        # (0) BİLEŞİK İSTEK: "X uyarla ve sonra Y tarat". Hepsini tek adım gibi yutmak
+        #     yankıdır; her yan cümle ayrı yürütülür, yapılamayan ADIYLA söylenir.
+        _cls = [c.strip(" .") for c in
+                re.split(r"\s+ve\s+|\s+sonra\s+|\s+ardından\s+|[,;]\s*", tl) if c.strip(" .")]
+        if len(_cls) >= 2:
+            _ok, _miss = [], []
+            for _c in _cls:
+                try:
+                    _sub = self._decompose_command(fr, _c, speaker=speaker)
+                except Exception:
+                    _sub = None
+                if _sub:
+                    if str(_sub) not in _ok:      # aynı operatör iki kez çalışmasın
+                        _ok.append(str(_sub))
+                else:
+                    _miss.append(_c)
+            if _ok and not _miss:
+                return " ".join(_ok)
+            _lbl = []
+            for _c in _cls:
+                _clean = re.sub(r"\b(bana|bir|sonra|ardından|şimdi|hemen|lütfen|biraz)\b", "", _c)
+                _clean = re.sub(r"\s+", " ", _clean).strip(" .") or _c
+                _lbl.append(_clean)
+            if _ok:
+                self._apply_tag("cikarim", 1)
+                return self._say("op.decompose_partial",
+                                 {"done": " ".join(_ok), "miss": _miss[0]}, fallback="Kısmen.")
+            self._apply_tag("cikarim", 1)
+            # Adımları ADIYLA an ki tekrar değil, çözümleme olsun: dolgu sözcükleri at.
+            return self._say("op.decompose_all",
+                             {"steps": " -> ".join(f"'{c}'" for c in _lbl)}, fallback="Yok.")
+
+        # (1) PLAN: "N adımlık plan" / "plan yap" / "hedef belirle"
+        if any(k in tl for k in ("plan", "hedef", "adım")):
+            if eng is not None:
+                m = re.search(r"(\d+|on|beş|altı|yedi|sekiz|dokuz|yedi|üç|dört)\s*(?:adımlık|adım)", tl)
+                n = 10
+                if m:
+                    w = m.group(1)
+                    tr_num = {"on": 10, "beş": 5, "altı": 6, "yedi": 7, "sekiz": 8,
+                              "dokuz": 9, "üç": 3, "dört": 4}
+                    n = tr_num.get(w, int(w) if w.isdigit() else 10)
+                goal = (raw or "").strip()
+                if "hedefi değiştir" in tl or "hedef değiş" in tl:
+                    old = eng.wm.read("plan_steps", []) or []
+                    steps = eng.revise(old, goal, n)
+                else:
+                    steps = eng.plan(goal, n)
+                eng.wm.write("plan_steps", steps, "plan")
+                self._apply_tag("islem", 2)
+                _body = "; ".join(f"{x['i']}.{x['act']}" for x in steps)
+                _kind = "plan.revised" if "değiştir" in tl else "plan.built"
+                return self._say(_kind, {"n": len(steps), "steps": _body}, fallback="Plan hazır.")
+
+        # (2) SAYIM: "N tane say" / "say"
+        if "say" in tl and not any(k in tl for k in ("sayı", "söyle")):
+            if eng is not None:
+                m = re.search(r"(\d+)['’]?\s*(?:e|a|ya|ye)?\s*kadar", tl)
+                if m:
+                    lim = int(m.group(1) or m.group(2))
+                    seq = [str(i) for i in range(1, min(lim, 200) + 1)]
+                    eng.wm.write("count_seq", seq, "count")
+                    self._apply_tag("islem", 1)
+                    return self._say("count.sequence", {"seq": ", ".join(seq), "n": len(seq)},
+                                     fallback="Saydım.")
+
+        # (3) GRAFTA KARŞILIĞI VAR MI: nesne hakkında bildiğim bir bağ varsa onu söyle
+        obj = (fr.obj or "").strip()
+        if obj:
+            try:
+                cands = self.lang.graph.query(obj, None)
+            except Exception:
+                cands = []
+            for rel, o in list(cands)[:3]:
+                if o:
+                    try:
+                        from nora_lang import Proposition
+                        txt = self.lang.broca.realize_prop(
+                            Proposition(subj=obj, rel=str(rel), obj=str(o)))
+                    except Exception:
+                        txt = f"{obj} {o}"
+                    self._apply_tag("ag", 1)
+                    return self._say("op.known",
+                                     {"txt": tr_capitalize(str(txt).rstrip("."))}, fallback="Bağ var.")
+        return None
+
     def _handle_command(self, fr, speaker: str = "insan", raw: str = "") -> str:
         morph = self.lang.morph
         if getattr(fr, "sub_kind", "") == "invite":
@@ -3112,12 +3661,23 @@ class NoraAGI:
                 honest = f"{tr_capitalize(_tgt_acc)} {_neg_ab}; bende bunu yapacak bir organ yok"
                 return f"{honest}. {_ask_h}".strip() if _ask_h else honest + "."
 
-        return self.schema_cortex.transform_clauses(
-            f"kabul ediyorum ve '{tgt_label}' doğrultusunda yöneliyorum",
-            "isteğin zihinsel simülasyonumda içsel dengemle uyumlu çıktı",
-            SYN.nominalize_dik("kontrol et", poss=1, case="LOC", obj=NP("simülasyon", poss=1, case="ACC")),
-            cur_sc,
-        )
+        # ================================================================
+        # DEĞİŞKEN YANKI YOK.
+        # Eskiden burada: "kabul ediyorum ve '<kullanıcının sözcüğü>' doğrultusunda
+        # yöneliyorum" dönüyordu. Bu cümle %0 anlama taşır ama başarı gibi görünür;
+        # sessiz yanlış, gürültülü yanlıştan kötüdür. Doğru sıra:
+        #     decompose -> var olan operatörü dene -> olmazsa AÇIKÇA "yapamıyorum".
+        _dec = self._decompose_command(fr, raw, speaker=speaker)
+        if _dec:
+            return _dec
+        _what = (fr.obj or "").strip()
+        _act = (fr.rel or "").strip()
+        self.lang.wernicke.last_explanation = f"{_act}/{_what}: operatör yok"
+        # Ölçüm kapsamı: bu cevap da bir çıkarımdır (kendi yeteneğim üzerine) ve etiketlenir.
+        self._apply_tag("cikarim", 1)
+        if _what:
+            return self._say("op.missing_obj", {"act": _act, "what": _what}, fallback="Yapamam.")
+        return self._say("op.missing_rel", {"act": _act}, fallback="Yapamam.")
 
     def _solve_math_in_language(self, a: int, op: str, b: int) -> str:
         morph = self.lang.morph
@@ -3434,6 +3994,7 @@ class NoraAGI:
             "priors": (self.priors.state_dict() if getattr(self, "priors", None) is not None else {}),
             "provenance": (self.provenance.state_dict() if getattr(self, "provenance", None) is not None else {}),
             "register": (self.register.state_dict() if getattr(self, "register", None) is not None else {}),
+            "apply": (self.apply_eng.state_dict() if getattr(self, "apply_eng", None) is not None else {}),
         }
         # ATOMİK YAZMA: önce .tmp, sonra os.replace. Yazma yarıda kesilirse ESKİ sağlam
         # dosya yerinde kalır (tek satır kaybı bile olmaz; yarım beyin yüklenmez).
@@ -3522,6 +4083,8 @@ class NoraAGI:
                 agi.provenance.load_state_dict(meta.get("provenance") or {})
             if getattr(agi, "register", None) is not None:
                 agi.register.load_state_dict(meta.get("register") or {})
+            if getattr(agi, "apply_eng", None) is not None:
+                agi.apply_eng.load_state_dict(meta.get("apply") or {})
         except Exception:
             pass
         if os.path.exists(path_prefix + ".voice.pkl.gz"):
