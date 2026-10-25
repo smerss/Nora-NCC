@@ -2620,6 +2620,99 @@ def a71_ansiklopedi_degil_ayni_soru_farkli_anlatim():
     return passed == len(ok), (f"{passed}/{len(ok)} — " + " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
                                + f" | örnek='{answers[0][:44]}' / '{answers[1][:44]}'")
 
+def a72_iskelet_olceri_ve_ogrenilen_soz_onceleri():
+    """A72 — İSKELET KODDAN ÇIKIYOR: cümleler veriye taşındı, seçim nöral yarışla yapılıyor.
+
+    Sorun: Nora'nın bazı cümleleri kodun içine gömülüydü ("Belki de ben seni yeterince
+    dinlemedim; neyi kaçırdım?"). Bu, öğrenilmiş değil YAZILMIŞ sözdür. Ölçüt:
+    (1) cümle bankaları kodda değil `nora_priors.json`'da motor toplulukları olarak durur,
+    (2) seçim rng.choice değil aktivasyon yarışıdır ve tazelik aynı sözü üst üste getirmez,
+    (3) doğuştan eğilim (prior_strength) zamanla söner — 600 seçimde sıfır,
+    (4) öğrenme dışarıdan dayatılmaz: tekrar eden söz o turda konuşanı zayıflatır,
+        konuşma ilerlediyse güçlendirir,
+    (5) iskelet ölçeri sözün kaynağını sayar ve oranı raporlar,
+    (6) öğrenilmiş ağırlıklar kaydedilip taşınır (kalıcılık).
+    """
+    import inspect
+    import json
+
+    import nora_meta
+    import nora_priors
+    from nora_provenance import Provenance
+
+    ok = {}
+
+    # 1) Cümleler veride
+    with open(nora_priors.JSON_PATH, "r", encoding="utf-8") as f:
+        blob = json.load(f)
+    kinds = blob.get("kinds") or {}
+    n_prior = sum(len(v.get("priors") or []) for v in kinds.values())
+    ok["veride"] = (n_prior >= 25 and len(kinds) >= 5)
+
+    # 2) Kodda banka kalmadı (eski iskelet cümleleri kaynakta yok)
+    src = inspect.getsource(nora_meta)
+    ok["kodda-yok"] = not any(t in src for t in (
+        "yeterince dinlemedim", "ikna etmedi mi", "tatmin etmiyor mu",
+        "Hâlâ aynı yerde miyiz", "Aklında kalan bir şey mi var"))
+
+    # 3) AGI organları ve yarış
+    agi = NoraAGI(seed=72, boot_thinker=False)
+    ok["organ-var"] = (getattr(agi, "priors", None) is not None
+                       and getattr(agi, "provenance", None) is not None)
+    for _ in range(4):
+        agi.converse("Su nedir?")
+    picks = [agi.priors.pick("meta.insist.question", {"count": 3}, {}) for _ in range(5)]
+    ok["cesit-yaris"] = (len(set(picks)) >= 4)          # tazelik cezası: üst üste aynı söz yok
+    ok["tazelik"] = all(picks[i] != picks[i + 1] for i in range(len(picks) - 1))
+
+    # 4) Ölçer çalışıyor: hem ağdan hem eğilimden parça sayılmış olmalı
+    rep = agi.provenance.report()
+    ok["olcer"] = (rep["toplam"] > 0 and rep["ag"] > 0
+                   and (rep["kalip"] + rep["ogrenim"]) > 0
+                   and 0.0 <= rep["iskelet_orani"] <= 1.0)
+
+    # 5) Öğrenme: tekrar -> ceza, ilerleme -> pekiştirme
+    f = nora_priors.PriorField()
+    f.pick("meta.insist.question", {"count": 3}, {})
+    f.begin_turn()
+    pid = f.last_turn_ids[-1]
+    w0 = f._by_id[pid].w
+    f.learn(repeated=True)
+    w_after_punish = f._by_id[pid].w
+    f.last_turn_ids = [pid]
+    f.learn(repeated=False)
+    w_after_reward = f._by_id[pid].w
+    ok["ceza"] = w_after_punish < w0
+    ok["pekiştirme"] = w_after_reward > w_after_punish
+
+    # 6) Sönümleme: 600 seçimde doğuştan eğilim tamamen susar
+    f2 = nora_priors.PriorField()
+    f2.load_state_dict({"picks": nora_priors.ANNEAL_PICKS})
+    ok["sonum"] = (f2.prior_strength == 0.0 and agi.priors.prior_strength > 0.9)
+
+    # 7) Öğrenilmiş ağırlık doğuştan eğilimi geçince söz artık 'kalıp' sayılmaz
+    f3 = nora_priors.PriorField()
+    f3.load_state_dict({"picks": nora_priors.ANNEAL_PICKS,
+                        "learned": {p.id: {"w": 0.9} for p in f3.kinds["meta.insist.question"][:1]}})
+    m = Provenance()
+    top = f3.kinds["meta.insist.question"][0].id
+    f3.kinds["meta.insist.question"].sort(key=lambda a: -a.w)
+    _ = f3.pick("meta.insist.question", {}, {}, prov=m, noise=0.0)
+    ok["ogrenim-etiketi"] = (m.report()["ogrenim"] == 1 and m.report()["kalip"] == 0
+                             and f3._by_id[top].w == 0.9)
+
+    # 8) Kalıcılık: öğrenilmiş ağırlıklar beyinle taşınır
+    d = f.state_dict()
+    f4 = nora_priors.PriorField()
+    f4.load_state_dict(d)
+    ok["kalici"] = abs(f4._by_id[pid].w - f._by_id[pid].w) < 1e-9 and f4.picks == f.picks
+
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), (f"{passed}/{len(ok)} — {detail} | "
+                               f"iskelet_oranı={rep['iskelet_orani']:.2f} topluluk={n_prior}")
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -2678,6 +2771,7 @@ TESTS = {
     "A55": ("günlük konuşma: anlatı, olumsuzluk, davet, kutlama, istek", a55_conversational_understanding_of_daily_speech),
     "A56": ("tam Türkçe kapsamı: 8 kip, birleşik zaman, yeterlilik, emir, -mAktA, -DIr/-ki/-CA", a56_full_turkish_morphology),
     "A71": ("ansiklopedi değil: aynı soruya her seferinde başka anlatım", a71_ansiklopedi_degil_ayni_soru_farkli_anlatim),
+    "A72": ("iskelet koddan çıkıyor: söz bankaları veride, seçim nöral yarış", a72_iskelet_olceri_ve_ogrenilen_soz_onceleri),
     "A70": ("kendi çıkarımı: kimse söylemeden türetme + iç monolog", a70_own_inference_and_monologue),
     "A69": ("söz biçimi çeşitliliği, soru alışkanlığının kırılması ve kendi derdi", a69_speech_shape_variety_and_self_interest),
     "A68": ("kulak yolu: ses olayı, gürültüde eksik duyma, etiketsiz kimlik", a68_ear_path_perception),

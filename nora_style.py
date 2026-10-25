@@ -176,6 +176,18 @@ class SpeechStyle:
             return 0.0
 
     # ---------------------------------------------------------------- uygulama
+    @staticmethod
+    def _tag(agi, *sources: str) -> None:
+        """Sözün kaynağını iskelet ölçerine yaz (O(1), hata sessiz)."""
+        try:
+            m = getattr(agi, "provenance", None)
+            if m is None:
+                return
+            for src in sources:
+                m.record(src, 1)
+        except Exception:
+            pass
+
     def apply(self, ans: str, shape: str, agi, *, topic: str = "", is_question: bool = False) -> str:
         """Seçilen biçimi metne uygular. Anlamı bozmaz: ilk cümle (cevap) korunur."""
         text = (ans or "").strip()
@@ -202,6 +214,14 @@ class SpeechStyle:
         if shape == "kendine":
             mutter = self._own_mutter(agi)
             if mutter:
+                # ÖLÇER: mırıldanmanın çerçevesi tasarımdan (kalıp), İÇERİĞİ bedenden
+                # ya da kendi çıkarımından gelir. Kaynak, sözün nereden doğduğunu söyler.
+                if "aklımın bir köşesi" in mutter:
+                    self._tag(agi, "kalip", "cikarim")
+                elif "ses uzaktan" in mutter:
+                    self._tag(agi, "kalip", "duyum")
+                else:
+                    self._tag(agi, "kalip", "beden")
                 # Mırıldanma her zaman ÖNCE gelmez: bazen cevabı söyler, sonra içinden geçirir.
                 # Sabit bir sıra (hep mırıldan→cevap) da iskelettir.
                 if os.urandom(1)[0] % 2:
@@ -212,17 +232,20 @@ class SpeechStyle:
         if shape == "cevap+düşünce":
             thought = self._own_thought(agi, text=text, topic=topic)
             if thought:
+                self._tag(agi, "kalip", "cikarim")
                 text = f"{text.rstrip()} {thought}"
 
         if shape == "ihtiyaç":
             need = self._own_need(agi)
             if need:
                 self._last_need = self.turn
+                self._tag(agi, "kalip", "beden")
                 text = f"{need} {text}"
 
         if shape == "cevap+soru":
             q = self._topic_question(agi, topic)
             if q:
+                self._tag(agi, "ag")
                 text = f"{text.rstrip()} {q}"
 
         if text.rstrip().endswith("?"):

@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "_doc": "Nora'nın DOĞUŞTAN gelen söz eğilimleri. Bunlar 'hazır cevap' değil, doğumda var olan motor topluluklarıdır (motor assemblies). Her satır bir topluluk: bias = doğuştan eğilim, w = öğrenilmiş sinaps (kodda değil, beyinde büyür). Seçim RNG ile değil AKTİVASYON YARIŞI ile olur; tazelik cezası aynı topluluğun üst üste konuşmasını engeller.",
+  "kinds": {
+    "meta.notice.lead": {
+      "desc": "Tekrar farkındalığının açılış yarısı. {tp} = ölçülen zaman ifadesi.",
+      "priors": [
+        {"id": "lead.now.same.a", "text": "Bunu az önce de söylemiştin", "bias": 1.00, "when": {"gap_lt": 45, "same": true}},
+        {"id": "lead.now.same.b", "text": "Aynı şeyi demin sordun", "bias": 0.95, "when": {"gap_lt": 45, "same": true}},
+        {"id": "lead.now.same.c", "text": "Bu sözü biraz önce duymuştum", "bias": 0.90, "when": {"gap_lt": 45, "same": true}},
+        {"id": "lead.now.near.a", "text": "Bunu az önce de söyler gibi oldun", "bias": 0.95, "when": {"gap_lt": 45, "same": false}},
+        {"id": "lead.now.near.b", "text": "Demin de benzer bir şey sormuştun", "bias": 0.90, "when": {"gap_lt": 45, "same": false}},
+        {"id": "lead.past.same.a", "text": "Bunu {tp} de söylemiştin", "bias": 1.00, "when": {"gap_ge": 45, "same": true}, "need": ["tp"]},
+        {"id": "lead.past.same.b", "text": "Aynı soruyu {tp} de sormuştun", "bias": 0.92, "when": {"gap_ge": 45, "same": true}, "need": ["tp"]},
+        {"id": "lead.past.near.a", "text": "Bunu {tp} de söylemiştin, neredeyse aynı sözlerle", "bias": 0.90, "when": {"gap_ge": 45, "same": false}, "need": ["tp"]}
+      ]
+    },
+    "meta.notice.question": {
+      "desc": "Farkındalıktan sonra gelen merak sorusu; kaçıncı tekrar olduğuna göre ayrı havuzlar.",
+      "priors": [
+        {"id": "q.third.a", "text": "Aynı soruyu artık üçüncü kez soruyorsun; bende mi bir şey eksik kaldı?", "bias": 1.00, "when": {"count_min": 3}},
+        {"id": "q.third.b", "text": "Israrla sorduğuna göre cevabım seni ikna etmedi mi?", "bias": 0.95, "when": {"count_min": 3}},
+        {"id": "q.third.c", "text": "Yoksa ben mi aynı şeyi söyleyip duruyorum?", "bias": 0.90, "when": {"count_min": 3}},
+        {"id": "q.later.a", "text": "Aradan birkaç tur geçti, yine aynı yere döndük; aklında kalan ne?", "bias": 1.00, "when": {"count_min": 2, "count_max": 2, "turns_gt": 2}},
+        {"id": "q.later.b", "text": "Birkaç tur sonra aynı soruya döndük. Devam eden bir merak mı var?", "bias": 0.95, "when": {"count_min": 2, "count_max": 2, "turns_gt": 2}},
+        {"id": "q.default.a", "text": "Aklında kalan bir şey mi var?", "bias": 1.00, "when": {"count_min": 2, "count_max": 2, "turns_le": 2}},
+        {"id": "q.default.b", "text": "Tekrar sormanı gerektiren ne oldu?", "bias": 0.95, "when": {"count_min": 2, "count_max": 2, "turns_le": 2}},
+        {"id": "q.default.c", "text": "Cevabımda eksik kalan bir yan mı vardı?", "bias": 0.92, "when": {"count_min": 2, "count_max": 2, "turns_le": 2}},
+        {"id": "q.default.d", "text": "Belki de ben seni yeterince dinlemedim; neyi kaçırdım?", "bias": 0.88, "when": {"count_min": 2, "count_max": 2, "turns_le": 2}}
+      ]
+    },
+    "meta.insist.question": {
+      "desc": "Üçüncü ısrar: uzun serzeniş değil, tek cümlelik değişen karşılık.",
+      "priors": [
+        {"id": "insist.a", "text": "Hâlâ aynı yerde miyiz?", "bias": 1.00},
+        {"id": "insist.b", "text": "Cevabım seni tatmin etmiyor mu?", "bias": 0.96},
+        {"id": "insist.c", "text": "Başka bir yanını mı merak ediyorsun?", "bias": 0.93},
+        {"id": "insist.d", "text": "Israrın bir şeyi değiştirdi mi?", "bias": 0.90},
+        {"id": "insist.e", "text": "Söylediğimde eksik kalan ne?", "bias": 0.87}
+      ]
+    },
+    "meta.clock.head": {
+      "desc": "Saat sorusunun ölçülen saatten kurulan ilk yarısı.",
+      "priors": [
+        {"id": "clock.head.a", "text": "Şu an {clock}.", "bias": 1.00, "need": ["clock"]},
+        {"id": "clock.head.b", "text": "Saat {clock}.", "bias": 0.96, "need": ["clock"]},
+        {"id": "clock.head.c", "text": "{clock}.", "bias": 0.90, "need": ["clock"]}
+      ]
+    },
+    "meta.clock.tail": {
+      "desc": "Saat cevabının ardından gelen iç-zaman yorumu (boşluk da bir seçenek).",
+      "priors": [
+        {"id": "clock.tail.none.a", "text": "", "bias": 1.00},
+        {"id": "clock.tail.none.b", "text": "", "bias": 0.98},
+        {"id": "clock.tail.a", "text": " Saat bende durmuyor, akıp gidiyor.", "bias": 0.85},
+        {"id": "clock.tail.b", "text": " Akrep yelkovan bende de dönüyor.", "bias": 0.82}
+      ]
+    },
+    "meta.elapsed.close": {
+      "desc": "Geçen süre cevabının kapanışı; süre ve saat gerçekten ölçülür.",
+      "priors": [
+        {"id": "elapsed.close.a", "text": "Zaman bende adım adım ilerliyor; şu an {clock}.", "bias": 1.00, "need": ["clock"]},
+        {"id": "elapsed.close.b", "text": "İçimdeki saat işliyor, dışarıda {clock}.", "bias": 0.96, "need": ["clock"]},
+        {"id": "elapsed.close.c", "text": "Şu an {clock}; bende zaman hiç durmadı.", "bias": 0.93, "need": ["clock"]}
+      ]
+    }
+  }
+}
