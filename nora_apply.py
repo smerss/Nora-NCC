@@ -69,6 +69,23 @@ def feature_spec_fn(spec: dict):
         return lambda s: 1 if str(s or "").lower().startswith(arg) else 0
     if kind == "letter":
         return lambda s: 1 if arg and arg in str(s or "").lower() else 0
+    if kind == "suffix_pattern":
+        # ÜNLÜ UYUMU KALIBI: 'lVk' -> son üç harf [sessiz][ünlü][sessiz] ise eşleşir.
+        # Türkçe'de -lık/-lik/-luk/-lük AYNI ektir; kalıp, dört ayrı ek görmek yerine
+        # tek bir morfemi ölçer.
+        pat = arg
+        def _f(s: str) -> int:
+            t = str(s or "").lower()
+            if not pat or len(t) < len(pat):
+                return 0
+            for a, b in zip(t[-len(pat):], pat):
+                if b == "v":
+                    if a not in VOWELS:
+                        return 0
+                elif a != b:
+                    return 0
+            return 1
+        return _f
     return lambda s: 0
 
 
