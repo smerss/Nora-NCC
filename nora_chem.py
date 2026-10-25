@@ -49,16 +49,32 @@ class NeuroChemistry:
         self.sht = 0.65            # serotonin: sabır ve dürtü dengesi [0, 1]
         self.cort = 0.10           # kortizol: allostatik stres yükü [0, 1]
         self.oxy = 0.60            # genel sosyal güven tabanı [0, 1]
-        self.speaker_trust: dict[str, float] = {}   # konuşmacı bazlı epistemik güven
+        # Konuşmacı bazlı epistemik güven. Anahtar SES KİMLİĞİdir; dış dünyanın etiketi
+        # (speaker="emre" gibi) yalnızca takma addır ve `alias_resolver` ile çözülür.
+        self.speaker_trust: dict[str, float] = {}
+        self.alias_resolver = None   # callable(etiket) -> ses kimliği (NoraAGI bağlar)
         self.val_ema = 0.0         # beklenen değer izi (RPE için)
         self.step_count = 0
         self.history: list[np.ndarray] = []
 
+    def _canon(self, speaker: str) -> str:
+        """Etiketi ses kimliğine çevirir. Çözücü yoksa anahtar olduğu gibi kalır."""
+        r = self.alias_resolver
+        if r is not None:
+            try:
+                c = r(str(speaker))
+                if c:
+                    return str(c)
+            except Exception:
+                pass
+        return str(speaker)
+
     def trust_of(self, speaker: str = "insan") -> float:
-        return float(self.speaker_trust.get(speaker, 0.60))
+        return float(self.speaker_trust.get(self._canon(speaker), 0.60))
 
     def update_social(self, speaker: str, verified_helpful: float):
         """verified_helpful in [-1, +1]: +1 doğrulanan faydalı bilgi, -1 yalan/zararlı yönlendirme."""
+        speaker = self._canon(speaker)
         cur = self.trust_of(speaker)
         # İhanet/yalan güveni hızlı düşürür (asimetrik biyolojik ihtiyat), doğruluk kademeli artırır
         rate = 0.30 if verified_helpful > 0 else 0.50

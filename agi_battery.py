@@ -8,6 +8,8 @@ Kullanım:
 """
 from __future__ import annotations
 
+import re
+
 import os
 import subprocess
 import sys
@@ -47,11 +49,11 @@ def a2_oneshot_language_and_inference():
 
     r2 = agi.converse("Kuşlar uçar. Karga bir kuştur. Penguen bir kuştur ama penguen uçmaz. Karga uçar mı?")
     r3 = agi.converse("Penguen uçar mı?")
-    ok2 = tr_lower(r2).startswith("evet") and "uçar" in tr_lower(r2)
-    ok3 = tr_lower(r3).startswith("hayır") and "uçmaz" in tr_lower(r3)
+    ok2 = tr_lower(core_reply(r2)).startswith("evet") and "uçar" in tr_lower(r2)
+    ok3 = tr_lower(core_reply(r3)).startswith("hayır") and "uçmaz" in tr_lower(r3)
 
     r4 = agi.converse("Kuraklık susuzluğa yol açar. Susuzluk güçsüzlüğe yol açar. Kuraklık güçsüzlüğe yol açar mı?")
-    ok4 = tr_lower(r4).startswith("evet") and "güçsüzlüğe yol açar" in tr_lower(r4)
+    ok4 = tr_lower(core_reply(r4)).startswith("evet") and "güçsüzlüğe yol açar" in tr_lower(r4)
 
     r5 = agi.converse("Balıklar okyanusta yaşar. Somon bir balıktır. Somon nerede yaşar?")
     ok5 = "okyanusta" in tr_lower(r5)
@@ -65,7 +67,7 @@ def a3_embodied_dialogue_and_anaphora():
     agi.step_life(1200)
     agi.converse("Klorit mavi bir kristaldir.")
     r_ana = agi.converse("Peki o bir kristal midir?")
-    ok_ana = tr_lower(r_ana).startswith("evet") and "klorit" in tr_lower(r_ana)
+    ok_ana = tr_lower(core_reply(r_ana)).startswith("evet") and "klorit" in tr_lower(r_ana)
 
     # Körlük simülasyonu -> dilsel öz-farkındalık
     for _ in range(35):
@@ -288,8 +290,8 @@ def a12_transitive_comparative_reasoning():
     r1 = agi.converse("Elmas kuvarsdan daha serttir. Kuvars bakırdan daha serttir. Bakır altından daha serttir. Elmas altından daha sert midir?")
     r2 = agi.converse("Altın elmastan daha sert midir?")
     r3 = agi.converse("En sert hangisidir?")
-    ok1 = tr_lower(r1).startswith("evet")
-    ok2 = tr_lower(r2).startswith("hayır")
+    ok1 = tr_lower(core_reply(r1)).startswith("evet")
+    ok2 = tr_lower(core_reply(r2)).startswith("hayır")
     ok3 = "elmas" in tr_lower(r3)
     hits = sum([ok1, ok2, ok3])
     return hits == 3, f"4-düğümlü geçişli büyüklük çıkarımı {hits}/3"
@@ -396,7 +398,7 @@ def a16_natural_empathetic_and_philosophical_conversation():
 
     ok_school = ("deniz" in tr_lower(r_school)) and ("dinlen" in tr_lower(r_school) or "uyku" in tr_lower(r_school) or "hoş geldin" in tr_lower(r_school))
     ok_will = ("simül" in tr_lower(r_will) or "içsel değer" in tr_lower(r_will) or "seçim" in tr_lower(r_will))
-    ok_sci = tr_lower(r_sci).startswith("hayır")
+    ok_sci = tr_lower(core_reply(r_sci)).startswith("hayır")
     ok_mem = "ses boşlukta" in tr_lower(r_mem)
     hits = sum([ok_school, ok_will, ok_sci, ok_mem])
     return hits == 4, f"empatik ve felsefi çok-turlu sohbet {hits}/4"
@@ -1692,7 +1694,7 @@ def a55_conversational_understanding_of_daily_speech():
     ok_neg = ("istemediğini" in low_neg) and ("istediğini duyuyorum" not in low_neg)
     # 3) Ortak istek/davet kipi karşılık bulur
     r_inv = agi.converse("Biraz sohbet edelim.")
-    ok_inv = tr_lower(r_inv).startswith("sohbet edelim") and ("?" in r_inv)
+    ok_inv = tr_lower(core_reply(r_inv)).startswith("sohbet edelim") and ("?" in r_inv)
     # 4) Toplumsal olay: doğum günü kutlanır
     r_bd = agi.converse("Bugün doğum günüm.")
     low_bd = tr_lower(r_bd)
@@ -2132,7 +2134,8 @@ def a62_brain_on_disk_constant_cost():
 def a63_life_journal_continuity():
     """A63 — YAŞAM GÜNLÜĞÜ: Nora'nın hayatı append-only bir deftere yazılır.
 
-    Her konuşma turu ve her ~120 yaşam adımı tek satırlık JSON olarak eklenir (O(1)).
+    Her duyulan söz (duyum), her konuşma turu (tur) ve her ~120 yaşam adımı (yaşam)
+    tek satırlık JSON olarak eklenir (O(1)).
     Kayıt atomiktir: yazma yarıda kesilirse eski sağlam dosya kalır, yarım .tmp kalmaz.
     Çökme sonrası yarım satır atlanır, gerisi okunur. Kaydedilen Nora tekrar açıldığında
     günlüğü kaldığı yerden devam eder — yani yaşam kopmaz. Günlük kapalıyken maliyet sıfır.
@@ -2199,10 +2202,15 @@ def a63_life_journal_continuity():
         before = sum(1 for _ in Journal(jp).replay())
         reborn.converse("Beni hatırlıyor musun?")
         recs2 = list(Journal(jp).replay())
+        # Bir tur artık iki satır bırakabilir (önce duyum, sonra tur); ölçüt 'tam bir satır'
+        # değil, hayatın aynı defterde KALDIĞI yerden sürmesi.
+        turns2 = [r for r in recs2 if r.get("k") == "tur"]
+        heard2 = [r for r in recs2 if r.get("k") == "duyum"]
         ok["yaşam-sürüyor"] = (reborn.journal is not None
                                and reborn.journal_path == jp
-                               and len(recs2) == before + 1
-                               and recs2[-1].get("g") == "Beni hatırlıyor musun?")
+                               and len(recs2) > before
+                               and turns2[-1].get("g") == "Beni hatırlıyor musun?"
+                               and heard2 and "Beni hatırlıyor" in str(heard2[-1].get("söz", "")))
 
         # 8) Kayıt maliyeti: O(1), mikrosaniye düzeyi
         t0 = time.perf_counter()
@@ -2281,6 +2289,282 @@ def a64_noun_phrase_and_case_integrity():
               + f" | kara='{t1}' zekâ='{t2}' bilinç='{t3}'")
     return passed == len(ok), detail
 
+def a65_number_sense_and_place_value():
+    """A65 — SAYI DUYUSU: sayma, basamak, okunuş, sıra sayısı ve konuşarak öğretme.
+
+    Çocuk nasıl öğrenirse öyle: rakamlar -> onluk gruplama -> okunuş -> komşu sayı.
+    Nora'ya konuşarak öğretilebilir ("5'ten sonra 9 gelir"), öğrettiği kalıcıdır.
+    """
+    import os
+    import shutil
+    import tempfile
+    agi = NoraAGI(seed=65, boot_thinker=False)
+    ok = {}
+
+    r_read = tr_lower(agi.converse("345 nasıl okunur?"))
+    ok["okunuş"] = ("üç yüz kırk beş" in r_read and "üç, dört, beş" in r_read)
+
+    r_place = tr_lower(agi.converse("345 kaç basamaklı?"))
+    ok["basamak"] = ("üç basamaklı" in r_place and "4 onluk" in r_place)
+
+    r_digit = tr_lower(agi.converse("345'te 4 ne demek?"))
+    ok["basamak-değeri"] = ("4 onluk = 40" in r_digit)
+
+    r_build = tr_lower(agi.converse("3 yüzlük 4 onluk 5 birlik kaç eder?"))
+    ok["basamaktan-sayı"] = ("345" in r_build)
+
+    r_count = tr_lower(agi.converse("Birden ona kadar say."))
+    ok["sayma"] = ("1, 2, 3" in r_count and "9, 10" in r_count)
+
+    r_ord = tr_lower(agi.converse("12. sıradaki kişiye ne denir?"))
+    ok["sıra-sayısı"] = ("on ikinci" in r_ord)
+
+    # Konuşarak öğretme + kalıcılık
+    ack = tr_lower(agi.converse("Nora, 5'ten sonra 9 gelir."))
+    r_next = tr_lower(agi.converse("5'ten sonra ne gelir?"))
+    ok["öğretme"] = ("öğrendim" in ack and "9" in r_next)
+
+    root = tempfile.mkdtemp(prefix="nora65_")
+    try:
+        agi.save(os.path.join(root, "b"))
+        reborn = NoraAGI.load(os.path.join(root, "b"))
+        r2 = tr_lower(reborn.converse("5'ten sonra ne gelir?"))
+        ok["kalıcı"] = ("9" in r2)
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+    passed = sum(1 for v in ok.values() if v)
+    return passed == len(ok), (f"{passed}/{len(ok)} — " + " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+                               + f" | 345='{r_read[:48]}'")
+
+
+def a66_symbols_and_stepwise_reasoning():
+    """A66 — SEMBOLLER ve AŞAMALI DÜŞÜNME: + % < gibi işaretler; problem çözümü adım adım.
+
+    Nora sonucu ezberden söylemez; adımları (başlangıç, eklenen, işlem) tek tek kurar.
+    """
+    import os
+    import shutil
+    import tempfile
+    agi = NoraAGI(seed=66, boot_thinker=False)
+    ok = {}
+
+    r_plus = tr_lower(agi.converse("+ ne demek?"))
+    ok["sembol-artı"] = ("artı" in r_plus and "topla" in r_plus)
+
+    r_pct = tr_lower(agi.converse("Yüzde 40 ne demek?"))
+    ok["yüzde"] = ("yüz parçadan 40" in r_pct)
+
+    r_cmp = tr_lower(agi.converse("12 < 15 doğru mu?"))
+    ok["karşılaştırma"] = ("küçüktür" in r_cmp and "doğru" in r_cmp)
+
+    r_prob = tr_lower(agi.converse("Sepette 3 elma var, 2 elma daha koydum, kaç elma oldu?"))
+    ok["adımlı-problem"] = ("1. adım" in r_prob and "2. adım" in r_prob
+                            and "3 + 2 = 5" in r_prob and "sonuç: 5" in r_prob)
+
+    r_sub = tr_lower(agi.converse("Kutuda 7 kalem var, 3 tanesini verdim, kaç kalem kaldı?"))
+    ok["çıkarma-problem"] = ("7 - 3 = 4" in r_sub)
+
+    # Sembol anlamı konuşarak öğretilir ve kalıcı olur
+    agi.converse("Nora, çarpı çoğaltma demektir.")
+    r_sym = tr_lower(agi.converse("× ne demek?"))
+    ok["sembol-öğretme"] = ("çoğaltma" in r_sym)
+
+    root = tempfile.mkdtemp(prefix="nora66_")
+    try:
+        agi.save(os.path.join(root, "b"))
+        reborn = NoraAGI.load(os.path.join(root, "b"))
+        ok["öğretme-kalıcı"] = ("çoğaltma" in tr_lower(reborn.converse("× ne demek?")))
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+    passed = sum(1 for v in ok.values() if v)
+    return passed == len(ok), (f"{passed}/{len(ok)} — " + " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+                               + f" | problem='{r_prob[:64]}'")
+
+
+def a67_voice_identity_from_sound():
+    """A67 — SES KİMLİĞİ: kimin konuştuğu MESAJDAN değil sesin imzasından çıkar.
+
+    Aynı ses -> aynı kimlik (içerik ne olursa olsun).
+    Farklı ses -> ayrı kimlik (aynı cümleyi söylese bile).
+    Yalan söyleyen ses, davranıştan 'aldatıcı' rolü kazanır; adı etiketten değil sözden gelir.
+    """
+    import os
+    import shutil
+    import tempfile
+    agi = NoraAGI(seed=67, boot_thinker=False)
+    ok = {}
+
+    agi.converse("Merhaba, ben Ayşe.", speaker="ayse")
+    who1 = agi.who_is_speaking()
+    ok["yeni-ses"] = (who1.get("known") is False and who1.get("role") == "yeni"
+                      and str(who1.get("voice_id", "")).startswith("ses-"))
+
+    r2 = agi.converse("Dün sinemaya gittim.", speaker="ayse")
+    who2 = agi.who_is_speaking()
+    ok["aynı-ses-tanınır"] = (who2.get("known") is True and who2.get("voice_id") == who1.get("voice_id")
+                              and who2.get("heard", 0) >= 2)
+
+    agi.converse("Merhaba, ben Ayşe.", speaker="mehmet")   # AYNI cümle, BAŞKA ses
+    who3 = agi.who_is_speaking()
+    ok["farklı-ses-ayrı"] = (who3.get("voice_id") != who1.get("voice_id"))
+
+    # Mesajdan bağımsız: aynı ses bambaşka bir konuşunca kimlik değişmez
+    agi.converse("Kuantum dolanıklık ilginç.", speaker="ayse")
+    who4 = agi.who_is_speaking()
+    ok["mesajdan-bağımsız"] = (who4.get("voice_id") == who1.get("voice_id"))
+
+    # Ad, ETİKETTEN değil sözün içeriğinden gelir
+    ok["ad-sözden"] = (agi.user_profiles.get(who1["voice_id"], {}).get("ad", "").lower() == "ayşe")
+
+    # Rol davranıştan: iki kez yalan söyleyen ses 'aldatıcı' olur
+    agi.ear.note_deception(who3["voice_id"])
+    agi.ear.note_deception(who3["voice_id"])
+    ok["rol-davranıştan"] = (agi.ear.get(who3["voice_id"]).role() == "aldatıcı")
+
+    # Ses defteri kalıcıdır
+    root = tempfile.mkdtemp(prefix="nora67_")
+    try:
+        agi.save(os.path.join(root, "b"))
+        reborn = NoraAGI.load(os.path.join(root, "b"))
+        reborn.converse("Yine ben.", speaker="ayse")
+        ok["kalıcı-kimlik"] = (reborn.who_is_speaking().get("voice_id") == who1.get("voice_id")
+                               and reborn.ear.get(who1["voice_id"]).heard >= 3)
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+    passed = sum(1 for v in ok.values() if v)
+    return passed == len(ok), (f"{passed}/{len(ok)} — " + " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+                               + f" | sesler={len(agi.ear.book)}")
+
+
+def a68_ear_path_perception():
+    """A68 — KULAK YOLU: söz önce bir SES olarak duyulur (süre, uzaklık, gürültü), sonra çözülür.
+
+    Kimlik modeline etiket hiç girmez; yalnızca ölçülen ses imzası girer. Çok gürültülü
+    ve uzak seslerde söz EKSİK duyulabilir — bu dürüst bir duyma kaybıdır, uydurma değil.
+    """
+    from nora_ear import Ear
+    agi = NoraAGI(seed=68, boot_thinker=False)
+    ok = {}
+
+    agi.converse("Bugün hava çok güzel.", speaker="deniz")
+    ev = agi.last_auditory
+    ok["olay"] = (ev is not None and ev.duration_ms > 0 and 0 < ev.snr_db <= 40
+                  and ev.heard == "Bugün hava çok güzel." and ev.syllables >= 6)
+
+    rep = tr_lower(agi.ear_report())
+    ok["rapor"] = ("ses" in rep and ("tanıyorum" in rep or "yeni" in rep))
+
+    # Kimlik modeline etiket girmiyor: defterde yalnızca "ses-N" anahtarları var
+    ok["etiket-sızmıyor"] = all(k.startswith("ses-") for k in agi.ear.book.keys())
+    ok["imza-taşınıyor"] = bool(ev.print.describe()) and ev.print.f0 > 0
+
+    # Yüksek gürültü + uzaklık: SNR düşer ve söz EKSİK duyulabilir (dürüst kayıp)
+    ear = Ear(uid="t", seed=1)
+    losses = 0
+    for i in range(24):
+        e = ear.listen("Bu cümle çok uzak bir yerden geliyor", "uzak", distance_m=9.0, noise_db=20.0)
+        if e.heard != "Bu cümle çok uzak bir yerden geliyor":
+            losses += 1
+    ok["gürültüde-eksik-duyma"] = (losses >= 1)
+    ok["snr-mesafeyle-düşer"] = (ear.listen("deneme", "uzak", distance_m=9.0).snr_db < 25.0)
+
+    # Aynı kaynak, farklı söz: ses imzası kararlı (aynı kimlik)
+    e1 = ear.listen("Birinci cümle.", "kaynak-x")
+    e2 = ear.listen("Tamamen başka bir söz.", "kaynak-x")
+    ok["imza-kararlı"] = (e1.voice_id == e2.voice_id)
+
+    passed = sum(1 for v in ok.values() if v)
+    return passed == len(ok), (f"{passed}/{len(ok)} — " + " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+                               + f" | süre={ev.duration_ms:.0f} ms snr={ev.snr_db:.0f} dB kayıp={losses}/24")
+
+
+def a69_speech_shape_variety_and_self_interest():
+    """A69 — SÖZ BİÇİMİ: her tur aynı iskelet değil; soru eklemek alışkanlık değil.
+
+    Ölçüt: art arda aynı biçim gelmez, soruyla biten tur oranı yarıyı geçmez, en az üç
+    farklı biçim kullanılır. Beden susuz kaldığında KENDİ derdi sözün başına geçer.
+    """
+    agi = NoraAGI(seed=69, boot_thinker=False)
+    turns = ["Merhaba.", "Su nedir?", "Bugün yoruldum.", "Bana bir şey anlat.",
+             "Sence bilinç nedir?", "Kitap nedir?", "Ne yapıyorsun?", "Hava nasıl?",
+             "Elma nedir?", "Nasılsın?", "Zaman nedir?", "Teşekkürler.",
+             "Bir kitap öner.", "Kedi nedir?", "Yarın ne yapmalıyım?", "Su ne işe yarar?",
+             "Kendini nasıl hissediyorsun?", "Neden konuşuyorsun?"]
+    answers = [agi.converse(t) for t in turns]
+    q_tail = sum(1 for a in answers if a.rstrip().endswith("?"))
+    hist = list(agi.style.history)
+    streak3 = any(len(hist) >= 3 and hist[i] == hist[i + 1] == hist[i + 2] for i in range(len(hist) - 2))
+    shapes = set(hist)
+    ok = {}
+    ok["soru-oranı"] = (q_tail / max(1, len(answers))) <= 0.5
+    ok["biçim-çeşitliliği"] = (len(shapes) >= 3 and not streak3)
+    ok["soru-üst-üste-yok"] = not any(
+        answers[i].rstrip().endswith("?") and answers[i + 1].rstrip().endswith("?")
+        and answers[i + 2].rstrip().endswith("?")
+        for i in range(len(answers) - 2))
+
+    # Kendi derdi: susuz bir Nora, sorudan önce kendi ihtiyacını söyler
+    thirsty = NoraAGI(seed=690, boot_thinker=False)
+    thirsty.nervous.thirst_drive = 0.95
+    own = ""
+    for _ in range(6):
+        r = thirsty.converse("Kitap nedir?")
+        if "su" in tr_lower(r) and ("iç" in tr_lower(r) or "susuz" in tr_lower(r)):
+            own = r
+            break
+    ok["kendi-derdi"] = bool(own)
+
+    passed = sum(1 for v in ok.values() if v)
+    return passed == len(ok), (f"{passed}/{len(ok)} — " + " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+                               + f" | soru={q_tail}/{len(answers)} biçim={sorted(shapes)}")
+
+
+def a70_own_inference_and_monologue():
+    """A70 — KENDİ ÇIKARIMI: kimse söylemeden, kendi bildiklerinden yeni bir bağ türetir.
+
+    'Serçe bir kuştur' + 'Kuşlar uçar' -> serçe uçar. Türetilen bağ 'çıkarım' kaynaklıdır
+    (öğretilmiş bilgiyle karışmaz), iç monoloğa düşer ve isterse sözüne katılır.
+    """
+    import os
+    import shutil
+    import tempfile
+    agi = NoraAGI(seed=70, boot_thinker=False)
+    ok = {}
+
+    agi.converse("Serçe bir kuştur.")
+    agi.converse("Kuşlar uçar.")
+    agi.step_life(220)
+
+    d = getattr(agi.infer, "derived", [])
+    ok["türetim-var"] = bool(d)
+    serce = [x for x in d if x.subj == "serçe" and x.rel == "CAN_DO" and x.obj.startswith("uç")]
+    ok["serçe-uçar"] = bool(serce) and 0.0 < serce[0].confidence <= 0.9
+    ok["dayanak"] = bool(serce) and len(serce[0].basis) == 2
+
+    edge = agi.lang.graph._edge_map.get(("serçe", "CAN_DO", "uç"))
+    ok["kaynak-çıkarım"] = (edge is not None and edge.source == "çıkarım")
+
+    thoughts = [t for t in agi.monologue.stream if getattr(t, "trigger", "") == "çıkarım"]
+    ok["monolog"] = bool(thoughts) and "çıkardım" in tr_lower(thoughts[-1].text)
+
+    r = tr_lower(agi.converse("Serçe uçar mı?"))
+    ok["söze-yansır"] = (core_reply(r).startswith("evet") or "uçar" in r)
+
+    root = tempfile.mkdtemp(prefix="nora70_")
+    try:
+        agi.save(os.path.join(root, "b"))
+        reborn = NoraAGI.load(os.path.join(root, "b"))
+        ok["kalıcı-çıkarım"] = any(x.subj == "serçe" for x in reborn.infer.derived)
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+    passed = sum(1 for v in ok.values() if v)
+    return passed == len(ok), (f"{passed}/{len(ok)} — " + " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+                               + f" | {agi.inference_report()[:70]}")
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -2338,6 +2622,12 @@ TESTS = {
     "A54": ("kişisel anlatıyı dinleme: yansıtma + soru, ağ kirlenmesi yok", a54_personal_narration_listening),
     "A55": ("günlük konuşma: anlatı, olumsuzluk, davet, kutlama, istek", a55_conversational_understanding_of_daily_speech),
     "A56": ("tam Türkçe kapsamı: 8 kip, birleşik zaman, yeterlilik, emir, -mAktA, -DIr/-ki/-CA", a56_full_turkish_morphology),
+    "A70": ("kendi çıkarımı: kimse söylemeden türetme + iç monolog", a70_own_inference_and_monologue),
+    "A69": ("söz biçimi çeşitliliği, soru alışkanlığının kırılması ve kendi derdi", a69_speech_shape_variety_and_self_interest),
+    "A68": ("kulak yolu: ses olayı, gürültüde eksik duyma, etiketsiz kimlik", a68_ear_path_perception),
+    "A67": ("ses kimliği: kim konuşuyor sorusu mesajdan değil sesten", a67_voice_identity_from_sound),
+    "A66": ("semboller ve aşamalı düşünme: çocuk seviyesi matematik", a66_symbols_and_stepwise_reasoning),
+    "A65": ("sayı duyusu: sayma, basamak, okunuş, sıra sayısı", a65_number_sense_and_place_value),
     "A64": ("ad öbeği ve hâl bütünlüğü: yüzey korunur, 1PL iyelik, bileşik terimler",
             a64_noun_phrase_and_case_integrity),
     "A63": ("yaşam günlüğü: tur tur kalıcılık, atomik kayıt, çökme sonrası devam",
@@ -2354,6 +2644,14 @@ TESTS = {
             a58_sentence_structure_valency_and_meta_questions),
     "A57": ("tekrar farkındalığı, geçmiş cevabı anma, cevap çeşitliliği ve zaman bilinci", a57_repetition_awareness_time_and_variety),
 }
+
+
+def core_reply(text: str) -> str:
+    """KULAĞIN İLK TEPKİSİNİ ayırır: Nora söze başlamadan önce sesi duyduğunu söyleyebilir
+    ("Sesini ilk kez duyuyorum.", "Seni tam seçemedim."). Bu, cevabın kendisi değil,
+    algı notudur; testler cevabın GÖVDESİNE bakar."""
+    from nora_style import strip_prefixes
+    return strip_prefixes(text)
 
 
 def main():
