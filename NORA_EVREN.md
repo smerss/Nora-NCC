@@ -576,9 +576,15 @@ Böylece yeni yetenek eklemek cümle eklemek olmuyor; seçim yine yarış, tazel
 - **"nasıl çalışır"**: "Kuark nasıl çalışır?" öz-rapora düşüyordu → öz-rapor yalnız 2. kişi.
 - **Emir cümlesi olgu diye öğreniliyordu**: "bana bir zımbırtı uyarla" cümlesi kavram
   ağına ISA kenarı olarak yazılıyordu (yankının en derin biçimi) → istek/olgu ayrımı.
+- **Bileşik istek iki plan üretiyordu**: "yedi adımlık hedef belirle ve planla" hem 7 hem
+  10 adımlık plan yazıp kendi kendisiyle çelişiyordu → aynı operatörü isteyen yan cümleler
+  bölünmez; tek plan (A75 `tek-plan`).
+- **Şarkı isteği başka bir soruya cevap veriyordu**: "Bana bir şarkı söyle." en son
+  öğrenilen olguyu (fotosentez) anlatıyordu → "şarkı söyleyemem, ezgi üreten organım yok",
+  sonra elde olanı öner (A77 `sarki-durust`).
 
 ### R7. Test durumu
-`python agi_battery.py` → **78/78** (420 s). Yeni testler: **A75** (bağla/uygula/taşı,
+`python agi_battery.py` → **78/78** (426 s). Yeni testler: **A75** (bağla/uygula/taşı,
 11 ölçüt), **A76** (provenance kapsamı, 5), **A77** (yankı öldü, 4), **A78** (öz-model +
 `do()`, 9). A73 mandalı korunuyor (toplam 1120 ≤ 1125, söylem 127 ≤ 133).
 A54/A59/A66 bu turda düzelen sessiz yanlışlarla birlikte yeniden geçti.

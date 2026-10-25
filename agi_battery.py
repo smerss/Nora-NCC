@@ -2902,6 +2902,12 @@ def a75_uygulama_operatoru_bind_apply_transfer():
     src = getattr(agi, "_last_turn_src", {}) or {}
     ok["hesaplandi"] = int(src.get("islem", 0)) > 0
 
+    # Bileşik istek TEK plan üretmeli: "hedef belirle ve planla" iki plan yazıyordu
+    # (biri 7, biri 10 adım) ve cevap kendi kendisiyle çelişiyordu.
+    r_plan = tr_lower(agi.converse("Yedi adımlık bir hedef belirle ve planla."))
+    ok["tek-plan"] = (r_plan.count("1.durum") == 1 and "7 adım" in r_plan
+                      and "10 adım" not in r_plan)
+
     passed = sum(1 for v in ok.values() if v)
     detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
     return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
@@ -2974,7 +2980,12 @@ def a77_yanki_oldu_acik_basarisizlik():
     # yürütülemeyen adım adıyla söylenmeli. Adımı adıyla anmak çözümlemedir, yankı değil.
     ok["yanki-yok"] = ("doğrultusunda" not in r2
                        and "bana bir zımbırtı uyarla ve sonra tarat" not in r2
-                       and "adımlara ayırdım" in r2 and "operatör yok" in r2)
+                       and "adımlara ayırdım" in r2
+                       and ("operatör yok" in r2 or "operatörüm yok" in r2))
+
+    # Yapılamayan sanatsal istek: başka bir sorunun cevabını vermek sessiz yanlıştır.
+    r_song = tr_lower(agi.converse("Bana bir şarkı söyle."))
+    ok["sarki-durust"] = ("söyleyemem" in r_song and "fotosentez" not in r_song)
 
     # Yapılabilenler hâlâ yapılıyor
     agi.converse("Sesli harf sayısı tek ise mavi, çift ise kırmızı.")
