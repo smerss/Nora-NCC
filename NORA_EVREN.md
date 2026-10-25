@@ -1123,3 +1123,95 @@ Bacaklar: `kalıp-icadı`, `söz-kalıp`, `uygula-uyan`, `uygula-uymayan`, `deft
 | mühürlü setler | **4/4 · 4/4 · 4/4** |
 | `nora_audit.py --check` | **1122** / SÖYLEM 127 — artış yok |
 | operatör / prior türü | 9 / 66 = **7.33** (tavan 7.50) |
+
+
+---
+
+## Aşama Y — Ölçüm envanteri: kendi icat ettiği ölçüm sonraki oturumda HAZIR olur (`A89`)
+
+Aşama W/X'te Nora ölçüm **icat ediyordu**, ama icat edilen ölçüm yalnız kendi kuralının
+içinde yaşıyordu: her yeni problemde ölçümü sıfırdan icat etmesi gerekiyordu. Yani Nora'nın
+kendi aleti, insanın verdiği ölçüm kadar "kalıcı" değildi. Bu turda ölçüm **envantere**
+giriyor.
+
+### Y1. Ne yapıldı
+
+| parça | yer | işlev |
+|---|---|---|
+| `search_features()` | `nora_forge.py` | arama uzayı = insan ölçümleri **+ kendi icat ettiklerim** |
+| `inventory` (defter) | `runs/operators_self.json` | `self_measurements` kalıcı; açılışta `FEATURES`'a yeniden kurulur |
+| ikili şekil kuralı | `_search` | icat edilmiş ölçüm **yalnız** `presence` (var/yok) şeklinde taranır |
+| tekilleştirme | `_adopt` | aynı ölçüm ikinci kez yazılmaz (envanter şişmez) |
+| `last_measure` | `_adopt` | "bu turda icat ettim" mi "envanterden aldım" mı — söz bunu ayırır |
+| çürütme işareti | `mark_refuted` | kuralı çürüten ölçüm envanterde **işaretlenir**, bir daha aranmaz |
+
+Kritik nokta: **insanın verdiği ölçüm listesi artık yeteneğin tavanı değil.** Bir kez
+yazdığı alet, sonraki işlerde hazır. Ölçüm icadı tek seferlik bir gösteri olmaktan çıkıp
+**büyüyen bir envanter** oluyor.
+
+### Y2. Ölçüm (A89, 14/14)
+
+```
+--- 1. oturum: envanter boş ---
+S: Kural çıkar: kitaplık=soyut, tuzluk=soyut, güzellik=soyut, bolluk=soyut,
+   portakal=somut, masa=somut, deniz=somut
+N: Var olan ölçümlerle kural çıkmıyordu, ben de yeni bir ölçüm yazdım: '-lVk' kalıbı.
+   var -> soyut, yok -> somut. 7 örneğin hepsi tutuyor; kendi yazdığım ölçüm sayısı 1.
+
+--- 2. oturum: süreç yeniden doğdu, ölçüm BELLEKTE DEĞİL, defterde ---
+S: Kural çıkar: kalemlik=soyut, defterlik=soyut, portakal=somut, bilgisayar=somut
+N: '-lVk' kalıbı benim daha önce yazdığım bir ölçüm; ona güveniyorum.
+   var -> soyut, yok -> somut. 4 örnek tutuyor; envanterde 1 ölçüm.
+   (ikinci icat YOK: envanter 1'de kaldı)
+
+S: Kuralı uygula: 'çiçeklik'
+N: 'çiçeklik': '-lVk' kalıbı -> var; ölçüm bu, etiket soyut. Uydurmadım.
+
+--- 3. oturum: envanter BÜYÜR ---
+S: Kural çıkar: zeytin=soyut, zambak=soyut, kavun=somut, mendil=somut
+N: ... yeni bir ölçüm icat ettim: 'z' harfi ... (envanter 2)
+```
+
+Bacaklar: `envanter-icat`, `envanter-sayı`, `bellek-bos`, `defterden-kuruldu`,
+`envanter-arama`, `yeniden-kullanım`, `yeniden-icat-yok`, `kullanım-söz`, `uygula-uyan`,
+`çürütme-işaretli`, `çürütülen-aranmaz`, `envanter-büyüdü`, `ikinci-icat-söz`,
+`insan-sabit`.
+
+### Y3. Dürüst sınırlar
+
+- **Envanter yalnız büyür, küçülmez.** Çürütülen ölçüm silinmez, işaretlenir; ama
+  işaret "bu ölçüm hiç işe yaramaz" demek değil — yalnız o kuralda yanıldı demek. Bağlama
+  duyarlı bir güven skoru (hangi veride kaç kez tuttu) **yok**.
+- **Yeniden kullanım başka alana taşabilir.** `-lVk` bir gün başka bir alanda da işe
+  yarayabilir; Nora bunu "benim ölçümüm" diye kullanır ve söyler. Ölçümün *hangi alandan*
+  geldiğini ayırt eden bir alan etiketi yok.
+- **İkili şekil zorunlu.** İcat edilen ölçüm 0/1'dir; ona parite/eşik uygulamak kategorik
+  bir yanlış okuma olurdu, bu yüzden yalnız `presence` taranır. İcat edilen **sürekli**
+  ölçüm (ör. "iki ölçümün farkı") yok.
+- **İcat hâlâ son çare.** Yerleşik bir ölçüm ayırıyorsa icat edilmez (A87
+  `gereksiz-icat-yok`). Yani envanter, tembellik gerekçesi değil.
+
+### Y4. Bu turda düşülen tuzaklar
+
+- **Test verisi kendi kendini çürüttü.** "kırmızıkanat/mavikanat vs maviayak/kırmızıayak"
+  verisinde `-kanat` eki sessiz harf sayısını da ayırıyordu; Nora haklı olarak yerleşik
+  `consonant_count` ile kural yazdı ve "icat" bacağı düştü. Kural: **icat testi, yerleşik
+  ölçümlerin hiçbiriyle ayrışmayan veri ister** (aynı uzunluk, aynı ünlü sayısı).
+- **Geçen koşunun envanteri bu koşuyu kirletiyor.** İcat testi boş envanter ister; A87/A88
+  artık defteri kendileri siliyor, batarya da her koşuda taze dünya kuruyor.
+- **Ölçüm raporunun arkasına iç ses ekleniyordu.** "Kayıt: insan 9, kendi 1" dedikten
+  sonra gelen ilgisiz mırıldanma ("içimden 'sakinlik' diye geçirdim") raporu süs gibi
+  gösteriyordu. Sayı taşıyan cevaba artık ne mırıldanma ne düşünce eklenir.
+
+### Y5. Bu turun sayıları
+
+| ölçüm | sonuç |
+|---|---|
+| `agi_battery.py` tam (`/tmp/agi16.txt`) | **89/89 GEÇTİ, 381.7 s** |
+| `A89` | **14/14** |
+| `A87 / A88` (regresyon) | **11/11 · 7/7** |
+| `heldout_battery.py` (dış) | **9/9** |
+| mühürlü setler | **4/4 · 4/4 · 4/4** |
+| `nora_audit.py --check` | **1122** / SÖYLEM 127 — artış yok |
+| operatör / prior türü | 9 / 66 = **7.33** (bu turda **yeni prior türü yok**, yalnız varyant) |
+| insan ölçümü / kendi ölçümü | 6 / **2** (A89 sonunda envanter) |

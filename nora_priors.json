@@ -1893,7 +1893,7 @@
       ]
     },
     "meta.forge": {
-      "desc": "Operatör ocağı: örneklerden kural türetme, belirsizlik ve yetersiz veri dürüstlüğü.",
+      "desc": "Operatör ocağı: örneklerden kural türetme, kendi ölçüm envanterini yeniden kullanma, belirsizlik ve yetersiz veri dürüstlüğü.",
       "priors": [
         {
           "id": "fg.adopted",
@@ -2022,6 +2022,26 @@
           "when": {
             "eq": {
               "stage": "invented"
+            }
+          }
+        },
+        {
+          "id": "fg.reused",
+          "text": "Bu ölçümü ben yazmıştım; yeni baştan icat etmedim, envanterden aldım: {name}. {map}. Kendi ölçüm envanterimde {measured} ölçüm var.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "stage": "reused"
+            }
+          }
+        },
+        {
+          "id": "fg.reused2",
+          "text": "{name} benim daha önce yazdığım bir ölçüm; ona güveniyorum. {map}. {n_ex} örnek tutuyor; envanterde {measured} ölçüm.",
+          "bias": 0.95,
+          "when": {
+            "eq": {
+              "stage": "reused"
             }
           }
         }
