@@ -285,9 +285,64 @@ Kimse söylemeden, kendi bildiklerinden yeni bağ türetir (her 90 yaşam adım�
 
 ---
 
-## 10) Test durumu
+## 10) Anlatım: ansiklopedi değil, konuşan bir zihin (`nora_anlatim.py`)
 
-`python agi_battery.py` → **70/70** (359 s). Bu turda iki eski test ölçüm
+Şikâyet: aynı soru her seferinde **birebir aynı cümleyle** yanıtlanıyordu.
+
+```
+Su nedir?            -> Su susuzluk gidermek için kullanılır; suyun nedeni yaşamın sürmesidir.
+Bana bir şey anlat.  -> Su susuzluk gidermek için kullanılır; suyun nedeni yaşamın sürmesidir.
+Su nedir?            -> Su susuzluk gidermek için kullanılır; suyun nedeni yaşamın sürmesidir.
+```
+
+Bir insan aynı soruyu ikinci kez duyduğunda başka bir kapıdan anlatır: kısalır, örnek verir,
+kendi bedenine bağlar, "bunu sormuştun" der. Ansiklopedi maddesi hep aynıdır; insan değil.
+
+### Nasıl çalışıyor
+
+Kavram ağından gelen bağlar (`rel`, `obj`) alınır ve her turda **farklı bir çerçeveyle**
+söze dökülür. Yeni bilgi uydurulmaz: her cümlenin içeriği grafik bağı, bellek kaydı ya da
+kendi çıkarımıdır. Değişen şey çerçevedir:
+
+| Çerçeve | Örnek |
+|---|---|
+| çekirdek | "Su susuzluk gidermek için kullanılır; suyun nedeni yaşamın sürmesidir." |
+| tek bağ | "Su susuzluk gidermek için kullanılır." |
+| ad koyma | "Kitabın işi bilgi ve hayal gücünü aktarmak." |
+| duyma | "Bana anlatılanlardan biliyorum: bilgi ve hayal gücünü aktarmak için kullanılır." |
+| beden | "Şu an boğazım kuruyor; su aklımda. Susuzluk gidermek için kullanılır." |
+| bellek | yalnızca kavramı gerçekten yaşadıysa: "Su bana iyi geldi; …" |
+| çıkarım | kendi türettiği ve henüz söylemediği bir bağ varsa onu ekler |
+| sıralama | iki bağ ters sırada: "Su deyince aklıma iki şey geliyor: …" |
+
+Dürüstlük kuralları (hepsi bağlayıcı):
+
+* **Beden yoksa el yok.** Hiç yaşamadığı bir kavram için "içtim / dokundum / kullandım"
+  demez; "duydum, biliyorum" çerçevesi kullanır.
+* **Bilgi uydurulmaz.** Cümleler grafik bağlarına, somasensory kayda veya kendi çıkarımına dayanır.
+* **Tekrar görünmez.** Aynı kavram için aynı metin iki kez söylenmez; çerçeveler tükendiyse
+  en az kullanılmış bağa dönülür, cümle yeniden kurulur.
+* **Kalıcıdır.** `anlatim` durumu beyinle birlikte kaydedilir; kaydedip açtıktan sonra da
+  Nora ezber tekrara dönmez.
+
+Ölçüm (A71): aynı soruya art arda 6 cevap → **6 farklı metin**, hepsi ağdaki gerçek bağa
+dayanıyor; susuz Nora suyu kendi derdine bağlıyor; 3 anlatı isteği → 3 farklı kavram.
+
+### Bu turda düzeltilen yan hatalar
+
+| Hata | Neden | Çözüm |
+|---|---|---|
+| Her tekrarda "Bunu az önce de söylemiştin…" nutku | tekrar farkındalığı her turda konuşuyordu | ilk tekrarda söylenir, sonrakiler seyrek; cevap değiştiyse alıntı kısaltılır |
+| "Şunu fark ettim kendi kendime: kendi kendime şunu çıkardım: …" | çıkarım cümlesinin kendi başlangıcı iki kez ekleniyordu | hazır başlangıç ayıklanır, tek giriş kalır |
+| Ketum planda bile iç ses / karşı soru | biçim organı söz planını okumuyordu | `guarded` planda yalnız yalın cevap |
+| "İçimden 'sakinlik' diye geçirdim." her turda | iç durum sabitken sözcük de sabitti | son üç mırıltı tekrarlanmaz; beden/duyum/çıkarım seçenekleri eklenir |
+| "aktarmmak", "gidermmek" | eylemlik + `-mak` çift ünsüz | ekleme kuralı düzeltildi (`aktarmak`, `gidermek`) |
+
+---
+
+## 11) Test durumu
+
+`python agi_battery.py` → **71/71** (364 s). Bu turda iki eski test ölçüm
 gürültüsünden arındırıldı:
 
 | Test | Eskiden | Şimdi |
@@ -298,7 +353,8 @@ gürültüsünden arındırıldı:
 Yani artık mutlak eşik yarışı yok: ölçülen şey gerçekten iddia edilen şey (kayıt
 sayısıyla büyümeyen gecikme; korteks beklemeden verilen omurilik kararı).
 
-**Yeni testler:** A65 sayı duyusu (8/8), A66 semboller ve aşamalı düşünme (7/7),
+**Yeni testler:** A71 ansiklopedi değil (8/8 — aynı soruya 6 farklı anlatım, bilgiye sadık,
+bedene bağlanan, deneyim uydurmayan, kalıcı), A65 sayı duyusu (8/8), A66 semboller ve aşamalı düşünme (7/7),
 A67 ses kimliği (7/7), A68 kulak yolu (7/7), A69 söz biçimi çeşitliliği ve kendi derdi (4/4),
 A70 kendi çıkarımı ve monolog (7/7). A63 yaşam günlüğü (8/8), A64 ad öbeği (6/6).
 
@@ -313,5 +369,7 @@ rastlantısına bağlıdır: sert dünya bazen güvenli dünyayla neredeyse ayn�
 üretir (+0.02 temkinlilik farkı) ve iki Nora aynı öz-tanımı verir. Bu, `81aea9a`
 sürümünde de aynı sıklıkta görüldü — yeni değişikliklerin getirmediği, ortamın
 kendi şansıdır. A57 (kendi sorusu) ve A10 (alt süreçle çalışan köprü testi) de
-makine yüküne duyarlıdır; tek başına çalıştırıldıklarında geçerler. Diğer testler
-deterministiktir.
+makine yüküne duyarlıdır; tek başına çalıştırıldıklarında geçerler. A21 (yalancıya
+karşı ketumluk) tam batarya yükü altında bir kez eşiğin altında kaldı; tek başına
+5/5 geçiyor — kimyasal eşik zamanlamasına bağlı, dile getirilen davranış değişmedi.
+Diğer testler deterministiktir.

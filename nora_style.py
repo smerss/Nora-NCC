@@ -106,6 +106,15 @@ class SpeechStyle:
         deficit = self._deficit(agi)
         idle_need = (self.turn - self._last_need) > 6
 
+        # 0) KETUMLUK: söz planı "guarded" ise Nora süs yapmaz — ne mırıldanma, ne karşı
+        #    soru, ne iç ses. Ketum insan kısa konuşur.
+        try:
+            _plan = dict(getattr(getattr(agi, "broca_organ", None), "last_speech_plan", {}) or {})
+        except Exception:
+            _plan = {}
+        if _plan.get("guarded") and not _plan.get("ask_back_chosen"):
+            return "parça" if (not is_question and os.urandom(1)[0] % 2) else "cevap"
+
         # 1) SES: aynı biçim üst üste İKİ kez gelmez. Üç tur aynı iskelet, insanın
         #    "acaba iskelet mi?" demesinin ta kendisiydi.
         hist = list(self.history)
@@ -248,7 +257,16 @@ class SpeechStyle:
                 context = f"{text} {topic}".strip()
                 line = inf.last_line(agi, topic=context)
                 if line:
-                    return line
+                    # Çıkarım motoru cümleyi kendi başlangıcıyla verir; üstüne bir de
+                    # "şunu fark ettim" eklenirse "şunu fark ettim: kendi kendime şunu
+                    # çıkardım:" gibi çift başlangıç olur.
+                    _lead = self._lead_in()
+                    for _pre in ("Kendi kendime şunu çıkardım:", "Kendi kendime şunu çıkardım",
+                                 "İçimden şu geçti:"):
+                        if line.startswith(_pre):
+                            line = line[len(_pre):].strip()
+                            break
+                    return f"{_lead} {line}"
             tw = {w for w in re.split(r"[^a-zçğıöşüâîû]+", tr_lower(f"{text} {topic}")) if len(w) >= 4}
             if not tw:
                 return ""
@@ -274,13 +292,40 @@ class SpeechStyle:
         return choices[int.from_bytes(os.urandom(1), "big") % len(choices)]
 
     def _own_mutter(self, agi) -> str:
-        """Kendi kendine mırıldanma: beden/kimya durumundan, karşı tarafa değil."""
+        """Kendi kendine mırıldanma: beden/kimya durumundan, karşı tarafa değil.
+
+        Aynı iç durum aynı sözcüğü verse bile Nora her tur aynı cümleyi mırıldanmaz:
+        son üç turda kullandığı mırıltıyı yeniden kurmaz.
+        """
         try:
             chem = agi.chem
             word = chem.intero_word_tr()
-            return f"İçimden '{word}' diye geçirdim."
         except Exception:
+            word = ""
+        options = []
+        if word:
+            options.append(f"İçimden '{word}' diye geçirdim.")
+        # Beden/kimya dışındaki iç hâller: son duyum, son düşünce, beden sürüşü.
+        try:
+            ev = getattr(agi, "last_auditory", None)
+            if ev is not None and getattr(ev, "distance_m", 0.0) > 1.5:
+                options.append("Ses uzaktan gelince içimde bir boşluk kaldı.")
+            drives = max(float(getattr(agi.nervous, a, 0.0) or 0.0)
+                         for a in ("hunger_drive", "thirst_drive", "adelta_pain", "cfiber_ache"))
+            if drives > 0.3:
+                options.append("Bedenim kendi derdini fısıldıyor.")
+            if getattr(agi, "infer", None) is not None and getattr(agi.infer, "fresh", False):
+                options.append("Aklımın bir köşesi hâlâ yeni bağla meşgul.")
+        except Exception:
+            pass
+        if not options:
             return ""
+        recent = set(list(self._said)[-3:])
+        for opt in options:
+            if opt not in recent:
+                self._said.append(opt)
+                return opt
+        return options[0]
 
     def _own_need(self, agi) -> str:
         """Kendi bedensel derdi — karşı tarafın sorusundan önce gelir."""
