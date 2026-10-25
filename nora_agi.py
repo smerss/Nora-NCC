@@ -3154,6 +3154,8 @@ class NoraAGI:
             return f"{cond} -> {m.get('cond')}, değilse {m.get('else')}"
         if sh == "rank":
             return f"en çok -> {m.get('max')}, en az -> {m.get('min')}"
+        if sh == "presence":
+            return f"var -> {m.get('var')}, yok -> {m.get('yok')}"
         return f"tek -> {m.get('odd')}, çift -> {m.get('even')}"
 
     # ======================================================================
@@ -3313,12 +3315,19 @@ class NoraAGI:
         if st == "adopted":
             self._forge_pending = None
             self.apply_eng.wm.write("last_rule_kind", "kendi", "forge")
+            _rule = res.get("rule")
+            _spec = getattr(_rule, "feature_spec", None) or {}
+            _stage = "invented" if _spec else "adopted"
             return self._say("meta.forge", {
                 "desc": res.get("desc") or "",
+                "name": (__import__("nora_apply").FEATURES.get(
+                    getattr(_rule, "feature", ""), ("-",))[0] if _rule else "-"),
+                "map": (self._rule_map_text(_rule) if _rule is not None else "-"),
+                "measured": counts.get("measured"),
                 "n_ex": len(fg.examples), "n_cand": len(fg.cands),
                 "human": counts.get("human"), "self": counts.get("self"),
                 "cands": "-", "probe": "-", "why": "-",
-            }, ctx={"stage": "adopted"})
+            }, ctx={"stage": _stage})
         if st == "ambiguous":
             probe = res.get("probe")
             self._forge_pending = {"probe": probe}
@@ -3592,6 +3601,13 @@ class NoraAGI:
             name = tr.get("feature_name", "harf")
             # ŞEKLE GÖRE AÇIKLAMA: eşik kuralında "tek/çift" demek YANLIŞ gerekçedir.
             # Ölçüm aynı, eşlemenin dili farklı; gerekçe de eşlemeyi anlatmalı.
+            if _rshape == "presence":
+                # İCAT EDİLMİŞ ölçüm: sayı değil VARLIK ölçülür ("lik ile bitiyor mu").
+                return self._say("apply.result", {
+                    "target": target, "n": tr["measured"], "name": name,
+                    "value": "var" if tr.get("bucket") == "var" else "yok",
+                    "parity": tr.get("bucket"), "label": label,
+                }, ctx={"shape": "presence"})
             if _rshape == "threshold":
                 return self._say("apply.result", {
                     "target": target, "n": tr["measured"], "name": name,

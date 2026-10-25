@@ -3582,6 +3582,94 @@ def a86_kendi_operatorunu_duzeltme():
                                f"eski={old_rid} yeni={getattr(new_rule, 'rid', None)}")
 
 
+def a87_olcum_icadi():
+    """A87 — ÖLÇÜM İCADI: hiçbir ölçüm ayırmıyorsa Nora YENİ ölçüm yazar.
+
+    A85'te Nora yerleşik ölçümlerden seçiyordu. Burada o ölçümlerin HİÇBİRİ veriyi
+    ayırmıyor (sesli/sessiz/harf/sözcük sayıları çakışıyor); tek düzenlilik sözcüklerin
+    SONUNDA. Nora ortak son eki ölçüm olarak İCAT eder, kaydeder ve yeni sözcüklere
+    uygular. Ölçüt:
+    (1) kural, icat edilmiş bir ölçümle kurulur (şekil "varlık", spec = son ek),
+    (2) söz "yeni bir ölçüm" dediğini saklamaz,
+    (3) icat edilen ölçüm, öğretilmemiş sözcüklere doğru uygulanır (var/yok),
+    (4) ölçüm deftere `origin="kendi"` olarak yazılır ve yeni oturumda yeniden kurulur,
+    (5) insan rejistrisi (`nora_operators.json`) bit bit aynı kalır,
+    (6) hiçbir ölçüm (icat edilenler dahil) ayırmıyorsa kural YAZILMAZ.
+    """
+    import hashlib
+    import json
+    from pathlib import Path
+
+    import nora_apply as AP
+    import nora_forge as FG
+
+    ok = {}
+    reg = Path("nora_operators.json")
+    h0 = hashlib.sha256(reg.read_bytes()).hexdigest()
+
+    g = NoraAGI(seed=881, boot_thinker=False)
+    g.step_life(150)
+    q = ("Kural çıkar: güzellik=soyut, şekerlik=soyut, bebeklik=soyut, çiçeklik=soyut, "
+         "portakal=somut, masa=somut, deniz=somut")
+    rep = strip_prefixes(g.converse(q))
+    lo = tr_lower(rep)
+    rule = g.forge.adopted
+    ok["ölçüm-icadı"] = (rule is not None and getattr(rule, "shape", "") == "presence"
+                         and bool(getattr(rule, "feature_spec", None)))
+    ok["söz-icat"] = ("ölçüm" in lo and ("icat" in lo or "yazdım" in lo)
+                      and "lik" in lo)
+
+    # (3) dil üzerinden, öğretilmemiş sözcükler
+    r1 = tr_lower(strip_prefixes(g.converse("Kuralı uygula: 'kalemlik'")))
+    r2 = tr_lower(strip_prefixes(g.converse("Kuralı uygula: 'kitap'")))
+    ok["uygula-var"] = "soyut" in r1
+    ok["uygula-yok"] = "somut" in r2
+
+    # (4) defter + yeniden kurulum
+    led = {}
+    try:
+        led = json.loads(Path("runs/operators_self.json").read_text(encoding="utf-8"))
+    except Exception:
+        led = {}
+    ms = led.get("self_measurements") or []
+    ok["defter-ölçüm"] = bool(ms) and (ms[-1].get("spec") or {}).get("kind") == "suffix" \
+        and (ms[-1].get("spec") or {}).get("arg") == "lik" and ms[-1].get("origin") == "kendi"
+    f2 = FG.OperatorForge(ledger_path="runs/operators_self.json")
+    ok["kalıcılık"] = f2.counts()["measured"] >= 1 \
+        and str((ms[-1].get("key") if ms else "")) in AP.FEATURES
+
+    # (5) insan rejistrisi
+    c = g.forge.counts()
+    ok["insan-sabit"] = hashlib.sha256(reg.read_bytes()).hexdigest() == h0 \
+        and len(AP.OPERATORS) == 9 and c["human"] == 9
+    ok["sayaç"] = c["measured"] >= 1 and c["self"] >= 1 and c["ratio"] > 0
+
+    # (6) çelişkili veri: aynı girdiye iki etiket -> ölçüm icadı da kurtarmaz, kural yazılmaz
+    g2 = NoraAGI(seed=882, boot_thinker=False)
+    g2.step_life(100)
+    r3 = tr_lower(strip_prefixes(g2.converse("Kural çıkar: masa=soyut, masa=somut")))
+    ok["çelişki-ret"] = g2.forge.adopted is None and ("çıkmıyor" in r3 or "kalmadı" in r3)
+
+    # (7) ZAYIF KANIT: tek pozitif/tek negatiften ölçüm icat edilmez (tesadüf üretmesin)
+    f3 = FG.OperatorForge(ledger_path="runs/operators_self.json")
+    ok["zayıf-kanıt-icat-yok"] = f3._invent([("masa", "soyut"), ("deniz", "somut")]) == []
+
+    # (8) GEREKSİZ İCAT YOK: yerleşik ölçüm yetiyorsa yeni ölçüm yazılmaz
+    g3 = NoraAGI(seed=883, boot_thinker=False)
+    g3.step_life(100)
+    g3.converse("Kural çıkar: karınca=kırmızı, bilgisayar=mavi, göl=kırmızı, "
+                "ev=kırmızı, masa=mavi, deniz=mavi")
+    r4 = g3.forge.adopted
+    ok["gereksiz-icat-yok"] = (r4 is not None and not getattr(r4, "feature_spec", None)
+                               and r4.feature == "vowel_count")
+
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), (f"{passed}/{len(ok)} — {detail} | "
+                               f"ölçüm={getattr(rule, 'feature', None)} "
+                               f"spec={getattr(rule, 'feature_spec', None)}")
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -3655,6 +3743,7 @@ TESTS = {
     "A84": ("karşıolgusal irade: kanal çıkar, aynı makineyi yeniden koştur", a84_karsiolgusal_irade_olcumu),
     "A85": ("operatörü kim yazdı: insan sabit, Nora örneklerden kendi yazıyor", a85_operator_oz_yazimi),
     "A86": ("kendi operatörünü çürütme: veri yalanlarsa kural düşer", a86_kendi_operatorunu_duzeltme),
+    "A87": ("ölçüm icadı: hiçbir ölçüm ayırmıyorsa yeni ölçüm yazılır", a87_olcum_icadi),
     "A70": ("kendi çıkarımı: kimse söylemeden türetme + iç monolog", a70_own_inference_and_monologue),
     "A69": ("söz biçimi çeşitliliği, soru alışkanlığının kırılması ve kendi derdi", a69_speech_shape_variety_and_self_interest),
     "A68": ("kulak yolu: ses olayı, gürültüde eksik duyma, etiketsiz kimlik", a68_ear_path_perception),
