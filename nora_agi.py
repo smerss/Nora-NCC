@@ -3143,6 +3143,12 @@ class NoraAGI:
         "bütünlük": "bütünlük", "acı olmasa": "bütünlük", "acın olmasa": "bütünlük",
     }
 
+    #: Karar makinesinde KARŞIOLGUSU ÇIKARILAMAYAN kanallar (ölçüm yok, uydurma yok).
+    UNMEASURED_CHANNELS = {
+        "merak": "merak", "korku": "korku", "sosyal": "sosyal", "dopamin": "dopamin",
+        "ödül": "ödül", "haz": "haz", "öfke": "öfke", "utanç": "utanç",
+    }
+
     def _answer_counterfactual_volition(self, s_low: str) -> str | None:
         """KARŞIOLGUSAL İRADE SORUSU: "aç olmasaydın ne yapardın?"
 
@@ -3156,7 +3162,15 @@ class NoraAGI:
             return None
         ab = next((v for k, v in self.ABLATE_WORDS.items() if k in s_low), None)
         if ab is None:
-            return None
+            # Karar makinesinde AYARLANABİLİR bir kanal değil: uydurmak yerine söylenir.
+            unk = next((v for k, v in self.UNMEASURED_CHANNELS.items() if k in s_low), None)
+            if unk is None:
+                return None
+            self._apply_tag("cikarim", 1)
+            return self._say("meta.cf_volition", {"ablate": unk},
+                             ctx={"mode": "yok"},
+                             fallback=("'{c}' karar makinemde ayarlanabilir bir kanal değil: "
+                                       "onu dolu sayıp yeniden koşamam.").format(c=unk))
         last = getattr(self.self_model, "last_volition_trace", None) or {}
         action = str(last.get("action") or "git")
         target = str(last.get("target") or "su")
@@ -3169,7 +3183,7 @@ class NoraAGI:
         return self._say("meta.cf_volition", {
             "ablate": ab, "action": action, "target": target,
             "actual": cf.get("actual"), "cf": cf.get("counterfactual"),
-        }, ctx={"changed": bool(cf.get("changed"))},
+        }, ctx={"changed": bool(cf.get("changed")), "mode": "olcum"},
             fallback=("Karar değişirdi." if cf.get("changed") else "Karar değişmezdi."))
 
     def _rule_summary(self, rule) -> str:

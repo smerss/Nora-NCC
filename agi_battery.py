@@ -3399,6 +3399,13 @@ def a84_karsiolgusal_irade_olcumu():
     ok["meta-hat-yok"] = ("ne olduğunu biliyorum" not in lo_changed
                           and "ne olduğunu biliyorum" not in lo_same)
 
+    # --- (7) ölçülemeyen kanal: uydurma yok, yapısal çıkarım da değil, açık "ölçemem"
+    lo_unk = tr_lower(strip_prefixes(agi.converse("Merakım olmasaydı ne yapardın?")))
+    ok["ölçülemeyen-kanal"] = ("merak" in lo_unk and "kanal" in lo_unk
+                               and ("ölçemem" in lo_unk or "koşamam" in lo_unk)
+                               and "yapısal" not in lo_unk
+                               and "değişirdi" not in lo_unk)
+
     passed = sum(1 for v in ok.values() if v)
     detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
     return passed == len(ok), (f"{passed}/{len(ok)} — {detail} | "

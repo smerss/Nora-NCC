@@ -1823,7 +1823,8 @@
           "bias": 1.0,
           "when": {
             "eq": {
-              "changed": true
+              "changed": true,
+              "mode": "olcum"
             }
           }
         },
@@ -1833,7 +1834,8 @@
           "bias": 0.97,
           "when": {
             "eq": {
-              "changed": false
+              "changed": false,
+              "mode": "olcum"
             }
           }
         },
@@ -1843,7 +1845,28 @@
           "bias": 0.94,
           "when": {
             "eq": {
-              "changed": true
+              "changed": true,
+              "mode": "olcum"
+            }
+          }
+        },
+        {
+          "id": "cfv.none",
+          "text": "Bende {ablate} için ayarlanabilir bir kanal girişi yok; onu dolu sayıp yeniden koşamam. Karşıolgusalını çıkarabildiğim kanallar: açlık, susuzluk, bütünlük.",
+          "bias": 0.99,
+          "when": {
+            "eq": {
+              "mode": "yok"
+            }
+          }
+        },
+        {
+          "id": "cfv.none2",
+          "text": "Elimde {ablate} için bir kanal girişi yok: bu karşıolgusalı ölçemem, uydurmam. Ölçtüğüm kanallar açlık, susuzluk ve bütünlük.",
+          "bias": 0.96,
+          "when": {
+            "eq": {
+              "mode": "yok"
             }
           }
         }
