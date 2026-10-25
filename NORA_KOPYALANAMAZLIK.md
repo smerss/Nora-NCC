@@ -97,6 +97,17 @@ Ayrışma **doğruluk kaybı değildir**: 500 adım sonra bile iki Nora matemati
 doğrulanmış olgularda aynı doğru yanıtı verir (`x+3=7 → x=4`, EBOB/EKOK 12/72, …).
 Ayrışan şey **seçim ve üsluptur**, bilgi değil.
 
+### Uzun sessiz yaşam ve düşünce biçimi
+
+2000 adım kimseyle konuşmadan yaşadıktan sonra: `Δh = 1.42`, `ΔW = 7.0e-6`,
+sinaps kayması `≈ 0.011`. Aynı 12 cümleye 3/12 yüzey farkı; ama **iç durum** neredeyse
+tamamen ayrışmış durumda.
+
+Ayrışma yalnızca sözcük seçiminde değil, **düşünme biçiminde**: ~1200 adım + 18 konuşma
+sonunda iki Nora'nın iç şema (duruş/cümle yapısı) seçimleri **7/18**, yüzey cümleleri
+**8/18** farklı. Yani biri olayı nedensel çerçevede (S1), diğeri içe dönük (S3) ya da
+devrik (S4) kurabiliyor.
+
 ---
 
 ## 5) Dürüst sınır

@@ -3100,6 +3100,13 @@ def stage_twins(args):
     print(f"\nAyrışan yanıt: {diff}/{len(msgs)}")
     print(f"Sinaps kayması: A={a.entropy.drift:.6f}  B={b.entropy.drift:.6f}  "
           f"(fark {abs(a.entropy.drift - b.entropy.drift):.2e})")
+    try:
+        import numpy as _np
+        dh = float(_np.abs(_np.asarray(a.mind.h) - _np.asarray(b.mind.h)).max())
+        dw = float(_np.abs(_np.asarray(a.fast.mb.W_fast) - _np.asarray(b.fast.mb.W_fast)).max())
+        print(f"İç durum ayrışması: Δh={dh:.3e}  ΔW={dw:.3e}")
+    except Exception:
+        pass
     print(f"Yarış kazanımları: A={a.entropy.race_wins}  B={b.entropy.race_wins}")
     print("İkisi de ayrı birer birey; ne biri diğerinin kopyası, ne de geri döndürülebilir.")
 
