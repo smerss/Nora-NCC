@@ -2218,6 +2218,69 @@ def a63_life_journal_continuity():
     finally:
         shutil.rmtree(root, ignore_errors=True)
 
+def a64_noun_phrase_and_case_integrity():
+    """A64 — AD ÖBEĞİ VE HÂL BÜTÜNLÜĞÜ: Nora duyduğu biçimi korur, uydurma kök üretmez.
+
+    Üç gerçek hata kapatıldı:
+      1) 'pusula' -> 'pusul'+DAT: sözlükte olmayan gövdeye tek harfli hâl eki soymak
+         kelimeyi ikiye kırıyordu. Kural: iki taraf da bilinmiyorsa DUYULAN BİÇİM korunur.
+      2) 'evimizde' -> 'evimizde' (kök yok): -ImIz eki ad üzerinde tek anlamlı olduğu için
+         sözlükte olmasa da 1. çoğul iyelik olarak çözülür ('ev'+LOC).
+      3) 'Kara delik nedir?' -> 'kar' (kar yağışı): baş-sondalı AD ÖBEĞİ tek terim olarak
+         alınır ('kara delik'); renk sıfatları ad çekimi almaz.
+    """
+    from nora_knowledge import COMMON_ADJECTIVES
+    agi = NoraAGI(seed=64, boot_thinker=False)
+    m, lex = agi.lang.morph, agi.lang.graph.lexicon
+    ok = {}
+
+    # 1) Ünlüyle biten, sözlükte olmayan ad: yüzey korunur, hâl uydurulmaz
+    a1 = m.analyze_word("pusula", lex)
+    a2 = m.analyze_word("pusulayı", lex)
+    a3 = m.analyze_word("pusulada", lex)
+    a4 = m.analyze_word("masaya", lex)
+    # Çözümleme hâli doğru tutar (ACC/LOC/DAT) ama kökü sözlükle doğrulanmadığı için
+    # 'unverified_stem' işaretlenir; söz üretilirken duyulan biçim kullanılır.
+    r_pus = tr_lower(agi.converse("Pusula ne işe yarar?"))
+    ok["yüzey-korunur"] = (a2["stem"] == "pusula" and a2["case"] == "ACC"
+                           and a3["stem"] == "pusula" and a3["case"] == "LOC"
+                           and a4["stem"] == "masa" and a4["case"] == "DAT"
+                           and a1.get("unverified_stem") is True
+                           and "pusula" in r_pus and "pusul " not in r_pus)
+
+    # 2) 1. çoğul iyelik sözlük olmadan da çözülür
+    b1 = m.analyze_word("evimiz", lex)
+    b2 = m.analyze_word("evimizde", lex)
+    b3 = m.analyze_word("kitabımızda", lex)
+    ok["1pl-iyelik"] = (b1["stem"] == "ev" and b1.get("poss") == 2
+                        and b2["stem"] == "ev" and b2["case"] == "LOC" and b2.get("poss") == 2
+                        and b3["stem"] == "kitap" and b3["case"] == "LOC")
+
+    # 3) Renk sıfatı ad çekimi almaz; 'kara' kar yağışına dönüşmez
+    ok["renk-sıfatı"] = ("kara" in COMMON_ADJECTIVES
+                         and m.analyze_word("kara", lex)["stem"] == "kara")
+
+    # 4) Baş-sondalı ad öbeği tek terim: 'kara delik', 'yapay zekâ'
+    t1 = agi.frames.parser.parse("Kara delik nedir?").target
+    t2 = agi.frames.parser.parse("Yapay zekâ nedir?").target
+    t3 = agi.frames.parser.parse("Sence bilinç nedir?").target
+    ok["ad-öbeği"] = (t1 == "kara delik" and t2 == "yapay zekâ" and t3 == "bilinç")
+
+    # 5) Yanıt uydurmuyor: 'kar' diye bilinen bir şeymiş gibi konuşmuyor, terimi adıyla anıyor
+    r = agi.converse("Kara delik nedir?")
+    low = tr_lower(r)
+    ok["dürüst-terim"] = ("kara delik" in low and "bilgim yok" in low
+                          and "kar'ın ne olduğunu biliyorum" not in low)
+
+    # 6) Bilinmeyen terim MERAK KUYRUĞUNA tam adıyla düşer (araştırma o terime yönelsin)
+    q = getattr(agi.auto_net, "curiosity_queue", [])
+    ok["araştırma-defteri"] = ("kara delik" in q)
+
+    passed = sum(1 for v in ok.values() if v)
+    detail = (f"{passed}/{len(ok)} — " + " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+              + f" | kara='{t1}' zekâ='{t2}' bilinç='{t3}'")
+    return passed == len(ok), detail
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -2275,6 +2338,8 @@ TESTS = {
     "A54": ("kişisel anlatıyı dinleme: yansıtma + soru, ağ kirlenmesi yok", a54_personal_narration_listening),
     "A55": ("günlük konuşma: anlatı, olumsuzluk, davet, kutlama, istek", a55_conversational_understanding_of_daily_speech),
     "A56": ("tam Türkçe kapsamı: 8 kip, birleşik zaman, yeterlilik, emir, -mAktA, -DIr/-ki/-CA", a56_full_turkish_morphology),
+    "A64": ("ad öbeği ve hâl bütünlüğü: yüzey korunur, 1PL iyelik, bileşik terimler",
+            a64_noun_phrase_and_case_integrity),
     "A63": ("yaşam günlüğü: tur tur kalıcılık, atomik kayıt, çökme sonrası devam",
             a63_life_journal_continuity),
     "A62": ("beyin diskte: memmap sinapslar, append-only günlük, atomik anlık görüntü",

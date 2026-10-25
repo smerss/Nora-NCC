@@ -46,6 +46,10 @@ FINITE_TENSES = {"PAST", "PRES", "FUT", "AOR", "EVID", "PROG", "IMP", "COND", "O
                  "PRES_HIK", "FUT_HIK", "AOR_HIK", "EVID_HIK", "NEC_HIK", "PROG_HIK"}
 
 # Yalın hâl (NOM) alan ADLAR özne olabilir; ama bunlar zarf/ilgeç gibi davranır.
+# Şahıs adılları: sorulan KAVRAM olamazlar ('Sence bilinç nedir?' -> 'sen' değil 'bilinç').
+# Yalın hâlleri hedef seçilmez; '-e/-i' almış hâlleri ('Bana ne dedin?') seçilebilir.
+PRONOUN_STEMS = {"ben", "sen", "o", "biz", "siz", "onlar", "kendi", "nere", "ne", "kim"}
+
 NON_SUBJECT = {"kendi", "kendimi", "kendini", "kendimizi", "kendinizi", "kendilerini",
                "kendime", "kendine", "çok", "az", "biraz", "pek", "daha", "en", "hiç", "hep", "yine", "şimdi",
                "bugün", "dün", "yarın", "sabah", "akşam", "gece", "öğlen", "sonra", "önce",
@@ -270,24 +274,60 @@ class ClauseParser:
         cl.target = self._target_of(cl)
         return cl
 
-    @staticmethod
-    def _target_of(cl: Clause) -> str:
+    def _known_stem(self, lem: str) -> bool:
+        """Sözcük Nora'nın sözlüğünde mi? (Bileşik ad kurarken tek başına bilinen sözcüğü bölmemek için.)"""
+        if not lem:
+            return False
+        if getattr(self, "lexicon", None) and lem in self.lexicon:
+            return True
+        return lem in getattr(self, "vocab", set())
+
+    def _np_at(self, toks: list, idx: int) -> str:
+        """`idx`'ten başlayan BAŞ-SONDALI ad öbeğini döndürür: 'kara delik', 'yapay zekâ'.
+
+        Yalnız BAŞ (son) sözcük bilinmiyorsa birleştirilir: 'bilinç' gibi bilinen bir ada
+        dokunulmaz, çünkü hakkında zaten bilgi var. Böylece 'Kara delik nedir?' sorusu
+        'kar' (kar yağışı) diye yanlış çözülmez; Nora bilmediği TERİMİ sorar.
+        """
+        def _name(t) -> str:
+            """Kökü sözlükle doğrulanmamışsa duyulan biçim kullanılır ('pusul' değil 'pusula')."""
+            if (t.info or {}).get("unverified_stem"):
+                return t.word
+            return t.lemma
+
+        if idx + 1 >= len(toks):
+            return _name(toks[idx])
+        a, b = toks[idx], toks[idx + 1]
+        if not (a.role in ("NOUN", "ADJ") and b.role in ("NOUN", "ADJ")):
+            return _name(a)
+        if a.case not in ("", "NOM") or b.case not in ("", "NOM") or a.poss or b.poss:
+            return _name(a)
+        if len(a.lemma) < 2 or len(b.lemma) < 2 or self._known_stem(b.lemma):
+            return _name(a)
+        nxt = toks[idx + 2].role if idx + 2 < len(toks) else "END"
+        if nxt not in ("WH", "END", "VERB", "ADJ", "PARTICLE"):
+            return _name(a)
+        return f"{_name(a)} {_name(b)}"
+
+    def _target_of(self, cl: Clause) -> str:
         toks = cl.tokens
         # Sorulan kavram genellikle cümlenin BAŞINDAKİ addır ('Elma gerçekte nerededir?', 'Kapı nasıl
         # açılır?'). Soru belirtecinden geriye bakmak, araya giren zarfları ('gerçekte') hedef sanıyordu.
-        for t in toks:
+        for i, t in enumerate(toks):
             if t.role == "WH":
                 break
             if t.role in ("NOUN", "ADJ") and t.word not in NON_SUBJECT \
-                    and t.word not in WH_WORDS and t.lemma not in WH_WORDS:
-                return t.lemma
+                    and t.word not in WH_WORDS and t.lemma not in WH_WORDS \
+                    and not (t.lemma in PRONOUN_STEMS and t.case in ("", "NOM")):
+                return self._np_at(toks, i)
         wh_i = next((i for i, t in enumerate(toks) if t.role == "WH"), -1)
         if wh_i > 0:
             for j in range(wh_i - 1, -1, -1):
                 t = toks[j]
                 if t.role in ("NOUN", "ADJ") and t.word not in NON_SUBJECT \
-                        and t.word not in WH_WORDS and t.lemma not in WH_WORDS:
-                    return t.lemma
+                        and t.word not in WH_WORDS and t.lemma not in WH_WORDS \
+                        and not (t.lemma in PRONOUN_STEMS and t.case in ("", "NOM")):
+                    return self._np_at(toks, j)
         if cl.obj:
             return cl.obj
         if cl.subject:

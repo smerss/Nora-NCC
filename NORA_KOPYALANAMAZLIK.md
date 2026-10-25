@@ -200,7 +200,7 @@ Doğrulama: `python agi_battery.py A63` → **8/8**.
 
 ## 9) Test durumu
 
-`python agi_battery.py` → **63/63** (343 s). Bu turda iki eski test de ölçüm
+`python agi_battery.py` → **64/64** (335 s). Bu turda iki eski test ölçüm
 gürültüsünden arındırıldı:
 
 | Test | Eskiden | Şimdi |
@@ -210,3 +210,11 @@ gürültüsünden arındırıldı:
 
 Yani artık mutlak eşik yarışı yok: ölçülen şey gerçekten iddia edilen şey (kayıt
 sayısıyla büyümeyen gecikme; korteks beklemeden verilen omurilik kararı).
+
+**Yeni testler:** A63 yaşam günlüğü (8/8), A64 ad öbeği ve hâl bütünlüğü (6/6).
+
+**Bilinen oynak test:** A6 (yaşantıdan doğan kimlik farklılaşması) ortam
+rastlantısına bağlıdır: sert dünya bazen güvenli dünyayla neredeyse aynı mizacı
+üretir (+0.02 temkinlilik farkı) ve iki Nora aynı öz-tanımı verir. Bu, `81aea9a`
+sürümünde de aynı sıklıkta görüldü — yeni değişikliklerin getirmediği, ortamın
+kendi şansıdır. Diğer 63 test deterministiktir.
