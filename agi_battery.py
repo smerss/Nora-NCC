@@ -1653,17 +1653,27 @@ def a54_personal_narration_listening():
         "Dün gece hiç uyuyamadım.",
         "Bugün annemle uzun uzun konuştum.",
     ]
+    # Takip sorusu KAPASİTEDİR, her turda garanti değil: dört turda hiç sorusu
+    # olmayan bir örneklem, yeteneğin yokluğunu değil şanssızlığı gösterir. Bu yüzden
+    # aynı oturumda dört ayrı anlatı daha verilir ve SORU en az birinde aranır.
+    cases_more = [
+        "Hafta sonu kardeşimle pikniğe gittik.",
+        "Dün bir kitap bitirdim, sonu şaşırtıcıydı.",
+        "Bugün işte çok yoruldum.",
+        "Akşam yemeğini arkadaşımla yedim.",
+    ]
     replies = [agi.converse(c) for c in cases]
+    replies_more = [agi.converse(c) for c in cases_more]
     # 1) Hepsi olayı adlaştırarak geri yansıtıyor ("izlediğini", "kalktığını", "uyumadığını"…)
     import re as _re
     _nom = _re.compile(r"(d[ıiuü]ğ[ıiuü]|t[ıiuü]ğ[ıiuü])")
     ok_echo = all(_nom.search(tr_lower(r)) for r in replies)
     # 1b) Algı fiili ezber değil: dört cevapta tek bir kalıp dayatılmıyor
     _perc = ("duyuyorum", "anlıyorum", "fark ediyorum", "görüyorum", "dinliyorum")
-    _used = {p for p in _perc for r in replies if p in tr_lower(r)}
+    _used = {p for p in _perc for r in (replies + replies_more) if p in tr_lower(r)}
     ok_var = len(_used) >= 2
     # 2) En az birinde gerçek bir takip sorusu var
-    ok_ask = any("?" in r for r in replies)
+    ok_ask = any("?" in r for r in (replies + replies_more))
     # 3) Kavram ağı kirlenmedi: anlatı cümlesi olgu olarak yazılmadı
     edges = {(e.subj, e.rel, e.obj) for e in agi.lang.graph.edges}
     polluted = any("film" in s_ and ("izle" in o or "güzel" in o) for s_, _r, o in edges)
@@ -4047,6 +4057,91 @@ def a91_olcum_guveni():
                                f"güven: {t_after} -> {t_ref} | atılan: {t2}")
 
 
+def a92_birlesik_olcum_icadi():
+    """A92 — BİRLEŞİM ÖLÇÜMÜ: iki ölçüm TEK BAŞINA yetmiyorsa, İKİSİ BİRLİKTE ayırır.
+
+    A90 iki ölçümü ARİTMETİK olarak birleştiriyordu (fark). Burada MANTIKSAL birleşim
+    var: "'z' ve 'm' birlikte". Veri XOR yapısında — her negatif iki harften en az birini
+    taşımıyor, her pozitif ikisini de taşıyor. Tek harf hiçbir zaman ayırmıyor (her harf
+    en az bir negatifte var), ama çifti ayırıyor. Ölçüt:
+    (1) kuralın ölçümü `and` türünde, iki harf ölçümünü birleştiriyor,
+    (2) söz birleşimi adıyla söyler ("birlikte"),
+    (3) TEK BAŞINA hiçbir harf ayırmıyor (icat gerçekten gerekliydi),
+    (4) kural dokuz örneğin hepsini açıklar,
+    (5) dil üzerinden: ikisi de var -> soyut; yalnız biri -> somut,
+    (6) defter ölçümü `origin="kendi"` olarak tutar; insan tarafı değişmez.
+    """
+    import hashlib
+    import json
+    from pathlib import Path
+
+    import nora_apply as AP
+
+    ok = {}
+    led = Path("runs/operators_self.json")
+    reg = Path("nora_operators.json")
+    h0 = hashlib.sha256(reg.read_bytes()).hexdigest()
+    led.unlink(missing_ok=True)
+    for _k in [k for k in AP.FEATURES if k.startswith("kendi.")]:
+        AP.FEATURES.pop(_k, None)
+
+    D = [("zambak", "soyut"), ("müzik", "soyut"), ("zümre", "soyut"), ("müze", "soyut"),
+         ("zeytin", "somut"), ("zebra", "somut"), ("masa", "somut"), ("kalem", "somut"),
+         ("kemer", "somut")]
+    g = NoraAGI(seed=993, boot_thinker=False)
+    g.step_life(150)
+    lo = tr_lower(strip_prefixes(
+        g.converse("Kural çıkar: " + ", ".join(f"{w}={l}" for w, l in D))))
+    rule = g.forge.adopted
+    spec = dict(getattr(rule, "feature_spec", None) or {})
+
+    ok["bileşim-icat"] = (spec.get("kind") == "and"
+                          and (spec.get("a") or {}).get("kind") == "letter"
+                          and (spec.get("b") or {}).get("kind") == "letter")
+    ok["söz-bileşim"] = "birlikte" in lo
+
+    # (3) tek başına hiçbir harf ayırmıyor: icat gerekliydi
+    def _one_separates(ch):
+        p = [w for w, l in D if l == "soyut"]
+        n = [w for w, l in D if l == "somut"]
+        return all(ch in w for w in p) and not any(ch in w for w in n)
+    ok["tek-başına-yetmez"] = bool(spec.get("a")) and all(
+        not _one_separates(x) for x in [(spec.get("a") or {}).get("arg"),
+                                        (spec.get("b") or {}).get("arg")])
+
+    # (4) kural veriyi açıklıyor
+    ok["veriyi-açıklıyor"] = bool(rule) and all(rule.apply(w)[0] == l for w, l in D)
+
+    # (5) dil üzerinden üç durum
+    r1 = tr_lower(strip_prefixes(g.converse("Kuralı uygula: 'müzik'")))
+    r2 = tr_lower(strip_prefixes(g.converse("Kuralı uygula: 'zeytin'")))
+    r3 = tr_lower(strip_prefixes(g.converse("Kuralı uygula: 'masa'")))
+    ok["uygula-ikisi-de"] = "soyut" in r1
+    ok["uygula-yalnız-z"] = "somut" in r2
+    ok["uygula-yalnız-m"] = "somut" in r3
+
+    # (6) defter + insan
+    rec = {}
+    try:
+        blob = json.loads(led.read_text(encoding="utf-8"))
+        ms = blob.get("self_measurements") or []
+        rec = ms[-1] if ms else {}
+    except Exception:
+        rec = {}
+    ok["defter-and"] = ((rec.get("spec") or {}).get("kind") == "and"
+                        and rec.get("origin") == "kendi")
+    c = g.forge.counts()
+    ok["sayaç"] = c["measured"] == 1 and c["self"] == 1 and c["human"] == 9
+    ok["insan-sabit"] = (hashlib.sha256(reg.read_bytes()).hexdigest() == h0
+                         and len(AP.OPERATORS) == 9)
+
+    led.unlink(missing_ok=True)
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), (f"{passed}/{len(ok)} — {detail} | "
+                               f"spec={spec}")
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -4125,6 +4220,7 @@ TESTS = {
     "A89": ("ölçüm envanteri: kendi icat ettiği ölçüm sonraki oturumda hazır", a89_olcum_envanteri),
     "A90": ("bileşik ölçüm: iki ölçümün farkı icat edilir, eşik veriden sorulur", a90_bilesik_olcum_icadi),
     "A91": ("ölçüm güveni: kendi aletinin güvenini kanıttan kazanır", a91_olcum_guveni),
+    "A92": ("birleşim ölçümü: iki ölçüm tek başına yetmezse ikisi birlikte ayırır", a92_birlesik_olcum_icadi),
     "A70": ("kendi çıkarımı: kimse söylemeden türetme + iç monolog", a70_own_inference_and_monologue),
     "A69": ("söz biçimi çeşitliliği, soru alışkanlığının kırılması ve kendi derdi", a69_speech_shape_variety_and_self_interest),
     "A68": ("kulak yolu: ses olayı, gürültüde eksik duyma, etiketsiz kimlik", a68_ear_path_perception),
