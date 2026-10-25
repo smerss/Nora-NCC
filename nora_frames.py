@@ -710,7 +710,7 @@ class ConstructionCortex:
         ask = self.rng.choice((
             f"{tr_capitalize(target)} ne demek, bunu öğrenmem gerek.",
             f"{acc} bir cümlede duyarsam anlarım.",
-            f"{target} bir cümlede geçerse oradan çıkarırım.",
+            f"{tr_capitalize(target)} bir cümlede geçerse oradan çıkarırım.",
         ))
         return f"{tr_capitalize(body)}. {ask}"
 
