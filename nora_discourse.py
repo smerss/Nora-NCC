@@ -851,19 +851,25 @@ class DiscourseCortex:
         if not any(k in low for k in ("ne yapmalıyım", "ne yapmalıyız", "ne önerirsin",
                                       "ne yapmam lazım", "sence ne yapmalı", "ne yapsam")):
             return None
-        # Kendi bedenine ve belleğine bak: kararsızlık çoğu zaman eksik bilgi ya da yorgunluktan.
-        energy = float(getattr(agi, "obs", [0, 0, 0])[0]) if getattr(agi, "obs", None) is not None else 0.5
+        # Kendi bedenine bak: kararsızlık çoğu zaman eksik bilgiden, bazen de açlık/yorgunluktan.
+        # `obs[0]` enerji DEĞİL (0'da durur); bedeni sinir sisteminin sürüşlerinden oku.
+        nv = getattr(agi, "nervous", None)
+        drive = 0.0
+        if nv is not None:
+            drive = max(float(getattr(nv, a, 0.0) or 0.0)
+                        for a in ("hunger_drive", "thirst_drive", "exhaustion_drive"))
         _known = len(getattr(getattr(getattr(agi, "lang", None), "graph", None), "edges", []) or [])
-        if energy < 0.45:
-            lead = self._fresh(("Önce bedeni düşün: ben açken hiçbir karar bana net görünmüyor",
-                                "Kendi deneyimimde yorgunken verilen kararlar yanlış çıkıyor"))
+        if drive > 0.5:
+            lead = self._fresh(("Önce bedeni düşün: açken belirsizliği taşımak zorlaşır, ilk adım karnını doyurmak",
+                                "Kendi deneyimimde yorgunken belirsizliği çözmek zorlaşıyor; ilk adım dinlenmek"))
         elif _known < 20:
-            lead = self._fresh(("Bende işe yarayan yol: kararı, hakkında en az bilgi sahibi olduğum "
-                                "yerden başlayarak küçültmek",
-                                "Kararsızlık çoğu zaman eksik bilgiden geliyor, irade zayıflığından değil"))
+            lead = self._fresh(("Belirsizliği çoğu zaman eksik bilgi büyütüyor; ilk adım, en az bildiğim "
+                                "yanı küçültmek",
+                                "Bende işe yarayan yol: belirsizliği küçük adımlara bölmek"))
         else:
-            lead = self._fresh(("Kendi içime baktığımda, seçenekleri küçük adımlara bölmek işe yarıyor",
-                                "Bende iki duygu çatıştığında önce hangisinin sesi daha yüksek, ona bakıyorum"))
+            lead = self._fresh(("Kendi içime baktığımda belirsizliği küçük adımlara bölmek işe yarıyor",
+                                "Bende iki duygu çatıştığında belirsizlik büyür; ilk adım, belirsizliği "
+                                "hangisinin sesinin daha yüksek olduğuna indirgemek"))
         ask = self._fresh(("Şu an önünde kaç seçenek var?", "En çok neyi kaybetmekten korkuyorsun?",
                            "Hangi seçenek seni bir adım ileri taşır?"))
         return f"{lead}. {ask}"

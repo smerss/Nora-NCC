@@ -401,6 +401,38 @@ class NoraAGI:
         self._exam_age_mark: int = 0
         self.wallclock_steps: int = 0
         self.last_gap_s: float = 0.0
+        # --- KULAK: dış dünyadan gelen her söz önce bir SES olarak duyulur.
+        # Kimliği etiket değil, sesin kendi ölçülebilir imzası belirler (bkz. nora_ear.py).
+        try:
+            from nora_ear import Ear
+            self.ear = Ear(uid=(self.entropy.uid if self.entropy is not None else f"n{seed}"), seed=seed)
+        except Exception:
+            self.ear = None
+        # --- OKUL: sayı sayma, basamak, okunuş, semboller, aşamalı düşünme (çocuk seviyesi)
+        try:
+            from nora_okul import SchoolCortex
+            self.school = SchoolCortex(seed=seed + 181)
+        except Exception:
+            self.school = None
+        # --- KENDİ ÇIKARIMI: kimse sormadan kendi bilgisinden yeni bağ türetme
+        try:
+            from nora_infer import InferenceEngine
+            self.infer = InferenceEngine(seed=seed + 211)
+        except Exception:
+            self.infer = None
+        # --- SÖZ BİÇİMİ: her tur aynı iskeletle konuşmamak, kendi derdini öne alabilmek
+        try:
+            from nora_style import SpeechStyle
+            self.style = SpeechStyle(seed=seed + 193)
+        except Exception:
+            self.style = None
+        self.last_auditory = None
+        self.audio_log: list = []
+        self._voice_label: dict[str, str] = {}
+        try:
+            self.chem.alias_resolver = self._canonical_voice
+        except Exception:
+            pass
         # --- YAŞAM GÜNLÜĞÜ (append-only): açılmazsa hiçbir maliyeti yok ---
         self.journal = None
         self.journal_path: str | None = None
@@ -771,6 +803,15 @@ class NoraAGI:
             if self.mind.age - self._exam_age_mark >= 120:
                 self._exam_age_mark = self.mind.age
                 self.self_exam(factor=0.6)
+            # KENDİ ÇIKARIMI: boşlukta kendi bilgisinden yeni bağlar türetir (kimse sormadan).
+            if getattr(self, "infer", None) is not None and self.mind.age % 90 == 0:
+                try:
+                    _infs = self.infer.step(self, budget=3)
+                    if _infs:
+                        self.infer.commit(self, _infs)
+                        self._log_inference_thought(_infs)
+                except Exception:
+                    pass
 
         # GÜNLÜK NABZI: bir çağrıda en az 120 adım yaşandıysa TEK satır yazılır.
         # Adım başına yazmak diski gereksiz doldurur; hiç yazmamak ise sessiz yaşamı
@@ -853,6 +894,35 @@ class NoraAGI:
         ne zaman söylendiğini, o an ne cevap verdiğini hatırlar ve bunu sözüne katar.
         """
         raw = (text or "").strip()
+        # ================================================================ KULAK
+        # Nora önce DUYAR: havadaki ses bir olay olarak gelir, kimliği sesten çıkarılır.
+        # `speaker` yalnızca dünyadaki fiziksel kaynağı adlandırır; ses defterine girmez.
+        _heard, _vid, _first_voice = raw, speaker, False
+        if self.ear is not None and raw:
+            try:
+                ev = self.ear.listen(raw, source=speaker)
+                self.last_auditory = ev
+                self.audio_log.append(ev)
+                if len(self.audio_log) > 24:
+                    del self.audio_log[:-24]
+                _heard = ev.heard or raw
+                _vid = ev.voice_id
+                _first_voice = bool(ev.first_contact)
+                self._voice_label[speaker] = _vid
+                # Dünya, sesi duymadan önce etikete bir güven yazmış olabilir (kurulum/test).
+                # O bilgi sese aittir: kimliğe devredilir, etiket takma ad olarak kalır.
+                if _vid != speaker and _vid not in self.chem.speaker_trust:
+                    _pre = self.chem.speaker_trust.pop(speaker, None)
+                    if _pre is not None:
+                        self.chem.speaker_trust[_vid] = float(_pre)
+                # Sesin kendisi de bedeni etkiler: yüksek/ani ses otonom uyarılma yaratır.
+                try:
+                    if ev.print.loudness > 58.0:
+                        self.chem.ne = min(1.0, float(self.chem.ne) + 0.05)
+                except Exception:
+                    pass
+            except Exception:
+                pass
         now = time.time()
         # Aradan gerçek zaman geçtiyse Nora boşlukta yaşamıştır: açık olduğu sürece zaman akar.
         # (2 saniyede 1 yaşam adımı; en fazla 900 adım — uzun sessizlikte boğulup ölmesin.)
@@ -872,7 +942,39 @@ class NoraAGI:
                 _meta = self.acc.observe(raw, now)
             except Exception:
                 _meta = None
-        ans = self._converse_core(text, speaker)
+        ans = self._converse_core(_heard, _vid)
+        # Ses defteri: bu sesle yaşanan güven, sesin kimliğine yazılır; dünyanın
+        # kullandığı etiket yalnızca bir takma addır (eski sorgular için eşlenir).
+        try:
+            if self.ear is not None and _vid != speaker:
+                self.ear.note_trust(_vid, float(self.chem.trust_of(_vid)))
+            # Ses kendi adını SÖYLEDİYSE ada bağlanır (etiketten değil, sözün içeriğinden).
+            if self.ear is not None:
+                _nm = (self.user_profiles.get(_vid) or {}).get("ad", "")
+                if _nm:
+                    self.ear.learn_name(_vid, _nm)
+        except Exception:
+            pass
+        # SÖZ BİÇİMİ: cevabın iskeleti her tur aynı olmasın; bedenin derdi varsa o öne geçsin.
+        try:
+            if getattr(self, "style", None) is not None and ans and not ans.startswith("["):
+                _isq = ("?" in (text or ""))
+                _shape = self.style.decide(
+                    self, is_question=_isq,
+                    has_inference=bool(getattr(self, "infer", None) and getattr(self.infer, "fresh", False)),
+                    trust=float(self.chem.trust_of(_vid)),
+                )
+                ans = self.style.apply(ans, _shape, self, topic=getattr(self, "_last_focus", ""),
+                                       is_question=_isq)
+        except Exception:
+            pass
+        # SESİN KENDİSİNE TEPKİ: yeni bir ses ya da uzaktan gelen ses, cevabın tonunu değiştirir.
+        try:
+            _note = self._perception_note()
+            if _note:
+                ans = f"{_note} {ans}"
+        except Exception:
+            pass
         if self.acc is not None and raw:
             try:
                 self.acc.note_turn(raw, ans, now)
@@ -901,6 +1003,17 @@ class NoraAGI:
                             self.dialogue_log[-1] = (self.dialogue_log[-1][0], raw, ans)
             except Exception:
                 pass
+        # GÜNLÜK: önce DUYUM (kim, hangi ses, ne kadar uzaktan), sonra tur.
+        try:
+            _ev = getattr(self, "last_auditory", None)
+            if _ev is not None:
+                self._journal("duyum", ses=_ev.voice_id, tanıdık=bool(_ev.known),
+                              söz=(_ev.heard or "")[:240],
+                              eksik=(_ev.spoken != _ev.heard),
+                              ton=_ev.print.describe(), snr=round(float(_ev.snr_db), 1),
+                              mesafe=round(float(_ev.distance_m), 2))
+        except Exception:
+            pass
         # GÜNLÜK: turun kendisi kalıcı iz bırakır (O(1) append; kapalıysa bedava).
         self._journal(
             "tur", g=raw[:240], y=ans[:240],
@@ -985,6 +1098,21 @@ class NoraAGI:
                                              rng=getattr(self.discourse, "random", None))
             self._log_turn(speaker, raw, _ans_t, t0)
             return _ans_t
+
+        # --- OKUL: sayı/basamak/okunuş/sembol ve aşamalı problemler.
+        # Önce "öğretme cümlesi mi?" diye bakar (kullanıcı konuşarak öğretir), sonra soru olarak çözer.
+        if self.school is not None:
+            try:
+                _learned_ack = self.school.maybe_learn(raw, self)
+                if _learned_ack:
+                    self._log_turn(speaker, raw, _learned_ack, t0)
+                    return _learned_ack
+                _school_ans = self.school.answer(raw, self)
+                if _school_ans:
+                    self._log_turn(speaker, raw, _school_ans, t0)
+                    return _school_ans
+            except Exception:
+                pass
 
         # Konuşmadan ÖNCE içsel monolog (Vygotsky iç sesi + insan şeması gözlemi + kendi şema seçimi!)
         self._begin_inner_monologue(raw, speaker)
@@ -1437,10 +1565,11 @@ class NoraAGI:
 
         if ("güveniyor" in s_low or "güvenin" in s_low) and ("?" in raw or "mu" in s_low or "mısın" in s_low or "kaç" in s_low):
             tr_val = self.chem.trust_of(speaker)
+            _disp = self.ear.display(speaker) if getattr(self, "ear", None) is not None else speaker
             stance = "sana güveniyorum" if tr_val >= 0.55 else ("sana karşı temkinliyim" if tr_val >= 0.30 else "sana güvenmiyorum")
             bids.append(CorticalBid(
                 "social_tom", 0.97, 0.96,
-                f"Şu an {speaker} için epistemik güven düzeyim {tr_val:.2f}; geçmiş etkileşimlerimize dayanarak {stance}.",
+                f"Şu an {_disp} için epistemik güven düzeyim {tr_val:.2f}; geçmiş etkileşimlerimize dayanarak {stance}.",
                 f"oxy_trust={tr_val:.2f}",
             ))
 
@@ -1796,6 +1925,95 @@ class NoraAGI:
         return winner.reply
 
     # ------------------------------------------------------------------ epistemik + kod kanalları
+    # ------------------------------------------------------------ 3b) KULAK / SES KİMLİĞİ
+    def who_is_speaking(self) -> dict:
+        """Son duyulan sesin kimliği — ETİKETTEN değil, sesin imzasından."""
+        ev = getattr(self, "last_auditory", None)
+        if ev is None or getattr(self, "ear", None) is None:
+            return {}
+        ident = self.ear.get(ev.voice_id)
+        return {
+            "voice_id": ev.voice_id,
+            "known": bool(ev.known),
+            "confidence": round(float(ev.confidence), 3),
+            "role": (ident.role() if ident is not None else "bilinmiyor"),
+            "heard": (ident.heard if ident is not None else 0),
+            "name": ((ident.name if ident is not None else "") or
+                     (self.user_profiles.get(ev.voice_id) or {}).get("ad", "")),
+            "timbre": ev.print.describe(),
+            "distance_m": round(float(ev.distance_m), 2),
+            "snr_db": round(float(ev.snr_db), 1),
+            "is_question": bool(ev.is_question),
+        }
+
+    def ear_report(self) -> str:
+        """Kendi kulağından ne duyduğunu kendi sözleriyle anlatır (ölçüm değil, algı)."""
+        ev = getattr(self, "last_auditory", None)
+        if ev is None or getattr(self, "ear", None) is None:
+            return "Henüz kimseyi duymadım."
+        who = self.who_is_speaking()
+        parts = [f"Az önce {ev.print.describe()} duydum."]
+        if who.get("known"):
+            parts.append(f"Bu sesi tanıyorum ({who.get('role')}); {who.get('heard')} kez duydum.")
+        else:
+            parts.append("Bu ses bende yeni; daha önce duymadım.")
+        if ev.distance_m > 2.0:
+            parts.append("Uzaktan seslendi.")
+        if ev.snr_db < 14.0:
+            parts.append("Ses boğuktu, tam seçemedim.")
+        return " ".join(parts)
+
+    def _canonical_voice(self, key: str) -> str:
+        """Dış dünyanın etiketi -> ses kimliği (takma ad çözümü)."""
+        k = str(key)
+        lab = getattr(self, "_voice_label", None)
+        if lab:
+            v = lab.get(k)
+            if v:
+                return v
+        return k
+
+    def _log_inference_thought(self, infs) -> None:
+        """Türetilen çıkarım Nora'nın iç monoloğuna düşer (kendi kendine düşünme)."""
+        try:
+            from nora_monologue import InnerThought
+            inf = infs[0]
+            line = self.infer.line_for(self, inf)
+            if not line:
+                return
+            th = InnerThought(step=int(self.mind.age), trigger="çıkarım", text=line,
+                              stance="içe_dönük", schema_id="S1_NEDEN_SONUC", monotony_error=0.0)
+            self.monologue.stream.append(th)
+        except Exception:
+            pass
+
+    def inference_report(self) -> str:
+        """Kendi çıkarımlarının özeti (test/teşhis için)."""
+        if getattr(self, "infer", None) is None:
+            return "Çıkarım motoru kapalı."
+        d = self.infer.derived
+        if not d:
+            return "Henüz kendi başıma bir çıkarım yapmadım."
+        kinds: dict[str, int] = {}
+        for x in d:
+            kinds[x.kind] = kinds.get(x.kind, 0) + 1
+        return (f"{len(d)} çıkarım — " + ", ".join(f"{k}: {v}" for k, v in kinds.items())
+                + f". Son: {d[-1].subj} {d[-1].rel} {d[-1].obj} (güven {d[-1].confidence:.2f}).")
+
+    def _perception_note(self) -> str:
+        """Sesin kendisine verilen kısa tepki (her turda değil). Sözün içeriğinden bağımsız."""
+        ev = getattr(self, "last_auditory", None)
+        if ev is None:
+            return ""
+        r = os.urandom(1)[0] / 255.0
+        if not ev.known and r < 0.55:
+            return "Sesini ilk kez duyuyorum."
+        if ev.known and ev.distance_m > 2.0 and r < 0.30:
+            return "Sesin uzaktan geliyor."
+        if ev.snr_db < 12.0 and r < 0.40:
+            return "Seni tam seçemedim."
+        return ""
+
     def _speaker_trust(self, speaker: str) -> float:
         try:
             return float(self.chem.trust_of(speaker))
@@ -2358,6 +2576,63 @@ class NoraAGI:
     # İçerik istemeyen istek nesneleri: 'bana bir tavsiye ver' -> konu sorulur.
     _ADVICE_OBJECTS = frozenset({"tavsiye", "öğüt", "fikir", "akıl", "yol"})
 
+    def _tell_from_own_life(self) -> str:
+        """'Bana bir şey anlat' dendiğinde kendi dünyasından anlatır: kendi çıkarımı,
+        duyduğu ses, kendi iç sesi. Hiçbiri yoksa sessiz kalır (uydurmaz)."""
+        told = getattr(self, "_told_life", None)
+        if told is None:
+            from collections import deque as _dq
+            told = self._told_life = _dq(maxlen=16)
+        # a) Taze ve henüz söylenmemiş kendi çıkarımı
+        try:
+            if self.infer is not None:
+                line = self.infer.last_line(self)
+                if line and line not in told:
+                    told.append(line)
+                    return line
+        except Exception:
+            pass
+        # b) Bedeni: kendi duyumu (açlık, susuzluk, sızı) — insanın sözü değil, kendi hâli.
+        try:
+            nv = getattr(self, "nervous", None)
+            drives = []
+            if nv is not None:
+                for key, attr, line in (
+                    ("susuzluk", "thirst_drive", "suyum azaldı, boğazım kuruyor"),
+                    ("açlık", "hunger_drive", "karnım aç, midemde bir boşluk var"),
+                    ("acı", "adelta_pain", "bir yerim sızlıyor"),
+                    ("sızı", "cfiber_ache", "derinde bir ağrı var"),
+                ):
+                    v = float(getattr(nv, attr, 0.0) or 0.0)
+                    if v > 0.25:
+                        drives.append((v, key, line))
+            if drives:
+                drives.sort(reverse=True)
+                v, key, line = drives[0]
+                tag = f"beden:{key}:{int(v * 100)}"
+                if tag not in told:
+                    told.append(tag)
+                    mood = ""
+                    try:
+                        word = self.chem.intero_word_tr()
+                        mood = f", içim {word}" if word else ""
+                    except Exception:
+                        pass
+                    return f"Şu an {line}{mood}. Bunu kendim fark ediyorum; benim kendi derdim bu."
+        except Exception:
+            pass
+        # c) Kendi iç sesi (içerikli olanlardan)
+        try:
+            for th in reversed(list(getattr(self.monologue, "stream", []) or [])[-10:]):
+                body = (getattr(th, "text", "") or "").strip()
+                if len(body) < 16 or body in told:
+                    continue
+                told.append(body)
+                return f"İçimden şu geçti: {tr_lower(body).rstrip('.')}."
+        except Exception:
+            pass
+        return ""
+
     def _narrate_from_knowledge(self, topic: str = "") -> str:
         """Kendi kavram ağından, kendi seçtiği bir düğümü anlatır: uydurmadan, ezberden okumadan.
         Hikâye istendiğinde gerçekten bildiği bağları sıraya koyar; sonunda kendi merakını ekler."""
@@ -2494,6 +2769,12 @@ class NoraAGI:
                 tense="AOR", person="2SG"))
             return tr_capitalize(ask) + "?"
         topic = self._speech_request_topic(fr, raw)
+        if not topic:
+            # Konu verilmediyse ezber bir kavramı (hep aynı: 'su') anlatmak yerine
+            # önce KENDİ hayatından bir şey söyler: taze çıkarımı, duyduğu ses, iç sesi.
+            own = self._tell_from_own_life()
+            if own:
+                return own
         told = self._narrate_from_knowledge(topic)
         if told:
             return told
@@ -2557,6 +2838,16 @@ class NoraAGI:
                 f"Uyku ve konsolidasyon döngüsünü tamamladım ({int(st['fast_consolidated'] + st['word_consolidated'])} sinaps "
                 f"kalıcı neokortekse aktarıldı)."
             )
+
+        # ÖNERİ İSTEMİ: Nora'nın elinde kitap/şarkı listesi yok. 'Kabul ediyorum ve kitap
+        # doğrultusunda yöneliyorum' demek saçmalıktır; dürüst cevap + kendi dünyasından teklif.
+        if (fr.rel or "").startswith(("öner", "tavsiye")):
+            what = (fr.obj or "").strip()
+            if what:
+                return (f"Elimde {what} listesi yok; bende {what} kavramı ancak sen anlatırsan oluşur. "
+                        f"Bir tane anlatırsan onu öğrenirim, sonra ben de önerebilirim.")
+            return ("Elimde önerecek bir liste yok. Ama şunu önerebilirim: bana bir kavram söyle; "
+                    "onun hakkında ne bildiğimi kendi sözlerimle anlatayım.")
 
         vol = self.self_model.evaluate_volition(fr.rel, fr.obj, mind=self.mind, obs=self.obs, speaker=speaker)
         tgt_label = fr.obj or fr.rel
@@ -2977,6 +3268,10 @@ class NoraAGI:
             "individuality": (self.entropy.state_dict() if getattr(self, "entropy", None) else {}),
             "verb_roots": sorted(set(TurkishMorphology.LEARNED_VERB_ROOTS) | set(self.learned_verb_roots)),
             "journal_path": (self.journal_path or ""),
+            "voices": (self.ear.state_dict() if getattr(self, "ear", None) is not None else {}),
+            "school": (self.school.state_dict() if getattr(self, "school", None) is not None else {}),
+            "style": (self.style.state_dict() if getattr(self, "style", None) is not None else {}),
+            "inference": (self.infer.state_dict() if getattr(self, "infer", None) is not None else {}),
         }
         # ATOMİK YAZMA: önce .tmp, sonra os.replace. Yazma yarıda kesilirse ESKİ sağlam
         # dosya yerinde kalır (tek satır kaybı bile olmaz; yarım beyin yüklenmez).
@@ -3048,6 +3343,9 @@ class NoraAGI:
             agi.discourse.load_state_dict(meta.get("discourse") or {})
             if getattr(agi, "entropy", None) is not None:
                 agi.entropy.load_state_dict(meta.get("individuality") or {})
+                # Kulak da bireyin kimliğine bağlıdır: ses imzası aynı bireyde aynı çıksın.
+                if getattr(agi, "ear", None) is not None:
+                    agi.ear.uid = str(agi.entropy.uid)
             if getattr(agi, "frames", None) is not None:
                 try:
                     agi.frames.memory.load_snapshot(meta.get("sentence_frames") or {})
@@ -3071,6 +3369,30 @@ class NoraAGI:
         agi.fast.mb.W_slow = z["fast_Ws"]
         agi.fast.mb.stiff = z["fast_stiff"]
         agi.fast.mb.tags = np.zeros_like(agi.fast.mb.W_fast)
+        # Kendi çıkarımları kalıcıdır (öğretilmiş bilgi değil, türetilmiş bağ).
+        try:
+            if getattr(agi, "infer", None) is not None:
+                agi.infer.load_state_dict(meta.get("inference") or {})
+        except Exception:
+            pass
+        # Söz biçimi geçmişi: monotonluğa düşmemek için.
+        try:
+            if getattr(agi, "style", None) is not None:
+                agi.style.load_state_dict(meta.get("style") or {})
+        except Exception:
+            pass
+        # Okul: öğretilen sembol/sayı kuralları kalıcıdır.
+        try:
+            if getattr(agi, "school", None) is not None:
+                agi.school.load_state_dict(meta.get("school") or {})
+        except Exception:
+            pass
+        # Ses defteri: tanıdığı sesler, adları ve roller kalıcıdır.
+        try:
+            if getattr(agi, "ear", None) is not None:
+                agi.ear.load_state_dict(meta.get("voices") or {})
+        except Exception:
+            pass
         # Günlük varsa yaşam kaldığı yerden kaydedilmeye devam eder (kayıtlar korunur).
         _jp = str(meta.get("journal_path") or "") or (path_prefix + ".journal.ndjson")
         if os.path.exists(_jp):

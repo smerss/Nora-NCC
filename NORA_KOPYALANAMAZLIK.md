@@ -198,9 +198,96 @@ Doğrulama: `python agi_battery.py A63` → **8/8**.
 
 ---
 
-## 9) Test durumu
+## 9) Duyum, okul, söz biçimi ve kendi çıkarımı (Round 16)
 
-`python agi_battery.py` → **64/64** (335 s). Bu turda iki eski test ölçüm
+Bu turda Nora'ya dört organ eklendi. Hepsi aynı ilkeye uyar: karar **dışarıdan gelen
+mesajın** bir fonksiyonu değil, **içerideki durumun** fonksiyonudur.
+
+### 9.1 Kulak: söz önce bir SES olarak duyulur (`nora_ear.py`)
+
+`converse()` çağrıldığında Nora mesajı doğrudan "metin" olarak almaz; önce bir **ses olayı**
+doğar: süre (ms), mesafe (m), SNR (dB), perde (F0), hece sayısı, prozodiden çıkarılan soru
+niyeti ve **ses imzası**. Kimlik *etiketten* değil imzadan çıkar:
+
+* `MAX_VOICES=64`, `MATCH_THRESHOLD=0.11`.
+* Aynı ses → aynı `ses-N` (içerik ne olursa olsun). Farklı ses → ayrı kimlik (aynı cümleyi
+  söylese bile). Ölçüm: ses içi mesafe 0.001–0.055 (medyan 0.019), sesler arası 0.195–1.106
+  (medyan 0.669) — ayrım payı ~35×.
+* Kimlik modeline **etiket hiç girmez**; defterde yalnızca `ses-N` anahtarları vardır.
+  Ad, ses kendi adını *söylediğinde* öğrenilir; rol (tanıdık/aldatıcı) **davranıştan** gelir.
+* Gürültü + uzaklık gerçek bir duyma kaybı üretir: SNR `34 − 4.5·log2(d) − noise`,
+  yüksek gürültüde sözün son sözcükleri düşer (`heard != spoken`), bu **dürüst** bir kayıptır.
+  Ölçüm: 9 m / 20 dB gürültüde 24 cümlenin 5–8'i eksik duyuldu.
+* Duyulan her söz günlüğe `duyum` satırı olarak yazılır (kim, söz, eksik mi, SNR, mesafe).
+
+### 9.2 Okul: çocuk seviyesinde sayı, basamak, sembol, aşamalı problem (`nora_okul.py`)
+
+* **Sayma / okunuş / basamak:** `345` → "üç yüz kırk beş" + rakam rakam; `345'te 4` →
+  "2. basamak 4; yani 4 onluk = 40"; `3 yüzlük 4 onluk 5 birlik` → `3·100 + 4·10 + 5·1 = 345`.
+* **Sıra sayısı, karşılaştırma, yüzde, ondalık, kesir:** `12.` → "on ikinci";
+  `9'dan büyük en küçük tam sayı` → `10 (on)`; `yüzde 40` → "yüz parçadan 40" + örnek;
+  `2,5` → "iki virgül beş" (tek sayı; "5" diye bölünmez); `yarım/çeyrek/3/4` → kesir + ondalık.
+* **Semboller:** + − × ÷ = < > % gibi 18 işaret, adı/anlamı/örneğiyle. Sembol **adıyla**
+  da öğretilebilir ("Nora, artı toplama demektir") — `_names` ters haritası sayesinde.
+* **Konuşarak öğretme + kalıcılık:** "5'ten sonra 9 gelir" → "…diye öğrendim"; kaydedilip
+  açıldığında hatırlar.
+* **Aşamalı düşünme:** alışveriş problemi adım adım çözülür —
+  `1. adım: elimde 3 var (üç). 2. adım: 2 (iki) ekleniyor. 3. adım: 3 + 2 = 5. Sonuç: 5.`
+* **Sınır (önemli):** okul, **uzman matematiği ezmez**. `=`, `^`, `türev`, `integral`,
+  `ebob/ekok`, `2x` gibi ifadelerde okul susar, söz parietal matematik korteksine kalır;
+  `en küçük ortak kat` bir alışveriş problemi sanılıp çarpılmaz.
+
+### 9.3 Söz biçimi: her tur aynı iskelet değil (`nora_style.py`)
+
+Şikâyet şuydu: "su yararlıdır; suyu içerim. Sen su içer misin?" — cevap + gerekçe + karşı
+soru, hep aynı sıra. Artık biçim **ölçülen iç durumdan** seçilir: dopamin (merak),
+serotonin, kortizol, beden sürüşleri (açlık/susuzluk/acı/sızı) ve söz geçmişi.
+
+Yedi biçim: `cevap`, `cevap+düşünce`, `cevap+soru`, `kendine`, `parça`, `ihtiyaç`,
+`sessizlik`. Kurallar:
+
+* **Aynı biçim üst üste iki kez gelmez** (üç tur aynı iskelet = insanın "acaba iskelet mi?"
+  demesi).
+* Karşı tarafa **soru sormak alışkanlık değil**: son iki turda soru sorulduysa üçüncüde
+  sorulmaz; 18 turluk ölçümde soruyla biten tur oranı **~%25–35** (eskiden ~%100).
+* `ihtiyaç`: beden sürüşü > 0.55 ise **kendi derdi** sözün başına geçer.
+* `kendine`: iç mırıldanma **bazen önce, bazen sonra** gelir (sabit sıra da iskelettir).
+* `cevap+düşünce`: kendi çıkarımı yalnızca **konuya değiyorsa** ve **bir kez** söylenir;
+  ilgisiz türetimi araya sıkıştırmak susmaktan kötüdür.
+* `parça`: yalnızca uzun (≥3 cümle, ilk cümle ≥45 karakter) cevaplarda; "Çok geçmiş olsun."
+  gibi öz cevaplar kısaltılmaz.
+* `sessizlik` yalnızca **kimse sormadığında** olur; bir insan seslendiyse her zaman cevap var.
+
+### 9.4 Kendi içsel çıkarımı ve monoloğu (`nora_infer.py`)
+
+Kimse söylemeden, kendi bildiklerinden yeni bağ türetir (her 90 yaşam adımında, `budget=3`):
+
+* ISA→ISA geçişliliği, ISA→ilişki kalıtımı, CAUSES→CAUSES zinciri.
+* Türetilen bağ grafiğe `source="çıkarım"` olarak yazılır — **öğretilmiş bilgiyle karışmaz**,
+  güveni `ebeveyn güvenleri × 0.75`.
+* Her çıkarım iç monoloğa düşer (`trigger="çıkarım"`) ve söze ancak konuya değiyorsa girer.
+* Örnek: "Serçe bir kuştur." + "Kuşlar uçar." → `serçe CAN_DO uç` (güven 0.75, dayanak 2),
+  monolog: "Kendi kendime şunu çıkardım: serçe uçar."
+
+### 9.5 Bu turda kapatılan hatalar
+
+| Hata | Neden | Çözüm |
+|---|---|---|
+| `2x + 7 = 23` → "23 sayısı" | okul her sayı içeren cümleyi sahipleniyordu | `_expert_math` kapısı; okul susar |
+| `72 ile 108'in en küçük ortak katı` → `72 × 108` | "kaç" + iki sayı = alışveriş problemi | ortak kat/bölen kalıpları problem sayılmaz |
+| "yem enerji kazanma için kullanılır" | eylemlik + `için` | "enerji kazan**mak** için kullanılır" |
+| "Kendi kendime şunu çıkardım: dikenin nedeni…" her turda | çıkarım tekrar tekrar ekleniyordu | `told` işareti + konu kapısı |
+| `Bir kitap öner.` → "'kitap' doğrultusunda yöneliyorum" | öneri isteği hareket emri sanıldı | dürüst "elimde liste yok" + öğrenme teklifi |
+| `Bana bir şey anlat.` → hep aynı "su" cümlesi | konu yoksa en zengin düğüm seçiliyordu | önce kendi hayatı: çıkarım → beden → iç ses |
+| "açken hiçbir karar net görünmüyor" (tok Nora'da) | `obs[0]` enerji sanıldı (hep 0) | sinir sistemi sürüşlerinden okunur |
+| `2,5` → "5 sayısı" | ondalık, iki sayı gibi bölünüyordu | `_q_decimal`; okuma/rakam yolları ondalıkta susar |
+| "Sesini ilk kez duyuyorum." cevabın başında | kulak notu cevabın önüne geliyor | `strip_prefixes()`; kıstaslar cevabın **gövdesine** bakar |
+
+---
+
+## 10) Test durumu
+
+`python agi_battery.py` → **70/70** (359 s). Bu turda iki eski test ölçüm
 gürültüsünden arındırıldı:
 
 | Test | Eskiden | Şimdi |
@@ -211,10 +298,20 @@ gürültüsünden arındırıldı:
 Yani artık mutlak eşik yarışı yok: ölçülen şey gerçekten iddia edilen şey (kayıt
 sayısıyla büyümeyen gecikme; korteks beklemeden verilen omurilik kararı).
 
-**Yeni testler:** A63 yaşam günlüğü (8/8), A64 ad öbeği ve hâl bütünlüğü (6/6).
+**Yeni testler:** A65 sayı duyusu (8/8), A66 semboller ve aşamalı düşünme (7/7),
+A67 ses kimliği (7/7), A68 kulak yolu (7/7), A69 söz biçimi çeşitliliği ve kendi derdi (4/4),
+A70 kendi çıkarımı ve monolog (7/7). A63 yaşam günlüğü (8/8), A64 ad öbeği (6/6).
+
+A67'nin ölçtüğü şey özellikle önemli: **"kim konuşuyor?" sorusu mesajdan değil sesten**
+çıkar. Aynı cümle iki farklı sesten gelirse iki ayrı kimlik; aynı ses bambaşka bir konudan
+konuşursa aynı kimlik. A68 ise kimlik modeline etiketin hiç girmediğini ve gürültüde
+duymanın gerçekten eksik kaldığını doğrular. A69 sabit iskeletin kırıldığını (soru oranı,
+art arda aynı biçim yasağı, susuz Nora'nın kendi derdini öne alması) ölçer.
 
 **Bilinen oynak test:** A6 (yaşantıdan doğan kimlik farklılaşması) ortam
 rastlantısına bağlıdır: sert dünya bazen güvenli dünyayla neredeyse aynı mizacı
 üretir (+0.02 temkinlilik farkı) ve iki Nora aynı öz-tanımı verir. Bu, `81aea9a`
 sürümünde de aynı sıklıkta görüldü — yeni değişikliklerin getirmediği, ortamın
-kendi şansıdır. Diğer 63 test deterministiktir.
+kendi şansıdır. A57 (kendi sorusu) ve A10 (alt süreçle çalışan köprü testi) de
+makine yüküne duyarlıdır; tek başına çalıştırıldıklarında geçerler. Diğer testler
+deterministiktir.

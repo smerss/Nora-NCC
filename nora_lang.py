@@ -2108,6 +2108,11 @@ class BrocaGenerator:
             return f"{s} {self._case_phrase(o, 'DAT')} yol açar"
 
         if r == "USED_FOR":
+            # Eylemlikle kurulmuş amaç ("enerji kazanma") doğal Türkçede "-mak için" ister:
+            # "yem, enerji kazanmak için kullanılır" (kazanma için değil).
+            if " " in o and o.endswith(("ma", "me")) and len(o.rstrip()) > 4:
+                o_aim = o[:-2] + ("mak" if o.endswith("ma") else "mek")
+                return f"{s} {o_aim} için kullanılır"
             return f"{s} {o} için kullanılır"
 
         if r == "LOCATED_AT":
