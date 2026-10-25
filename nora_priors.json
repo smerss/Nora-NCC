@@ -5,63 +5,555 @@
     "meta.notice.lead": {
       "desc": "Tekrar farkındalığının açılış yarısı. {tp} = ölçülen zaman ifadesi.",
       "priors": [
-        {"id": "lead.now.same.a", "text": "Bunu az önce de söylemiştin", "bias": 1.00, "when": {"gap_lt": 45, "same": true}},
-        {"id": "lead.now.same.b", "text": "Aynı şeyi demin sordun", "bias": 0.95, "when": {"gap_lt": 45, "same": true}},
-        {"id": "lead.now.same.c", "text": "Bu sözü biraz önce duymuştum", "bias": 0.90, "when": {"gap_lt": 45, "same": true}},
-        {"id": "lead.now.near.a", "text": "Bunu az önce de söyler gibi oldun", "bias": 0.95, "when": {"gap_lt": 45, "same": false}},
-        {"id": "lead.now.near.b", "text": "Demin de benzer bir şey sormuştun", "bias": 0.90, "when": {"gap_lt": 45, "same": false}},
-        {"id": "lead.past.same.a", "text": "Bunu {tp} de söylemiştin", "bias": 1.00, "when": {"gap_ge": 45, "same": true}, "need": ["tp"]},
-        {"id": "lead.past.same.b", "text": "Aynı soruyu {tp} de sormuştun", "bias": 0.92, "when": {"gap_ge": 45, "same": true}, "need": ["tp"]},
-        {"id": "lead.past.near.a", "text": "Bunu {tp} de söylemiştin, neredeyse aynı sözlerle", "bias": 0.90, "when": {"gap_ge": 45, "same": false}, "need": ["tp"]}
+        {
+          "id": "lead.now.same.a",
+          "text": "Bunu az önce de söylemiştin",
+          "bias": 1.0,
+          "when": {
+            "gap_lt": 45,
+            "same": true
+          }
+        },
+        {
+          "id": "lead.now.same.b",
+          "text": "Aynı şeyi demin sordun",
+          "bias": 0.95,
+          "when": {
+            "gap_lt": 45,
+            "same": true
+          }
+        },
+        {
+          "id": "lead.now.same.c",
+          "text": "Bu sözü biraz önce duymuştum",
+          "bias": 0.9,
+          "when": {
+            "gap_lt": 45,
+            "same": true
+          }
+        },
+        {
+          "id": "lead.now.near.a",
+          "text": "Bunu az önce de söyler gibi oldun",
+          "bias": 0.95,
+          "when": {
+            "gap_lt": 45,
+            "same": false
+          }
+        },
+        {
+          "id": "lead.now.near.b",
+          "text": "Demin de benzer bir şey sormuştun",
+          "bias": 0.9,
+          "when": {
+            "gap_lt": 45,
+            "same": false
+          }
+        },
+        {
+          "id": "lead.past.same.a",
+          "text": "Bunu {tp} de söylemiştin",
+          "bias": 1.0,
+          "when": {
+            "gap_ge": 45,
+            "same": true
+          },
+          "need": [
+            "tp"
+          ]
+        },
+        {
+          "id": "lead.past.same.b",
+          "text": "Aynı soruyu {tp} de sormuştun",
+          "bias": 0.92,
+          "when": {
+            "gap_ge": 45,
+            "same": true
+          },
+          "need": [
+            "tp"
+          ]
+        },
+        {
+          "id": "lead.past.near.a",
+          "text": "Bunu {tp} de söylemiştin, neredeyse aynı sözlerle",
+          "bias": 0.9,
+          "when": {
+            "gap_ge": 45,
+            "same": false
+          },
+          "need": [
+            "tp"
+          ]
+        }
       ]
     },
     "meta.notice.question": {
       "desc": "Farkındalıktan sonra gelen merak sorusu; kaçıncı tekrar olduğuna göre ayrı havuzlar.",
       "priors": [
-        {"id": "q.third.a", "text": "Aynı soruyu artık üçüncü kez soruyorsun; bende mi bir şey eksik kaldı?", "bias": 1.00, "when": {"count_min": 3}},
-        {"id": "q.third.b", "text": "Israrla sorduğuna göre cevabım seni ikna etmedi mi?", "bias": 0.95, "when": {"count_min": 3}},
-        {"id": "q.third.c", "text": "Yoksa ben mi aynı şeyi söyleyip duruyorum?", "bias": 0.90, "when": {"count_min": 3}},
-        {"id": "q.later.a", "text": "Aradan birkaç tur geçti, yine aynı yere döndük; aklında kalan ne?", "bias": 1.00, "when": {"count_min": 2, "count_max": 2, "turns_gt": 2}},
-        {"id": "q.later.b", "text": "Birkaç tur sonra aynı soruya döndük. Devam eden bir merak mı var?", "bias": 0.95, "when": {"count_min": 2, "count_max": 2, "turns_gt": 2}},
-        {"id": "q.default.a", "text": "Aklında kalan bir şey mi var?", "bias": 1.00, "when": {"count_min": 2, "count_max": 2, "turns_le": 2}},
-        {"id": "q.default.b", "text": "Tekrar sormanı gerektiren ne oldu?", "bias": 0.95, "when": {"count_min": 2, "count_max": 2, "turns_le": 2}},
-        {"id": "q.default.c", "text": "Cevabımda eksik kalan bir yan mı vardı?", "bias": 0.92, "when": {"count_min": 2, "count_max": 2, "turns_le": 2}},
-        {"id": "q.default.d", "text": "Belki de ben seni yeterince dinlemedim; neyi kaçırdım?", "bias": 0.88, "when": {"count_min": 2, "count_max": 2, "turns_le": 2}}
+        {
+          "id": "q.third.a",
+          "text": "Aynı soruyu artık üçüncü kez soruyorsun; bende mi bir şey eksik kaldı?",
+          "bias": 1.0,
+          "when": {
+            "count_min": 3
+          }
+        },
+        {
+          "id": "q.third.b",
+          "text": "Israrla sorduğuna göre cevabım seni ikna etmedi mi?",
+          "bias": 0.95,
+          "when": {
+            "count_min": 3
+          }
+        },
+        {
+          "id": "q.third.c",
+          "text": "Yoksa ben mi aynı şeyi söyleyip duruyorum?",
+          "bias": 0.9,
+          "when": {
+            "count_min": 3
+          }
+        },
+        {
+          "id": "q.later.a",
+          "text": "Aradan birkaç tur geçti, yine aynı yere döndük; aklında kalan ne?",
+          "bias": 1.0,
+          "when": {
+            "count_min": 2,
+            "count_max": 2,
+            "turns_gt": 2
+          }
+        },
+        {
+          "id": "q.later.b",
+          "text": "Birkaç tur sonra aynı soruya döndük. Devam eden bir merak mı var?",
+          "bias": 0.95,
+          "when": {
+            "count_min": 2,
+            "count_max": 2,
+            "turns_gt": 2
+          }
+        },
+        {
+          "id": "q.default.a",
+          "text": "Aklında kalan bir şey mi var?",
+          "bias": 1.0,
+          "when": {
+            "count_min": 2,
+            "count_max": 2,
+            "turns_le": 2
+          }
+        },
+        {
+          "id": "q.default.b",
+          "text": "Tekrar sormanı gerektiren ne oldu?",
+          "bias": 0.95,
+          "when": {
+            "count_min": 2,
+            "count_max": 2,
+            "turns_le": 2
+          }
+        },
+        {
+          "id": "q.default.c",
+          "text": "Cevabımda eksik kalan bir yan mı vardı?",
+          "bias": 0.92,
+          "when": {
+            "count_min": 2,
+            "count_max": 2,
+            "turns_le": 2
+          }
+        },
+        {
+          "id": "q.default.d",
+          "text": "Belki de ben seni yeterince dinlemedim; neyi kaçırdım?",
+          "bias": 0.88,
+          "when": {
+            "count_min": 2,
+            "count_max": 2,
+            "turns_le": 2
+          }
+        }
       ]
     },
     "meta.insist.question": {
       "desc": "Üçüncü ısrar: uzun serzeniş değil, tek cümlelik değişen karşılık.",
       "priors": [
-        {"id": "insist.a", "text": "Hâlâ aynı yerde miyiz?", "bias": 1.00},
-        {"id": "insist.b", "text": "Cevabım seni tatmin etmiyor mu?", "bias": 0.96},
-        {"id": "insist.c", "text": "Başka bir yanını mı merak ediyorsun?", "bias": 0.93},
-        {"id": "insist.d", "text": "Israrın bir şeyi değiştirdi mi?", "bias": 0.90},
-        {"id": "insist.e", "text": "Söylediğimde eksik kalan ne?", "bias": 0.87}
+        {
+          "id": "insist.a",
+          "text": "Hâlâ aynı yerde miyiz?",
+          "bias": 1.0
+        },
+        {
+          "id": "insist.b",
+          "text": "Cevabım seni tatmin etmiyor mu?",
+          "bias": 0.96
+        },
+        {
+          "id": "insist.c",
+          "text": "Başka bir yanını mı merak ediyorsun?",
+          "bias": 0.93
+        },
+        {
+          "id": "insist.d",
+          "text": "Israrın bir şeyi değiştirdi mi?",
+          "bias": 0.9
+        },
+        {
+          "id": "insist.e",
+          "text": "Söylediğimde eksik kalan ne?",
+          "bias": 0.87
+        }
       ]
     },
     "meta.clock.head": {
       "desc": "Saat sorusunun ölçülen saatten kurulan ilk yarısı.",
       "priors": [
-        {"id": "clock.head.a", "text": "Şu an {clock}.", "bias": 1.00, "need": ["clock"]},
-        {"id": "clock.head.b", "text": "Saat {clock}.", "bias": 0.96, "need": ["clock"]},
-        {"id": "clock.head.c", "text": "{clock}.", "bias": 0.90, "need": ["clock"]}
+        {
+          "id": "clock.head.a",
+          "text": "Şu an {clock}.",
+          "bias": 1.0,
+          "need": [
+            "clock"
+          ]
+        },
+        {
+          "id": "clock.head.b",
+          "text": "Saat {clock}.",
+          "bias": 0.96,
+          "need": [
+            "clock"
+          ]
+        },
+        {
+          "id": "clock.head.c",
+          "text": "{clock}.",
+          "bias": 0.9,
+          "need": [
+            "clock"
+          ]
+        }
       ]
     },
     "meta.clock.tail": {
       "desc": "Saat cevabının ardından gelen iç-zaman yorumu (boşluk da bir seçenek).",
       "priors": [
-        {"id": "clock.tail.none.a", "text": "", "bias": 1.00},
-        {"id": "clock.tail.none.b", "text": "", "bias": 0.98},
-        {"id": "clock.tail.a", "text": " Saat bende durmuyor, akıp gidiyor.", "bias": 0.85},
-        {"id": "clock.tail.b", "text": " Akrep yelkovan bende de dönüyor.", "bias": 0.82}
+        {
+          "id": "clock.tail.none.a",
+          "text": "",
+          "bias": 1.0
+        },
+        {
+          "id": "clock.tail.none.b",
+          "text": "",
+          "bias": 0.98
+        },
+        {
+          "id": "clock.tail.a",
+          "text": " Saat bende durmuyor, akıp gidiyor.",
+          "bias": 0.85
+        },
+        {
+          "id": "clock.tail.b",
+          "text": " Akrep yelkovan bende de dönüyor.",
+          "bias": 0.82
+        }
       ]
     },
     "meta.elapsed.close": {
       "desc": "Geçen süre cevabının kapanışı; süre ve saat gerçekten ölçülür.",
       "priors": [
-        {"id": "elapsed.close.a", "text": "Zaman bende adım adım ilerliyor; şu an {clock}.", "bias": 1.00, "need": ["clock"]},
-        {"id": "elapsed.close.b", "text": "İçimdeki saat işliyor, dışarıda {clock}.", "bias": 0.96, "need": ["clock"]},
-        {"id": "elapsed.close.c", "text": "Şu an {clock}; bende zaman hiç durmadı.", "bias": 0.93, "need": ["clock"]}
+        {
+          "id": "elapsed.close.a",
+          "text": "Zaman bende adım adım ilerliyor; şu an {clock}.",
+          "bias": 1.0,
+          "need": [
+            "clock"
+          ]
+        },
+        {
+          "id": "elapsed.close.b",
+          "text": "İçimdeki saat işliyor, dışarıda {clock}.",
+          "bias": 0.96,
+          "need": [
+            "clock"
+          ]
+        },
+        {
+          "id": "elapsed.close.c",
+          "text": "Şu an {clock}; bende zaman hiç durmadı.",
+          "bias": 0.93,
+          "need": [
+            "clock"
+          ]
+        }
+      ]
+    },
+    "style.lead_in": {
+      "desc": "İç sesi söze sokan giriş; dördü de aynı işi yapar, seçimi yarış yapar.",
+      "priors": [
+        {
+          "id": "leadin.a",
+          "text": "Kendi kendime şunu çıkardım:",
+          "bias": 1.0
+        },
+        {
+          "id": "leadin.b",
+          "text": "İçimden şu geçti:",
+          "bias": 0.97
+        },
+        {
+          "id": "leadin.c",
+          "text": "Az önce kendi kendime bağladım:",
+          "bias": 0.94
+        },
+        {
+          "id": "leadin.d",
+          "text": "Şunu fark ettim kendi kendime:",
+          "bias": 0.91
+        }
+      ]
+    },
+    "style.mutter": {
+      "desc": "Kendi kendine mırıldanma: içerik bedenden/duyumdan/çıkarımdan, çerçeve buradan.",
+      "priors": [
+        {
+          "id": "mutter.intero",
+          "text": "İçimden '{word}' diye geçirdim.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "mutter": "intero"
+            }
+          },
+          "need": [
+            "word"
+          ]
+        },
+        {
+          "id": "mutter.sound",
+          "text": "İçimden 'ses uzaktan gelince içim boş kaldı' diye geçirdim.",
+          "bias": 0.95,
+          "when": {
+            "eq": {
+              "mutter": "sound"
+            }
+          }
+        },
+        {
+          "id": "mutter.drive",
+          "text": "İçimden 'bedenim kendi derdini fısıldıyor' diye geçirdim.",
+          "bias": 0.92,
+          "when": {
+            "eq": {
+              "mutter": "drive"
+            }
+          }
+        },
+        {
+          "id": "mutter.infer",
+          "text": "İçimden 'aklımın bir köşesi yeni bağla meşgul' diye geçirdim.",
+          "bias": 0.9,
+          "when": {
+            "eq": {
+              "mutter": "infer"
+            }
+          }
+        }
+      ]
+    },
+    "style.need": {
+      "desc": "Kendi bedensel derdi; hangisinin konuşacağını o anki beden durumu belirler.",
+      "priors": [
+        {
+          "id": "need.thirst",
+          "text": "Suyum azaldı; önce onu düşünmem gerek.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "need": "thirst"
+            }
+          }
+        },
+        {
+          "id": "need.hunger",
+          "text": "Karnım aç; aklım orada.",
+          "bias": 0.97,
+          "when": {
+            "eq": {
+              "need": "hunger"
+            }
+          }
+        },
+        {
+          "id": "need.pain",
+          "text": "Canım yanıyor; dikkatim orada.",
+          "bias": 0.94,
+          "when": {
+            "eq": {
+              "need": "pain"
+            }
+          }
+        }
+      ]
+    },
+    "narration.frame": {
+      "desc": "Anlatım çerçeveleri: cümlenin iskeleti burada, İÇERİĞİ kavram ağından gelir. Slotlar broca ile çekilir.",
+      "priors": [
+        {
+          "id": "frame.nominal",
+          "text": "{gen} işi {inf}.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "nominal"
+            }
+          },
+          "need": [
+            "gen",
+            "inf"
+          ]
+        },
+        {
+          "id": "frame.heard.a",
+          "text": "{subj} konusunda kendi deneyimim yok; bildiğim şu: {tail}.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "heard"
+            }
+          },
+          "need": [
+            "subj",
+            "tail"
+          ]
+        },
+        {
+          "id": "frame.heard.b",
+          "text": "{subj} bana anlatılanlardan biliniyor: {tail}.",
+          "bias": 0.97,
+          "when": {
+            "eq": {
+              "frame": "heard"
+            }
+          },
+          "need": [
+            "subj",
+            "tail"
+          ]
+        },
+        {
+          "id": "frame.heard.c",
+          "text": "Bana anlatılanlardan biliyorum: {tail}.",
+          "bias": 0.94,
+          "when": {
+            "eq": {
+              "frame": "heard"
+            }
+          },
+          "need": [
+            "tail"
+          ]
+        },
+        {
+          "id": "frame.body.thirst",
+          "text": "Şu an boğazım kuruyor; {subj} aklımda. {tail}",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "body",
+              "drive": "thirst"
+            }
+          },
+          "need": [
+            "subj"
+          ]
+        },
+        {
+          "id": "frame.body.hunger",
+          "text": "Karnım aç; {subj} aklımda. {tail}",
+          "bias": 0.97,
+          "when": {
+            "eq": {
+              "frame": "body",
+              "drive": "hunger"
+            }
+          },
+          "need": [
+            "subj"
+          ]
+        },
+        {
+          "id": "frame.memory",
+          "text": "{subj} bana {pol}; {tail}.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "memory"
+            }
+          },
+          "need": [
+            "subj",
+            "tail"
+          ]
+        },
+        {
+          "id": "frame.order.a",
+          "text": "{subj} deyince aklıma iki şey geliyor: {a}; bir de {b}.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "order"
+            }
+          },
+          "need": [
+            "subj",
+            "a",
+            "b"
+          ]
+        },
+        {
+          "id": "frame.order.b",
+          "text": "{subj}, iki yönüyle aklımda: {a}; {b}.",
+          "bias": 0.97,
+          "when": {
+            "eq": {
+              "frame": "order"
+            }
+          },
+          "need": [
+            "subj",
+            "a",
+            "b"
+          ]
+        },
+        {
+          "id": "frame.fallback",
+          "text": "Bildiğim bu: {tail}",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "fallback"
+            }
+          },
+          "need": [
+            "tail"
+          ]
+        },
+        {
+          "id": "frame.limit",
+          "text": "{head}; ötesini henüz bilmiyorum.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "limit"
+            }
+          },
+          "need": [
+            "head"
+          ]
+        }
       ]
     }
   }

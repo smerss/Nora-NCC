@@ -62,7 +62,7 @@ _FRAME_TAGS = {
 }
 
 
-def _tag(agi, name: str, edges: int = 0) -> None:
+def _tag(agi, name: str, edges: int = 0, *, kalip: bool = True) -> None:
     """Anlatımın kaynağını iskelet ölçerine yaz (O(1), hata sessiz)."""
     try:
         m = getattr(agi, "provenance", None)
@@ -74,11 +74,30 @@ def _tag(agi, name: str, edges: int = 0) -> None:
         spec = dict(_FRAME_TAGS.get(name) or {})
         if not spec:
             spec = {"ag": max(1, int(edges))}
-        m.record("kalip", 1)
+        if kalip:
+            m.record("kalip", 1)      # çerçeve koddan geldi
         for src, k in spec.items():
             m.record(src, int(k))
     except Exception:
         pass
+
+
+def _frame(agi, name: str, slots: dict) -> str | None:
+    """Çerçeve cümlesini VERİDEN al: topluluklar yarışır, kazanan konuşur.
+
+    Cümlenin iskeleti artık kodda değil `nora_priors.json` içinde; burada yalnızca
+    içerik (broca ile çekilmiş bağ) slotlara yerleşir. Kaynak ölçere otomatik yazılır:
+    doğuştan eğilim -> kalip, öğrenilmiş ağırlık -> ogrenim.
+    """
+    try:
+        f = getattr(agi, "priors", None)
+        if f is None:
+            from nora_priors import default_field
+            f = default_field()
+        prov = getattr(agi, "provenance", None)
+        return f.pick("narration.frame", {"frame": name}, slots, prov=prov)
+    except Exception:
+        return None
 
 
 def _verbal_to_inf(obj: str) -> str:
@@ -169,17 +188,18 @@ class Narrator:
                 text += "."
             if self._already_said(key, text):
                 continue
-            _tag(agi, getattr(build, "__name__", ""), len(e))
+            _tag(agi, getattr(build, "__name__", ""), len(e),
+                 kalip=getattr(build, "__name__", "") in ("_f_core", "_f_single", "_f_inference"))
             return self._remember(key, text)
 
         # Bütün çerçeveler tükendi: en az kullanılan bağa dön, ama cümleyi yeniden kur.
         rel, obj = min(e, key=lambda ro: self._edge_score(key, ro[0], ro[1]))
         self._use_edge(key, rel, obj)
         tail = tr_lower(_drop_subject(self._one(agi, subj, rel, obj), subj))
-        txt = f"Bildiğim bu: {tail}"
+        txt = _frame(agi, "fallback", {"tail": tail}) or tail
         if self._already_said(key, txt):
             # Söyleyecek yeni bir yan kalmadıysa bunu saklamaz: sınırını söyler.
-            txt = f"{txt.rstrip('.')}; ötesini henüz bilmiyorum."
+            txt = _frame(agi, "limit", {"head": txt.rstrip(".")}) or txt
         _tag(agi, "fallback", 1)
         return self._remember(key, txt)
 
@@ -232,7 +252,10 @@ class Narrator:
         except Exception:
             gen = subj + "ın"
         self._use_edge(key, rel, obj)
-        text = f"{tr_capitalize(gen)} işi {_verbal_to_inf(obj)}."
+        text = _frame(agi, "nominal", {"gen": tr_capitalize(gen),
+                                       "inf": _verbal_to_inf(obj)})
+        if not text:
+            return None
         # İkinci bir bağ varsa ayrı cümle olarak ekle (aynı kalıba düşmeden).
         others = [(r, o) for r, o in self._related_edges(key, e) if (r, o) != (rel, obj)]
         if others:
@@ -262,10 +285,7 @@ class Narrator:
         rel, obj = self._related_edges(key, e)[0]
         self._use_edge(key, rel, obj)
         tail = _drop_subject(self._one(agi, subj, rel, obj), subj)
-        frames = (f"{tr_capitalize(subj)} konusunda kendi deneyimim yok; bildiğim şu: {tr_lower(tail)}.",
-                  f"{tr_capitalize(subj)} bana anlatılanlardan biliniyor: {tr_lower(tail)}.",
-                  f"Bana anlatılanlardan biliyorum: {tr_lower(tail)}.")
-        return frames[self.turn % len(frames)]
+        return _frame(agi, "heard", {"subj": tr_capitalize(subj), "tail": tr_lower(tail)})
 
     def _f_body(self, agi, subj, key, e) -> str | None:
         """Beden sürüşü yüksekse kavram kendi derdine bağlanır (yalnızca bedene değen kavramlar)."""
@@ -282,9 +302,9 @@ class Narrator:
         self._use_edge(key, rel, obj)
         tail = tr_lower(_drop_subject(self._one(agi, subj, rel, obj), subj))
         tail = tr_capitalize(tail) if tail else tail
-        if thirst >= hunger:
-            return f"Şu an boğazım kuruyor; {tr_lower(subj)} aklımda. {tail}"
-        return f"Karnım aç; {tr_lower(subj)} aklımda. {tail}"
+        drive = "thirst" if thirst >= hunger else "hunger"
+        return _frame(agi, "body", {"subj": tr_lower(subj), "tail": tail,
+                                    "drive": drive})
 
     def _f_memory(self, agi, subj, key, e) -> str | None:
         """Yaşanmış kavram: bellek kaydı + bağ."""
@@ -298,7 +318,7 @@ class Narrator:
         self._use_edge(key, rel, obj)
         pol = "iyi geldi" if float(getattr(rec, "effective_valence", 0.0) or 0.0) > 0 else "kötü geldi"
         tail = tr_lower(_drop_subject(self._one(agi, subj, rel, obj), subj))
-        return f"{tr_capitalize(subj)} bana {pol}; {tail}."
+        return _frame(agi, "memory", {"subj": tr_capitalize(subj), "pol": pol, "tail": tail})
 
     def _f_inference(self, agi, subj, key, e) -> str | None:
         """Kendi çıkarımı varsa onu ekler (uydurma değil, kendi türetimi)."""
@@ -324,9 +344,7 @@ class Narrator:
         self._use_edge(key, *b)
         t1 = tr_lower(_drop_subject(self._one(agi, subj, *a), subj))
         t2 = tr_lower(_drop_subject(self._one(agi, subj, *b), subj))
-        frames = (f"{tr_capitalize(subj)} deyince aklıma iki şey geliyor: {t1}; bir de {t2}.",
-                  f"{tr_capitalize(subj)}, iki yönüyle aklımda: {t1}; {t2}.")
-        return frames[self.turn % len(frames)]
+        return _frame(agi, "order", {"subj": tr_capitalize(subj), "a": t1, "b": t2})
         return frames[self.turn % len(frames)]
 
     # ------------------------------------------------------------------ rapor

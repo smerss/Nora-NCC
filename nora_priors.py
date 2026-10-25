@@ -110,6 +110,21 @@ class MotorAssembly:
             elif key == "turns_le":
                 if not (int(c.get("turns", 0)) <= int(want)):
                     return False
+            elif key == "eq":
+                # Bağlamsal eşitlik: {"frame": "body", "drive": "thirst"}.
+                # Değer liste ise "içinde geçiyor mu" diye bakılır (birden çok geçerli durum).
+                if not isinstance(want, dict):
+                    return False
+                for k2, v2 in want.items():
+                    cur = c.get(k2)
+                    if isinstance(cur, (list, tuple, set)):
+                        if v2 not in cur:
+                            return False
+                    elif isinstance(cur, bool) or isinstance(v2, bool):
+                        if bool(cur) != bool(v2):
+                            return False
+                    elif str(cur) != str(v2):
+                        return False
             else:
                 # Bilinmeyen koşul: temkinli davran, topluluk yarışa girmez.
                 return False

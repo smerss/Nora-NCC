@@ -343,7 +343,7 @@ dayanıyor; susuz Nora suyu kendi derdine bağlıyor; 3 anlatı isteği → 3 fa
 
 ## 11) Test durumu
 
-`python agi_battery.py` → **72/72** (308 s). Bu turda iki eski test ölçüm
+`python agi_battery.py` → **73/73** (313 s). Bu turda iki eski test ölçüm
 gürültüsünden arındırıldı:
 
 | Test | Eskiden | Şimdi |
@@ -441,8 +441,36 @@ saat/süre kapanışları) **koddan silindi**, 32 motor topluluğu olarak JSON'a
 İlk turlarda Nora'nın cümleleri doğuştan gelen eğilimlerdir — bir çocuğun ilk sözcükleri
 gibi. Fark şu: bunlar **kodun dalları değil**, verideki ağırlıklar. Zamanla `ps` söner,
 `w` büyür; aynı cümle artık "yazıldığı için" değil "Nora onu seçmeyi öğrendiği için" çıkar.
-Sıradaki adımlar: (Faz 2) `nora_style` geçişlerini de aynı alana taşımak, (Faz 3) kalıp
-metinlerini tamamen sıfırlayıp "bebek testi" (ağırlıklar sıfırken susmuyor, öğrenerek
-düzeliyor), (Faz 4) statik test: bu üç modülde kullanıcıya giden uzun dizge kalmadığını
-doğrulamak.
+### Faz 2 — biçim ve anlatım da veriye taşındı
+
+| Modül | Önce | Sonra | Ne taşındı |
+|---|---:|---:|---|
+| `nora_meta.py` | 29 | **4** | farkındalık, tekrar, ısrar, saat/süre havuzları (Faz 1) |
+| `nora_style.py` | 12 | **4** | iç ses girişleri (4), mırıldanmalar (4), ihtiyaç cümleleri (3) |
+| `nora_anlatim.py` | 7 | **0** | duyma/beden/bellek/sıralama çerçeveleri, "Bildiğim bu:" ve sınır cümlesi |
+
+Toplam söz topluluğu **32 → 54**'e çıktı; koddaki söylem (iskelet) dizgesi **148 → 133**.
+Anlatımın cümle iskeleti artık `narration.frame` topluluklarıdır; kodda yalnızca *içerik*
+(broca ile çekilen bağ) ve *hangi çerçevenin deneneceği* sırası kalır.
+
+### Mandal: iskelet geri büyüyemez (`nora_audit.py`)
+
+`python nora_audit.py` her modüldeki uzun Türkçe dizgeleri sayar (docstring hariç),
+`nora_audit_baseline.json` bugünkü seviyeyi tutar:
+
+    python nora_audit.py            # tablo: modül / toplam / söylem
+    python nora_audit.py --check    # baseline'ı aşan varsa hata
+    python nora_audit.py --update   # yalnız AZALTIDAN sonra baseline'ı yaz
+
+Bugün: **toplam 1125, söylem 133**. A73 testi hiçbir modülün baseline'ı aşmadığını,
+`nora_anlatim`'de yazılı cümle kalmadığını (`0`) ve taşınan sözlerin veride yarıştığını
+doğrular. Yani her turda sayı **yalnız düşebilir**; iskelet kendiliğinden geri büyüyemez.
+
+Not: sayaç bilinçli olarak kaba bir buluşsal yöntemdir (AST + uzunluk/sezgisel süzgeç).
+Bilgi modülleri (`nora_knowledge`, `nora_stem`, `nora_okul` …) "iskelet" sayılmaz:
+orası öğretilen içeriktir; mandal yalnızca **söylem** toplamına uygulanır.
+
+Sıradaki adımlar: (Faz 3) `nora_discourse`/`nora_frames` bankalarını aynı alana taşımak,
+(Faz 4) banka metinlerini sıfırlayıp "bebek testi" (ağırlıklar sıfırken susmuyor,
+öğrenerek düzeliyor).
 
