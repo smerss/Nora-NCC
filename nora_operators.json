@@ -1,0 +1,29 @@
+{
+  "operators": {
+    "bind": "kuralı nesneye çevir",
+    "apply": "kuralı yeni girdiye uygula",
+    "count": "bir özelliği say",
+    "sort": "öğeleri ölçüte göre sırala",
+    "chain": "iki adımlı zincir kur",
+    "plan": "hedefi adımlara ayır",
+    "revise": "hedef değişince planı yenile",
+    "transfer": "kuralı başka alana taşı"
+  },
+  "missing_organ": [
+    "görüntü/resim",
+    "ezgi/şarkı",
+    "koku",
+    "tat",
+    "el/kol",
+    "yürüme",
+    "dış dünyayı aç (ağ/kaynak)"
+  ],
+  "_doc": "Operatör rejistrisi: Nora'nın 'neyi yapabiliyorum' cevabı bu dosyadan okunur. Kodda cümle değil kayıt büyür.",
+  "unbound_labels": {
+    "rule": "bağlı kural (henüz kural öğretilmedi)",
+    "chain": "iki adımlı zincir (henüz kurulmadı)",
+    "alias": "sembol anlamı (henüz öğretilmedi)"
+  },
+  "ratio_ceiling": 7.5,
+  "_ratio_doc": "prior türü / operatör oranı tavanı. Bugünkü ölçüm 7.50; bu bir MANDAL, yalnız düşürülebilir. Yükseltmek için gerekçe yazmak gerekir."
+}

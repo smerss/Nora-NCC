@@ -3047,6 +3047,58 @@ def a78_oz_model_ve_do():
     return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
 
 
+def a79_operator_prior_orani():
+    """A79 — OPERATÖR/PRIOR ORANI: yeni yetenek OPERATÖR olarak mı, CÜMLE olarak mı geliyor?
+
+    Risk: her yeni testi priors'a bir cümle ekleyerek geçmek. O zaman sistem öğrenmiyor,
+    daha yüksek seviyeli bir deyim kitabına kayıyor. Ölçüt:
+    (1) rejistri VERİDEN yükleniyor ve boş değil,
+    (2) rejistrideki her operatör gerçekten çağrılabilir (dekoratif kayıt yok),
+    (3) prior türü / operatör oranı sınırın altında (cümle enflasyonu yok),
+    (4) meta cevap rejistrinin TAMAMINI okuyor (ezber liste değil).
+    """
+    import json
+
+    import nora_apply as AP
+    import nora_priors
+
+    ok = {}
+    ops, missing = AP._load_operators()
+    ok["rejistri-var"] = len(ops) >= 8 and len(missing) >= 3
+
+    it = AP.Interpreter()
+    impl = {"bind": lambda: it.bind("sesli harf tek ise mavi, çift ise kırmızı"),
+            "apply": lambda: it.apply("kelebek"),
+            "count": lambda: it.count("vowel_count", "kelebek"),
+            "sort": lambda: it.sort_items(["kelebek", "su"], "len_asc"),
+            "chain": lambda: it.bind_chain("önce sesli harf say. tek ise A yaz, çift ise B yaz. "
+                                           "sonra A ise kısa, B ise uzun de"),
+            "plan": lambda: it.plan("hedef", 5),
+            "revise": lambda: it.revise(it.plan("hedef", 5), "yeni hedef", 4),
+            "transfer": lambda: it.transfer({"odd": "tuzlu", "even": "tatlı"},
+                                            feature="word_count", domain="mutfak")}
+    ok["dekoratif-değil"] = all(k in impl and impl[k]() is not None for k in ops)
+
+    kinds = json.loads(nora_priors.JSON_PATH.read_text(encoding="utf-8")).get("kinds") or {}
+    n_kinds, n_ops = len(kinds), max(1, len(ops))
+    ratio = n_kinds / n_ops
+    # TAVAN BİR MANDALDIR: bugünkü ölçüm 7.50. Yükseltilemez, yalnız düşürülebilir;
+    # sabit bir "iyi oran" uydurmak yerine mevcut seviyeyi donduruyoruz ki sürüklenme görünsün.
+    ceiling = float((json.loads(AP._data_path().read_text(encoding="utf-8"))
+                     .get("ratio_ceiling")) or 7.5)
+    ok["oran-sınırda"] = ratio <= ceiling
+
+    # Meta cevap rejistrinin TAMAMINI anmalı: seçme/ezber yok.
+    agi = NoraAGI(seed=790, boot_thinker=False)
+    meta = tr_lower(agi.converse("Neyi yapamıyorsun? Adıyla söyle."))
+    ok["meta-tam"] = all(k in meta for k in ops)
+
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), (f"{passed}/{len(ok)} — {detail} | operatör={n_ops} "
+                               f"prior-türü={n_kinds} oran={ratio:.2f} (tavan {ceiling:.2f})")
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -3112,6 +3164,7 @@ TESTS = {
     "A76": ("ölçüm kapsamı: her cevap yolu provenance'a yazılır", a76_olcum_kapsami_her_yol_etiketli),
     "A77": ("yankı öldü: anlamadığını açıkça söyle, tekrarlama", a77_yanki_oldu_acik_basarisizlik),
     "A78": ("öz-model düğümleri + do(): gözlem ile müdahale ayrı", a78_oz_model_ve_do),
+    "A79": ("operatör/prior oranı: yetenek koddan mı cümleden mi geliyor", a79_operator_prior_orani),
     "A70": ("kendi çıkarımı: kimse söylemeden türetme + iç monolog", a70_own_inference_and_monologue),
     "A69": ("söz biçimi çeşitliliği, soru alışkanlığının kırılması ve kendi derdi", a69_speech_shape_variety_and_self_interest),
     "A68": ("kulak yolu: ses olayı, gürültüde eksik duyma, etiketsiz kimlik", a68_ear_path_perception),

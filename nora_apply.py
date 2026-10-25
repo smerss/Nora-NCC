@@ -149,13 +149,25 @@ class Rule:
     source_text: str = ""
     uses: int = 0
     derived_from: str = ""
+    #: İSTİSNA: [{"pattern": "bal", "label": "kırmızı"}]. Ana kuraldan ÖNCE bakılır.
+    #: Kural "bağlanan" bir şeyse, istisna da kuralın parçasıdır; ayrı bir metin değil.
+    exceptions: list = field(default_factory=list)
 
     def measure(self, item: str) -> int:
         fn = FEATURES.get(self.feature, FEATURES["letter_count"])[1]
         return int(fn(item))
 
     def apply(self, item: str) -> tuple[str | None, dict]:
-        """Yeni girdiye uygula: ölç -> eşle -> etiket. İz (trace) döner."""
+        """Yeni girdiye uygula: İSTİSNA -> ölç -> eşle -> etiket. İz (trace) döner."""
+        low = (item or "").lower()
+        for ex in (self.exceptions or []):
+            pat = str(ex.get("pattern") or "").lower()
+            if pat and pat in low:
+                self.uses += 1
+                return str(ex.get("label")), {
+                    "rule": self.rid, "feature": self.feature, "item": item,
+                    "exception": pat, "mapped": str(ex.get("label")), "domain": self.domain,
+                    "measured": None, "parity": "exception"}
         n = self.measure(item)
         parity = "odd" if n % 2 else "even"
         label = self.mapping.get(parity)
@@ -173,6 +185,68 @@ class Rule:
                     source_text=self.source_text, derived_from=self.rid)
 
 
+@dataclass
+class ChainRule:
+    """İKİ ADIMLI ZİNCİR: birinci kuralın ETİKETİ, ikinci kuralın GİRDİSİ olur.
+
+    "önce sesli harf sayısını bul; tek ise A, çift ise B yaz. sonra A ise kısa, B ise uzun de."
+
+        step1: metin -> ölçüm -> A/B          (Rule, parity -> sembol)
+        step2: A/B   -> kısa/uzun             (sözlük eşlemesi, ölçüm yok)
+
+    Tek adımlı uygulama burada yetmez: ara sonuç taşınmadan ikinci adım çalışmaz.
+    """
+
+    rid: str
+    step1: Rule
+    label_map: dict
+    source_text: str = ""
+
+    def apply(self, item: str) -> tuple[str | None, dict]:
+        mid, t1 = self.step1.apply(item)
+        final = (self.label_map or {}).get(str(mid).lower()) if mid is not None else None
+        trace = {"rule": self.rid, "kind": "chain", "item": item,
+                 "step1": t1, "mid": mid, "final": final}
+        return final, trace
+
+
+#: OPERATÖR REJİSTRİSİ — Nora "neyi yapabiliyorum" sorusunu buradan okur.
+#: Rejistri VERİDİR (`nora_operators.json`): yeni yetenek eklemek bir KAYIT eklemektir,
+#: koda yeni cümle yazmak değil. İskelet mandalı bu ayrımı ölçer.
+def _data_path():
+    """Rejistri dosyasının yolu (tek yerden: testler de buradan okur)."""
+    import pathlib
+    return pathlib.Path(__file__).with_name("nora_operators.json")
+
+
+def _load_operators() -> tuple[dict, tuple]:
+    import json
+    import pathlib
+    try:
+        blob = json.loads(pathlib.Path(__file__).with_name("nora_operators.json")
+                          .read_text(encoding="utf-8"))
+        ops = {str(k): str(v) for k, v in (blob.get("operators") or {}).items()}
+        miss = tuple(str(x) for x in (blob.get("missing_organ") or ()))
+        return ops, miss
+    except Exception:
+        return {}, ()
+
+
+def _load_labels() -> dict:
+    import json
+    import pathlib
+    try:
+        blob = json.loads(pathlib.Path(__file__).with_name("nora_operators.json")
+                          .read_text(encoding="utf-8"))
+        return {str(k): str(v) for k, v in (blob.get("unbound_labels") or {}).items()}
+    except Exception:
+        return {}
+
+
+OPERATORS, MISSING_ORGAN = _load_operators()
+UNBOUND_LABELS = _load_labels()
+
+
 class Interpreter:
     """Küçük yorumlayıcı: kural bağla, uygula, planı adım adım yürüt, olmazsa AÇIKÇA söyle."""
 
@@ -184,6 +258,50 @@ class Interpreter:
         self.last: Rule | None = None
         self.trace: list[dict] = []
         self.failures: list[str] = []
+        #: YAPILMAMIŞ NOTASYON: "⊕ tek demek" -> {"⊕": "tek"}. Sembol, anlamı öğretilene
+        #: kadar bağlanmaz; öğretilince kural metni çözülürken yerine konur.
+        self.aliases: dict[str, str] = {}
+        #: İKİ ADIMLI ZİNCİR: A'nın çıktısı B'nin girdisi.
+        self.chain: "ChainRule | None" = None
+
+    # ------------------------------------------------------------------ notasyon
+    def teach_alias(self, symbol: str, meaning: str) -> bool:
+        sym = (symbol or "").strip()
+        val = (meaning or "").strip().lower()
+        if not sym or not val:
+            return False
+        self.aliases[sym] = val
+        self._trace("alias", {"symbol": sym, "means": val})
+        return True
+
+    def _expand(self, text: str) -> str:
+        t = text or ""
+        for sym, val in (self.aliases or {}).items():
+            t = t.replace(sym, f" {val} ")
+        return re.sub(r"\s+", " ", t)
+
+    # ------------------------------------------------------------------ sıralama
+    @staticmethod
+    def sort_items(items: list[str], mode: str = "len_asc") -> list[str]:
+        """SIRALAMA operatörü: sayı → parite → etiket DEĞİL, ölçüt → sıra.
+
+        mode: num_asc/num_desc/len_asc/len_desc/alpha. Sayıya çevrilemeyen öğe
+        sayısal sıralamada sona atılır (sessizce atılmaz, sıralamada görünür).
+        """
+        def as_num(x: str):
+            m = re.fullmatch(r"\s*(-?\d+)\s*", str(x))
+            return int(m.group(1)) if m else None
+
+        if mode in ("num_asc", "num_desc"):
+            nums = [(as_num(x), str(x)) for x in items]
+            nums.sort(key=lambda p: (p[0] is None, p[0] if p[0] is not None else 0))
+            if mode == "num_desc":
+                nums = [p for p in nums if p[0] is not None][::-1] + [p for p in nums if p[0] is None]
+            return [t for _n, t in nums]
+        if mode == "alpha":
+            return sorted(items, key=lambda x: x.lower())
+        key = (lambda x: (len(x), x.lower())) if mode == "len_asc" else (lambda x: (-len(x), x.lower()))
+        return sorted(items, key=key)
 
     # ------------------------------------------------------------------ bağlama
     def bind(self, text: str) -> Rule | None:
@@ -196,7 +314,7 @@ class Interpreter:
             "<özellik> çift ise <A>, tek ise <B>"
         """
         t = (text or "").strip()
-        low = t.lower()
+        low = self._expand(t).lower()
 
         # özellik: kullanıcının söylediği ada en uzun eşleşme
         feature = None
@@ -219,14 +337,73 @@ class Interpreter:
         if len(mapping) < 2:
             return None
 
+        # İSTİSNA: "... ama içinde 'bal' geçiyorsa her zaman kırmızı"
+        exceptions: list[dict] = []
+        m_exc = re.search(r"\bama\b(.*)$", low)
+        if m_exc:
+            tail = m_exc.group(1)
+            pm = (re.search(r"['\"“”]([\wçğıöşü]{2,})['\"“”]\s*(?:geç|olan|içeren)", tail)
+                  or re.search(r"içinde\s+([\wçğıöşü]{2,})", tail))
+            words = re.findall(r"[\wçğıöşü]+", tail)
+            if pm and words:
+                exceptions.append({"pattern": pm.group(1), "label": words[-1]})
+
         rid = f"R{len(self.rules) + 1}"
         rule = Rule(rid=rid, feature=feature, mapping=mapping, domain=self._domain_of(low),
-                    source_text=t)
+                    source_text=t, exceptions=exceptions)
         self.rules[rid] = rule
         self.last = rule
         self.wm.write("rule", rid, "bind")
         self.wm.write("rule_map", dict(mapping), "bind")
-        self._trace("bind", {"rule": rid, "feature": feature, "map": mapping})
+        self._trace("bind", {"rule": rid, "feature": feature, "map": mapping,
+                             "exceptions": exceptions})
+        return rule
+
+    # ------------------------------------------------------------------ zincir
+    def bind_chain(self, text: str) -> "ChainRule | None":
+        """Tek cümleden iki adımlı kural: ara sonuç ikinci adımın girdisi olur."""
+        t = (text or "").strip()
+        low = self._expand(t).lower()
+        feature = None
+        for word, key in sorted(FEATURE_WORDS.items(), key=lambda kv: -len(kv[0])):
+            if word in low:
+                feature = key
+                break
+        if feature is None:
+            return None
+        first = dict(re.findall(r"(tek|çift)\s*(?:sayı\s*)?(?:ise|olursa|->|:)\s*([a-zçğıöşü0-9]{1,12})", low))
+        if len(first) < 2:
+            return None
+        symbols = {v.lower() for v in first.values()}
+        second = {}
+        for lhs, rhs in re.findall(r"([a-zçğıöşü0-9]{1,12})\s+ise\s+([a-zçğıöşü]{2,})", low):
+            if lhs in symbols:
+                second[lhs] = rhs
+        if len(second) < 2:
+            return None
+        r1 = Rule(rid=f"R{len(self.rules) + 1}", feature=feature,
+                  mapping={PARITY_WORDS[k]: v.lower() for k, v in first.items()},
+                  domain=self._domain_of(low), source_text=t)
+        self.rules[r1.rid] = r1
+        ch = ChainRule(rid=f"{r1.rid}+chain", step1=r1, label_map=second, source_text=t)
+        self.chain = ch
+        self.last = r1
+        self._trace("bind_chain", {"rule": ch.rid, "feature": feature,
+                                   "map": r1.mapping, "second": second})
+        return ch
+
+    def relabel(self, mapping: dict[str, str], feature: str | None = None) -> "Rule | None":
+        """Kuralın ETİKETLERİNİ değiştir: aynı ölçüm, yeni harf. Kural yeniden bağlanır."""
+        if self.last is None:
+            return None
+        rid = f"{self.last.rid}~{len(self.rules) + 1}"
+        rule = Rule(rid=rid, feature=feature or self.last.feature, mapping=dict(mapping),
+                    domain=self.last.domain, source_text=self.last.source_text,
+                    derived_from=self.last.rid, exceptions=list(self.last.exceptions or []))
+        self.rules[rid] = rule
+        self.last = rule
+        self.chain = None
+        self._trace("relabel", {"from": rule.derived_from, "to": rid, "map": mapping})
         return rule
 
     @staticmethod
@@ -255,6 +432,11 @@ class Interpreter:
 
     # ------------------------------------------------------------------ uygulama
     def apply(self, item: str, rule: Rule | None = None) -> tuple[str | None, dict]:
+        # Zincir kuruluysa iki adım birlikte yürür (ara sonuç taşınır).
+        if rule is None and self.chain is not None:
+            label, tr = self.chain.apply(item)
+            self._trace("apply", tr)
+            return label, tr
         r = rule or self.last
         if r is None:
             self.failures.append("apply:no_rule")

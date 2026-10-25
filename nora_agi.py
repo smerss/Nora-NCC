@@ -35,6 +35,7 @@ import os
 import re
 import sys
 import time
+import traceback
 from collections import deque
 import numpy as np
 
@@ -3097,6 +3098,53 @@ class NoraAGI:
 
         tl = tr_lower(raw)
 
+        # --- (A0) NOTASYON: "⊕ tek demek" -> sembol anlamı öğretilir, sonra kural çözülür ---
+        # Sembol, anlamı öğretilmeden bağlanmaz; öğretilince kural metni genişletilir.
+        for sym, mean in re.findall(r"(\S{1,3})\s+(tek|çift)\s+demek", tl):
+            eng.teach_alias(sym, mean)
+        tl = eng._expand(tl)
+
+        # --- (A0b) SIRALAMA: ölçüt -> sıra. Parite ailesinden farklı bir şekil. ---
+        # DİKKAT: "diz" alt dizge olarak aranmaz — "4, 9, 14, 19 dizisinde sıradaki sayı kaç?"
+        # bir SIRALAMA değil dizi sorusudur; alt dizge eşleşmesi o soruyu yutuyordu (A8).
+        if re.search(r"\bdiz\b|sırala|sıraya koy", tl) and not re.search(r"dizi|sıradaki", tl):
+            from nora_apply import Interpreter as _IT
+            seg = raw.split(":", 1)[1] if ":" in raw else raw
+            items = [x.strip(" .;") for x in re.split(r"[,;]|\s+ve\s+", seg) if x.strip(" .;")]
+            items = [x for x in items if not re.search(r"\b(sırala|sıraya|diz|büyükten|küçükten|"
+                                                       r"uzunluğa|kısa|önce|göre)\b", tr_lower(x))]
+            nums = re.findall(r"-?\d+", tl)
+            # "10, 7, 3 sayılarını ..." -> son öğe fiille birlikte gelir ve süzgeçte düşer;
+            # metindeki sayılar daha çoksa onlar kullanılır (eksik sıralama sessiz yanlıştır).
+            if len(nums) >= 2 and len(nums) > len([x for x in items if re.fullmatch(r"-?\d+", x)]):
+                items = nums
+            if len(items) >= 2:
+                desc = any(k in tl for k in ("büyükten küçüğe", "uzundan kısaya", "azalan",
+                                            "büyük olan önce", "uzun olan önce"))
+                if all(re.fullmatch(r"-?\d+", x) for x in items):
+                    mode = "num_desc" if desc else "num_asc"
+                elif any(k in tl for k in ("uzunluğa", "kısa olan önce", "uzunluk")):
+                    mode = "len_desc" if desc else "len_asc"
+                else:
+                    mode = "len_desc" if desc else "len_asc"
+                ordered = _IT.sort_items(items, mode)
+                eng.wm.write("sorted", ordered, "sort")
+                self._apply_tag("islem", 1)
+                return self._say("op.sorted", {"items": ", ".join(ordered),
+                                               "mode": "büyükten küçüğe" if desc else "küçükten büyüğe"},
+                                 fallback="Sıraladım.")
+
+        # --- (A0c) ZİNCİR: iki adım, ara sonuç ikinci adımın girdisi ---
+        if ("önce" in tl and "sonra" in tl and ("ise" in tl or "yaz" in tl)
+                and len(re.findall(r"\bise\b", tl)) >= 2):
+            ch = eng.bind_chain(raw)
+            if ch is not None:
+                self._apply_tag("islem", 1)
+                return self._say("apply.chain_bound",
+                                 {"steps": " -> ".join(f"{k}:{v}" for k, v in
+                                                       (ch.label_map or {}).items())},
+                                 fallback="Zincir kuruldu.")
+
         # --- (A) TRANSFER: aynı yapıyı başka alana taşı ---
         if any(k in tl for k in ("aynı kural", "kuralı taşı", "kuralı aktar", "başka alana taşı")):
             if eng.last is None:
@@ -3121,10 +3169,14 @@ class NoraAGI:
             rule = eng.bind(raw)
             if rule is not None:
                 self._apply_tag("islem", 1)
+                _ex = ""
+                if rule.exceptions:
+                    e0 = rule.exceptions[0]
+                    _ex = f"istisna: '{e0['pattern']}' -> {e0['label']}"
                 return self._say("apply.bound", {
                     "name": __import__("nora_apply").FEATURES[rule.feature][0],
                     "odd": rule.mapping.get("odd"), "even": rule.mapping.get("even"),
-                    "domain": rule.domain}, fallback="Bağlandı.")
+                    "domain": rule.domain, "ex": _ex}, fallback="Bağlandı.")
             # Bağlanamadı: yankı YOK, açık başarısızlık.
             return self._say("apply.bind_failed", {}, fallback="Bağlayamadım.")
 
@@ -3155,8 +3207,13 @@ class NoraAGI:
         # "ne olur" TEK BAŞINA yetmez: "X'e müdahale edersem Y ne olur?" bir nedensellik
         # sorusudur, kural uygulaması değil. Yanlış yakalama, sessizce yanlış cevap üretir.
         _causal = any(k in tl for k in ("müdahale", "birlikte artıyor", "nedensel", "gözlem mi"))
+        # Tırnaklı hedef + soru ipucu da uygulamadır: "'petek' için sonuç ne?"
+        # (tanım soruları hariç: "ne demek", "nedir" kural uygulaması değildir).
+        _q_apply = (bool(self._quoted(raw))
+                    and any(k in tl for k in ("sonuç", "ne olur", "ne çıkar", "çıktı", "ne"))
+                    and not any(k in tl for k in ("demek", "nedir", "ne demek", "anlamı")))
         asks_apply = (not _causal) and (
-            bool(re.search(r"\bhangi\b", tl))
+            bool(re.search(r"\bhangi\b", tl)) or _q_apply
             or any(k in tl for k in ("uygula", "sınıflandır", "etiketi ne", "rengi ne",
                                      "sınıfı ne", "tadı ne", "ne çıkar")))
         if asks_apply and eng.last is not None:
@@ -3170,6 +3227,18 @@ class NoraAGI:
             self._apply_tag("islem", 1)
             if label is None:
                 return self._say("apply.failed", {"target": target}, fallback="Uygulanamadı.")
+            if tr.get("kind") == "chain":
+                eng.wm.write("item", target, "apply")
+                _s1 = tr.get("step1") or {}
+                return self._say("apply.result_chain", {
+                    "target": target, "n": _s1.get("measured"),
+                    "name": _s1.get("feature_name", "ölçüm"), "mid": tr.get("mid"),
+                    "final": label}, fallback="Zincir uygulandı.")
+            if tr.get("parity") == "exception":
+                eng.wm.write("item", target, "apply")
+                return self._say("apply.result_exception",
+                                 {"target": target, "pattern": tr.get("exception"),
+                                  "label": label}, fallback="İstisna.")
             eng.wm.write("item", target, "apply")
             name = tr.get("feature_name", "harf")
             return self._say("apply.result", {
@@ -3268,6 +3337,26 @@ class NoraAGI:
             eng.wm.write("hypothesis", f"{a_w}/{b_w}", "hypothesis")
             return self._say("meta.hypothesis", {"a": a_w, "b": b_w}, fallback="Bilmiyorum.")
 
+        # --- (L2) AÇIKLAYICI NEDEN (collider): iki neden tek etkiye çıkıyorsa seçilemez ---
+        if any(k in tl for k in ("sebep", "neden", "yüzünden")) and ("mi" in tl or "mı" in tl
+                                                                     or "hangisi" in tl):
+            _eff = ""
+            for _w in re.findall(r"[a-zçğıöşü]{4,}", tl):
+                if _w in ("sebep", "neden", "hangisi", "veya", "yoksa"):
+                    continue
+                _st = self._graph_stem(_w)
+                if self.lang.graph._in_edges.get(_st):
+                    _eff = _st
+                    break
+            _ea = self._explain_away(_eff) if _eff else None
+            if _ea:
+                return _ea
+
+        # --- (M2) META-OPERATÖR: kendi eksik primitifini rejistriden okur ---
+        if re.search(r"hangi operat|operatörün yok|neyi yapamıyorsun|ne yapamıyorsun"
+                     r"|eksik primitif|neyi yapamazsın", tl):
+            return self._meta_operator()
+
         # --- (I) ÖZ-RAPOR: mimari CANLI durumdan okunur, ezber metin yok ---
         # "Kuark nasıl çalışır?" DÜNYA sorusudur; öz-rapor yalnız 2. kişi/kendi üzerine sorulunca.
         if re.search(r"nasıl çalış(?:ıyor|ır)sun|zayıf nokta|mimari|neyi değiştir"
@@ -3294,6 +3383,15 @@ class NoraAGI:
             m = re.search(r"\b([a-zçğıöşü]{1,20})\s+ve\s+([a-zçğıöşü]{1,20})\b", tl)
             x = m.group(1) if m and m.group(1) not in _stop else ""
             y = m.group(2) if m and m.group(2) not in _stop else ""
+            # "Kuraklığa müdahale edersem?" -> hedef ekli gelir; GÖVDEYİ bul, yoksa
+            # grafikte arama boş döner ve doğru cevap "kenar yok" gibi görünür.
+            if not x:
+                mm = re.search(r"([a-zçğıöşü]{3,})(?:'[a-zçğıöşü]+)?\s+müdahale", tl)
+                if mm:
+                    x = self._graph_stem(mm.group(1))
+                if not y:
+                    my = re.search(r"\b([a-zçğıöşü]{3,})(?:'[a-zçğıöşü]+)?\b", tl)
+                    y = self._graph_stem(my.group(1)) if my else ""
             # do(): X'e GİREN kenarları kes, yalnız ÇIKAN nedensel kenarları izle.
             doobj = {}
             try:
@@ -3315,6 +3413,79 @@ class NoraAGI:
 
         # --- (E) SAYMA/Aritmetik dışı: yok ---
         return None
+
+    # ------------------------------------------------------------------ biçim yardımcıları
+    def _graph_stem(self, word: str) -> str:
+        """Ekli yüzeyden KAVRAM GÖVDESİ: 'kuraklığa' -> 'kuraklık', 'tuzlanma' -> 'tuzlanma'.
+
+        Grafik düğümleri gövdeyle tutulur; ekli yüzeyle arama boş döner ve bu,
+        "kenar yok" gibi görünen SAHTE bir olumsuz üretir. Bu yüzden ek sıyırma
+        denemeleri sırayla yapılır ve grafikte VAR OLAN ilk aday döndürülür.
+        """
+        w = tr_lower(word or "").strip()
+        if not w:
+            return ""
+        g = getattr(self.lang, "graph", None)
+        cands = [w]
+        try:
+            cands.append(self.lang.morph.analyze_word(w, getattr(g, "lexicon", set()))["stem"])
+        except Exception:
+            pass
+        for suf in ("ya", "ye", "ğa", "ğe", "na", "ne", "a", "e", "ı", "i", "u", "ü", "dan", "den"):
+            if len(w) - len(suf) >= 3 and w.endswith(suf):
+                base = w[: -len(suf)]
+                cands.extend([base, base + "k", base + "ğ"])
+        for c in cands:
+            if g is not None and (c in getattr(g, "_out_edges", {}) or c in getattr(g, "_in_edges", {})):
+                return c
+        return cands[1] if len(cands) > 1 else w
+
+    def _explain_away(self, effect: str) -> str | None:
+        """COLLIDER: bir etkiye birden çok neden çıkıyorsa, etkiden neden SEÇİLEMEZ.
+
+        Bu, do-calculus'un en sık atlanan yeri: P(neden|etki) ile P(etki|neden) karışır.
+        Ağda iki ayrı neden aynı etkiye gidiyorsa cevap "ikisi de olabilir" olmalı;
+        tek neden söylemek sahte kesinliktir.
+        """
+        g = getattr(self.lang, "graph", None)
+        if g is None or not effect:
+            return None
+        causes = [e.subj for e in getattr(g, "_in_edges", {}).get(effect, ())
+                  if getattr(e, "rel", "") in ("CAUSES", "IF_THEN")]
+        causes = [c for c in dict.fromkeys(causes) if c and c != effect]
+        if len(causes) < 2:
+            return None
+        self._apply_tag("cikarim", 1)
+        eng = getattr(self, "apply_eng", None)
+        if eng is not None:
+            eng.wm.write("collider", {"effect": effect, "causes": causes}, "collider")
+        return self._say("meta.collider", {"effect": effect, "causes": ", ".join(causes)},
+                         fallback="Belirsiz.")
+
+    def _meta_operator(self) -> str:
+        """META-OPERATÖR: "neyi yapamıyorsun?" — rejistriden okur, ezber cevap yok.
+
+        Cevap üç ölçümden kurulur: (1) kayıtlı operatörler, (2) bu evrende ORGAN olmayan
+        şeyler, (3) şu an gerçekten bağlı olan durum (kural/zincir/sembol sayısı).
+        Tutarlılık şartı: burada "yok" denen şey doğrudan istendiğinde de yapılmamalı.
+        """
+        from nora_apply import OPERATORS, MISSING_ORGAN
+        eng = getattr(self, "apply_eng", None)
+        have = list(OPERATORS)
+        missing = list(MISSING_ORGAN)
+        # "henüz bağlı değil" etiketleri de VERİDEN gelir (kodda cümle büyümesin).
+        from nora_apply import UNBOUND_LABELS
+        if not (eng and getattr(eng, "rules", None)) and UNBOUND_LABELS.get("rule"):
+            missing.insert(0, UNBOUND_LABELS["rule"])
+        if not (eng and getattr(eng, "chain", None)) and UNBOUND_LABELS.get("chain"):
+            missing.insert(0, UNBOUND_LABELS["chain"])
+        if not (eng and getattr(eng, "aliases", None)) and UNBOUND_LABELS.get("alias"):
+            missing.insert(0, UNBOUND_LABELS["alias"])
+        self._apply_tag("cikarim", 1)
+        return self._say("meta.operator", {
+            "have": ", ".join(have), "n_have": len(have),
+            "missing": ", ".join(missing), "n_missing": len(missing)},
+            fallback="Rejistri boş.")
 
     # ------------------------------------------------------------------ öz-model
     def _self_report(self) -> str:

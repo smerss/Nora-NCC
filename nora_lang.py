@@ -2715,8 +2715,20 @@ class WernickeComprehender:
 
         # '... yol açar' / '... neden olur' / '... sebep olur' (+DAT durum eki yönetir: 'erozyona' -> 'erozyon')
         if ("yol" in rest_words and "açar" in rest_words) or ("neden" in rest_words and "olur" in rest_words) or ("sebep" in rest_words and "olur" in rest_words):
-            cause_obj = self._strip_governed_dative(rest_words[0])
-            return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj, rel="CAUSES", obj=cause_obj)
+            # NEDENSELLİK YAPISI kendi içinde çözülür: nesne, "yol/neden/sebep" sözünden
+            # ÖNCEKİ addır; özne ondan önceki TÜM addır.
+            #   "aşırı sulama tuzlanmaya yol açar" -> özne "aşırı sulama", nesne "tuzlanma"
+            # Yukarıda hesaplanan `subj` burada YETMEZ (tek sözcüğe kırpılmış olabilir).
+            cue = next((i for i, w in enumerate(words) if w in ("yol", "neden", "sebep")), -1)
+            if cue > 0:
+                cause_obj = self._strip_governed_dative(words[cue - 1])
+                cause_subj = self._clean_np(" ".join(words[: cue - 1])) or subj
+            else:
+                cause_subj = subj
+                cause_obj = self._strip_governed_dative(rest_words[0]) if rest_words else ""
+            if cause_subj:
+                self.last_topic = cause_subj
+            return SemanticFrame(kind="teach_fact", raw=s_raw, subj=cause_subj, rel="CAUSES", obj=cause_obj)
 
         # "X, Y'nin zıttıdır" / "X, Y'nin tam tersidir" -> OPPOSITE  (tamlayan + zıt adı + koşaç)
         for opp_word in ("zıttı", "zıddı", "tersi", "karşıtı"):
