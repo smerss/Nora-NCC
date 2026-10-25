@@ -3606,6 +3606,11 @@ def a87_olcum_icadi():
     ok = {}
     reg = Path("nora_operators.json")
     h0 = hashlib.sha256(reg.read_bytes()).hexdigest()
+    # İCAT testi BOŞ envanter ister: geçen koşudan kalan ölçüm, icadı "yeniden
+    # kullanım"a çevirir ve test yanlış şeyi ölçer.
+    Path("runs/operators_self.json").unlink(missing_ok=True)
+    for _k in [k for k in AP.FEATURES if k.startswith("kendi.")]:
+        AP.FEATURES.pop(_k, None)
 
     g = NoraAGI(seed=881, boot_thinker=False)
     g.step_life(150)
@@ -3692,6 +3697,9 @@ def a88_unlu_uyumlu_kalip_icadi():
     ok = {}
     reg = Path("nora_operators.json")
     h0 = hashlib.sha256(reg.read_bytes()).hexdigest()
+    Path("runs/operators_self.json").unlink(missing_ok=True)
+    for _k in [k for k in AP.FEATURES if k.startswith("kendi.")]:
+        AP.FEATURES.pop(_k, None)
 
     g = NoraAGI(seed=891, boot_thinker=False)
     g.step_life(150)
@@ -3739,6 +3747,105 @@ def a88_unlu_uyumlu_kalip_icadi():
     detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
     return passed == len(ok), (f"{passed}/{len(ok)} — {detail} | "
                                f"kalıp={spec.get('arg')} kural={getattr(rule, 'feature', None)}")
+
+
+def a89_olcum_envanteri():
+    """A89 — ÖLÇÜM ENVANTERİ: bir kez icat edilen ölçüm sonraki oturumda HAZIR olur.
+
+    A87/A88 ölçümü İCAT ediyordu ama ölçüm yalnız kendi kuralının içinde yaşıyordu;
+    her yeni problemde sıfırdan icat gerekiyordu. Envanter bunu bitirir: Nora'nın
+    kendi yazdığı ölçüm arama uzayına girer, sonraki oturumda defterden kurulur ve
+    AYNI ölçüm yeni veriye HAZIR uygulanır. Ölçüt:
+    (1) birinci oturum kalıbı icat eder, envanter 1 olur,
+    (2) ölçüm bellekten silinse bile defterden yeniden kurulur (süreç yeniden doğumu),
+    (3) ikinci veri aynı ölçümle çözülür: YENİ İCAT YOK, ölçüm sayısı 1'de kalır,
+    (4) söz "icat ettim" demez; "daha önce yazmıştım / envanter" der,
+    (5) çürütülen ölçüm envanterde KALIR ama bir daha önerilmez,
+    (6) envanter büyür: açıklanamayan yeni veri ikinci ölçümü doğurur,
+    (7) insan rejistrisi ve insan operatör sayısı değişmez.
+    """
+    import hashlib
+    import json
+    from pathlib import Path
+
+    import nora_apply as AP
+
+    ok = {}
+    led = Path("runs/operators_self.json")
+    reg = Path("nora_operators.json")
+    h0 = hashlib.sha256(reg.read_bytes()).hexdigest()
+    led.unlink(missing_ok=True)
+    for _k in [k for k in AP.FEATURES if k.startswith("kendi.")]:
+        AP.FEATURES.pop(_k, None)
+
+    # (1) birinci oturum: kalıbı icat et (somut son ek yok -> ünlü uyumlu kalıp)
+    g1 = NoraAGI(seed=931, boot_thinker=False)
+    g1.step_life(120)
+    g1.converse("Kural çıkar: kitaplık=soyut, tuzluk=soyut, güzellik=soyut, "
+                "bolluk=soyut, portakal=somut, masa=somut, deniz=somut")
+    rule1 = g1.forge.adopted
+    key = str(getattr(rule1, "feature", "") or "")
+    ok["envanter-icat"] = (bool(key) and (getattr(rule1, "feature_spec", None) or {})
+                           .get("kind") == "suffix_pattern")
+    ok["envanter-sayı"] = g1.forge.counts()["measured"] == 1
+
+    # (2) süreç yeniden doğuyor: ölçüm bellekte DEĞİL, defterde
+    if key:
+        AP.FEATURES.pop(key, None)
+    ok["bellek-bos"] = bool(key) and key not in AP.FEATURES
+    g2 = NoraAGI(seed=932, boot_thinker=False)
+    g2.step_life(120)
+    ok["defterden-kuruldu"] = bool(key) and key in AP.FEATURES
+    ok["envanter-arama"] = bool(key) and key in g2.forge.search_features()
+
+    # (3) yeni veri, AYNI ölçüm: yeni icat yok
+    r2 = tr_lower(strip_prefixes(g2.converse(
+        "Kural çıkar: kalemlik=soyut, defterlik=soyut, portakal=somut, bilgisayar=somut")))
+    rule2 = g2.forge.adopted
+    ok["yeniden-kullanım"] = (rule2 is not None and str(rule2.feature) == key
+                              and str(getattr(rule2, "shape", "")) == "presence")
+    ok["yeniden-icat-yok"] = g2.forge.counts()["measured"] == 1
+    # (4) söz dürüst: "icat ettim" değil, "daha önce yazmıştım / envanter"
+    ok["kullanım-söz"] = (("envanter" in r2 or "yazmıştım" in r2 or "daha önce" in r2)
+                          and ("kalıb" in r2 or "kalıp" in r2))
+
+    # (5) dil üzerinden uygulama
+    ok["uygula-uyan"] = "soyut" in tr_lower(strip_prefixes(g2.converse("Kuralı uygula: 'çiçeklik'")))
+
+    # (6) çürütülen ölçüm: envanterde kalır, aranmaz
+    if rule2 is not None:
+        g2.forge.mark_refuted(rule2, "çiçeklik", "somut", "soyut")
+    rec = {}
+    try:
+        blob = json.loads(led.read_text(encoding="utf-8"))
+        rec = next((m for m in (blob.get("self_measurements") or [])
+                    if str(m.get("key")) == key), {})
+    except Exception:
+        rec = {}
+    ok["çürütme-işaretli"] = bool(rec.get("refuted"))
+    ok["çürütülen-aranmaz"] = (bool(key) and key not in g2.forge.search_features()
+                               and key in AP.FEATURES)
+
+    # (7) envanter BÜYÜR: açıklanamayan yeni veri ikinci ölçümü doğurur
+    g3 = NoraAGI(seed=933, boot_thinker=False)
+    g3.step_life(120)
+    # DİKKAT: veri, yerleşik ölçümlerin hiçbiriyle ayrışmamalı. "kanat/ayak" ekleri
+    # sessiz harf sayısını ayırıyordu (ilk yazımda test yanlış yere düştü); burada
+    # dört sözcük de aynı uzunlukta ve aynı ünlü sayısında, tek ortak im 'z'.
+    r3 = tr_lower(strip_prefixes(g3.converse(
+        "Kural çıkar: zeytin=soyut, zambak=soyut, kavun=somut, mendil=somut")))
+    ok["envanter-büyüdü"] = g3.forge.counts()["measured"] == 2
+    ok["ikinci-icat-söz"] = ("icat" in r3 or "yazdım" in r3)
+
+    # (8) insan tarafı sabit
+    ok["insan-sabit"] = (hashlib.sha256(reg.read_bytes()).hexdigest() == h0
+                         and len(AP.OPERATORS) == 9 and g3.forge.counts()["human"] == 9)
+
+    led.unlink(missing_ok=True)
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), (f"{passed}/{len(ok)} — {detail} | "
+                               f"envanter={g3.forge.counts()['measured']} kural={key}")
 
 
 TESTS = {
@@ -3816,6 +3923,7 @@ TESTS = {
     "A86": ("kendi operatörünü çürütme: veri yalanlarsa kural düşer", a86_kendi_operatorunu_duzeltme),
     "A87": ("ölçüm icadı: hiçbir ölçüm ayırmıyorsa yeni ölçüm yazılır", a87_olcum_icadi),
     "A88": ("ünlü uyumlu ek kalıbı: -lık/-lik/-luk/-lük tek morfem", a88_unlu_uyumlu_kalip_icadi),
+    "A89": ("ölçüm envanteri: kendi icat ettiği ölçüm sonraki oturumda hazır", a89_olcum_envanteri),
     "A70": ("kendi çıkarımı: kimse söylemeden türetme + iç monolog", a70_own_inference_and_monologue),
     "A69": ("söz biçimi çeşitliliği, soru alışkanlığının kırılması ve kendi derdi", a69_speech_shape_variety_and_self_interest),
     "A68": ("kulak yolu: ses olayı, gürültüde eksik duyma, etiketsiz kimlik", a68_ear_path_perception),
@@ -3850,6 +3958,16 @@ def core_reply(text: str) -> str:
 
 def main():
     wanted = [k for k in sys.argv[1:] if k in TESTS] or list(TESTS.keys())
+    # HER KOŞU TAZE DÜNYA: geçen koşunun ölçüm envanteri bu koşuyu etkilemesin.
+    # (Kendi ölçüm envanteri testi A89 zaten kendi defterini kurar.)
+    try:
+        from pathlib import Path as _P
+        _P("runs/operators_self.json").unlink(missing_ok=True)
+        import nora_apply as _AP
+        for _k in [k for k in _AP.FEATURES if k.startswith("kendi.")]:
+            _AP.FEATURES.pop(_k, None)
+    except Exception:
+        pass
     t0 = time.time()
     passed = 0
     for k in wanted:

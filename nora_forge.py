@@ -35,10 +35,12 @@ from dataclasses import dataclass
 
 from nora_apply import FEATURES, OPERATORS, Interpreter, Rule, register_feature
 
-#: Tümevarımda taranan ölçümler. Hepsi `nora_apply.FEATURES` içinde tanımlı; burada
-#: yeni bir ölçüm UYDURULMAZ, var olan ölçümler taranır.
-SEARCH_FEATURES = ("vowel_count", "consonant_count", "letter_count", "word_count",
-                   "syllable_count")
+#: İNSANIN verdiği ölçümler. Tümevarım bunlarla başlar; ama tavan değildir: Nora'nın
+#: kendi icat ettiği ölçümler de (envanter) arama uzayına girer — bkz. `search_features`.
+BASE_FEATURES = ("vowel_count", "consonant_count", "letter_count", "word_count",
+                 "syllable_count")
+#: Geriye dönük ad (eski çağıranlar bu adı kullanıyor).
+SEARCH_FEATURES = BASE_FEATURES
 
 #: Eşik taramasının üst sınırı (ölçüm birimi: harf/sözcük). Verinin üstüne kadar +
 #: 2 pay taranır; daha büyük eşikler aynı ayrımı verir, aday şişirir.
@@ -158,6 +160,14 @@ class OperatorForge:
         """Kendi operatörüm ÇÜRÜTÜLDÜ: sessizce silinmez, deftere gerekçesiyle yazılır."""
         if rule is None:
             return
+        # Kural bir ÖLÇÜM üzerinde duruyorsa ve kural yanlışsa, o ölçüm de yanlış
+        # olabilir: envanterde işaretlenir (silinmez), bir daha önerilmez.
+        feat = str(getattr(rule, "feature", "") or "")
+        if feat:
+            for rec in self.measurements:
+                if str(rec.get("key") or "") == feat and not rec.get("refuted"):
+                    rec["refuted"] = {"item": str(item), "actual": str(actual),
+                                      "claimed": claimed, "step": int(self.step)}
         self.refuted.append({"id": getattr(rule, "rid", ""),
                              "desc": getattr(rule, "source_text", ""),
                              "refuted_by": {"item": str(item), "claimed": claimed,
@@ -179,6 +189,26 @@ class OperatorForge:
         except Exception:
             pass
 
+    # ================================================================= envanter
+    def search_features(self) -> tuple:
+        """Taranacak ölçümler: insanın verdikleri + KENDİ icat ettiklerim.
+
+        A87/A88'de icat edilen ölçüm yalnız kendi kuralının içinde yaşıyordu; yani her
+        yeni problemde ölçümü sıfırdan icat etmek gerekiyordu. Envanter bunu bitirir:
+        bir kez yazdığım ölçüm sonraki işlerde HAZIR olur. Böylece insanın verdiği
+        ölçüm listesi yeteneğin tavanı olmaktan çıkar — Nora kendi aletleriyle çalışır.
+
+        Çürütülmüş ölçüm envanterde KALIR (gizlenmez) ama ARANMAZ: yanlış çıkmış bir
+        aleti tekrar önermek, çürütmeyi duymamış olmak demektir.
+        """
+        keys = list(BASE_FEATURES)
+        for rec in self.measurements:
+            k = str(rec.get("key") or "")
+            if not k or rec.get("refuted") or k in keys or k not in FEATURES:
+                continue
+            keys.append(k)
+        return tuple(keys)
+
     @staticmethod
     def human_count() -> int:
         return len(OPERATORS)
@@ -187,6 +217,7 @@ class OperatorForge:
         h, s = self.human_count(), len(self.authored)
         return {"human": h, "self": s, "refuted": len(self.refuted),
                 "measured": len(self.measurements),
+                "measured_refuted": sum(1 for r in self.measurements if r.get("refuted")),
                 "ratio": round(s / max(1, h + s), 4) if (h + s) else 0.0}
 
     # ================================================================= tümevarım
@@ -195,6 +226,7 @@ class OperatorForge:
         self.examples = [(str(t).strip(), str(l).strip().lower())
                          for t, l in pairs if str(t).strip() and str(l).strip()]
         self.adopted = None
+        self.last_measure = {}
         self.cands = self._search(pool)
         return self.decide(pool)
 
@@ -220,9 +252,26 @@ class OperatorForge:
         if len(ex) < 2:
             return []
         found: list[Hypothesis] = []
-        for feat in SEARCH_FEATURES:
+        feats = self.search_features()
+        # Kendi icat ettiğim ölçümler İKİLİDİR (var/yok). Onlara parite/eşik uygulamak
+        # kategorik bir yanlış okuma olurdu: bir son ekin "tek/çift"i yoktur.
+        binary = {str(r.get("key") or "") for r in self.measurements}
+        for feat in feats:
             meas = [(int(FEATURES[feat][1](t)), lab) for t, lab in ex]
             hi = max(n for n, _ in meas)
+
+            if feat in binary:
+                b: dict[str, set] = {}
+                for n, lab in meas:
+                    b.setdefault("var" if int(n) else "yok", set()).add(lab)
+                if len(b) == 2 and all(len(v) == 1 for v in b.values()):
+                    lv, ly = next(iter(b["var"])), next(iter(b["yok"]))
+                    if lv != ly:
+                        spec = next((dict(r.get("spec") or {}) for r in self.measurements
+                                     if str(r.get("key")) == feat), {})
+                        found.append(Hypothesis(feat, "presence",
+                                                (("var", lv), ("yok", ly)), spec=spec))
+                continue
 
             # --- parite: her iki taraf da GÖRÜLMÜŞ ve tek etiketli olmalı
             sides: dict[str, set] = {}
@@ -269,7 +318,7 @@ class OperatorForge:
             # Ölçüm tanım sırası (vowel_count önce) belirleyici: davranışı aynı olan
             # iki yazımdan ADI DAHA TEMEL olan tutulur ("hece" değil "sesli harf").
             try:
-                fi = SEARCH_FEATURES.index(x.feature)
+                fi = feats.index(x.feature)
             except ValueError:
                 fi = 99
             return (fi, _SHAPE_ORDER.get(x.shape, 9), int(x.threshold), str(x.op))
@@ -429,12 +478,20 @@ class OperatorForge:
                 self.eng.last = rule
             except Exception:
                 pass
+        # ÖLÇÜM KAYDI: aynı ölçüm ikinci kez kaydedilmez (envanter şişmez). İlk kez
+        # yazıldıysa "icat", envanterde zaten varsa "yeniden kullanım" — söz bunu
+        # saklamaz (nora_agi `stage`).
+        now = {getattr(x, "feature", "") for x in (getattr(self, "invented_now", []) or [])}
+        self.last_measure = {"key": (h.feature if h.spec else ""),
+                             "invented": bool(h.spec) and h.feature in now,
+                             "reused": bool(h.spec) and h.feature not in now}
         if h.spec:
             try:
-                self.measurements.append({"key": h.feature,
-                                          "name": (FEATURES.get(h.feature) or (h.feature,))[0],
-                                          "spec": dict(h.spec), "origin": "kendi",
-                                          "for_rule": rid, "step": int(self.step)})
+                if not any(str(m.get("key")) == str(h.feature) for m in self.measurements):
+                    self.measurements.append({"key": h.feature,
+                                              "name": (FEATURES.get(h.feature) or (h.feature,))[0],
+                                              "spec": dict(h.spec), "origin": "kendi",
+                                              "for_rule": rid, "step": int(self.step)})
             except Exception:
                 pass
         self.authored.append({

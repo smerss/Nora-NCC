@@ -3317,7 +3317,15 @@ class NoraAGI:
             self.apply_eng.wm.write("last_rule_kind", "kendi", "forge")
             _rule = res.get("rule")
             _spec = getattr(_rule, "feature_spec", None) or {}
-            _stage = "invented" if _spec else "adopted"
+            _lm = getattr(fg, "last_measure", None) or {}
+            # Ölçüm bu turda mı icat edildi, envanterde hazır mıydı? Söz ikisini
+            # ayırır: "icat ettim" ile "daha önce yazmıştım" aynı şey değildir.
+            if _spec and _lm.get("reused"):
+                _stage = "reused"
+            elif _spec:
+                _stage = "invented"
+            else:
+                _stage = "adopted"
             return self._say("meta.forge", {
                 "desc": res.get("desc") or "",
                 "name": (__import__("nora_apply").FEATURES.get(

@@ -214,7 +214,9 @@ class SpeechStyle:
                 text = first
 
         if shape == "kendine":
-            mutter = self._own_mutter(agi)
+            # ÖLÇÜM RAPORUNA MIRILDANMA EKLENMEZ: sayı taşıyan cevap kanıtıyla biter.
+            # "Kayıt: insan 9, kendi 1" dedikten sonra iç ses, raporu süs yapar.
+            mutter = "" if re.search(r"\d", text) else self._own_mutter(agi)
             if mutter:
                 # ÖLÇER: mırıldanmanın çerçevesi tasarımdan (kalıp), İÇERİĞİ bedenden
                 # ya da kendi çıkarımından gelir. Kaynak, sözün nereden doğduğunu söyler.
@@ -238,7 +240,10 @@ class SpeechStyle:
                     text = f"{text.rstrip()} {mutter}"
 
         if shape == "cevap+düşünce":
-            thought = self._own_thought(agi, text=text, topic=topic)
+            # ÖLÇÜM RAPORUNUN ARKASINA İLGİSİZ DÜŞÜNCE EKLENMEZ: "7 örnek tutuyor,
+            # kayıt: insan 9" diyen bir cümleden sonra başka konudan bir iç ses,
+            # raporu süs gibi gösterir. Sayı taşıyan cevap kapanır.
+            thought = "" if re.search(r"\d", text) else self._own_thought(agi, text=text, topic=topic)
             if thought:
                 self._tag(agi, "cikarim")
                 text = f"{text.rstrip()} {thought}"
