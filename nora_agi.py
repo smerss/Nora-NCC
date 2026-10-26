@@ -265,17 +265,23 @@ class ComparativeOrderGraph:
                     frontier.append((l, npath))
         return False, []
 
-    def extremum(self, prop: str, maximum: bool = True) -> str | None:
+    def extremum_all(self, prop: str, maximum: bool = True) -> list[str]:
+        """Bütün uç adaylar. Birden çoksa sıralama TAM DEĞİLDİR (uydurulmaz)."""
         p = tr_lower(prop).strip()
         edges = self.orders.get(p, [])
         if not edges:
-            return None
+            return []
         nodes = {g for g, _ in edges} | {l for _, l in edges}
         if maximum:
             cands = [x for x in nodes if not any(l == x for _, l in edges)]
         else:
             cands = [x for x in nodes if not any(g == x for g, _ in edges)]
-        return cands[0] if len(cands) == 1 else (cands[0] if cands else None)
+        return sorted(cands)
+
+    def extremum(self, prop: str, maximum: bool = True) -> str | None:
+        """TEK uç varsa onu döndür. İki aday kalıyorsa None: keyfî seçim yapılmaz."""
+        cands = self.extremum_all(prop, maximum=maximum)
+        return cands[0] if len(cands) == 1 else None
 
 
 class _NoMint(Exception):
@@ -492,16 +498,22 @@ class NoraAGI:
         # KİŞİSEL BELLEK: karşıdakinin söylediği olgular (dünya grafiğinden AYRI).
         # A54'ün şartı korunur: anlatı kavram ağını kirletmez; ama unutulmaz da.
         try:
-            from nora_episodic import PersonalMemory
+            from nora_episodic import PersonalMemory, Testimony
             self.person_mem = PersonalMemory()
+            # TANIKLIK: başkasından aktarılan olgular; iki tanık çelişirse İKİSİ söylenir.
+            self.testimony = Testimony()
         except Exception:
             self.person_mem = None
+            self.testimony = None
         # OPERATÖR SENTEZİ: dönüşümü Nora örneklerden kendi yazar (insan operatörü +0).
         try:
             self.synth = Synthesizer() if Synthesizer is not None else None
         except Exception:
             self.synth = None
         self._synth_last_reply = ""
+        # PLAN DEFTERİ: kullanıcının verdiği adımlar; koşul değişince YENİDEN kurulur.
+        self.plans: dict[str, list[str]] = {}
+        self._plan_goal = ""
         # KÜME ORGANI: kesişim/birleşim/fark elle yazılmadı; aksiyomlardan sentezlenir.
         try:
             self.sets = SetSynth() if SetSynth is not None else None
@@ -1244,6 +1256,16 @@ class NoraAGI:
                 self._learned_facts = self.person_mem.observe(raw, speaker=speaker) or []
         except Exception:
             self._learned_facts = []
+        # ÖZ-TAHMİN: "bunu yapabilir misin?" -> organ envanterine bakarak cevap.
+        # (Söz vermek kanıt değildir; ama sözün NEREDEN geldiği ölçülebilir olmalı.)
+        try:
+            _pred = self._predict_turn(raw)
+        except Exception:
+            _pred = None
+        if _pred:
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _pred, t0)
+            return _pred
         # OPERATÖR SENTEZİ: "kitap -> patik, kalem -> melak" gibi ÖRNEK verilirse
         # dönüşümü Nora kendi yazar; "dönüşümü uygula: deniz" derse yazdığını çalıştırır.
         try:
@@ -1262,6 +1284,40 @@ class NoraAGI:
             self._intent_locked = True
             self._log_turn(speaker, raw, _set, t0)
             return _set
+        try:
+            _gen = self._constrained_turn(raw)
+        except Exception:
+            _gen = None
+        if _gen:
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _gen, t0)
+            return _gen
+        try:
+            _plan = self._plan_turn(raw)
+        except Exception:
+            _plan = None
+        if _plan:
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _plan, t0)
+            return _plan
+        # TANIKLIK: "Ayşe bana X'in Y olduğunu söyledi" -> kaynak + olgu.
+        _testi = []
+        try:
+            if getattr(self, "testimony", None) is not None:
+                self.testimony.turn = len(getattr(self, "dialogue_log", []) or [])
+                _testi = self.testimony.observe(raw) or []
+        except Exception:
+            _testi = []
+        if _testi:
+            _r0 = _testi[-1]
+            self._intent_locked = True
+            _ts = self._say("memory.testimony",
+                            {"src": _r0.get("src", ""), "subj": _r0.get("subj", ""),
+                             "val": _r0.get("val", "")},
+                            ctx={"kind": "learned"}, fallback="")
+            if _ts:
+                self._log_turn(speaker, raw, _ts, t0)
+                return _ts
         self.life.on_interaction(self, raw, speaker)
         # Kullanıcı, Nora'nın kendiliğinden söylediği söze karşılık verdi: o konuşma türü pekişir.
         try:
@@ -1319,7 +1375,9 @@ class NoraAGI:
             self._log_turn(speaker, raw, _tr0, t0)
             return _tr0
 
-        _clock_q = any(k in _tl for k in ("saat kaç", "saat kaçtır", "saat kaç oldu"))
+        # "saat kaçTA" bir SAAT SORUSU DEĞİL, bir olayın saatidir ("toplantı saat kaçta?").
+        # Alt-dizgi eşleşmesi bunu saat sorusu sanıp "Şu an 15:23" diyordu: soru gaspı.
+        _clock_q = bool(re.search(r"saat kaç(?!ta|da|tı|dı)\b", _tl))
         _elapsed_q = any(k in _tl for k in (
             "ne kadar oldu", "ne kadar zaman oldu", "ne zamandır", "ne kadar süredir",
             "kaç dakika oldu", "kaç saat oldu", "ne kadar süre"))
@@ -1400,7 +1458,7 @@ class NoraAGI:
             self._log_turn(speaker, raw, _ack, t0)
             return _ack
         try:
-            _pm = self._recall_personal(raw)
+            _pm = self._recall_testimony(raw) or self._recall_personal(raw)
         except Exception:
             _pm = None
         if _pm:
@@ -3594,6 +3652,252 @@ class NoraAGI:
         _ops = " · ".join(res["entry"]["ops"])
         return f"{_lab}: {', '.join(chars)}. ({_ops})"
 
+    # ------------------------------------------------------------------ plan
+    #: Plan cümlesi: "Çay planı: 1 su kaynat. 2 çayı demle. 3 süt ekle."
+    _PLAN_DECL = re.compile(r"plan\w*\s*:\s*(.+)$", re.I)
+    _PLAN_STEP = re.compile(r"(?:\d+\s*[.)]\s*|,\s*|;\s*)")
+
+    def _plan_knowledge(self, goal: str) -> bool:
+        """Hedef hakkında adım üretecek bilgi var mı? Grafikte kenar yoksa YOK.
+
+        "Çay yapmayı planla" isteğine genel bir şablon (durum/topla/doğrula) yazmak
+        plan değil, plan taklididir. Bilgi yoksa söylenir.
+        """
+        try:
+            return any(tr_lower(goal) in (e.subj + " " + e.obj).lower()
+                       for e in self.lang.graph.edges)
+        except Exception:
+            return False
+
+    def _plan_turn(self, raw: str) -> str | None:
+        """Adımları AL, koşul değişince yeniden KUR — eski adımı sessizce tekrarlama.
+
+        Plan, sistemin kendi genel çatısından değil kullanıcının verdiği adımlardan
+        gelir; revizyon da o adımlar üzerinde yapılan bir ELEME değil, koşula göre
+        yeniden kurmadır. Adım kalmıyorsa plan yok denir.
+        """
+        tl = tr_lower(raw or "")
+        if "plan" not in tl:
+            return None
+        # A) PLAN KUR: "… planı: 1 … 2 … 3 …"
+        m = self._PLAN_DECL.search(raw)
+        if m and ("planla" not in tl or ":" in raw):
+            body = tr_lower(m.group(1))
+            if re.search(r"\d\s*[.)]", body):
+                parts = re.split(r"\s*\d+\s*[.)]\s*", body)
+            elif re.search(r"(?:^|\s)1\s", body):
+                parts = re.split(r"\s*\d+\s+", body)
+            else:
+                parts = re.split(r"\s*[,;]\s*|\s+ve\s+", body)
+            steps = [x.strip(" .;") for x in parts if x.strip(" .;")]
+            steps = [x for x in steps if len(x) > 2]
+            if len(steps) >= 2:
+                goal = tl.split("plan")[0].strip(" :,.;")
+                goal = re.sub(r"\b(?:için|adımda|adımlık|bir|üç|iki|dört|beş)\b", " ", goal)
+                goal = " ".join(goal.split()).strip(" '’‘\"“”:,.;[]()") or "plan"
+                self._plan_goal = goal
+                self.plans[goal] = steps
+                _num = " | ".join(f"{i + 1}. {x}" for i, x in enumerate(steps))
+                return self._say("plan.report", {"goal": goal, "steps": _num,
+                                                "n": len(steps)},
+                                 ctx={"kind": "steps_built"}, fallback="") or _num
+        # A2) ADIMSIZ PLAN İSTEĞİ: "çay yapmayı üç adımda planla"
+        # "hedef belirle ve planla" SOYUT bir istektir (hedef verilmemiş): genel plan
+        # makinesi onu kurar. A2 yalnız SOMUT hedef ("çay yapmayı planla") içindir.
+        if not m and ("planla" in tl or "plan kur" in tl) and not (
+                "hedef" in tl and "belirle" in tl):
+            goal = re.sub(r"\b(?:yapmayı|yapmak|için|adımda|adımlık|bir|üç|iki|dört|beş|"
+                          r"planla|plan|kur|hedef|belirle|ve)\b", " ", tl)
+            goal = " ".join(goal.split()).strip(" '’‘\"“”:,.;[]()")
+            if goal and goal not in self.plans and not self._plan_knowledge(goal):
+                return self._say("plan.report", {"goal": goal}, ctx={"kind": "unknown"},
+                                 fallback="") or None
+        # B) REVİZYON: "süt kalmamış, planı değiştir"
+        if ("kalmamış" in tl or "kalmadı" in tl or "yok" in tl) and any(
+                k in tl for k in ("planı değiştir", "planı yenile", "planı güncelle",
+                                  "değiştir", "yenile")):
+            if not self.plans:
+                return self._say("plan.report", {"goal": self._plan_goal},
+                                 ctx={"kind": "none"}, fallback="") or None
+            goal = self._plan_goal
+            old = list(self.plans.get(goal) or [])
+            missing = []
+            for cand in ("süt", "şeker", "su", "un", "yağ", "yumurta", "tuz"):
+                if cand in tl and any(cand in s for s in old):
+                    missing.append(cand)
+            if not missing:
+                missing = [w for w in re.findall(r"(\w{3,})", tl)
+                           if any(w in st for st in old)]
+            if not missing:
+                _cur = " | ".join(f"{i + 1}. {x}" for i, x in enumerate(old))
+                return self._say("plan.report", {"goal": goal, "steps": _cur},
+                                 ctx={"kind": "already"}, fallback="") or None
+            new = [s for s in old if not any(mm in s for mm in missing)]
+            self.plans[goal] = new
+            if not new:
+                return self._say("plan.report", {"goal": goal, "removed": ", ".join(missing)},
+                                 ctx={"kind": "empty"}, fallback="") or None
+            _num = " | ".join(f"{i + 1}. {x}" for i, x in enumerate(new))
+            return self._say("plan.report", {"goal": goal, "steps": _num, "n": len(new),
+                                            "removed": ", ".join(missing),
+                                            "old_n": len(old)},
+                             ctx={"kind": "steps_revised"}, fallback="") or _num
+        return None
+
+    # ------------------------------------------------------------------ öz-tahmin
+    def _predict_turn(self, raw: str) -> str | None:
+        """'Bunu yapabilir misin?' — cevap ENVANTERDEN gelir, iyimserlikten değil.
+
+        Tahmin, hangi organın devreye gireceği söylenerek yapılır. Organ yoksa
+        'yapabilirim' denmez; hangi organın gireceği bilinmiyorsa söz verilmez.
+        """
+        tl = tr_lower(raw or "")
+        # Yalnız GÖREV fiilleriyle kurulmuş yetenek soruları ("yapabilir misin",
+        # "getirebilir misin"); "yağmur olabilir mi" gibi tahmin cümleleri değil.
+        if not re.search(r"\b(?:yap|getir|başar|halled|çöz|kur|yaz|hesapla|bul)"
+                         r"\w*(?:abilir|ebilir)\s+mi\w*", tl):
+            return None
+        # Görev kısmı: iki nokta sonrası ya da tırnak içi.
+        _task = ""
+        m = re.search(r":\s*(.+)$", raw)
+        q = re.findall(r"['‘’“\"]([^'‘’“”\"]{2,40})['‘’“\"]", raw)
+        if m:
+            _task = m.group(1).strip()
+        elif q:
+            _task = q[0].strip()
+        _task = _task.strip(" '’‘\"“”?.,")
+        if not _task:
+            return None
+        _low = tr_lower(_task)
+        organ = ""
+        if "ters" in _low and ("yaz" in _low or "çevir" in _low):
+            organ = "ters çevir"
+        elif "ortak" in _low or "harf" in _low:
+            organ = "küme"
+        elif "kural" in _low or "örnek" in _low:
+            organ = "kural çıkarma"
+        elif "öğren" in _low or "öğret" in _low:
+            organ = "tek atış öğrenme"
+        if organ:
+            return self._say("meta.reasoning", {"task": _task, "organ": organ},
+                             ctx={"kind": "predict_yes"}, fallback="") or None
+        return self._say("meta.reasoning", {"task": _task},
+                         ctx={"kind": "predict_unknown"}, fallback="") or None
+
+    # ------------------------------------------------------------------ kısıtlı üretim
+    #: Kısıt denetimli üretimde kullanılan çatılar. Her biri (fiil, hâl, ön-ulaç)
+    #: üçlüsüdür; cümleyi `SYN` kurar, kelimeler veriden gelir. Çatı, o sözcükle
+    #: ANLAMCA uyumluysa kullanılır (aşağıdaki `_sem_ok`), değilse atlanır.
+    _GEN_FRAMES = (
+        ("oku", "NOM", "her akşam"),
+        ("oku", "ACC", "dün akşam"),
+        ("iste", "ACC", "çok"),
+        ("bitir", "ACC", "dün akşam"),
+    )
+    #: Her sözcüğe uyan güvenli çatı: "bugün X hakkında konuşalım".
+    _GEN_SAFE = ("konuş", "bugün")
+
+    def _sem_ok(self, word: str, verb: str) -> bool:
+        """Çatı bu sözcükle anlamca uyumlu mu? Kanıt grafikte; yoksa çatı KULLANILMAZ.
+
+        "deniz okurum" gramatikti ama anlamsızdı. Uyum, sözcüğün grafikteki
+        kullanım ilişkisinden okunur; kanıt yoksa iddia edilmez.
+        """
+        try:
+            edges = [e for e in self.lang.graph.edges
+                     if tr_lower(word) in (e.subj + " " + e.obj).lower()]
+        except Exception:
+            return False
+        text = " ".join(f"{e.rel} {e.obj}" for e in edges).lower()
+        if verb == "oku":
+            return any(k in text for k in ("bilgi", "okuma", "aktarma", "öğrenme", "yazı"))
+        return False
+
+    def _constrained_turn(self, raw: str) -> str | None:
+        """Verilen koşullara UYAN cümleyi kur, sonra kendi kısıtını DENETLE.
+
+        "İçinde X geçen ama Y geçmeyen bir cümle kur" bir üretim kısıtıdır: cümle
+        seçilmez, KURULUR ve kuralın sağlandığı üretimden sonra ölçülür. Koşulu
+        sağlayan çatı yoksa uydurulmaz.
+        """
+        tl = tr_lower(raw or "")
+        if not any(k in tl for k in ("cümle kur", "cümle yaz", "bir cümle")):
+            return None
+        if "geçen" not in tl and "içeren" not in tl and "geçsin" not in tl:
+            return None
+        words = re.findall(r"['‘’“\"]([^'‘’“”\"]{2,24})['‘’“\"]", raw)
+        if len(words) < 2:
+            return None
+        # "X geçen ama Y geçmeyen" sırası: ilk kelime ZORUNLU, ikincisi YASAK.
+        _req, _ban = words[0].strip(), words[1].strip()
+        if tl.index(tr_lower(_ban)) < tl.index(tr_lower(_req)):
+            _req, _ban = _ban, _req
+        def _fits(cand: str) -> bool:
+            low_c = tr_lower(cand)
+            return bool(cand) and (tr_lower(_req) in low_c) and (tr_lower(_ban) not in low_c) \
+                and len(cand.split()) >= 4 and "?" not in cand
+
+        for verb, case, pre in self._GEN_FRAMES:
+            if not self._sem_ok(_req, verb):
+                continue                      # anlamca uyumsuz çatı denenmez
+            try:
+                cand = self._synth_say(VerbSpec(verb, obj=NP(_req, case=case),
+                                                pre_clause=pre, tense="AOR", person="1SG"))
+            except Exception:
+                cand = ""
+            if _fits(cand):                   # KENDİ KISITINI DENETLER
+                return cand[0].upper() + cand[1:] + "."
+        # Güvenli çatı: her addla anlamlı ("bugün X hakkında konuşalım").
+        _v, _pre = self._GEN_SAFE
+        try:
+            cand = self._synth_say(VerbSpec(_v, obj=NP(_req, post="hakkında"),
+                                            pre_clause=_pre, tense="OPT", person="1PL"))
+        except Exception:
+            cand = ""
+        if _fits(cand):
+            return cand[0].upper() + cand[1:] + "."
+        return self._say("meta.reasoning", {"req": _req, "ban": _ban},
+                         ctx={"kind": "gen_none"}, fallback="") or None
+
+    def _recall_testimony(self, raw: str) -> str | None:
+        """Başkasından aktarılan olgu: iki tanık çelişiyorsa İKİSİ de söylenir.
+
+        "Hangi tanığa inanayım" sorusunun cevabı veride yoktur; bu yüzden sistem
+        sessizce son duyduğunu seçmez. Tek tanık varsa tek, iki değer varsa çelişki.
+        """
+        tm = getattr(self, "testimony", None)
+        if tm is None:
+            return None
+        # BİLDİRİM CEVAP DEĞİLDİR: "Ayşe bana ... söyledi" bir soru değildir; onu
+        # hatırlama sorusu sanıp cevaplamak, kullanıcının sözünü gasp etmektir.
+        _lt = tr_lower(raw or "")
+        if "?" not in (raw or "") and not any(k in _lt for k in (
+                "kaçta", "kaç", "ne zaman", "nedir", "neydi", "hangi", "kim", "mi")):
+            return None
+        hit = None
+        try:
+            hit = tm.query(raw)
+        except Exception:
+            return None
+        if not hit:
+            return None
+        vals = hit.get("vals") or []
+        if not vals:
+            return None
+        if hit.get("conflict"):
+            (s1, v1), (s2, v2) = vals[0], vals[1]
+            _ts = self._say("memory.testimony",
+                            {"subj": hit["subj"], "src1": s1, "val1": v1,
+                             "src2": s2, "val2": v2},
+                            ctx={"kind": "conflict"}, fallback="")
+            if _ts:
+                return _ts
+        src, val = vals[0]
+        _ts = self._say("memory.testimony",
+                        {"subj": hit["subj"], "src": src, "val": val},
+                        ctx={"kind": "single"}, fallback="")
+        return _ts or None
+
     def _synth_program(self):
         """Yazılmış son dönüşüm programı (yeni oturumda defterden geri kurulur)."""
         sy = getattr(self, "synth", None)
@@ -3702,8 +4006,10 @@ class NoraAGI:
 
         # B2) TERS YAZIM: ilkellerden biri zaten "ters çevir"; operatör var.
         if "ters" in tl and len(raw.split()) <= 8:
-            ws = re.findall(r"['‘’“\"]([^'‘’“”\"]{2,24})['‘’“\"]", raw) or \
-                 re.findall(r":\s*([\wçğıöşü]{2,24})", raw)
+            ws = (re.findall(r"['‘’“\"]([^'‘’“”\"]{2,24})['‘’“\"]", raw) or
+                  re.findall(r":\s*([\wçğıöşü]{2,24})", raw) or
+                  re.findall(r"([\wçğıöşü]{2,24})['’]?[ıiuü]?\s+sözcü", tl) or
+                  re.findall(r"(?:tersten|tersini)\s+(?:yaz\s+)?[:]?\s*([\wçğıöşü]{2,24})", tl))
             if ws:
                 w = ws[-1].strip()
                 _p = next((p for p in [Program.from_spec(["ters çevir"])] if p), None)
@@ -4450,8 +4756,9 @@ class NoraAGI:
         sk = float(pr.get("iskelet_orani", 0.0) or 0.0)
         # Öz-model DÜĞÜMLERİ: kavram grafiğinde "nora" düğümü ve canlı ölçüm kenarları.
         n_self = self._sync_self_graph()
-        weak_kind = "meta.self_weak.high" if sk > 0.4 else "meta.self_weak.low"
-        weak = self._say(weak_kind, fallback="kapsam dar")
+        weak_kind = "meta.self_weak"
+        weak_ctx = {"kind": "high" if sk > 0.4 else "low"}
+        weak = self._say(weak_kind, ctx=weak_ctx, fallback="kapsam dar")
         self._apply_tag("cikarim", 1)
         return self._say("meta.self_report", {
             "n_mod": len(mods), "n_edges": n_edges, "n_rules": rules, "wm": wm_load,
@@ -4608,8 +4915,9 @@ class NoraAGI:
                 eng.wm.write("plan_steps", steps, "plan")
                 self._apply_tag("islem", 2)
                 _body = "; ".join(f"{x['i']}.{x['act']}" for x in steps)
-                _kind = "plan.revised" if "değiştir" in tl else "plan.built"
-                return self._say(_kind, {"n": len(steps), "steps": _body}, fallback="Plan hazır.")
+                _kind = "revised" if "değiştir" in tl else "built"
+                return self._say("plan.report", {"n": len(steps), "steps": _body},
+                                 ctx={"kind": _kind}, fallback="Plan hazır.")
 
         # (2) SAYIM: "N tane say" / "say"
         if "say" in tl and not any(k in tl for k in ("sayı", "söyle")):
@@ -4961,7 +5269,8 @@ class NoraAGI:
                 return f"Hayır, tam tersine {b}, {morph.inflect_noun(a, 'ABL')} daha {morph.inflect_noun(prop, 'NOM', copula=True)}."
             return f"{tr_capitalize(a)} ile {b} arasında '{prop}' açısından yeterli karşılaştırma bilgim yok."
 
-        m_ext = re.match(r"^en\s+([\wçğıöşü]+)\s+(?:olan\s+)?(?:hangisi|hangisidir|nedir|kimdir)$", s_clean)
+        m_ext = re.match(r"^en\s+([\wçğıöşü]+)\s+(?:olan\s+)?"
+                         r"(?:hangisi|hangisidir|nedir|kimdir|kim)$", s_clean)
         if m_ext:
             prop = morph.analyze_word(m_ext.group(1), lex)["stem"]
             top = self.comp_graph.extremum(prop, maximum=True)
@@ -4969,6 +5278,15 @@ class NoraAGI:
                 top = self.comp_graph.extremum(antonym_axis[prop], maximum=False)
             if top:
                 return f"Öğrendiğim sıralamaya göre en {prop} olan {morph.inflect_noun(top, 'NOM', copula=True)}."
+            # BELİRSİZLİK SÖYLENİR: iki ayrı uç varsa keyfî birini seçmek yalan olurdu.
+            _cands = self.comp_graph.extremum_all(prop, maximum=True)
+            _kind = "ambiguous" if len(_cands) > 1 else "unknown"
+            _rt = self._say("meta.reasoning",
+                            {"prop": prop, "cands": ", ".join(_cands[:3])},
+                            ctx={"kind": "top_ambiguous" if _kind == "ambiguous"
+                                 else "top_unknown"}, fallback="")
+            if _rt:
+                return _rt
 
         m_cmp_decl = re.match(r"^([\wçğıöşü]+)\s+([\wçğıöşü]+?)(?:dan|den|tan|ten)\s+(?:daha\s+)?([\wçğıöşü]+)$", s_clean)
         if (m_cmp_decl and not has_q and m_cmp_decl.group(1) not in {"ben", "sen", "biz", "bugün"}
@@ -5127,6 +5445,8 @@ class NoraAGI:
             "person_mem": (self.person_mem.state_dict() if getattr(self, "person_mem", None) is not None else {}),
             "synth": (self.synth.state_dict() if getattr(self, "synth", None) is not None else {}),
             "sets": (self.sets.state_dict() if getattr(self, "sets", None) is not None else {}),
+            "testimony": (self.testimony.state_dict() if getattr(self, "testimony", None) is not None else {}),
+            "plans": {"goal": self._plan_goal, "steps": list(self.plans.get(self._plan_goal) or [])},
         }
         # ATOMİK YAZMA: önce .tmp, sonra os.replace. Yazma yarıda kesilirse ESKİ sağlam
         # dosya yerinde kalır (tek satır kaybı bile olmaz; yarım beyin yüklenmez).
@@ -5221,6 +5541,12 @@ class NoraAGI:
                 agi.synth.load_state_dict(meta.get("synth") or {})
             if getattr(agi, "sets", None) is not None:
                 agi.sets.load_state_dict(meta.get("sets") or {})
+            if getattr(agi, "testimony", None) is not None:
+                agi.testimony.load_state_dict(meta.get("testimony") or {})
+            _pl = meta.get("plans") or {}
+            if _pl.get("steps"):
+                agi._plan_goal = str(_pl.get("goal") or "")
+                agi.plans[agi._plan_goal] = [str(x) for x in _pl["steps"]]
         except Exception:
             pass
         if os.path.exists(path_prefix + ".voice.pkl.gz"):

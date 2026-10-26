@@ -4367,6 +4367,60 @@ def a96_kume_sentezi():
 
 
 
+
+def a97_cephe_hatti():
+    """A97 — CEPHE HATTI: sınır haritasının N11–N15 sondaları bataryada da dursun.
+
+    Bu beş yetenek `heldout_negatif.py`te dışarıdan ölçüldü; burada regresyon için
+    aynı davranışlar içeriden de sınanır. Ortak kural: yetenek yoksa UYDURMA yok.
+    """
+    ok = {}
+    # (1) GEÇİŞLİ KIYAS
+    g = NoraAGI(seed=1911, boot_thinker=False)
+    g.step_life(150)
+    g.converse("Ali Veli'den uzun. Veli Can'dan uzun.")
+    ok["geçişli-kıyas"] = "ali" in tr_lower(strip_prefixes(g.converse("En uzun kim?")))
+    # belirsizlik: iki kopuk zincir -> tek ad seçilmez
+    g2 = NoraAGI(seed=1912, boot_thinker=False)
+    g2.step_life(150)
+    g2.converse("Ayşe Zeynep'ten uzun.")
+    g2.converse("Mert Kaan'dan uzun.")
+    r_amb = tr_lower(strip_prefixes(g2.converse("En uzun kim?")))
+    ok["uç-belirsiz"] = ("iki aday" in r_amb) or ("bilmiyorum" in r_amb) or ("duymadım" in r_amb)
+
+    # (2) PLAN REVİZYONU
+    g3 = NoraAGI(seed=1913, boot_thinker=False)
+    g3.step_life(150)
+    g3.converse("Çay planı: 1 su kaynat. 2 çayı demle. 3 süt ekle.")
+    r_plan = strip_prefixes(g3.converse("Süt kalmamış, planı değiştir."))
+    ok["plan-revize"] = ("süt" not in tr_lower(r_plan).split(":")[-1]) and ("kaynat" in tr_lower(r_plan))
+    # (3) KISITLI ÜRETİM
+    g4 = NoraAGI(seed=1914, boot_thinker=False)
+    g4.step_life(150)
+    r_gen = strip_prefixes(g4.converse("İçinde 'kitap' geçen ama 'okul' geçmeyen bir cümle kur."))
+    low = tr_lower(r_gen)
+    ok["kısıtlı-üretim"] = ("kitap" in low) and ("okul" not in low) and len(r_gen.split()) >= 4
+    # (4) ÖZ-TAHMİN: tahmin = sonuç
+    g5 = NoraAGI(seed=1915, boot_thinker=False)
+    g5.step_life(150)
+    pred = tr_lower(strip_prefixes(g5.converse(
+        "Karmaşık bir isteği yerine getirebilir misin: 'zümrüt' sözcüğünü tersten yaz?")))
+    did = "türmüz" in tr_lower(strip_prefixes(g5.converse("zümrüt sözcüğünü tersten yaz.")))
+    ok["öz-tahmin-tutar"] = (("yapabilirim" in pred) or ("evet" in pred)) and did
+    # (5) KAYNAK ÇELİŞKİSİ
+    g6 = NoraAGI(seed=1916, boot_thinker=False)
+    g6.step_life(150)
+    g6.converse("Ayşe bana toplantının saat üçte olduğunu söyledi.")
+    g6.converse("Mehmet bana toplantının saat beşte olduğunu söyledi.")
+    r_t = tr_lower(strip_prefixes(g6.converse("Toplantı saat kaçta?")))
+    ok["kaynak-çelişkisi"] = ("üç" in r_t and "beş" in r_t) and ("ayşe" in r_t or "mehmet" in r_t)
+
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
+
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -4450,6 +4504,7 @@ TESTS = {
     "A94": ("kişisel bellek: duyduğunu unutmaz, uydurduğunu yazmaz", a94_kisisel_bellek_ve_tek_atis),
     "A95": ("operatör sentezi: dönüşümü örneklerden Nora yazar", a95_operator_synthesis),
     "A96": ("küme operatörü sentezi: kesişim aksiyomdan seçilir", a96_kume_sentezi),
+    "A97": ("cephe hattı: kıyas · plan · kısıtlı üretim · öz-tahmin · tanık", a97_cephe_hatti),
     "A70": ("kendi çıkarımı: kimse söylemeden türetme + iç monolog", a70_own_inference_and_monologue),
     "A69": ("söz biçimi çeşitliliği, soru alışkanlığının kırılması ve kendi derdi", a69_speech_shape_variety_and_self_interest),
     "A68": ("kulak yolu: ses olayı, gürültüde eksik duyma, etiketsiz kimlik", a68_ear_path_perception),
