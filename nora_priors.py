@@ -85,6 +85,20 @@ class MotorAssembly:
     wins: int = 0
     losses: int = 0
 
+    @property
+    def fields(self) -> set:
+        """Metindeki {yuva} adları (bir kez hesaplanır)."""
+        cache = self.__dict__.get("_fields")
+        if cache is None:
+            try:
+                from string import Formatter
+                cache = {nm for _lit, nm, _spec, _conv in Formatter().parse(self.text or "")
+                         if nm and nm.isidentifier()}
+            except Exception:
+                cache = set()
+            self.__dict__["_fields"] = cache
+        return cache
+
     # ------------------------------------------------------------------ uygunluk
     def matches(self, ctx: dict, slots: dict) -> bool:
         c = ctx or {}
@@ -130,6 +144,11 @@ class MotorAssembly:
                 return False
         for k in (self.need or []):
             if not str((slots or {}).get(k, "") or "").strip():
+                return False
+        # SLOT BÜTÜNLÜĞÜ: metindeki her {yuva} verilmiş olmalı. Aksi hâlde cümle
+        # boşluklarla ("Kayıtlı  operatörüm var: .") çıkar — bu, sessiz bir yalandır.
+        for f in (self.fields or ()):  # type: ignore[attr-defined]
+            if f not in (slots or {}):
                 return False
         return True
 
