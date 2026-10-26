@@ -1950,3 +1950,79 @@ ilerlemesini bildiriyor. Hedef bitince sessizce kapanıyor.
 | sınır haritası | **20/20 · 20/20** (taban donduruldu) |
 | `nora_audit.py --check` | **1122 / SÖYLEM 127, fark +0** |
 | prior türü / insan operatörü | 67 / 9 = **7.44** |
+
+
+---
+
+## Aşama AJ — Kendi yazdığı operatör ve hedef yığını (N25/N27)
+
+Bu turda harita iki yönde büyüdü: **operatör yazımı** (mandatın metriği) ve
+**hedef sürekliliği** (kesintiye rağmen kaldığı yerden devam).
+
+### AJ1. Süzgeç: ilkellerin yetmediği yerde yazılan operatör (N25)
+
+`nora_synth` bugüne kadar yalnız mevcut ilkelleri (ters çevir, sırala, dilimle)
+birleştiriyordu. "kitap → ktp / kalem → klm" örnekleri bu uzayın HİÇBİR yerinde
+yok: hiçbir sıralama/dilim işlemi "harfi kendi özelliğine göre seç" demiyor.
+
+Çözüm, uzayı büyütmek değil **kombinator eklemek** oldu:
+
+```
+süzgeç(yüklem, tut|at)      # insanın yazdığı: TEK mekanizma
+sesli/sessiz                # Nora'nın harf sınıfları (zaten vardı)
+```
+
+Hangi yüklemin seçileceğine örnekler karar veriyor. İlk koşu:
+
+```
+S: Şu dönüşümü öğren: kitap -> ktp, kalem -> klm.
+N: dönüşümü kendim yazdım: sesli harfleri at. program örnekleri açıklıyor (2/2). deniz -> dnz.
+S: Yazdığın dönüşümü uygula: Portakal
+N: Portakal -> Prtkl (sesli harfleri at).
+```
+
+Kaydet/yükle sonrası operatör **duruyor** (`yıldız -> yldz`), çünkü program adı
+ilkellerin kayıt defterinde: `from_spec` süzgeçleri de yeniden kuruyor.
+
+Uzayda çözümü olmayan dönüşümde dürüstlük korunuyor:
+`kitap -> kitapx` (sonuna harf ekle) hiçbir ilkel/kompozisyon/süzgeçle çıkmıyor →
+"örneklerden program çıkarmadım".
+
+### AJ2. Hedef yığını: kesinti hedefi silmez (N27)
+
+N24 tek hedefi taşıyordu; yeni hedef gelince eskisi **silinirdi**. Artık hedefler
+yığın:
+
+```
+S: Hedefin: beş tur ... bir harfin okunuşunu öğret.
+N: Hedefi aldım: 5 tur, her turda bir harf. Kendim hatırlatacağım.
+S: Kendini nasıl hissediyorsun?
+N: ... Hedefim sürüyor (1/5): 'k' harfi 'ke' diye okunur.
+S: Hedefin: üç tur ... bir sayının iki katını söyle.
+N: İkinci hedefi aldım: 3 tur, her turda bir sayı. Öteki hedefim sırada bekliyor.
+   (üç dolgu turu) ... (1/3) 1 sayısının iki katı 2 ... (3/3) 3 sayısının iki katı 6
+S: Bugün hava nasıl bilmiyorum, sen ne dersin?
+N: ... Bekleyen hedefime dönüyorum (1/5).
+   (sonraki tur) ... (2/5) 'l' harfi 'le' diye okunur.
+```
+
+Dönüş **sıfırdan değil**, bırakıldığı sayaçtan. İkinci hedef türü (sayı) yalnız
+veri: `_GOAL_KINDS` ve iki prior; mantık aynı.
+
+### AJ3. Ölçüler
+
+| ölçüm | sonuç |
+|---|---|
+| `agi_battery.py` (100 test) | **100/100 GEÇTİ, 395.2 s** |
+| sınır haritası | **22/22 · 22/22** (taban 22/22'ye çekildi) |
+| `heldout_sealed.py` | **4/4** |
+| `integrate_battery.py` | **10/10**, kalıcılık **4/4** |
+| `nora_audit.py --check` | 1122 / SÖYLEM 127, **fark +0** |
+
+### AJ4. Yol boyunca düzeltilen iki şey
+
+- **Yinelenen organ**: küme işlemleri (`nora_sets`) zaten Aşama AE'de yazılmıştı;
+  bu turda farkına varmadan ikinci kez yazıldı. Eski dosya geri alındı, kopya silindi.
+  Ders: yeni organ yazmadan önce `git log -- <dosya>` ve `grep '^from'` ile bak.
+- **Büyük harf kaybı**: "Portakal" küçük harfli metinde eşleştiği için "portakal"
+  olarak uygulanıyordu. Sözcük artık ham metinden geri alınıyor.

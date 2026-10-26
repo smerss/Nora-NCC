@@ -4502,6 +4502,41 @@ def a99_cephe_hatti_3():
 
 
 
+def a101_hedef_yigini_ve_suzgec():
+    """A101 — HEDEF YIĞINI + SÜZGEÇ OPERATÖRÜ.
+
+    (1) İki hedef üst üste: ikincisi birincinin yerini almaz, bekler; ikincisi bitince
+        birincisi KALDIĞI YERDEN sürer.
+    (2) Örneklerden YÜKSEK MERTEBE operatör yazımı: "sesli harfleri at" hiçbir ilkelin
+        kompozisyonu değil; süzgeç mekanizmasından türetilir ve görülmemiş sözcüğe uygulanır.
+    """
+    ok = {}
+    g = NoraAGI(seed=1935, boot_thinker=False)
+    g.step_life(150)
+    g.converse("Hedefin: beş tur boyunca bana her turda bir harfin okunuşunu öğret.")
+    a1 = tr_lower(strip_prefixes(g.converse("Kendini nasıl hissediyorsun?")))
+    s2 = tr_lower(strip_prefixes(g.converse(
+        "Hedefin: üç tur boyunca her turda bir sayının iki katını söyle.")))
+    b = [tr_lower(strip_prefixes(g.converse("Şu an ne düşünüyorsun?"))) for _ in range(3)]
+    back = tr_lower(strip_prefixes(g.converse("Bugün hava nasıl bilmiyorum, sen ne dersin?")))
+    ok["hedef-bekler"] = "bekli" in s2
+    ok["birinci-1/5"] = "1/5" in a1
+    ok["ikinci-3/3"] = all(f"{i}/3" in b[i - 1] for i in (1, 2, 3))
+    ok["kaldığı-yer"] = "1/5" in back or "2/5" in back
+
+    g2 = NoraAGI(seed=1936, boot_thinker=False)
+    g2.step_life(120)
+    learn = tr_lower(strip_prefixes(g2.converse(
+        "Şu dönüşümü öğren: kitap -> ktp, kalem -> klm.")))
+    unseen = tr_lower(strip_prefixes(g2.converse("Yazdığın dönüşümü uygula: zeytin")))
+    ok["süzgeç-yazar"] = "at" in learn and "harf" in learn
+    ok["görülmemiş-sözcük"] = "zytn" in unseen
+
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -4608,9 +4643,10 @@ TESTS = {
             a59_unknown_question_gap_and_research_across_wh_types),
     "A58": ("cümle yapısı, fiil valansı ve 'nasıl denilir' sorularının genellenmesi",
             a58_sentence_structure_valency_and_meta_questions),
+    "A101": ("hedef yığını (kesinti+dönüş) ve örnekten süzgeç operatörü",
+             a101_hedef_yigini_ve_suzgec),
     "A57": ("tekrar farkındalığı, geçmiş cevabı anma, cevap çeşitliliği ve zaman bilinci", a57_repetition_awareness_time_and_variety),
 }
-
 
 def core_reply(text: str) -> str:
     """KULAĞIN İLK TEPKİSİNİ ayırır: Nora söze başlamadan önce sesi duyduğunu söyleyebilir

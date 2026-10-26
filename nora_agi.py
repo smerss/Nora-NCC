@@ -517,6 +517,9 @@ class NoraAGI:
         # SAYISAL OLGULAR: "Ali'nin boyu 180" -> {"boy": {"ali": 180.0}}
         self.num_facts: dict[str, dict[str, float]] = {}
         # ÇOK TURLU HEDEF: kullanıcı verdiği süre boyunca KENDİ hatırlatılır.
+        #: HEDEF YIĞINI: hedef tek bir sözlük değil. Yeni hedef gelince eskisi
+        #: SİLİNMEZ, yığında bekler; yeni hedef bitince kaldığı yerden sürer (N27).
+        self._goals: list[dict] = []
         self._goal: dict | None = None
         self._goal_turn0 = -1
         self._plan_goal = ""
@@ -3847,8 +3850,11 @@ class NoraAGI:
     _LETTERS = (("k", "ke"), ("l", "le"), ("m", "me"), ("n", "ne"), ("r", "re"),
                 ("s", "se"), ("t", "te"), ("y", "ye"), ("z", "ze"), ("b", "be"))
 
+    #: Hedef türleri veri: her tür kendi adım üreticisini taşır.
+    _GOAL_KINDS = ("harf", "sayı")
+
     def _goal_turn(self, raw: str) -> str | None:
-        """'Üç tur boyunca bana her turda bir harf öğret' -> hedef deftere yazılır."""
+        """'Üç tur boyunca ... hedefin' -> hedef YIĞINA yazılır (eskisi silinmez)."""
         tl = tr_lower(raw or "")
         if not any(k in tl for k in ("hedefin", "hedef olarak", "görevin")):
             return None
@@ -3862,37 +3868,64 @@ class NoraAGI:
                 n = int(word)
             except Exception:
                 return None
-        kind = "harf" if "harf" in tl else ""
-        if not kind:
+        if "harf" in tl:
+            kind = "harf"
+        elif "sayı" in tl or "kat" in tl:
+            kind = "sayı"
+        else:
             return None
-        self._goal = {"kind": kind, "total": int(n), "done": 0, "i": 0}
-        self._goal_turn0 = len(getattr(self, "dialogue_log", []) or [])
+        g = {"kind": kind, "total": int(n), "done": 0, "i": 0,
+             "t0": len(getattr(self, "dialogue_log", []) or [])}
+        stacked = bool(self._goals)
+        self._goals.append(g)
+        self._goal = self._goals[0]
+        self._goal_turn0 = self._goals[0]["t0"]
+        ctx = {"kind": "goal_set2" if stacked else "goal_set"}
         return self._say("meta.reasoning",
-                         {"total": int(n), "kind": kind, "done": 0},
-                         ctx={"kind": "goal_set"}, fallback="") or None
+                         {"total": int(n), "kind": kind, "done": 0,
+                          "bekleyen": len(self._goals) - 1},
+                         ctx=ctx, fallback="") or None
 
     def _goal_step(self) -> str:
-        """Aktif hedef için bu turun adımı; hedef yoksa boş dize."""
-        g = getattr(self, "_goal", None)
-        if not g:
+        """Bu turun hedef adımı. Yığın: biten hedef düşer, alttaki KALDIĞI YERDEN sürer."""
+        if not self._goals:
+            self._goal = None
             return ""
+        g = self._goals[-1]
         # Hedefin KURULDUĞU turda adım atılmaz (o tur zaten cevabı verdi).
-        if len(getattr(self, "dialogue_log", []) or []) <= (self._goal_turn0 + 1):
+        if len(getattr(self, "dialogue_log", []) or []) <= (int(g.get("t0", 0)) + 1):
             return ""
-        if g["done"] >= g["total"]:
+        # BİTEN hedef yığından düşer; altta hedef varsa DÖNÜŞ bildirilir.
+        while self._goals and int(self._goals[-1].get("done", 0)) >= int(self._goals[-1]["total"]):
+            self._goals.pop()
+            if self._goals:
+                nxt = self._goals[-1]
+                nxt["t0"] = len(getattr(self, "dialogue_log", []) or []) - 1
+                self._goal = nxt
+                self._goal_turn0 = nxt["t0"]
+                return self._say("meta.reasoning",
+                                 {"done": int(nxt["done"]), "total": int(nxt["total"]),
+                                  "kind": nxt["kind"]},
+                                 ctx={"kind": "goal_resume"}, fallback="") or ""
             self._goal = None
             return ""
-        i = int(g.get("i", 0)) % len(self._LETTERS)
-        letter, spoken = self._LETTERS[i]
-        g["i"] = i + 1
-        g["done"] = int(g["done"]) + 1
-        done, total = g["done"], g["total"]
-        if done >= total:
-            self._goal = None
+        g = self._goals[-1]
+        if g["kind"] == "harf":
+            i = int(g.get("i", 0)) % len(self._LETTERS)
+            letter, spoken = self._LETTERS[i]
+            g["i"] = i + 1
+            slots = {"letter": letter, "spoken": spoken}
+            ctx = {"kind": "goal_step"}
+        else:
+            i = int(g.get("i", 0)) + 1
+            g["i"] = i
+            slots = {"a": i, "b": i * 2}
+            ctx = {"kind": "goal_step2"}
+        g["done"] = int(g.get("done", 0)) + 1
+        done, total = int(g["done"]), int(g["total"])
         return self._say("meta.reasoning",
-                         {"letter": letter, "spoken": spoken, "done": done,
-                          "total": total},
-                         ctx={"kind": "goal_step"}, fallback="") or ""
+                         {**slots, "done": done, "total": total},
+                         ctx=ctx, fallback="") or ""
 
     # ------------------------------------------------------------------ sayısal kıyas
     #: "Ali'nin boyu 180 santimetre" -> (özne, nitelik, sayı)
