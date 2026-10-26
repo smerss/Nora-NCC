@@ -4674,6 +4674,104 @@ class NoraAGI:
                 added.append(item["name"])
         return added
 
+    # ------------------------------------------------------- kendi kendine öğretmenlik
+    def kendine_ogret(self) -> dict:
+        """ÖĞRETMENSİZ: kendi dağarcığından kendi örneklerini üretip şemayı kendi kurar.
+
+        İnsan burada **hiçbir şey yazmaz**: ne sözcük, ne örnek, ne parametre, ne görev.
+        Nora kendi sözlüğünden sözcük seçer, kendi parametrelerini seçer, örnekleri
+        kendisi üretir, iki program kurar, şemayı çıkarır ve **görülmemiş** bir
+        parametrede kendini sınar. Dönen defter dışarıdan denetlenebilir.
+
+        Dürüst sınır: ilkel repertuvarı ve dağarcığın kaynağı hâlâ insan işi. Yeni olan,
+        örneklerin ve görevin insandan gelmemesi.
+        """
+        import random as _r
+        from nora_synth import PRIMITIVES
+
+        sy = getattr(self, "synth", None)
+        lex = getattr(getattr(self.lang, "graph", None), "lexicon", None) or set()
+        words = sorted({str(w) for w in lex
+                        if isinstance(w, str) and w.isalpha() and w.islower() and len(w) >= 6})
+        if sy is None or len(words) < 8:
+            return {"durum": "dağarcık yetersiz", "öğrendi": False, "sözcük": len(words)}
+
+        pm = {n: fn for n, fn, _c in PRIMITIVES}
+        if "alfabetik sırala" not in pm:
+            return {"durum": "taban ilkel yok", "öğrendi": False}
+        sırala = pm["alfabetik sırala"]
+        kes = lambda w, k: sırala(w)[:k]
+
+        rng = _r.Random(int(self.seed) * 7919 + len(words))
+        # KENDİ seçtiği parametreler. Görülenler repertuvarda OLMALI (n=1..4);
+        # görülmemiş olan (n3) repertuvarda YOK — şemanın işi tam da o.
+        n1 = 2 + rng.randrange(2)                  # 2 ya da 3
+        n2 = n1 + 1
+        n3 = n2 + rng.randrange(1, 4)              # görülmemiş parametre (kendi seçimi)
+        # 1) KENDİ örnekleri: iki parametre, kendi sözcükleri. İlk seçim tutmazsa
+        #    kendisi YENİDEN seçer (bu da onun kararı; insan devreye girmez).
+        secili: list[str] = []
+        kurulan: list[list[str]] = []
+        denemeler = 0
+        for _deneme in range(8):
+            denemeler += 1
+            aday = rng.sample(words, 3)
+            if not all(len(kes(w, n1)) != len(kes(w, n2)) for w in aday):
+                continue
+            _kur, _ok = [], True
+            for n in (n1, n2):
+                r = sy.learn([(w, kes(w, n)) for w in aday])
+                if r.get("status") != "adopted":
+                    _ok = False
+                    break
+                _kur.append(list(sy.programs[-1]["ops"]))
+            if _ok:
+                secili, kurulan = aday, _kur
+                break
+        if not secili:
+            return {"durum": "kendi örneği çözülemedi",
+                    "öğrendi": False, "sözcük": len(words),
+                    "parametreler": [n1, n2, n3], "deneme": denemeler}
+
+        # 2) ŞEMA: iki programdan delikli şablon (insan girdisi yok)
+        eklenen = self._schema_maybe()
+        sema = [(r["name"], r.get("family"), r.get("seen")) for r in self.schema.ledger]
+
+        # 3) KENDİNİ SINAMA: görülmemiş parametre, kendi sözcüğü
+        sinama: dict = {"n": n3, "sözcük": None, "çıktı": None, "beklenen": None,
+                        "doğru": False, "durum": None}
+        kalan = [w for w in words if w not in secili]
+        # İki tanık şart (tek örnek `insufficient`): ikisi de ONUN sözcüğü.
+        for i in range(min(3, max(0, len(kalan) - 1)) or 1):
+            tut = (kalan[i:i + 2] or secili[:2])
+            if len(tut) < 2:
+                break
+            pairs = [(w, kes(w, n3)) for w in tut]
+            r = sy.learn(pairs)
+            sinama.update({"sözcük": tut[0], "durum": r.get("status")})
+            if r.get("status") == "adopted":
+                çıktı = sy.last.apply(tut[0])
+                sinama.update({"çıktı": çıktı, "beklenen": kes(tut[0], n3),
+                               "tanıklar": list(tut),
+                               "doğru": bool(çıktı == kes(tut[0], n3)
+                                             and sy.last.apply(tut[1]) == kes(tut[1], n3))})
+                break
+        # 4) Deftere yaz (kendi geçmişi)
+        kayit = {"örnekler": [[w, kes(w, n1)] for w in secili]
+                 + [[w, kes(w, n2)] for w in secili],
+                 "parametreler": [n1, n2, n3], "programlar": kurulan,
+                 "şema": sema, "eklenen": eklenen, "sınama": sinama,
+                 "insan-girdisi": 0}
+        led = getattr(self, "kendi_ögretim", None)
+        if led is None:
+            led = []
+            self.kendi_ögretim = led
+        led.append(kayit)
+        return {"durum": "tamam", "öğrendi": bool(eklenen and sinama.get("doğru")),
+                "örnek": kayit["örnekler"], "parametreler": [n1, n2, n3],
+                "programlar": kurulan, "şema": sema, "eklenen": eklenen,
+                "sınama": sinama, "sözcük": len(words), "insan-girdisi": 0}
+
     # ------------------------------------------------------------------ sürücü
     def drive(self, lines, tick_every: int = 25, max_steps: int = 8) -> dict:
         """TALİMAT YOK: ham akışı izle, şaşkınlık biriktikçe KENDİ öğren.
