@@ -1094,7 +1094,8 @@ class NoraAGI:
                                      or os.urandom(1)[0] % 100 < 8)
                     if _speak_notice and _key_prev:
                         self._notice_spoken.add(_key_prev)
-                    if not _quiet and "sessiz" not in _low and _speak_notice:
+                    if not _quiet and "sessiz" not in _low and _speak_notice \
+                            and not getattr(self, "_intent_locked", False):
                         _rng = getattr(self, "rng", None) or getattr(self, "random", None)
                         # Cevap zaten başka türlü söylendiyse eski cevabı ALINTILAMAK yersiz;
                         # yalnız "bunu sormuştun" farkındalığı kalır.
@@ -1189,6 +1190,10 @@ class NoraAGI:
         raw = text.strip()
         if not raw:
             return "..."
+        # NİYET KİLİDİ: konu/çelişki gibi ÖLÇÜLMÜŞ bir niyet cevaplandıysa, sonradan
+        # gelen "bunu demin de sormuştun" süsü cevabı EZMEZ. Tekrar farkındalığı bir
+        # süslemedir; ölçülmüş bir cevabın üstüne yazmak onu gasp etmektir.
+        self._intent_locked = False
         # --- TÜRKÇE EDİNİMİ: duyulan bilinmeyen fiil biçimleri, kendi çekim üreticisiyle
         #     yeniden üretilebiliyorsa kök olarak öğrenilir (kalıcı, sözlüğe yazılır).
         try:
@@ -1243,6 +1248,18 @@ class NoraAGI:
             self._log_turn(speaker, raw, _ans_r, t0)
             return _ans_r
 
+        # KONU HATIRLAMA, TEKRAR UYARISINDAN ÖNCE GELİR: "az önce hangi konudan
+        # konuşuyorduk?" bir tekrar sorusu değil, konu sorusudur. Sonra gelen tekrar
+        # farkındalığı bu soruyu gasp edip "bunu az önce de söyler gibi oldun" diyordu.
+        try:
+            _tr0 = self._topic_recall(raw)
+        except Exception:
+            _tr0 = None
+        if _tr0:
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _tr0, t0)
+            return _tr0
+
         _clock_q = any(k in _tl for k in ("saat kaç", "saat kaçtır", "saat kaç oldu"))
         _elapsed_q = any(k in _tl for k in (
             "ne kadar oldu", "ne kadar zaman oldu", "ne zamandır", "ne kadar süredir",
@@ -1289,6 +1306,32 @@ class NoraAGI:
                 return _ap
         except Exception:
             traceback.print_exc()
+
+        # --- EKSİK OPERATÖR: istenen işlem kayıtlı değilse uydurma cevap yok --------
+        # Sıra önemli: bu kapı uygulama hattından SONRA gelir (bağlı bir kural varsa
+        # sözü kural söyler), sohbet hattından ÖNCE gelir (alakasız iç ses sızmasın).
+        try:
+            _mo = self._missing_operator(raw)
+        except Exception:
+            _mo = None
+        if _mo:
+            self._log_turn(speaker, raw, _mo, t0)
+            return _mo
+        try:
+            _ct = self._notice_contradiction(raw)
+        except Exception:
+            _ct = None
+        if _ct:
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _ct, t0)
+            return _ct
+        try:
+            _tr = self._topic_recall(raw)
+        except Exception:
+            _tr = None
+        if _tr:
+            self._log_turn(speaker, raw, _tr, t0)
+            return _tr
 
         # --- OKUL: sayı/basamak/okunuş/sembol ve aşamalı problemler.
         # Önce "öğretme cümlesi mi?" diye bakar (kullanıcı konuşarak öğretir), sonra soru olarak çözer.
@@ -3390,6 +3433,107 @@ class NoraAGI:
         "bütünlük": "bütünlük", "acı olmasa": "bütünlük", "acın olmasa": "bütünlük",
     }
 
+    @staticmethod
+    def _data_table(name: str, default):
+        """Küçük VERİ tabloları (`nora_priors.json`) — kodda Türkçe yüzey büyümesin."""
+        try:
+            import json as _json
+            import nora_priors as _pr
+            return _json.loads(_pr.JSON_PATH.read_text(encoding="utf-8")).get(name, default)
+        except Exception:
+            return default
+
+    def _missing_operator(self, raw: str) -> str | None:
+        """İSTENEN İŞLEM YOKSA: uydurma cevap yerine eksik operatörün adı söylenir.
+
+        Neden gerekli: tanınmayan bir soru, akışın sonundaki sohbet hattına düşüp
+        ALAKASIZ bir iç sesle ("kendi kendime şunu çıkardım: …") yanıtlanıyordu. Bu,
+        "yanlış cevap sahte anlamadan iyidir" kuralının en açık ihlaliydi: cevap hem
+        yanlış hem de soruyla ilgisiz. Burada cevap kısa ve doğru: o operatör yok.
+        """
+        low = tr_lower(raw or "")
+        if "?" not in raw and not any(w in low for w in self._data_table(
+                "question_markers", ())):
+            return None
+        for name, keys in (self._data_table("missing_ops", {}) or {}).items():
+            if any(k in low for k in keys):
+                self._apply_tag("cikarim", 1)
+                return self._say("discourse.unknown", {"w": name},
+                                 ctx={"register": "op_missing"}, fallback=name)
+        return None
+
+    def _notice_contradiction(self, raw: str) -> str | None:
+        """KARŞIDAKİNİN ÖZ-ÇELİŞKİSİ: aynı konuda ters yönde iki söz.
+
+        Ölçüt: iki tur en az bir İÇERİK sözcüğünü paylaşıyor ve olumsuzluk yalnız
+        birinde var. Uydurma yok: alıntı, gerçekten söylenmiş önceki cümledir. Amaç
+        hakemlik değil: hangisinin geçerli olduğunu SORMAK (insan da öyle yapar).
+        """
+        log = getattr(self, "dialogue_log", None) or []
+        if not log:
+            return None
+        prev = (log[-1][1] or "").strip()
+        cur = (raw or "").strip()
+        if not prev or not cur:
+            return None
+
+        def _words(t: str) -> set:
+            return {w for w in re.findall(r"[a-zçğıöşü]{4,}", tr_lower(t))}
+
+        shared = _words(prev) & _words(cur)
+        if not shared:
+            return None
+        negs = tuple(self._data_table("negation_markers", ()) or ())
+        low_p, low_c = tr_lower(prev), tr_lower(cur)
+        p_neg = any(n in low_p for n in negs)
+        c_neg = any(n in low_c for n in negs)
+        if p_neg == c_neg:
+            return None
+        # Konu gerçekten ortak mı: paylaşılan sözcük cümlenin taşıyıcısı olmalı.
+        if len(shared) < 1 or len(shared) < 1:
+            return None
+        self._apply_tag("cikarim", 1)
+        # Söz VERİDEN (nora_priors: contradiction_leads). `meta.notice.lead` DEĞİL:
+        # o topluluğun tekrar kalıpları eksik bağlamda eşleşip çelişki sözünü gasp
+        # ediyordu ("bunu az önce de söyler gibi oldun").
+        leads = self._data_table("contradiction_leads", ()) or ()
+        if leads:
+            import random as _rand
+            return _rand.choice(list(leads)).format(tp=prev)
+        return prev
+
+    def _topic_recall(self, raw: str) -> str | None:
+        """KONU TAKİBİ: 'hangi konudan konuşuyorduk?' — son SÖYLENENİ değil, son
+        DOLU cümleyi alıntılar.
+
+        Neden 'son cümle' yetmiyor: araya 'peki sen ne dersin?' gibi kısa turlar girer.
+        Konu, son birkaç turun EN ÇOK İÇERİK taşıyan kullanıcı cümlesidir. Uydurma yok:
+        alıntı gerçekten söylenmiş bir cümledir.
+        """
+        low = tr_lower(raw or "")
+        if not any(k in low for k in (self._data_table("topic_triggers", ()) or ())):
+            return None
+        log = getattr(self, "dialogue_log", None) or []
+        best, best_n = "", 0
+        for rec in list(log)[-6:]:
+            utxt = (rec[1] or "").strip()
+            if not utxt:
+                continue
+            words = [w for w in re.findall(r"[a-zçğıöşü]{4,}", tr_lower(utxt))]
+            if len(words) > best_n:
+                best, best_n = utxt, len(words)
+        if not best or best_n < 2:
+            return None
+        self._apply_tag("cikarim", 1)
+        # Söz VERİDEN gelir (nora_priors: topic_leads). `meta.notice.lead` kullanılmıyor:
+        # o topluluğun tekrar kalıpları eksik bağlamda da eşleşip konu sorusunu gasp
+        # ediyordu ("bunu az önce de söyler gibi oldun").
+        leads = self._data_table("topic_leads", ()) or ()
+        if leads:
+            import random as _rand
+            return _rand.choice(list(leads)).format(tp=best)
+        return best
+
     #: Karar makinesinde KARŞIOLGUSU ÇIKARILAMAYAN kanallar (ölçüm yok, uydurma yok).
     UNMEASURED_CHANNELS = {
         "merak": "merak", "korku": "korku", "sosyal": "sosyal", "dopamin": "dopamin",
@@ -3606,7 +3750,25 @@ class NoraAGI:
                 target = str(eng.wm.read("last_utterance", "") or "")
             if not target:
                 return self._say("apply.need_apply_target", {}, fallback="Hedef yok.")
-            label, tr = eng.apply(target)
+            # ÇOK KURAL: iki ayrı alanda kural varsa son kural ötekini EZMEZ.
+            # Soruda bir etiket geçiyorsa o kural seçilir; geçmiyorsa ikisi de söylenir
+            # (sessiz yanlış cevap yerine açık çokluk).
+            _act = [r for r in (getattr(eng, "active_rules", None) or [])
+                    if getattr(r, "mapping", None)]
+            _picked = None
+            if len(_act) > 1:
+                _hit = [r for r in _act
+                        if any(str(v).lower() in tl for v in r.mapping.values())]
+                if len(_hit) == 1:
+                    _picked = _hit[0]
+                elif not _hit:
+                    _body = "; ".join(f"{self._rule_map_text(r)}" for r in _act[:3])
+                    self._apply_tag("islem", 1)
+                    return self._say("apply.result",
+                                     {"target": target, "n": len(_act), "body": _body},
+                                     ctx={"shape": "multi"}, fallback=_body)
+            label, tr = (eng.apply(target, rule=_picked) if _picked is not None
+                         else eng.apply(target))
             self._apply_tag("islem", 1)
             _rshape = getattr(eng.last, "shape", "parity")
             if label is None:

@@ -162,6 +162,14 @@ class OperatorForge:
         """Kendi operatörüm ÇÜRÜTÜLDÜ: sessizce silinmez, deftere gerekçesiyle yazılır."""
         if rule is None:
             return
+        # Çürütülen kural ETKİN listeden düşer; defterde gerekçesiyle durur.
+        try:
+            act = list(getattr(self.eng, "active_rules", None) or [])
+            if act:
+                self.eng.active_rules = [r for r in act
+                                         if getattr(r, "rid", "") != getattr(rule, "rid", "")]
+        except Exception:
+            pass
         # Kural bir ÖLÇÜM üzerinde duruyorsa ve kural yanlışsa, o ölçüm de yanlış
         # olabilir: envanterde işaretlenir (silinmez), bir daha önerilmez.
         feat = str(getattr(rule, "feature", "") or "")
@@ -624,6 +632,15 @@ class OperatorForge:
             try:
                 self.eng.rules[rid] = rule
                 self.eng.last = rule
+                # ETKİN KURALLAR: aynı ETİKET kümesini konuşan eski kural emekliye
+                # ayrılır (aynı alanda yeni kural eskisini düzeltir). Etiket kümeleri
+                # AYRIKSA ikisi de yaşar: biri ötekini sessizce silmez.
+                act = list(getattr(self.eng, "active_rules", None) or [])
+                labels = set((rule.mapping or {}).values())
+                act = [r for r in act
+                       if not (set((getattr(r, "mapping", {}) or {}).values()) & labels)]
+                act.append(rule)
+                self.eng.active_rules = act
             except Exception:
                 pass
         # ÖLÇÜM KAYDI: aynı ölçüm ikinci kez kaydedilmez (envanter şişmez). İlk kez

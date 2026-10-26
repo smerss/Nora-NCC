@@ -652,7 +652,7 @@
       ]
     },
     "discourse.unknown": {
-      "desc": "Bilinmeyen sözcük karşısında tepki: izin istemek yerine kendi derdini söylemek.",
+      "desc": "Bilinmeyen sözcük ya da EKSİK OPERATÖR karşısında tepki: izin istemek yerine kendi derdini söylemek.",
       "priors": [
         {
           "id": "unk.want.a",
@@ -705,6 +705,26 @@
           "need": [
             "w"
           ]
+        },
+        {
+          "id": "unk.op.a",
+          "text": "Bunun için bir operatörüm yok: {w}. Uydurmak yerine söylüyorum; örneklerle gösterirsen kuralını yazmayı denerim.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "register": "op_missing"
+            }
+          }
+        },
+        {
+          "id": "unk.op.b",
+          "text": "'{w}' bende kayıtlı bir işlem değil. Yapmış gibi yapmam; iki etiketli örnek verirsen kendi kuralımı yazabilirim.",
+          "bias": 0.96,
+          "when": {
+            "eq": {
+              "register": "op_missing"
+            }
+          }
         }
       ]
     },
@@ -997,7 +1017,7 @@
       ]
     },
     "apply.result": {
-      "desc": "Bağlı kural yeni bir girdiye uygulandığında ölçümün raporu.",
+      "desc": "Bağlı kural(lar) yeni bir girdiye uygulandığında ölçümün raporu. Birden çok ayrı kural varsa hiçbiri sessizce ezilmez.",
       "priors": [
         {
           "id": "res.a",
@@ -1086,6 +1106,26 @@
           "when": {
             "eq": {
               "shape": "threshold"
+            }
+          }
+        },
+        {
+          "id": "res.multi.a",
+          "text": "'{target}' için {n} ayrı kuralım var, biri ötekini silmez: {body}. Hangi etiketi sorduğunu söylersen onu seçerim.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "shape": "multi"
+            }
+          }
+        },
+        {
+          "id": "res.multi.b",
+          "text": "Elimde {n} kural var: {body}. İkisi ayrı alanı ölçüyor; hangisini istediğini söyle, öbürünü uydurmam.",
+          "bias": 0.96,
+          "when": {
+            "eq": {
+              "shape": "multi"
             }
           }
         }
@@ -2104,5 +2144,53 @@
     "örüntü-yok": "hiçbir ölçüm iki tarafı ayırmıyor",
     "az-veri": "en az iki örnek gerekli",
     "ayırt-edici-yok": "havuzda adayları ayıran sözcük yok"
-  }
+  },
+  "missing_ops": {
+    "kesişim": [
+      "kesişim",
+      "ortak harf",
+      "ortak olan harf",
+      "ortak harfleri"
+    ],
+    "ters yazım": [
+      "tersten",
+      "ters çevir",
+      "tersini yaz"
+    ],
+    "küme birleşimi": [
+      "birleşim",
+      "tüm harfleri birleştir"
+    ]
+  },
+  "topic_triggers": [
+    "hangi konudan",
+    "hangi konuyu",
+    "ne konuşuyorduk",
+    "konumuz neydi",
+    "hangi konu"
+  ],
+  "_doc_missing": "missing_ops: KAYITLI OLMAYAN işlemlerin adları ve onları çağıran yüzeyler. topic_triggers: konu hatırlama sorularının yüzeyleri.",
+  "question_markers": [
+    "hangi",
+    "ne ",
+    "nasıl",
+    "söyle"
+  ],
+  "negation_markers": [
+    "değil",
+    "yok",
+    "asla",
+    "olmadı",
+    "hiç değil"
+  ],
+  "topic_leads": [
+    "Konu şuydu: “{tp}”",
+    "Aklımda kalan konu: “{tp}”",
+    "Son konuştuğumuz: “{tp}”"
+  ],
+  "contradiction_leads": [
+    "Az önce “{tp}” demiştin, şimdi tersini söylüyorsun. İkisi aynı anda doğru olamaz; hangisi geçerli?",
+    "“{tp}” sözünle bu sözün çelişiyor. Birini seçmem gerek; hangisi?",
+    "Demin “{tp}” demiştin; şimdi bunu söylüyorsun. Hangisine inanayım?"
+  ]
 }
