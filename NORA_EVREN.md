@@ -2216,3 +2216,59 @@ bilinen sınıf %97            Brier (n=53) = 0.011
 Bir sonraki eşik Nora'nın **yeni bir yasa biçimi** önermesi: takıldığı örneklerden
 "bu, harf başına konuma bağlı bir eşleme" gibi bir *şablon* çıkarması. O gün "uzayı
 Nora açtı" cümlesi ölçülmüş olur.
+
+
+---
+
+## Aşama AM — İcat + kompozisyon; ölçümde sıra bağımsızlığı (N30)
+
+### AM1. Yeni ilkel, mevcut uzayla birleşiyor (N30)
+
+Tek aileyle çıkmayan ama "önce ilkel, sonra mevcut program" ile çıkan görevler artık
+çözülüyor. Örnek: `w -> ters(1 ileri kaydır(w))`.
+
+```
+S: Şu dönüşümü öğren: kitap -> qbujl, kalem -> nfmbl.
+N: Mevcut ilkellerimle çıkmıyordu; yeni bir ilkel icat ettim:
+   kaydırma(+1) + ters çevir. Örneklerin hepsi tutuyor (2/2). deniz -> çjofe.
+S: Yazdığın dönüşümü uygula: bulut
+N: bulut -> cvmu b ... (kaydırma(+1) + ters çevir)
+   (kaydet/yükle sonrası) masa -> btbn
+```
+
+Arama: her `kaydırma/döndürme` parametresi için örneklerin girdisi dönüştürülür,
+kalan fark `synth`e verilir; `synth` bir program bulursa **bileşim** doğrulanır
+(örneklerin tamamı). Ön koşul kodla sınanır: düz kompozisyon uzayı bu örnekleri
+çözemiyor (`Synthesizer().learn(...) != adopted`).
+
+### AM2. Ölçümde sıra bağımsızlığı (A14 dalgalanması)
+
+A14 tam koşuda bir kez düştü (`zehirli-ikiz-ayrımı=False`), tek başına iki kez geçti.
+Kök neden: testler arası **ölçüm envanteri sızıntısı** — bir testin icat ettiği
+`kendi.*` ölçümleri sonraki testlerin dünyasında kalıyordu. Artık HER testten önce
+envanter ve kendi-yazdığı defter sıfırlanıyor. Tam koşu: **102/102**.
+
+Kural (Aşama AL'deki dersin devamı): *bir testin sonucu başka bir testin ürettiği
+duruma bağlı olamaz.* Aksi hâlde ölçüm, sistemi değil koşu sırasını ölçer.
+
+### AM3. Ölçüler
+
+| ölçüm | sonuç |
+|---|---|
+| `agi_battery.py` (102 test) | **102/102 GEÇTİ, 415.8 s** |
+| sınır haritası | **26/26 · 26/26** (taban 26/26) |
+| `solo_gorev.py` (müdahalesiz) | **10/10**, müdahale **2** |
+| `heldout_sealed.py` | **4/4** |
+| `integrate_battery.py` | **10/10**, kalıcılık **4/4** |
+| `nora_audit.py --check` | SÖYLEM 127 (**+0**), toplam +1 |
+| prior türü / insan operatörü | 67 / 9 = **7.44** |
+
+### AM4. Dürüst durum
+
+İcat artık **parametre** ve **bileşim** düzeyinde çalışıyor; **yasa biçimi** düzeyinde
+değil. Kaydırma/döndürme/ikame ailelerini insan yazdı. Nora'nın kattığı: hangi ailenin,
+hangi parametreyle, hangi örnek kümesini açıkladığı; gerektiğinde mevcut uzayla
+birleştirip iki adımlı çözüm kurması; ve bunu kalıcı ilkel olarak defterine yazması.
+
+Bir sonraki eşik: takıldığı örneklerden **yeni bir yasa biçimi** önermek. O gün
+"uzayı Nora açtı" cümlesi ölçülmüş olur; bugün değil.

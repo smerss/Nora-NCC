@@ -61,8 +61,26 @@ def _substitute(text: str, table: dict) -> str:
     return "".join(table.get(ch, ch) for ch in str(text or ""))
 
 
+def _build_composite(params):
+    """BİLEŞİM: icat edilen ilk adım + mevcut uzaydan kurulmuş program."""
+    try:
+        from nora_synth import Program
+    except Exception:
+        return None
+    first = (params or {}).get("first") or []
+    if len(first) < 2:
+        return None
+    f = build(str(first[0]), first[1])
+    g = Program.from_spec(list((params or {}).get("rest") or []))
+    if f is None or g is None:
+        return None
+    return lambda s: g.apply(f(s))
+
+
 def build(family: str, params):
     """Kayıtlı bir icadı yeniden kur (yeni oturumda da çalışsın)."""
+    if family == "bileşim":
+        return _build_composite(params)
     if family == "kaydırma":
         return lambda s: _shift(s, int(params))
     if family == "döndürme":
@@ -81,6 +99,8 @@ def name_of(family: str, params) -> str:
         return f"döndürme({int(params)})"
     if family == "ikame":
         return f"ikame({len(params or {})})"
+    if family == "bileşim":
+        return str((params or {}).get("label") or "bileşim")
     return family
 
 
@@ -149,6 +169,16 @@ class Abstraction:
             return {"status": "no-need"}
         cands = self._candidates(ex)
         if not cands:
+            comp = self._composite(ex)
+            if comp is not None:
+                rec = {**comp, "examples": ex, "n": len(ex)}
+                self.invented.append(rec)
+                if register is not None:
+                    try:
+                        register(rec["name"], build("bileşim", rec["params"]))
+                    except Exception:
+                        pass
+                return {"status": "invented", **rec}
             self.refused += 1
             return {"status": "insufficient", "why": "aile-yok"}
         # YALINLIK: kaydırma/döndürme tek parametre, ikame çizelge. Aynı yalınlıkta
@@ -176,6 +206,37 @@ class Abstraction:
             except Exception:
                 pass
         return {"status": "invented", **rec}
+
+    @staticmethod
+    def _composite(ex):
+        """İCAT + MEVCUT UZAY: önce bir ilkel uygula, kalanı synth çözsün.
+
+        "Ters çevir(1 ileri kaydır(w))" gibi görevler tek aileyle çıkmaz; ama
+        kaydırma uygulandıktan sonra kalan dönüşüm mevcut uzayda olabilir.
+        """
+        try:
+            from nora_synth import Synthesizer, Program
+        except Exception:
+            return None
+        sy = Synthesizer()
+        maxlen = max((len(a) for a, _b in ex), default=0)
+        trials = [("kaydırma", k, lambda s, k=k: _shift(s, k))
+                  for k in range(1, len(ALPHABET))]
+        trials += [("döndürme", k, lambda s, k=k: _rotate(s, k))
+                   for k in range(1, max(2, maxlen))]
+        for fam, par, fn in trials:
+            moved = [(fn(a), b) for a, b in ex]
+            res = sy.learn(moved)
+            if res.get("status") != "adopted":
+                continue
+            g = res.get("program")
+            if g is None or not all(g.apply(fn(a)) == b for a, b in ex):
+                continue
+            label = f"{name_of(fam, par)} + {g.desc()}"
+            return {"family": "bileşim",
+                    "params": {"first": [fam, par], "rest": g.spec(), "label": label},
+                    "name": label}
+        return None
 
     @staticmethod
     def _composition_solves(ex) -> bool:
