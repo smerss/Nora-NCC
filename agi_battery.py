@@ -4620,6 +4620,102 @@ def a105_ilkel_icadi_ve_bilesim():
 
 
 
+def a106_donmus_reçete() -> tuple[bool, str]:
+    """A106 — DONMUŞ REÇETE: insanın yazdığı form sayısı ARTMADI.
+
+    Tur 40 kuralı: "Yeni elle yazılmış form yok. Repertuvar sabit." Bu test o kuralın
+    NÖBETÇİSİDİR. İnsan ilkel/aile eklediği anda burada kırılır; sessizce büyüyemez.
+
+    Ayrıca yeni bir `NoraAGI` boş uzayla doğar: elle yazılmış hiçbir form "extra"
+    (icat/reify) katmanına gizlenemez. Sayılar bilerek SABİT yazılır — kaynaktan
+    okunsaydı test kendi kendini onaylardı.
+    """
+    from nora_abstract import FAMILIES, FROZEN_FAMILIES
+    from nora_synth import (FILTER_PRIMITIVES, FROZEN_FILTERS, FROZEN_PRIMITIVES,
+                            PRIMITIVES)
+
+    ok = {}
+    ok["ilkel=22"] = len(PRIMITIVES) == 22 == FROZEN_PRIMITIVES
+    ok["süzgeç=5"] = len(FILTER_PRIMITIVES) == 5 == FROZEN_FILTERS
+    ok["aile=3"] = len(FAMILIES) == 3 == FROZEN_FAMILIES
+    g = NoraAGI(seed=1950, boot_thinker=False)
+    ok["boş-uzay"] = len(g.synth.extra) == 0
+    ok["reify-boş"] = g.reify is not None and len(g.reify.ledger) == 0
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
+
+
+def a107_reify_ve_surucu() -> tuple[bool, str]:
+    """A107 — SEVİYE 3: reify (kendi bileşimini ilkele çevirme) + sürücü.
+
+    (1) Aynı bileşim iki AYRI görevde kendi kendine yazılır; reify onu adlandırır.
+    (2) YÜZEYİ BENZEMEYEN görevde (büyük harf girdi/çıktı) o ilkel KULLANILIR —
+        insan uzayında aynı görev belirsizken. Kanıt: adımlarda `kendi.bilesim.*`.
+    (3) SÜRÜCÜ: talimat yok; 300 cümlelik akış verilir, kendi kendine öğrenir.
+    (4) ENFLASYON FRENİ: kullanılmayan ilkel budanır ve uzaydan çıkar.
+    """
+    import random
+
+    from nora_synth import PRIMITIVES, Synthesizer
+
+    pm = {n: fn for n, fn, _c in PRIMITIVES}
+    def comp(w):
+        return pm["ilk 3 harfi al"](pm["alfabetik sırala"](w))
+
+    ok = {}
+    g = NoraAGI(seed=1951, boot_thinker=False)
+    g.step_life(100)
+    g.converse("Örnekler: kitap -> aik, portakal -> aak. Kuralı çıkar.")
+    g.converse("Örnekler: deniz -> dei, yıldız -> dly. Kuralı çıkar.")
+    ok["terfi"] = any(r["name"].startswith("kendi.bilesim") and int(r["evidence"]) >= 2
+                      for r in g.reify.ledger)
+    ok["insan-uzayı-belirsiz"] = Synthesizer().learn(
+        [("Kalem", "AEK"), ("Orman", "AMN")]).get("status") == "ambiguous"
+    g.converse("Örnekler: Kalem -> AEK, Orman -> AMN. Kuralı çıkar.")
+    spec = (g.synth.programs[-1]["ops"] if g.synth.programs else [])
+    ok["kendi-ilkeli"] = any(str(x).startswith("kendi.bilesim") for x in spec)
+
+    # (3) SÜRÜCÜ: talimat YOK. Akış insan tarafından yazılır, "ne öğren" denmez.
+    rng = random.Random(11)
+    words = ["kitap", "portakal", "deniz", "yıldız", "şehir", "masa", "kalem", "çiçek",
+             "orman", "sokak", "karanfil", "bulut", "zeytin", "nehir"]
+    noise = ["bugün hava kapalı", "yine erken kalktım", "bu şarkıyı seviyorum",
+             "kahve soğudu", "pencereden yağmur görünüyor", "yorgunum"]
+    lines = []
+    for i in range(300):
+        if i % 9 == 0:
+            a, b = rng.sample(words, 2)
+            lines.append(f"{a} -> {comp(a)}, {b} -> {comp(b)}")
+        elif i % 13 == 0:
+            lines.append(f"{rng.choice(words)} nedir")
+        else:
+            lines.append(rng.choice(noise))
+    d = NoraAGI(seed=1952, boot_thinker=False)
+    d.step_life(100)
+    rep = d.drive(lines)
+    ok["sürücü-tetikledi"] = int(rep.get("triggered", 0)) >= 1
+    ok["sürücü-ayrı-keşif"] = int(rep.get("distinct", 0)) >= 1
+
+    # (4) ANTI-TEST: hiç kullanılmayan ilkel budanır, arama uzayından çıkar.
+    p = NoraAGI(seed=1953, boot_thinker=False)
+    p.step_life(100)
+    p.converse("Örnekler: kitap -> aik, portakal -> aak. Kuralı çıkar.")
+    p.converse("Örnekler: deniz -> dei, yıldız -> dly. Kuralı çıkar.")
+    rev = [("masa", "asam"), ("kalem", "melak"), ("bulut", "tulub"),
+           ("çiçek", "keçiç"), ("orman", "namro"), ("sokak", "kakos")]
+    for i in range(5):
+        p.converse(f"Örnekler: {rev[i][0]} -> {rev[i][1]}, "
+                   f"{rev[i + 1][0]} -> {rev[i + 1][1]}. Kuralı çıkar.")
+    sv = p.reify.survival()
+    ok["budama"] = int(sv["pruned"]) >= 1 and int(sv["alive"]) == 0
+    ok["uzaydan-çıktı"] = not any(nm.startswith("kendi.bilesim")
+                                  for nm, _f, _c in p.synth.extra)
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -4726,6 +4822,8 @@ TESTS = {
             a59_unknown_question_gap_and_research_across_wh_types),
     "A58": ("cümle yapısı, fiil valansı ve 'nasıl denilir' sorularının genellenmesi",
             a58_sentence_structure_valency_and_meta_questions),
+    "A106": ("donmuş reçete: insan form sayısı artmadı", a106_donmus_reçete),
+    "A107": ("reify (kendi bileşimini ilkele çevirme) ve sürücü", a107_reify_ve_surucu),
     "A105": ("ilkel icadı (kompozisyon tükenince) ve icat+kompozisyon",
              a105_ilkel_icadi_ve_bilesim),
     "A103": ("oturum defteri (öz-geçmiş) ve deneyimden kalibrasyon",
@@ -4756,7 +4854,25 @@ def _reset_globals() -> None:
 
 
 def main():
-    wanted = [k for k in sys.argv[1:] if k in TESTS] or list(TESTS.keys())
+    """Koşum. ÖLÇÜM KATMANI KURALI: bir testin sonucu koşum SIRASINA bağlı olamaz.
+
+    `--shuffle` ile testler rastgele sırada koşar. Aynı toplam, farklı sırada da
+    çıkmalı; çıkmıyorsa hata Nora'da değil ÖLÇÜMDE aranır (üç turdur öyleydi).
+    """
+    import os
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    shuffle = any(a.startswith("--shuffle") for a in sys.argv[1:])
+    wanted = [k for k in args if k in TESTS] or list(TESTS.keys())
+    if shuffle and not args:
+        seed = 0
+        for a in sys.argv[1:]:
+            if a.startswith("--shuffle="):
+                try:
+                    seed = int(a.split("=", 1)[1])
+                except ValueError:
+                    seed = 0
+        import random as _r
+        _r.Random(seed).shuffle(wanted)
     # HER KOŞU TAZE DÜNYA: geçen koşunun ölçüm envanteri bu koşuyu etkilemesin.
     # (Kendi ölçüm envanteri testi A89 zaten kendi defterini kurar.)
     try:

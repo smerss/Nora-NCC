@@ -30,6 +30,10 @@ Dürüstlük kuralları
 """
 from __future__ import annotations
 
+#: DONMUŞ AİLE SAYISI — Tur 40. Yeni bir *form ailesi* elle yazılmaz; yeni form
+#: yalnız reify (bileşimi ilkele çevirme) ya da icat (kuralı veriden çıkarma) ile gelir.
+FROZEN_FAMILIES = 3
+
 #: Kaydırma alfabesi (veri). ASCII doğrulaması için a-z öne alınmıştır.
 ALPHABET = "abcdefghijklmnopqrstuvwxyzçğıöşü"
 #: İcat aileleri: YASA BİÇİMLERİ (parametreleri örneklerden çıkar).

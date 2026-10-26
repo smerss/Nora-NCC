@@ -74,6 +74,14 @@ try:
 except Exception:  # soyutlama organı yoksa sistem yine çalışır
     Abstraction = None
     abstract_build = None
+try:
+    from nora_reify import Reify
+except Exception:  # yeniden-örnekleme organı yoksa sistem yine çalışır
+    Reify = None
+try:
+    from nora_drive import Driver
+except Exception:  # sürücü organı yoksa sistem yine çalışır
+    Driver = None
 from nora_episteme import EpistemicEngine, BeliefSpeech, TrustedResearcher
 try:
     from nora_sets import SetSynth
@@ -543,6 +551,12 @@ class NoraAGI:
         try:
             self.sets = SetSynth() if SetSynth is not None else None
             self.abstract = Abstraction() if Abstraction is not None else None
+            # REIFY: tekrar eden bileşimleri adlandırıp ilkel yapan ocak.
+            self.reify = Reify() if Reify is not None else None
+            if self.reify is not None:
+                self.synth.on_adopt = (lambda spec, ex: self.reify.observe(spec, ex))
+            # SÜRÜCÜ: ham akışı izler, şaşkınlığı ölçer, öğrenmeyi KENDİ tetikler.
+            self.driver = Driver(self) if Driver is not None else None
         except Exception:
             self.sets = None
         self._forge_pending = None
@@ -4408,6 +4422,22 @@ class NoraAGI:
                 out.append(p)
         return out
 
+    def _after_synth(self, prog) -> None:
+        """Sentez sonrası: reify ilkellerini kullan, eşiği geçeni terfi ettir, saat işle."""
+        rf = getattr(self, "reify", None)
+        if rf is None:
+            return
+        try:
+            sy = getattr(self, "synth", None)
+            rf.note_spec_use(getattr(prog, "spec", lambda: [])())
+            self._reify_maybe()
+            for nm in rf.tick():
+                # BUDANDI: defterde ölü kalır ama arama uzayından ÇIKAR.
+                if sy is not None:
+                    sy.drop_primitive(nm)
+        except Exception:
+            pass
+
     def _synth_say(self, spec):
         """Cümleyi KENDİ sözdizimi motorundan üret (kalıp cümle yok)."""
         try:
@@ -4470,7 +4500,9 @@ class NoraAGI:
             res = sy.learn(pairs)
             st = res.get("status")
             if st == "adopted":
-                return _ok(res, len(pairs))
+                _rep = _ok(res, len(pairs))
+                self._after_synth(res["program"])
+                return _rep
             if st == "ambiguous":
                 return _amb(res)
             if res.get("why") == "program-yok":
@@ -4546,6 +4578,47 @@ class NoraAGI:
             return f"{_v}: {prog.desc()}."
         return None
 
+    # ------------------------------------------------------------------ sürücü
+    def drive(self, lines, tick_every: int = 25, max_steps: int = 8) -> dict:
+        """TALİMAT YOK: ham akışı izle, şaşkınlık biriktikçe KENDİ öğren.
+
+        İnsan burada yalnız AKIŞI verir; ne öğrenileceğini söylemez. Dönen sözlük
+        kendi tetiklediği öğrenmelerin sayısını ve adlarını içerir.
+        """
+        dr = getattr(self, "driver", None)
+        if dr is None:
+            return {"seen": 0, "triggered": 0, "learned": []}
+        dr.ingest_stream(lines)
+        dr.run(max_steps=max_steps)
+        return dr.summary()
+
+    # ------------------------------------------------------------------ reify
+    def _reify_maybe(self) -> str | None:
+        """Eşiği geçen bileşimi ilkel yap ve sentez uzayına ekle (seviye 3)."""
+        rf = getattr(self, "reify", None)
+        sy = getattr(self, "synth", None)
+        if rf is None or sy is None:
+            return None
+        cands = rf.candidates()
+        if not cands:
+            return None
+        try:
+            from nora_synth import Program
+        except Exception:
+            return None
+        spec = list(cands[0])
+        prog = Program.from_spec(spec, spec_map=sy.spec_map())
+        if prog is None:
+            return None
+        def _fn(s, _p=prog):
+            return _p.apply(s)
+        item = rf.promote(spec, build_fn=_fn,
+                         desc=f"kendi.bilesim.{rf.promoted} ({prog.desc()})")
+        if item is None:
+            return None
+        sy.add_primitive(item["name"], _fn)
+        return str(item["name"])
+
     # ------------------------------------------------------------------ icat
     def _invent_operator(self, pairs) -> str | None:
         """KOMPOZİSYON TÜKENDİYSE: izleri yaz, ortak biçimi çıkar, YENİ İLKEL öner.
@@ -4576,6 +4649,7 @@ class NoraAGI:
                                 "examples": [[a, b] for a, b in pairs],
                                 "origin": "icat"})
             sy.last = _prog
+            self._after_synth(_prog)
         except Exception:
             pass
         unseen = next((w for w in ("deniz", "masa", "zeytin", "bulut", "portakal")
@@ -6057,6 +6131,8 @@ class NoraAGI:
             "calib": {k: list(v) for k, v in (getattr(self, "calib", {}) or {}).items()},
             "abstract": (self.abstract.state() if getattr(self, "abstract", None) is not None else {}),
             "num_facts": {a: dict(t) for a, t in (getattr(self, "num_facts", {}) or {}).items()},
+            "reify": (self.reify.state() if getattr(self, "reify", None) is not None else {}),
+            "driver": (self.driver.state() if getattr(self, "driver", None) is not None else {}),
             "testimony": (self.testimony.state_dict() if getattr(self, "testimony", None) is not None else {}),
             "plans": {"goal": self._plan_goal, "steps": list(self.plans.get(self._plan_goal) or [])},
         }
@@ -6154,6 +6230,20 @@ class NoraAGI:
             if getattr(agi, "sets", None) is not None:
                 agi.sets.load_state_dict(meta.get("sets") or {})
             agi._goals_done = int(meta.get("goals_done") or 0)
+            if getattr(agi, "driver", None) is not None:
+                agi.driver.load_state(meta.get("driver") or {})
+            if getattr(agi, "reify", None) is not None:
+                agi.reify.load_state(meta.get("reify") or {})
+                # Reify defterindeki ÖLÜ OLMAYAN ilkeller yeni oturumda da kurulur.
+                try:
+                    from nora_synth import Program as _P
+                    for _rec in agi.reify.alive():
+                        _prog = _P.from_spec(list(_rec.get("spec") or []),
+                                             spec_map=agi.synth.spec_map() if agi.synth else None)
+                        if _prog is not None and agi.synth is not None:
+                            agi.synth.add_primitive(_rec["name"], (lambda s, _p=_prog: _p.apply(s)))
+                except Exception:
+                    pass
             try:
                 agi.num_facts = {str(a): {str(w): float(v) for w, v in (t or {}).items()}
                                  for a, t in (meta.get("num_facts") or {}).items()}
