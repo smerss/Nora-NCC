@@ -733,6 +733,31 @@ class TurkishMorphology:
 
     _VOCAB_CACHE: dict = {}
 
+    #: TÜRKÇEDE SÖZCÜK SONU ÜNSÜZ ÖBEKLERİ (kapalı liste, fonotaktik).
+    #: "tahm|in" gibi soymaları elemek için: "hm" Türkçede hece sonu olamaz, öyleyse
+    #: "tahm" diye bir gövde YOKTUR; "tahmin" bütün hâliyle gövdedir.
+    _FINAL_PAIRS = frozenset({
+        "lp", "lk", "lt", "lç", "lm", "lf", "ls", "lz",
+        "nk", "nt", "nç", "nc", "ns", "nz",
+        "rd", "rt", "rk", "rç", "rm", "rn", "rl", "rs", "rz", "rf",
+        "st", "sk", "şk", "şp", "şt", "sp",
+        "kt", "kş", "ft", "ht", "pt", "zd", "zm", "hn",
+    })
+
+    @classmethod
+    def _plausible_stem(cls, stem: str) -> bool:
+        """Bu gövde Türkçe bir sözcük biçiminde mi? (yalnız fonotaktik kapı)"""
+        stem = str(stem or "")
+        if len(stem) < 2:
+            return False
+        if not any(ch in ALL_VOWELS for ch in stem):
+            return False
+        if stem[-1] in ALL_VOWELS:
+            return True
+        if len(stem) >= 2 and stem[-2] not in ALL_VOWELS and stem[-1] not in ALL_VOWELS:
+            return stem[-2:] in cls._FINAL_PAIRS
+        return True
+
     @classmethod
     def _known_vocab(cls, lexicon: set[str] | None) -> set[str]:
         """Sözlük + gündelik ad hazinesi — KOPYASIZ ve önbellekli.
@@ -798,6 +823,14 @@ class TurkishMorphology:
         ('zürafa'->'züraf'+DAT, 'matematik'->'mat'+fiil gibi hatalar anlamayı bozuyordu.)"""
         info = cls._analyze_word_raw(raw, lexicon)
         known = cls._known_vocab(lexicon)
+        # FONOTAKTİK KAPI (sözlükten bağımsız): soyulan gövde Türkçe biçimde değilse
+        # soyulmamış yüzey gövdedir. 'tahmin'i 'tahm'+GEN yapmak uydurma bir kök üretir;
+        # bu, anlamayı bozar ("Tahm hakkında bilgim yok" gibi cümleler).
+        _stem_try = info.get("stem") or ""
+        _surf = info.get("surface") or str(raw or "")
+        if (_stem_try and _stem_try != _surf and not info.get("is_verb")
+                and not cls._plausible_stem(_stem_try) and cls._plausible_stem(_surf)):
+            return {**info, "stem": _surf, "case": "NOM"}
         if not known:
             return info
         w, stem = info.get("surface", ""), info.get("stem", "")
@@ -2397,8 +2430,13 @@ class WernickeComprehender:
 
     def _tok(self, w: str) -> dict:
         an = dict(self.morph.analyze_word(w, self.graph.lexicon))
+        # DOĞRULANMAMIŞ KÖK HÂL EKİ TAŞIMAZ: "serçe" -> "serç"+DAT sanılırsa özne
+        # nesne olur ve cümle "serçe serçe uçar" diye kurulur. Sözlükte doğrulanmamış
+        # bir kökten tek harflik ek soymak, ek uydurmaktır; yalın hâl kabul edilir.
+        if an.get("unverified_stem"):
+            an = dict(an, stem=str(w), head=str(w), case="NOM")
         an["surface"] = w
-        an["head"] = self._base_of(w, an)
+        an["head"] = an.get("head") or self._base_of(w, an)
         return an
 
     @staticmethod
@@ -2587,8 +2625,24 @@ class WernickeComprehender:
                     return (a, op, b)
         return None
 
+    #: "Tahmin et: …", "Söyle: …", "Düşün: …" — bunlar SORU DEĞİL, soruyu SARMALAYAN
+    #: buyruklardır. Sarmalayıcı soYULMAZSA özne sanılır ("Tahm hakkında bilgim yok").
+    #: Yalnız İKİ NOKTA ile biten biçimde soyarız: "bana bir hikâye söyle" bir istektir,
+    #: buyruk sanılıp yutulmamalı.
+    _META_PREFIX = None
+
+    @classmethod
+    def _strip_meta_prefix(cls, s: str) -> str:
+        if cls._META_PREFIX is None:
+            cls._META_PREFIX = re.compile(
+                r"^\s*(?:tahmin\s+et|tahmin|s[oö]yle|d[uü][sş][uü]n|cevapla|"
+                r"bir\s+tahmin\s+yap|farz\s+et|diyelim\s+ki)\s*:\s*", re.I)
+        return cls._META_PREFIX.sub("", s, count=1)
+
     def parse(self, raw_text: str) -> SemanticFrame:
         self.turn_count += 1
+        # Sarmalayıcı buyruğu soy; kalan cümle neyse o.
+        raw_text = self._strip_meta_prefix(str(raw_text or ""))
         s_raw = raw_text.strip()
         s = tr_lower(s_raw)
         raw_tokens = s.split()
@@ -2759,8 +2813,18 @@ class WernickeComprehender:
         q_particles = {"mı", "mi", "mu", "mü", "mıdır", "midir", "mudur", "müdür"}
         q_idx = next((i for i, w in enumerate(words) if w in q_particles), -1)
         if q_idx >= 2:
-            subj = self.morph.analyze_word(words[0], self.graph.lexicon)["stem"]
-            pred_tokens = [w for w in words[1:q_idx] if w != "bir"]
+            # ÖZNE SEÇİMİ: baştaki BELİRTEÇ/sıfat (sıradaki, bu, her) özne DEĞİLDİR;
+            # ilk ADI al. Ve sözlükte doğrulanmamış kökü ad gibi kullanma
+            # ('serçe' -> 'serç' değil 'serçe'; 'sıradaki' -> 'sıra' değil).
+            _si = 0
+            while _si < q_idx - 1 and self._is_determiner(words[_si]):
+                _si += 1
+            _a0 = self.morph.analyze_word(words[_si], self.graph.lexicon)
+            # Kök sözlükte doğrulanmadıysa duyulan biçim kullanılır ('serçe', 'serç' değil).
+            subj = words[_si] if _a0.get("unverified_stem") else _a0["stem"]
+            # ÖNEMLİ: sözcük listesi DÖNDÜRÜLMEZ (q_idx kayardı); özne yalnız _si'den
+            # okunur, yüklem _si+1..q_idx arasıdır.
+            pred_tokens = [w for w in words[_si + 1:q_idx] if w != "bir"]
             # 'bitkinliğe / heyelana yol açar mı / neden olur mu / sebep olur mu' (+DAT yöneten nedensel fiiller!)
             if len(pred_tokens) >= 3 and (
                 pred_tokens[-2:] in (["yol", "açar"], ["neden", "olur"], ["sebep", "olur"])
@@ -3079,6 +3143,15 @@ class WernickeComprehender:
         if _subj:
             self.last_topic = _subj
         return SemanticFrame(kind="teach_fact", raw=s_raw, subj=_subj, rel=rel_type, obj=act_obj)
+
+    #: ÖZNE OLMAYAN BAŞ SÖZCÜKLER: belirteçler ve "sıradaki/bir sonraki" gibi ortacıllar.
+    DETERMINERS = frozenset((
+        "bu", "şu", "o", "her", "bir", "bazı", "tüm", "bütün", "hiç", "çok", "az",
+        "sıradaki", "önceki", "sonraki", "gelecek", "geçen", "ilk", "son",
+    ))
+
+    def _is_determiner(self, w: str) -> bool:
+        return w in self.DETERMINERS or w in self.ADJ_SEED
 
     def _strip_governed_dative(self, word: str) -> str:
         """Yönelme durumu (+DAT) yöneten fiillerin ('yol aç-', 'neden ol-', 'sebep ol-') tümlecinden -ya/-ye/-a/-e ekini söker."""

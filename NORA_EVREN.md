@@ -2493,3 +2493,44 @@ için `thresh` onları kesmiyor — fren `min_items` üzerinden çalışıyor. B
 3. Bir **sorunun içindeki** dizgeyi "cevap" saydım (soru, cevap değil).
 4. Çıktı ayrıştırmasında nokta: `"por." != "por"` → doğru cevabı yanlış saydı.
 Fren: `--repeat` (ileri/geri sıra) ve `--shuffle` (tam pil, karışık sıra).
+
+---
+
+## Aşama AP — Dil: sarmalayıcı buyruk, seçim sorusu, uydurma kök (Tur 41b)
+
+Üç dil hatası, üçü de ölçülü (A110):
+
+| hata | önce | sonra |
+|---|---|---|
+| "Tahmin et: …" | özne `Tahm` sanılıyordu (`tahmin` → `tahm`+GEN) | iki noktalı buyruk **soyulur**; gövde sorulur |
+| "yazı mı tura mı?" | kavram hattına düşüp alakasız tanım: "yaz bir sıcak mevsimdir" | **seçim sorusu**; ikisi de bilinmiyorsa birlikte söylenir |
+| "serçe uçar mı?" | özne `serç` (uydurma kök) | doğrulanmamış kök **ad gibi kullanılmaz** |
+
+Kök nedenler: (1) fonotaktik kapı yoktu — `tahm` Türkçede hece sonu olamaz; (2) seçim
+sorusu "hangisi/tercih" işaretçisi arıyordu, oysa "X mi Y mi" **kendi başına** seçimdir;
+(3) `unverified_stem` işareti vardı ama `_tok` hâl ekini yine de uyguluyordu.
+
+Yan etki (olumlu): "serçe uçar." artık `CAN_DO(serçe → uç)` olarak öğreniliyor;
+önce `CAN_DO(serçe → serçe uç)` yazılıyordu ve cevap "serçe serçe uçar" çıkıyordu.
+
+Ölçüm notu: bu turda **yine ölçüm hatası** buldum — n=6 testinde 8 harfli iki sözcük
+seçmişim; `ilk 6` ile `son 2 at` davranışta çakıştığı için "şemasız çözemez" ön koşulu
+yanlış çıktı. Farklı uzunlukta üç sözcükle düzeltildi.
+
+### AP1. Şema enflasyon freni + sürücünün kendi şeması (N36)
+
+`Schema.tick()`: kullanılmayan şema `MAX_IDLE=4` karar sonra **budanır** ve arama
+uzayından çıkar. `uses` sayacı şema çözüm ürettiğinde artar.
+
+`Driver` artık kümeyi **kendi böler**: biçim anahtarı aynı ama parametre farklıysa
+(`sırala∘ilk3` ve `sırala∘ilk4` ikisi de "uzunluk değişti, harfler aynı" der) tek küme
+öğrenilemez; sürücü çıktı uzunluğuna göre böler. Sonuç (N36, talimat yok):
+
+```
+tur 1 (n=3 ve n=4 dolaşır) → iki makro öğrenildi → şema.1 kendiliğinden doğdu
+tur 2 (yalnız n=6, hiç görülmemiş) → şema kapsadı, kullanım 2
+anti-test: yalnız tek parametre dolaşan akış → şema YOK (tek üye = makro)
+```
+
+Bu, "eşiği ben yazıyorum" eleştirisinin bir kısmını kapatıyor: hangi parametre
+ailesinin var olduğunu artık **sürücü akıştan çıkarıyor**, ben söylemiyorum.

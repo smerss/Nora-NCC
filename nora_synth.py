@@ -267,6 +267,16 @@ class Synthesizer:
         pick = tied[(self._tie_n * 7 + 3) % len(tied)]   # sabit, tekrarlanabilir
         return pick, 0.5
 
+    def drop_schema(self, name: str, family: str) -> bool:
+        """Budanan şemayı arama uzayından çıkar."""
+        before = len(self.schemas)
+        self.schemas = [sc for sc in self.schemas
+                        if not (sc.get("family") == family and sc.get("name") == name)]
+        if len(self.schemas) != before:
+            return True
+        self.schemas = [sc for sc in self.schemas if sc.get("family") != family]
+        return len(self.schemas) != before
+
     def drop_primitive(self, name: str) -> bool:
         """Budanan ilkeli uzaydan çıkar (defterde ölü kalır, aramada görünmez)."""
         before = len(self.extra)
