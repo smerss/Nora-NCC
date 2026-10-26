@@ -30,7 +30,22 @@ def _pairs(k=1):
     return [(w, _sh(w, k)) for w in ("kitap", "kalem")]
 
 
+
+def _pin_hashseed() -> None:
+    """ÖLÇÜM HİJYENİ: Python'un dize hash'i süreç başına rastgeleleşir; küme
+    yineleme sırası da onunla değişir. Aynı tohum aynı sonucu vermeli — bu yüzden
+    koşucu kendini PYTHONHASHSEED=0 ile yeniden başlatır (tek sefer)."""
+    import os, sys
+    if os.environ.get("PYTHONHASHSEED") != "0" and not os.environ.get("_NORA_HASH_PINNED"):
+        os.environ["_NORA_HASH_PINNED"] = "1"
+        os.environ["PYTHONHASHSEED"] = "0"
+        try:
+            os.execv(sys.executable, [sys.executable] + sys.argv)
+        except Exception:
+            pass
+
 def main():
+    _pin_hashseed()
     verbose = "-v" in sys.argv
     pm = {n: fn for n, fn, _c in PRIMITIVES}
     sortN = lambda k: (lambda w: pm["alfabetik sırala"](w)[:k])

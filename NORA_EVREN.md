@@ -2589,3 +2589,49 @@ A6 (ikiz ayrışması) tam pilde bir kez düştü (sosyal güven farkı +0.04 < 
 tek başına ve A1+A6 ikilisinde geçti (+0.18). Kök neden **bulunmadı**; sıra/sızıntı
 kuşkusu sürüyor. Bunu ölçüm katmanı borcu olarak yazıyorum — kapatmadan "sıra
 bağımsız" cümlesini tam kuramam.
+
+---
+
+## Aşama AR — Şaşkınlık artık ölçülen bir şey (Tur 41d)
+
+### AR1. Sabit tablo gitti
+
+Tur 40'ta sürücünün şaşkınlığı elle konmuş sayılardı: çift 1.00 · soru 0.35 · sayı 0.45
+· gürültü 0.10. Yani "neye şaşıracağını" ben söylüyordum; sürücü yalnız o tabloya
+bakıyordu. Artık:
+
+```
+p(biçim | bağlam) = (sayım + 1) / (toplam + 3)      # Laplace
+şaşkınlık = 1 − p
+biçim = (uzunluk değişti mi, harfler korunuyor mu, çıktı uzunluğu)
+```
+
+Alışma bundan doğuyor: aynı biçimi tekrar görmek p'yi yükseltir, şaşkınlığı düşürür.
+**A112: 0.211 → 0.068** (ikinci tur aynı akış). Yeni bir biçim girince:
+**0.10 → 0.67** (değişim noktası).
+
+Yan etki: biçim anahtarına **çıktı uzunluğu** girdi. Bu, "ilk-3" ile "ilk-4"ün ayrı
+küme olması demek — parametre ayrıştırması artık sürücünün kendi anahtarından geliyor
+(N36 tur 1: tek geçişte iki makro + şema).
+
+### AR2. Şema şablonu standartlaştı
+
+Aynı şema iki kez kaydediliyordu (`şema.1` = 'ilk 3', `şema.2` = 'ilk 4'): şablon
+"ilk görülen üye"ye göre yazılıyordu. Artık deliğin yerinde **ailenin adı** durur;
+tekrar eden kayıt yok.
+
+### AR3. N38 + A112
+
+| ölçüm | sonuç |
+|---|---|
+| alışma (aynı akış 2. tur) | 0.211 → 0.068 |
+| değişim noktası (yeni biçim) | 0.10 → 0.67 |
+| sıra-dayanıklılık (`--repeat`) | 34/34 · 34/34 |
+| tam pil | 108/108 (A112 sonrası 109) |
+
+### AR4. Dürüst taban
+
+Şaşkınlık artık ölçülüyor ama **neyin biçim sayıldığını** hâlâ ben seçiyorum
+(uzunluk, harf korunumu, çıktı uzunluğu). Yani "hangi özellik dikkate değer"
+sorusunun cevabı insan elinden çıkıyor. Bir sonraki dürüst adım, biçim uzayını da
+veriden çıkarmak olurdu; bugün yapılmadı ve yapılmış gibi yazılmayacak.

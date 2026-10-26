@@ -4885,6 +4885,62 @@ def a111_icadin_semasi() -> tuple[bool, str]:
     return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
 
 
+def a112_beklenti_modeli() -> tuple[bool, str]:
+    """A112 — ŞAŞKINLIK KENDİ SAYIMINDAN: alışma ve değişim noktası.
+
+    Tur 40'ta şaşkınlık sabit bir tabloydu (çift 1.0, soru 0.35, gürültü 0.10):
+    "neye şaşıracağını" insan söylüyordu. Artık p(biçim | bağlam) kendi gözleminden
+    gelir, şaşkınlık = 1 − p.
+    Ölçüt: aynı akış ikinci turda ortalama şaşkınlığı YARIYA indirir (alışma);
+    akışa bambaşka bir biçim girince şaşkınlık yükselir (değişim noktası).
+    """
+    import random
+    from nora_synth import PRIMITIVES
+
+    pm = {n: fn for n, fn, _c in PRIMITIVES}
+    comp = lambda w: pm["ilk 3 harfi al"](pm["alfabetik sırala"](w))
+    words = ["kitap", "portakal", "deniz", "yıldız", "şehir", "masa"]
+    noise = ["bugün hava kapalı", "kahve soğudu", "yorgunum"]
+    rng = random.Random(31)
+    base = []
+    for i in range(120):
+        a, b = rng.sample(words, 2)
+        if i % 5 == 0:
+            base.append(f"{a} -> {comp(a)}, {b} -> {comp(b)}")
+        elif i % 7 == 0:
+            base.append(f"{rng.choice(words)} nedir")
+        else:
+            base.append(rng.choice(noise))
+
+    ok = {}
+    g = NoraAGI(seed=1991, boot_thinker=False)
+    g.step_life(60)
+    for ln in base:
+        g.driver.ingest(ln)
+    m1 = sum(it["surprise"] for it in g.driver.items) / len(g.driver.items)
+    for ln in base:
+        g.driver.ingest(ln)
+    tail = g.driver.items[len(base):]
+    m2 = sum(it["surprise"] for it in tail) / len(tail)
+    ok["alışma"] = m2 < m1 * 0.5
+
+    h = NoraAGI(seed=1992, boot_thinker=False)
+    h.step_life(60)
+    for ln in base:
+        h.driver.ingest(ln)
+    before = sum(it["surprise"] for it in h.driver.items[-10:]) / 10.0
+    novel = h.driver.ingest("17 ile 23 toplamı 40")["surprise"]
+    ok["değişim-noktası"] = novel >= 0.5 and novel > before
+    ok["tablo-değil"] = "surprise" in g.driver.ingest("test") and \
+        g.driver._surprise_of("pair", (True, True, 3)) != \
+        g.driver._surprise_of("number", ("sayı",))
+    passed = sum(1 for v in ok.values() if v)
+    detail = (f"{passed}/{len(ok)} — " + " | ".join(
+        f"{k}={'✓' if v else '✗'}" for k, v in ok.items()) +
+        f" | {m1:.3f}→{m2:.3f} · önce {before:.2f} → yeni {novel:.2f}")
+    return passed == len(ok), detail
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -4991,6 +5047,7 @@ TESTS = {
             a59_unknown_question_gap_and_research_across_wh_types),
     "A58": ("cümle yapısı, fiil valansı ve 'nasıl denilir' sorularının genellenmesi",
             a58_sentence_structure_valency_and_meta_questions),
+    "A112": ("beklenti modeli: alışma ve değişim noktası", a112_beklenti_modeli),
     "A111": ("icadın şeması: görülmemiş parametre icat gerektirmez", a111_icadin_semasi),
     "A110": ("dil: buyruk sarmalayıcısı ve X mi Y mi seçim sorusu", a110_sarmalayici_ve_secim_sorusu),
     "A108": ("şema: delikli makro görülmemiş parametreyi kapsar", a108_sema_delikli_makro),
@@ -5026,12 +5083,27 @@ def _reset_globals() -> None:
         pass
 
 
+
+def _pin_hashseed() -> None:
+    """ÖLÇÜM HİJYENİ: Python'un dize hash'i süreç başına rastgeleleşir; küme
+    yineleme sırası da onunla değişir. Aynı tohum aynı sonucu vermeli — bu yüzden
+    koşucu kendini PYTHONHASHSEED=0 ile yeniden başlatır (tek sefer)."""
+    import os, sys
+    if os.environ.get("PYTHONHASHSEED") != "0" and not os.environ.get("_NORA_HASH_PINNED"):
+        os.environ["_NORA_HASH_PINNED"] = "1"
+        os.environ["PYTHONHASHSEED"] = "0"
+        try:
+            os.execv(sys.executable, [sys.executable] + sys.argv)
+        except Exception:
+            pass
+
 def main():
     """Koşum. ÖLÇÜM KATMANI KURALI: bir testin sonucu koşum SIRASINA bağlı olamaz.
 
     `--shuffle` ile testler rastgele sırada koşar. Aynı toplam, farklı sırada da
     çıkmalı; çıkmıyorsa hata Nora'da değil ÖLÇÜMDE aranır (üç turdur öyleydi).
     """
+    _pin_hashseed()
     import os
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     shuffle = any(a.startswith("--shuffle") for a in sys.argv[1:])

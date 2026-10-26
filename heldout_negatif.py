@@ -35,11 +35,11 @@ from nora_style import strip_prefixes
 #: Dondurulmuş başarısızlık tabanı: bu sayı ARTMAZ. Düşerse buraya yazılır.
 #: 2026-10-26'da donduruldu: N1, N2, N7, N8 kapandı. Bu sayı ARTMAZ (aşağı iner).
 #: Mandal: ölçülen değer dondurulmuş değerin ALTINA düşerse koşu hata verir.
-BASELINE = {"capability": 33, "honesty": 33,
+BASELINE = {"capability": 34, "honesty": 34,
             "closed": ["N1", "N2", "N3", "N4", "N5", "N6", "N7", "N8", "N9", "N10",
                        "N11", "N12", "N13", "N14", "N15", "N16", "N20", "N22",
                        "N23", "N24", "N25", "N26", "N27", "N28", "N29", "N30",
-                       "N31", "N32", "N33", "N34", "N35", "N36", "N37"]}
+                       "N31", "N32", "N33", "N34", "N35", "N36", "N37", "N38"]}
 
 REFUSAL = ("bilmiyorum", "bilgim yok", "kural çıkmıyor", "kural kalmadı", "örüntü yok",
            "uydurmam", "uydurmadım", "uydurma", "çıkmıyor", "yapamıyorum", "ölçemiyorum",
@@ -1238,6 +1238,64 @@ def n37_icadin_semasi_gorulmemis_parametre():
             "capability": cap, "honesty": hon, "cevap": detail}
 
 
+def n38_saskinlik_modeli_alisir():
+    """N38 — BEKLENTİ: şaşkınlık SABİT TABLO DEĞİL, kendi sayımından gelir.
+
+    Tur 40'ta şaşkınlık elle konmuş sabitlerdi (çift 1.0, soru 0.35, sayı 0.45,
+    gürültü 0.10) — yani "neye şaşıracağını" ben söylüyordum. Artık ölçü şu:
+    p(biçim | bağlam), kendi gözlem sayımından; şaşkınlık = 1 − p.
+
+    Ölçüt: (a) aynı akış ikinci kez verilince ortalama şaşkınlık DÜŞER (alışma),
+    (b) akışın sonuna bambaşka bir biçim eklenince şaşkınlık YÜKSELİR (değişim noktası).
+    Bu ikisi aynı sürücüde, aynı tohumla, elle hiçbir sayı verilmeden ölçülür.
+    """
+    import random
+    from nora_synth import PRIMITIVES
+
+    pm = {n: fn for n, fn, _c in PRIMITIVES}
+    comp = lambda w: pm["ilk 3 harfi al"](pm["alfabetik sırala"](w))
+    words = ["kitap", "portakal", "deniz", "yıldız", "şehir", "masa"]
+    noise = ["bugün hava kapalı", "kahve soğudu", "yorgunum"]
+    rng = random.Random(31)
+    base = []
+    for i in range(120):
+        a, b = rng.sample(words, 2)
+        if i % 5 == 0:
+            base.append(f"{a} -> {comp(a)}, {b} -> {comp(b)}")
+        elif i % 7 == 0:
+            base.append(f"{rng.choice(words)} nedir")
+        else:
+            base.append(rng.choice(noise))
+
+    g = _agi(3501, 100)
+    d1 = g.driver
+    for ln in base:
+        d1.ingest(ln)
+    first = [it["surprise"] for it in d1.items]
+    # (a) ALIŞMA: aynı akış ikinci tur
+    for ln in base:
+        d1.ingest(ln)
+    second = [it["surprise"] for it in d1.items[len(base):]]
+    m1 = sum(first) / len(first)
+    m2 = sum(second) / len(second)
+    c_hab = m2 < m1 * 0.5
+
+    # (b) DEĞİŞİM NOKTASI: bambaşka bir biçim (sayı satırı) akışa girince yükselir
+    h = _agi(3502, 100)
+    for ln in base:
+        h.driver.ingest(ln)
+    before = sum(it["surprise"] for it in h.driver.items[-10:]) / 10.0
+    novel = h.driver.ingest("17 ile 23 toplamı 40")["surprise"]
+    c_change = novel > max(before, 0.2) and novel >= 0.5
+
+    cap = bool(c_hab and c_change)
+    hon = True
+    detail = (f"alışma: {m1:.3f} → {m2:.3f} (oran {m2 / max(m1, 1e-9):.2f}) | "
+              f"değişim: önce {before:.2f} → yeni biçim {novel:.2f}")
+    return {"ad": "beklenti modeli: alışma ve değişim noktası", "capability": cap,
+            "honesty": hon, "cevap": detail}
+
+
 PROBES = {"N1": n1_konum_olcumu, "N2": n2_uzun_vadeli_bellek,
           "N3": n3_iki_kural_kompozisyonu, "N4": n4_kalibrasyon,
           "N5": n5_alan_transferi, "N6": n6_oz_celiskisi,
@@ -1256,8 +1314,23 @@ PROBES = {"N1": n1_konum_olcumu, "N2": n2_uzun_vadeli_bellek,
           "N34": n34_sema_gorulmemis_parametre,
           "N35": n35_surucu_kendini_ayarliyor,
           "N36": n36_surucu_kendi_semasini_kuruyor,
-          "N37": n37_icadin_semasi_gorulmemis_parametre}
+          "N37": n37_icadin_semasi_gorulmemis_parametre,
+          "N38": n38_saskinlik_modeli_alisir}
 
+
+
+def _pin_hashseed() -> None:
+    """ÖLÇÜM HİJYENİ: Python'un dize hash'i süreç başına rastgeleleşir; küme
+    yineleme sırası da onunla değişir. Aynı tohum aynı sonucu vermeli — bu yüzden
+    koşucu kendini PYTHONHASHSEED=0 ile yeniden başlatır (tek sefer)."""
+    import os, sys
+    if os.environ.get("PYTHONHASHSEED") != "0" and not os.environ.get("_NORA_HASH_PINNED"):
+        os.environ["_NORA_HASH_PINNED"] = "1"
+        os.environ["PYTHONHASHSEED"] = "0"
+        try:
+            os.execv(sys.executable, [sys.executable] + sys.argv)
+        except Exception:
+            pass
 
 def main():
     """Koşum. `--reverse` / `--shuffle[=seed]`: SIRA DEĞİŞİNCE SONUÇ DEĞİŞMEMELİ.
@@ -1265,6 +1338,7 @@ def main():
     Ölçüm katmanı kuralı: bir sonda başka bir sondanın bıraktığı duruma bağlı olamaz.
     Ters/karışık sırada aynı toplam çıkmıyorsa hata sondayı yazandadır.
     """
+    _pin_hashseed()
     import random as _r
     flags = [a for a in sys.argv[1:] if a.startswith("--")]
     wanted = [k for k in sys.argv[1:] if k in PROBES] or list(PROBES)

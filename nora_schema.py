@@ -52,7 +52,12 @@ class Schema:
                     continue
                 fam, n = fo
                 key = (tuple(spec[:i]), tuple(spec[i + 1:]), fam, i)
-                g = groups.setdefault(key, {"steps": spec, "hole": i, "family": fam,
+                # ŞABLON standart biçimde tutulur: deliğin yerinde AİLENİN ADI durur.
+                # Yoksa aynı şema, ilk görülen üyeye göre iki kez kaydedilir
+                # (şema.1 'ilk 3', şema.2 'ilk 4' — ikisi de aynı şema).
+                _pat = list(spec)
+                _pat[i] = fam
+                g = groups.setdefault(key, {"steps": _pat, "hole": i, "family": fam,
                                             "seen": set()})
                 g["seen"].add(int(n))
         out = []

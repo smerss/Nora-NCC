@@ -38,6 +38,12 @@ class Driver:
     def __init__(self, agi=None):
         self.agi = agi
         self.items: list[dict] = []      # {"text","kind","surprise","key"}
+        #: BEKLENTİ MODELİ: sabit şaşkınlık tablosu DEĞİL. Aynı biçimi tekrar görmek
+        #: şaşkınlığı düşürür (alışma), yeni biçim yükseltir. Olasılık kendi
+        #: sayımlarından gelir; sabit 0.10/0.45 gibi sayılar insanın koyduğu eğilimdir.
+        self._seen_shape: dict[tuple, int] = {}
+        self._seen_total: dict[str, int] = {}
+        self._prev_kind = ""
         self.seen = 0
         self.triggered = 0               # KENDİ tetiklediği öğrenme sayısı
         self.learned: list[dict] = []    # {"kind","name","n","keys"}
@@ -51,8 +57,27 @@ class Driver:
         self._run = {"trig": 0, "unres": 0, "reuse": 0}
 
     # ------------------------------------------------------------------ algı
+    def _surprise_of(self, kind: str, shape: tuple) -> float:
+        """Beklenti modeline göre şaşkınlık: 1 - p(biçim | bağlam). Alışma buradan."""
+        key = (self._prev_kind, kind, shape)
+        n = int(self._seen_total.get(f"{self._prev_kind}|{kind}", 0))
+        c = int(self._seen_shape.get(key, 0))
+        p = (c + 1.0) / (n + 3.0)      # Laplace: model boşken de sıfıra bölünmez
+        return max(0.0, 1.0 - p)
+
+    def _learn_shape(self, kind: str, shape: tuple) -> None:
+        key = (self._prev_kind, kind, shape)
+        self._seen_shape[key] = int(self._seen_shape.get(key, 0)) + 1
+        k2 = f"{self._prev_kind}|{kind}"
+        self._seen_total[k2] = int(self._seen_total.get(k2, 0)) + 1
+        self._prev_kind = kind
+
     def ingest(self, text: str) -> dict:
-        """Bir cümleyi izle: şaşkınlığını ölç ve kaydet."""
+        """Bir cümleyi izle: şaşkınlığını ÖLÇ ve kaydet.
+
+        Şaşkınlık sabit bir tablodan gelmez: kendi biçim sayımlarına göre
+        "bu biçimi bu bağlamda ne sıklıkta gördüm" sorusunun cevabıdır.
+        """
         raw = str(text or "").strip()
         self.seen += 1
         rec = {"text": raw, "kind": "noise", "surprise": 0.10, "key": ()}
@@ -68,17 +93,21 @@ class Driver:
             a, b = pairs[0]
             explained = self._explained(a, b)
             rec = {"text": raw, "kind": "pair", "pairs": pairs,
-                   # BİÇİM anahtarı: uzunluk farkını DIŞARIDA bırakır. Aynı bileşim
-                   # farklı uzunluklarda görünse de tek kümede toplansın; uzunluk
-                   # çeşitliliği belirsizliği ÇÖZEN kanıttır, kümeyi bölen değil.
-                   "key": (len(a) == len(b), sorted(a) == sorted(b)),
-                   "surprise": 0.25 if explained else 1.0}
+                   # BİÇİM anahtarı: (uzunluk değişti mi, harfler korunuyor mu, ÇIKTI
+                   # UZUNLUĞU). Girdi uzunluğu DEĞİL: aynı parametre farklı uzunlukta
+                   # girdilerle aynı kümede kalmalı. Çıktı uzunluğu ise PARAMETREYİ
+                   # ayırır (ilk-3 ile ilk-4 ayrı küme) — ayrıştırma buradan doğuyor.
+                   "key": (len(a) == len(b), sorted(a) == sorted(b), len(b)),
+                   # AÇIKLANAN çift şaşkınlık üretmez: uzay onu zaten kapsıyor.
+                   "surprise": 0.05 if explained else 1.0}
         else:
             low = tr_lower(raw)
             if " nedir" in low or " ne demek" in low:
-                rec = {"text": raw, "kind": "question", "surprise": 0.35, "key": ()}
+                rec = {"text": raw, "kind": "question", "key": ("soru",)}
             elif any(ch.isdigit() for ch in raw):
-                rec = {"text": raw, "kind": "number", "surprise": 0.45, "key": ()}
+                rec = {"text": raw, "kind": "number", "key": ("sayı",)}
+        rec["surprise"] = round(self._surprise_of(rec["kind"], rec.get("key") or ()), 3)
+        self._learn_shape(rec["kind"], rec.get("key") or ())
         self.items.append(rec)
         if len(self.items) > self.MAX_ITEMS:
             del self.items[:-self.MAX_ITEMS]
