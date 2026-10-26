@@ -45,6 +45,58 @@ for _n in (1, 2, 3, 4):
 #: `n` harfli bir dizgede `s[:n]` = `s[:-n]` ise program AYNI davranır; bu yüzden
 #: tekilleştirme DAVRANIŞ üzerinden yapılır (ada göre değil).
 
+# ===================================================================== YÜKSEK MERTEBE
+#: SÜZGEÇ AİLESİ. Dikkat: burada insan tek bir MEKANİZMA yazıyor (bir yüklemi tut/at),
+#: hangi süzgecin kullanılacağını ÖRNEKLER belirliyor. "Sesli harfleri at" diye bir
+#: operatörü kimse yazmadı; örneklerden çıktı.
+#:
+#: Neden ilkel kompozisyonu yetmiyor: k[0], k[-1], sorted, reverse — hiçbiri "harfi
+#: kendi özelliğine göre seç" işlemini yapamaz. Bu, ilkel KÜMESİNİN genişlemesi değil,
+#: ilkellerin ÜSTÜNE bir kombinator eklenmesi: süzgeç.
+_VOWELS = set("aeıioöuüâîû")
+
+
+def _mk_sieve(pred, keep: bool, label: str):
+    """Bir yüklemi tutan/atayan program adımı üret."""
+    if keep:
+        def _fn(s, _p=pred):
+            return "".join(ch for ch in s if _p(ch))
+        nm = f"{label} tut"
+    else:
+        def _fn(s, _p=pred):
+            return "".join(ch for ch in s if not _p(ch))
+        nm = f"{label} at"
+    return (nm, _fn, 1)
+
+
+def _is_vowel(ch: str) -> bool:
+    return ch.lower() in _VOWELS
+
+
+def _first_only(s: str) -> str:
+    """Tekrarları at: her harfin YALNIZ ilk geçişi kalır (sıra korunur)."""
+    seen, out = set(), []
+    for ch in s:
+        k = ch.lower()
+        if k in seen:
+            continue
+        seen.add(k)
+        out.append(ch)
+    return "".join(out)
+
+
+FILTER_PRIMITIVES = [
+    _mk_sieve(_is_vowel, False, "sesli harfleri"),
+    _mk_sieve(_is_vowel, True, "sesli harfleri"),
+    _mk_sieve(lambda ch: ch.isalpha() and not _is_vowel(ch), False, "sessiz harfleri"),
+    _mk_sieve(lambda ch: ch.isalpha() and not _is_vowel(ch), True, "sessiz harfleri"),
+    ("tekrarları at", _first_only, 2),
+]
+
+#: Ad -> (ad, fonksiyon) kayıt defteri: kaydedilmiş bir program BAŞKA OTURUMDA da
+#: yeniden kurulabilsin (süzgeçler dahil).
+_PRIM_BY_NAME = {n: (n, f) for n, f, _c in list(PRIMITIVES) + list(FILTER_PRIMITIVES)}
+
 
 class Program:
     """İlkellerden kurulmuş küçük bir dönüşüm programı."""
@@ -69,7 +121,7 @@ class Program:
     @classmethod
     def from_spec(cls, names: list[str]) -> "Program | None":
         """Kayıtlı bir programı yeniden kur (başka oturumda da çalışsın)."""
-        by_name = {n: (n, f) for n, f, _c in PRIMITIVES}
+        by_name = _PRIM_BY_NAME
         ops = []
         for nm in names or []:
             if nm not in by_name:
@@ -120,6 +172,23 @@ class Synthesizer:
                     p = Program([(nm1, f1), (nm2, f2), (nm3, f3)], c1 + c2 + c3)
                     if all(p.apply(i) == o for i, o in examples):
                         found.append(p)
+        if found:
+            return self._dedupe(found, examples, outs)
+        # SÜZGEÇ AŞAMASI: ilkel kompozisyonu tükendi. Şimdi YÜKSEK MERTEBE kombinator
+        # denenir (tut/at). Sıra ÖNEMLİ: buraya yalnız taban arama BOŞ dönünce gelinir,
+        # böylece eski davranış (N16, N22) hiç değişmez.
+        for nm, fn, c in FILTER_PRIMITIVES:
+            p = Program([(nm, fn)], c)
+            if all(p.apply(i) == o for i, o in examples):
+                found.append(p)
+        if found:
+            return self._dedupe(found, examples, outs)
+        pool = list(PRIMITIVES) + list(FILTER_PRIMITIVES)
+        for nm1, f1, c1 in pool:
+            for nm2, f2, c2 in pool:
+                p = Program([(nm1, f1), (nm2, f2)], c1 + c2)
+                if all(p.apply(i) == o for i, o in examples):
+                    found.append(p)
         return self._dedupe(found, examples, outs)
 
     @staticmethod
@@ -196,7 +265,8 @@ class Synthesizer:
         """Adayların AYRIŞTIĞI bir sözcük: hangi çıktıyı verirse kural tek kalır."""
         known = {i for i, _ in examples}
         for w in ("kitap", "kalem", "deniz", "masa", "sokak", "portakal", "ev", "göl",
-                  "zeytin", "çiçek", "yıldız", "bulut", "Kalem", "Deniz", "Elma"):
+                  "zeytin", "çiçek", "yıldız", "bulut", "ankara", "kitapçı",
+                  "Kalem", "Deniz", "Elma"):
             if w in known:
                 continue
             if len({p.apply(w) for p in cands}) > 1:

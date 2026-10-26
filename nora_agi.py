@@ -4373,6 +4373,12 @@ class NoraAGI:
                  or re.search(r"([\wçğıöşü]{2,24})\s+için\s+(?:uygula|çalıştır|dene)", tl, re.U)
                  or re.search(r"([\wçğıöşü]{2,24})['’]?[aıuü]?\s+(?:sözcüğ|kelime)", tl, re.U))
             word = (m.group(1) if m else "").strip()
+            # BÜYÜK HARF KAYBI YOK: eşleşme küçük harfli metinde yapıldı; sözcüğün
+            # kullanıcının yazdığı biçimi (ör. "Portakal") ham metinden geri alınır.
+            if word:
+                m_case = re.search(r"\b" + re.escape(word) + r"\b", raw, re.I)
+                if m_case:
+                    word = m_case.group(0)
             if not word:
                 _q = self._synth_say(VerbSpec("uygula", dat=NP("sözcük", case="DAT"),
                                               tense="OPT", person="1SG", question_yn=True))
