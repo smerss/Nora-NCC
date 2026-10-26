@@ -2502,6 +2502,60 @@
               "kind": "predict_unknown"
             }
           }
+        },
+        {
+          "id": "mr.num1",
+          "text": "{who} ({val}) — {other} {other_val}. Sayılar bunu söylüyor.",
+          "when": {
+            "eq": {
+              "kind": "numcmp"
+            }
+          }
+        },
+        {
+          "id": "mr.num2",
+          "text": "Verdiğin sayılara göre {who}: {val}; {other} ise {other_val}.",
+          "when": {
+            "eq": {
+              "kind": "numcmp"
+            }
+          }
+        },
+        {
+          "id": "mr.chain1",
+          "text": "{chain} ({ops})",
+          "when": {
+            "eq": {
+              "kind": "chain"
+            }
+          }
+        },
+        {
+          "id": "mr.chain2",
+          "text": "Adım adım: {chain}. Sonuç: {final}.",
+          "when": {
+            "eq": {
+              "kind": "chain"
+            }
+          }
+        },
+        {
+          "id": "mr.nf1",
+          "text": "Sayı olarak not ettim: {facts}",
+          "when": {
+            "eq": {
+              "kind": "numfact"
+            }
+          }
+        },
+        {
+          "id": "mr.nf2",
+          "text": "Yazdım: {facts}. Sıralamayı bu sayılardan çıkarırım.",
+          "when": {
+            "eq": {
+              "kind": "numfact"
+            }
+          }
         }
       ]
     },

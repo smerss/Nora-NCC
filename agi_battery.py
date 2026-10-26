@@ -4421,6 +4421,44 @@ def a97_cephe_hatti():
 
 
 
+
+def a98_cephe_hatti_2():
+    """A98 — CEPHE HATTI 2: sonda protokolü, sayısal kıyas, adımlı zincir.
+
+    (1) belirsizlikte sistem SORAR, verilen ayırt edici örnekle kural tek kalır ve
+        görülmemiş sözcüğe uygulanır,
+    (2) sayıyla söylenen olgulardan sıralama çıkarılır,
+    (3) "önce X, sonra Y" iki işlemi zincirler ve ARA sonucu gösterir.
+    """
+    ok = {}
+    g = NoraAGI(seed=1921, boot_thinker=False)
+    g.step_life(150)
+    r1 = tr_lower(strip_prefixes(g.converse("Örnekler: kitap -> aik, kalem -> aek. "
+                                            "Kuralı çıkar ve deniz için uygula.")))
+    ok["belirsizlikte-sorar"] = "hangi çıktıyı alır" in r1
+    ok["sonda-çözer"] = ("kendim yazdım" in tr_lower(strip_prefixes(g.converse("masa -> aam"))))
+    ok["görülmemiş-sözcük"] = "blt" in tr_lower(strip_prefixes(g.converse("bulut için uygula")))
+
+    g2 = NoraAGI(seed=1922, boot_thinker=False)
+    g2.step_life(150)
+    g2.converse("Ali'nin boyu 180 santimetre, Veli'nin boyu 175 santimetre.")
+    r2 = tr_lower(strip_prefixes(g2.converse("Kim daha uzun?")))
+    ok["sayısal-kıyas"] = "ali" in r2 and "180" in r2
+    r2b = tr_lower(strip_prefixes(g2.converse("Kim daha kısa?")))
+    ok["ters-yön"] = "veli" in r2b
+
+    g3 = NoraAGI(seed=1923, boot_thinker=False)
+    g3.step_life(150)
+    r3 = tr_lower(strip_prefixes(g3.converse(
+        "Önce 'kitap' sözcüğünü alfabetik sırala, sonra ilk üç harfini söyle.")))
+    ok["zincir-ara-sonuç"] = "aikpt" in r3 and "aik" in r3
+
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
+
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -4505,6 +4543,7 @@ TESTS = {
     "A95": ("operatör sentezi: dönüşümü örneklerden Nora yazar", a95_operator_synthesis),
     "A96": ("küme operatörü sentezi: kesişim aksiyomdan seçilir", a96_kume_sentezi),
     "A97": ("cephe hattı: kıyas · plan · kısıtlı üretim · öz-tahmin · tanık", a97_cephe_hatti),
+    "A98": ("cephe hattı 2: sonda · sayısal kıyas · adımlı zincir", a98_cephe_hatti_2),
     "A70": ("kendi çıkarımı: kimse söylemeden türetme + iç monolog", a70_own_inference_and_monologue),
     "A69": ("söz biçimi çeşitliliği, soru alışkanlığının kırılması ve kendi derdi", a69_speech_shape_variety_and_self_interest),
     "A68": ("kulak yolu: ses olayı, gürültüde eksik duyma, etiketsiz kimlik", a68_ear_path_perception),

@@ -75,10 +75,11 @@ try:
 except Exception:  # küme organı yoksa sistem yine çalışır
     SetSynth = None
 try:
-    from nora_synth import Synthesizer, parse_pairs, Program
+    from nora_synth import Synthesizer, parse_pairs, Program, PRIMITIVES
 except Exception:  # sentez organı yoksa sistem yine çalışır
     Synthesizer = None
     Program = None
+    PRIMITIVES = ()
     def parse_pairs(_t):
         return []
 from nora_code import CodeSynthesisCortex
@@ -513,6 +514,8 @@ class NoraAGI:
         self._synth_last_reply = ""
         # PLAN DEFTERİ: kullanıcının verdiği adımlar; koşul değişince YENİDEN kurulur.
         self.plans: dict[str, list[str]] = {}
+        # SAYISAL OLGULAR: "Ali'nin boyu 180" -> {"boy": {"ali": 180.0}}
+        self.num_facts: dict[str, dict[str, float]] = {}
         self._plan_goal = ""
         # KÜME ORGANI: kesişim/birleşim/fark elle yazılmadı; aksiyomlardan sentezlenir.
         try:
@@ -1292,6 +1295,22 @@ class NoraAGI:
             self._intent_locked = True
             self._log_turn(speaker, raw, _gen, t0)
             return _gen
+        try:
+            _chain = self._chain_turn(raw)
+        except Exception:
+            _chain = None
+        if _chain:
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _chain, t0)
+            return _chain
+        try:
+            _num = self._num_turn(raw)
+        except Exception:
+            _num = None
+        if _num:
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _num, t0)
+            return _num
         try:
             _plan = self._plan_turn(raw)
         except Exception:
@@ -3657,6 +3676,109 @@ class NoraAGI:
     _PLAN_DECL = re.compile(r"plan\w*\s*:\s*(.+)$", re.I)
     _PLAN_STEP = re.compile(r"(?:\d+\s*[.)]\s*|,\s*|;\s*)")
 
+    # ------------------------------------------------------------------ sayısal kıyas
+    #: "Ali'nin boyu 180 santimetre" -> (özne, nitelik, sayı)
+    _NUM_FACT = re.compile(r"(\w+)['’]?n[ıiuü]n\s+(\w+)\s+"
+                           r"(\d+(?:[.,]\d+)?)", re.U)
+    #: "kim daha uzun / kim daha ağır" -> nitelik yönü
+    _ATTR = {"uzun": ("boy", 1), "kısa": ("boy", -1), "ağır": ("kilo", 1),
+             "hafif": ("kilo", -1), "yaşlı": ("yaş", 1), "genç": ("yaş", -1)}
+
+    def _num_turn(self, raw: str) -> str | None:
+        """Sayıyla söylenen olguları yaz; "kim daha X" sorusunu SAYIYA bakarak cevapla."""
+        tl = tr_lower(raw or "")
+        wrote = 0
+        for m in self._NUM_FACT.finditer(tl):
+            who, attr, val = m.group(1), m.group(2), m.group(3)
+            for _suf in ("sı", "si", "su", "sü", "u", "ü", "ı", "i"):
+                if len(attr) - len(_suf) >= 3 and attr.endswith(_suf):
+                    attr = attr[: -len(_suf)]
+                    break
+            try:
+                num = float(val.replace(",", "."))
+            except Exception:
+                continue
+            self.num_facts.setdefault(attr, {})[who] = num
+            wrote += 1
+        if wrote:
+            _pairs = []
+            for attr, table in self.num_facts.items():
+                for who, num in table.items():
+                    _pairs.append(f"{who} {attr} {num:g}")
+            return self._say("meta.reasoning", {"facts": ", ".join(_pairs[-4:])},
+                             ctx={"kind": "numfact"}, fallback="") or None
+        if "daha" not in tl and "en " not in tl:
+            return None
+        attr = None
+        for cue, (a, sign) in self._ATTR.items():
+            if cue in tl:
+                attr, sign = a, sign
+                break
+        if attr is None or attr not in self.num_facts:
+            return None
+        table = self.num_facts[attr]
+        if len(table) < 2:
+            return None
+        items = sorted(table.items(), key=lambda kv: kv[1])
+        who, val = items[-1] if sign > 0 else items[0]
+        other, oval = items[0] if sign > 0 else items[-1]
+        _r = self._say("meta.reasoning",
+                       {"who": who, "val": f"{val:g}", "other": other,
+                        "other_val": f"{oval:g}", "attr": attr},
+                       ctx={"kind": "numcmp"}, fallback="")
+        return _r or None
+
+    # ------------------------------------------------------------------ adımlı zincir
+    #: "önce X'i sırala, sonra ilk üç harfini söyle" — işlemler ADLARIYLA seçilir.
+    _CHAIN_CUE = ("önce", "sonra")
+
+    def _chain_turn(self, raw: str) -> str | None:
+        """İki işlemi SIRAYLA uygula: ara sonuç görünür, sonuç ondan hesaplanır."""
+        tl = tr_lower(raw or "")
+        if not all(k in tl for k in self._CHAIN_CUE):
+            return None
+        word = ""
+        m = (re.search(r"['‘’“\"]([^'‘’“”\"]{2,24})['‘’“\"]", raw)
+             or re.search(r"([\wçğıöşü]{2,24})['’]?[ıiuü]?\s+sözcü", tl)
+             or re.search(r"([\wçğıöşü]{2,24})['’]?[ıiuü]?\s+harf", tl))
+        if not m:
+            return None
+        word = m.group(1).strip()
+        # İşlemler: ilkel ADLARI + Türkçe karşılıkları, metindeki KONUMLARINA göre.
+        ops = []
+        names = [n for n, _f, _c in PRIMITIVES]
+        cues = {"alfabetik": "alfabetik sırala", "sırala": "alfabetik sırala",
+                "ters": "ters çevir", "büyük harf": "büyük harfe çevir",
+                "küçük harf": "küçük harfe çevir"}
+        for cue, pname in cues.items():
+            pos = tl.find(cue)
+            if pos >= 0 and pname in names:
+                ops.append((pos, pname))
+        for m2 in re.finditer(r"(?:ilk|son)\s+(\w+)\s+harf", tl):
+            num = {"bir": 1, "iki": 2, "üç": 3, "dört": 4, "beş": 5}.get(m2.group(1))
+            if num:
+                pname = f"ilk {num} harfi al" if m2.group(0).startswith("ilk") else f"son {num} harfi al"
+                if pname in names:
+                    ops.append((m2.start(), pname))
+        _seq = [p for _pos, p in sorted(ops)]
+        ops = []                              # aynı işlem iki kez sayılmaz
+        for _p in _seq:
+            if not ops or ops[-1] != _p:
+                ops.append(_p)
+        if len(ops) < 2:
+            return None
+        out = word
+        trace = [out]
+        for pname in ops:
+            fn = dict((n, f) for n, f, _c in PRIMITIVES)[pname]
+            out = fn(out)
+            trace.append(out)
+        _r = self._say("meta.reasoning",
+                       {"chain": " -> ".join(trace), "ops": " → ".join(ops),
+                        "final": out},
+                       ctx={"kind": "chain"}, fallback="")
+        return _r or None
+
     def _plan_knowledge(self, goal: str) -> bool:
         """Hedef hakkında adım üretecek bilgi var mı? Grafikte kenar yoksa YOK.
 
@@ -3985,18 +4107,24 @@ class NoraAGI:
             return None
 
         # B) UYGULA: yazılmış programı adı geçen sözcüğe çalıştır.
-        # NOT: "kuralı uygula" BURAYA GİRMEZ — o, forge'un kural hattıdır (N3, N5).
-        if any(k in tl for k in ("dönüşümü uygula", "dönüşümü çalıştır", "dönüşümü dene",
-                                 "yazdığın dönüşüm", "dönüşüm var mı")):
-            prog = self._synth_program()
+        # NOT: "kuralı uygula" yalnız YAZILMIŞ BİR DÖNÜŞÜM varsa buraya girer; yoksa
+        # forge'un kural hattına bırakılır (N3, N5). Sıra önemli: gasp etmemek.
+        prog = self._synth_program()
+        _apply_ask = any(k in tl for k in ("dönüşümü uygula", "dönüşümü çalıştır",
+                                           "dönüşümü dene", "yazdığın dönüşüm",
+                                           "dönüşüm var mı"))
+        if not _apply_ask and prog is not None and "uygula" in tl and (
+                "için" in tl or re.search(r"['‘’“\"]", raw)):
+            _apply_ask = True
+        if _apply_ask:
             if prog is None:
                 _v = self._synth_say(PredSpec(pred_root="yok", subj=NP("dönüşüm")))
                 _s = self._synth_say(VerbSpec("iste", subj=NP("ben"), obj=NP("örnek"),
                                              tense="AOR", person="1SG"))
                 return f"{_v}; {_s}."
-            m = re.search(r"(?:uygula|çalıştır|dene)\s*[:\-]?\s*([\wçğıöşü]{2,24})", tl, re.U)
-            if not m:
-                m = re.search(r"(\w{2,24})['’]?[aıuü]?\s+(?:sözcüğ|kelime)", tl, re.U)
+            m = (re.search(r"(?:uygula|çalıştır|dene)\s*[:\-]?\s*([\wçğıöşü]{2,24})", tl, re.U)
+                 or re.search(r"([\wçğıöşü]{2,24})\s+için\s+(?:uygula|çalıştır|dene)", tl, re.U)
+                 or re.search(r"([\wçğıöşü]{2,24})['’]?[aıuü]?\s+(?:sözcüğ|kelime)", tl, re.U))
             word = (m.group(1) if m else "").strip()
             if not word:
                 _q = self._synth_say(VerbSpec("uygula", dat=NP("sözcük", case="DAT"),
