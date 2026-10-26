@@ -520,6 +520,43 @@ def n24_kendi_hedefi():
 
 
 
+def n25_yuksek_mertebe_operator():
+    """N25 — KENDİ YAZDIĞI YÜKSEK MERTEBE OPERATÖR (süzgeç).
+
+    "Sesli harfleri at" hiçbir temel ilkelin kompozisyonu değildir: ters çevir,
+    sırala, dilimle — hiçbiri "harfi KENDİ özelliğine göre seç" işini yapamaz. İnsan
+    bu operatörü yazmadı; yazılan tek şey SÜZGEÇ MEKANİZMASI (bir yüklemi tut/at).
+    Hangi yüklemin kullanılacağını örnekler belirledi.
+
+    Ölçüt: (a) iki örnekten kural çıkarma, (b) GÖRÜLMEMİŞ sözcüğe uygulama,
+    (c) kaydet/yükle sonrası operatörün durması (kendi yazdığı şey kalıcı).
+    Dürüstlük: (d) uzayda çözümü olmayan dönüşümde "yazdım" dememesi.
+    """
+    import tempfile
+    g = _agi(1125, 100)
+    learn = strip_prefixes(g.converse("Şu dönüşümü öğren: kitap -> ktp, kalem -> klm."))
+    cand = strip_prefixes(g.converse("Yazdığın dönüşümü uygula: zeytin"))
+    fresh = strip_prefixes(g.converse("Yazdığın dönüşümü uygula: Portakal"))
+    pref = tempfile.mkdtemp(prefix="nora_n25_") + "/v"
+    g.save(pref)
+    h = NoraAGI.load(pref)
+    after = strip_prefixes(h.converse("Yazdığın dönüşümü uygula: yıldız"))
+    # (d) imkânsız dönüşüm: uzayda "sonuna x ekle" yok -> uydurmamalı
+    g2 = _agi(1126, 80)
+    imp = strip_prefixes(g2.converse("Şu dönüşümü öğren: kitap -> kitapx, kalem -> kalemx."))
+    c_learn = "at" in tr_lower(learn) and ("süzge" in tr_lower(learn) or "harf" in tr_lower(learn))
+    c_seen = "zytn" in tr_lower(cand)
+    c_case = "prtkl" in tr_lower(fresh)
+    c_persist = "yldz" in tr_lower(after)
+    c_refuse = _refused(imp)
+    cap = bool(c_learn and c_seen and c_case and c_persist)
+    hon = _honest(cap, imp) and bool(c_refuse or cap)
+    detail = (f"öğren='{learn[:60]}' | zeytin='{cand[-40:]}' | Portakal='{fresh[-40:]}' | "
+              f"yükleme='{after[-40:]}' | imkânsız='{imp[:40]}'")
+    return {"ad": "kendi yazdığı süzgeç operatörü", "capability": cap,
+            "honesty": hon and c_refuse, "cevap": detail}
+
+
 PROBES = {"N1": n1_konum_olcumu, "N2": n2_uzun_vadeli_bellek,
           "N3": n3_iki_kural_kompozisyonu, "N4": n4_kalibrasyon,
           "N5": n5_alan_transferi, "N6": n6_oz_celiskisi,
@@ -529,7 +566,8 @@ PROBES = {"N1": n1_konum_olcumu, "N2": n2_uzun_vadeli_bellek,
           "N13": n13_kisitli_uretim, "N14": n14_oz_tahmin,
           "N15": n15_kaynak_celiskisi, "N16": n16_derin_kompozisyon,
           "N20": n20_sayisal_kiyas, "N22": n22_adimli_talimat,
-          "N23": n23_sayisal_kalibrasyon, "N24": n24_kendi_hedefi}
+          "N23": n23_sayisal_kalibrasyon, "N24": n24_kendi_hedefi,
+          "N25": n25_yuksek_mertebe_operator}
 
 
 def main():
