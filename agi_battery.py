@@ -4537,6 +4537,49 @@ def a101_hedef_yigini_ve_suzgec():
     return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
 
 
+def a103_oturum_defteri_ve_kalibrasyon():
+    """A103 — OTURUM DEFTERİ + DENEYİMDEN KALİBRASYON.
+
+    (1) "Bu oturumda ne öğrendin?" cevabı DEFTERLERDEN gelir: boş defterde sıfır,
+        öğretilenden sonra sayılar tutar.
+    (2) Güven sayısı deneyimle düzelir: tanınmayan iş tekrarlandıkça güven düşer,
+        yapılabilir işte yüksek kalır.
+    """
+    ok = {}
+    g = NoraAGI(seed=1937, boot_thinker=False)
+    g.step_life(120)
+    empty = tr_lower(strip_prefixes(g.converse("Bu oturumda ne öğrendin?")))
+    ok["boş-defter"] = ("öğrenmedim" in empty) or ("0 dönüşüm" in empty)
+    g.converse("Şu dönüşümü öğren: kitap -> patik, kalem -> melak.")
+    g.converse("Kardeşimin adı Elif.")
+    full = tr_lower(strip_prefixes(g.converse("Bu oturumda ne öğrendin?")))
+    ok["defter-sayar"] = "1 dönüşüm" in full and "1 kişisel olgu" in full
+
+    g2 = NoraAGI(seed=1938, boot_thinker=False)
+    g2.step_life(120)
+
+    def conf(task):
+        c = strip_prefixes(g2.converse(
+            f"Yapmadan önce 0-100 arası güvenini söyle: {task}."))
+        m = re.search(r"(\d{1,3})", c)
+        return int(m.group(1)) if m else -1
+
+    # HER güven sözü bir SONUÇLA eşleşmeli: söz ver, dene; söz ver, dene...
+    first = conf("şu cümlenin duygusunu puanla")
+    last = first
+    for _ in range(5):
+        g2.converse("şu cümlenin duygusunu puanla")
+        last = conf("şu cümlenin duygusunu puanla")
+    known = conf("kitap sözcüğünü tersten yaz")
+    ok["bilinmeyen-düşer"] = first >= 25 and last <= 15
+    ok["bilinen-yüksek"] = known >= 60
+
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), f"{passed}/{len(ok)} — {detail} (güven {first}→{last}, bilinen {known})"
+
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -4643,6 +4686,8 @@ TESTS = {
             a59_unknown_question_gap_and_research_across_wh_types),
     "A58": ("cümle yapısı, fiil valansı ve 'nasıl denilir' sorularının genellenmesi",
             a58_sentence_structure_valency_and_meta_questions),
+    "A103": ("oturum defteri (öz-geçmiş) ve deneyimden kalibrasyon",
+             a103_oturum_defteri_ve_kalibrasyon),
     "A101": ("hedef yığını (kesinti+dönüş) ve örnekten süzgeç operatörü",
              a101_hedef_yigini_ve_suzgec),
     "A57": ("tekrar farkındalığı, geçmiş cevabı anma, cevap çeşitliliği ve zaman bilinci", a57_repetition_awareness_time_and_variety),
