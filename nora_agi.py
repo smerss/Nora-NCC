@@ -79,6 +79,10 @@ try:
 except Exception:  # yeniden-örnekleme organı yoksa sistem yine çalışır
     Reify = None
 try:
+    from nora_schema import Schema
+except Exception:  # şema organı yoksa sistem yine çalışır
+    Schema = None
+try:
     from nora_drive import Driver
 except Exception:  # sürücü organı yoksa sistem yine çalışır
     Driver = None
@@ -555,6 +559,8 @@ class NoraAGI:
             self.reify = Reify() if Reify is not None else None
             if self.reify is not None:
                 self.synth.on_adopt = (lambda spec, ex: self.reify.observe(spec, ex))
+            # ŞEMA: makroda delik aç, aileyi tarafla (seviye 4).
+            self.schema = Schema() if Schema is not None else None
             # SÜRÜCÜ: ham akışı izler, şaşkınlığı ölçer, öğrenmeyi KENDİ tetikler.
             self.driver = Driver(self) if Driver is not None else None
         except Exception:
@@ -4435,6 +4441,7 @@ class NoraAGI:
                 # BUDANDI: defterde ölü kalır ama arama uzayından ÇIKAR.
                 if sy is not None:
                     sy.drop_primitive(nm)
+            self._schema_maybe()
         except Exception:
             pass
 
@@ -4470,8 +4477,38 @@ class NoraAGI:
             _c = self._synth_say(VerbSpec("açıkla", subj=NP("program"),
                                           obj=NP("örnek", plural=True, case="ACC"),
                                           tense="PRES", person="3SG"))
-            return (f"{_v}: {prog.desc()}. {_c} ({n_ex}/{n_ex}). "
-                    f"{_probe} -> {prog.apply(_probe)}.")
+            _tail = f"{_probe} -> {prog.apply(_probe)}."
+            _sc = res.get("schema")
+            if _sc:
+                # ŞEMA KAPSADI: bu parametre değeri ilkellerimde YOK; aile tarafından
+                # üretildi. Bunu söylemek zorundayım — yoksa "zaten biliyordum" olur.
+                _tail += (f" Bunu şema kapsadı: {_sc[0]['family']} "
+                          f"(n={_sc[1]}, görülen={_sc[0]['seen']}).")
+            return (f"{_v}: {prog.desc()}. {_c} ({n_ex}/{n_ex}). " + _tail)
+
+        def _tie(word=None):
+            """Beraberliği ÇÖZ: kural ile seç, %50 olarak raporla (politika, form değil).
+
+            Sessiz kalmak kalibrasyon üretmez. Beraberlikte **bağlanırım** ve
+            olasılığı %50 derim; yanlış çıkarsa bu bir hata değil, beyan edilmiş
+            bir yazı-turadır.
+            """
+            pend = getattr(sy, "_pending", None)
+            if not pend:
+                return None
+            cands, exs = pend[0], pend[1]
+            prog, p = sy.tie_pick(cands)
+            if prog is None:
+                return None
+            sy._adopt(prog, exs)
+            self._after_synth(prog)
+            _s = self._synth_say(VerbSpec("seç", obj=NP("aday", case="ACC"),
+                                          advs=("en kısa betimlemeyle",),
+                                          tense="PAST", person="1SG"))
+            show = " / ".join(cands[i].desc() for i in range(min(2, len(cands))))
+            w = str(word or sy._probe(cands, exs) or "portakal")
+            return (f"{_s}: {prog.desc()} ({show}). Berabere kaldılar; doğruluk "
+                    f"olasılığım %{int(round(p * 100))}. {w} -> {prog.apply(w)}.")
 
         def _amb(res):
             _c = res.get("cands") or []
@@ -4479,6 +4516,21 @@ class NoraAGI:
             _q = self._synth_say(VerbSpec("al", subj=NP(_pr), advs=("hangi çıktıyı",),
                                           tense="AOR", person="3SG"))
             return (f"Aday sayısı {len(_c)}: {', '.join(_c[:3])}. {_q}?")
+
+        # 0a) BERABERLİK ÇÖZÜMÜ İSTENDİYSE: çift ayrıştırmasından önce, çünkü cümle
+        # "yine de seç" gibi bir bağlanma isteğidir; "uygula: X" iki nokta tuzağına
+        # düşmemeli.
+        _low_raw = tr_lower(raw)
+        if getattr(sy, "_pending", None) and any(
+                k in _low_raw for k in ("yine de", "sen seç", "sen karar ver",
+                                        "tahmin et", "bağlan")):
+            _w = None
+            _m = re.search(r"(?:seç|uygula|tahmin)[^\w]{0,3}([a-zçğıöşü]{3,})", _low_raw)
+            if _m:
+                _w = _m.group(1)
+            _t = _tie(_w)
+            if _t:
+                return _t
 
         # 0) BEKLEYEN BELİRSİZLİK: ayırt edici tek örnek geldiyse adayları süz.
         if getattr(sy, "_pending", None) and len(pairs) == 1:
@@ -4488,6 +4540,12 @@ class NoraAGI:
             if st == "adopted":
                 return _ok(res, len(sy.programs[-1].get("examples") or []) or 2)
             if st == "ambiguous":
+                # BAĞLANMA İSTENDİYSE: beraberliği çöz, %50 raporla. İstenmediyse
+                # ayırt edici örnek İSTE (daha bilgilendirici olan bu).
+                if tr_lower(raw) and any(k in tr_lower(raw) for k in
+                                         ("yine de", "sen seç", "sen karar ver",
+                                          "tahmin et", "yine de uygula")):
+                    return _tie(res)
                 return _amb(res)
             if st == "reject":
                 _v = self._synth_say(VerbSpec("uy", subj=NP("çıktı"),
@@ -4577,6 +4635,22 @@ class NoraAGI:
                                           tense="PAST", person="1SG"))
             return f"{_v}: {prog.desc()}."
         return None
+
+    # ------------------------------------------------------------------ şema
+    def _schema_maybe(self) -> list[str]:
+        """Görülen adım dizilerinden delikli şablon çıkar ve uzaya ekle (seviye 4)."""
+        sc_org = getattr(self, "schema", None)
+        sy = getattr(self, "synth", None)
+        if sc_org is None or sy is None:
+            return []
+        specs = [list(r.get("spec") or []) for r in (getattr(self.reify, "ledger", None) or [])]
+        specs += [list(p.get("ops") or []) for p in (sy.programs or [])]
+        added = []
+        for sc in sc_org.infer(specs):
+            item = sc_org.register(sc, sy)
+            if item is not None:
+                added.append(item["name"])
+        return added
 
     # ------------------------------------------------------------------ sürücü
     def drive(self, lines, tick_every: int = 25, max_steps: int = 8) -> dict:
@@ -6133,6 +6207,7 @@ class NoraAGI:
             "num_facts": {a: dict(t) for a, t in (getattr(self, "num_facts", {}) or {}).items()},
             "reify": (self.reify.state() if getattr(self, "reify", None) is not None else {}),
             "driver": (self.driver.state() if getattr(self, "driver", None) is not None else {}),
+            "schema": (self.schema.state() if getattr(self, "schema", None) is not None else {}),
             "testimony": (self.testimony.state_dict() if getattr(self, "testimony", None) is not None else {}),
             "plans": {"goal": self._plan_goal, "steps": list(self.plans.get(self._plan_goal) or [])},
         }
@@ -6232,6 +6307,8 @@ class NoraAGI:
             agi._goals_done = int(meta.get("goals_done") or 0)
             if getattr(agi, "driver", None) is not None:
                 agi.driver.load_state(meta.get("driver") or {})
+            if getattr(agi, "schema", None) is not None:
+                agi.schema.load_state(meta.get("schema") or {}, agi.synth)
             if getattr(agi, "reify", None) is not None:
                 agi.reify.load_state(meta.get("reify") or {})
                 # Reify defterindeki ÖLÜ OLMAYAN ilkeller yeni oturumda da kurulur.

@@ -45,6 +45,39 @@ for _n in (1, 2, 3, 4):
 #: `n` harfli bir dizgede `s[:n]` = `s[:-n]` ise program AYNI davranır; bu yüzden
 #: tekilleştirme DAVRANIŞ üzerinden yapılır (ada göre değil).
 
+# ================================================= PARAMETRELİ AİLE ÜRETİCİLERİ
+#: DİKKAT: burada YENİ FORM yok. `PRIMITIVES` içinde zaten yazılmış dört ailenin
+#: (`ilk/son n harfi al/at`) PARAMETRESİ açılıyor. Numaralandırılmış üyeler n=1..4;
+#: bu üretici aynı mekanizmayı HER n için kurar. Şema bunu kullanarak, insanın
+#: SAYMADIĞI bir parametreyi kapsar. Yeni ifade gücü buradan doğar.
+PARAM_GENERATORS = {
+    "ilk {n} harfi al": lambda n: (lambda t: t[:n]),
+    "son {n} harfi al": lambda n: (lambda t: t[-n:]),
+    "ilk {n} harfi at": lambda n: (lambda t: t[n:]),
+    "son {n} harfi at": lambda n: (lambda t: t[:-n]),
+}
+
+
+def family_of(name):
+    """'ilk 3 harfi al' -> ('ilk {n} harfi al', 3). Aile dışıysa None."""
+    m = re.match(r"^(ilk|son) (\d+) harfi (al|at)$", str(name))
+    if not m:
+        return None
+    return f"{m.group(1)} {{n}} harfi {m.group(3)}", int(m.group(2))
+
+
+def instantiate(family, n):
+    """Aile + parametre -> (ad, fonksiyon, maliyet). n>=1."""
+    gen = PARAM_GENERATORS.get(str(family))
+    try:
+        n = int(n)
+    except Exception:
+        return None
+    if gen is None or n < 1:
+        return None
+    return (str(family).replace("{n}", str(n)), gen(n), 1)
+
+
 # ============================================================ DONMUŞ REÇETE (KİLİT)
 #: Tur 40 kuralı: **yeni elle yazılmış form yok.** Bu sayılar ARTMAMALI; artarsa
 #: `agi_battery` içindeki A106 donar ve insan katkısı sessizce büyüyemez. Yeni
@@ -158,6 +191,12 @@ class Synthesizer:
         self.extra: list[tuple] = []
         #: Başarılı sentez kancası: (spec, examples) -> None. `nora_reify` buradan izler.
         self.on_adopt = None
+        #: ŞEMALAR (delikli makrolar): {"steps", "hole", "family", "seen"}.
+        self.schemas: list[dict] = []
+        #: Son çözümde hangi şema/parametre kullanıldı (ölçüm için).
+        self.last_schema = None
+        #: Beraberlik sayacı: sabit tohumlu "yazı-tura" budur.
+        self._tie_n = 0
         #: Ayırt edici örnek bekleyen adaylar (belirsizlik UYDURULMAZ, çözülür).
         self._pending: tuple[list[Program], list[tuple[str, str]]] | None = None
 
@@ -167,6 +206,66 @@ class Synthesizer:
         if not name or any(nm == name for nm, _f, _c in self.extra):
             return
         self.extra.append((name, fn, int(cost)))
+
+    def add_schema(self, steps, hole: int, family: str, seen) -> dict | None:
+        """Şemayı uzaya ekle: delikli makro (parametre ailesi üzerinden)."""
+        steps = [str(x) for x in (steps or [])]
+        if not (0 <= int(hole) < len(steps)) or family not in PARAM_GENERATORS:
+            return None
+        if any(sc["family"] == family and sc["steps"] == steps and sc["hole"] == hole
+               for sc in self.schemas):
+            return None
+        sc = {"steps": steps, "hole": int(hole), "family": str(family),
+              "seen": sorted({int(x) for x in (seen or [])})}
+        self.schemas.append(sc)
+        return sc
+
+    def _schema_programs(self, examples):
+        """Şemayı GÖRÜLMEMİŞ parametreler için somutlaştır ve örnekleri sına."""
+        out = []
+        for sc in self.schemas:
+            for n in range(1, 13):
+                if n in sc.get("seen", []):
+                    continue
+                inst = instantiate(sc["family"], n)
+                if inst is None:
+                    continue
+                names = list(sc["steps"])
+                names[sc["hole"]] = inst[0]
+                ops = []
+                ok = True
+                for nm in names:
+                    if nm == inst[0]:
+                        ops.append((nm, inst[1]))
+                        continue
+                    hit = next((p for p in list(PRIMITIVES) + list(self.extra) if p[0] == nm), None)
+                    hit = hit or next((p for p in FILTER_PRIMITIVES if p[0] == nm), None)
+                    if hit is None:
+                        ok = False
+                        break
+                    ops.append((hit[0], hit[1]))
+                if not ok:
+                    continue
+                prog = Program(ops, cost=max(1, len(ops) - 1))
+                if all(prog.apply(i) == o for i, o in examples):
+                    out.append((prog, sc, n))
+        return out
+
+    def tie_pick(self, cands):
+        """BERABERLİK POLİTİKASI: berabere adaylar arasından SEÇ ve %50 raporla.
+
+        Sıra: en kısa betimleme → eşit maliyetliler arasında sabit tohumlu "yazı-tura"
+        (sayaç). Dönen olasılık her zaman 0.5: bu bir tahmin değil, **beraberlik**
+        beyanıdır. Sessiz kalmak kalibrasyon üretmez; bağlanmak üretir.
+        """
+        cands = list(cands or [])
+        if not cands:
+            return None, None
+        best_cost = min(p.cost for p in cands)
+        tied = sorted([p for p in cands if p.cost == best_cost], key=lambda p: p.desc())
+        self._tie_n += 1
+        pick = tied[(self._tie_n * 7 + 3) % len(tied)]   # sabit, tekrarlanabilir
+        return pick, 0.5
 
     def drop_primitive(self, name: str) -> bool:
         """Budanan ilkeli uzaydan çıkar (defterde ölü kalır, aramada görünmez)."""
@@ -182,6 +281,7 @@ class Synthesizer:
         if not examples:
             return []
         outs = [o for _i, o in examples]
+        self._used_schema = None
         found: list[Program] = []
         # 0) İCAT EDİLMİŞ ilkeller: kendi yazdığım adımlar en önce denenir.
         for nm, fn, c in self.extra:
@@ -225,6 +325,11 @@ class Synthesizer:
                 found.append(p)
         if found:
             return self._dedupe(found, examples, outs)
+        sch = self._schema_programs(examples)
+        if sch:
+            self.last_schema = (sch[0][1], sch[0][2])
+            self._used_schema = (sch[0][1], sch[0][2])
+            return self._dedupe([p for p, _sc, _n in sch], examples, outs)
         pool = list(PRIMITIVES) + list(FILTER_PRIMITIVES) + list(self.extra)
         for nm1, f1, c1 in pool:
             for nm2, f2, c2 in pool:
@@ -269,7 +374,7 @@ class Synthesizer:
         self.last = p
         self._notify(p.spec(), examples)
         return {"status": "adopted", "program": p, "desc": p.desc(), "n": 1,
-                "rid": p.rid}
+                "rid": p.rid, "schema": getattr(self, "_used_schema", None)}
 
     def _notify(self, spec, examples) -> None:
         """Başarılı sentezi dinleyicilere bildir (reify izler)."""

@@ -43,6 +43,12 @@ class Driver:
         self.learned: list[dict] = []    # {"kind","name","n","keys"}
         self.rejected = 0                # MDL freni: kazancı olmayan öneriler
         self.unresolved = 0              # kanıt yetmedi (belirsiz/bilinmeyen) — sessiz kalır
+        #: EŞİK ARTIK SABİT DEĞİL: kendi isabetini ölçüp ayarlar (irade).
+        self.thresh = float(self.MIN_SURPRISE)
+        #: Kanıt eşiği: kaç maddelik küme öğrenmeye değer. Gürültüde artar.
+        self.min_items = int(self.MIN_ITEMS)
+        self._specs: dict[tuple, int] = {}
+        self._run = {"trig": 0, "unres": 0, "reuse": 0}
 
     # ------------------------------------------------------------------ algı
     def ingest(self, text: str) -> dict:
@@ -105,7 +111,7 @@ class Driver:
         for it in self.items:
             if it.get("kind") != "pair" or it.get("consumed"):
                 continue
-            if float(it.get("surprise", 0)) < self.MIN_SURPRISE:
+            if float(it.get("surprise", 0)) < self.thresh:
                 continue
             key = it.get("key") or ()
             c = out.setdefault(key, {"key": key, "pairs": [], "surprise": 0.0})
@@ -126,7 +132,7 @@ class Driver:
         best = None
         for c in self.clusters():
             pairs = [tuple(p) for p in c["pairs"]]
-            if len(pairs) < self.MIN_ITEMS:
+            if len(pairs) < self.min_items:
                 continue          # yetersiz kanıt: ne öğrenme ne ret sayılır
             best = (c, pairs)
             break
@@ -143,10 +149,15 @@ class Driver:
             # Kanıt yetmedi: uydurma yok. Küme TÜKETİLMEZ; akış devam ederse yeniden
             # denenir. "Ret" sayılmaz: ret, denenip başarısız olan öneriye aittir.
             self.unresolved += 1
+            self._run["unres"] += 1
             return None
         if res.get("status") == "adopted":
             self._consume(c)
             self.triggered += 1
+            spec = tuple(getattr(res.get("program"), "spec", lambda: [])())
+            self._run["reuse"] += int(self._specs.get(spec, 0) > 0)
+            self._specs[spec] = self._specs.get(spec, 0) + 1
+            self._run["trig"] += 1
             rec = {"kind": "kompozisyon", "name": res["program"].desc(),
                    "n": len(pairs), "keys": list(c["key"])}
             self.learned.append(rec)
@@ -196,14 +207,33 @@ class Driver:
                 it["consumed"] = True
 
     def run(self, max_steps: int = 6) -> list[dict]:
-        """Akışı kendi kendine işle: her adımda bir küme öğren."""
+        """Akışı kendi kendine işle, sonunda eşiği KENDİ isabetine göre ayarla."""
+        self._run = {"trig": 0, "unres": 0, "reuse": 0}
         out = []
         for _ in range(int(max_steps)):
             rec = self.step()
             if rec is None:
                 break
             out.append(rec)
+        self.adapt()
         return out
+
+    def adapt(self) -> float:
+        """Kendi isabetini ölç, eşiği oynat. Eşik artık insanın sabiti değil.
+
+        - **Kanıt yetmiyor** (unresolved baskın): eşik DÜŞER — daha çok kanıt topla.
+          (Gürültüye tetikleme riski, kanıtsızlıkta susmaktan iyidir; ama sınırlı.)
+        - **Öğrendiği tekrar kullanılmıyor** (reuse=0): eşik YÜKSELİR — bu akışta
+          öğrenilecek bir şey yok, boşuna tetikleme.
+        """
+        r = self._run
+        if r["unres"] > max(1, 2 * r["trig"]):
+            self.thresh = max(0.15, self.thresh * 0.90)
+        elif r["trig"] > 0 and r["reuse"] == 0:
+            self.thresh = min(0.95, self.thresh * 1.10)
+            # Tekrar kullanılmayan öğrenme = kanıt zayıf: daha çok madde iste.
+            self.min_items = min(4, self.min_items + 1)
+        return self.thresh
 
     # ------------------------------------------------------------------ rapor
     def summary(self) -> dict:
@@ -215,12 +245,14 @@ class Driver:
         names = [r["name"] for r in self.learned]
         return {"seen": self.seen, "triggered": self.triggered,
                 "distinct": len(set(names)), "rejected": self.rejected,
-                "unresolved": self.unresolved,
+                "unresolved": self.unresolved, "thresh": round(self.thresh, 3),
+                "min_items": int(self.min_items),
                 "kinds": kinds, "names": names[-6:]}
 
     def state(self) -> dict:
         return {"seen": self.seen, "triggered": self.triggered,
                 "rejected": self.rejected, "unresolved": self.unresolved,
+                "thresh": round(self.thresh, 3), "min_items": int(self.min_items),
                 "learned": self.learned[-24:]}
 
     def load_state(self, d: dict | None) -> None:
@@ -229,4 +261,9 @@ class Driver:
         self.triggered = int(d.get("triggered", 0) or 0)
         self.rejected = int(d.get("rejected", 0) or 0)
         self.unresolved = int(d.get("unresolved", 0) or 0)
+        try:
+            self.thresh = float(d.get("thresh", self.MIN_SURPRISE) or self.MIN_SURPRISE)
+            self.min_items = int(d.get("min_items", self.MIN_ITEMS) or self.MIN_ITEMS)
+        except Exception:
+            self.thresh = float(self.MIN_SURPRISE)
         self.learned = [r for r in (d.get("learned") or []) if isinstance(r, dict)]
