@@ -2193,23 +2193,7 @@
     "az-veri": "en az iki örnek gerekli",
     "ayırt-edici-yok": "havuzda adayları ayıran sözcük yok"
   },
-  "missing_ops": {
-    "kesişim": [
-      "kesişim",
-      "ortak harf",
-      "ortak olan harf",
-      "ortak harfleri"
-    ],
-    "ters yazım": [
-      "tersten",
-      "ters çevir",
-      "tersini yaz"
-    ],
-    "küme birleşimi": [
-      "birleşim",
-      "tüm harfleri birleştir"
-    ]
-  },
+  "missing_ops": {},
   "topic_triggers": [
     "hangi konudan",
     "hangi konuyu",

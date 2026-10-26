@@ -1612,3 +1612,102 @@ S: Zorvath nedir?   -> "Zorvath bir alet türüdür."             (0 epoch)
 | `nora_audit.py --check` | **1122 / SÖYLEM 127, fark +0** |
 | sınır haritası | **yetenek 9/10 · dürüstlük 10/10** (tur başı 2/10 · 6/10) |
 | prior türü / insan operatörü | 67 / 9 = **7.44** (tavan 7.50) |
+
+
+---
+
+## Aşama AE — Operatör sentezi: işlemi Nora yazıyor (N8 kapandı)
+
+Aşama AD'ye kadar Nora'nın kendi yazdığı şey bir *ölçüm* ve ondan türeyen bir
+*kural*dı (`nora_forge`). Ölçüm "hangi özellik ayırıyor" sorusunu cevaplar; işlem
+"girdiyi çıktıya ne çeviriyor" sorusunu. Bu aşamada ikincisi de Nora'ya geçti.
+
+### AE1. `nora_synth` — örnekten dönüşüm programı
+
+```
+S: kitap -> patik, kalem -> melak
+N: dönüşümü kendim yazdım: ters çevir. program örnekleri açıklıyor (2/2). deniz -> zined.
+S: dönüşümü uygula: deniz
+N: deniz -> zined (ters çevir).
+```
+
+Kurallar: (1) program **ilkellerden kompozisyon**dur (en fazla iki ilkel), keyfî kod
+yok; (2) **bütün** örnekleri açıklamak zorunda; (3) birden çok program aynı örnekleri
+açıklıyorsa **uydurulmaz** — kaç aday kaldığı söylenir ve ayırt edici örnek istenir;
+(4) **ezber yok**: program ilkellerin dizilişidir, öğretilmemiş sözcüğe uygulanır;
+(5) yazıldığını söylemek için gerçekten yazılmış olması gerekir.
+
+Belirsizlik gerçekti ve çözüldü:
+
+```
+S: ters çevirip ilk üç harfi al: kitap -> pat, kalem -> mel
+N: aday sayısı 2: ters çevir → ilk 3 harfi al, ters çevir → son 2 harfi at. masa hangi çıktıyı alır?
+S: masa -> as
+N: dönüşümü kendim yazdım: ters çevir → son 2 harfi at. … deniz -> zin.
+```
+
+Ayrıca: "ben hiçbir şey yazmadım" durumu artık *söylenmiyor* — örnekleri hiçbir
+program açıklamıyorsa "örneklerden programı çıkarmadım" denir, uydurulmaz.
+
+### AE2. `nora_sets` — küme operatörü AKSİYOMDAN seçilir
+
+N8'in açığı "iki kümenin kesişimi" idi. Kolay yol, `nora_apply.OPERATORS`'a onuncu
+bir operatör yazmaktı; o zaman **insanın yazdığı operatör sayısı 9 → 10** olurdu,
+yani yanlış yöne. Bunun yerine insan yalnızca **tanımı** verdi:
+
+    f kesişimdir ⟺ f(A,B) ⊆ A∩B  ve  A∩B ⊆ f(A,B)  ve  f tekrarsız
+                    ve  f(A,B)=f(B,A)  ve  f alfabetik
+
+Nora 96 aday programı (taban × süzgeç × tekilleştirme × sıra) çalıştırır, aksiyomların
+hepsini sağlayanı seçer. Üçü de **tek** programla çıktı:
+
+| işlem | Nora'nın seçtiği program | örnek |
+|---|---|---|
+| kesişim | A · tut · tekilleştir · alfabetik | `kitap ∩ kalem = ak` |
+| birleşim | AB · yok · tekilleştir · alfabetik | `kitap ∪ kalem = aeiklmpt` |
+| fark | A · dışla · tekilleştir · alfabetik | `kitap − kalem = ipt` |
+
+Davranışça **aynı** fonksiyonu yazan adaylar (A-üzerinden-süz ile B-üzerinden-süz)
+tek sayılır: sahte belirsizlik üretilmez. `nora_operators.json` **bayt bayt aynı**
+kaldı — insan operatörü hâlâ 9, prior türü 67, oran 7.44.
+
+Sohbetten:
+
+```
+S: 'kitap' ve 'kalem' sözcüklerinde ortak olan harfleri söyle.
+N: Ortak harflar: a, k. (A · tut · tekilleştir · alfabetik)
+S: 'deniz' ve 'masa' sözcüklerinde ortak olan harfleri söyle.
+N: ortak harf yok.
+```
+
+Boş küme **dürüstçe** söylenir: "bulamadım" değil, "yok" — ve bunu söyleyebilmek için
+hesabın gerçekten yapılmış olması gerekir.
+
+### AE3. İskelet mandalı bu turda da tuttu
+
+Yeni konuşan iki organ (`nora_synth`, `nora_sets`) **tek bir kalıp cümle** eklemedi:
+cevaplar `SYN.realize_verb/realize_pred` ile çekimleniyor, içerik (operatör adı, sayı,
+harfler) veriden geliyor. `nora_audit`: **toplam 1122, söylem 127, fark +0**. A73 8/8.
+
+Bu, "skeleton azaltma" mandalının yanlış yönde çalışmadığının kanıtı: yeni yetenek
+eklerken iskelet büyümedi.
+
+### AE4. Sınır haritası doydu — ve bu bir uyarı
+
+**yetenek 10/10 · dürüstlük 10/10.** N1–N10'un tamamı kapandı ve taban donduruldu
+(`BASELINE = {10, 10}`; ölçüm tabanın altına düşerse koşu hata verir).
+
+Bu bir "AGI oldu" kanıtı **değildir**: on soruluk bir harita dolduğu anda ölçme
+gücünü yitirir. Doğru tepki kutlamak değil, **haritayı büyütmek**tir. Sıradaki aşama
+N11+ ile yeni sınırlar aramak.
+
+### AE5. Bu turun sayıları
+
+| ölçüm | sonuç |
+|---|---|
+| `agi_battery.py` tam | **96/96 GEÇTİ, 372.4 s** |
+| dış batarya / mühürlü | **9/9** · **4/4 · 4/4 · 4/4** |
+| `nora_audit.py --check` | **1122 / SÖYLEM 127, fark +0** |
+| sınır haritası | **yetenek 10/10 · dürüstlük 10/10** (taban donduruldu) |
+| insan operatörü / prior türü | **9 sabit** / 67 = **7.44** |
+| Nora'nın yazdığı | 3 küme operatörü + N dönüşüm programı (`synth.programs`) |
