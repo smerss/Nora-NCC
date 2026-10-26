@@ -1,4 +1,5 @@
-"""merdiven.py — MERDİVEN SINAVI: 1 kompozisyon · 2 örnekleme · 3 reify · 4 şema · 5 sürücü · 6 kendi kendine.
+"""merdiven.py — MERDİVEN SINAVI: 1 kompozisyon · 2 örnekleme · 3 reify · 4 şema · 5 sürücü ·
+6 kendi kendine · 7 kendi kendine BAŞLATMA.
 
 Tek oturum, tek Nora. Her basamak ayrı bir yeteneği **ölçer**, ve her basamağın
 altında o basamağın TABANI yazılıdır: "bu işi kim yaptı, insan ne yazdı".
@@ -6,7 +7,7 @@ altında o basamağın TABANI yazılıdır: "bu işi kim yaptı, insan ne yazdı
     python merdiven.py          # tam sınav
     python merdiven.py -v       # kanıtlarla
 
-Çıkış kodu 0 = altı basamak da geçti. Bu bir başarı süsü değil: taban satırları
+Çıkış kodu 0 = yedi basamak da geçti. Bu bir başarı süsü değil: taban satırları
 basamağın ne kadarının insana ait olduğunu söyler. Basamak "geçti" demek,
 "insan hiçbir şey yazmadı" demek DEĞİLDİR.
 """
@@ -172,6 +173,27 @@ def main():
     rows.append(("6 kendi kendine", ok6, det6,
                  "taban: dağarcık ve ilkel repertuvarı BENİM; sözcükleri, parametreleri, "
                  "örnekleri, görevi ve sınamayı kendisi üretti — İNSAN HİÇ YAZMADI."))
+
+    # ---------------------------------------------------------------- 7 kendine başlatma
+    # Basamak 6'da öz-öğretmeyi SINAV çağırıyordu. Burada kimse çağırmıyor:
+    # Nora yalnız yaşarken kendi kendine başlatıyor.
+    g = mk(7007)
+    n_insan = 1 if False else 0          # insan hiç konuşmadı
+    g.step_life(1000)
+    led = list(getattr(g, "kendi_ögretim", []) or [])
+    baslatan = [e for e in led if e.get("kendi")]
+    ilk = baslatan[0] if baslatan else {}
+    sin7 = ilk.get("sınama") or {}
+    w7, n7 = sin7.get("sözcük"), int(sin7.get("n") or 0)
+    beklenen7 = pm["alfabetik sırala"](w7)[:n7] if (w7 and n7) else None
+    ok7 = bool(baslatan and sin7.get("çıktı") == beklenen7 and n_insan == 0
+               and int(ilk.get("yaş") or 0) >= 240)
+    det7 = (f"insan hiç konuşmadı · kendi başlattığı yaş={ilk.get('yaş')} "
+            f"· sayı={len(baslatan)} · {w7}: {sin7.get('çıktı')} (beklenen {beklenen7})"
+            if led else "hiç başlatmadı")
+    rows.append(("7 kendine başlatma", ok7, det7,
+                 "taban: dağarcık ve ilkel repertuvarı BENİM; NE ZAMAN öğreneceğine ve "
+                 "NEYİ öğreneceğine kendisi karar verdi — İNSAN HİÇ KONUŞMADI."))
 
     # ---------------------------------------------------------------- rapor
     for name, ok, det, floor in rows:

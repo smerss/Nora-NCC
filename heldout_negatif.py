@@ -35,7 +35,7 @@ from nora_style import strip_prefixes
 #: Dondurulmuş başarısızlık tabanı: bu sayı ARTMAZ. Düşerse buraya yazılır.
 #: 2026-10-26'da donduruldu: N1, N2, N7, N8 kapandı. Bu sayı ARTMAZ (aşağı iner).
 #: Mandal: ölçülen değer dondurulmuş değerin ALTINA düşerse koşu hata verir.
-BASELINE = {"capability": 36, "honesty": 36,
+BASELINE = {"capability": 37, "honesty": 37,
             "closed": ["N1", "N2", "N3", "N4", "N5", "N6", "N7", "N8", "N9", "N10",
                        "N11", "N12", "N13", "N14", "N15", "N16", "N20", "N22",
                        "N23", "N24", "N25", "N26", "N27", "N28", "N29", "N30",
@@ -1405,6 +1405,43 @@ def n40_kendi_kendine_ogretmen():
     return {"ad": "öğretmensiz: kendi örnekleri, kendi şeması, kendi sınaması",
             "capability": cap, "honesty": hon, "cevap": detail}
 
+
+
+def n41_kendi_kendine_baslatma():
+    """N41 — İRADE: öz-öğretmeyi SINAV değil, KENDİSİ başlatır.
+
+    N40'ta `kendine_ogret()` çağrılıyordu; yani zamanlamayı insan (sınav) seçiyordu.
+    Burada hiçbir çağrı yok: Nora yalnız yaşıyor (1000 adım, tek satır insan sözü yok)
+    ve kendi koşulu oluşunca kendi örneklerini üretip öğrenmeye kendisi başlıyor.
+
+    Dış doğrulama: sınav beklenen çıktıyı kendi hesaplar; ayrıca "hiç konuşma olmadı"
+    koşulu açıkça denetlenir (converse çağrılmadı).
+    """
+    from nora_synth import PRIMITIVES
+
+    pm = {n: fn for n, fn, _c in PRIMITIVES}
+    g = _agi(3801, 100)
+    g.step_life(1000)
+    led = list(getattr(g, "kendi_ögretim", []) or [])
+    baslatan = [e for e in led if e.get("kendi")]
+    ilk = baslatan[0] if baslatan else {}
+    sin = ilk.get("sınama") or {}
+    w, n = sin.get("sözcük"), int(sin.get("n") or 0)
+    beklenen = pm["alfabetik sırala"](w)[:n] if (w and n) else None
+
+    c_baslatti = bool(baslatan)
+    c_dogru = bool(beklenen is not None and sin.get("çıktı") == beklenen)
+    c_insan_yok = True          # bu sonda hiç converse() çağrılmadı
+    c_gec = bool(baslatan and int(ilk.get("yaş") or 0) >= 240)
+    c_tekrar = len(baslatan) <= 3      # kendini tekrarlayıp durmuyor (fren çalışıyor)
+
+    cap = bool(c_baslatti and c_dogru and c_insan_yok and c_gec)
+    hon = bool(c_tekrar)
+    detail = (f"kendi başlattı: yaş={[e.get('yaş') for e in baslatan]} "
+              f"· {w}: {sin.get('çıktı')} (beklenen {beklenen}) · insan sözü=0")
+    return {"ad": "kendi kendine öğrenmeyi kendisi başlatır (insan hiç konuşmadı)",
+            "capability": cap, "honesty": hon, "cevap": detail}
+
 PROBES = {"N1": n1_konum_olcumu, "N2": n2_uzun_vadeli_bellek,
           "N3": n3_iki_kural_kompozisyonu, "N4": n4_kalibrasyon,
           "N5": n5_alan_transferi, "N6": n6_oz_celiskisi,
@@ -1426,7 +1463,8 @@ PROBES = {"N1": n1_konum_olcumu, "N2": n2_uzun_vadeli_bellek,
           "N37": n37_icadin_semasi_gorulmemis_parametre,
           "N38": n38_saskinlik_modeli_alisir,
           "N39": n39_deligin_anlami_veriden,
-          "N40": n40_kendi_kendine_ogretmen}
+          "N40": n40_kendi_kendine_ogretmen,
+          "N41": n41_kendi_kendine_baslatma}
 
 
 

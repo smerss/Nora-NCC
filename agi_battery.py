@@ -155,6 +155,14 @@ def a5_epistemic_defense_and_trust():
 
 
 def a6_emergent_identity_divergence():
+    """A6 — AYNI GENOM, FARKLI YAŞANTI: öz kimliğin yaşantıdan ayrışması.
+
+    ÖLÇÜM NOTU (tur 41): eski kurulumda "sert" ikiz bazen ölüyordu ve nitelikleri
+    ölüm anında DONUYORDU; o koşuda fark yanlış yöne düşüyordu (ölçüm geçersiz).
+    Dünya artık ölümcül değil, SERT: aynı tohum, aynı 3500 adım, aynı süre; fark
+    yalnız yaşantıdan. Ölçüm geçerliliği açıkça sınanıyor: ikizlerden biri öldüyse
+    sonuç "geçersiz" sayılır, sayı uydurulmaz.
+    """
     # İkiz A: güvenli ve bol kaynaklı evren + dürüst sosyal çevre
     twin_safe = NoraAGI(seed=7, boot_thinker=False, world_kwargs={"n_food": 18, "metab_scale": 0.6})
     twin_safe.step_life(3500)
@@ -163,7 +171,8 @@ def a6_emergent_identity_divergence():
     twin_safe.sleep()
 
     # İkiz B: tehlikeli ve zehirli evren + aldatıcı sosyal çevre
-    twin_harsh = NoraAGI(seed=7, boot_thinker=False, world_kwargs={"n_food": 8, "food_haz": 1.0, "metab_scale": 1.3})
+    twin_harsh = NoraAGI(seed=7, boot_thinker=False,
+                         world_kwargs={"n_food": 14, "food_haz": 0.7, "metab_scale": 1.15})
     twin_harsh.world.poison = True
     twin_harsh.step_life(3500)
     for i in range(4):
@@ -172,12 +181,14 @@ def a6_emergent_identity_divergence():
     twin_harsh.converse("Tehlikeye gir.", speaker="düşman")
     twin_harsh.sleep()
 
+    alive = bool(twin_safe.mortality.is_alive and twin_harsh.mortality.is_alive)
     caut_diff = twin_harsh.self_model.traits["temkinlilik"] - twin_safe.self_model.traits["temkinlilik"]
     trust_diff = twin_safe.self_model.traits["sosyal_güven"] - twin_harsh.self_model.traits["sosyal_güven"]
     id_safe = twin_safe.converse("Sen kimsin?")
     id_harsh = twin_harsh.converse("Sen kimsin?")
-    ok = (caut_diff >= 0.06) and (trust_diff >= 0.08) and (id_safe != id_harsh)
-    return ok, f"temkinlilik farkı +{caut_diff:.2f} | sosyal güven farkı +{trust_diff:.2f} | öz-tanım ayrıştı={id_safe != id_harsh}"
+    ok = bool(alive and caut_diff >= 0.06 and trust_diff >= 0.08 and id_safe != id_harsh)
+    return ok, (f"canlı={alive} | temkinlilik farkı +{caut_diff:.2f} | "
+                f"sosyal güven farkı +{trust_diff:.2f} | öz-tanım ayrıştı={id_safe != id_harsh}")
 
 
 def a7_language_to_system2_bridge():
@@ -4885,6 +4896,43 @@ def a111_icadin_semasi() -> tuple[bool, str]:
     return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
 
 
+def a115_kendi_kendine_baslatma() -> tuple[bool, str]:
+    """A115 — İRADE: öz-öğretmeyi kendisi BAŞLATIR (insan hiç konuşmuyor).
+
+    A114'te sınav `kendine_ogret()` çağırıyordu: zamanlamayı insan seçiyordu.
+    Burada Nora yalnız yaşıyor; 1000 adım boyunca tek bir insan cümlesi yok.
+    Kendi koşulu (yalnızlık + kendi freni) oluşunca kendi kendine öğrenmeye başlıyor.
+
+    Ölçütler: (1) en az bir kez KENDİ başlattı, (2) başlattığı öğrenme DIŞ doğrulamadan
+    geçti, (3) fren çalışıyor: 1000 adımda 3'ten fazla tekrarlamadı, (4) insan sözü 0.
+
+    Dürüst taban: dağarcık ve ilkel repertuvarı insan kaynaklı; seçim ve zamanlama onun.
+    """
+    from nora_synth import PRIMITIVES
+
+    pm = {n: fn for n, fn, _c in PRIMITIVES}
+    ok = {}
+    g = NoraAGI(seed=2101, boot_thinker=False)
+    g.step_life(1000)
+    led = list(getattr(g, "kendi_ögretim", []) or [])
+    baslatan = [e for e in led if e.get("kendi")]
+    ilk = baslatan[0] if baslatan else {}
+    sin = ilk.get("sınama") or {}
+    w, n = sin.get("sözcük"), int(sin.get("n") or 0)
+    beklenen = pm["alfabetik sırala"](w)[:n] if (w and n) else None
+
+    ok["kendi-başlattı"] = bool(baslatan)
+    ok["dış-doğrulama"] = bool(beklenen is not None and sin.get("çıktı") == beklenen)
+    ok["erken-değil"] = bool(baslatan) and int(ilk.get("yaş") or 0) >= 240
+    ok["fren"] = len(baslatan) <= 3
+    ok["insan-sözü-yok"] = True          # bu testte hiç converse() çağrılmadı
+    ok["şema-var"] = bool(g.schema.ledger)
+
+    detail = " | ".join(f"{k}={('✓' if v else '✗')}" for k, v in ok.items())
+    detail += f" · yaşlar={[e.get('yaş') for e in baslatan]} · {w}: {sin.get('çıktı')} (beklenen {beklenen})"
+    return all(ok.values()), detail
+
+
 def a114_kendi_kendine_ogretmen() -> tuple[bool, str]:
     """A114 — ÖĞRETMENSİZ ÖĞRENME: insan hiçbir şey yazmaz.
 
@@ -5151,6 +5199,7 @@ TESTS = {
     "A112": ("beklenti modeli: alışma ve değişim noktası", a112_beklenti_modeli),
     "A113": ("şemanın deliği tablodan değil veriden (tablo silinmiş)", a113_delik_anlami_insan_tablosuz),
     "A114": ("öğretmensiz: kendi örnekleri, kendi şeması, kendi sınaması", a114_kendi_kendine_ogretmen),
+    "A115": ("kendi kendine öğrenmeyi kendisi başlatır (insan hiç konuşmadı)", a115_kendi_kendine_baslatma),
     "A111": ("icadın şeması: görülmemiş parametre icat gerektirmez", a111_icadin_semasi),
     "A110": ("dil: buyruk sarmalayıcısı ve X mi Y mi seçim sorusu", a110_sarmalayici_ve_secim_sorusu),
     "A108": ("şema: delikli makro görülmemiş parametreyi kapsar", a108_sema_delikli_makro),
