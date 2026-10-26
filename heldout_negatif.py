@@ -35,7 +35,7 @@ from nora_style import strip_prefixes
 #: Dondurulmuş başarısızlık tabanı: bu sayı ARTMAZ. Düşerse buraya yazılır.
 #: 2026-10-26'da donduruldu: N1, N2, N7, N8 kapandı. Bu sayı ARTMAZ (aşağı iner).
 #: Mandal: ölçülen değer dondurulmuş değerin ALTINA düşerse koşu hata verir.
-BASELINE = {"capability": 37, "honesty": 37,
+BASELINE = {"capability": 38, "honesty": 38,
             "closed": ["N1", "N2", "N3", "N4", "N5", "N6", "N7", "N8", "N9", "N10",
                        "N11", "N12", "N13", "N14", "N15", "N16", "N20", "N22",
                        "N23", "N24", "N25", "N26", "N27", "N28", "N29", "N30",
@@ -1377,7 +1377,8 @@ def n40_kendi_kendine_ogretmen():
     ps = list(r.get("parametreler") or [])
     lex = getattr(getattr(g.lang, "graph", None), "lexicon", None) or set()
     w, n = sin.get("sözcük"), int(sin.get("n") or 0)
-    beklenen = pm["alfabetik sırala"](w)[:n] if (w and n) else None
+    _fb = pm.get(str(r.get("taban")))
+    beklenen = str(_fb(w))[:n] if (_fb and w and n) else None
 
     c_ogren = bool(r.get("öğrendi"))
     c_param = len(ps) == 3 and ps[0] < ps[1] < ps[2]      # görülen 2, görülmemiş 1
@@ -1427,7 +1428,8 @@ def n41_kendi_kendine_baslatma():
     ilk = baslatan[0] if baslatan else {}
     sin = ilk.get("sınama") or {}
     w, n = sin.get("sözcük"), int(sin.get("n") or 0)
-    beklenen = pm["alfabetik sırala"](w)[:n] if (w and n) else None
+    _fb = pm.get(str(ilk.get("taban")))
+    beklenen = str(_fb(w))[:n] if (_fb and w and n) else None
 
     c_baslatti = bool(baslatan)
     c_dogru = bool(beklenen is not None and sin.get("çıktı") == beklenen)
@@ -1440,6 +1442,42 @@ def n41_kendi_kendine_baslatma():
     detail = (f"kendi başlattı: yaş={[e.get('yaş') for e in baslatan]} "
               f"· {w}: {sin.get('çıktı')} (beklenen {beklenen}) · insan sözü=0")
     return {"ad": "kendi kendine öğrenmeyi kendisi başlatır (insan hiç konuşmadı)",
+            "capability": cap, "honesty": hon, "cevap": detail}
+
+
+
+def n42_tabani_kendi_secer():
+    """N42 — SEÇİM: kendi kendine öğrenirken tabanı da kendisi seçer.
+
+    N40/N41'de örnekler onundu ama "hangi ilkel üzerinde çalışacağını" BEN yazmıştım
+    (`alfabetik sırala`). Burada taban, onun kendi kullanım sayımından geliyor; farklı
+    tohumlarda farklı tabanlar seçiyor ve seçtiği tabanla öğrendiği kural DIŞ
+    doğrulamadan geçiyor (bekleneni sorgu hesaplar, Nora'nın sözüne güvenilmez).
+
+    Dürüst sınır: repertuvar hâlâ insan kaynaklı; seçim ve sıralama onun.
+    """
+    from nora_synth import PRIMITIVES
+
+    pm = {n: fn for n, fn, _c in PRIMITIVES}
+    tabanlar, dogru, denendi = [], 0, 0
+    for seed in (3901, 3902, 3903, 3904):
+        g = _agi(seed, 100)
+        r = g.kendine_ogret()
+        denendi += 1
+        if r.get("taban"):
+            tabanlar.append(str(r["taban"]))
+        if r.get("öğrendi"):
+            sin = r.get("sınama") or {}
+            w, n = sin.get("sözcük"), int(sin.get("n") or 0)
+            fn = pm.get(str(r.get("taban")))
+            if fn and w and n and sin.get("çıktı") == str(fn(w))[:n]:
+                dogru += 1
+    c_cesit = len(set(tabanlar)) >= 2
+    c_dogru = dogru >= 3
+    cap = bool(c_cesit and c_dogru)
+    hon = bool(len(set(tabanlar)) != 1)
+    detail = f"tabanlar={sorted(set(tabanlar))} · dış-doğrulama={dogru}/{denendi}"
+    return {"ad": "kendi kendine öğrenirken tabanı kendisi seçer",
             "capability": cap, "honesty": hon, "cevap": detail}
 
 PROBES = {"N1": n1_konum_olcumu, "N2": n2_uzun_vadeli_bellek,
@@ -1464,7 +1502,8 @@ PROBES = {"N1": n1_konum_olcumu, "N2": n2_uzun_vadeli_bellek,
           "N38": n38_saskinlik_modeli_alisir,
           "N39": n39_deligin_anlami_veriden,
           "N40": n40_kendi_kendine_ogretmen,
-          "N41": n41_kendi_kendine_baslatma}
+          "N41": n41_kendi_kendine_baslatma,
+          "N42": n42_tabani_kendi_secer}
 
 
 

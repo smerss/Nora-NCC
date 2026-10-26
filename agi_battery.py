@@ -4896,6 +4896,50 @@ def a111_icadin_semasi() -> tuple[bool, str]:
     return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
 
 
+def a116_ne_yi_ogrenecegini_kendi_secer() -> tuple[bool, str]:
+    """A116 — SEÇİM: kendi kendine öğrenirken TABANI da kendisi seçer.
+
+    A114/A115'te sınavın belirlemediği tek şey kalmıştı: hangi ilkel üzerinde
+    çalışacağını BEN yazmıştım (`alfabetik sırala`). Artık taban, ONUN kendi kullanım
+    sayımından seçiliyor (en az kullandığı ilkel önce) ve tutmazsa sıradakine geçiyor.
+
+    Ölçüt: (1) farklı tohumlarda FARKLI tabanlar seçiyor (tek taban = hâlâ benim
+    seçimim), (2) seçtiği tabanla öğrenmesi DIŞ doğrulamadan geçiyor (bekleneni test
+    hesaplar), (3) başarısızlıklarını gizlemiyor — kaç denemede kaçı tuttu açık.
+
+    Anti-test: eski sabit davranış (hep `alfabetik sırala`) bu testi GEÇEMEZ.
+    """
+    from nora_synth import PRIMITIVES
+
+    pm = {n: fn for n, fn, _c in PRIMITIVES}
+    ok = {}
+    tabanlar, dogrulanan, basarisiz = [], 0, 0
+    for seed in (9101, 9102, 9103, 9104, 9105, 9106):
+        g = NoraAGI(seed=seed, boot_thinker=False)
+        g.step_life(100)
+        r = g.kendine_ogret()
+        taban = r.get("taban")
+        if taban:
+            tabanlar.append(str(taban))
+        if r.get("öğrendi"):
+            sin = r.get("sınama") or {}
+            w, n = sin.get("sözcük"), int(sin.get("n") or 0)
+            fn = pm.get(str(taban))
+            beklenen = str(fn(w))[:n] if (fn and w and n) else None
+            # DIŞ DOĞRULAMA: beklenen çıktıyı TEST hesaplar (taban + kesme).
+            dogrulanan += int(beklenen is not None and sin.get("çıktı") == beklenen)
+        else:
+            basarisiz += 1
+    ok["farklı-tabanlar"] = len(set(tabanlar)) >= 3
+    ok["dış-doğrulama"] = dogrulanan >= 4
+    ok["başarısızlık-gizlenmiyor"] = basarisiz <= 3
+    ok["tek-taban-değil"] = len(set(tabanlar)) != 1
+
+    detail = " | ".join(f"{k}={('✓' if v else '✗')}" for k, v in ok.items())
+    detail += f" · tabanlar={sorted(set(tabanlar))} · doğrulanan={dogrulanan} · başarısız={basarisiz}"
+    return all(ok.values()), detail
+
+
 def a115_kendi_kendine_baslatma() -> tuple[bool, str]:
     """A115 — İRADE: öz-öğretmeyi kendisi BAŞLATIR (insan hiç konuşmuyor).
 
@@ -4919,7 +4963,8 @@ def a115_kendi_kendine_baslatma() -> tuple[bool, str]:
     ilk = baslatan[0] if baslatan else {}
     sin = ilk.get("sınama") or {}
     w, n = sin.get("sözcük"), int(sin.get("n") or 0)
-    beklenen = pm["alfabetik sırala"](w)[:n] if (w and n) else None
+    _fb = pm.get(str(ilk.get("taban")))
+    beklenen = str(_fb(w))[:n] if (_fb and w and n) else None
 
     ok["kendi-başlattı"] = bool(baslatan)
     ok["dış-doğrulama"] = bool(beklenen is not None and sin.get("çıktı") == beklenen)
@@ -4958,7 +5003,8 @@ def a114_kendi_kendine_ogretmen() -> tuple[bool, str]:
     ps = list(r.get("parametreler") or [])
     lex = getattr(getattr(g.lang, "graph", None), "lexicon", None) or set()
     w, n = sin.get("sözcük"), int(sin.get("n") or 0)
-    beklenen = pm["alfabetik sırala"](w)[:n] if (w and n) else None
+    _fb = pm.get(str(r.get("taban")))
+    beklenen = str(_fb(w))[:n] if (_fb and w and n) else None
 
     ok["öğrendi"] = bool(r.get("öğrendi"))
     ok["üç-parametre"] = len(ps) == 3 and ps[0] < ps[1] < ps[2]
@@ -5200,6 +5246,7 @@ TESTS = {
     "A113": ("şemanın deliği tablodan değil veriden (tablo silinmiş)", a113_delik_anlami_insan_tablosuz),
     "A114": ("öğretmensiz: kendi örnekleri, kendi şeması, kendi sınaması", a114_kendi_kendine_ogretmen),
     "A115": ("kendi kendine öğrenmeyi kendisi başlatır (insan hiç konuşmadı)", a115_kendi_kendine_baslatma),
+    "A116": ("neyi öğreneceğini kendisi seçer (taban onun kayıtlarından)", a116_ne_yi_ogrenecegini_kendi_secer),
     "A111": ("icadın şeması: görülmemiş parametre icat gerektirmez", a111_icadin_semasi),
     "A110": ("dil: buyruk sarmalayıcısı ve X mi Y mi seçim sorusu", a110_sarmalayici_ve_secim_sorusu),
     "A108": ("şema: delikli makro görülmemiş parametreyi kapsar", a108_sema_delikli_makro),

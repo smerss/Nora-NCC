@@ -4707,6 +4707,36 @@ class NoraAGI:
         except Exception:
             pass
 
+    @staticmethod
+    def _parametre_degistir(spec: list[str], n: int) -> list[str] | None:
+        """ŞEMA HİPOTEZİ: programın parametresini değiştir (ilk/son k harfi al|at)."""
+        import re
+        out, dokundu = [], False
+        for nm in spec or []:
+            yeni = re.sub(r"\b(ilk|son)\s+\d+\s+harfi\b", lambda m: f"{m.group(1)} {int(n)} harfi", str(nm))
+            if yeni != str(nm):
+                dokundu = True
+            out.append(yeni)
+        return out if dokundu else None
+
+    def _taban_adaylari(self) -> list[tuple[str, object]]:
+        """NEYİ öğreneceğini kendisi seçer: repertuvardaki ilkeller, KENDİ kullanım sayısına göre.
+
+        Sıra onun kayıtlarından: en az kullandığı ilkel önce gelir (merak = kullanılmamış
+        olan); eşitlik tohumdan gelen sabit bir düzenle bozulur. İnsan bir taban ADI
+        söylemiyor.
+        """
+        import zlib
+        from nora_synth import FILTER_PRIMITIVES, PRIMITIVES
+        kullanim: dict[str, int] = {}
+        for pr in (getattr(getattr(self, "synth", None), "programs", None) or []):
+            for nm in pr.get("ops") or []:
+                kullanim[str(nm)] = kullanim.get(str(nm), 0) + 1
+        havuz = [(n, f) for n, f, _c in list(PRIMITIVES) + list(FILTER_PRIMITIVES)]
+        havuz += [(n, f) for n, f, _c in getattr(getattr(self, "synth", None), "extra", []) or []]
+        return sorted(havuz, key=lambda nf: (kullanim.get(nf[0], 0),
+                                             zlib.crc32(f"{int(self.seed)}:{nf[0]}".encode())))
+
     def kendine_ogret(self) -> dict:
         """ÖĞRETMENSİZ: kendi dağarcığından kendi örneklerini üretip şemayı kendi kurar.
 
@@ -4729,41 +4759,84 @@ class NoraAGI:
             return {"durum": "dağarcık_yetersiz", "öğrendi": False, "sözcük": len(words)}
 
         pm = {n: fn for n, fn, _c in PRIMITIVES}
-        if "alfabetik sırala" not in pm:
+        if not pm:
             return {"durum": "taban_ilkel_yok", "öğrendi": False}
-        sırala = pm["alfabetik sırala"]
-        kes = lambda w, k: sırala(w)[:k]
-
+        # Tabanı o seçer (kendi kullanım sayımına göre); tutmazsa sıradakini dener.
+        adaylar = self._taban_adaylari()[:6]
+        if not adaylar:
+            return {"durum": "taban_ilkel_yok", "öğrendi": False}
+        taban: tuple[str, object] | None = None
+        kes = lambda w, k: ""          # taban seçilince kurulur
         rng = _r.Random(int(self.seed) * 7919 + len(words))
         # KENDİ seçtiği parametreler. Görülenler repertuvarda OLMALI (n=1..4);
         # görülmemiş olan (n3) repertuvarda YOK — şemanın işi tam da o.
         n1 = 2 + rng.randrange(2)                  # 2 ya da 3
         n2 = n1 + 1
-        n3 = n2 + rng.randrange(1, 4)              # görülmemiş parametre (kendi seçimi)
-        # 1) KENDİ örnekleri: iki parametre, kendi sözcükleri. İlk seçim tutmazsa
-        #    kendisi YENİDEN seçer (bu da onun kararı; insan devreye girmez).
+        n3 = None                                  # taban seçilince belirlenir
+        # 1) KENDİ örnekleri: iki parametre, kendi sözcükleri, KENDİ seçtiği taban.
+        #    Seçim tutmazsa hem sözcükleri hem tabanı değiştirir (insan devreye girmez).
         secili: list[str] = []
         kurulan: list[list[str]] = []
         denemeler = 0
-        for _deneme in range(8):
-            denemeler += 1
-            aday = rng.sample(words, 3)
-            if not all(len(kes(w, n1)) != len(kes(w, n2)) for w in aday):
-                continue
-            _kur, _ok = [], True
-            for n in (n1, n2):
-                r = sy.learn([(w, kes(w, n)) for w in aday])
-                if r.get("status") != "adopted":
-                    _ok = False
+        for taban_ad, taban_fn in adaylar:
+            kes_t = lambda w, k, _f=taban_fn: str(_f(w))[:k]
+            for _deneme in range(10):
+                denemeler += 1
+                aday = rng.sample(words, 4)      # 3 tanesi örnek, 1 tanesi TANIK
+                tanik = aday[3]
+                aday = aday[:3]
+                # taban yeterince uzun çıktı vermeli (yoksa parametre görünmez)
+                # taban yeterince uzun çıktı vermeli (yoksa parametre görünmez) ve
+                # GÖRÜLMEMİŞ parametre de tabanın uzunluğuna sığmalı (kendi sınırı).
+                if not all(len(kes_t(w, n1)) != len(kes_t(w, n2)) and len(kes_t(w, n2)) >= n2
+                           for w in aday):
+                    continue
+                _tavan = min(len(str(taban_fn(w))) for w in aday) - 1
+                _n3 = min(n2 + rng.randrange(1, 4), _tavan)
+                if _n3 <= n2:
+                    continue          # bu tabanla görülmemiş parametre kurulamaz
+                _kur, _ok = [], True
+                # (i) İLK PROGRAM: arama (kendi ilkelleriyle).
+                _ex1 = [(w, kes_t(w, n1)) for w in aday]
+                r1 = sy.learn(_ex1)
+                if r1.get("status") != "adopted" or sy.last.apply(tanik) != kes_t(tanik, n1):
+                    continue
+                _ops1 = list(sy.programs[-1]["ops"])
+                _ok = True
+                _kur.append(_ops1)
+                # (ii) İKİNCİ PARAMETRE: arama DEĞİL, HİPOTEZ — birinci programdaki
+                # sayıyı n2 yap (şema fikri bu) ve kendi örnekleriyle SINА. Hipotez
+                # tutmazsa geri döner; tutarsa onun kendi bulduğu genellemedir.
+                _ex2 = [(w, kes_t(w, n2)) for w in aday]
+                _hyp = self._parametre_degistir(_ops1, n2)
+                _prog2 = Program.from_spec(_hyp, spec_map=sy.spec_map()) if _hyp else None
+                if _prog2 is None or any(_prog2.apply(a) != b for a, b in _ex2):
+                    # hipotez tutmadı: aramaya dön (insan yardımı yok)
+                    if sy.learn(_ex2).get("status") != "adopted":
+                        continue
+                    _prog2 = sy.last
+                    _hyp = list(sy.programs[-1]["ops"])
+                    # İKİ PROGRAM AYNI ŞABLONUN İKİ PARAMETRESİ OLMALI; değilse bu bir
+                    # şema adayı değil, iki ayrı tesadüftür — yeniden seçer.
+                    if self._parametre_degistir(_ops1, n2) != _hyp:
+                        continue
+                else:
+                    sy.programs.append({"id": f"kendi.op.{len(sy.programs) + 1}", "ops": _hyp,
+                                        "desc": " → ".join(_hyp),
+                                        "examples": [[a, b] for a, b in _ex2],
+                                        "origin": "kendi"})
+                if _prog2.apply(tanik) != kes_t(tanik, n2):
+                    continue
+                _kur.append(list(_hyp))
+                if _ok:
+                    secili, kurulan, taban, kes, n3 = aday, _kur, (taban_ad, taban_fn), kes_t, _n3
                     break
-                _kur.append(list(sy.programs[-1]["ops"]))
-            if _ok:
-                secili, kurulan = aday, _kur
+            if secili:
                 break
         if not secili:
             return {"durum": "kendi_ornegi_cozulemedi",
                     "öğrendi": False, "sözcük": len(words),
-                    "parametreler": [n1, n2, n3], "deneme": denemeler}
+                    "parametreler": [n1, n2], "deneme": denemeler}
 
         # 2) ŞEMA: iki programdan delikli şablon (insan girdisi yok)
         eklenen = self._schema_maybe()
@@ -4792,6 +4865,7 @@ class NoraAGI:
         kayit = {"örnekler": [[w, kes(w, n1)] for w in secili]
                  + [[w, kes(w, n2)] for w in secili],
                  "parametreler": [n1, n2, n3], "programlar": kurulan,
+                 "taban": (taban[0] if taban else None),
                  "şema": sema, "eklenen": eklenen, "sınama": sinama,
                  "insan-girdisi": 0}
         led = getattr(self, "kendi_ögretim", None)
@@ -4800,6 +4874,7 @@ class NoraAGI:
             self.kendi_ögretim = led
         led.append(kayit)
         return {"durum": "tamam", "öğrendi": bool(eklenen and sinama.get("doğru")),
+                "taban": kayit.get("taban"), "deneme": denemeler,
                 "örnek": kayit["örnekler"], "parametreler": [n1, n2, n3],
                 "programlar": kurulan, "şema": sema, "eklenen": eklenen,
                 "sınama": sinama, "sözcük": len(words), "insan-girdisi": 0}
