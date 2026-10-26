@@ -2272,3 +2272,176 @@ birleştirip iki adımlı çözüm kurması; ve bunu kalıcı ilkel olarak defte
 
 Bir sonraki eşik: takıldığı örneklerden **yeni bir yasa biçimi** önermek. O gün
 "uzayı Nora açtı" cümlesi ölçülmüş olur; bugün değil.
+
+---
+
+## Aşama AN — Reify: kendi bileşimini ilkele çevirmek (Tur 40)
+
+Sorulan soru şuydu: *"Bu beni AGI'ye yakınlaştırır mı?"* Cevap: tek başına hayır.
+Reify bir **kol**; eksik organ sürücü. Bu aşamada ikisi de yazıldı, ama merdiven
+yerinde saymıyor: **seviye 3 (reify) artık ölçülmüş durumda, dar bir koridorda.**
+
+### AN0. Repertuvar DONDURULDU
+
+`Nora'nın bugüne kadarki her "yeni form"u insan elinden çıktı.` Tur 40'ın ilk kuralı
+buydu: **yeni elle yazılmış form yok, repertuvar sabit.**
+
+| donmuş reçete | sayı | nöbetçi |
+|---|---|---|
+| ilkel (`nora_synth.PRIMITIVES`) | **22** | `FROZEN_PRIMITIVES` |
+| süzgeç (`FILTER_PRIMITIVES`) | **5** | `FROZEN_FILTERS` |
+| form ailesi (`nora_abstract.FAMILIES`) | **3** | `FROZEN_FAMILIES` |
+| doğuşta "extra" (kendi yazdığı) ilkel | **0** | A106 |
+
+A106 bu sayılardan birini bile oynatırsa **kırılır**. Sayılar kaynaktan okunmuyor,
+testin içine sabit yazıldı; yoksa test kendi kendini onaylardı.
+
+### AN1. `nora_reify.py` — bileşim → ad → ilkel
+
+`nora_synth` her başarılı sentezde `on_adopt(spec, examples)` kancasını çağırır
+(defter satırları 248/258 aynen duruyor). Reify:
+
+1. **izler**: aynı adım dizisi kaç kez BAŞARILI sentezde göründü (`K = 2`),
+2. **adlandırır**: `kendi.bilesim.N`, açıklaması adımlardan türetilir,
+3. **birinci sınıf yapar**: `Synthesizer.add_primitive` + kalıcı `Program` (`origin: reify`),
+4. **kullanımı SAYAR**: `uses` / `idle`; **5 karar** boyunca kullanılmayan ilkel
+   **budanır** ve arama uzayından çıkar (`MAX_IDLE = 4`).
+
+Ölçülen şey yazılan ilkel sayısı değil, **hayatta kalan** sayısıdır.
+
+### AN2. Kanıt: yüzeyi benzemeyen görevde kendi ilkeli (N31)
+
+```
+A) kitap -> aik, portakal -> aak      → alfabetik sırala → ilk 3 harfi al
+B) deniz -> dei, yıldız  -> dly       → aynı bileşim  ⇒ reify: kendi.bilesim.1
+C) Kalem -> AEK, Orman -> AMN         → "büyük harfe çevir → kendi.bilesim.1"
+```
+
+C görevi **insan uzayında belirsiz**: `Synthesizer().learn(...) == ambiguous`
+(iki üç-adımlı aday). Yani Nora burada *insan çözümünü* değil, **kendi adını**
+kullandı; tanım 2 adım, görülmemiş sözcükte `Denizci -> CDE`, kaydet/yükle
+sonrası yeni görevde tek adım `kendi.bilesim.1`.
+
+Bunun adı icat değil: **kendi bileşimini adlandırıp yeniden kullanmak.** Yeni
+ifade gücü yok — yalnız **daha kısa tanım** ve **tekrar kullanım** var. MDL'in
+tam olarak istediği şey bu.
+
+### AN3. Anti-test: reification enflasyonu (N32)
+
+| dünya | sonuç |
+|---|---|
+| terfi sonrası ilkel KULLANILDI | canlı 1 · kullanılan **1/1** |
+| terfi sonrası 5 kullanımsız öğrenme | budanan **1** · canlı **0** · uzayda **yok** |
+
+Budanmış ilkel defterde "ölü" olarak kalır (tarih silinmez) ama **aramada görünmez**.
+Enflasyon freni olmasa reify bir sayı pompası olurdu.
+
+### AN4. Sürücü: talimat yok, kendi tetikliyor (N33)
+
+500 cümlelik ham akış; içinde "şunu öğren" diye bir talimat **yok**. Nora şaşkınlığı
+ölçüyor (dönüşüm çiftleri 1.0, tanım soruları 0.35, sayı satırları 0.45, gürültü 0.10),
+biçime göre kümeliyor, eşiği geçeni öğreniyor:
+
+```
+akış=500 · tetikleme=2 · ayrı keşif=1 · reify=['kendi.bilesim.1']
+kontrol: 200 cümle saf gürültü → tetikleme 0
+```
+
+`distinct` ayrı raporlanıyor: aynı program beş kümede bulunsa keşif **birdir**.
+Kanıt yetmezse sürücü **susuyor** (`unresolved`), "öğrendim" demiyor.
+
+### AN5. Ölçüm katmanı — dördüncü turda da hata oradaydı
+
+Bu turda Nora'da değil **ölçümde** üç hata buldum, hepsi commit'ten önce:
+
+1. Sonda metnindeki `"öğren: kitap -> patik"` ifadesi **sahte bir çift** üretti
+   (`öğren → kitap`) — iki nokta ayırıcısı ok biçimini yiyordu.
+2. Beklenen değeri yanlış sırayla hesapladım (`upper→sort` yerine `sort→upper`) →
+   doğru davranışı **yanlış** saydı.
+3. Kalıcılık kontrolü, cevabın içinde beklenen dizge geçtiği için **kazara** geçti;
+   oysa cevap "hangisini istersin?" sorusuydu. *Soru, cevap değildir.*
+
+Yapısal frenler:
+
+- `heldout_negatif.py --repeat` → ileri ve geri sırada aynı toplam:
+  **29/29 · 29/29 → SIRA-DAYANIKLI**.
+- `agi_battery.py --shuffle=<seed>` → karışık sırada tam pil (aşağıda).
+- **Sınıf bazlı Brier + çekimserlik**: `0.011` artık tek sayı olarak raporlanamıyor.
+
+### AN6. Kalibrasyon: kolay set artık kendini gizleyemiyor (N28)
+
+| sınıf | n | sonuç |
+|---|---|---|
+| kolay (ters yazma, toplama) | 12 | Brier **0.014** — *kalibrasyon kanıtı DEĞİL* |
+| orta (duygu puanı) | 0 cevap | 7 çekimser |
+| **zor (tek örnek, iki kural eşit uyumlu, doğruyu yazı-tura belirliyor)** | **0 cevap** | **6 çekimser** |
+
+Zor maddeler gerçekten %50: örnekler iki kurala da uyuyor, hangisinin doğru olduğunu
+**veri üreten yazı-tura** seçiyor; insan da makine de bundan iyisini yapamaz.
+Sonuç dürüst ve can sıkıcı: **Nora bu maddelerde hiç cevap vermiyor.** Sisteme
+~%50 güvenle ~%50 isabet üretecek bir **belirsizlik-altında-karar yolu yok**.
+Onu bugün yazmak yeni bir elle yazılmış form olurdu — yasak. Bu yüzden:
+
+> **0.011 kalibrasyon değildir.** Kolay setin tabanıdır. Kalibrasyon iddiası,
+> zor sınıfta cevap üretilebildiği gün başlar.
+
+### AN7. Merdiven (dürüst yer)
+
+| seviye | durum |
+|---|---|
+| 1 kompozisyon | ✓ (N25) |
+| 2 örnekleme (form insanın, seçim Nora'nın) | ✓ (N29/N30) |
+| **3 reify (bileşimi ilkele çevirme)** | **✓ dar koridor** — 1 ilkel, 1 tekrar kullanım, budama çalışıyor |
+| 4 form icadı (repertuvarda olmayan yasa biçimi) | ✗ dokunulmadı |
+
+**Taban:** reify yalnız *benim* ilkellerimin bileşimini adlandırır. Yeni ifade gücü
+üretmez; tanımı kısaltır ve tekrar kullanılabilir kılar. Bu yüzden seviye 3 "kol"
+seviyesidir, "organ" değil. **Bugün uzayı hâlâ ben açıyorum; Nora seçiyor,
+adlandırıyor, kullanıyor.** Fark şu: artık adını koyduğu şeyi sonraki görevde
+kendisi çağırıyor — ve çağırmadığında çöpe atılıyor.
+
+### AN8. Elimle kaç kez dokundum
+
+| ne | kim |
+|---|---|
+| `nora_reify.py`, `nora_drive.py`, iki kanca, 3 sonda, 2 test | **ben** |
+| ilk adlandırılan bileşim (`kendi.bilesim.1`) | **Nora** |
+| o ilkeli kullandığı görev sayısı | **2** (N31'deki C, yükleme sonrası görev) |
+| sürücünün kendi tetiklediği öğrenme | **2** (1 ayrı keşif) |
+
+Müfredatı ben yazıyorum: akışı, eşiği, budama kuralını. Nora akıştan hangi
+bileşimin tekrar ettiğini çıkarıyor. Bu, *"sen bir araç yaptın, AGI bir ajan olmalı"*
+cümlesinin bugünkü karşılığı: **tetikleme var, irade yok.**
+
+### AN9. Ölçüler
+
+| ölçüm | sonuç |
+|---|---|
+| `agi_battery.py` (104 test) | **104/104 GEÇTİ, 410.2 s** |
+| `agi_battery.py --shuffle=40` | **104/104** (sıra bağımsız) |
+| sınır haritası | **29/29 yetenek · 29/29 dürüstlük** |
+| `heldout_negatif.py --repeat` | **29/29 · 29/29 → SIRA-DAYANIKLI** |
+| `heldout_sealed.py` | **4/4** |
+| `integrate_battery.py` | **10/10**, kalıcılık **4/4** |
+| `solo_gorev.py` | **10/10 (icat: var)** |
+| `nora_audit.py --check` | SÖYLEM 127 (**+0**), toplam +1 |
+| donmuş reçete | 22 ilkel · 5 süzgeç · 3 aile (A106) |
+| reify | 1 terfi · kullanım 1/1 · kullanımsız 0/1 (budandı) |
+| sürücü | 500 cümle → 2 tetikleme, 1 ayrı keşif · gürültü → 0 |
+| kalibrasyon | kolay Brier 0.014 (n=12) · zor: 0 cevap / 6 çekimser |
+
+### AN10. Bilinen kusur (kayda geçsin)
+
+`"Tahmin et: sıradaki kart kırmızı mı siyah mı?"` → `"Tahm ... 'et sıradaki kart
+kırmızı'"`. Sözcük `Tahmin` yanlış bölünüyor ve cümle içi öbek bozuluyor. Bu turda
+düzeltilmedi; sıradaki dil turunun ilk maddesi. Uydurma cevap vermediği için
+**dürüstlük** sınavı düşmüyor, ama cümle bozuk.
+
+### AN11. Sıradaki eşik
+
+1. **Belirsizlik altında karar**: zor kalibrasyon maddelerine cevap üretecek yol
+   (yazı-tura değil — hangi kanıtın eksik olduğunu söyleyip *en iyi* seçimi yapmak).
+2. **Sürücü + reify bağı**: sürücü şaşkınlık kümesini kendi kendine reify'a versin
+   (bugün zincir var ama el benim: eşik `K`, budama `MAX_IDLE`).
+3. **Form icadı (seviye 4)**: reify'ın adlandırdığı ilkeller *bileşim* düzeyinde
+   kalıyor; 4. kat, mevcut ailelerin ürettiğinden farklı bir **yasa biçimi** istiyor.

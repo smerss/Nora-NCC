@@ -45,6 +45,14 @@ for _n in (1, 2, 3, 4):
 #: `n` harfli bir dizgede `s[:n]` = `s[:-n]` ise program AYNI davranır; bu yüzden
 #: tekilleştirme DAVRANIŞ üzerinden yapılır (ada göre değil).
 
+# ============================================================ DONMUŞ REÇETE (KİLİT)
+#: Tur 40 kuralı: **yeni elle yazılmış form yok.** Bu sayılar ARTMAMALI; artarsa
+#: `agi_battery` içindeki A106 donar ve insan katkısı sessizce büyüyemez. Yeni
+#: ilkel ancak `nora_reify` (kendi bileşimini adlandırma) ile doğar — ve o ilkel
+#: `Synthesizer.extra` içinde yaşar, bu listede DEĞİL.
+FROZEN_PRIMITIVES = 22
+FROZEN_FILTERS = 5
+
 # ===================================================================== YÜKSEK MERTEBE
 #: SÜZGEÇ AİLESİ. Dikkat: burada insan tek bir MEKANİZMA yazıyor (bir yüklemi tut/at),
 #: hangi süzgecin kullanılacağını ÖRNEKLER belirliyor. "Sesli harfleri at" diye bir
@@ -148,6 +156,8 @@ class Synthesizer:
         self.last: Program | None = None
         #: İCAT EDİLMİŞ ilkeller (bu örneğe özel; küresel durumu kirletmesin).
         self.extra: list[tuple] = []
+        #: Başarılı sentez kancası: (spec, examples) -> None. `nora_reify` buradan izler.
+        self.on_adopt = None
         #: Ayırt edici örnek bekleyen adaylar (belirsizlik UYDURULMAZ, çözülür).
         self._pending: tuple[list[Program], list[tuple[str, str]]] | None = None
 
@@ -157,6 +167,12 @@ class Synthesizer:
         if not name or any(nm == name for nm, _f, _c in self.extra):
             return
         self.extra.append((name, fn, int(cost)))
+
+    def drop_primitive(self, name: str) -> bool:
+        """Budanan ilkeli uzaydan çıkar (defterde ölü kalır, aramada görünmez)."""
+        before = len(self.extra)
+        self.extra = [(nm, f, c) for nm, f, c in self.extra if nm != str(name)]
+        return len(self.extra) != before
 
     def spec_map(self) -> dict:
         return {nm: fn for nm, fn, _c in self.extra}
@@ -181,18 +197,20 @@ class Synthesizer:
                 found.append(p)
         if found:
             return self._dedupe(found, examples, outs)
-        # iki ilkel
-        for nm1, f1, c1 in PRIMITIVES:
-            for nm2, f2, c2 in PRIMITIVES:
+        # iki ilkel (kendi yazdığı ilkeller de bu havuzda: REIFY buradan kullanılır)
+        pool2 = list(PRIMITIVES) + list(self.extra)
+        for nm1, f1, c1 in pool2:
+            for nm2, f2, c2 in pool2:
                 p = Program([(nm1, f1), (nm2, f2)], c1 + c2)
                 if all(p.apply(i) == o for i, o in examples):
                     found.append(p)
         if found:
             return self._dedupe(found, examples, outs)
         # üç ilkel: sınır burada. Daha derini aranmaz (patlama), ve aranmadığı SÖYLENİR.
-        for nm1, f1, c1 in PRIMITIVES:
-            for nm2, f2, c2 in PRIMITIVES:
-                for nm3, f3, c3 in PRIMITIVES:
+        pool3 = list(PRIMITIVES) + list(self.extra)
+        for nm1, f1, c1 in pool3:
+            for nm2, f2, c2 in pool3:
+                for nm3, f3, c3 in pool3:
                     p = Program([(nm1, f1), (nm2, f2), (nm3, f3)], c1 + c2 + c3)
                     if all(p.apply(i) == o for i, o in examples):
                         found.append(p)
@@ -249,8 +267,19 @@ class Synthesizer:
                               "examples": [[i, o] for i, o in examples],
                               "origin": "kendi"})
         self.last = p
+        self._notify(p.spec(), examples)
         return {"status": "adopted", "program": p, "desc": p.desc(), "n": 1,
                 "rid": p.rid}
+
+    def _notify(self, spec, examples) -> None:
+        """Başarılı sentezi dinleyicilere bildir (reify izler)."""
+        cb = getattr(self, "on_adopt", None)
+        if cb is None:
+            return
+        try:
+            cb(list(spec or []), list(examples or []))
+        except Exception:
+            pass
 
     def _adopt(self, p: Program, examples) -> dict:
         self._pending = None
@@ -259,6 +288,7 @@ class Synthesizer:
                               "examples": [[i, o] for i, o in examples],
                               "origin": "kendi"})
         self.last = p
+        self._notify(p.spec(), examples)
         return {"status": "adopted", "program": p, "desc": p.desc(), "n": 1,
                 "rid": p.rid}
 
