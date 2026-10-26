@@ -960,6 +960,9 @@ class NoraAGI:
             if self.mind.age - self._exam_age_mark >= 120:
                 self._exam_age_mark = self.mind.age
                 self.self_exam(factor=0.6)
+            # KENDİ KENDİNE ÖĞRETME: yalnız kaldıysa kendi örneklerini üretip öğrenir.
+            if self.mind.age >= 240 and self.mind.age % 60 == 0:
+                self._kendine_ogret_maybe()
             # KENDİ ÇIKARIMI: boşlukta kendi bilgisinden yeni bağlar türetir (kimse sormadan).
             if getattr(self, "infer", None) is not None and self.mind.age % 90 == 0:
                 try:
@@ -1051,6 +1054,11 @@ class NoraAGI:
         ne zaman söylendiğini, o an ne cevap verdiğini hatırlar ve bunu sözüne katar.
         """
         raw = (text or "").strip()
+        # BİRİ VAR: yalnızlık sayacı sıfırlanır (kendi kendine öğretme koşulu bunu kullanır).
+        try:
+            self._son_etkilesim_age = int(self.mind.age)
+        except Exception:
+            pass
         # ================================================================ KULAK
         # Nora önce DUYAR: havadaki ses bir olay olarak gelir, kimliği sesten çıkarılır.
         # `speaker` yalnızca dünyadaki fiziksel kaynağı adlandırır; ses defterine girmez.
@@ -4675,6 +4683,30 @@ class NoraAGI:
         return added
 
     # ------------------------------------------------------- kendi kendine öğretmenlik
+    def _kendine_ogret_maybe(self) -> None:
+        """YALNIZKEN kendi kendini öğretir. Koşullar ONUN ölçümünden, insan söylemiyor.
+
+        (1) yalnız kaldığı süre eşiği aştı (son konuşmadan bu yana),
+        (2) son öz-öğretimden bu yana yeterince zaman geçti (kendini tekrarlamasın),
+        (3) dağarcığı yetiyor. Hiçbiri insan tarafından söylenmiyor; insan hiç yazmıyor.
+        """
+        try:
+            age = int(self.mind.age)
+            if age - int(getattr(self, "_son_etkilesim_age", 0) or 0) < 180:
+                return
+            if age - int(getattr(self, "_son_oz_ogretim", -10 ** 9)) < 600:
+                return
+            r = self.kendine_ogret()
+            self._son_oz_ogretim = age
+            if r.get("durum") == "tamam":
+                led = getattr(self, "kendi_ögretim", None) or []
+                if led:
+                    led[-1]["kendi"] = True
+                    led[-1]["yaş"] = age
+                self._kendi_ogrenme = int(getattr(self, "_kendi_ogrenme", 0)) + 1
+        except Exception:
+            pass
+
     def kendine_ogret(self) -> dict:
         """ÖĞRETMENSİZ: kendi dağarcığından kendi örneklerini üretip şemayı kendi kurar.
 
@@ -4694,11 +4726,11 @@ class NoraAGI:
         words = sorted({str(w) for w in lex
                         if isinstance(w, str) and w.isalpha() and w.islower() and len(w) >= 6})
         if sy is None or len(words) < 8:
-            return {"durum": "dağarcık yetersiz", "öğrendi": False, "sözcük": len(words)}
+            return {"durum": "dağarcık_yetersiz", "öğrendi": False, "sözcük": len(words)}
 
         pm = {n: fn for n, fn, _c in PRIMITIVES}
         if "alfabetik sırala" not in pm:
-            return {"durum": "taban ilkel yok", "öğrendi": False}
+            return {"durum": "taban_ilkel_yok", "öğrendi": False}
         sırala = pm["alfabetik sırala"]
         kes = lambda w, k: sırala(w)[:k]
 
@@ -4729,7 +4761,7 @@ class NoraAGI:
                 secili, kurulan = aday, _kur
                 break
         if not secili:
-            return {"durum": "kendi örneği çözülemedi",
+            return {"durum": "kendi_ornegi_cozulemedi",
                     "öğrendi": False, "sözcük": len(words),
                     "parametreler": [n1, n2, n3], "deneme": denemeler}
 
