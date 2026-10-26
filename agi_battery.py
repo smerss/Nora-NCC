@@ -4885,6 +4885,58 @@ def a111_icadin_semasi() -> tuple[bool, str]:
     return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
 
 
+def a113_delik_anlami_insan_tablosuz() -> tuple[bool, str]:
+    """A113 — ŞEMANIN DELİĞİ TABLODAN DEĞİL VERİDEN.
+
+    A111'de şema `kaydırma({k})` idi; ama "kaydırma ailesi parametriktir" bilgisi
+    `PARAM_GENERATORS` tablosunda, yani BENDE duruyordu. Burada tablo siliyoruz.
+
+    Deliğin anlamı örneklerden çıkarılıyor (üç koşul, hepsi veriden):
+      (1) her üyenin çıktısı parametresi kadar uzun (len(out) == n),
+      (2) küçük n'in çıktısı büyük n'inkinin ÖNEKİ (iç içe),
+      (3) taban program B var: her örnekte B(girdi) çıktıyla BAŞLAR.
+    B tek ilkelden (gerekirse iki ilkelden) seçilir — tablo yok.
+
+    Ön koşul: tablo silinince şemasız sentez çözemez (`insufficient`).
+    Anti-test: tek parametre (n=3) delik anlamı VERMEZ (≥2 şart).
+    """
+    from nora_synth import PRIMITIVES, Synthesizer, PARAM_GENERATORS
+
+    pm = {n: fn for n, fn, _c in PRIMITIVES}
+    sN = lambda w, k: pm["alfabetik sırala"](w)[:k]
+    ok = {}
+    g = NoraAGI(seed=1991, boot_thinker=False)
+    g.step_life(100)
+    for ex in ("Örnekler: kitap -> aik, portakal -> aak. Kuralı çıkar.",
+               "Örnekler: deniz -> dei, yıldız -> dly. Kuralı çıkar.",
+               "Örnekler: kitap -> aikp, portakal -> aakl. Kuralı çıkar."):
+        g.converse(ex)
+    inf = (g.schema.ledger[0].get("inferred") if g.schema.ledger else None) or {}
+    ok["anlam-çıkarıldı"] = inf.get("kind") == "prefix" and \
+        tuple(inf.get("base") or []) == ("alfabetik sırala",)
+
+    pairs7 = [("portakal", sN("portakal", 7)), ("kütüphane", sN("kütüphane", 7))]
+    saved = dict(PARAM_GENERATORS)
+    try:
+        PARAM_GENERATORS.clear()                      # TABLO YOK
+        ok["tablo-boş"] = len(PARAM_GENERATORS) == 0
+        ok["şemasız-çözemez"] = Synthesizer().learn(pairs7).get("status") != "adopted"
+        rep = strip_prefixes(g.converse(
+            f"Örnekler: portakal -> {pairs7[0][1]}, kütüphane -> {pairs7[1][1]}. Kuralı çıkar."))
+        spec = (g.synth.programs[-1]["ops"] if g.synth.programs else [])
+        ok["çözdü"] = list(spec) == ["alfabetik sırala", "ilk 7 harfi al"]
+        ok["söyledi"] = "şema" in tr_lower(rep)
+    finally:
+        PARAM_GENERATORS.update(saved)
+
+    from nora_schema import Schema
+    ok["tek-parametre-anlam-vermez"] = \
+        Schema().infer_prefix_hole([(3, [("kitap", "aik")])]) is None
+
+    detail = " | ".join(f"{k}={('✓' if v else '✗')}" for k, v in ok.items())
+    return all(ok.values()), detail
+
+
 def a112_beklenti_modeli() -> tuple[bool, str]:
     """A112 — ŞAŞKINLIK KENDİ SAYIMINDAN: alışma ve değişim noktası.
 
@@ -5048,6 +5100,7 @@ TESTS = {
     "A58": ("cümle yapısı, fiil valansı ve 'nasıl denilir' sorularının genellenmesi",
             a58_sentence_structure_valency_and_meta_questions),
     "A112": ("beklenti modeli: alışma ve değişim noktası", a112_beklenti_modeli),
+    "A113": ("şemanın deliği tablodan değil veriden (tablo silinmiş)", a113_delik_anlami_insan_tablosuz),
     "A111": ("icadın şeması: görülmemiş parametre icat gerektirmez", a111_icadin_semasi),
     "A110": ("dil: buyruk sarmalayıcısı ve X mi Y mi seçim sorusu", a110_sarmalayici_ve_secim_sorusu),
     "A108": ("şema: delikli makro görülmemiş parametreyi kapsar", a108_sema_delikli_makro),

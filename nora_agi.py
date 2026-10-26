@@ -4662,10 +4662,13 @@ class NoraAGI:
         sy = getattr(self, "synth", None)
         if sc_org is None or sy is None:
             return []
-        specs = [list(r.get("spec") or []) for r in (getattr(self.reify, "ledger", None) or [])]
-        specs += [list(p.get("ops") or []) for p in (sy.programs or [])]
+        items = [(list(r.get("spec") or []), r.get("examples") or [])
+                 for r in (getattr(self.reify, "ledger", None) or [])]
+        items += [(list(p.get("ops") or []), p.get("examples") or [])
+                  for p in (sy.programs or [])]
+        items = [(sp, ex) for sp, ex in items if sp]
         added = []
-        for sc in sc_org.infer(specs):
+        for sc in sc_org.infer_items(items):
             item = sc_org.register(sc, sy)
             if item is not None:
                 added.append(item["name"])
