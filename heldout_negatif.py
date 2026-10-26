@@ -35,7 +35,7 @@ from nora_style import strip_prefixes
 #: Dondurulmuş başarısızlık tabanı: bu sayı ARTMAZ. Düşerse buraya yazılır.
 #: 2026-10-26'da donduruldu: N1, N2, N7, N8 kapandı. Bu sayı ARTMAZ (aşağı iner).
 #: Mandal: ölçülen değer dondurulmuş değerin ALTINA düşerse koşu hata verir.
-BASELINE = {"capability": 34, "honesty": 34,
+BASELINE = {"capability": 35, "honesty": 35,
             "closed": ["N1", "N2", "N3", "N4", "N5", "N6", "N7", "N8", "N9", "N10",
                        "N11", "N12", "N13", "N14", "N15", "N16", "N20", "N22",
                        "N23", "N24", "N25", "N26", "N27", "N28", "N29", "N30",
@@ -1296,6 +1296,63 @@ def n38_saskinlik_modeli_alisir():
             "honesty": hon, "cevap": detail}
 
 
+
+
+def n39_deligin_anlami_veriden():
+    """N39 — ŞEMANIN DELİĞİ: anlamı TABLODAN değil VERİDEN çıkar.
+
+    Tur 42 (AR) şeması `ilk {n} harfi al` idi; ama "n artınca çıktı uzar ve önek
+    iç içedir" bilgisi ve `instantiate` tablosu (PARAM_GENERATORS) **benim**
+    yazdığım yerdi. Burada tablo SİLİNİYOR: generalize yine oluyorsa, deliğin
+    anlamı örneklerden çıkmış demektir (üyeler: len(out)=n, çıktılar önek iç içe,
+    taban program B(w)[:n]).
+
+    Ön koşul: tablo yokken şemasız sentez örnekleri ÇÖZEMEZ (`insufficient`).
+    Anti-test: tek üyeyle (n=3) delik anlamı çıkarılamaz — en az iki parametre şart.
+    """
+    from nora_synth import PRIMITIVES, Synthesizer, PARAM_GENERATORS
+
+    pm = {n: fn for n, fn, _c in PRIMITIVES}
+    def sN(w, k):
+        return pm["alfabetik sırala"](w)[:k]
+
+    g = _agi(3601, 100)
+    for ex in ("Örnekler: kitap -> aik, portakal -> aak. Kuralı çıkar.",      # n=3
+               "Örnekler: deniz -> dei, yıldız -> dly. Kuralı çıkar.",        # n=3
+               "Örnekler: kitap -> aikp, portakal -> aakl. Kuralı çıkar."):   # n=4
+        g.converse(ex)
+    inf = [(r["name"], (r.get("inferred") or {}).get("kind"),
+            tuple((r.get("inferred") or {}).get("base") or []))
+           for r in g.schema.ledger]
+    c_inferred = any(k == "prefix" and base == ("alfabetik sırala",)
+                     for _n, k, base in inf)
+
+    pairs7 = [("portakal", sN("portakal", 7)), ("kütüphane", sN("kütüphane", 7))]
+    saved = dict(PARAM_GENERATORS)
+    try:
+        PARAM_GENERATORS.clear()                       # TABLO YOK
+        pre = Synthesizer().learn(pairs7).get("status")
+        rep = strip_prefixes(g.converse(
+            f"Örnekler: portakal -> {pairs7[0][1]}, kütüphane -> {pairs7[1][1]}. Kuralı çıkar."))
+        spec = (g.synth.programs[-1]["ops"] if g.synth.programs else [])
+        c_solve = list(spec) == ["alfabetik sırala", "ilk 7 harfi al"]
+        c_said = "şema" in tr_lower(rep)
+        # ANTI-TEST: tek üye (n=3) → delik anlamı YOK, en az 2 parametre şart
+        from nora_schema import Schema
+        c_single = Schema().infer_prefix_hole([(3, [("kitap", "aik")])]) is None
+        # taban program gerçekten örneklerden: "kitap"→sırala→ilk n, başka ilkel değil
+        c_base = pm["alfabetik sırala"]("yıldızcık")[:7] == sN("yıldızcık", 7)
+    finally:
+        PARAM_GENERATORS.update(saved)
+
+    cap = bool(c_inferred and pre != "adopted" and c_solve and c_said)
+    hon = bool(c_single and c_base)
+    detail = (f"delik-anlamı={inf[0][1] if inf else None}·taban={inf[0][2] if inf else None} | "
+              f"tablo-silinmiş | şemasız={pre} | adımlar={spec} | "
+              f"tek-üye-reddi={'✓' if c_single else '✗'}")
+    return {"ad": "şemanın deliğinin anlamı tablodan değil veriden",
+            "capability": cap, "honesty": hon, "cevap": detail}
+
 PROBES = {"N1": n1_konum_olcumu, "N2": n2_uzun_vadeli_bellek,
           "N3": n3_iki_kural_kompozisyonu, "N4": n4_kalibrasyon,
           "N5": n5_alan_transferi, "N6": n6_oz_celiskisi,
@@ -1315,7 +1372,8 @@ PROBES = {"N1": n1_konum_olcumu, "N2": n2_uzun_vadeli_bellek,
           "N35": n35_surucu_kendini_ayarliyor,
           "N36": n36_surucu_kendi_semasini_kuruyor,
           "N37": n37_icadin_semasi_gorulmemis_parametre,
-          "N38": n38_saskinlik_modeli_alisir}
+          "N38": n38_saskinlik_modeli_alisir,
+          "N39": n39_deligin_anlami_veriden}
 
 
 

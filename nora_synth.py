@@ -234,18 +234,23 @@ class Synthesizer:
             return
         self.extra.append((name, fn, int(cost)))
 
-    def add_schema(self, steps, hole: int, family: str, seen) -> dict | None:
+    def add_schema(self, steps, hole: int, family: str, seen,
+                   inferred: dict | None = None) -> dict | None:
         """Şemayı uzaya ekle: delikli makro (parametre ailesi üzerinden)."""
         steps = [str(x) for x in (steps or [])]
         _ok_fam = (family in PARAM_GENERATORS
-                   or str(family).startswith(("kaydırma(", "döndürme(")))
+                   or str(family).startswith(("kaydırma(", "döndürme("))
+                   # Ailesi TABLODA olmayabilir: deliğin anlamı veriden çıkarıldıysa
+                   # (ör. "taban dizgenin ilk n harfi") aile adı yalnız bir etikettir.
+                   or bool(inferred))
         if not (0 <= int(hole) < len(steps)) or not _ok_fam:
             return None
         if any(sc["family"] == family and sc["steps"] == steps and sc["hole"] == hole
                for sc in self.schemas):
             return None
         sc = {"steps": steps, "hole": int(hole), "family": str(family),
-              "seen": sorted({int(x) for x in (seen or [])})}
+              "seen": sorted({int(x) for x in (seen or [])}),
+              "inferred": inferred}
         self.schemas.append(sc)
         return sc
 
@@ -271,7 +276,18 @@ class Synthesizer:
             for n in range(1, int(_maxn) + 1):
                 if n in sc.get("seen", []):
                     continue
-                inst = instantiate(sc["family"], n)
+                # ÖNCE VERİDEN ÇIKARILAN KURAL (tablo değil): "taban programın ilk n
+                # harfi". Tablo (PARAM_GENERATORS) yalnız yedek.
+                inst = None
+                _inf = sc.get("inferred")
+                if _inf and _inf.get("kind") == "prefix":
+                    _base = Program.from_spec(list(_inf.get("base") or []),
+                                              spec_map={nm: fn for nm, fn, _c in self.extra})
+                    if _base is not None:
+                        inst = (f"ilk {n} harfi al",
+                                (lambda t, _b=_base, _k=int(n): str(_b.apply(t))[:_k]), 1)
+                if inst is None:
+                    inst = instantiate(sc["family"], n)
                 if inst is None:
                     continue
                 names = list(sc["steps"])

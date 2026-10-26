@@ -20,7 +20,7 @@ Kurallar (şema mı, makro mu)
 """
 from __future__ import annotations
 
-from nora_synth import family_of
+from nora_synth import Program, family_of
 
 
 class Schema:
@@ -34,6 +34,73 @@ class Schema:
         self.ledger: list[dict] = []
         self.created = 0
         self.pruned = 0
+
+    # ------------------------------------------------------------------ delik anlamı
+    @staticmethod
+    def infer_prefix_hole(members) -> dict | None:
+        """DELİĞİN ANLAMINI VERİDEN ÇIKAR: "çıktı, bir taban dizgenin ilk n harfidir".
+
+        `members`: [(n, [(girdi, çıktı), …]), …] — aynı ailenin farklı üyeleri.
+        Koşullar (hepsi veriden, tablodan değil):
+          (1) her üyenin çıktısı, parametresi kadar uzun (len(out) == n),
+          (2) küçük parametrenin çıktısı büyük parametrenin ÖNEKİdir (iç içe).
+        Taban program `B` aranır: B(girdi) her örnekte çıktıyla BAŞLAMALI.
+
+        Bulunursa, görülmemiş n için f_n(w) = B(w)[:n] — PARAM_GENERATORS tablosuna
+        hiç bakmadan. Yani "hangi aile parametriktir" bilgisi de veriden gelebilir.
+        """
+        # Anti-test: TEK parametre deliğin anlamını vermez (örnek: "ilk 3" tek
+        # başına hem "sırala∘dilimle" hem "ters∘dilimle" olabilir). En az 2 şart.
+        if len({int(n) for n, _ex in members}) < 2:
+            return None
+        pairs_all = []
+        for n, exs in members:
+            if not exs:
+                return None
+            for a, b in exs:
+                if len(str(b)) != int(n):
+                    return None
+                pairs_all.append((str(a), str(b), int(n)))
+        if not pairs_all:
+            return None
+        # iç içe önek koşulu: aynı girdinin farklı n çıktıları önek olmalı
+        by_in: dict[str, list[tuple[int, str]]] = {}
+        for a, b, n in pairs_all:
+            by_in.setdefault(a, []).append((n, b))
+        for a, lst in by_in.items():
+            lst.sort()
+            for (_n1, b1), (_n2, b2) in zip(lst, lst[1:]):
+                if not str(b2).startswith(str(b1)):
+                    return None
+        # taban program arayışı: tek ilkel (ve gerekirse iki ilkel) — ucuz ve okunur
+        from nora_synth import PRIMITIVES
+        pool = list(PRIMITIVES)
+        for nm, fn, _c in pool:
+            if all(str(fn(a)).startswith(b) for a, b, _n in pairs_all):
+                return {"kind": "prefix", "base": [nm]}
+        for nm1, f1, _c1 in pool:
+            for nm2, f2, _c2 in pool:
+                if all(str(f2(f1(a))).startswith(b) for a, b, _n in pairs_all):
+                    return {"kind": "prefix", "base": [nm1, nm2]}
+        return None
+
+    def infer_items(self, items) -> list[dict]:
+        """`items`: [(spec, [(girdi, çıktı), …]), …] — delik anlamı da çıkarılır."""
+        specs = [list(sp) for sp, _ex in items]
+        out = self.infer(specs)
+        for sc in out:
+            # her parametre için o üyenin ÖRNEKLERİNİ topla
+            by_n: dict[int, list] = {}
+            for sp, exs in items:
+                for i, nm in enumerate(sp):
+                    fo = family_of(nm)
+                    if fo and fo[0] == sc["family"] and i == sc["hole"]:
+                        by_n.setdefault(int(fo[1]), []).extend(list(exs or []))
+            members = [(n, by_n.get(n, [])) for n in sc["seen"]]
+            inf = self.infer_prefix_hole(members)
+            if inf:
+                sc["inferred"] = inf
+        return out
 
     # ------------------------------------------------------------------ çıkarım
     def infer(self, specs) -> list[dict]:
@@ -76,12 +143,14 @@ class Schema:
             return None
         item = {"steps": list(sc["steps"]), "hole": int(sc["hole"]),
                 "family": sc["family"], "seen": list(sc["seen"]),
+                "inferred": sc.get("inferred"),
                 "name": f"şema.{self.created + 1}", "uses": 0, "idle": 0,
                 "alive": True}
         self.created += 1
         self.ledger.append(item)
         if synth is not None:
-            synth.add_schema(item["steps"], item["hole"], item["family"], item["seen"])
+            synth.add_schema(item["steps"], item["hole"], item["family"], item["seen"],
+                             inferred=item.get("inferred"))
         return item
 
     # ------------------------------------------------------------------ kullanım
@@ -136,4 +205,5 @@ class Schema:
                 if not r.get("alive", True):
                     continue
                 synth.add_schema(r.get("steps") or [], int(r.get("hole", 0)),
-                                 r.get("family") or "", r.get("seen") or [])
+                                 r.get("family") or "", r.get("seen") or [],
+                                 inferred=r.get("inferred"))
