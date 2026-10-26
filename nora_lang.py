@@ -2430,13 +2430,8 @@ class WernickeComprehender:
 
     def _tok(self, w: str) -> dict:
         an = dict(self.morph.analyze_word(w, self.graph.lexicon))
-        # DOĞRULANMAMIŞ KÖK HÂL EKİ TAŞIMAZ: "serçe" -> "serç"+DAT sanılırsa özne
-        # nesne olur ve cümle "serçe serçe uçar" diye kurulur. Sözlükte doğrulanmamış
-        # bir kökten tek harflik ek soymak, ek uydurmaktır; yalın hâl kabul edilir.
-        if an.get("unverified_stem"):
-            an = dict(an, stem=str(w), head=str(w), case="NOM")
         an["surface"] = w
-        an["head"] = an.get("head") or self._base_of(w, an)
+        an["head"] = self._base_of(w, an)
         return an
 
     @staticmethod
@@ -2481,6 +2476,13 @@ class WernickeComprehender:
         if not words:
             return None, None
         toks = [self._tok(w) for w in words]
+        # DOĞRULANMAMIŞ KÖK HÂL EKİ TAŞIMAZ ("serçe" -> "serç"+DAT sanılıyordu).
+        # Sözlükte doğrulanmamış bir kökten tek harflik ek soymak EK UYDURMAKTIR;
+        # burada yalnız NESNE SINIRI için yalın kabul edilir (çözümlemenin geri kalanı
+        # dokunulmaz — ad öbeği sınırı testleri A83 bunu ölçer).
+        for t in toks:
+            if t.get("unverified_stem") and t.get("case") in self.OBLIQUE:
+                t["case"] = "NOM"
         obj_end = None
         for i, t in enumerate(toks):
             if t.get("is_verb"):
