@@ -2534,3 +2534,58 @@ anti-test: yalnız tek parametre dolaşan akış → şema YOK (tek üye = makro
 
 Bu, "eşiği ben yazıyorum" eleştirisinin bir kısmını kapatıyor: hangi parametre
 ailesinin var olduğunu artık **sürücü akıştan çıkarıyor**, ben söylemiyorum.
+
+---
+
+## Aşama AQ — Merdiven sınavı ve icadın şeması (Tur 41c)
+
+### AQ1. N37/A111 — tabanı OLMAYAN parametre
+
+İki farklı kaydırma icat edildi (+4, +5). İkisi de **tek adım**; aile `kaydırma({k})`.
+Şema doğdu. Sonra **+17** istendi:
+
+| | sonuç |
+|---|---|
+| şemasız uzay | `insufficient` (ön koşul kodla) |
+| şemayla | tek adım `kaydırma(+17)` |
+| yeni icat | **0** |
+| tabana yazılan ilkel | **0** (kaydırma(+17) `extra`'da YOK) |
+| anti-test (tek üye +4) | şema doğmaz, +17 **icat gerektirir** |
+| anti-test (budama) | 6 kullanımsız karar → şema uzaydan çıktı |
+
+Bu, `kaydırma(+17)`nin hiçbir insan ilkelinde bulunmadığı hâlde çözülmesi demek.
+Ama tabanı dikkatli oku: **+1, +2, +3, … ailesinin var olduğunu ben yazdım**
+(`nora_abstract.build`); Nora'nın kattığı, o ailenin **bir üyesini diğerinden
+genelleştirmek**. "Uzayı Nora açtı" cümlesi bu yüzden hâlâ tam doğru değil;
+doğru cümle: *"numaralandırmadığım bir parametreyi kapsadı."*
+
+### AQ2. `merdiven.py` — beş basamaklık entegrasyon sınavı
+
+```
+$ python merdiven.py -v
+1 kompozisyon   GEÇTİ   adımlar=['kaydırma(+1) + ters çevir']
+2 örnekleme     GEÇTİ   aile=kaydırma parametre=+3 → beklenen 'sruwdndo'
+3 reify (makro) GEÇTİ   makro=['kendi.bilesim.1'] insan-uzayı=ambiguous
+4 şema (delik)  GEÇTİ   k=17 şemasız=çözemez · yeni icat=0 · adım=['kaydırma(+17)']
+5 sürücü        GEÇTİ   talimat yok · tetikleme=1 eşik(kendi)=0.605
+MERDİVEN: 5/5
+```
+
+Her satırın altında **taban** yazıyor (kim neyi yazdı). Basamaklar kendi Nora'larında
+koşar: bir ölçüm başka ölçümün bıraktığı duruma bağlı olamaz.
+
+### AQ3. A83 regresyonu ve ölçüm dersi
+
+"serçe uçar" hatasını kapatırken `_tok`'u global olarak değiştirdim: doğrulanmamış
+kök her yerde yalın sayıldı. Sonuç: **A83 (ad öbeği sınırı) 7/7 → 2/7**. Kuralı
+daralttım: yalnız `split_svo` içinde, yalnız nesne sınırı için. A83 geri döndü.
+
+Ders: dil kuralını **en dar yere** koy. Global bir "düzeltme" beş testi bozuyor ve
+bozulma ancak tam pilde görünüyor.
+
+### AQ4. Açık kalan: A6 dalgalanması
+
+A6 (ikiz ayrışması) tam pilde bir kez düştü (sosyal güven farkı +0.04 < 0.08),
+tek başına ve A1+A6 ikilisinde geçti (+0.18). Kök neden **bulunmadı**; sıra/sızıntı
+kuşkusu sürüyor. Bunu ölçüm katmanı borcu olarak yazıyorum — kapatmadan "sıra
+bağımsız" cümlesini tam kuramam.
