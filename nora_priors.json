@@ -2655,6 +2655,33 @@
               "kind": "arith"
             }
           }
+        },
+        {
+          "id": "mr.gs2",
+          "text": "İkinci hedefi aldım: {total} tur, her turda bir {kind}. Öteki hedefim sırada bekliyor.",
+          "when": {
+            "eq": {
+              "kind": "goal_set2"
+            }
+          }
+        },
+        {
+          "id": "mr.gst3",
+          "text": "({done}/{total}) hedefim sürüyor: {a} sayısının iki katı {b}.",
+          "when": {
+            "eq": {
+              "kind": "goal_step2"
+            }
+          }
+        },
+        {
+          "id": "mr.gst4",
+          "text": "Bekleyen hedefime dönüyorum ({done}/{total}).",
+          "when": {
+            "eq": {
+              "kind": "goal_resume"
+            }
+          }
         }
       ]
     },
