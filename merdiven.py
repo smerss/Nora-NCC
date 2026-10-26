@@ -1,4 +1,4 @@
-"""merdiven.py — MERDİVEN SINAVI: 1 kompozisyon · 2 örnekleme · 3 reify · 4 şema · 5 sürücü.
+"""merdiven.py — MERDİVEN SINAVI: 1 kompozisyon · 2 örnekleme · 3 reify · 4 şema · 5 sürücü · 6 kendi kendine.
 
 Tek oturum, tek Nora. Her basamak ayrı bir yeteneği **ölçer**, ve her basamağın
 altında o basamağın TABANI yazılıdır: "bu işi kim yaptı, insan ne yazdı".
@@ -6,7 +6,7 @@ altında o basamağın TABANI yazılıdır: "bu işi kim yaptı, insan ne yazdı
     python merdiven.py          # tam sınav
     python merdiven.py -v       # kanıtlarla
 
-Çıkış kodu 0 = beş basamak da geçti. Bu bir başarı süsü değil: taban satırları
+Çıkış kodu 0 = altı basamak da geçti. Bu bir başarı süsü değil: taban satırları
 basamağın ne kadarının insana ait olduğunu söyler. Basamak "geçti" demek,
 "insan hiçbir şey yazmadı" demek DEĞİLDİR.
 """
@@ -153,6 +153,25 @@ def main():
                  f"kanıt eşiği={rep5.get('min_items')}",
                  "taban: akışı ve fren kurallarını BEN yazdım; NE ZAMAN öğreneceğini "
                  "artık ölçtüğü isabete göre kendisi ayarlıyor."))
+
+    # ---------------------------------------------------------------- 6 kendi kendine
+    g = mk(7006)
+    r6 = g.kendine_ogret()
+    sin = r6.get("sınama") or {}
+    w6, n6 = sin.get("sözcük"), int(sin.get("n") or 0)
+    lex6 = getattr(getattr(g.lang, "graph", None), "lexicon", None) or set()
+    # DIŞ DOĞRULAMA: bekleneni sınav kendi hesaplar (Nora'nın hesabına güvenilmez).
+    beklenen = pm["alfabetik sırala"](w6)[:n6] if w6 and n6 else None
+    ok6 = bool(r6.get("öğrendi") and sin.get("doğru") and w6 in lex6
+               and sin.get("çıktı") == beklenen and r6.get("insan-girdisi") == 0
+               and len(r6.get("parametreler") or []) == 3)
+    det6 = (f"insan yazmadı · parametreler={r6.get('parametreler')} "
+            f"şema={[x[0] for x in (r6.get('şema') or [])]} "
+            f"· {w6}: {sin.get('çıktı')} (beklenen {beklenen})"
+            if r6.get("durum") == "tamam" else f"durum={r6.get('durum')}")
+    rows.append(("6 kendi kendine", ok6, det6,
+                 "taban: dağarcık ve ilkel repertuvarı BENİM; sözcükleri, parametreleri, "
+                 "örnekleri, görevi ve sınamayı kendisi üretti — İNSAN HİÇ YAZMADI."))
 
     # ---------------------------------------------------------------- rapor
     for name, ok, det, floor in rows:

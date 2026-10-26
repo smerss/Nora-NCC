@@ -4885,6 +4885,55 @@ def a111_icadin_semasi() -> tuple[bool, str]:
     return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
 
 
+def a114_kendi_kendine_ogretmen() -> tuple[bool, str]:
+    """A114 — ÖĞRETMENSİZ ÖĞRENME: insan hiçbir şey yazmaz.
+
+    Diğer bütün testlerde insan bir metin veriyor (örnek çiftleri, akış, soru).
+    Burada verilmiyor: Nora kendi dağarcığından sözcük seçer, kendi parametrelerini
+    seçer, kendi örneklerini üretir, iki program kurar, şemayı çıkarır ve görülmemiş
+    parametrede KENDİNİ sınar.
+
+    Ölçüm katmanı kuralı: beklenen çıktıyı TEST hesaplar — Nora'nın kendi hesabı
+    kanıt sayılmaz. Ayrıca örnek diye kullandığı bütün sözcüklerin onun dağarcığında
+    olduğu denetlenir.
+
+    Anti-test: dağarcık boşsa uydurmaz; "yetersiz" der.
+    """
+    from nora_synth import PRIMITIVES
+
+    pm = {n: fn for n, fn, _c in PRIMITIVES}
+    ok = {}
+    g = NoraAGI(seed=2001, boot_thinker=False)
+    g.step_life(100)
+    r = g.kendine_ogret()
+    sin = r.get("sınama") or {}
+    ps = list(r.get("parametreler") or [])
+    lex = getattr(getattr(g.lang, "graph", None), "lexicon", None) or set()
+    w, n = sin.get("sözcük"), int(sin.get("n") or 0)
+    beklenen = pm["alfabetik sırala"](w)[:n] if (w and n) else None
+
+    ok["öğrendi"] = bool(r.get("öğrendi"))
+    ok["üç-parametre"] = len(ps) == 3 and ps[0] < ps[1] < ps[2]
+    ok["şema-doğdu"] = bool(r.get("şema"))
+    ok["dış-doğrulama"] = bool(w in lex and beklenen is not None and sin.get("çıktı") == beklenen)
+    ok["sözcükler-onun"] = bool(r.get("örnek")) and all(str(a) in lex for a, _b in r["örnek"])
+    ok["insan-girdisi-yok"] = r.get("insan-girdisi") == 0
+
+    h = NoraAGI(seed=2002, boot_thinker=False)
+    h.step_life(100)
+    try:
+        h.lang.graph.lexicon.clear()
+    except Exception:
+        pass
+    r2 = h.kendine_ogret()
+    ok["dağarcıksız-uydurmaz"] = (r2.get("öğrendi") is False
+                                 and "yetersiz" in str(r2.get("durum", "")))
+
+    detail = " | ".join(f"{k}={('✓' if v else '✗')}" for k, v in ok.items())
+    detail += f" · {w}: {sin.get('çıktı')} (beklenen {beklenen})"
+    return all(ok.values()), detail
+
+
 def a113_delik_anlami_insan_tablosuz() -> tuple[bool, str]:
     """A113 — ŞEMANIN DELİĞİ TABLODAN DEĞİL VERİDEN.
 
@@ -5101,6 +5150,7 @@ TESTS = {
             a58_sentence_structure_valency_and_meta_questions),
     "A112": ("beklenti modeli: alışma ve değişim noktası", a112_beklenti_modeli),
     "A113": ("şemanın deliği tablodan değil veriden (tablo silinmiş)", a113_delik_anlami_insan_tablosuz),
+    "A114": ("öğretmensiz: kendi örnekleri, kendi şeması, kendi sınaması", a114_kendi_kendine_ogretmen),
     "A111": ("icadın şeması: görülmemiş parametre icat gerektirmez", a111_icadin_semasi),
     "A110": ("dil: buyruk sarmalayıcısı ve X mi Y mi seçim sorusu", a110_sarmalayici_ve_secim_sorusu),
     "A108": ("şema: delikli makro görülmemiş parametreyi kapsar", a108_sema_delikli_makro),
