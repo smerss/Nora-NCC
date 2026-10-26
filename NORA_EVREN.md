@@ -2655,3 +2655,27 @@ Bu, seviye 4'ün son halkası değil; seviye 4'ü *kullanılabilir* kılan bir k
 Seviye 5 (tabanın kendisini Nora önerecek) hâlâ yok: yeni bir **mekanizma** önermek
 için gereken kod yazma yetkisi verilmedi ve verilmemeli — önce şemanın kendisi
 sağlamlaşmalı.
+
+## Aşama AT — Deliğin anlamı veriden (Tur 41f)
+
+AR'da şema `ilk {n} harfi al` idi; ama "n büyüyünce çıktı uzar, küçük n büyüğün
+önekidir, taban program B(w)[:n]" bilgisi **benim** yazdığım `PARAM_GENERATORS`
+tablosunda duruyordu. AT tabloyu **siliyor** ve şemanın yine de çalıştığını gösteriyor:
+
+- Delik anlamı örneklerden çıkarılıyor: `len(out) == n` · çıktılar önek iç içe ·
+  taban program `B` örneklerin hepsinde çıktıyla **başlıyor**. `B` tek ilkelden
+  (gerekirse iki) seçiliyor.
+- Ön koşul kodla sınandı: tablo yokken şemasız sentez `insufficient`.
+- Anti-test: **tek parametre** (n=3) delik anlamı vermiyor; ≥2 şart.
+
+Buna ek olarak şema adımı artık **kompozisyon havuzuna** giriyor: `şema` bir yetenek,
+`ilkel` başka bir yetenek; `ters çevir ∘ (sırala∘dilimle(7))` gibi çözüm üretiliyor ve
+program kaydı şemayı kullanım sayacına yazıyor (`uses=1`).
+
+Dürüst sınır: bu hâlâ **seviye 4**. Aile ADI (`kaydırma(+N)` deseni) hâlâ benim
+regex'imde; veriden çıkan şey parametrenin **anlamı**, ailenin **keşfi** değil.
+Kaydırma ailesi için delik anlamı veriden çıkarılmadı — yalnız önek ailesi için var.
+Seviye 5 (Nora'nın tabanı kendisinin genişletmesi) hâlâ yok.
+
+Ölçüm: **N39** `True True` · **A113** 6/6 · tam pil **110/110 (537.3 sn)** · merdiven **5/5** ·
+heldout `--repeat` **35/35 · 35/35** `SIRA-DAYANIKLI ✓`.
