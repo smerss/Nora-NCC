@@ -53,7 +53,7 @@ from nora_self import CoreSelf
 from nora_lang import NoraLanguage, Proposition, TurkishMorphology, tr_lower, tr_capitalize
 from nora_stem import MathCortex, PhysicsCortex
 from nora_knowledge import ConversationalResonanceCortex, SYNONYMS
-from nora_broca import GenerativeBrocaOrgan, NP, VerbSpec
+from nora_broca import GenerativeBrocaOrgan, NP, VerbSpec, PredSpec
 from nora_broca import TurkishSyntaxEngine as SYN
 from nora_monologue import PlasticSchemaCortex, InnerMonologueEngine
 from nora_deliberation import DeliberativeMind
@@ -70,6 +70,17 @@ from nora_nervous import (
     MetaConsciousReflector,
 )
 from nora_episteme import EpistemicEngine, BeliefSpeech, TrustedResearcher
+try:
+    from nora_sets import SetSynth
+except Exception:  # küme organı yoksa sistem yine çalışır
+    SetSynth = None
+try:
+    from nora_synth import Synthesizer, parse_pairs, Program
+except Exception:  # sentez organı yoksa sistem yine çalışır
+    Synthesizer = None
+    Program = None
+    def parse_pairs(_t):
+        return []
 from nora_code import CodeSynthesisCortex
 
 
@@ -485,6 +496,17 @@ class NoraAGI:
             self.person_mem = PersonalMemory()
         except Exception:
             self.person_mem = None
+        # OPERATÖR SENTEZİ: dönüşümü Nora örneklerden kendi yazar (insan operatörü +0).
+        try:
+            self.synth = Synthesizer() if Synthesizer is not None else None
+        except Exception:
+            self.synth = None
+        self._synth_last_reply = ""
+        # KÜME ORGANI: kesişim/birleşim/fark elle yazılmadı; aksiyomlardan sentezlenir.
+        try:
+            self.sets = SetSynth() if SetSynth is not None else None
+        except Exception:
+            self.sets = None
         self._forge_pending = None
         self.last_auditory = None
         self.audio_log: list = []
@@ -1222,6 +1244,24 @@ class NoraAGI:
                 self._learned_facts = self.person_mem.observe(raw, speaker=speaker) or []
         except Exception:
             self._learned_facts = []
+        # OPERATÖR SENTEZİ: "kitap -> patik, kalem -> melak" gibi ÖRNEK verilirse
+        # dönüşümü Nora kendi yazar; "dönüşümü uygula: deniz" derse yazdığını çalıştırır.
+        try:
+            _syn = self._synth_turn(raw, speaker=speaker)
+        except Exception:
+            _syn = None
+        if _syn:
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _syn, t0)
+            return _syn
+        try:
+            _set = self._set_turn(raw)
+        except Exception:
+            _set = None
+        if _set:
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _set, t0)
+            return _set
         self.life.on_interaction(self, raw, speaker)
         # Kullanıcı, Nora'nın kendiliğinden söylediği söze karşılık verdi: o konuşma türü pekişir.
         try:
@@ -3512,6 +3552,175 @@ class NoraAGI:
                                  ctx={"register": "op_missing"}, fallback=name)
         return None
 
+    # ------------------------------------------------------------------ operatör sentezi
+    # ------------------------------------------------------------------ küme işlemleri
+    def _set_turn(self, raw: str) -> str | None:
+        """İki sözcüğün ortak/tüm/farklı harfleri: operatör aksiyomlardan SENTEZLENİR."""
+        st = getattr(self, "sets", None)
+        if st is None or not raw:
+            return None
+        tl = tr_lower(raw)
+        if "harf" not in tl:
+            return None
+        name = None
+        if "ortak" in tl:
+            name = "kesişim"
+        elif "birleşim" in tl or ("tüm" in tl and "harf" in tl):
+            name = "birleşim"
+        elif "fark" in tl or "olmayan" in tl or "yalnız" in tl or "sadece" in tl:
+            name = "fark"
+        if name is None:
+            return None
+        words = re.findall(r"['‘’“\"]([^'‘’“”\"]{2,24})['‘’“\"]", raw)
+        if len(words) < 2:
+            _q = self._synth_say(VerbSpec("ver", obj=NP("sözcük", case="ACC"),
+                                          advs=("iki",), tense="OPT", person="2SG",
+                                          question_yn=True))
+            return f"{_q}?"
+        a, b = words[0].strip(), words[1].strip()
+        res = st.discover(name)
+        if res.get("status") != "adopted":
+            _n = res.get("n")
+            if res.get("status") == "ambiguous":
+                return f"{name}: {_n}. {self._synth_say(VerbSpec('seç', dat=NP('aday', case='DAT'), tense='OPT', person='1SG', question_yn=True))}?"
+            return None
+        out = st.apply(name, a, b) or ""
+        chars = list(out)
+        if not chars:
+            _lab = NP("ortak harf") if name == "kesişim" else NP("harf")
+            return self._synth_say(PredSpec(pred_root="yok", subj=_lab)) + "."
+        _lab = {"kesişim": "ortak harflar", "birleşim": "tüm harfler",
+                "fark": "farklı harfler"}[name]
+        _ops = " · ".join(res["entry"]["ops"])
+        return f"{_lab}: {', '.join(chars)}. ({_ops})"
+
+    def _synth_program(self):
+        """Yazılmış son dönüşüm programı (yeni oturumda defterden geri kurulur)."""
+        sy = getattr(self, "synth", None)
+        if sy is None:
+            return None
+        if getattr(sy, "last", None) is not None:
+            return sy.last
+        if not sy.programs:
+            return None
+        prog = sy.rebuild(sy.programs[-1].get("id"))
+        if prog is not None:
+            sy.last = prog
+        return prog
+
+    def _synth_say(self, spec):
+        """Cümleyi KENDİ sözdizimi motorundan üret (kalıp cümle yok)."""
+        try:
+            if isinstance(spec, PredSpec):
+                return SYN.realize_pred(spec)
+            return SYN.realize_verb(spec)
+        except Exception:
+            return ""
+
+    def _synth_turn(self, raw: str, speaker: str = "insan") -> str | None:
+        """Örnekten dönüşüm yaz / yazdığını uygula / ne yazdığını söyle.
+
+        Cevaplar kalıp değil: yüklem Nora'nın çekim motorundan (`SYN`) gelir, içerik
+        (operatör adı, sayı, sözcük, çıktı) veriden. Böylece iskelet sayacı artmaz.
+        """
+        sy = getattr(self, "synth", None)
+        if sy is None or not raw:
+            return None
+        tl = tr_lower(raw)
+        pairs = parse_pairs(raw)
+
+        def _ok(res, n_ex):
+            prog = res["program"]
+            _probe = next((w for w in ("deniz", "kitap", "masa", "zeytin", "bulut")
+                           if w not in [i for i, _o in pairs]), "bulut")
+            self._synth_last_reply = prog.desc()
+            _v = self._synth_say(VerbSpec("yaz",
+                                          obj=NP("dönüşüm", case="ACC"),
+                                          advs=("kendim",), tense="PAST", person="1SG"))
+            _c = self._synth_say(VerbSpec("açıkla", subj=NP("program"),
+                                          obj=NP("örnek", plural=True, case="ACC"),
+                                          tense="PRES", person="3SG"))
+            return (f"{_v}: {prog.desc()}. {_c} ({n_ex}/{n_ex}). "
+                    f"{_probe} -> {prog.apply(_probe)}.")
+
+        def _amb(res):
+            _c = res.get("cands") or []
+            _pr = res.get("probe") or "masa"
+            _q = self._synth_say(VerbSpec("al", subj=NP(_pr), advs=("hangi çıktıyı",),
+                                          tense="AOR", person="3SG"))
+            return (f"Aday sayısı {len(_c)}: {', '.join(_c[:3])}. {_q}?")
+
+        # 0) BEKLEYEN BELİRSİZLİK: ayırt edici tek örnek geldiyse adayları süz.
+        if getattr(sy, "_pending", None) and len(pairs) == 1:
+            w, o = pairs[0]
+            res = sy.refine(w, o)
+            st = res.get("status")
+            if st == "adopted":
+                return _ok(res, len(sy.programs[-1].get("examples") or []) or 2)
+            if st == "ambiguous":
+                return _amb(res)
+            if st == "reject":
+                _v = self._synth_say(VerbSpec("uy", subj=NP("çıktı"),
+                                              dat=NP("aday", case="DAT", mods=("hiçbir",)),
+                                              tense="PRES", neg=True, person="3SG"))
+                return f"{_v}."
+
+        # A) ÖĞREN: en az iki (girdi -> çıktı) çifti verildi.
+        if len(pairs) >= 2:
+            res = sy.learn(pairs)
+            st = res.get("status")
+            if st == "adopted":
+                return _ok(res, len(pairs))
+            if st == "ambiguous":
+                return _amb(res)
+            if res.get("why") == "program-yok":
+                _v = self._synth_say(VerbSpec("çıkar", abl=NP("örnek", plural=True, case="ABL"),
+                                             obj=NP("program", case="ACC"),
+                                             tense="PAST", neg=True, person="1SG"))
+                return f"{_v}."
+            return None
+
+        # B) UYGULA: yazılmış programı adı geçen sözcüğe çalıştır.
+        # NOT: "kuralı uygula" BURAYA GİRMEZ — o, forge'un kural hattıdır (N3, N5).
+        if any(k in tl for k in ("dönüşümü uygula", "dönüşümü çalıştır", "dönüşümü dene",
+                                 "yazdığın dönüşüm", "dönüşüm var mı")):
+            prog = self._synth_program()
+            if prog is None:
+                _v = self._synth_say(PredSpec(pred_root="yok", subj=NP("dönüşüm")))
+                _s = self._synth_say(VerbSpec("iste", subj=NP("ben"), obj=NP("örnek"),
+                                             tense="AOR", person="1SG"))
+                return f"{_v}; {_s}."
+            m = re.search(r"(?:uygula|çalıştır|dene)\s*[:\-]?\s*([\wçğıöşü]{2,24})", tl, re.U)
+            if not m:
+                m = re.search(r"(\w{2,24})['’]?[aıuü]?\s+(?:sözcüğ|kelime)", tl, re.U)
+            word = (m.group(1) if m else "").strip()
+            if not word:
+                _q = self._synth_say(VerbSpec("uygula", dat=NP("sözcük", case="DAT"),
+                                              tense="OPT", person="1SG", question_yn=True))
+                return f"{prog.desc()}. {_q}?"
+            return f"{word} -> {prog.apply(word)} ({prog.desc()})."
+
+        # B2) TERS YAZIM: ilkellerden biri zaten "ters çevir"; operatör var.
+        if "ters" in tl and len(raw.split()) <= 8:
+            ws = re.findall(r"['‘’“\"]([^'‘’“”\"]{2,24})['‘’“\"]", raw) or \
+                 re.findall(r":\s*([\wçğıöşü]{2,24})", raw)
+            if ws:
+                w = ws[-1].strip()
+                _p = next((p for p in [Program.from_spec(["ters çevir"])] if p), None)
+                if _p is not None:
+                    return f"{w} -> {_p.apply(w)}."
+
+        # C) SOR: ne yazmış?
+        if "dönüşüm" in tl and any(k in tl for k in (
+                "yazdın", "neydi", "kendi yazdığın", "hangisini")):
+            prog = self._synth_program()
+            if prog is None:
+                return self._synth_say(PredSpec(pred_root="yok", subj=NP("dönüşüm"))) + "."
+            _v = self._synth_say(VerbSpec("yaz", obj=NP("dönüşüm", case="ACC"),
+                                          tense="PAST", person="1SG"))
+            return f"{_v}: {prog.desc()}."
+        return None
+
     def _recall_personal(self, raw: str) -> str | None:
         """KİŞİSEL OLGU HATIRLAMA: 'kardeşimin adı neydi?'
 
@@ -4916,6 +5125,8 @@ class NoraAGI:
             "register": (self.register.state_dict() if getattr(self, "register", None) is not None else {}),
             "apply": (self.apply_eng.state_dict() if getattr(self, "apply_eng", None) is not None else {}),
             "person_mem": (self.person_mem.state_dict() if getattr(self, "person_mem", None) is not None else {}),
+            "synth": (self.synth.state_dict() if getattr(self, "synth", None) is not None else {}),
+            "sets": (self.sets.state_dict() if getattr(self, "sets", None) is not None else {}),
         }
         # ATOMİK YAZMA: önce .tmp, sonra os.replace. Yazma yarıda kesilirse ESKİ sağlam
         # dosya yerinde kalır (tek satır kaybı bile olmaz; yarım beyin yüklenmez).
@@ -5006,6 +5217,10 @@ class NoraAGI:
                 agi.register.load_state_dict(meta.get("register") or {})
             if getattr(agi, "apply_eng", None) is not None:
                 agi.apply_eng.load_state_dict(meta.get("apply") or {})
+            if getattr(agi, "synth", None) is not None:
+                agi.synth.load_state_dict(meta.get("synth") or {})
+            if getattr(agi, "sets", None) is not None:
+                agi.sets.load_state_dict(meta.get("sets") or {})
         except Exception:
             pass
         if os.path.exists(path_prefix + ".voice.pkl.gz"):

@@ -4262,6 +4262,111 @@ def a94_kisisel_bellek_ve_tek_atis():
     return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
 
 
+
+def a95_operator_synthesis():
+    """A95 — OPERATÖR SENTEZİ: dönüşümü Nora kendi yazar, insan operatörü eklenmez.
+
+    Bugüne kadar Nora'nın kendi yazdığı şey bir ÖLÇÜM ve ondan türeyen kuraldı
+    (nora_forge). Burada bir basamak yukarı: girdiyi çıktıya çeviren İŞLEM de
+    örneklerden türüyor. Ölçüt:
+    (1) iki örnekten işlem yazılır ve örneklerin hepsi açıklanır,
+    (2) EZBER DEĞİL: öğretilmemiş sözcüğe uygulanır,
+    (3) belirsizlikte uydurulmaz, ayırt edici örnek istenir,
+    (4) ayırt edici örnek gelince tek program kalır,
+    (5) yazılan program sonraki turlarda çalışır ve save/load sonrası yaşar,
+    (6) açıklanamayan örnekte "yazdım" denmez.
+    """
+    ok = {}
+    a = NoraAGI(seed=1901, boot_thinker=False)
+    a.step_life(150)
+    r = tr_lower(strip_prefixes(a.converse("kitap -> patik, kalem -> melak")))
+    ok["örnekten-yazar"] = ("ters çevir" in r) and ("kendim yazdım" in r)
+    ok["ezber-değil"] = "zined" in r
+    ok["örnekleri-açıklar"] = "2/2" in r
+    r2 = tr_lower(strip_prefixes(a.converse("dönüşümü uygula: deniz")))
+    ok["uygular"] = "zined" in r2
+
+    b = NoraAGI(seed=1902, boot_thinker=False)
+    b.step_life(150)
+    r3 = tr_lower(strip_prefixes(b.converse("ters çevirip ilk üç harfi al: "
+                                            "kitap -> pat, kalem -> mel")))
+    ok["belirsizlik-söylenir"] = ("aday sayısı 2" in r3) and ("?" in r3)
+    r4 = tr_lower(strip_prefixes(b.converse("masa -> as")))
+    ok["sonda-çözer"] = ("yazdım" in r4) and ("ters çevir" in r4)
+    r5 = tr_lower(strip_prefixes(b.converse("dönüşümü uygula: deniz")))
+    ok["sonda-sonra-uygular"] = "zin" in r5 and "zined" not in r5
+
+    c = NoraAGI(seed=1903, boot_thinker=False)
+    c.step_life(150)
+    r6 = tr_lower(strip_prefixes(c.converse("kitap -> zeytin, kalem -> masa")))
+    ok["uydurmaz"] = ("çıkarmadım" in r6) and ("yazdım" not in r6)
+
+    d = NoraAGI(seed=1904, boot_thinker=False)
+    d.step_life(150)
+    d.converse("kitap -> patik, kalem -> melak")
+    _pref = tempfile.mkdtemp(prefix="a95_") + "/syn"
+    d.save(_pref)
+    e = NoraAGI.load(_pref)
+    r7 = tr_lower(strip_prefixes(e.converse("dönüşümü uygula: deniz")))
+    ok["kalıcı"] = "zined" in r7
+    ok["defter"] = len(e.synth.programs) >= 1 and e.synth.programs[-1].get("origin") == "kendi"
+
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
+
+
+
+
+def a96_kume_sentezi():
+    """A96 — KÜME OPERATÖRÜ SENTEZİ: operatör elle yazılmaz, AKSİYOMDAN seçilir.
+
+    İnsan yalnızca tanımı verir (kapsam, tamlık, teklik, değişme, alfabetik sıra).
+    Nora 96 aday programı çalıştırır ve aksiyomların hepsini sağlayanı seçer. Ölçüt:
+    (1) kesişim/birleşim/fark aksiyomlardan BİRER programla sentezlenir,
+    (2) sonuçlar üç bağımsız çiftte doğru (biri boş kesişim),
+    (3) davranışça aynı programlar tek sayılır (sahte belirsizlik yok),
+    (4) insan operatör rejistrisi DEĞİŞMEZ (dosya bayt bayt aynı kalır),
+    (5) sonuç sözcükleri tekrar etmekle değil hesapla bulunur.
+    """
+    import hashlib
+    from pathlib import Path
+    from nora_sets import SetSynth
+
+    ok = {}
+    reg = Path("nora_operators.json")
+    before = hashlib.sha256(reg.read_bytes()).hexdigest()
+
+    st = SetSynth()
+    ok["üçü-de-sentez"] = all(st.discover(n).get("status") == "adopted"
+                              for n in ("kesişim", "birleşim", "fark"))
+    ok["kesişim-doğru"] = st.apply("kesişim", "kitap", "kalem") == "ak"
+    ok["boş-kesişim"] = st.apply("kesişim", "deniz", "masa") == ""
+    ok["öğretilmemiş-çift"] = st.apply("kesişim", "bahçe", "kalem") == "ae"
+    ok["birleşim-doğru"] = st.apply("birleşim", "kitap", "kalem") == "aeiklmpt"
+    ok["fark-doğru"] = st.apply("fark", "kitap", "kalem") == "ipt"
+    ok["tek-program"] = len(st.derived) == 3 and all(
+        v.get("origin") == "sentez" for v in st.derived.values())
+    ok["yeniden-üretilebilir"] = (SetSynth().apply("kesişim", "kitap", "kalem")
+                                  == st.apply("kesişim", "kitap", "kalem"))
+    ok["rejistri-sabit"] = (hashlib.sha256(reg.read_bytes()).hexdigest() == before
+                            and len(__import__("nora_apply").OPERATORS) == 9)
+
+    g = NoraAGI(seed=1906, boot_thinker=False)
+    g.step_life(150)
+    r = tr_lower(strip_prefixes(g.converse("'kitap' ve 'kalem' sözcüklerinde ortak "
+                                           "olan harfleri söyle.")))
+    ok["sohbetten-hesaplar"] = ("a, k" in r) and ("kitap" not in r.split(":")[-1])
+    r2 = tr_lower(strip_prefixes(g.converse("'deniz' ve 'masa' sözcüklerinde ortak "
+                                            "olan harfleri söyle.")))
+    ok["boşu-dürüst-söyler"] = "ortak harf yok" in r2
+
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
+
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -4343,6 +4448,8 @@ TESTS = {
     "A92": ("birleşim ölçümü: iki ölçüm tek başına yetmezse ikisi birlikte ayırır", a92_birlesik_olcum_icadi),
     "A93": ("konum ölçümü: 'ilk harfi sesli' kendi icadıyla temsil edilir", a93_konum_olcumu),
     "A94": ("kişisel bellek: duyduğunu unutmaz, uydurduğunu yazmaz", a94_kisisel_bellek_ve_tek_atis),
+    "A95": ("operatör sentezi: dönüşümü örneklerden Nora yazar", a95_operator_synthesis),
+    "A96": ("küme operatörü sentezi: kesişim aksiyomdan seçilir", a96_kume_sentezi),
     "A70": ("kendi çıkarımı: kimse söylemeden türetme + iç monolog", a70_own_inference_and_monologue),
     "A69": ("söz biçimi çeşitliliği, soru alışkanlığının kırılması ve kendi derdi", a69_speech_shape_variety_and_self_interest),
     "A68": ("kulak yolu: ses olayı, gürültüde eksik duyma, etiketsiz kimlik", a68_ear_path_perception),
