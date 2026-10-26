@@ -249,8 +249,11 @@ class Synthesizer:
         self.schemas.append(sc)
         return sc
 
-    def _schema_programs(self, examples):
-        """Şemayı GÖRÜLMEMİŞ parametreler için somutlaştır ve örnekleri sına."""
+    def _schema_programs(self, examples, ignore_examples: bool = False):
+        """Şemayı GÖRÜLMEMİŞ parametreler için somutlaştır ve örnekleri sına.
+
+        `ignore_examples=True`: yalnızca aday ÜRET (bileşim için); doğrulama çağıranda.
+        """
         out = []
         for sc in self.schemas:
             # Parametre aralığı VERİDEN: dilimde n, sözcük uzunluğunu aşamaz;
@@ -288,7 +291,7 @@ class Synthesizer:
                 if not ok:
                     continue
                 prog = Program(ops, cost=max(1, len(ops) - 1))
-                if all(prog.apply(i) == o for i, o in examples):
+                if ignore_examples or all(prog.apply(i) == o for i, o in examples):
                     out.append((prog, sc, n))
         return out
 
@@ -333,6 +336,7 @@ class Synthesizer:
             return []
         outs = [o for _i, o in examples]
         self._used_schema = None
+        self._schema_ops: dict[str, tuple] = {}
         found: list[Program] = []
         # 0) İCAT EDİLMİŞ ilkeller: kendi yazdığım adımlar en önce denenir.
         for nm, fn, c in self.extra:
@@ -381,12 +385,29 @@ class Synthesizer:
             self.last_schema = (sch[0][1], sch[0][2])
             self._used_schema = (sch[0][1], sch[0][2])
             return self._dedupe([p for p, _sc, _n in sch], examples, outs)
-        pool = list(PRIMITIVES) + list(FILTER_PRIMITIVES) + list(self.extra)
+        # ŞEMA + İLKEL: şemanın ürettiği adım tek başına yetmiyorsa, o adım normal
+        # 2-adım aramasının HAVUZUNA girer (ör. büyük harfe çevir ∘ sırala∘dilimle(n)).
+        # Yeni form değil: mevcut iki yeteneğin (şema, kompozisyon) bileşimi.
+        _sch_pool: list[tuple] = []
+        for sp, sc, n in self._schema_programs(examples, ignore_examples=True):
+            # Şemanın ürettiği program TEK ADIM gibi havuza girer: kendi adımları
+            # içinde kalsın, dışarıya "tek yetenek" olarak görünsün.
+            _nm = " ∘ ".join(str(x) for x in sp.spec())
+            _sch_pool.append((_nm, (lambda t, _p=sp: _p.apply(t)), int(sp.cost)))
+            self._schema_ops[_nm] = (sc, n)
+        pool = list(PRIMITIVES) + list(FILTER_PRIMITIVES) + list(self.extra) + _sch_pool
         for nm1, f1, c1 in pool:
             for nm2, f2, c2 in pool:
                 p = Program([(nm1, f1), (nm2, f2)], c1 + c2)
                 if all(p.apply(i) == o for i, o in examples):
                     found.append(p)
+        if found:
+            # Hangi aday şema kullandıysa onu işaretle (kullanım sayacı için).
+            for nm, _f, _c in _sch_pool:
+                if any(nm in [x[0] for x in p.ops] for p in found):
+                    self.last_schema = self._schema_ops.get(nm)
+                    self._used_schema = self._schema_ops.get(nm)
+                    break
         return self._dedupe(found, examples, outs)
 
     @staticmethod
