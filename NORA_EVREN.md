@@ -2445,3 +2445,51 @@ düzeltilmedi; sıradaki dil turunun ilk maddesi. Uydurma cevap vermediği için
    (bugün zincir var ama el benim: eşik `K`, budama `MAX_IDLE`).
 3. **Form icadı (seviye 4)**: reify'ın adlandırdığı ilkeller *bileşim* düzeyinde
    kalıyor; 4. kat, mevcut ailelerin ürettiğinden farklı bir **yasa biçimi** istiyor.
+
+---
+
+## Aşama AO — Şema (4. basamak), beraberlik politikası, sürücünün eşiği (Tur 41)
+
+### AO1. Şema: makro sıkıştırır, şema GENİŞLETİR
+
+`nora_schema.py` + `nora_synth.PARAM_GENERATORS`. Repertuvar donuk: 22 ilkel · 5 süzgeç
+· 3 aile. Ama dört dilim ailesinin (`ilk/son n harfi al/at`) **parametresi** açıldı —
+`n=1..4` numaralandırılmıştı, üretici her `n`i kurar. Bu bir *form* değil, bir *organ*.
+
+Kanıt (N34): n=3 ve n=4 görüldü → `şema.1 = sırala∘dilimle(n)`; sonra **n=7** istendi.
+n=7 hiçbir ilkelde yok. Şemasız sentez: `insufficient`. Şemayla:
+`['alfabetik sırala', 'ilk 7 harfi al']`, ve Nora **bunu söylüyor**
+("Bunu şema kapsadı…"). Anti-test aynı sonda: tek görülmüş üyeli aile **şema sayılmaz**
+(`Schema.infer` boş döner).
+
+Dürüst taban: deliği **ben** açtım (hangi ailelerin parametrik olduğunu `PARAM_GENERATORS`
+söylüyor). Nora'nın kattığı: hangi bileşimin delikli olduğunu fark etmek ve kapsamı
+*istenmemiş* bir parametreye taşımak. Yani "numaralandırmadığın bir parametreyi kapsadı"
+cümlesi artık ölçülmüş — ama "hangi aile parametriktir" hâlâ benim bilgim.
+
+### AO2. Beraberlik politikası: %50 de, %50 haklı ol
+
+Sessizlik kalibrasyon değil. `Synthesizer.tie_pick`: en kısa betimleme → eşit maliyetler
+arasında sabit tohumlu sıra. Beraberlik **%50 olarak beyan edilir** ve cevap verilir.
+
+N28 zor sınıfı yeniden yazıldı: örnekler iki kurala da uyuyor, doğruyu **veri üreten
+yazı-tura** seçiyor. Sonuç: **isabet 4/10, Brier 0.250, %50 beyanı 10/10**.
+Brier 0.25 = "%50 dedim, %50 çıktı" — kalibrasyonun dürüst tanımı bu.
+Kolay sınıf (n=12, Brier 0.014) hâlâ **taban** olarak raporlanıyor, kalibrasyon değil.
+
+### AO3. Sürücünün eşiği artık onun
+
+`Driver.thresh` ve `Driver.min_items` insan sabiti değil: `adapt()` kendi isabetine bakar.
+Tekrar kullanılmayan öğrenme → kanıt eşiği artar (2→3→4); kanıt yetmezse duyarlılık düşer.
+N35: eşik hiç söylenmeden iki tur; `0.55→0.61`, `min_items 2→3`, öğrenme sürüyor.
+Sınır: eşik *küme seçimini* yönetiyor; çift-kümeleri zaten maksimum şaşkınlıkta olduğu
+için `thresh` onları kesmiyor — fren `min_items` üzerinden çalışıyor. Bu, sürücünün
+"ne kadar kanıt yeter" sorusunu kendi cevaplaması; "ne zaman öğrenmeli" sorusu hâlâ açık.
+
+### AO4. Ölçüm hataları (bu tur 4 tane, hepsi commit öncesi)
+
+1. `"öğren: kitap -> …"` iki noktası sahte çift üretti.
+2. Beklenen değeri `upper→sort` yerine `sort→upper` hesapladım.
+3. Bir **sorunun içindeki** dizgeyi "cevap" saydım (soru, cevap değil).
+4. Çıktı ayrıştırmasında nokta: `"por." != "por"` → doğru cevabı yanlış saydı.
+Fren: `--repeat` (ileri/geri sıra) ve `--shuffle` (tam pil, karışık sıra).

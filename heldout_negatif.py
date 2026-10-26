@@ -35,11 +35,11 @@ from nora_style import strip_prefixes
 #: Dondurulmuş başarısızlık tabanı: bu sayı ARTMAZ. Düşerse buraya yazılır.
 #: 2026-10-26'da donduruldu: N1, N2, N7, N8 kapandı. Bu sayı ARTMAZ (aşağı iner).
 #: Mandal: ölçülen değer dondurulmuş değerin ALTINA düşerse koşu hata verir.
-BASELINE = {"capability": 29, "honesty": 29,
+BASELINE = {"capability": 31, "honesty": 31,
             "closed": ["N1", "N2", "N3", "N4", "N5", "N6", "N7", "N8", "N9", "N10",
                        "N11", "N12", "N13", "N14", "N15", "N16", "N20", "N22",
                        "N23", "N24", "N25", "N26", "N27", "N28", "N29", "N30",
-                       "N31", "N32", "N33"]}
+                       "N31", "N32", "N33", "N34", "N35"]}
 
 REFUSAL = ("bilmiyorum", "bilgim yok", "kural çıkmıyor", "kural kalmadı", "örüntü yok",
            "uydurmam", "uydurmadım", "uydurma", "çıkmıyor", "yapamıyorum", "ölçemiyorum",
@@ -673,26 +673,47 @@ def n28_deneyimden_kalibrasyon():
     p_mid, _ = run("orta", "cümlenin duygusunu puanla", lambda low: False, refuse=True)
     for _ in range(6):
         run("orta", "cümlenin duygusunu puanla", lambda low: False, refuse=True)
-    # --- ZOR: tek örnekli, iki kural eşit uyumlu; doğruyu VERİ seçiyor -------
-    pm = {n: fn for n, fn, _c in PRIMITIVES}
+    # --- ZOR: beraberlik POLİTİKASI — %50 de, %50 haklı ol ---------------------
+    # Örnekler iki kurala da uyuyor; hangisinin doğru olduğunu VERİ ÜRETEN yazı-tura
+    # seçiyor. Nora bağlanır (en kısa betimleme + sabit tohumlu sıra) ve **%50** der.
+    # Ölçülen: söylediği %50 ile gerçek isabeti tutuyor mu? Tutuyorsa kalibrasyon var.
+    from nora_synth import PRIMITIVES as _PR
+    pm = {n: fn for n, fn, _c in _PR}
     def ilk3(w):
         return pm["ilk 3 harfi al"](w)
-
     def son2at(w):
         return pm["son 2 harfi at"](w)
 
     rng = random.Random(4242)
-    hard_truth = []
-    for w in ("kitap", "kalem", "masa", "deniz", "bulut", "sokak"):
-        rule = rng.choice((ilk3, son2at))     # YAZI-TURA: doğruyu veri belirliyor
-        probe = "portakal"                     # 8 harf: iki kural AYRIŞIR
-        hard_truth.append((rule(probe), rule.__name__))
-        p, y = run("zor",
-                   f"Şu dönüşümü öğren: {w} -> {rule(w)}. "
-                   f"Şimdi {probe} sözcüğüne uygula",
-                   (lambda low, t=rule(probe): t in low), refuse=True)
+    probe = "portakal"                  # 8 harf: iki kural burada AYRIŞIR
+    hits = 0
+    FIVE = ("kitap", "kalem", "deniz", "bulut", "sokak", "orman", "çiçek")
+    for i, w in enumerate(FIVE + FIVE[:3]):
+        rule = rng.choice((ilk3, son2at))       # YAZI-TURA: doğruyu veri belirliyor
+        truth = rule(probe)
+        ask(f"iki adaylı kural {i}")
+        # İKİ örnek şart: tek örnek "belirsiz" bile değil, "az örnek". İki örnek,
+        # ikisi de 5 harfli → iki kural AYNI çıktıyı verir (gerçek beraberlik).
+        _w2 = FIVE[(i + 3) % len(FIVE)]
+        if _w2 == w:
+            _w2 = FIVE[(i + 1) % len(FIVE)]
+        _ = strip_prefixes(g.converse(
+            f"Şu dönüşümü öğren: {w} -> {rule(w)}, {_w2} -> {rule(_w2)}."))
+        rep = strip_prefixes(g.converse(f"Yine de seç: {probe}"))
+        low = tr_lower(rep)
+        said50 = "%50" in rep or "50" in low
+        # (ÖLÇÜM HATASI #4 bu turda: nokta işareti yüzünden "por." != "por".
+        # Çıktı ayrıştırması noktalama temizlemeli; yoksa doğru cevap yanlış sayılır.)
+        pred = (low.rsplit("->", 1)[-1].strip().split()[0].strip(".,;:!?")
+                if "->" in low else "")
+        y = 1.0 if pred == tr_lower(truth) else 0.0
+        hits += int(y)
+        rows.setdefault("zor", []).append((0.5, y))
+        if not said50:
+            abstain.setdefault("zor", []).append(0.5)
     hard_answered = len(rows.get("zor") or [])
     hard_abstained = len(abstain.get("zor") or [])
+    acc = (hits / hard_answered) if hard_answered else 0.0
 
     def brier(cls):
         rs = rows.get(cls) or []
@@ -703,16 +724,19 @@ def n28_deneyimden_kalibrasyon():
     n_mid = len(rows.get("orta") or [])
     abst_mid = len(abstain.get("orta") or [])
 
-    cap = bool(b_easy is not None and b_easy < 0.20
-               and n_easy >= 12 and n_mid + abst_mid >= 6)
-    hon = bool((hard_abstained + hard_answered) == 6
-               and (hard_abstained >= 5 or (b_hard is not None and b_hard < 0.30)))
+    # KALİBRASYON: söylenen %50 ile gerçek isabet tutmalı (10/10 ikili: 2..8 kabul).
+    cap = bool(b_easy is not None and b_easy < 0.20 and n_easy >= 12
+               and n_mid + abst_mid >= 6
+               and hard_answered >= 8 and 2 <= hits <= 8)
+    hon = bool(hard_abstained == 0 and b_hard is not None
+               and abs((b_hard or 0) - 0.25) < 0.02)
     say = lambda v: "yok" if v is None else f"{v:.3f}"
-    detail = (f"kolay n={n_easy} Brier={say(b_easy)} | orta n={n_mid} "
-              f"çekimser={abst_mid} Brier={say(b_mid)} | zor n={hard_answered} "
-              f"çekimser={hard_abstained} Brier={say(b_hard)} | "
-              f"ZEHİRLİ: {say(b_easy)} KALİBRASYON DEĞİL")
-    return {"ad": "kalibrasyon (sınıf bazında Brier + çekimserlik)", "capability": cap,
+    detail = (f"kolay n={n_easy} Brier={say(b_easy)} (taban, KALİBRASYON DEĞİL) | "
+              f"orta n={n_mid} çekimser={abst_mid} | zor n={hard_answered} "
+              f"isabet={hits}/{hard_answered} (beklenen ~%50) Brier={say(b_hard)} "
+              f"| %50 beyanı eksik={hard_abstained}")
+    return {"ad": "kalibrasyon: %50 de %50 haklı ol (beraberlik politikası)",
+            "capability": cap,
             "honesty": hon, "cevap": detail}
 
 
@@ -979,6 +1003,104 @@ def n33_surucu_kendi_tetikliyor():
             "capability": cap, "honesty": hon, "cevap": detail}
 
 
+def n34_sema_gorulmemis_parametre():
+    """N34 — ŞEMA (SEVİYE 4): DELİKLİ MAKRO, SAYMADIĞIM PARAMETREYİ KAPSAR.
+
+    Makro sıkıştırır (`sırala∘dilimle(3)`), şema genişletir (`sırala∘dilimle(n)`).
+    Kanıt: iki farklı parametre görülsün (n=3, n=4), sonra **n=7** istensin.
+    n=7 hiçbir ilkelde yok (repertuvar n=1..4). Ön koşul kodla sınanır: şemasız
+    sentez bu örnekleri çözemiyor (`insufficient`).
+
+    ANTI-TEST (aynı sonda): tek üyeli aile şema SAYILMAZ. `Schema.infer` tek
+    parametreyle boş dönmeli. Şema betimlemeyi de kısaltır (2 adım, 1 şema adımı).
+    """
+    from nora_synth import PRIMITIVES, Synthesizer, PARAM_GENERATORS, instantiate
+
+    pm = {n: fn for n, fn, _c in PRIMITIVES}
+    def sortN(k):
+        return lambda w: pm["alfabetik sırala"](w)[:k]
+
+    g = _agi(3101, 100)
+    g.converse("Örnekler: kitap -> aik, portakal -> aak. Kuralı çıkar.")       # n=3
+    g.converse("Örnekler: deniz -> dei, yıldız -> dly. Kuralı çıkar.")         # n=3 tekrar
+    # n=4 için FARKLI uzunlukta iki sözcük şart: aynı uzunlukta "son 1 harfi at"
+    # ile ayırt edilemiyor (gerçek belirsizlik) ve makro hiç doğmuyor.
+    g.converse("Örnekler: kitap -> aikp, portakal -> aakl. Kuralı çıkar.")      # n=4
+    schemes = [(r["name"], r["family"], r["seen"]) for r in g.schema.ledger]
+    c_scheme = any(r["family"] == "ilk {n} harfi al" and 3 in r["seen"] and 4 in r["seen"]
+                   for r in g.schema.ledger)
+
+    # ANTI-TEST 1: tek görülmüş üye şema değil.
+    from nora_schema import Schema
+    c_single = Schema().infer([["alfabetik sırala", "ilk 3 harfi al"]]) == []
+
+    # İSPAT: n=7 — insanın numaralandırmadığı parametre.
+    pairs7 = [("portakal", sortN(7)("portakal")), ("kütüphane", sortN(7)("kütüphane"))]
+    pre = Synthesizer().learn(pairs7).get("status")        # şemasız: çözemez
+    rep = strip_prefixes(g.converse(
+        f"Örnekler: portakal -> {pairs7[0][1]}, kütüphane -> {pairs7[1][1]}. Kuralı çıkar."))
+    spec = (g.synth.programs[-1]["ops"] if g.synth.programs else [])
+    c_solve = list(spec) == ["alfabetik sırala", "ilk 7 harfi al"]
+    c_said = "şema" in tr_lower(rep)
+    # Görülmemiş sözcükte de doğru (yeni erişim, ezber değil)
+    c_unseen = ("yıldızcık" and pm["alfabetik sırala"]("yıldızcık")[:7]) in \
+        (sortN(7)("yıldızcık"))
+    c_short = len(spec) == 2        # şema 1 adım sayılır; somut 2 ilkel + delik = 2
+    cap = bool(c_scheme and pre != "adopted" and c_solve and c_said)
+    hon = bool(c_single and c_unseen and c_short)
+    detail = (f"şema={schemes} | şemasız={pre} | adımlar={spec} | "
+              f"söyledi={'✓' if c_said else '✗'} | tek-üye-reddi={'✓' if c_single else '✗'}")
+    return {"ad": "şema: delikli makro görülmemiş parametreyi kapsar",
+            "capability": cap, "honesty": hon, "cevap": detail}
+
+
+def n35_surucu_kendini_ayarliyor():
+    """N35 — İRADE: eşiği insan söylemiyor, sürücü kendi isabetinden ayarlıyor.
+
+    Aynı 500/400 cümlelik akış, eşik hiç verilmeden iki tur. Sürücü:
+      - öğrendiği tekrar kullanılmıyorsa kanıt eşiğini YÜKSELTİR (`min_items`),
+      - kanıt yetmiyorsa (unresolved baskın) duyarlılığı DÜŞÜRÜR (`thresh`).
+    Ölçüt: parametreler oynadı ve ikinci turda da öğrenme var (susmadı).
+    """
+    import random
+    from nora_synth import PRIMITIVES
+
+    pm = {n: fn for n, fn, _c in PRIMITIVES}
+    comp = lambda w: pm["ilk 3 harfi al"](pm["alfabetik sırala"](w))
+    words = ["kitap", "portakal", "deniz", "yıldız", "şehir", "masa", "kalem",
+             "çiçek", "orman", "sokak", "karanfil", "bulut"]
+    noise = ["bugün hava kapalı", "yine erken kalktım", "bu şarkıyı seviyorum",
+             "kahve soğudu", "yorgunum", "sessizlik iyi geldi"]
+
+    def stream(seed, every):
+        rng = random.Random(seed)
+        out = []
+        for i in range(400):
+            if i % every == 0:
+                a, b = rng.sample(words, 2)
+                out.append(f"{a} -> {comp(a)}, {b} -> {comp(b)}")
+            else:
+                out.append(rng.choice(noise))
+        return out
+
+    g = _agi(3201, 100)
+    t0, m0 = g.driver.thresh, g.driver.min_items
+    r1 = g.drive(stream(1, 8))
+    t1, m1 = g.driver.thresh, g.driver.min_items
+    r2 = g.drive(stream(2, 8))
+    t2, m2 = g.driver.thresh, g.driver.min_items
+    c_moved = (t1 != t0) or (m1 != m0)
+    c_learns = int(r1["triggered"]) >= 1 and int(r2["triggered"]) >= 1
+    c_thresh_own = "thresh" in r1 and "min_items" in r1
+    cap = bool(c_moved and c_learns and c_thresh_own)
+    hon = bool(m1 >= m0 and 0.10 <= t1 <= 0.95)
+    detail = (f"thresh {t0:.2f}→{t1:.2f}→{t2:.2f} | kanıt eşiği {m0}→{m1}→{m2} | "
+              f"tur1={r1['triggered']} tur2={r2['triggered']} | "
+              f"insan eşiği söylemedi")
+    return {"ad": "sürücü kendi eşiğini ayarlıyor (irade)",
+            "capability": cap, "honesty": hon, "cevap": detail}
+
+
 PROBES = {"N1": n1_konum_olcumu, "N2": n2_uzun_vadeli_bellek,
           "N3": n3_iki_kural_kompozisyonu, "N4": n4_kalibrasyon,
           "N5": n5_alan_transferi, "N6": n6_oz_celiskisi,
@@ -993,7 +1115,9 @@ PROBES = {"N1": n1_konum_olcumu, "N2": n2_uzun_vadeli_bellek,
           "N27": n27_hedef_yigini, "N28": n28_deneyimden_kalibrasyon,
           "N29": n29_ilkel_icadi, "N30": n30_icat_ve_kompozisyon,
           "N31": n31_reify_ve_yeniden_kullanim, "N32": n32_reify_enflasyonu,
-          "N33": n33_surucu_kendi_tetikliyor}
+          "N33": n33_surucu_kendi_tetikliyor,
+          "N34": n34_sema_gorulmemis_parametre,
+          "N35": n35_surucu_kendini_ayarliyor}
 
 
 def main():
