@@ -2559,7 +2559,7 @@
         },
         {
           "id": "mr.cf1",
-          "text": "Güvenim %{conf}. Dayanak: {organ} organı.",
+          "text": "Güvenim %{conf}. Dayanak: {organ}.",
           "when": {
             "eq": {
               "kind": "conf"
@@ -2568,7 +2568,7 @@
         },
         {
           "id": "mr.cf2",
-          "text": "%{conf} — '{task}' için elimde {organ} var.",
+          "text": "%{conf} — '{task}' için dayanak: {organ}.",
           "when": {
             "eq": {
               "kind": "conf"
@@ -2577,7 +2577,7 @@
         },
         {
           "id": "mr.cf3",
-          "text": "Güvenim %{conf}; bu görevde {organ} devreye girer.",
+          "text": "Güvenim %{conf}; bu görevde {organ} belirleyici.",
           "when": {
             "eq": {
               "kind": "conf"
@@ -2631,7 +2631,7 @@
         },
         {
           "id": "mr.gap3",
-          "text": "Bunu ölçemem: {what} organım yok.",
+          "text": "Bunu ölçemem: bende {what} organı yok; uydurmam.",
           "when": {
             "eq": {
               "kind": "gap"

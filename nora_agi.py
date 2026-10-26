@@ -3820,15 +3820,23 @@ class NoraAGI:
         task = (m.group(1) if m else "").strip(" .?!")
         if not task:
             return None
+        # KANIT GÖREVDEN GELİR, TALİMATTAN DEĞİL: "0-100 arası" ifadesi tek başına
+        # sayı+eksi gibi görünüp aritmetik kanıtı sanılıyordu ("sıcaklık kaç derece" %82).
+        tl_task = tr_lower(task)
         conf, organ = 30, ""
         for cues, val, org in self._CONF_ORGANS:
-            if any(c in tl for c in cues):
+            if any(c in tl_task for c in cues):
                 conf, organ = val, org
                 break
-        if conf == 30 and self._ARITH.search(tl):
+        if conf == 30 and self._ARITH.search(tl_task):
             conf, organ = 82, "aritmetik"
-        elif conf == 30 and any(k in tl for k in ("sıcaklık", "derece", "nem")):
+        elif conf == 30 and any(k in tl_task for k in ("sıcaklık", "derece", "nem")):
             conf, organ = 8, "duyu girişi"
+        # EKSİK ORGAN "VAR" DİYE ANILMAZ: düşük güvenin dayanağı organın YOKLUĞUDUR.
+        if not organ:
+            organ = "tanıdık organ"
+        elif conf <= 12:
+            organ = f"{organ} organı yok"
         # Görev yapılamazsa güven düşük olmalı: aynı kaynaktan karar verilir.
         _say = self._say("meta.reasoning",
                          {"conf": conf, "organ": organ, "task": task},
