@@ -57,6 +57,18 @@ FEATURES = {
 SHORT_NAMES = {"vowel_count": "sesli", "consonant_count": "sessiz",
                "letter_count": "harf", "word_count": "sözcük", "syllable_count": "hece"}
 
+
+def pos_name(spec: dict) -> str:
+    """Konum ölçümünün okunur adı: 'ilk harf sesli', 'son harf sessiz', '2. harf'."""
+    i = int((spec or {}).get("i") or 0)
+    cls = str((spec or {}).get("cls") or "")
+    n = {0: "ilk", 1: "2.", 2: "3.", 3: "4.", 4: "5."}.get(i, f"{i + 1}.")
+    if i < 0:
+        n = {-1: "son", -2: "sondan ikinci", -3: "sondan üçüncü"}.get(i, f"sondan {-i}.")
+    ad = {"vowel": "harf sesli", "consonant": "harf sessiz",
+          "letter": f"harf '{spec.get('arg')}'"}.get(cls, "harf")
+    return f"{n} {ad}".strip()
+
 #: Sayının OKUNUŞUNA göre ayrılma eki: 3 -> "ten" (üçten), 6 -> "dan" (altıdan),
 #: 1 -> "den" (birden), 0 -> "dan" (sıfırdan). Sabit "'ten az" yazmak "-1'ten az"
 #: gibi yanlış bir yüzey üretiyordu; ek artık sayıdan geliyor.
@@ -109,6 +121,31 @@ def feature_spec_fn(spec: dict):
         fa = (FEATURES.get(str((spec or {}).get("a") or "")) or (None, lambda s: 0))[1]
         fb = (FEATURES.get(str((spec or {}).get("b") or "")) or (None, lambda s: 0))[1]
         return lambda s: int(fa(s)) - int(fb(s))
+    if kind == "pos":
+        # KONUM ÖLÇÜMÜ: sözcüğün i. harfi şu SINIFTAN mı? ("ilk harfi sesli mi")
+        # Son ek/ön ek/harf varlığı konumu temsil edemez; bu ölçüm tam olarak konumu
+        # ölçer. i negatifse sondan sayılır (-1 = son harf).
+        i = int((spec or {}).get("i") or 0)
+        cls = str((spec or {}).get("cls") or "vowel")
+        arg = str((spec or {}).get("arg") or "").lower()
+
+        def _f(s: str) -> int:
+            t = str(s or "").lower()
+            t = "".join(ch for ch in t if ch.isalpha())
+            if not t:
+                return 0
+            idx = i if i >= 0 else len(t) + i
+            if idx < 0 or idx >= len(t):
+                return 0
+            ch = t[idx]
+            if cls == "vowel":
+                return 1 if ch in VOWELS else 0
+            if cls == "consonant":
+                return 1 if (ch.isalpha() and ch not in VOWELS) else 0
+            if cls == "letter":
+                return 1 if (arg and ch == arg) else 0
+            return 0
+        return _f
     if kind == "suffix_pattern":
         # ÜNLÜ UYUMU KALIBI: 'lVk' -> son üç harf [sessiz][ünlü][sessiz] ise eşleşir.
         # Türkçe'de -lık/-lik/-luk/-lük AYNI ektir; kalıp, dört ayrı ek görmek yerine

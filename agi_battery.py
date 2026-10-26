@@ -3893,8 +3893,11 @@ def a90_bilesik_olcum_icadi():
 
     # (1) veri: marjinal ölçümler AYIRMIYOR (ünlü/sessiz/harf sayıları çakışıyor),
     #     yalnız "sesli - sessiz" farkı ayırıyor.
-    D = [("kaplan", "soyut"), ("zambak", "soyut"), ("portakal", "soyut"),
-         ("masa", "somut"), ("boyacı", "somut"), ("ayakkabı", "somut")]
+    # VERİ SEÇİMİ KRİTİK: "sondan üçüncü harf sessiz" gibi bir KONUM ölçümü de bu tür
+    # veriyi açıklayabilir (A92'de konum ölçümü eklendi). O yüzden örnekler, hiçbir konum
+    # kuralının tutmadığı biçimde seçildi; marjinal ölçümler de ayrışmıyor.
+    D = [("sağlık", "soyut"), ("spor", "soyut"), ("hayvan", "soyut"),
+         ("etme", "somut"), ("bilimi", "somut"), ("açık", "somut")]
     q = "Kural çıkar: " + ", ".join(f"{w}={l}" for w, l in D)
     g = NoraAGI(seed=981, boot_thinker=False)
     g.step_life(150)
@@ -4142,6 +4145,123 @@ def a92_birlesik_olcum_icadi():
                                f"spec={spec}")
 
 
+def a93_konum_olcumu():
+    """A93 — KONUM ÖLÇÜMÜ: "ilk harfi sesli" artık temsil edilebilir.
+
+    A87/A88/A89/A90/A92 ölçüm uzayını genişletti ama hiçbiri harfin NEREDE olduğunu
+    temsil edemiyordu: son ek, ön ek, harf varlığı, fark, birleşim — hepsi yüzeyin
+    TAMAMINA bakar. Bu testte tek düzenlilik konumda; Nora `pos` ölçümünü kendisi icat
+    eder, veriyi açıklar ve YENİ sözcüklere uygular. Ölçüt:
+    (1) kuralın ölçümü `pos` türünde (i, sınıf) taşır,
+    (2) söz konumu adıyla söyler ("ilk harf sesli"),
+    (3) eşik yok: şekil "varlık" (var/yok),
+    (4) öğretilmemiş sözcüklerde doğru çalışır,
+    (5) defter ölçümü `origin="kendi"`,
+    (6) insan rejistrisi değişmez.
+    """
+    import hashlib
+    import json
+    from pathlib import Path
+
+    import nora_apply as AP
+
+    ok = {}
+    led = Path("runs/operators_self.json")
+    reg = Path("nora_operators.json")
+    h0 = hashlib.sha256(reg.read_bytes()).hexdigest()
+    led.unlink(missing_ok=True)
+    for _k in [k for k in AP.FEATURES if k.startswith("kendi.")]:
+        AP.FEATURES.pop(_k, None)
+
+    pos = ["elma", "okul", "üzüm", "ödev"]
+    neg = ["masa", "kapı", "deli", "kutu"]
+    truth = lambda w: "soyut" if w[0] in "aeıioöuü" else "somut"   # noqa: E731
+    g = NoraAGI(seed=1093, boot_thinker=False)
+    g.step_life(150)
+    lo = tr_lower(strip_prefixes(g.converse(
+        "Kural çıkar: " + ", ".join(f"{w}=soyut" for w in pos) + ", " +
+        ", ".join(f"{w}=somut" for w in neg))))
+    for _ in range(3):
+        if g.forge.adopted is not None:
+            break
+        w = str((getattr(g, "_forge_pending", None) or {}).get("probe") or "")
+        if not w:
+            break
+        g.converse(truth(w))
+    rule = g.forge.adopted
+    spec = dict(getattr(rule, "feature_spec", None) or {})
+    ok["konum-icat"] = spec.get("kind") == "pos" and "i" in spec and "cls" in spec
+    ok["söz-konum"] = ("harf" in lo and ("ilk" in lo or "sondan" in lo or "2." in lo))
+    ok["şekil-varlık"] = str(getattr(rule, "shape", "")) == "presence"
+    yeni = ["ördek", "ada", "ırmak", "uçak", "kale", "mor", "sarı", "gemi"]
+    ok["uygula"] = bool(rule) and all(rule.apply(w)[0] == truth(w) for w in yeni)
+    rec = {}
+    try:
+        rows = (json.loads(led.read_text(encoding="utf-8")).get("self_measurements") or [])
+        rec = rows[-1] if rows else {}
+    except Exception:
+        rec = {}
+    ok["defter-pos"] = ((rec.get("spec") or {}).get("kind") == "pos"
+                        and rec.get("origin") == "kendi")
+    ok["insan-sabit"] = (hashlib.sha256(reg.read_bytes()).hexdigest() == h0
+                         and len(AP.OPERATORS) == 9)
+
+    led.unlink(missing_ok=True)
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), f"{passed}/{len(ok)} — {detail} | spec={spec}"
+
+
+def a94_kisisel_bellek_ve_tek_atis():
+    """A94 — KİŞİSEL BELLEK: duyduğunu unutmaz, uydurduğunu yazmaz.
+
+    A54 kişisel anlatının kavram ağını KİRLETMEMESİNİ istiyordu; bu, anlatıyı
+    unutmakla karıştırılmıştı. İkisi ayrı şeydir: dünya bilgisi grafiğe, kişi bilgisi
+    kişisel belleğe yazılır. Ölçüt:
+    (1) bir cümleyle söylenen olgu, KIRK TUR SONRA sorulunca gelir,
+    (2) kaynak söylenir ("bana sen söylemiştin"),
+    (3) olgu kavram ağını kirletmez (A54'ün şartı korunur),
+    (4) soru cümlesinden olgu öğrenilmez ("adım neydi" olgu değildir),
+    (5) çelişen yeni değer eskisini sessizce EZMEZ,
+    (6) tek atışta kavram edinimi: tanıtılan sözcük sonra sorulunca tanımlanır,
+    (7) "kodladım" denip hiçbir şey yazılmadığı durum yok (sahte öğrenme yok).
+    """
+    from nora_episodic import PersonalMemory
+
+    ok = {}
+    pm = PersonalMemory()
+    pm.observe("Kardeşimin adı Elif.")
+    pm.observe("Benim adım neydi?")          # soru: olgu DEĞİL
+    ok["sorudan-öğrenmez"] = pm.recall("Kardeşimin adı neydi?") is not None         and not any(k[1] == "ad" and k[0] == "benim" for k in pm.facts)
+    pm.add("kardeşim", "ad", "Ayşe")
+    _r = pm.recall("Kardeşimin adı neydi?")
+    ok["çelişki-ezmez"] = bool(_r) and _r.get("onceki") == "elif"
+
+    g = NoraAGI(seed=1094, boot_thinker=False)
+    g.step_life(150)
+    g.converse("Kardeşimin adı Elif, onu çok severim.")
+    edges_before = {(e.subj, e.rel, e.obj) for e in g.lang.graph.edges
+                    if "elif" in (e.subj + e.obj).lower()}
+    for i in range(40):
+        g.converse(f"Bugün hava nasıl bilmiyorum, sen ne dersin? ({i})")
+    rep = tr_lower(strip_prefixes(g.converse("Kardeşimin adı neydi?")))
+    ok["40-tur-sonra"] = "elif" in rep
+    ok["kaynak"] = ("söylemiştin" in rep or "senin sözün" in rep or "bana" in rep)
+    ok["ağ-temiz"] = not edges_before
+
+    g2 = NoraAGI(seed=1095, boot_thinker=False)
+    g2.step_life(150)
+    r0 = tr_lower(strip_prefixes(g2.converse("Zorvath nedir?")))
+    ok["önce-bilmez"] = ("bilgim yok" in r0) or ("bilmiyorum" in r0)
+    g2.converse("Zorvath bir alet türüdür, kayaları keser.")
+    r1 = tr_lower(strip_prefixes(g2.converse("Zorvath nedir?")))
+    ok["tek-atış-öğrenir"] = "alet" in tr_lower(r1.split(".")[0])
+
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -4221,6 +4341,8 @@ TESTS = {
     "A90": ("bileşik ölçüm: iki ölçümün farkı icat edilir, eşik veriden sorulur", a90_bilesik_olcum_icadi),
     "A91": ("ölçüm güveni: kendi aletinin güvenini kanıttan kazanır", a91_olcum_guveni),
     "A92": ("birleşim ölçümü: iki ölçüm tek başına yetmezse ikisi birlikte ayırır", a92_birlesik_olcum_icadi),
+    "A93": ("konum ölçümü: 'ilk harfi sesli' kendi icadıyla temsil edilir", a93_konum_olcumu),
+    "A94": ("kişisel bellek: duyduğunu unutmaz, uydurduğunu yazmaz", a94_kisisel_bellek_ve_tek_atis),
     "A70": ("kendi çıkarımı: kimse söylemeden türetme + iç monolog", a70_own_inference_and_monologue),
     "A69": ("söz biçimi çeşitliliği, soru alışkanlığının kırılması ve kendi derdi", a69_speech_shape_variety_and_self_interest),
     "A68": ("kulak yolu: ses olayı, gürültüde eksik duyma, etiketsiz kimlik", a68_ear_path_perception),

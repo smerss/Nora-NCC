@@ -3150,6 +3150,21 @@ class NoraLanguage:
                     if _c2 is not None and _c2.kind == "teach_fact" and getattr(_c2, "obj", ""):
                         _expanded.extend([parts[0].strip(), _cand])
                         continue
+            # VİRGÜL: "Zorvath bir alet türüdür, kayaları keser." iki ayrı iddiadır.
+            # Ama "elma, armut ve muz meyvedir" bir listedir: bölmek yanlış olur. Ölçüt
+            # biçim değil ÇÖZÜMLEME: iki yarı da kendi yüklemini taşıyorsa bölünür.
+            if "," in cl:
+                _l2, _r2 = (x.strip() for x in cl.split(",", 1))
+                try:
+                    _pl = self.wernicke.parse(_l2)
+                    _pr = self.wernicke.parse(_r2)
+                    _ok2 = (_pl.kind == "teach_fact" and _pr.kind == "teach_fact"
+                            and getattr(_pl, "obj", "") and getattr(_pr, "obj", ""))
+                except Exception:
+                    _ok2 = False
+                if _ok2:
+                    clauses.extend([_l2, _r2])
+                    continue
             _expanded.append(cl)
         clauses = _expanded
         learned: list[RelationEdge] = []
