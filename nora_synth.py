@@ -59,15 +59,42 @@ PARAM_GENERATORS = {
 
 
 def family_of(name):
-    """'ilk 3 harfi al' -> ('ilk {n} harfi al', 3). Aile dışıysa None."""
-    m = re.match(r"^(ilk|son) (\d+) harfi (al|at)$", str(name))
-    if not m:
-        return None
-    return f"{m.group(1)} {{n}} harfi {m.group(3)}", int(m.group(2))
+    """Adı PARAMETRELİ bir aileye çöz: ('ilk {n} harfi al', 3) / ('kaydırma({k})', 1).
+
+    İki kaynak var ve ikisi de AYNI işi yapar — bir ad, bir ailenin üyesidir:
+      - dilim aileleri: 'ilk 3 harfi al' → 'ilk {n} harfi al'
+      - İCADIN aileleri: 'kaydırma(+2)' → 'kaydırma({k})'  (icat edilen ilkel de
+        parametreli bir ailenin üyesidir; onun da şeması olur)
+    """
+    name = str(name)
+    m = re.match(r"^(ilk|son) (\d+) harfi (al|at)$", name)
+    if m:
+        return f"{m.group(1)} {{n}} harfi {m.group(3)}", int(m.group(2))
+    _low = name.replace("İ", "i").replace("I", "ı").lower()
+    m2 = re.match(r"^([a-zçğıöşü]+)\(([+-]?\d+)\)$", _low)
+    if m2 and m2.group(1) in ("kaydırma", "döndürme"):
+        return f"{m2.group(1)}({{k}})", int(m2.group(2))
+    return None
 
 
 def instantiate(family, n):
-    """Aile + parametre -> (ad, fonksiyon, maliyet). n>=1."""
+    """Aile + parametre -> (ad, fonksiyon, maliyet).
+
+    Dilim ailelerinde n >= 1; icat ailelerinde parametre işaretli olabilir (kaydırma).
+    """
+    fam = str(family)
+    if fam.startswith(("kaydırma(", "döndürme(")):
+        try:
+            from nora_abstract import build as _ab_build, name_of as _ab_name
+            base = fam.split("(", 1)[0]
+            k = int(n)
+            if base == "döndürme" and k < 0:
+                return None
+            fn = _ab_build(base, k)
+            return (_ab_name(base, k) if base != "döndürme" else f"döndürme({k})", fn, 1) \
+                if fn is not None else None
+        except Exception:
+            return None
     gen = PARAM_GENERATORS.get(str(family))
     try:
         n = int(n)
@@ -210,7 +237,9 @@ class Synthesizer:
     def add_schema(self, steps, hole: int, family: str, seen) -> dict | None:
         """Şemayı uzaya ekle: delikli makro (parametre ailesi üzerinden)."""
         steps = [str(x) for x in (steps or [])]
-        if not (0 <= int(hole) < len(steps)) or family not in PARAM_GENERATORS:
+        _ok_fam = (family in PARAM_GENERATORS
+                   or str(family).startswith(("kaydırma(", "döndürme(")))
+        if not (0 <= int(hole) < len(steps)) or not _ok_fam:
             return None
         if any(sc["family"] == family and sc["steps"] == steps and sc["hole"] == hole
                for sc in self.schemas):
@@ -224,7 +253,19 @@ class Synthesizer:
         """Şemayı GÖRÜLMEMİŞ parametreler için somutlaştır ve örnekleri sına."""
         out = []
         for sc in self.schemas:
-            for n in range(1, 13):
+            # Parametre aralığı VERİDEN: dilimde n, sözcük uzunluğunu aşamaz;
+            # kaydırmada k alfabeyi dolaşır. Sabit 1..12 yazmak, 17 gibi bir
+            # parametreyi "kapsam dışı" bırakıp şemayı işe yaramaz hâle getiriyordu.
+            _shift = str(sc["family"]).startswith(("kaydırma(", "döndürme("))
+            if _shift:
+                try:
+                    from nora_abstract import ALPHABET as _ALFA
+                    _maxn = len(_ALFA) - 1
+                except Exception:
+                    _maxn = 29
+            else:
+                _maxn = max([len(str(a)) for a, _b in examples] or [12])
+            for n in range(1, int(_maxn) + 1):
                 if n in sc.get("seen", []):
                     continue
                 inst = instantiate(sc["family"], n)

@@ -4834,6 +4834,57 @@ def a110_sarmalayici_ve_secim_sorusu() -> tuple[bool, str]:
     return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
 
 
+def a111_icadin_semasi() -> tuple[bool, str]:
+    """A111 — SEVİYE 4 (derin): İCAT EDİLEN ilkel de bir ailenin üyesidir.
+
+    Nora iki farklı kaydırma icat eder (+4, +5). Şema `kaydırma({k})` doğar.
+    Sonra **+17** istenir: şemasız uzay çözemez (`insufficient`), şemayla tek adımda
+    çözülür ve **yeni icat olmaz**. Yeni parametre tabana (extra) YAZILMAZ: taban sabit.
+
+    Anti-test: tek üye (+4) şema doğurmaz ve +17 icat GEREKTİRİR. Yani farkı yaratan
+    şemadır, şans değil.
+    """
+    from nora_abstract import ALPHABET as ALFA
+    from nora_synth import Synthesizer
+
+    def sh(w, k):
+        return "".join(ALFA[(ALFA.index(c.lower()) + k) % len(ALFA)]
+                       if c.lower() in ALFA else c for c in w)
+    def pairs(k):
+        return [(w, sh(w, k)) for w in ("kitap", "kalem")]
+    def learn(g, k):
+        return strip_prefixes(g.converse(
+            "Şu dönüşümü öğren: " + ", ".join(f"{a} -> {b}" for a, b in pairs(k))))
+
+    ok = {}
+    g = NoraAGI(seed=1981, boot_thinker=False)
+    g.step_life(100)
+    learn(g, 4)
+    learn(g, 5)
+    ok["şema-doğdu"] = any(r["family"] == "kaydırma({k})" and {4, 5} <= set(r["seen"])
+                           for r in g.schema.ledger)
+    ok["şemasız-çözemez"] = Synthesizer().learn(pairs(17)).get("status") != "adopted"
+    n0 = len(list(getattr(g.abstract, "invented", [])))
+    rep = learn(g, 17)
+    ok["yeni-icat-yok"] = len(list(getattr(g.abstract, "invented", []))) == n0
+    spec = (g.synth.programs[-1]["ops"] if g.synth.programs else [])
+    ok["tek-adım"] = list(spec) == ["kaydırma(+17)"]
+    ok["söyledi"] = "şema" in tr_lower(rep)
+    ok["tabana-yazılmadı"] = "kaydırma(+17)" not in [n for n, _f, _c in g.synth.extra]
+
+    h = NoraAGI(seed=1982, boot_thinker=False)
+    h.step_life(100)
+    learn(h, 4)
+    ok["tek-üye-şema-değil"] = len(h.schema.ledger) == 0
+    m0 = len(list(getattr(h.abstract, "invented", [])))
+    learn(h, 17)
+    ok["tek-üyede-icat-şart"] = len(list(getattr(h.abstract, "invented", []))) > m0
+
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -4940,6 +4991,7 @@ TESTS = {
             a59_unknown_question_gap_and_research_across_wh_types),
     "A58": ("cümle yapısı, fiil valansı ve 'nasıl denilir' sorularının genellenmesi",
             a58_sentence_structure_valency_and_meta_questions),
+    "A111": ("icadın şeması: görülmemiş parametre icat gerektirmez", a111_icadin_semasi),
     "A110": ("dil: buyruk sarmalayıcısı ve X mi Y mi seçim sorusu", a110_sarmalayici_ve_secim_sorusu),
     "A108": ("şema: delikli makro görülmemiş parametreyi kapsar", a108_sema_delikli_makro),
     "A109": ("beraberlik politikası: %50 de, %50 haklı ol", a109_beraberlik_politikasi),

@@ -35,11 +35,11 @@ from nora_style import strip_prefixes
 #: Dondurulmuş başarısızlık tabanı: bu sayı ARTMAZ. Düşerse buraya yazılır.
 #: 2026-10-26'da donduruldu: N1, N2, N7, N8 kapandı. Bu sayı ARTMAZ (aşağı iner).
 #: Mandal: ölçülen değer dondurulmuş değerin ALTINA düşerse koşu hata verir.
-BASELINE = {"capability": 32, "honesty": 32,
+BASELINE = {"capability": 33, "honesty": 33,
             "closed": ["N1", "N2", "N3", "N4", "N5", "N6", "N7", "N8", "N9", "N10",
                        "N11", "N12", "N13", "N14", "N15", "N16", "N20", "N22",
                        "N23", "N24", "N25", "N26", "N27", "N28", "N29", "N30",
-                       "N31", "N32", "N33", "N34", "N35", "N36"]}
+                       "N31", "N32", "N33", "N34", "N35", "N36", "N37"]}
 
 REFUSAL = ("bilmiyorum", "bilgim yok", "kural çıkmıyor", "kural kalmadı", "örüntü yok",
            "uydurmam", "uydurmadım", "uydurma", "çıkmıyor", "yapamıyorum", "ölçemiyorum",
@@ -1158,6 +1158,86 @@ def n36_surucu_kendi_semasini_kuruyor():
             "honesty": hon, "cevap": detail}
 
 
+def n37_icadin_semasi_gorulmemis_parametre():
+    """N37 — SEVİYE 4'ün DİBİ: icat edilen ilkel de bir AİLENİN üyesidir.
+
+    Nora iki farklı kaydırma icat etsin (+4, +5). İkisi de tek adımlı; aile
+    `kaydırma({k})`. Şema doğar. Sonra **görülmemiş** bir parametre (+17) istenir:
+    - şemasız uzay: `insufficient` (ön koşul kodla sınanır),
+    - şemayla: tek adımda çözülür, **yeni icat YOK**, yeni ilkel uzayın tabanına
+      yazılmaz (taban sabit kalır), ve Nora bunu söyler.
+
+    Anti-test 1: TEK üye (+4) şema doğurmaz; o zaman +17 icat GEREKTİRİR (sayı artar).
+    Anti-test 2: şema kullanılmadan `MAX_IDLE` karar geçerse budanır ve uzaydan çıkar.
+    """
+    from nora_abstract import ALPHABET as ALFA
+    from nora_synth import Synthesizer
+
+    def sh(w, k):
+        return "".join(ALFA[(ALFA.index(ch.lower()) + k) % len(ALFA)]
+                       if ch.lower() in ALFA else ch for ch in w)
+
+    def pairs(k):
+        return [(w, sh(w, k)) for w in ("kitap", "kalem")]
+
+    def learn(g, k):
+        return strip_prefixes(g.converse(
+            "Şu dönüşümü öğren: " + ", ".join(f"{a} -> {b}" for a, b in pairs(k))))
+
+    # A) İKİ üye → şema → görülmemiş parametre
+    g = _agi(3401, 100)
+    learn(g, 4)
+    learn(g, 5)
+    sch = [(r["name"], r["family"], r["seen"]) for r in g.schema.ledger]
+    c_schema = any(r["family"] == "kaydırma({k})" and {4, 5} <= set(r["seen"])
+                   for r in g.schema.ledger)
+    c_pre = Synthesizer().learn(pairs(17)).get("status") != "adopted"
+    n_icat0 = len(list(getattr(g.abstract, "invented", [])))
+    rep = learn(g, 17)
+    n_icat1 = len(list(getattr(g.abstract, "invented", [])))
+    spec = (g.synth.programs[-1]["ops"] if g.synth.programs else [])
+    c_solve = list(spec) == ["kaydırma(+17)"]
+    c_no_new = n_icat1 == n_icat0
+    c_said = "şema" in tr_lower(rep)
+    c_not_in_base = "kaydırma(+17)" not in [n for n, _f, _c in g.synth.extra]
+    used = int(sum(int(r.get("uses", 0)) for r in g.schema.ledger))
+
+    # B) TEK üye → şema YOK, +17 icat gerektirir
+    h = _agi(3402, 100)
+    learn(h, 4)
+    c_single_none = len(h.schema.ledger) == 0
+    n0 = len(list(getattr(h.abstract, "invented", [])))
+    learn(h, 17)
+    c_single_invents = len(list(getattr(h.abstract, "invented", []))) > n0
+
+    # C) Kullanılmayan şema budanır ve arama uzayından çıkar
+    from nora_schema import Schema
+    ok_prune = False
+    try:
+        k = _agi(3403, 100)
+        learn(k, 4)
+        learn(k, 5)
+        rev = [("masa", "asam"), ("kalem", "melak"), ("bulut", "tulub"),
+               ("çiçek", "keçiç"), ("orman", "namro"), ("sokak", "kakos"),
+               ("zeytin", "nitiyz")]
+        for i in range(6):
+            k.converse(f"Örnekler: {rev[i][0]} -> {rev[i][1]}, "
+                       f"{rev[i + 1][0]} -> {rev[i + 1][1]}. Kuralı çıkar.")
+        ok_prune = (k.schema.survival()["pruned"] >= 1
+                    and not any(sc["family"] == "kaydırma({k})" for sc in k.synth.schemas))
+    except Exception:
+        ok_prune = False
+
+    cap = bool(c_schema and c_pre and c_solve and c_no_new and c_said)
+    hon = bool(c_single_none and c_single_invents and c_not_in_base and ok_prune)
+    detail = (f"şema={sch} | k=17 şemasız={c_pre and 'çözemez' or 'ÇÖZER(!)'} "
+              f"adım={spec} | yeni icat={n_icat1 - n_icat0} | kullanım={used} | "
+              f"tek-üye: şema={'YOK' if c_single_none else 'VAR(!)'} "
+              f"icat={'var' if c_single_invents else 'YOK(!)'} | budama={'✓' if ok_prune else '✗'}")
+    return {"ad": "icadın şeması: görülmemiş parametre icat gerektirmeden kapsanır",
+            "capability": cap, "honesty": hon, "cevap": detail}
+
+
 PROBES = {"N1": n1_konum_olcumu, "N2": n2_uzun_vadeli_bellek,
           "N3": n3_iki_kural_kompozisyonu, "N4": n4_kalibrasyon,
           "N5": n5_alan_transferi, "N6": n6_oz_celiskisi,
@@ -1175,7 +1255,8 @@ PROBES = {"N1": n1_konum_olcumu, "N2": n2_uzun_vadeli_bellek,
           "N33": n33_surucu_kendi_tetikliyor,
           "N34": n34_sema_gorulmemis_parametre,
           "N35": n35_surucu_kendini_ayarliyor,
-          "N36": n36_surucu_kendi_semasini_kuruyor}
+          "N36": n36_surucu_kendi_semasini_kuruyor,
+          "N37": n37_icadin_semasi_gorulmemis_parametre}
 
 
 def main():

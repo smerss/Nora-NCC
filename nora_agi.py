@@ -4742,6 +4742,9 @@ class NoraAGI:
                                 "examples": [[a, b] for a, b in pairs],
                                 "origin": "icat"})
             sy.last = _prog
+            # İCAT DA İZ BIRAKIR: reify her başarılı yazımı görür (icat + kompozisyon
+            # tekrar ediyorsa o da bir makro olabilir). "Yazılan her şey aynı defterden geçer."
+            sy._notify(_prog.spec(), pairs)
             self._after_synth(_prog)
         except Exception:
             pass
