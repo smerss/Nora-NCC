@@ -84,7 +84,7 @@ class Program:
 class Synthesizer:
     """Örneklerden dönüşüm operatörü yazan ocak."""
 
-    MAX_DEPTH = 2
+    MAX_DEPTH = 3
 
     def __init__(self):
         self.programs: list[dict] = []      # kalıcı defter
@@ -111,6 +111,15 @@ class Synthesizer:
                 p = Program([(nm1, f1), (nm2, f2)], c1 + c2)
                 if all(p.apply(i) == o for i, o in examples):
                     found.append(p)
+        if found:
+            return self._dedupe(found, examples, outs)
+        # üç ilkel: sınır burada. Daha derini aranmaz (patlama), ve aranmadığı SÖYLENİR.
+        for nm1, f1, c1 in PRIMITIVES:
+            for nm2, f2, c2 in PRIMITIVES:
+                for nm3, f3, c3 in PRIMITIVES:
+                    p = Program([(nm1, f1), (nm2, f2), (nm3, f3)], c1 + c2 + c3)
+                    if all(p.apply(i) == o for i, o in examples):
+                        found.append(p)
         return self._dedupe(found, examples, outs)
 
     @staticmethod

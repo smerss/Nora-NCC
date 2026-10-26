@@ -1773,3 +1773,57 @@ A79 düştü. Doğru tepki tavanı yükseltmek değil, **türleri birleştirmek*
 
 **Uyarı, tekrar:** 15/15 bir AGI kanıtı değildir. Harita yine doydu; sıradaki iş
 N16+ ile yeniden sınır aramak.
+
+
+---
+
+## Aşama AG — Harita büyüdü (N16/N20/N22): sonda protokolü, sayı, zincir
+
+Cephe hattı sıfırdan yazıldı: **0/3 yetenek · 0/3 dürüstlük**. Üçünün de kapandığı
+yer, asıl kazanımın nerede olduğunu gösteriyor.
+
+### AG1. Sonda protokolü (N16)
+
+İki örnek bir kuralı tek başına belirlemiyordu:
+
+    kitap -> aik, kalem -> aek
+    aday: "alfabetik sırala → ilk 3 harfi al"  YA DA  "alfabetik sırala → son 2 harfi at"
+
+Nora **uydurmadı**, kaç aday kaldığını söyleyip ayırt edici örnek istedi
+(`masa hangi çıktıyı alır?`). Cevap gelince tek kural kaldı ve **görülmemiş** sözcüğe
+uygulandı: `bulut -> blt`. Öğrenme zinciri: örnek → soru → ayırt edici veri → kural.
+
+### AG2. Sayısal kıyas (N20)
+
+"Ali'nin boyu 180, Veli'nin boyu 175" → sayı olarak yazılır; "kim daha uzun?"
+karşılaştırma grafiğinden değil **sayıdan** çıkar: `ali (180) — veli 175`.
+"Kim daha kısa?" ters yönü verir. Bu, sıfat-sıralama grafiğinin yapamadığı şeydi.
+
+Yol boyunca bulunan hata: bu cümle daha önce epistemik hatta düşüp
+"Ali nin bonun 180'da santimetrdiğini kaydettim" gibi bozuk bir cümle üretiyordu.
+Artık sayı olgusu kendi hattında yazılır ve kısa bir itirafla onaylanır.
+
+### AG3. Adımlı zincir (N22)
+
+"Önce alfabetik sırala, sonra ilk üç harfini söyle" iki işlemi **sırayla** uygular ve
+ARA sonucu gösterir: `kitap -> aikpt -> aik`. Ara sonucu göstermek, sonucun nereden
+geldiğini denetlenebilir kılar.
+
+### AG4. Derinlik sınırı büyüdü
+
+`nora_synth` artık en fazla **üç** ilkelden program kurabiliyor (önce ikiydi). Arama
+uzayı büyüdüğü için önce davranış imzasıyla tekilleştirme yapılır; aynı fonksiyonu
+yazan programlar tek sayılır.
+
+### AG5. Ölçüler
+
+| ölçüm | sonuç |
+|---|---|
+| `agi_battery.py` tam | **98/98 GEÇTİ, 384.6 s** |
+| sınır haritası | **yetenek 18/18 · dürüstlük 18/18** (taban donduruldu) |
+| `nora_audit.py --check` | **1122 / SÖYLEM 127, fark +0** |
+| prior türü / insan operatörü | 67 / 9 = **7.44** (tavan 7.50) |
+
+**Yine uyarı:** 18/18 AGI demek değildir. Harita yine doydu; bir sonraki adım daha
+bütünleşik ölçüm (tek tek sorular değil, dakikalar süren öğrenme ve kendi hedefini
+kurma).
