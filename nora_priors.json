@@ -1802,6 +1802,33 @@
           "id": "mo2.b",
           "text": "Yapabildiklerim: {have}. Yapamadıklarım (adıyla): {missing}. Liste sabit değil; hangi kural/zincir/sembol bağlıysa o an güncelleniyor.",
           "bias": 0.95
+        },
+        {
+          "id": "mo.inv1",
+          "text": "Mevcut ilkellerimle çıkmıyordu; yeni bir ilkel icat ettim: {name}. Örneklerin hepsi tutuyor ({n}/{n}). {word} -> {out}.",
+          "when": {
+            "eq": {
+              "kind": "invented"
+            }
+          }
+        },
+        {
+          "id": "mo.inv2",
+          "text": "Kompozisyon tükendi. Yeni ilkel: {name} — {n} örnekle doğrulandı. {word} -> {out}.",
+          "when": {
+            "eq": {
+              "kind": "invented"
+            }
+          }
+        },
+        {
+          "id": "mo.multi",
+          "text": "{n} dönüşümüm var: {name}. Hangisini istersin?",
+          "when": {
+            "eq": {
+              "kind": "multi"
+            }
+          }
         }
       ]
     },

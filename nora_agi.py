@@ -69,6 +69,11 @@ from nora_nervous import (
     AutonomousConsciousnessNetwork,
     MetaConsciousReflector,
 )
+try:
+    from nora_abstract import Abstraction, build as abstract_build
+except Exception:  # soyutlama organı yoksa sistem yine çalışır
+    Abstraction = None
+    abstract_build = None
 from nora_episteme import EpistemicEngine, BeliefSpeech, TrustedResearcher
 try:
     from nora_sets import SetSynth
@@ -461,7 +466,12 @@ class NoraAGI:
         # Doğuştan eğilim her seçimde söner; yerini Nora'nın kendi pekiştirdiği ağırlıklar alır.
         try:
             from nora_priors import PriorField
-            self.priors = PriorField(entropy=getattr(self, "entropy", None))
+            # KENDİ ÜRETECİ: söz seçimi küresel `random` akışını kullanırsa aynı tohum
+            # başka testlerin tükettiği akışa göre farklı konuşur (A6 dalgalanması).
+            import random as _random
+            self._say_rng = _random.Random(int(getattr(self, "seed", 0)) * 7919 + 13)
+            self.priors = PriorField(entropy=getattr(self, "entropy", None),
+                                     rng=self._say_rng)
         except Exception:
             self.priors = None
         try:
@@ -532,6 +542,7 @@ class NoraAGI:
         # KÜME ORGANI: kesişim/birleşim/fark elle yazılmadı; aksiyomlardan sentezlenir.
         try:
             self.sets = SetSynth() if SetSynth is not None else None
+            self.abstract = Abstraction() if Abstraction is not None else None
         except Exception:
             self.sets = None
         self._forge_pending = None
@@ -4385,6 +4396,18 @@ class NoraAGI:
             sy.last = prog
         return prog
 
+    def _synth_programs(self) -> list:
+        """Yazılmış TÜM programlar (defterden geri kurulur). Son = güncel."""
+        sy = getattr(self, "synth", None)
+        if sy is None:
+            return []
+        out = []
+        for rec in (sy.programs or []):
+            p = sy.rebuild(rec.get("id"))
+            if p is not None:
+                out.append(p)
+        return out
+
     def _synth_say(self, spec):
         """Cümleyi KENDİ sözdizimi motorundan üret (kalıp cümle yok)."""
         try:
@@ -4451,6 +4474,9 @@ class NoraAGI:
             if st == "ambiguous":
                 return _amb(res)
             if res.get("why") == "program-yok":
+                _inv = self._invent_operator(pairs)
+                if _inv:
+                    return _inv
                 _v = self._synth_say(VerbSpec("çıkar", abl=NP("örnek", plural=True, case="ABL"),
                                              obj=NP("program", case="ACC"),
                                              tense="PAST", neg=True, person="1SG"))
@@ -4460,7 +4486,9 @@ class NoraAGI:
         # B) UYGULA: yazılmış programı adı geçen sözcüğe çalıştır.
         # NOT: "kuralı uygula" yalnız YAZILMIŞ BİR DÖNÜŞÜM varsa buraya girer; yoksa
         # forge'un kural hattına bırakılır (N3, N5). Sıra önemli: gasp etmemek.
-        prog = self._synth_program()
+        _all_progs = self._synth_programs()
+        _named = [p for p in _all_progs if p.desc() and tr_lower(p.desc()) in tl]
+        prog = _named[0] if _named else self._synth_program()
         _apply_ask = any(k in tl for k in ("dönüşümü uygula", "dönüşümü çalıştır",
                                            "dönüşümü dene", "yazdığın dönüşüm",
                                            "dönüşüm var mı"))
@@ -4487,6 +4515,14 @@ class NoraAGI:
                 _q = self._synth_say(VerbSpec("uygula", dat=NP("sözcük", case="DAT"),
                                               tense="OPT", person="1SG", question_yn=True))
                 return f"{prog.desc()}. {_q}?"
+            # BELİRSİZ İSTEK: birden çok dönüşüm varsa ve adı geçmiyorsa seçilmez;
+            # hepsi ADIYLA uygulanır. (Sessizce birini seçmek yalan olurdu.)
+            if not _named and len(_all_progs) > 1:
+                _rows = "; ".join(f"{p.desc()} -> {p.apply(word)}" for p in _all_progs[-4:])
+                return self._say("meta.operator",
+                                 {"name": _rows, "n": len(_all_progs),
+                                  "word": word, "out": ""},
+                                 ctx={"kind": "multi"}, fallback="") or f"{_rows}"
             return f"{word} -> {prog.apply(word)} ({prog.desc()})."
 
         # B2) TERS YAZIM: ilkellerden biri zaten "ters çevir"; operatör var.
@@ -4509,6 +4545,46 @@ class NoraAGI:
                                           tense="PAST", person="1SG"))
             return f"{_v}: {prog.desc()}."
         return None
+
+    # ------------------------------------------------------------------ icat
+    def _invent_operator(self, pairs) -> str | None:
+        """KOMPOZİSYON TÜKENDİYSE: izleri yaz, ortak biçimi çıkar, YENİ İLKEL öner.
+
+        Sıra önemli ve dürüstlüğün ta kendisi: önce mevcut uzay denenir (çağıran taraf
+        `synth.learn` ile denedi ve başarısız oldu); buraya yalnız TIKANINCA gelinir.
+        """
+        ab = getattr(self, "abstract", None)
+        sy = getattr(self, "synth", None)
+        if ab is None or sy is None:
+            return None
+        ab.observe(pairs, why="program-yok")
+        prop = ab.propose(pairs, composition_exists=False,
+                          register=lambda nm, fn: sy.add_primitive(nm, fn))
+        if prop.get("status") != "invented":
+            return None
+        fn = abstract_build(prop["family"], prop["params"])
+        if fn is None:
+            return None
+        # İCAT YALNIZ İLKEL OLARAK KALMAZ: bir PROGRAM olarak da yazılır ki sonra
+        # "yazdığın dönüşümü uygula" ile çağrılabilsin (ve kayıt/yüklemede dursun).
+        try:
+            from nora_synth import Program
+            _prog = Program([(prop["name"], fn)], cost=1)
+            _prog.rid = f"icat.{len(ab.invented)}"
+            sy.programs.append({"id": _prog.rid, "ops": _prog.spec(),
+                                "desc": _prog.desc(),
+                                "examples": [[a, b] for a, b in pairs],
+                                "origin": "icat"})
+            sy.last = _prog
+        except Exception:
+            pass
+        unseen = next((w for w in ("deniz", "masa", "zeytin", "bulut", "portakal")
+                       if w not in [a for a, _b in pairs]), "bulut")
+        out = fn(unseen)
+        return self._say("meta.operator",
+                         {"name": prop["name"], "n": int(prop.get("n", 0)),
+                          "word": unseen, "out": out},
+                         ctx={"kind": "invented"}, fallback="") or None
 
     # ------------------------------------------------------------------ oturum defteri
     @staticmethod
@@ -5979,6 +6055,8 @@ class NoraAGI:
             "sets": (self.sets.state_dict() if getattr(self, "sets", None) is not None else {}),
             "goals_done": int(getattr(self, "_goals_done", 0)),
             "calib": {k: list(v) for k, v in (getattr(self, "calib", {}) or {}).items()},
+            "abstract": (self.abstract.state() if getattr(self, "abstract", None) is not None else {}),
+            "num_facts": {a: dict(t) for a, t in (getattr(self, "num_facts", {}) or {}).items()},
             "testimony": (self.testimony.state_dict() if getattr(self, "testimony", None) is not None else {}),
             "plans": {"goal": self._plan_goal, "steps": list(self.plans.get(self._plan_goal) or [])},
         }
@@ -6076,6 +6154,18 @@ class NoraAGI:
             if getattr(agi, "sets", None) is not None:
                 agi.sets.load_state_dict(meta.get("sets") or {})
             agi._goals_done = int(meta.get("goals_done") or 0)
+            try:
+                agi.num_facts = {str(a): {str(w): float(v) for w, v in (t or {}).items()}
+                                 for a, t in (meta.get("num_facts") or {}).items()}
+            except Exception:
+                pass
+            if getattr(agi, "abstract", None) is not None:
+                agi.abstract.load_state(meta.get("abstract") or {})
+                if getattr(agi, "synth", None) is not None and abstract_build is not None:
+                    for _rec in agi.abstract.invented:
+                        _fn = abstract_build(_rec.get("family"), _rec.get("params"))
+                        if _fn is not None:
+                            agi.synth.add_primitive(_rec["name"], _fn)
             agi.calib = {str(k): [int(x[0]), int(x[1])]
                          for k, x in (meta.get("calib") or {}).items()
                          if isinstance(x, (list, tuple)) and len(x) >= 2}

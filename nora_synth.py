@@ -119,9 +119,14 @@ class Program:
         return [name for name, _ in self.ops]
 
     @classmethod
-    def from_spec(cls, names: list[str]) -> "Program | None":
-        """Kayıtlı bir programı yeniden kur (başka oturumda da çalışsın)."""
-        by_name = _PRIM_BY_NAME
+    def from_spec(cls, names: list[str], spec_map: dict | None = None) -> "Program | None":
+        """Kayıtlı bir programı yeniden kur (başka oturumda da çalışsın).
+
+        `spec_map` verilirse (ör. örnek düzeyinde İCAT EDİLMİŞ ilkeller) ondan kurulur.
+        """
+        by_name = dict(_PRIM_BY_NAME)
+        if spec_map:
+            by_name.update({k: (k, f) for k, f in spec_map.items()})
         ops = []
         for nm in names or []:
             if nm not in by_name:
@@ -141,8 +146,20 @@ class Synthesizer:
     def __init__(self):
         self.programs: list[dict] = []      # kalıcı defter
         self.last: Program | None = None
+        #: İCAT EDİLMİŞ ilkeller (bu örneğe özel; küresel durumu kirletmesin).
+        self.extra: list[tuple] = []
         #: Ayırt edici örnek bekleyen adaylar (belirsizlik UYDURULMAZ, çözülür).
         self._pending: tuple[list[Program], list[tuple[str, str]]] | None = None
+
+    def add_primitive(self, name: str, fn, cost: int = 1) -> None:
+        """Fail izlerinden çıkan ilkeli bu örneğin uzayına ekle."""
+        name = str(name or "")
+        if not name or any(nm == name for nm, _f, _c in self.extra):
+            return
+        self.extra.append((name, fn, int(cost)))
+
+    def spec_map(self) -> dict:
+        return {nm: fn for nm, fn, _c in self.extra}
 
     # ------------------------------------------------------------------ arama
     def _candidates(self, examples: list[tuple[str, str]]) -> list[Program]:
@@ -150,6 +167,13 @@ class Synthesizer:
             return []
         outs = [o for _i, o in examples]
         found: list[Program] = []
+        # 0) İCAT EDİLMİŞ ilkeller: kendi yazdığım adımlar en önce denenir.
+        for nm, fn, c in self.extra:
+            p = Program([(nm, fn)], c)
+            if all(p.apply(i) == o for i, o in examples):
+                found.append(p)
+        if found:
+            return self._dedupe(found, examples, outs)
         # tek ilkel
         for nm, fn, c in PRIMITIVES:
             p = Program([(nm, fn)], c)
@@ -183,7 +207,7 @@ class Synthesizer:
                 found.append(p)
         if found:
             return self._dedupe(found, examples, outs)
-        pool = list(PRIMITIVES) + list(FILTER_PRIMITIVES)
+        pool = list(PRIMITIVES) + list(FILTER_PRIMITIVES) + list(self.extra)
         for nm1, f1, c1 in pool:
             for nm2, f2, c2 in pool:
                 p = Program([(nm1, f1), (nm2, f2)], c1 + c2)
@@ -296,7 +320,7 @@ class Synthesizer:
         rec = next((r for r in self.programs if str(r.get("id")) == str(rid)), None)
         if not rec:
             return None
-        p = Program.from_spec(list(rec.get("ops") or []))
+        p = Program.from_spec(list(rec.get("ops") or []), spec_map=self.spec_map())
         if p is not None:
             p.rid = str(rec.get("id") or "")
         return p

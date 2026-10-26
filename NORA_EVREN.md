@@ -2109,3 +2109,110 @@ son-işleme adımlarından SONRA yapılıyor. Tek koşuda 4/4, tam koşuda 101/1
 | `integrate_battery.py` | **10/10**, kalıcılık **4/4** |
 | `nora_audit.py --check` | SÖYLEM 127 (**+0**); toplam +1 (söylem dışı modülde tek dizge) |
 | prior türü / insan operatörü | 67 / 9 = **7.44** (yeni cümleler MEVCUT türlere yazıldı) |
+
+
+---
+
+## Aşama AL — İcat: kompozisyonun tıkandığı yerde yeni ilkel (N29)
+
+Kullanıcının ayrımı bu aşamanın ekseni oldu:
+
+    KOMPOZİSYON : var olan uzayda yol bulmak
+    İCAT        : uzayı genişletmek
+
+Bugüne kadarki her başarı kompozisyondu — uzayı hep insan genişletti (bind, apply,
+süzgeç). Bu aşamada ilk kez **takılma** ölçüldü ve takılınca ne olduğu sınandı.
+
+### AL1. `nora_abstract`: başarısızlık izinden ilkel önerisi (N29)
+
+Akış (sıra, dürüstlüğün ta kendisi):
+
+1. Örnekler gelir; `synth.learn` **önce mevcut uzayı** dener (ilkeller + süzgeç +
+   derinlik 3). Çözerse icat YOKTUR: "gerek yok".
+2. Çözemezse iz yazılır (`observe`), ortak biçim çıkarılır: üç yasa biçimi denenir —
+   `kaydırma`, `döndürme`, `ikame`. Parametreler örneklerden **hesaplanır**.
+3. Aday, örneklerin **tamamını** açıklamak zorunda. Aynı yalınlıkta iki aday kalırsa
+   seçilmez ("belirsiz").
+4. Kabul edilen ilkel örneğin uzayına eklenir (`synth.add_primitive`) **ve** bir
+   program olarak deftere yazılır — sonra "yazdığın dönüşümü uygula" ile çağrılır,
+   kayıt/yüklemede durur.
+
+Ölçüm (ilk koşu, hiçbir müdahale yok):
+
+```
+S: Şu dönüşümü öğren: kitap -> ljubq, kalem -> lbmfn.
+N: Mevcut ilkellerimle çıkmıyordu; yeni bir ilkel icat ettim: kaydırma(+1).
+   Örneklerin hepsi tutuyor (2/2). deniz -> efojç.
+S: Yazdığın dönüşümü uygula: bulut
+N: bulut -> cvmvu (kaydırma(+1)).
+   (kaydet/yükle sonrası) masa -> nbtb
+```
+
+Sondanın beklenen değerleri **elle yazılmadı**: kaydırma alfabesi veri olarak alındı,
+sonuç kodla hesaplandı; ayrıca `chr(ord+1)` ile çapraz doğrulama yapıldı (iki bağımsız
+hesap uyuşmazsa sonda kendini reddeder).
+
+**Dürüst sınır:** icat uzayı (üç yasa biçimi) insanın verdiği ön-yargıdır. Sistemin
+kattığı: hangi biçimin, hangi parametreyle, hangi örnek kümesini açıkladığı — ve bunun
+denenerek doğrulanması. "Uzayı tamamen kendi açtı" değil; "verilen biçimler içinden
+doğru olanı ölçerek seçti ve kalıcı ilkel olarak kaydetti".
+
+### AL2. Müdahalesiz çok oturumlu görev (`solo_gorev.py`)
+
+Üç oturum, aralarda süreç kapanır (yalnız `save`/`load` köprüsü). Oturum 1: dönüşüm +
+olgular. Oturum 2: YENİ bir dönüşüm (kompozisyon yetmiyor → icat). Oturum 3: 10 soruluk
+karışık sınav (görülmemiş sözcükler, iki tanığın çelişkisi, sayı kıyası, defter, reddetme).
+
+**İlk koşu: 8/10.** İki başarısızlık, iki ayrı müdahale:
+
+| # | belirti | kök neden | düzeltme |
+|---|---|---|---|
+| 1 | `portakal -> qpsublbm` (ters değil) | iki operatör varken "dönüşümü uygula" **sessizce sonuncuyu** seçiyordu | adı geçmiyorsa **hepsi adıyla** sunulur: "2 dönüşümüm var: ters çevir -> lakatrop; kaydırma(+1) -> qpsublbm" |
+| 2 | "Kim daha uzun?" → "Buradayım, dinliyorum." | `num_facts` kaydedilmiyordu | sayısal olgular `save`/`load`a eklendi |
+
+**İkinci koşu: 10/10.** Müdahale sayısı: **2** (ikisi de görev sırasında değil, ilk
+koşunun ölçümünden sonra).
+
+### AL3. Söz artık test sırasına bağlı değil (A6 dalgalanması, kökten)
+
+A6 tam koşuda bir kez düştü ("öz-tanım ayrıştı=False", fark +0.08), tek başına iki kez
+geçti (+0.41). Kök neden: söz seçimi **küresel `random` akışını** kullanıyordu; aynı
+tohum, önceki testlerin tükettiği akışa göre farklı konuşuyordu. Her örneğe kendi
+üreteci verildi (`PriorField(rng=Random(seed*7919+13))`). Aynı tohum → aynı söz,
+test sırasından bağımsız. Tam koşu: 101/101.
+
+### AL4. Yuva bütünlüğü: eksik yuvalı cümle yarışa giremez
+
+Bir prior, metnindeki `{yuva}` verilmemişse artık **uygun sayılmıyor**. Önceden
+"Kayıtlı  operatörüm var: . Bende OLMAYANLAR: ." gibi boşluklu cümleler çıkabiliyordu —
+sessiz yalan. Bu düzeltme, "kendi yazdığı ilkel" cevabının doğru cümleye düşmesini de
+sağladı.
+
+### AL5. Kalibrasyon n=50 (uyarı ciddiye alındı)
+
+n=12 küçüktü: 53 göreve çıkarıldı (12 ters, 12 aritmetik, 29'u iki ayrı "organ yok"
+sınıfı). Beklenen değerler kodla hesaplandı.
+
+```
+bilinmeyen-1  %30 → %4       bilinmeyen-2  %30 → %4
+bilinen sınıf %97            Brier (n=53) = 0.011
+```
+
+### AL6. Ölçüler
+
+| ölçüm | sonuç |
+|---|---|
+| `agi_battery.py` (101 test) | **101/101 GEÇTİ, 396.6 s** |
+| sınır haritası | **25/25 · 25/25** (taban 25/25) |
+| `solo_gorev.py` (müdahalesiz) | **10/10**, müdahale **2** |
+| `heldout_sealed.py` | **4/4** |
+| `integrate_battery.py` | **10/10**, kalıcılık **4/4** |
+| `nora_audit.py --check` | SÖYLEM 127 (**+0**), toplam +1 |
+| prior türü / insan operatörü | 67 / 9 = **7.44** |
+
+### AL7. Sıradaki duvar
+
+İcat şu an **parametre** düzeyinde: biçim (kaydırma/döndürme/ikame) insandan geliyor.
+Bir sonraki eşik Nora'nın **yeni bir yasa biçimi** önermesi: takıldığı örneklerden
+"bu, harf başına konuma bağlı bir eşleme" gibi bir *şablon* çıkarması. O gün "uzayı
+Nora açtı" cümlesi ölçülmüş olur.
