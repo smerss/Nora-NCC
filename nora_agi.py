@@ -267,6 +267,10 @@ class ComparativeOrderGraph:
         return cands[0] if len(cands) == 1 else (cands[0] if cands else None)
 
 
+class _NoMint(Exception):
+    """Yapısal kural yazılmadı: 'kodladım' demek yerine normal öğretme yoluna dön."""
+
+
 class TheoryOfMindTracker:
     """Zihin Kuramı (Sally-Anne yanlış-inanç modeli): gerçek dünya konumu ile her ajanın
     gözlemlediği inanç konumunu ayrı ayrı izler!"""
@@ -474,6 +478,13 @@ class NoraAGI:
                                        step=int(getattr(self.mind, "age", 0)))
         except Exception:
             self.forge = None
+        # KİŞİSEL BELLEK: karşıdakinin söylediği olgular (dünya grafiğinden AYRI).
+        # A54'ün şartı korunur: anlatı kavram ağını kirletmez; ama unutulmaz da.
+        try:
+            from nora_episodic import PersonalMemory
+            self.person_mem = PersonalMemory()
+        except Exception:
+            self.person_mem = None
         self._forge_pending = None
         self.last_auditory = None
         self.audio_log: list = []
@@ -1203,6 +1214,14 @@ class NoraAGI:
         except Exception:
             pass
         self._remember_focus(raw)
+        # KİŞİSEL OLGU: karşıdaki bir şey SÖYLEDİYSE (soru değilse) açık kalıpla yazılır.
+        self._learned_facts = []
+        try:
+            if getattr(self, "person_mem", None) is not None:
+                self.person_mem.turn = len(getattr(self, "dialogue_log", []) or [])
+                self._learned_facts = self.person_mem.observe(raw, speaker=speaker) or []
+        except Exception:
+            self._learned_facts = []
         self.life.on_interaction(self, raw, speaker)
         # Kullanıcı, Nora'nın kendiliğinden söylediği söze karşılık verdi: o konuşma türü pekişir.
         try:
@@ -1325,6 +1344,29 @@ class NoraAGI:
             self._intent_locked = True
             self._log_turn(speaker, raw, _ct, t0)
             return _ct
+        # ÖĞRENME ANI: az önce KİŞİSEL bir olgu yazıldıysa söz onu kabul eder.
+        # Bu kapı olmasa dünya-bilgisi hattı cümleyi çekip bozuk Türkçe üretiyordu
+        # ("kardeşimin adı ayşedir").
+        _lf = [r for r in (getattr(self, "_learned_facts", None) or [])
+               if not (r.get("subj") == "benim" and r.get("rel") == "ad")]
+        if _lf:
+            _rec0 = _lf[0]
+            self._intent_locked = True
+            _ph = self._fact_phrase(_rec0)
+            _ack = self._cap_tr(self._say("memory.personal",
+                                          {"phrase": _ph,
+                                           "turn": int(_rec0.get("turn") or 0) + 1},
+                                          ctx={"kind": "learned"}, fallback=_ph))
+            self._log_turn(speaker, raw, _ack, t0)
+            return _ack
+        try:
+            _pm = self._recall_personal(raw)
+        except Exception:
+            _pm = None
+        if _pm:
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _pm, t0)
+            return _pm
         try:
             _tr = self._topic_recall(raw)
         except Exception:
@@ -1968,11 +2010,19 @@ class NoraAGI:
                 # AMA yapısal kural kavram ağının YERİNE geçmez: "kodladım" dedikten sonra
                 # "X neyden olur?" sorusunun cevapsız kalması sahte anlamadır. Nedensel
                 # çerçeve çözüldüyse kenar da yazılır (iki ayrı bellek, ikisi de gerçek).
-                if fr.rel in ("CAUSES", "IF_THEN") and fr.subj and fr.obj:
+                # HER İLİŞKİ yazılır (yalnız nedensel olanlar değil): "kodladım" dedikten
+                # sonra "X nedir?" sorusunun cevapsız kalması sahte anlamadır. Yapısal
+                # kural (mint) ile olgu kenarı iki ayrı bellektir; ikisi de gerçek olmalı.
+                _wrote = []
+                if fr.subj and fr.obj:
                     try:
-                        self.lang.teach_sentence(raw, speaker=speaker)
+                        _wrote = self.lang.teach_sentence(raw, speaker=speaker) or []
                     except Exception:
-                        pass
+                        _wrote = []
+                if not _wrote:
+                    # YAZILMADIYSA "kodladım" DENMEZ: sahte öğrenme iddiası, hiç
+                    # öğrenmemekten kötüdür (sessiz yalan).
+                    raise _NoMint()
                 syn_tf = self.broca_organ.syn
                 c_tf = syn_tf.realize_verb(VerbSpec(
                     verb_root="kodla", obj=NP("ilişki", mods=("bu",), case="ACC"),
@@ -3462,6 +3512,66 @@ class NoraAGI:
                                  ctx={"register": "op_missing"}, fallback=name)
         return None
 
+    def _recall_personal(self, raw: str) -> str | None:
+        """KİŞİSEL OLGU HATIRLAMA: 'kardeşimin adı neydi?'
+
+        Dünya grafiğine DEĞİL kişisel belleğe bakar (A54: anlatı kavram ağını kirletmez).
+        Kaynak her zaman söylenir: Nora bir şeyi biliyorsa, KİMDEN bildiğini de bilir.
+        Depoda yoksa None döner; üst katman uydurmaz.
+        """
+        pm = getattr(self, "person_mem", None)
+        if pm is None:
+            return None
+        low = tr_lower(raw or "")
+        if "?" not in (raw or "") and not any(k in low for k in ("neydi", "ne ", "kim",
+                                                                 "hatırlıyor musun")):
+            return None
+        rec = pm.recall(raw)
+        if not rec:
+            return None
+        # KULLANICININ KENDİ ADI: profil/kişi belleği cevaplar (sıra orada kurulu).
+        if rec.get("subj") == "benim" and rec.get("rel") == "ad":
+            return None
+        self._apply_tag("bellek", 1)
+        _turn = int(rec.get("turn") or 0) + 1
+        # ÇELİŞKİ: eski değer sessizce ezilmez; TEK cümlede ikisi de söylenir.
+        if rec.get("onceki"):
+            _prev = dict(rec)
+            _prev["val"] = rec["onceki"]
+            return self._cap_tr(self._say("memory.personal",
+                                          {"phrase": self._fact_phrase(rec),
+                                           "onceki": self._fact_phrase(_prev),
+                                           "turn": _turn},
+                                          ctx={"kind": "prev"},
+                                          fallback=f"Önce {self._fact_phrase(_prev)} demiştin."))
+        return self._cap_tr(self._say("memory.personal",
+                                      {"phrase": self._fact_phrase(rec), "turn": _turn},
+                                      fallback=self._fact_phrase(rec)))
+
+    @staticmethod
+    def _cap_tr(text: str) -> str:
+        """İlk harfi Türkçe kuralla büyüt (i -> İ, ı -> I)."""
+        t = (text or "").strip()
+        if not t:
+            return t
+        up = {"i": "İ", "ı": "I"}.get(t[0], t[0].upper())
+        return up + t[1:]
+
+    @staticmethod
+    def _fact_phrase(rec: dict) -> str:
+        """Kişisel olguyu 2. kişiyle, dilbilgisi doğru tek ifadeye çevirir."""
+        from nora_episodic import genitive, to_second_person
+        subj = to_second_person(rec.get("subj") or "")
+        val = str(rec.get("val") or "")
+        rel = rec.get("rel")
+        if rel == "ad":
+            return f"{genitive(subj)} adı {val}"
+        if rel == "yaş":
+            return f"{genitive(subj)} yaşı {val}" if val.isdigit() else f"{genitive(subj)} yaşı {val}"
+        if rel == "sever":
+            return f"en sevdiğin {rec.get('q') or ''} {val}".replace("  ", " ")
+        return f"{genitive(subj)} {rel} {val}"
+
     def _notice_contradiction(self, raw: str) -> str | None:
         """KARŞIDAKİNİN ÖZ-ÇELİŞKİSİ: aynı konuda ters yönde iki söz.
 
@@ -4805,6 +4915,7 @@ class NoraAGI:
             "provenance": (self.provenance.state_dict() if getattr(self, "provenance", None) is not None else {}),
             "register": (self.register.state_dict() if getattr(self, "register", None) is not None else {}),
             "apply": (self.apply_eng.state_dict() if getattr(self, "apply_eng", None) is not None else {}),
+            "person_mem": (self.person_mem.state_dict() if getattr(self, "person_mem", None) is not None else {}),
         }
         # ATOMİK YAZMA: önce .tmp, sonra os.replace. Yazma yarıda kesilirse ESKİ sağlam
         # dosya yerinde kalır (tek satır kaybı bile olmaz; yarım beyin yüklenmez).

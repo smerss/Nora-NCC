@@ -2136,6 +2136,54 @@
           }
         }
       ]
+    },
+    "memory.personal": {
+      "desc": "Karşıdakinin SÖYLEDİĞİ kişisel olguyu hatırlama. Kaynak her zaman söylenir; olgu yoksa bu aile hiç konuşmaz (uydurma yok).",
+      "priors": [
+        {
+          "id": "mem.p.a",
+          "text": "Bana söylediğine göre {phrase}."
+        },
+        {
+          "id": "mem.p.b",
+          "text": "{phrase}. Bunu {turn}. turda söylemiştin."
+        },
+        {
+          "id": "mem.p.c",
+          "text": "Hatırlıyorum: {phrase}. Kaynağım senin sözün."
+        },
+        {
+          "id": "mem.p.d",
+          "text": "{phrase} — bunu bana sen söylemiştin."
+        },
+        {
+          "id": "mem.p.learn",
+          "text": "Not ettim: {phrase}. Bunu bana sen söyledin, kaynağı senin sözün.",
+          "when": {
+            "eq": {
+              "kind": "learned"
+            }
+          }
+        },
+        {
+          "id": "mem.p.learn2",
+          "text": "{phrase} — aklımda tutuyorum; kaynağını da yazdım.",
+          "when": {
+            "eq": {
+              "kind": "learned"
+            }
+          }
+        },
+        {
+          "id": "mem.p.prev",
+          "text": "Önce {onceki} demiştin; şimdi {phrase}. Hangisi geçerli?",
+          "when": {
+            "eq": {
+              "kind": "prev"
+            }
+          }
+        }
+      ]
     }
   },
   "forge_why": {

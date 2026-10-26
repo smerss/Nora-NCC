@@ -1515,3 +1515,100 @@ bu harita onu ölçmez. Nora'nın kendi cevabı da bu: sorulduğunda "bilinç id
 | `nora_audit.py --check` | **1122 / SÖYLEM 127, fark +0** |
 | sınır haritası | **yetenek 6/10 · dürüstlük 10/10** (tur başı 2/10 · 6/10) |
 | prior türü / insan operatör | **66 / 9** — değişmedi |
+
+
+---
+
+## Aşama AD — Konum ölçümü + kişisel bellek + tek atışta kavram (N1, N2, N7 kapandı)
+
+Aşama AC'nin sınır haritası 2/10 yetenek gösteriyordu. Bu turda üç sonda kapandı:
+`N1` konum, `N2` 40 tur sonra hatırlama, `N7` tek atışta kavram edinimi.
+
+### AD1. Konum ölçümü — ölçüm uzayına "NEREDE" girdi
+
+Bütün önceki ölçümler yüzeyin TAMAMINA bakıyordu (son ek, ön ek, harf varlığı, fark,
+birleşim). Hiçbiri *harfin nerede olduğunu* temsil edemiyordu. Yeni ölçüm türü:
+
+```
+{"kind": "pos", "i": 0, "cls": "vowel"}      -> "ilk harf sesli"
+{"kind": "pos", "i": -1, "cls": "consonant"} -> "son harf sessiz"
+```
+
+`_position` bunları `_invent` içinde kendisi dener (i ∈ {0,1,2,3,-1,-2,-3} × {sesli, sessiz}),
+ayıranı ölçüm olarak kaydeder ve kuralın içine `feature_spec` ile koyar. Sıra artık:
+
+    son ek → ön ek → ünlü uyumu kalıbı → harf → KONUM → birleşim → fark
+
+Dürüst ayrıntı: "elma/okul/üzüm/ödev" verisini "sondan üçüncü harf sessiz" de açıklıyor
+(Türkçe CVCV). Nora bunu **gizlemedi**: kaç aday kaldığını söyleyip ayırt edici örnek
+istedi (`'aktarma' hangi etiketi alır?`). Yanıt gelince tek kurala indi.
+
+### AD2. Kişisel bellek — duyduğunu unutmuyor, ağ kirlenmiyor
+
+A54 "anlatı kavram ağını kirletmesin" diyordu ve sistem bunu **unutmakla** karıştırmıştı:
+"Kardeşimin adı Elif" cümlesi geri yansıtılıyor, hiçbir yere yazılmıyordu. Doğru ayrım:
+
+| bilgi | yeri |
+|---|---|
+| dünya bilgisi ("kuşlar uçar") | kavram ağı (`nora_lang.graph`) |
+| **kişi bilgisi** ("kardeşimin adı Elif") | **`nora_episodic.PersonalMemory`** |
+
+Özellikler: açık kalıplar (ad / yaş / en sevdiği), kaynak + tur numarası, çelişkide eski
+değerin `onceki` alanında **saklanması** (sessiz ezme yok), soru cümlesinden öğrenmeme,
+2. kişiye çeviri (`kardeşim → kardeşinin adı`) ve kalıcılık (`save/load`).
+
+```
+1: Kardeşimin adı Elif, onu çok severim.     -> "Not ettim: kardeşinin adı elif..."
+   [40 tur]
+2: Kardeşimin adı neydi?                     -> "Bana söylediğine göre kardeşinin adı elif."
+3: Kardeşimin adı Ayşe.                      -> (yeni değer; eskisi silinmiyor)
+4: Kardeşimin adı neydi?                     -> "Önce kardeşinin adı elif demiştin;
+                                                 şimdi kardeşinin adı ayşe. Hangisi geçerli?"
+```
+
+Kavram ağı temiz kalıyor: `("elif" içeren kenar) == 0` (A54'ün şartı korundu).
+
+### AD3. Tek atışta kavram edinimi — "kodladım" artık gerçek
+
+"Sorvath bir alettir" dendiğinde sistem "Bu ilişkiyi kendi başıma kodladım" diyor ama
+kavram ağına **hiçbir şey yazmıyordu** (yalnız CAUSES/IF_THEN yazılıyordu). Bu sessiz bir
+yalandı: iki tur sonra aynı soru yine cevapsızdı. Üç düzeltme:
+
+1. **`teach_sentence` virgülle bölüyor** ("Zorvath bir alet türüdür, kayaları keser") —
+   ama yalnız iki yarı da kendi yüklemini taşıyorsa (liste cümleleri bölünmesin).
+2. **Her ilişki yazılıyor**, yalnız nedensel olanlar değil.
+3. **"kodladım" yalnız GERÇEKTEN yazıldıysa deniyor** (`_mint_write`); yazılmadıysa o dal
+   hiç seçilmiyor ve söz normal öğretme yolundan çıkıyor.
+
+```
+S: Zorvath nedir?   -> "bilgim yok ..."                       (uydurma yok)
+S: Zorvath bir alet türüdür, kayaları keser.
+S: Zorvath nedir?   -> "Zorvath bir alet türüdür."             (0 epoch)
+```
+
+### AD4. Yan etki: A22 ve A16 regresyonları
+
+- **A22**: kişisel bellek "benim adım neydi" SORUSUNU olgu sanıp ("benim/ad/neydi")
+  kaydetti; sonra kendi kaydını cevapladı. Düzeltme: soru izleri (`neydi`, `kaç`, `hangi`…)
+  ve soru sözcükleri değer olarak **yazılmıyor**; kullanıcının kendi adı bu belleğin işi
+  değil (profil sistemi cevaplar).
+- **A90**: yeni konum ölçümü, eski A90 verisini ("kaplan/zambak/portakal") tek başına
+  açıklıyordu (sondan üçüncü harf). Bu **doğru davranış**: daha yalın ölçüm varsa fark
+  icat edilmez. Test verisi, hiçbir konum kuralının tutmadığı biçimde yenilendi
+  (sağlık/spor/hayvan vs etme/bilimi/açık) ve o veride fark + belirsiz eşik akışı çalıştı.
+
+### AD5. Yeni batarya testleri
+
+- **A93** (6/6): konum ölçümü icadı — spec `pos`, şekil `varlık`, 8 yeni sözcükte doğru.
+- **A94** (7/7): kişisel bellek — 40 tur sonra hatırlama, kaynak, ağ temizliği,
+  sorudan öğrenmeme, çelişkiyi ezmeme, tek atışta kavram, sahte "kodladım" yok.
+
+### AD6. Bu turun sayıları
+
+| ölçüm | sonuç |
+|---|---|
+| `agi_battery.py` tam | **94/94 GEÇTİ, 369.5 s** |
+| dış batarya / mühürlü | **9/9** · **4/4 · 4/4 · 4/4** |
+| `nora_audit.py --check` | **1122 / SÖYLEM 127, fark +0** |
+| sınır haritası | **yetenek 9/10 · dürüstlük 10/10** (tur başı 2/10 · 6/10) |
+| prior türü / insan operatörü | 67 / 9 = **7.44** (tavan 7.50) |

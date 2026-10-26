@@ -34,7 +34,7 @@ import pathlib
 from dataclasses import dataclass
 
 from nora_apply import (FEATURES, OPERATORS, SHORT_NAMES, Interpreter, Rule,
-                        num_abl, register_feature)
+                        feature_spec_fn, num_abl, register_feature)
 
 #: İNSANIN verdiği ölçümler. Tümevarım bunlarla başlar; ama tavan değildir: Nora'nın
 #: kendi icat ettiği ölçümler de (envanter) arama uzayına girer — bkz. `search_features`.
@@ -306,7 +306,7 @@ class OperatorForge:
             lo = min(n for n, _ in meas)
             kind = kind_of.get(feat, "")
 
-            if kind in ("suffix", "prefix", "letter", "suffix_pattern", "and"):
+            if kind in ("suffix", "prefix", "letter", "suffix_pattern", "and", "pos"):
                 b: dict[str, set] = {}
                 for n, lab in meas:
                     b.setdefault("var" if int(n) else "yok", set()).add(lab)
@@ -542,6 +542,11 @@ class OperatorForge:
                 continue
             if all(ch in t.lower() for t in pos) and not any(ch in t.lower() for t in neg):
                 add("letter", ch, f"'{ch}' harfi")
+        # KONUM: hiçbir yüzey düzenliliği yoksa ölçüm harfin NEREDE olduğu olabilir.
+        # ("ilk harfi sesli olanlar A, olmayanlar B".) Son ek/ön ek/harf varlığı konumu
+        # temsil edemez; bu yüzden ayrı bir basamak.
+        if not out:
+            out.extend(self._position(pos, neg, pos_lab, other))
         # BİRLEŞİM: iki harf TEK BAŞINA yetmiyorsa, İKİSİ BİRLİKTE ayırıyor olabilir.
         # (XOR yapısı: her negatif iki harften en az birini taşımıyor, pozitiflerin
         # hepsi ikisini de taşıyor.) Tek başına ayıran bir aday varsa buraya gelinmez.
@@ -551,6 +556,33 @@ class OperatorForge:
         # bulunduysa bileşik aranmaz: aynı veriyi iki aday açıklarsa belirsizlik doğar.
         if not out:
             out.extend(self._composite(ex))
+        return out
+
+    def _position(self, pos: list[str], neg: list[str], pos_lab, other) -> list[Hypothesis]:
+        """KONUM ÖLÇÜMÜ: 'i. harf sesli/sessiz' sınıfları ayırıyor mu?
+
+        Denenen konumlar: baştan 0..3 ve sondan -1..-3. Sınıflar: sesli, sessiz.
+        Ölçüt aynı: pozitiflerin HEPSİNDE 1, negatiflerin HİÇBİRİNDE 1 değil.
+        (Tek bir harfin kendisi zaten `letter` basamağında denendi; burada konum var.)
+        """
+        from nora_apply import pos_name
+        out: list[Hypothesis] = []
+        for i in (0, 1, 2, 3, -1, -2, -3):
+            for cls in ("vowel", "consonant"):
+                spec = {"kind": "pos", "i": int(i), "cls": cls}
+                fn = feature_spec_fn(spec)
+                if not all(fn(w) for w in pos):
+                    continue
+                if any(fn(w) for w in neg):
+                    continue
+                key = f"kendi.pos.{i}.{cls}"
+                if key not in FEATURES:
+                    try:
+                        register_feature(key, pos_name(spec), spec)
+                    except Exception:
+                        continue
+                out.append(Hypothesis(key, "presence", (("var", pos_lab), ("yok", other)),
+                                      spec=spec))
         return out
 
     def _conjunction(self, pos: list[str], neg: list[str], pos_lab, other) -> list[Hypothesis]:
