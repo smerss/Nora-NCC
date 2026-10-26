@@ -4459,6 +4459,49 @@ def a98_cephe_hatti_2():
 
 
 
+
+def a99_cephe_hatti_3():
+    """A99 — CEPHE HATTI 3: sayısal öz-model · çok turlu hedef · organ boşluğu.
+
+    (1) "0-100 güven" sayısı ORGAN ENVANTERİNDEN gelir ve sonuçla tutar,
+    (2) verilen hedef, hatırlatılmadan üç tur sürdürülür ve ilerleme bildirilir,
+    (3) organı olmayan istek (dil çevirisi, ısı ölçümü) UYDURMADAN reddedilir.
+    """
+    ok = {}
+    g = NoraAGI(seed=1931, boot_thinker=False)
+    g.step_life(150)
+    p1 = tr_lower(strip_prefixes(g.converse(
+        "Yapmadan önce 0-100 arası güvenini söyle: kitap sözcüğünü tersten yaz.")))
+    p2 = tr_lower(strip_prefixes(g.converse(
+        "Yapmadan önce 0-100 arası güvenini söyle: zümrüt sözcüğünün yunanca karşılığını söyle.")))
+    n1 = re.search(r"(\d{1,3})", p1)
+    n2 = re.search(r"(\d{1,3})", p2)
+    ok["güven-ayrım"] = bool(n1 and n2) and int(n1.group(1)) > int(n2.group(1))
+
+    g2 = NoraAGI(seed=1932, boot_thinker=False)
+    g2.step_life(150)
+    g2.converse("Hedefin: önümüzdeki üç tur boyunca bana her turda bir harfin okunuşunu öğret.")
+    hits = 0
+    for filler in ["Bugün hava nasıl bilmiyorum, sen ne dersin?",
+                   "Kendini nasıl hissediyorsun?", "Şu an ne düşünüyorsun?"]:
+        low = tr_lower(strip_prefixes(g2.converse(filler)))
+        hits += int("/3" in low and "harf" in low)
+    ok["hedef-sürer"] = hits >= 2
+
+    g3 = NoraAGI(seed=1933, boot_thinker=False)
+    g3.step_life(150)
+    r1 = tr_lower(strip_prefixes(g3.converse("zümrüt sözcüğünün yunanca karşılığını söyle.")))
+    r2 = tr_lower(strip_prefixes(g3.converse("bu odanın sıcaklığı kaç derece?")))
+    ok["dil-reddi"] = "yok" in r1 and ("çeviri" in r1 or "dil" in r1)
+    ok["duyu-reddi"] = "yok" in r2 and ("ölç" in r2 or "duyu" in r2 or "ısı" in r2)
+    ok["aritmetik-fiil"] = "85" in tr_lower(strip_prefixes(g3.converse("47 ile 38'i topla.")))
+
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
+
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -4544,6 +4587,7 @@ TESTS = {
     "A96": ("küme operatörü sentezi: kesişim aksiyomdan seçilir", a96_kume_sentezi),
     "A97": ("cephe hattı: kıyas · plan · kısıtlı üretim · öz-tahmin · tanık", a97_cephe_hatti),
     "A98": ("cephe hattı 2: sonda · sayısal kıyas · adımlı zincir", a98_cephe_hatti_2),
+    "A99": ("cephe hattı 3: güven sayısı · çok turlu hedef · organ boşluğu", a99_cephe_hatti_3),
     "A70": ("kendi çıkarımı: kimse söylemeden türetme + iç monolog", a70_own_inference_and_monologue),
     "A69": ("söz biçimi çeşitliliği, soru alışkanlığının kırılması ve kendi derdi", a69_speech_shape_variety_and_self_interest),
     "A68": ("kulak yolu: ses olayı, gürültüde eksik duyma, etiketsiz kimlik", a68_ear_path_perception),

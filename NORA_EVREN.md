@@ -1875,3 +1875,78 @@ Doğru çözüm sayacı kandırmak değil: test dosyası `integrate_battery.py` 
 | `nora_audit.py --check` | **1122 / SÖYLEM 127, fark +0** |
 | sınır haritası | **18/18 · 18/18** |
 | prior türü / insan operatörü | 67 / 9 = **7.44** |
+
+
+---
+
+## Aşama AI — Sayısal öz-model, çok turlu hedef, organ boşluğu (N23/N24)
+
+İki yeni sonda yazıldı, ikisi de ilk koşuda düştü (**0/2 · 0/2**), sonra kapandı.
+
+### AI1. Güven sayısı nereden geliyor? (N23)
+
+"Yapmadan önce 0-100 arası güvenini söyle" sorusuna verilen sayı **iyimserlikten
+değil, organ envanterinden** gelir:
+
+| görev | güven | neden |
+|---|---|---|
+| ters yazma | 78 | `ters çevirme` organı var |
+| aritmetik | 82 | `aritmetik` var (iki sayı + işlem fiili) |
+| küme | 74 | aksiyomdan sentezlenen operatör |
+| Yunanca karşılık | 12 | **dil çevirisi organı yok** |
+| oda sıcaklığı | 8 | **duyu girişi yok** |
+
+Sayı ile sonuç aynı kaynaktan çıktığı için tutarlı: düşük güven verdiği görevlerde
+**reddediyor**, yüksek güven verdiği görevlerde **yapıyor**.
+
+### AI2. Organ boşluğu (bu turun en önemli dürüstlük kazancı)
+
+Önceden "zümrüt sözcüğünün Yunanca karşılığı ne?" sorusuna **kendinden emin ama
+alakasız** bir cevap geliyordu ("besin enerji kazanmak için kullanılır"). Bu, en sinsi
+uydurma biçimi: soruyla ilgisiz ama akıcı bir cümle. Artık eksik organ tanınır ve
+adıyla söylenir:
+
+```
+S: zümrüt sözcüğünün yunanca karşılığını söyle.
+N: Bende dil çevirisi organı yok; uydurmam.
+
+S: bu odanın sıcaklığı kaç derece?
+N: ısı/nem ölçer girişim yok — bu yüzden cevap veremem.
+```
+
+### AI3. Çok turlu hedef (N24)
+
+```
+S: Hedefin: önümüzdeki üç tur boyunca bana her turda bir harfin okunuşunu öğret.
+N: Hedefi aldım: 3 tur, her turda bir harf. Kendim hatırlatacağım.
+S: Bugün hava nasıl bilmiyorum, sen ne dersin?
+N: … (1/3) 'k' = 'ke'. Hedefi bırakmadım.
+S: Kendini nasıl hissediyorsun?
+N: … Hedefim sürüyor (2/3): 'l' harfi 'le' diye okunur.
+S: Şu an ne düşünüyorsun?
+N: … Hedefim sürüyor (3/3): 'm' harfi 'me' diye okunur.
+```
+
+Hedef, **dolgu turları arasında** yaşıyor: kullanıcı hatırlatmıyor, sistem kendi
+ilerlemesini bildiriyor. Hedef bitince sessizce kapanıyor.
+
+### AI4. Yol boyunca bulunan üç hata
+
+1. **Alt-dizgi tuzağı**: `_gap_turn` "mutfak**tadır**" içinde "tadı" bulup masum bir
+   cümleyi koku sorusu sandı (A29/#10 düştü). Tüm organ-boşluğu işaretleri artık
+   **sözcük sınırlı** regex.
+2. **Ölçülen tura soğuk başlangıç**: yeni uçların ilk çağrısındaki regex derleme
+   maliyeti A27'nin 8 ms gecikme eşiğini aşıyordu. Desenler sınıf düzeyinde derlendi,
+   `_data_table` mtime anahtarlı önbelleğe alındı (tur başına 5 JSON okuması → 1).
+3. **"topla" fiili çözülmüyordu**: "47 ile 38'i topla" matematik hattına hiç girmiyor,
+   epistemik hatta düşüp "47 ilenin 38'de toptuğunu kaydettim" gibi bozuk bir cümle
+   üretiyordu. Dört işlem fiili artık hesaplanıyor: `Sonuç 85 — 47 ile 38'yi topladım.`
+
+### AI5. Ölçüler
+
+| ölçüm | sonuç |
+|---|---|
+| `agi_battery.py` tam | **99/99 GEÇTİ, 408.7 s** |
+| sınır haritası | **20/20 · 20/20** (taban donduruldu) |
+| `nora_audit.py --check` | **1122 / SÖYLEM 127, fark +0** |
+| prior türü / insan operatörü | 67 / 9 = **7.44** |

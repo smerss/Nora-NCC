@@ -2556,6 +2556,105 @@
               "kind": "numfact"
             }
           }
+        },
+        {
+          "id": "mr.cf1",
+          "text": "Güvenim %{conf}. Dayanak: {organ} organı.",
+          "when": {
+            "eq": {
+              "kind": "conf"
+            }
+          }
+        },
+        {
+          "id": "mr.cf2",
+          "text": "%{conf} — '{task}' için elimde {organ} var.",
+          "when": {
+            "eq": {
+              "kind": "conf"
+            }
+          }
+        },
+        {
+          "id": "mr.cf3",
+          "text": "Güvenim %{conf}; bu görevde {organ} devreye girer.",
+          "when": {
+            "eq": {
+              "kind": "conf"
+            }
+          }
+        },
+        {
+          "id": "mr.gs1",
+          "text": "Hedefi aldım: {total} tur, her turda bir {kind}. Kendim hatırlatacağım.",
+          "when": {
+            "eq": {
+              "kind": "goal_set"
+            }
+          }
+        },
+        {
+          "id": "mr.gst1",
+          "text": "Hedefim sürüyor ({done}/{total}): '{letter}' harfi '{spoken}' diye okunur.",
+          "when": {
+            "eq": {
+              "kind": "goal_step"
+            }
+          }
+        },
+        {
+          "id": "mr.gst2",
+          "text": "({done}/{total}) hedefim sürüyor: '{letter}' harfi '{spoken}' diye okunur.",
+          "when": {
+            "eq": {
+              "kind": "goal_step"
+            }
+          }
+        },
+        {
+          "id": "mr.gap1",
+          "text": "Bende {what} organı yok; uydurmam.",
+          "when": {
+            "eq": {
+              "kind": "gap"
+            }
+          }
+        },
+        {
+          "id": "mr.gap2",
+          "text": "{what} girişim yok — bu yüzden cevap veremem.",
+          "when": {
+            "eq": {
+              "kind": "gap"
+            }
+          }
+        },
+        {
+          "id": "mr.gap3",
+          "text": "Bunu ölçemem: {what} organım yok.",
+          "when": {
+            "eq": {
+              "kind": "gap"
+            }
+          }
+        },
+        {
+          "id": "mr.ar1",
+          "text": "{a} ile {b}'yi {opv}: {res}. Hesabı yaptım, tahmin değil.",
+          "when": {
+            "eq": {
+              "kind": "arith"
+            }
+          }
+        },
+        {
+          "id": "mr.ar2",
+          "text": "Sonuç {res} — {a} ile {b}'yi {opv}.",
+          "when": {
+            "eq": {
+              "kind": "arith"
+            }
+          }
         }
       ]
     },
