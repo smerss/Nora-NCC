@@ -1256,36 +1256,6 @@
         }
       ]
     },
-    "plan.built": {
-      "desc": "Plan kurulduğunda adımların raporu.",
-      "priors": [
-        {
-          "id": "pb.a",
-          "text": "Planı kurdum ({n} adım): {steps}. Her adımın ölçütü var; ilk adım durumu ölçer, son adım doğrular.",
-          "bias": 1.0
-        },
-        {
-          "id": "pb.b",
-          "text": "{n} adım: {steps}. Her adımın bir ölçütü var; ölçülmeyen adımı plana koymadım.",
-          "bias": 0.95
-        }
-      ]
-    },
-    "plan.revised": {
-      "desc": "Hedef değişince eski adımlar superseded olur.",
-      "priors": [
-        {
-          "id": "pr.a",
-          "text": "Hedef değişti; planı yeniden kurdum ({n} adım): {steps}. Eski adımlar superseded, silmedim.",
-          "bias": 1.0
-        },
-        {
-          "id": "pr.b",
-          "text": "Yeni hedefe göre {n} adım: {steps}. Eskiler geçersiz sayıldı, geçmiş olarak duruyor.",
-          "bias": 0.94
-        }
-      ]
-    },
     "count.sequence": {
       "desc": "Döngüyle üretilen sayı dizisi.",
       "priors": [
@@ -1485,26 +1455,6 @@
           "id": "moge.b",
           "text": "Hedefim en yakın iş: duyduğum yeni kavramı ölçmek. Merak kuyruğum boş olduğu için daha iddialı bir hedef seçsem uydurmuş olurdum.",
           "bias": 0.95
-        }
-      ]
-    },
-    "meta.self_weak.high": {
-      "desc": "Öz-raporda zayıflık: kalıp payı yüksekken.",
-      "priors": [
-        {
-          "id": "swh.a",
-          "text": "kalıp payı yüksek: yeni girdiye uygulanacak operatör yok",
-          "bias": 1.0
-        }
-      ]
-    },
-    "meta.self_weak.low": {
-      "desc": "Öz-raporda zayıflık: operatör var ama kapsam dar.",
-      "priors": [
-        {
-          "id": "swl.a",
-          "text": "operatör var ama kapsam dar",
-          "bias": 1.0
         }
       ]
     },
@@ -2180,6 +2130,401 @@
           "when": {
             "eq": {
               "kind": "prev"
+            }
+          }
+        }
+      ]
+    },
+    "memory.testimony": {
+      "desc": "Başkasından AKTARILAN olgu (tanıklık). Çelişki varsa iki tanık yan yana söylenir; sessizce son değer seçilmez.",
+      "priors": [
+        {
+          "id": "mem.t.learn",
+          "text": "Not aldım: {src} sana {subj} için {val} demiş; kaynağı {src}.",
+          "when": {
+            "eq": {
+              "kind": "learned"
+            }
+          }
+        },
+        {
+          "id": "mem.t.learn2",
+          "text": "{src} sana {subj} için {val} demiş — bunu tanık olarak yazdım.",
+          "when": {
+            "eq": {
+              "kind": "learned"
+            }
+          }
+        },
+        {
+          "id": "mem.t.single",
+          "text": "{src} sana {subj} için {val} demişti.",
+          "when": {
+            "eq": {
+              "kind": "single"
+            }
+          }
+        },
+        {
+          "id": "mem.t.single2",
+          "text": "Tanığım {src}: {subj} için {val}.",
+          "when": {
+            "eq": {
+              "kind": "single"
+            }
+          }
+        },
+        {
+          "id": "mem.t.conflict",
+          "text": "İki tanık çelişiyor: {src1} {val1}, {src2} {val2}. Hangisine güveneyim?",
+          "when": {
+            "eq": {
+              "kind": "conflict"
+            }
+          }
+        },
+        {
+          "id": "mem.t.conflict2",
+          "text": "{subj}: {src1} “{val1}” diyor, {src2} “{val2}”. İkisini de yazdım, seçmedim.",
+          "when": {
+            "eq": {
+              "kind": "conflict"
+            }
+          }
+        },
+        {
+          "id": "mem.t.conflict3",
+          "text": "{src1} ile {src2} aynı şeyi söylemiyor: {val1} / {val2}. Sen hangisini duydun?",
+          "when": {
+            "eq": {
+              "kind": "conflict"
+            }
+          }
+        }
+      ]
+    },
+    "plan.report": {
+      "desc": "Plan raporu: kurma, revizyon, boş plan. Adımlar kullanıcının verdiklerinden gelir; uydurulmaz.",
+      "priors": [
+        {
+          "id": "pb.a",
+          "text": "Planı kurdum ({n} adım): {steps}. Her adımın ölçütü var; ilk adım durumu ölçer, son adım doğrular.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "kind": "built"
+            }
+          }
+        },
+        {
+          "id": "pb.b",
+          "text": "{n} adım: {steps}. Her adımın bir ölçütü var; ölçülmeyen adımı plana koymadım.",
+          "bias": 0.95,
+          "when": {
+            "eq": {
+              "kind": "built"
+            }
+          }
+        },
+        {
+          "id": "pr.a",
+          "text": "Hedef değişti; planı yeniden kurdum ({n} adım): {steps}. Eski adımlar superseded, silmedim.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "kind": "revised"
+            }
+          }
+        },
+        {
+          "id": "pr.b",
+          "text": "Yeni hedefe göre {n} adım: {steps}. Eskiler geçersiz sayıldı, geçmiş olarak duruyor.",
+          "bias": 0.94,
+          "when": {
+            "eq": {
+              "kind": "revised"
+            }
+          }
+        },
+        {
+          "id": "pl.b1",
+          "text": "Plan ({n} adım): {steps}",
+          "when": {
+            "eq": {
+              "kind": "steps_built"
+            }
+          }
+        },
+        {
+          "id": "pl.b2",
+          "text": "{goal} için {n} adım yazdım: {steps}",
+          "when": {
+            "eq": {
+              "kind": "steps_built"
+            }
+          }
+        },
+        {
+          "id": "pl.r1",
+          "text": "Planı yeniden kurdum ({removed} çıktı, {n} adım kaldı): {steps}",
+          "when": {
+            "eq": {
+              "kind": "steps_built"
+            }
+          }
+        },
+        {
+          "id": "pl.r2",
+          "text": "{removed} yoksa eski plan yürümez; yeni plan: {steps}",
+          "when": {
+            "eq": {
+              "kind": "steps_built"
+            }
+          }
+        },
+        {
+          "id": "pl.e1",
+          "text": "{removed} çıkınca hiçbir adım kalmıyor; bu koşulla plan kuramam.",
+          "when": {
+            "eq": {
+              "kind": "steps_built"
+            }
+          }
+        },
+        {
+          "id": "pl.n1",
+          "text": "Elimde kurulmuş bir plan yok; önce adımları ver.",
+          "when": {
+            "eq": {
+              "kind": "steps_built"
+            }
+          }
+        },
+        {
+          "id": "pl.al1",
+          "text": "Planda o adım zaten yok; değişen bir şey olmadı: {steps}",
+          "when": {
+            "eq": {
+              "kind": "steps_built"
+            }
+          }
+        },
+        {
+          "id": "pl.b2",
+          "text": "{goal} için {n} adım yazdım: {steps}",
+          "when": {
+            "eq": {
+              "kind": "steps_built"
+            }
+          }
+        },
+        {
+          "id": "pl.r1",
+          "text": "Planı yeniden kurdum ({removed} çıktı, {n} adım kaldı): {steps}",
+          "when": {
+            "eq": {
+              "kind": "steps_revised"
+            }
+          }
+        },
+        {
+          "id": "pl.r2",
+          "text": "{removed} yoksa eski plan yürümez; yeni plan: {steps}",
+          "when": {
+            "eq": {
+              "kind": "steps_revised"
+            }
+          }
+        },
+        {
+          "id": "pl.e1",
+          "text": "{removed} çıkınca hiçbir adım kalmıyor; bu koşulla plan kuramam.",
+          "when": {
+            "eq": {
+              "kind": "empty"
+            }
+          }
+        },
+        {
+          "id": "pl.al1",
+          "text": "Planda o adım zaten yok; değişen bir şey olmadı: {steps}",
+          "when": {
+            "eq": {
+              "kind": "already"
+            }
+          }
+        },
+        {
+          "id": "pl.n1",
+          "text": "Elimde kurulmuş bir plan yok; önce adımları ver.",
+          "when": {
+            "eq": {
+              "kind": "none"
+            }
+          }
+        },
+        {
+          "id": "pl.unk",
+          "text": "'{goal}' için adım bilgim yok; plan taklidi yazmam. Adımları verirsen kurarım.",
+          "when": {
+            "eq": {
+              "kind": "unknown"
+            }
+          }
+        }
+      ]
+    },
+    "meta.reasoning": {
+      "desc": "Akıl yürütme cevapları: sıralama ucu, kısıtlı üretim, öz-tahmin. Belirsizlikte iddia yok.",
+      "priors": [
+        {
+          "id": "rel.top.unk1",
+          "text": "'{prop}' sıralaması bende eksik: en {prop} olanı söyleyemem.",
+          "when": {
+            "eq": {
+              "kind": "top_unknown"
+            }
+          }
+        },
+        {
+          "id": "rel.top.unk2",
+          "text": "Bu sıfat için yeterli karşılaştırma duymadım; tahmin etmiyorum.",
+          "when": {
+            "eq": {
+              "kind": "top_unknown"
+            }
+          }
+        },
+        {
+          "id": "rel.top.amb1",
+          "text": "En {prop} için iki aday kalıyor: {cands}. Aralarında karşılaştırma duymadım.",
+          "when": {
+            "eq": {
+              "kind": "top_unknown"
+            }
+          }
+        },
+        {
+          "id": "rel.top.amb2",
+          "text": "{cands} — ikisi de şu an 'en {prop}' görünüyor; ayrımı bilmiyorum.",
+          "when": {
+            "eq": {
+              "kind": "top_unknown"
+            }
+          }
+        },
+        {
+          "id": "rel.top.amb1",
+          "text": "En {prop} için iki aday kalıyor: {cands}. Aralarında karşılaştırma duymadım.",
+          "when": {
+            "eq": {
+              "kind": "top_ambiguous"
+            }
+          }
+        },
+        {
+          "id": "rel.top.amb2",
+          "text": "{cands} — ikisi de şu an 'en {prop}' görünüyor; ayrımı bilmiyorum.",
+          "when": {
+            "eq": {
+              "kind": "top_ambiguous"
+            }
+          }
+        },
+        {
+          "id": "rel.top.unk1",
+          "text": "'{prop}' sıralaması bende eksik: en {prop} olanı söyleyemem.",
+          "when": {
+            "eq": {
+              "kind": "top_unknown"
+            }
+          }
+        },
+        {
+          "id": "rel.top.unk2",
+          "text": "Bu sıfat için yeterli karşılaştırma duymadım; tahmin etmiyorum.",
+          "when": {
+            "eq": {
+              "kind": "top_unknown"
+            }
+          }
+        },
+        {
+          "id": "gen.c.n1",
+          "text": "'{req}' geçen ama '{ban}' geçmeyen bir çatı bulamadım; uydurmadım.",
+          "when": {
+            "eq": {
+              "kind": "gen_none"
+            }
+          }
+        },
+        {
+          "id": "gen.c.n2",
+          "text": "Elimdeki çatılarla '{req}' var, '{ban}' yok diyemiyorum. Başka bir koşul?",
+          "when": {
+            "eq": {
+              "kind": "gen_none"
+            }
+          }
+        },
+        {
+          "id": "sp.yes1",
+          "text": "Evet — '{task}' için elimde bir organ var: {organ}.",
+          "when": {
+            "eq": {
+              "kind": "predict_yes"
+            }
+          }
+        },
+        {
+          "id": "sp.yes2",
+          "text": "Yapabilirim: '{task}' benim yapabildiğim bir iş (organ: {organ}).",
+          "when": {
+            "eq": {
+              "kind": "predict_yes"
+            }
+          }
+        },
+        {
+          "id": "sp.unk1",
+          "text": "'{task}' için hangi organımın devreye gireceğini bilmiyorum; söz vermiyorum.",
+          "when": {
+            "eq": {
+              "kind": "predict_unknown"
+            }
+          }
+        },
+        {
+          "id": "sp.unk2",
+          "text": "Bilmiyorum. Denemeden 'yapabilirim' demem.",
+          "when": {
+            "eq": {
+              "kind": "predict_unknown"
+            }
+          }
+        }
+      ]
+    },
+    "meta.self_weak": {
+      "desc": "Öz-raporda zayıflık: kalıp payı yüksek/düşük.",
+      "priors": [
+        {
+          "id": "swh.a",
+          "text": "kalıp payı yüksek: yeni girdiye uygulanacak operatör yok",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "kind": "high"
+            }
+          }
+        },
+        {
+          "id": "swl.a",
+          "text": "operatör var ama kapsam dar",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "kind": "low"
             }
           }
         }

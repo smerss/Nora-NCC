@@ -229,3 +229,111 @@ class PersonalMemory:
             if isinstance(rec, dict) and rec.get("subj") and rec.get("rel"):
                 self.facts[(str(rec["subj"]).lower(), str(rec["rel"]).lower())] = rec
         self.turn = int((d or {}).get("turn") or 0)
+
+
+#: Tanıklık kalıbı: "Ayşe bana toplantının saat üçte olduğunu söyledi."
+_WITNESS = re.compile(r"^(\w+)\s+bana\s+(.+?)\s+(?:diye\s+)?(?:söyledi|dedi)\b", re.U)
+#: Önerme kuyruğu: "… olduğunu / … dediğini"
+_PROP_TAIL = re.compile(r"\s+(?:olduğunu|olduğunu|dediğini|diye)\s*$", re.U)
+#: Değer eki: "üçte" -> "üç", "beşte" -> "beş"
+_VAL_SUFFIX = re.compile(r"(?:'?[dt][ae]|'?[dt][ae]n|'?[yn][ae]|'?[dt][ae]r)$", re.U)
+
+
+def _stem(word: str) -> str:
+    """Basit gövde: tamlayan/çekim eklerini at ('toplantının' -> 'toplantı')."""
+    w = _clean_word(word)
+    for suf in ("nın", "nin", "nun", "nün", "ın", "in", "un", "ün",
+                "ya", "ye", "da", "de", "ta", "te", "ı", "i", "u", "ü"):
+        if len(w) - len(suf) >= 4 and w.endswith(suf):
+            return w[: -len(suf)]
+    return w
+
+
+def _value(word: str) -> str:
+    w = _clean_word(word)
+    stripped = _VAL_SUFFIX.sub("", w)
+    return stripped if len(stripped) >= 2 or stripped.isdigit() else w
+
+
+class Testimony:
+    """ÜÇÜNCÜ KİŞİ TANIKLIĞI: aynı olguya iki kaynak iki değer verirse İKİSİ de tutulur.
+
+    Kişisel bellek (PersonalMemory) karşıdakinin KENDİ söylediğini tutar. Burada
+    karşıdakinin BAŞKASINDAN aktardığı olgu tutulur: (kaynak, özne, ilişki, değer).
+    Çelişki sessizce son değere indirgenmez — iki tanık yan yana söylenir, çünkü
+    "hangi tanığa inanacağım" sorusunun cevabı veride yoktur.
+    """
+
+    MAX = 256
+
+    def __init__(self):
+        self.records: list[dict] = []
+        self.turn = 0
+        self.evicted = 0
+
+    # ---------------------------------------------------------------- yazma
+    def observe(self, text: str, turn: int | None = None) -> list[dict]:
+        raw = (text or "").strip()
+        if not raw or raw.endswith("?"):
+            return []
+        out = []
+        for clause in re.split(r"[,;]|\s+ve\s+|\s+ama\s+", raw):
+            c = clause.strip(" .!?")
+            low = tr_lower(c)
+            m = _WITNESS.match(low)
+            if not m:
+                continue
+            src = _clean_word(m.group(1))
+            prop = _PROP_TAIL.sub("", m.group(2)).strip()
+            words = [w for w in re.split(r"\s+", prop) if w]
+            if len(words) < 2 or not src:
+                continue
+            subj = _stem(words[0])
+            val = _value(words[-1])
+            rel = " ".join(_stem(w) for w in words[1:-1]) if len(words) > 2 else ""
+            if not subj or not val or subj == val:
+                continue
+            out.extend(self.add(src, subj, rel, val, turn=turn, quote=c))
+        return out
+
+    def add(self, src: str, subj: str, rel: str, val: str,
+            turn: int | None = None, quote: str = "") -> list[dict]:
+        t = int(self.turn if turn is None else turn)
+        self.records.append({"src": str(src).lower(), "subj": str(subj).lower(),
+                             "rel": str(rel).lower(), "val": str(val).lower(),
+                             "turn": t, "quote": str(quote)})
+        if len(self.records) > self.MAX:
+            self.records.pop(0)
+            self.evicted += 1
+        return self.records[-1:]
+
+    # ---------------------------------------------------------------- okuma
+    def query(self, text: str) -> dict | None:
+        """Sorudaki özne/ilişkiye ait tanıklıkları getir (çelişki varsa işaretle)."""
+        low = tr_lower((text or "").strip(" .!?"))
+        if not low:
+            return None
+        hits = [r for r in self.records if r["subj"] in low]
+        if not hits:
+            return None
+        # İlişki sorusu: soruda geçen ilişki sözcüğü kayıtta da varsa daralt.
+        narrowed = [r for r in hits if r["rel"] and (r["rel"] in low or
+                                                     any(w in low for w in r["rel"].split()))]
+        if narrowed:
+            hits = narrowed
+        vals = []
+        for r in hits:
+            vals.append((r["src"], r["val"]))
+        distinct = sorted({v for _s, v in vals})
+        return {"subj": hits[0]["subj"], "vals": vals, "distinct": distinct,
+                "conflict": len(distinct) > 1}
+
+    def state_dict(self) -> dict:
+        return {"turn": int(self.turn), "evicted": int(self.evicted),
+                "records": self.records[-self.MAX:]}
+
+    def load_state_dict(self, d: dict | None) -> None:
+        d = d or {}
+        self.records = [r for r in (d.get("records") or []) if isinstance(r, dict)]
+        self.turn = int(d.get("turn") or 0)
+        self.evicted = int(d.get("evicted") or 0)
