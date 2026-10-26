@@ -1827,3 +1827,51 @@ yazan programlar tek sayılır.
 **Yine uyarı:** 18/18 AGI demek değildir. Harita yine doydu; bir sonraki adım daha
 bütünleşik ölçüm (tek tek sorular değil, dakikalar süren öğrenme ve kendi hedefini
 kurma).
+
+
+---
+
+## Aşama AH — Bütünleşik ölçüm: tek senaryo, tek sınav
+
+Sınır haritası her yeteneği AYRI sorar; bu, parçaların **aynı bellekte aynı anda**
+çalışıp çalışmadığını gizler. `integrate_battery.py` tek bir Nora'ya art arda yedi
+şey öğretir (kişisel olgu, tanıklık, kavram, dönüşüm, geçişli kıyas, sayı, plan),
+araya **30 dolgu turu** koyar, sonra **tek sınav** yapar.
+
+```
+kişisel-bellek       ✓        küme                 ✓
+tanık-çelişkisi      ✓        geçişli-kıyas        ✓
+kavram               ✓        sayısal-kıyas        ✓
+operatör             ✓        plan-revizyonu       ✓
+uydurmaz             ✓        zihniyet-temiz       ✓
+
+BÜTÜNLEŞİK: 10/10 — 30 dolgu turundan sonra
+KALICILIK:  4/4  — kaydet/yükle sonrası
+ZİHNİYET:   kişisel olgu kavram ağına sızan kenar = 0
+```
+
+### AH1. Bu ölçüm bir hata daha buldu (ve düzeltildi)
+
+Kalıcılık 3/4 çıktı: **kişisel bellek kaydediliyor ama YÜKLENMİYORDU**. Yani
+"40 tur sonra hatırlıyor" iddiası süreç yeniden başlayınca çöküyordu. `save()` içinde
+`person_mem` vardı, `load()` içinde yoktu. Eklendi → 4/4.
+
+Ders: kalıcılık yalnız "aynı süreçte hatırlama" değildir; **yeniden doğuşta hatırlama**dır.
+
+### AH2. Dosya adı dersi (iskelet mandalı yine haklıydı)
+
+Bütünleşik test önce `nora_integrate.py` adıyla yazıldı; denetçi `nora_*.py` dosyalarını
+sistem modülü saydığı için **18 iskelet cümlesi** olarak saydı ve A73 mandalı düştü.
+Doğru çözüm sayacı kandırmak değil: test dosyası `integrate_battery.py` oldu
+(bataryalar `nora_` öneki taşımaz). Denetim: **1122 / 127, fark +0**.
+
+### AH3. Bu aşamanın sayıları
+
+| ölçüm | sonuç |
+|---|---|
+| `agi_battery.py` tam | **98/98 GEÇTİ, 392.2 s** |
+| bütünleşik senaryo | **10/10** doğruluk · 4/4 kalıcılık · 0 sızıntı |
+| dış batarya / mühürlü | **9/9** · **4/4 · 4/4 · 4/4** |
+| `nora_audit.py --check` | **1122 / SÖYLEM 127, fark +0** |
+| sınır haritası | **18/18 · 18/18** |
+| prior türü / insan operatörü | 67 / 9 = **7.44** |
