@@ -41,8 +41,11 @@ class Schema:
         groups: dict[tuple, dict] = {}
         for spec in specs or []:
             spec = [str(x) for x in spec]
-            if len(spec) < 2:
+            if len(spec) < 1:
                 continue
+            # TEK ADIMLI AİLE DE ŞEMA OLABİLİR: icat edilmiş 'kaydırma(+1)' ile
+            # 'kaydırma(+2)' arasındaki tek fark parametredir; delik o adımdadır.
+            # (Dilim ailelerinde n=1..4 ilkel olarak zaten var; onlar da kapsanır.)
             for i, nm in enumerate(spec):
                 fo = family_of(nm)
                 if fo is None:
