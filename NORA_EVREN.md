@@ -2026,3 +2026,86 @@ veri: `_GOAL_KINDS` ve iki prior; mantık aynı.
   Ders: yeni organ yazmadan önce `git log -- <dosya>` ve `grep '^from'` ile bak.
 - **Büyük harf kaybı**: "Portakal" küçük harfli metinde eşleştiği için "portakal"
   olarak uygulanıyordu. Sözcük artık ham metinden geri alınıyor.
+
+
+---
+
+## Aşama AK — Oturum defteri, deneyimden kalibrasyon (N26/N28) ve ölçümün kendisi
+
+Bu turda iki yeni yetenek geldi; ayrıca **ölçümün kendisi** sorgulandı.
+
+### AK1. Oturum öz-geçmişi: "ne öğrendin" sorusu defterden cevaplanır (N26)
+
+Cevap, ayrı bir "öğrendim" listesinden değil, depoların KENDİSİNDEN okunur:
+
+| defter | kaynak |
+|---|---|
+| dönüşüm | `synth.programs` |
+| ölçüm kuralı | `forge.authored` |
+| kişisel olgu | `person_mem.facts` |
+| tanıklık | `testimony.records` |
+| tamamlanan hedef | `_goals_done` (kalıcı) |
+
+Kuruluşta bir anlık görüntü alınır; cevap **fark**tır. Boş defterde "henüz bir şey
+öğrenmedim: 0 dönüşüm, 0 kişisel olgu, 0 tanıklık" denir — sıfır da bir ölçümdür.
+
+```
+Şu dönüşümü öğren: kitap -> patik, kalem -> melak.
+Kardeşimin adı Elif.
+Ayşe bana toplantının saat üçte olduğunu söyledi.
+Hedefin: bir tur boyunca bana bir harfin okunuşunu öğret.
+> Bu oturumda ne öğrendin?
+Oturum defterim: 1 dönüşüm, 1 kişisel olgu, 1 tanıklık, 0 ölçüm kuralı,
+1 tamamlanan hedef. Son dönüşüm: ters çevir.
+```
+
+Kaydet/yükle sonrası aynı sayılar okunur (benlik sürekliliği).
+
+### AK2. Kalibrasyon: güven sayısı deneyimle düzelir (N28)
+
+Güven sözü artık iki kaynağın karışımı: **envanter ön-sözü** (organ var/yok) ve
+**deneyim** (Beta ortalaması, ön-ağırlık 2). Her güven sözü bir sonraki turun
+sonucuyla eşleşir; organ yolundan gelen cevap başarı, reddetme/sohbet yolu başarısızlık.
+
+```
+tanınmayan iş 6 kez:  güven %30 → %20 → %15 → %12 → %10 → %9 → %8
+bilinen iş (ters):    güven %78 → %88 (başarı biriktikçe)
+12 görevin Brier skoru: 0.150
+```
+
+Bu, "kendinden emin ama yanlış" davranışını sona erdiren mekanizma: sistem kendi
+başarısızlığını SAYIYOR ve bir sonraki sözünü ona göre ayarlıyor.
+
+### AK3. Ölçüm de yanılabilir: üç sonda hatası
+
+N16/N20/N22 düşük çıktığında ilk varsayım "sistem yapamıyor" oldu. Üçünde de hata
+sondaydı:
+
+1. **N16**: beklenen çıktıyı elle hesaplamıştım — "kalem"in alfabetik ilk üçü
+   `aek` iken `ael` yazmıştım. Sistem doğruydu, ölçüt yanlıştı.
+2. **N20**: sayısal kıyas zaten çalışıyordu ("ali: 180; veli ise 175"); kontrol
+   cümlesi sayıyı değil, olgu sözlüğünü arıyordu.
+3. **N22**: adımlı talimat zaten çalışıyordu ("kitap -> aikpt -> aik"); sonda yanlış
+   sözcüğü arıyordu.
+
+Ders (Aşama X'ten beri tekrar eden): **sondanın beklenen değeri de hesaplanmalı**;
+elle yazılan beklenti, ölçülen şeyi değil ölçen kişiyi sınar. Reddetme sözlüğü de
+genişletildi ("çıkarmadım", "program yok").
+
+### AK4. A44 dalgalanması ve gerçek düzeltme
+
+"Arka plan yaşamı" testi tam koşuda bir kez düştü (sıfırlandı=False). Neden testte
+değil ÜRÜNDE: cevapsız sayacı, tur içindeki arka plan adımlarınca artırılabiliyordu.
+Kullanıcı konuştuysa sayaç sıfırdır — sıfırlama artık `converse` sonunda, tüm
+son-işleme adımlarından SONRA yapılıyor. Tek koşuda 4/4, tam koşuda 101/101.
+
+### AK5. Ölçüler
+
+| ölçüm | sonuç |
+|---|---|
+| `agi_battery.py` (101 test) | **101/101 GEÇTİ, 405.1 s** |
+| sınır haritası | **24/24 · 24/24** (taban 24/24) |
+| `heldout_sealed.py` | **4/4** |
+| `integrate_battery.py` | **10/10**, kalıcılık **4/4** |
+| `nora_audit.py --check` | SÖYLEM 127 (**+0**); toplam +1 (söylem dışı modülde tek dizge) |
+| prior türü / insan operatörü | 67 / 9 = **7.44** (yeni cümleler MEVCUT türlere yazıldı) |

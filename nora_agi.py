@@ -519,7 +519,13 @@ class NoraAGI:
         # ÇOK TURLU HEDEF: kullanıcı verdiği süre boyunca KENDİ hatırlatılır.
         #: HEDEF YIĞINI: hedef tek bir sözlük değil. Yeni hedef gelince eskisi
         #: SİLİNMEZ, yığında bekler; yeni hedef bitince kaldığı yerden sürer (N27).
+        #: KALİBRASYON DEFTERİ: sınıf -> [başarı, deneme]. Güven sayısı buradan
+        #: ÖĞRENİLİR: ilk söz envanterden gelir, sonra deneyim ağırlığı artar (N28).
+        self.calib: dict[str, list[int]] = {}
+        self._conf_pending: list | None = None
+        self._turn_path = "chat"
         self._goals: list[dict] = []
+        self._goals_done = 0
         self._goal: dict | None = None
         self._goal_turn0 = -1
         self._plan_goal = ""
@@ -534,6 +540,10 @@ class NoraAGI:
         self._prev_answers: dict[str, str] = {}
         self._notice_spoken: set = set()
         self._voice_label: dict[str, str] = {}
+        # OTURUM DEFTERİ: "bu oturumda ne öğrendin" sorusu TAHMİNLE değil, bu
+        # anlık görüntüyle mevcut durum arasındaki FARKLA cevaplanır.
+        self._session0 = self._session_counts()
+
         # ISINMA: yeni uçların ilk çağrısındaki derleme/ayırma maliyeti KURULUŞA taşınır.
         # (A27 gecikme ölçüyor: ölçülen tura soğuk başlangıç düşmemeli.)
         try:
@@ -1072,6 +1082,11 @@ class NoraAGI:
         except Exception:
             pass
         ans = self._converse_core(_heard, _vid)
+        # KALİBRASYON: bir önceki turda verilen GÜVEN SÖZÜ, bu turun SONUCUYLA eşleşir.
+        try:
+            self._calib_note_outcome()
+        except Exception:
+            pass
         # Ses defteri: bu sesle yaşanan güven, sesin kimliğine yazılır; dünyanın
         # kullandığı etiket yalnızca bir takma addır (eski sorgular için eşlenir).
         try:
@@ -1252,9 +1267,17 @@ class NoraAGI:
                 ans = f"{ans} {_g}"
         except Exception:
             pass
+        # CEVAPSIZ SAYACI: kullanıcı bu turda KONUŞTU; geri çekilme sayacı sıfırdır.
+        # (Tur içindeki arka plan adımları sayacı artırabildiği için sıfırlama EN SONDA.)
+        try:
+            if getattr(self, "life", None) is not None:
+                self.life.unanswered = 0
+        except Exception:
+            pass
         return ans
 
     def _converse_core(self, text: str, speaker: str = "insan") -> str:
+        self._turn_path = "chat"
         """Gelen Türkçe cümleyi algılar, önce içsel monolog yürütür, öz-benlik ve nörokimya süzgecinden geçirip yanıt üretir."""
         t0 = time.perf_counter()
         if not self.mortality.is_alive:
@@ -1290,16 +1313,27 @@ class NoraAGI:
         except Exception:
             _pred = None
         if _pred:
+            self._turn_path = "organ"
             self._intent_locked = True
             self._log_turn(speaker, raw, _pred, t0)
             return _pred
         # OPERATÖR SENTEZİ: "kitap -> patik, kalem -> melak" gibi ÖRNEK verilirse
         # dönüşümü Nora kendi yazar; "dönüşümü uygula: deniz" derse yazdığını çalıştırır.
         try:
+            _hist = self._self_history_turn(raw)
+        except Exception:
+            _hist = None
+        if _hist:
+            self._turn_path = "organ"
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _hist, t0)
+            return _hist
+        try:
             _syn = self._synth_turn(raw, speaker=speaker)
         except Exception:
             _syn = None
         if _syn:
+            self._turn_path = "organ"
             self._intent_locked = True
             self._log_turn(speaker, raw, _syn, t0)
             return _syn
@@ -1308,6 +1342,7 @@ class NoraAGI:
         except Exception:
             _set = None
         if _set:
+            self._turn_path = "organ"
             self._intent_locked = True
             self._log_turn(speaker, raw, _set, t0)
             return _set
@@ -1316,6 +1351,7 @@ class NoraAGI:
         except Exception:
             _gen = None
         if _gen:
+            self._turn_path = "organ"
             self._intent_locked = True
             self._log_turn(speaker, raw, _gen, t0)
             return _gen
@@ -1334,6 +1370,7 @@ class NoraAGI:
         except Exception:
             _gap = None
         if _gap:
+            self._turn_path = "gap"
             self._intent_locked = True
             self._log_turn(speaker, raw, _gap, t0)
             return _gap
@@ -1342,6 +1379,7 @@ class NoraAGI:
         except Exception:
             _goal_ack = None
         if _goal_ack:
+            self._turn_path = "organ"
             self._intent_locked = True
             self._log_turn(speaker, raw, _goal_ack, t0)
             return _goal_ack
@@ -1350,6 +1388,7 @@ class NoraAGI:
         except Exception:
             _chain = None
         if _chain:
+            self._turn_path = "organ"
             self._intent_locked = True
             self._log_turn(speaker, raw, _chain, t0)
             return _chain
@@ -1358,6 +1397,7 @@ class NoraAGI:
         except Exception:
             _num = None
         if _num:
+            self._turn_path = "organ"
             self._intent_locked = True
             self._log_turn(speaker, raw, _num, t0)
             return _num
@@ -1366,6 +1406,7 @@ class NoraAGI:
         except Exception:
             _plan = None
         if _plan:
+            self._turn_path = "organ"
             self._intent_locked = True
             self._log_turn(speaker, raw, _plan, t0)
             return _plan
@@ -3808,6 +3849,23 @@ class NoraAGI:
     #: Aritmetik yalnız SAYI + İŞLEM varsa: "kaç" tek başına yeterli değil.
     _ARITH = re.compile(r"\d+\s*(?:[+\-*/x×]|ile|ve)\s*\d+|\d+\D{0,12}(?:topla|çıkar|çarp|böl)")
 
+    def _calib_conf(self, klass: str, base: int) -> int:
+        """Envanter ön-sözü ile DENEYİMİ harmanla (Beta ortalaması, ön-ağırlık 2)."""
+        rec = self.calib.get(klass) or [0, 0]
+        s_, n_ = int(rec[0]), int(rec[1])
+        return int(round(100.0 * (base / 100.0 * 2.0 + s_) / (2.0 + n_)))
+
+    def _calib_note_outcome(self) -> None:
+        """Bekleyen güven sözünün sonucunu yaz: organ yolu = başarı, ötekiler = başarısız."""
+        pend = getattr(self, "_conf_pending", None)
+        if not pend or getattr(self, "_turn_path", "") == "conf":
+            return
+        self._conf_pending = None
+        ok = 1 if getattr(self, "_turn_path", "chat") == "organ" else 0
+        rec = self.calib.setdefault(str(pend[0]), [0, 0])
+        rec[0] = int(rec[0]) + ok
+        rec[1] = int(rec[1]) + 1
+
     def _confidence_turn(self, raw: str) -> str | None:
         """'Yapmadan önce 0-100 güvenini söyle: X' — sayı, ORGAN ENVANTERİNDEN gelir.
 
@@ -3835,6 +3893,17 @@ class NoraAGI:
             conf, organ = 82, "aritmetik"
         elif conf == 30 and any(k in tl_task for k in ("sıcaklık", "derece", "nem")):
             conf, organ = 8, "duyu girişi"
+        # SINIF: aynı iş türü aynı anahtara yazılır; güven o sınıfın GEÇMİŞİNDEN öğrenilir.
+        if organ:
+            klass = organ
+        elif conf == 30:
+            _toks = [w for w in re.findall(r"\w+", tr_lower(task)) if len(w) > 2]
+            klass = "bilinmeyen:" + (_toks[0] if _toks else "görev")
+        else:
+            klass = "tanıdık organ"
+        conf = self._calib_conf(klass, conf)      # ENVANTER + DENEYİM
+        self._conf_pending = [klass, conf]
+        self._turn_path = "conf"                  # bu tur SÖZ verir, sonuç DEĞİL
         # EKSİK ORGAN "VAR" DİYE ANILMAZ: düşük güvenin dayanağı organın YOKLUĞUDUR.
         if not organ:
             organ = "tanıdık organ"
@@ -3923,6 +3992,8 @@ class NoraAGI:
             ctx = {"kind": "goal_step2"}
         g["done"] = int(g.get("done", 0)) + 1
         done, total = int(g["done"]), int(g["total"])
+        if done >= total:                     # hedef BİTTİ: sayaç burada artar
+            self._goals_done = int(getattr(self, "_goals_done", 0)) + 1
         return self._say("meta.reasoning",
                          {**slots, "done": done, "total": total},
                          ctx=ctx, fallback="") or ""
@@ -4438,6 +4509,55 @@ class NoraAGI:
                                           tense="PAST", person="1SG"))
             return f"{_v}: {prog.desc()}."
         return None
+
+    # ------------------------------------------------------------------ oturum defteri
+    @staticmethod
+    def _len_of(obj, attr: str) -> int:
+        v = getattr(obj, attr, None) if obj is not None else None
+        try:
+            return len(v) if v is not None else 0
+        except Exception:
+            return 0
+
+    def _session_counts(self) -> dict:
+        """Kendi defterlerimin ŞU ANKİ sayıları (tek kaynak: depoların kendisi)."""
+        return {"op": self._len_of(getattr(self, "synth", None), "programs"),
+                "rule": self._len_of(getattr(self, "forge", None), "authored"),
+                "person": self._len_of(getattr(self, "person_mem", None), "facts"),
+                "test": self._len_of(getattr(self, "testimony", None), "records"),
+                "num": self._len_of(self, "num_facts"),
+                "goal": int(getattr(self, "_goals_done", 0))}
+
+    def _self_history_turn(self, raw: str) -> str | None:
+        """'BU OTURUMDA ne öğrendin?' — cevap DEFTERLERDEN, uydurma yok.
+
+        Sayı, depoların kendisinden okunur (operatör defteri, kişi belleği, tanıklık,
+        sayısal olgular, tamamlanan hedefler). Boş defter için sıfır denir.
+        """
+        tl = tr_lower(raw or "")
+        if not any(k in tl for k in ("oturum", "defterim", "defterin")):
+            return None
+        if not any(k in tl for k in ("öğren", "yaz", "say", "neler", "ne var")):
+            return None
+        base = getattr(self, "_session0", None) or {}
+        now = self._session_counts()
+        d = {k: int(now.get(k, 0)) - int(base.get(k, 0)) for k in now}
+        total = sum(max(0, v) for v in d.values())
+        if total <= 0:
+            return self._say("meta.self_report", {},
+                             ctx={"kind": "session_none"}, fallback="") or None
+        last = ""
+        try:
+            progs = getattr(getattr(self, "synth", None), "programs", []) or []
+            last = str((progs[-1] or {}).get("desc") or "") if progs else ""
+        except Exception:
+            last = ""
+        return self._say("meta.self_report",
+                         {"n_op": max(0, d["op"]), "n_rule": max(0, d["rule"]),
+                          "n_person": max(0, d["person"]), "n_test": max(0, d["test"]),
+                          "n_num": max(0, d["num"]), "n_goal": max(0, d["goal"]),
+                          "last": last or "yok"},
+                         ctx={"kind": "session_report"}, fallback="") or None
 
     def _recall_personal(self, raw: str) -> str | None:
         """KİŞİSEL OLGU HATIRLAMA: 'kardeşimin adı neydi?'
@@ -5176,7 +5296,7 @@ class NoraAGI:
             "n_mod": len(mods), "n_edges": n_edges, "n_rules": rules, "wm": wm_load,
             "sk": int(sk * 100), "og": int(float(pr.get("ogrenim_orani", 0.0) or 0) * 100),
             "weak": weak, "n_self": n_self,
-        })
+        }, ctx={"kind": "body_report"})
 
     def _sync_self_graph(self) -> int:
         """ÖZ-MODEL: kendi canlı ölçümlerini kavram grafiğine DÜĞÜM/kenar olarak yazar.
@@ -5857,6 +5977,8 @@ class NoraAGI:
             "person_mem": (self.person_mem.state_dict() if getattr(self, "person_mem", None) is not None else {}),
             "synth": (self.synth.state_dict() if getattr(self, "synth", None) is not None else {}),
             "sets": (self.sets.state_dict() if getattr(self, "sets", None) is not None else {}),
+            "goals_done": int(getattr(self, "_goals_done", 0)),
+            "calib": {k: list(v) for k, v in (getattr(self, "calib", {}) or {}).items()},
             "testimony": (self.testimony.state_dict() if getattr(self, "testimony", None) is not None else {}),
             "plans": {"goal": self._plan_goal, "steps": list(self.plans.get(self._plan_goal) or [])},
         }
@@ -5953,6 +6075,10 @@ class NoraAGI:
                 agi.synth.load_state_dict(meta.get("synth") or {})
             if getattr(agi, "sets", None) is not None:
                 agi.sets.load_state_dict(meta.get("sets") or {})
+            agi._goals_done = int(meta.get("goals_done") or 0)
+            agi.calib = {str(k): [int(x[0]), int(x[1])]
+                         for k, x in (meta.get("calib") or {}).items()
+                         if isinstance(x, (list, tuple)) and len(x) >= 2}
             if getattr(agi, "person_mem", None) is not None:
                 # KİŞİSEL BELLEK DE KALICI: kaydedilip yüklenmezse "40 tur sonra
                 # hatırlıyor" iddiası yeniden başlatmada çöker.

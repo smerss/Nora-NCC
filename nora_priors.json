@@ -1277,12 +1277,49 @@
         {
           "id": "sr.a",
           "text": "Kendimi ölçerek söylüyorum: {n_mod} organ, {n_edges} kavram bağı (öz-modelimde {n_self} düğüm), {n_rules} bağlı kural, çalışma belleğimde {wm}/7 yuva dolu. Sözümün %{sk} kadarı doğuştan kalıptan, %{og} kadarı öğrenilmiş ağırlıktan geliyor. En zayıf yerim: {weak}.",
-          "bias": 1.0
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "kind": "body_report"
+            }
+          }
         },
         {
           "id": "sr.b",
           "text": "Ölçüm: {n_mod} organ, {n_edges} kavram bağı (öz-modelimde {n_self} düğüm), {n_rules} kural; bellekte {wm}/7 yuva. Kalıp payı %{sk}, öğrenim payı %{og}. Zayıf yerim: {weak}. Yeniden inşa etsem önce operatör sayısını büyütürdüm, çünkü her yeni biçim yeni bir operatör istiyor.",
-          "bias": 0.95
+          "bias": 0.95,
+          "when": {
+            "eq": {
+              "kind": "body_report"
+            }
+          }
+        },
+        {
+          "id": "sr.s1",
+          "text": "Oturum defterim: {n_op} dönüşüm, {n_person} kişisel olgu, {n_test} tanıklık, {n_rule} ölçüm kuralı, {n_goal} tamamlanan hedef. Son dönüşüm: {last}.",
+          "when": {
+            "eq": {
+              "kind": "session_report"
+            }
+          }
+        },
+        {
+          "id": "sr.s2",
+          "text": "Bu oturumda yazdıklarım: {n_op} dönüşüm, {n_person} kişisel olgu, {n_test} tanıklık, {n_rule} ölçüm kuralı, {n_goal} tamamlanan hedef.",
+          "when": {
+            "eq": {
+              "kind": "session_report"
+            }
+          }
+        },
+        {
+          "id": "sr.s0",
+          "text": "Bu oturumda henüz bir şey öğrenmedim: defterimde 0 dönüşüm, 0 kişisel olgu, 0 tanıklık var.",
+          "when": {
+            "eq": {
+              "kind": "session_none"
+            }
+          }
         }
       ]
     },
