@@ -2635,3 +2635,23 @@ tekrar eden kayıt yok.
 (uzunluk, harf korunumu, çıktı uzunluğu). Yani "hangi özellik dikkate değer"
 sorusunun cevabı insan elinden çıkıyor. Bir sonraki dürüst adım, biçim uzayını da
 veriden çıkarmak olurdu; bugün yapılmadı ve yapılmış gibi yazılmayacak.
+
+---
+
+## Aşama AS — Şema + ilkel bileşimi (Tur 41e)
+
+Şemanın ürettiği adım artık **normal 2-adım aramasının havuzuna** giriyor: `şema` bir
+yetenek, `ilkel` başka bir yetenek, ikisi birleşebiliyor. Yeni form yazılmadı;
+kompozisyonun havuzu genişledi.
+
+Sonuç dürüst ve iki yüzlü:
+
+- Var: `büyük harfe çevir ∘ (sırala∘dilimle(7))` gibi bir çözüm artık üretilebiliyor —
+  yani şemanın açtığı parametre, başka adımlarla **birleştirilebiliyor**.
+- Ama ayırt edici örnek yoksa **iki aday** kalıyor (`üst∘şema` / `şema∘üst`) ve Nora
+  seçmiyor, **soruyor**: "yıldız hangi çıktıyı alır?". Uydurmak yerine soru.
+
+Bu, seviye 4'ün son halkası değil; seviye 4'ü *kullanılabilir* kılan bir kol.
+Seviye 5 (tabanın kendisini Nora önerecek) hâlâ yok: yeni bir **mekanizma** önermek
+için gereken kod yazma yetkisi verilmedi ve verilmemeli — önce şemanın kendisi
+sağlamlaşmalı.
