@@ -5669,6 +5669,10 @@ class NoraAGI:
                 agi.synth.load_state_dict(meta.get("synth") or {})
             if getattr(agi, "sets", None) is not None:
                 agi.sets.load_state_dict(meta.get("sets") or {})
+            if getattr(agi, "person_mem", None) is not None:
+                # KİŞİSEL BELLEK DE KALICI: kaydedilip yüklenmezse "40 tur sonra
+                # hatırlıyor" iddiası yeniden başlatmada çöker.
+                agi.person_mem.load_state_dict(meta.get("person_mem") or {})
             if getattr(agi, "testimony", None) is not None:
                 agi.testimony.load_state_dict(meta.get("testimony") or {})
             _pl = meta.get("plans") or {}
