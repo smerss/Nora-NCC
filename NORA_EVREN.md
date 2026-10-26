@@ -2679,3 +2679,40 @@ Seviye 5 (Nora'nın tabanı kendisinin genişletmesi) hâlâ yok.
 
 Ölçüm: **N39** `True True` · **A113** 6/6 · tam pil **110/110 (537.3 sn)** · merdiven **5/5** ·
 heldout `--repeat` **35/35 · 35/35** `SIRA-DAYANIKLI ✓`.
+
+## Aşama AU–AW — Öğretmensiz öğrenme (Tur 41g)
+
+Üç halka, her biri bir taban satırını silmek için:
+
+**AU — örnek insandan gelmiyor.** `kendine_ogret()`: Nora kendi dağarcığından sözcük
+seçer, iki parametre seçer, örnekleri kendisi üretir, iki program kurar, şemayı çıkarır,
+görülmemiş parametrede kendini sınar. Dış doğrulama sınavın: bekleneni test hesaplar.
+Anti-test: dağarcık boşsa **uydurmaz**, "yetersiz" der.
+
+**AV — zamanlamayı insan seçmiyor.** 1000 adım yalnız yaşam, tek insan cümlesi yok;
+240. ve 840. adımda kendi kendine öğrenmeye **kendisi** başladı, ikisi de dış doğrulamadan
+geçti. Fren de onun: 600 adım soğuma.
+
+**AW — neyi öğreneceğini de insan söylemiyor.** Eski kodda taban `alfabetik sırala` diye
+sabitti — yani seçimi ben yapıyordum. Artık taban, **onun kendi kullanım sayımından**
+geliyor (en az kullandığı ilkel önce); tutmazsa sıradakine geçiyor. Farklı tohumlarda
+farklı tabanlar: `ters çevir`, `büyük harfe çevir`, `tekrarları at`, `aynen bırak`,
+`son 1 harfi at`, `ters sırala`.
+İkinci parametre aramayla değil **hipotezle** bulunuyor: birinci programdaki sayı
+değiştirilip kendi örnekleriyle sınanıyor — şema fikrinin kendisi.
+
+Dürüst sonuç: 10 tohumun **9'unda** öğrendi, 1'inde "kendi örneği çözülemedi" dedi.
+Bunu gizlemiyoruz; A116 başarısızlık sayısını açıkça raporlar.
+
+**Kalan taban (silinmedi):** repertuvar (22 ilkel + 5 süzgeç) ve dağarcığın kaynak
+metni insan işi. Nora artık *ne zaman*, *neyi* ve *hangi örneklerle* öğreneceğini
+kendisi seçiyor; ama **ilkel kümesini hâlâ ben açtım**.
+
+**A6 kök nedeni bulundu** (önceki turda "sıra sızıntısı" sanmıştım — yanlıştı):
+sert ikiz bazen ölüyordu ve nitelikler ölüm anında donuyordu; o koşuda ölçüm geçersizdi.
+Dünya ölümcül değil **sert** yapıldı; ölüm olursa test artık "geçersiz" diyor.
+Fark: temkinlilik +0.36/+0.47, güven +0.18 (tekrarlı).
+
+Ölçüm: **N39–N42** hepsi `True True` · **A113–A116** hepsi GEÇTİ ·
+tam pil **112/112 (546.9 sn)** → yeni testlerle **113** · merdiven **7/7** ·
+audit **1125 / söylem 127** (tavan 1125).

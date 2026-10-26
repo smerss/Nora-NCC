@@ -162,11 +162,12 @@ def main():
     w6, n6 = sin.get("sözcük"), int(sin.get("n") or 0)
     lex6 = getattr(getattr(g.lang, "graph", None), "lexicon", None) or set()
     # DIŞ DOĞRULAMA: bekleneni sınav kendi hesaplar (Nora'nın hesabına güvenilmez).
-    beklenen = pm["alfabetik sırala"](w6)[:n6] if w6 and n6 else None
+    _b6 = pm.get(str(r6.get("taban")))
+    beklenen = str(_b6(w6))[:n6] if (_b6 and w6 and n6) else None
     ok6 = bool(r6.get("öğrendi") and sin.get("doğru") and w6 in lex6
                and sin.get("çıktı") == beklenen and r6.get("insan-girdisi") == 0
                and len(r6.get("parametreler") or []) == 3)
-    det6 = (f"insan yazmadı · parametreler={r6.get('parametreler')} "
+    det6 = (f"insan yazmadı · taban={r6.get('taban')} parametreler={r6.get('parametreler')} "
             f"şema={[x[0] for x in (r6.get('şema') or [])]} "
             f"· {w6}: {sin.get('çıktı')} (beklenen {beklenen})"
             if r6.get("durum") == "tamam" else f"durum={r6.get('durum')}")
@@ -185,10 +186,11 @@ def main():
     ilk = baslatan[0] if baslatan else {}
     sin7 = ilk.get("sınama") or {}
     w7, n7 = sin7.get("sözcük"), int(sin7.get("n") or 0)
-    beklenen7 = pm["alfabetik sırala"](w7)[:n7] if (w7 and n7) else None
+    _b7 = pm.get(str(ilk.get("taban")))
+    beklenen7 = str(_b7(w7))[:n7] if (_b7 and w7 and n7) else None
     ok7 = bool(baslatan and sin7.get("çıktı") == beklenen7 and n_insan == 0
                and int(ilk.get("yaş") or 0) >= 240)
-    det7 = (f"insan hiç konuşmadı · kendi başlattığı yaş={ilk.get('yaş')} "
+    det7 = (f"insan hiç konuşmadı · taban={ilk.get('taban')} kendi başlattığı yaş={ilk.get('yaş')} "
             f"· sayı={len(baslatan)} · {w7}: {sin7.get('çıktı')} (beklenen {beklenen7})"
             if led else "hiç başlatmadı")
     rows.append(("7 kendine başlatma", ok7, det7,
