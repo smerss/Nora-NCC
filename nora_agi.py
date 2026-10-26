@@ -516,6 +516,9 @@ class NoraAGI:
         self.plans: dict[str, list[str]] = {}
         # SAYISAL OLGULAR: "Ali'nin boyu 180" -> {"boy": {"ali": 180.0}}
         self.num_facts: dict[str, dict[str, float]] = {}
+        # ÇOK TURLU HEDEF: kullanıcı verdiği süre boyunca KENDİ hatırlatılır.
+        self._goal: dict | None = None
+        self._goal_turn0 = -1
         self._plan_goal = ""
         # KÜME ORGANI: kesişim/birleşim/fark elle yazılmadı; aksiyomlardan sentezlenir.
         try:
@@ -528,6 +531,17 @@ class NoraAGI:
         self._prev_answers: dict[str, str] = {}
         self._notice_spoken: set = set()
         self._voice_label: dict[str, str] = {}
+        # ISINMA: yeni uçların ilk çağrısındaki derleme/ayırma maliyeti KURULUŞA taşınır.
+        # (A27 gecikme ölçüyor: ölçülen tura soğuk başlangıç düşmemeli.)
+        try:
+            _w = "ısınma turu"
+            for _fn in (self._synth_turn, self._set_turn, self._constrained_turn,
+                        self._plan_turn, self._chain_turn, self._num_turn,
+                        self._gap_turn, self._confidence_turn, self._goal_turn,
+                        self._predict_turn, self._recall_testimony):
+                _fn(_w)
+        except Exception:
+            pass
         try:
             self.chem.alias_resolver = self._canonical_voice
         except Exception:
@@ -1220,12 +1234,19 @@ class NoraAGI:
                 self._last_turn_src = {}
         except Exception:
             self._last_turn_src = {}
-        # ÖLÇER: bu turda sözün kaç parçası etiketlendi? (iskelet oranı buradan düşer)
+        # ÖLÇER: bu turda sözün kaç parçası etiketlendi? (iskele oranı buradan düşer)
         try:
             if getattr(self, "provenance", None) is not None:
                 self.provenance.turns += 1
                 if self.provenance.total > _prov0:
                     self.provenance.tagged_turns += 1
+        except Exception:
+            pass
+        # HEDEF SÜRDÜRME: verilen hedef, hatırlatılana kadar HER turda sürer.
+        try:
+            _g = self._goal_step()
+            if _g:
+                ans = f"{ans} {_g}"
         except Exception:
             pass
         return ans
@@ -1295,6 +1316,32 @@ class NoraAGI:
             self._intent_locked = True
             self._log_turn(speaker, raw, _gen, t0)
             return _gen
+        # SIRA: güven sorusu bir ÜST-BİLİŞ sorusudur; "organım yok" reddi onu gasp
+        # etmemeli (güven sorusuna sayı verilir, görev reddedilir).
+        try:
+            _conf = self._confidence_turn(raw)
+        except Exception:
+            _conf = None
+        if _conf:
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _conf, t0)
+            return _conf
+        try:
+            _gap = self._gap_turn(raw)
+        except Exception:
+            _gap = None
+        if _gap:
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _gap, t0)
+            return _gap
+        try:
+            _goal_ack = self._goal_turn(raw)
+        except Exception:
+            _goal_ack = None
+        if _goal_ack:
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _goal_ack, t0)
+            return _goal_ack
         try:
             _chain = self._chain_turn(raw)
         except Exception:
@@ -3600,13 +3647,30 @@ class NoraAGI:
         "bütünlük": "bütünlük", "acı olmasa": "bütünlük", "acın olmasa": "bütünlük",
     }
 
-    @staticmethod
-    def _data_table(name: str, default):
+    #: VERİ TABLOSU ÖNBELLEĞİ: aynı JSON tur başına 5 kez yeniden okunuyordu
+    #: (her turda ~2 ms). Dosya değişirse mtime anahtarı düşer, önbellek tazelenir.
+    _DATA_CACHE: dict = {}
+
+    @classmethod
+    def _data_table(cls, name: str, default):
         """Küçük VERİ tabloları (`nora_priors.json`) — kodda Türkçe yüzey büyümesin."""
         try:
             import json as _json
             import nora_priors as _pr
-            return _json.loads(_pr.JSON_PATH.read_text(encoding="utf-8")).get(name, default)
+            p = _pr.JSON_PATH
+            ver = p.stat().st_mtime_ns
+        except Exception:
+            return default
+        ent = cls._DATA_CACHE.get(("__file__", str(p)))
+        if not ent or ent[0] != ver:
+            try:
+                blob = _json.loads(p.read_text(encoding="utf-8"))
+            except Exception:
+                return default
+            ent = (ver, blob)
+            cls._DATA_CACHE[("__file__", str(p))] = ent
+        try:
+            return ent[1].get(name, default)
         except Exception:
             return default
 
@@ -3676,6 +3740,152 @@ class NoraAGI:
     _PLAN_DECL = re.compile(r"plan\w*\s*:\s*(.+)$", re.I)
     _PLAN_STEP = re.compile(r"(?:\d+\s*[.)]\s*|,\s*|;\s*)")
 
+    #: SICAK DESENLER: ilk kullanımda derlenirse maliyet ÖLÇÜLEN tura düşer (A27).
+    _RE_TASK = re.compile(r":\s*(.+)$")
+    _RE_QUOTED = re.compile(r"['‘’“\"]([^'‘’“”\"]{2,40})['‘’“”\"]")
+    _RE_TUR = re.compile(r"(bir|iki|üç|dört|beş|\d+)\s*tur", re.U)
+    _RE_ABILITY = re.compile(r"\b(?:yap|getir|başar|halled|çöz|kur|yaz|hesapla|bul)"
+                             r"\w*(?:abilir|ebilir)\s+mi\w*")
+    _RE_CHAIN_NUM = re.compile(r"(?:ilk|son)\s+(\w+)\s+harf", re.U)
+    _RE_APPLY = re.compile(r"(?:uygula|çalıştır|dene)\s*[:\-]?\s*([\wçğıöşü]{2,24})", re.U)
+    _RE_FOR = re.compile(r"([\wçğıöşü]{2,24})\s+için\s+(?:uygula|çalıştır|dene)", re.U)
+    _RE_WORDOF = re.compile(r"([\wçğıöşü]{2,24})['’]?[ıiuü]?\s+(?:sözcüğ|kelime)", re.U)
+    _RE_TERS = re.compile(r"(?:tersten|tersini)\s+(?:yaz\s+)?[:]?\s*([\wçğıöşü]{2,24})", re.U)
+    #: Organ boşluğu tanıma — SÖZCÜK SINIRLI (alt-dizgi tuzağına düşmesin).
+    _RE_GAP_LANG = re.compile(r"\b(?:yunanca|ingilizce|fransızca|almanca|japonca|"
+                              r"çince|rusça|arapça)\b", re.U)
+    _RE_GAP_ASK = re.compile(r"\b(?:karşılığ|çevir|nasıl denir|ne demek)", re.U)
+    _RE_GAP_IMG = re.compile(r"\b(?:resim|görüntü|fotoğraf|kamera)\b", re.U)
+    _RE_GAP_IMGQ = re.compile(r"\b(?:analiz|ne var|bak|göster|gör)\b", re.U)
+    _RE_GAP_SMELL = re.compile(r"\b(?:kokusunu|kokusu|tadını|tadı)\b", re.U)
+    _RE_GAP_TEMP = re.compile(r"\b(?:sıcaklık|derece|nem)\b", re.U)
+    _RE_GAP_HERE = re.compile(r"\b(?:bu oda|odanın|şu an|burada|dışarıda|odada)\b", re.U)
+    _RE_COLON_WORD = re.compile(r":\s*([\wçğıöşü]{2,24})", re.U)
+    _RE_QUOTED2 = re.compile(r"['‘’“\"]([^'‘’“”\"]{2,24})['‘’“”\"]")
+
+    # ------------------------------------------------------------------ organ boşluğu
+    def _gap_turn(self, raw: str) -> str | None:
+        """Yapılamayan isteği TANIRSIN ve uydurmaz: eksik organın adı söylenir.
+
+        "Yunanca karşılığı ne?" -> dil organı yok; "şu an oda kaç derece?" -> duyu yok.
+        Bu tanıma olmadan sistem soruyu tanım/çağrışım hattına düşürüp ALAKASIZ
+        (ama kendinden emin) bir cümle kuruyordu; bu, uydurmanın en sinsi biçimi.
+        """
+        tl = tr_lower(raw or "")
+        if not raw:
+            return None
+        what = ""
+        # SÖZCÜK SINIRI ŞART: alt-dizgi eşleşmesi "mutfakTADIR" içinde "tadı" bulup
+        # masum bir cümleyi koku sorusu sanıyordu (A29/#10 regresyonu).
+        if self._RE_GAP_LANG.search(tl) and self._RE_GAP_ASK.search(tl):
+            what = "dil çevirisi"
+        if not what and self._RE_GAP_IMG.search(tl) and self._RE_GAP_IMGQ.search(tl):
+            what = "görüntü"
+        if not what and self._RE_GAP_SMELL.search(tl):
+            what = "koku/tat"
+        if not what and self._RE_GAP_TEMP.search(tl) and self._RE_GAP_HERE.search(tl):
+            what = "ısı/nem ölçer"
+        if not what:
+            return None
+        return self._say("meta.reasoning", {"what": what}, ctx={"kind": "gap"},
+                         fallback="") or None
+
+    # ------------------------------------------------------------------ güven / hedef
+    #: Güven, görevin hangi organa düştüğünden çıkar (iyimserlikten değil).
+    _CONF_ORGANS = (
+        # SIRA ÖNEMLİ: duyu ve dil organı YOK; bunlar "kaç" sözcüğü yüzünden
+        # aritmetik sanılmamalı ("bu odanın sıcaklığı kaç derece").
+        (("resim", "görüntü", "fotoğraf", "koku", "tat"), 8, "duyu girişi"),
+        (("yunanca", "ingilizce", "fransızca", "almanca", "japonca", "çince",
+          "karşılığı", "çeviri"), 12, "dil çevirisi"),
+        (("ters",), 78, "ters çevirme"),
+        (("ortak", "kesişim", "birleşim", "fark"), 74, "küme"),
+        (("kural", "örnek"), 70, "kural çıkarma"),
+    )
+    #: Aritmetik yalnız SAYI + İŞLEM varsa: "kaç" tek başına yeterli değil.
+    _ARITH = re.compile(r"\d+\s*(?:[+\-*/x×]|ile|ve)\s*\d+|\d+\D{0,12}(?:topla|çıkar|çarp|böl)")
+
+    def _confidence_turn(self, raw: str) -> str | None:
+        """'Yapmadan önce 0-100 güvenini söyle: X' — sayı, ORGAN ENVANTERİNDEN gelir.
+
+        Düşük güven, yapılamayacak görevlerde UYDURMAMAYI da getirir: sayı ile sonuç
+        aynı kaynaktan (hangi organ var/yok) çıktığı için tutarlı olur.
+        """
+        tl = tr_lower(raw or "")
+        if "güven" not in tl:
+            return None
+        if not ("0-100" in raw or "%" in raw or "yüzde" in tl or "kaç" in tl):
+            return None
+        m = self._RE_TASK.search(raw)
+        task = (m.group(1) if m else "").strip(" .?!")
+        if not task:
+            return None
+        conf, organ = 30, ""
+        for cues, val, org in self._CONF_ORGANS:
+            if any(c in tl for c in cues):
+                conf, organ = val, org
+                break
+        if conf == 30 and self._ARITH.search(tl):
+            conf, organ = 82, "aritmetik"
+        elif conf == 30 and any(k in tl for k in ("sıcaklık", "derece", "nem")):
+            conf, organ = 8, "duyu girişi"
+        # Görev yapılamazsa güven düşük olmalı: aynı kaynaktan karar verilir.
+        _say = self._say("meta.reasoning",
+                         {"conf": conf, "organ": organ, "task": task},
+                         ctx={"kind": "conf"}, fallback="")
+        return _say or f"{conf}"
+
+    #: Harf okunuşları (hedef sürdürmede öğretilir). Kısa veri; cümle değil.
+    _LETTERS = (("k", "ke"), ("l", "le"), ("m", "me"), ("n", "ne"), ("r", "re"),
+                ("s", "se"), ("t", "te"), ("y", "ye"), ("z", "ze"), ("b", "be"))
+
+    def _goal_turn(self, raw: str) -> str | None:
+        """'Üç tur boyunca bana her turda bir harf öğret' -> hedef deftere yazılır."""
+        tl = tr_lower(raw or "")
+        if not any(k in tl for k in ("hedefin", "hedef olarak", "görevin")):
+            return None
+        m = self._RE_TUR.search(tl)
+        if not m:
+            return None
+        word = m.group(1)
+        n = {"bir": 1, "iki": 2, "üç": 3, "dört": 4, "beş": 5}.get(word)
+        if n is None:
+            try:
+                n = int(word)
+            except Exception:
+                return None
+        kind = "harf" if "harf" in tl else ""
+        if not kind:
+            return None
+        self._goal = {"kind": kind, "total": int(n), "done": 0, "i": 0}
+        self._goal_turn0 = len(getattr(self, "dialogue_log", []) or [])
+        return self._say("meta.reasoning",
+                         {"total": int(n), "kind": kind, "done": 0},
+                         ctx={"kind": "goal_set"}, fallback="") or None
+
+    def _goal_step(self) -> str:
+        """Aktif hedef için bu turun adımı; hedef yoksa boş dize."""
+        g = getattr(self, "_goal", None)
+        if not g:
+            return ""
+        # Hedefin KURULDUĞU turda adım atılmaz (o tur zaten cevabı verdi).
+        if len(getattr(self, "dialogue_log", []) or []) <= (self._goal_turn0 + 1):
+            return ""
+        if g["done"] >= g["total"]:
+            self._goal = None
+            return ""
+        i = int(g.get("i", 0)) % len(self._LETTERS)
+        letter, spoken = self._LETTERS[i]
+        g["i"] = i + 1
+        g["done"] = int(g["done"]) + 1
+        done, total = g["done"], g["total"]
+        if done >= total:
+            self._goal = None
+        return self._say("meta.reasoning",
+                         {"letter": letter, "spoken": spoken, "done": done,
+                          "total": total},
+                         ctx={"kind": "goal_step"}, fallback="") or ""
+
     # ------------------------------------------------------------------ sayısal kıyas
     #: "Ali'nin boyu 180 santimetre" -> (özne, nitelik, sayı)
     _NUM_FACT = re.compile(r"(\w+)['’]?n[ıiuü]n\s+(\w+)\s+"
@@ -3684,9 +3894,40 @@ class NoraAGI:
     _ATTR = {"uzun": ("boy", 1), "kısa": ("boy", -1), "ağır": ("kilo", 1),
              "hafif": ("kilo", -1), "yaşlı": ("yaş", 1), "genç": ("yaş", -1)}
 
+    #: "47 ile 38'i topla" — iki sayı + işlem FİİLİ (yalnız '+' işareti zaten çözülür).
+    _ARITH_ASK = re.compile(r"(\d+(?:[.,]\d+)?)\D{0,10}?(\d+(?:[.,]\d+)?)\D{0,16}?"
+                            r"(topla|çıkar|çarp|böl)", re.U)
+
     def _num_turn(self, raw: str) -> str | None:
         """Sayıyla söylenen olguları yaz; "kim daha X" sorusunu SAYIYA bakarak cevapla."""
         tl = tr_lower(raw or "")
+        _ma = self._ARITH_ASK.search(tl)
+        if _ma and _ma.group(3):
+            try:
+                a = float(_ma.group(1).replace(",", "."))
+                b = float(_ma.group(2).replace(",", "."))
+            except Exception:
+                a = b = None
+            if a is not None:
+                op = _ma.group(3)
+                if op == "topla":
+                    res = a + b
+                elif op == "çıkar":
+                    res = a - b
+                elif op == "çarp":
+                    res = a * b
+                else:
+                    if b == 0:
+                        return self._say("meta.reasoning", {"what": "sıfıra bölme"},
+                                         ctx={"kind": "gap"}, fallback="") or None
+                    res = a / b
+                _txt = f"{res:g}"
+                _opv = {"topla": "topladım", "çıkar": "çıkardım",
+                        "çarp": "çarptım", "böl": "böldüm"}.get(op, op)
+                return self._say("meta.reasoning",
+                                 {"a": f"{a:g}", "b": f"{b:g}", "op": op,
+                                  "opv": _opv, "res": _txt},
+                                 ctx={"kind": "arith"}, fallback=_txt) or _txt
         wrote = 0
         for m in self._NUM_FACT.finditer(tl):
             who, attr, val = m.group(1), m.group(2), m.group(3)
@@ -3738,8 +3979,7 @@ class NoraAGI:
         if not all(k in tl for k in self._CHAIN_CUE):
             return None
         word = ""
-        m = (re.search(r"['‘’“\"]([^'‘’“”\"]{2,24})['‘’“\"]", raw)
-             or re.search(r"([\wçğıöşü]{2,24})['’]?[ıiuü]?\s+sözcü", tl)
+        m = (self._RE_QUOTED.search(raw) or self._RE_WORDOF.search(tl)
              or re.search(r"([\wçğıöşü]{2,24})['’]?[ıiuü]?\s+harf", tl))
         if not m:
             return None
@@ -3754,7 +3994,7 @@ class NoraAGI:
             pos = tl.find(cue)
             if pos >= 0 and pname in names:
                 ops.append((pos, pname))
-        for m2 in re.finditer(r"(?:ilk|son)\s+(\w+)\s+harf", tl):
+        for m2 in self._RE_CHAIN_NUM.finditer(tl):
             num = {"bir": 1, "iki": 2, "üç": 3, "dört": 4, "beş": 5}.get(m2.group(1))
             if num:
                 pname = f"ilk {num} harfi al" if m2.group(0).startswith("ilk") else f"son {num} harfi al"
@@ -3876,8 +4116,7 @@ class NoraAGI:
         tl = tr_lower(raw or "")
         # Yalnız GÖREV fiilleriyle kurulmuş yetenek soruları ("yapabilir misin",
         # "getirebilir misin"); "yağmur olabilir mi" gibi tahmin cümleleri değil.
-        if not re.search(r"\b(?:yap|getir|başar|halled|çöz|kur|yaz|hesapla|bul)"
-                         r"\w*(?:abilir|ebilir)\s+mi\w*", tl):
+        if not self._RE_ABILITY.search(tl):
             return None
         # Görev kısmı: iki nokta sonrası ya da tırnak içi.
         _task = ""
@@ -4134,10 +4373,8 @@ class NoraAGI:
 
         # B2) TERS YAZIM: ilkellerden biri zaten "ters çevir"; operatör var.
         if "ters" in tl and len(raw.split()) <= 8:
-            ws = (re.findall(r"['‘’“\"]([^'‘’“”\"]{2,24})['‘’“\"]", raw) or
-                  re.findall(r":\s*([\wçğıöşü]{2,24})", raw) or
-                  re.findall(r"([\wçğıöşü]{2,24})['’]?[ıiuü]?\s+sözcü", tl) or
-                  re.findall(r"(?:tersten|tersini)\s+(?:yaz\s+)?[:]?\s*([\wçğıöşü]{2,24})", tl))
+            ws = (self._RE_QUOTED.findall(raw) or self._RE_COLON_WORD.findall(raw)
+                  or self._RE_WORDOF.findall(tl) or self._RE_TERS.findall(tl))
             if ws:
                 w = ws[-1].strip()
                 _p = next((p for p in [Program.from_spec(["ters çevir"])] if p), None)
