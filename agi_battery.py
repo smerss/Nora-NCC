@@ -4580,6 +4580,46 @@ def a103_oturum_defteri_ve_kalibrasyon():
 
 
 
+def a105_ilkel_icadi_ve_bilesim():
+    """A105 — İLKEL İCADI: kompozisyon tükenince yeni ilkel önerisi.
+
+    (1) Hiçbir kompozisyonun çözemediği örnekler (harf kaydırma) verilir; Nora takılır,
+        yeni bir ilkel önerir ve örneklerin hepsini açıklar.
+    (2) İcat + mevcut uzay bileşimi: ters(1 ileri) — iki adımlı çözüm.
+    (3) Görülmemiş sözcükte çalışır. Beklenen değerler kodla hesaplanır.
+    """
+    from nora_abstract import ALPHABET as ALFA
+    from nora_synth import Synthesizer
+
+    def shift1(w):
+        return "".join(ALFA[(ALFA.index(ch.lower()) + 1) % len(ALFA)]
+                       if ch.lower() in ALFA else ch for ch in w)
+
+    ok = {}
+    g = NoraAGI(seed=1939, boot_thinker=False)
+    g.step_life(120)
+    pairs = [(w, shift1(w)) for w in ("kitap", "kalem")]
+    ok["kompozisyon-yok"] = Synthesizer().learn(pairs).get("status") != "adopted"
+    rep1 = tr_lower(strip_prefixes(g.converse(
+        "Şu dönüşümü öğren: " + ", ".join(f"{a} -> {b}" for a, b in pairs) + ".")))
+    ok["icat-var"] = ("icat" in rep1 or "ilkel" in rep1)
+    ok["görülmemiş"] = shift1("deniz") in rep1
+
+    g2 = NoraAGI(seed=1940, boot_thinker=False)
+    g2.step_life(120)
+    pairs2 = [(w, shift1(w)[::-1]) for w in ("kitap", "kalem")]
+    rep2 = tr_lower(strip_prefixes(g2.converse(
+        "Şu dönüşümü öğren: " + ", ".join(f"{a} -> {b}" for a, b in pairs2) + ".")))
+    rep2b = tr_lower(strip_prefixes(g2.converse("Yazdığın dönüşümü uygula: masa")))
+    ok["bileşim"] = (("+" in rep2) or ("ters" in rep2)) and \
+        (shift1("deniz")[::-1] in rep2) and (shift1("masa")[::-1] in rep2b)
+
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
+
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -4686,6 +4726,8 @@ TESTS = {
             a59_unknown_question_gap_and_research_across_wh_types),
     "A58": ("cümle yapısı, fiil valansı ve 'nasıl denilir' sorularının genellenmesi",
             a58_sentence_structure_valency_and_meta_questions),
+    "A105": ("ilkel icadı (kompozisyon tükenince) ve icat+kompozisyon",
+             a105_ilkel_icadi_ve_bilesim),
     "A103": ("oturum defteri (öz-geçmiş) ve deneyimden kalibrasyon",
              a103_oturum_defteri_ve_kalibrasyon),
     "A101": ("hedef yığını (kesinti+dönüş) ve örnekten süzgeç operatörü",
@@ -4699,6 +4741,18 @@ def core_reply(text: str) -> str:
     algı notudur; testler cevabın GÖVDESİNE bakar."""
     from nora_style import strip_prefixes
     return strip_prefixes(text)
+
+
+def _reset_globals() -> None:
+    """Ölçüm envanteri ve kendi-yazdığı defter: testler arası sızıntıyı kes."""
+    try:
+        from pathlib import Path as _P
+        _P("runs/operators_self.json").unlink(missing_ok=True)
+        import nora_apply as _AP
+        for _k in [k for k in _AP.FEATURES if k.startswith("kendi.")]:
+            _AP.FEATURES.pop(_k, None)
+    except Exception:
+        pass
 
 
 def main():
@@ -4716,6 +4770,9 @@ def main():
     t0 = time.time()
     passed = 0
     for k in wanted:
+        # HER TEST ÖNCE TEMİZ DÜNYA: bir testin sonucu BAŞKA testin ürettiği ölçüm
+        # envanterine bağlı olmamalı (A14 sıra yüzünden dalgalanıyordu).
+        _reset_globals()
         desc, fn = TESTS[k]
         ok, detail = fn()
         passed += int(bool(ok))
