@@ -2900,9 +2900,13 @@ class NoraAGI:
         Her cümle Broca'da çıplak kökten çekimlenir; topolojiyi plastik şema korteksi seçer."""
         from nora_broca import TurkishSyntaxEngine as SYN
         s_low = tr_lower(raw)
-        if not any(m in s_low for m in self._PREF_MARKERS):
-            return ""
         words = re.findall(r"[\wçğıöşü]+", s_low)
+        # "X mı Y mı?" BİR SEÇİM sorusudur — "hangisi" demeden de seçimdir. Bu kalıp
+        # yok sayılınca soru kavram hattına düşüp alakasız tanım veriyordu
+        # ("yazı mı tura mı?" -> "yaz bir sıcak mevsimdir").
+        _pair_choice = sum(1 for w in words if w in self._PREF_PARTICLES) >= 2
+        if not _pair_choice and not any(m in s_low for m in self._PREF_MARKERS):
+            return ""
         cands = []
         for i, w in enumerate(words):
             if w in self._PREF_PARTICLES and i > 0:
@@ -4442,6 +4446,21 @@ class NoraAGI:
                 if sy is not None:
                     sy.drop_primitive(nm)
             self._schema_maybe()
+            # ŞEMA KULLANIMI: bu karar bir şemayla çözüldüyse sayaç artar; çözülmediyse
+            # kullanılmayan şemaların `idle` sayacı artar ve sınırı geçen budanır.
+            sc_org = getattr(self, "schema", None)
+            if sc_org is not None:
+                _used = getattr(sy, "last_schema", None)
+                if _used is not None:
+                    try:
+                        sc_org.note_use(_used[0].get("family") or "")
+                    except Exception:
+                        pass
+                for _nm in sc_org.tick():
+                    if sy is not None:
+                        _fam = next((r["family"] for r in sc_org.ledger
+                                     if r["name"] == _nm), "")
+                        sy.drop_schema(_nm, _fam)
         except Exception:
             pass
 

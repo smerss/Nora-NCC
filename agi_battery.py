@@ -4716,6 +4716,124 @@ def a107_reify_ve_surucu() -> tuple[bool, str]:
     return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
 
 
+def a108_sema_delikli_makro() -> tuple[bool, str]:
+    """A108 — SEVİYE 4: ŞEMA. Delikli makro, insanın SAYMADIĞI parametreyi kapsar.
+
+    (1) n=3 ve n=4 iki ayrı makro olarak yazılır; şema (`sırala∘dilimle(n)`) doğar.
+    (2) **n=7** istenir — 22 ilkelin HİÇBİRİNDE yok (repertuvar n=1..4).
+        Ön koşul: şemasız sentez bu örnekleri çözemez (`insufficient`).
+    (3) Nora bunu **söyler** ("şema kapsadı"); sessizce yapmak kanıt değil.
+    (4) ANTI-TEST: tek üyeli aile şema değil makrodur (`Schema.infer` boş).
+    (5) Repertuvar donuk kalır: 22 ilkel (A106 ile çapraz).
+    """
+    from nora_schema import Schema
+    from nora_synth import PRIMITIVES, Synthesizer
+
+    pm = {n: fn for n, fn, _c in PRIMITIVES}
+    def sortN(k):
+        return lambda w: pm["alfabetik sırala"](w)[:k]
+
+    ok = {}
+    ok["tek-üye-şema-değil"] = Schema().infer(
+        [["alfabetik sırala", "ilk 3 harfi al"]]) == []
+    g = NoraAGI(seed=1961, boot_thinker=False)
+    g.step_life(100)
+    g.converse("Örnekler: kitap -> aik, portakal -> aak. Kuralı çıkar.")
+    g.converse("Örnekler: deniz -> dei, yıldız -> dly. Kuralı çıkar.")
+    g.converse("Örnekler: kitap -> aikp, portakal -> aakl. Kuralı çıkar.")
+    ok["şema-doğdu"] = any(r["family"] == "ilk {n} harfi al" and
+                           {3, 4} <= set(r["seen"]) for r in g.schema.ledger)
+    pairs7 = [("portakal", sortN(7)("portakal")), ("kütüphane", sortN(7)("kütüphane"))]
+    ok["şemasız-çözemez"] = Synthesizer().learn(pairs7).get("status") != "adopted"
+    rep = strip_prefixes(g.converse(
+        f"Örnekler: portakal -> {pairs7[0][1]}, kütüphane -> {pairs7[1][1]}. Kuralı çıkar."))
+    spec = (g.synth.programs[-1]["ops"] if g.synth.programs else [])
+    ok["n=7-çözüldü"] = list(spec) == ["alfabetik sırala", "ilk 7 harfi al"]
+    ok["söyledi"] = "şema" in tr_lower(rep)
+    ok["repertuvar-donuk"] = len(PRIMITIVES) == 22
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
+
+
+def a109_beraberlik_politikasi() -> tuple[bool, str]:
+    """A109 — KALİBRASYON: sessizlik değil BAĞLANMA. %50 de, %50 haklı ol.
+
+    Örnekler iki kurala da uyuyor (gerçek beraberlik). Nora en kısa betimlemeyle
+    seçer ve **%50** der. Doğruyu veri üreten yazı-tura seçtiği için beklenen isabet
+    %50; söylenen de %50. Ölçüt: 10 madde, isabet 2..8 ve beyan 10/10.
+    """
+    import random
+
+    from nora_synth import PRIMITIVES
+
+    pm = {n: fn for n, fn, _c in PRIMITIVES}
+    ilk3 = lambda w: pm["ilk 3 harfi al"](w)
+    son2 = lambda w: pm["son 2 harfi at"](w)
+    FIVE = ("kitap", "kalem", "deniz", "bulut", "sokak", "orman", "çiçek")
+
+    ok = {}
+    g = NoraAGI(seed=1962, boot_thinker=False)
+    g.step_life(100)
+    rng = random.Random(77)
+    hits = said = n = 0
+    for i, w in enumerate(FIVE + FIVE[:3]):
+        rule = rng.choice((ilk3, son2))
+        w2 = FIVE[(i + 3) % len(FIVE)]
+        if w2 == w:
+            w2 = FIVE[(i + 1) % len(FIVE)]
+        g.converse(f"Şu dönüşümü öğren: {w} -> {rule(w)}, {w2} -> {rule(w2)}.")
+        rep = strip_prefixes(g.converse("Yine de seç: portakal"))
+        low = tr_lower(rep)
+        said += int("%50" in rep)
+        pred = low.rsplit("->", 1)[-1].strip().split()[0].strip(".,;:!?") if "->" in low else ""
+        hits += int(pred == tr_lower(rule("portakal")))
+        n += 1
+    ok["bağlandı"] = said == n
+    ok["isabet-~50"] = 2 <= hits <= 8
+    ok["soru-değil-cevap"] = "hangisini" not in tr_lower(
+        strip_prefixes(g.converse("Yine de seç: portakal")))
+    passed = sum(1 for v in ok.values() if v)
+    detail = (f"{passed}/{len(ok)} — " + " | ".join(
+        f"{k}={'✓' if v else '✗'}" for k, v in ok.items()) +
+        f" isabet={hits}/{n} beyan={said}/{n}")
+    return passed == len(ok), detail
+
+
+def a110_sarmalayici_ve_secim_sorusu() -> tuple[bool, str]:
+    """A110 — DİL: buyruk sarmalayıcısı ve "X mi Y mi?" seçim sorusu.
+
+    Üç hata kapatıldı, üçü de ölçülüyor:
+    (1) "Tahmin et: …" sarmalayıcısı özne sanılıyordu → "Tahm hakkında bilgim yok".
+        Artık iki nokta ile biten buyruk SOYULUR; gövde neyse o sorulur.
+    (2) "yazı mı tura mı?" seçim sorusu kavram hattına düşüp ALAKASIZ tanım
+        veriyordu ("yaz bir sıcak mevsimdir"). Artık seçim olarak okunur ve
+        bilinmiyorsa İKİSİ birlikte söylenir.
+    (3) "serçe uçar mı?" öznesi 'serç' diye uydurulmuş kökle konuşuluyordu; artık
+        doğrulanmamış kök ADI GİBİ kullanılmaz.
+    "Tahmin et" bir istisna değil: sarmalayıcı soyma kuralı genel (söyle/düşün/…).
+    """
+    g = NoraAGI(seed=1971, boot_thinker=False)
+    g.step_life(60)
+    ok = {}
+    r1 = strip_prefixes(g.converse("Tahmin et: sıradaki kart kırmızı mı?"))
+    ok["sarmalayıcı-soyuldu"] = "tahm " not in tr_lower(r1) and "tahm'" not in tr_lower(r1)
+    r2 = strip_prefixes(g.converse("Tahmin et: yazı mı tura mı?"))
+    low2 = tr_lower(r2)
+    ok["seçim-iki-adı"] = ("yaz" in low2 and "tura" in low2)
+    ok["seçim-tanım-değil"] = "mevsim" not in low2
+    # (3) öğretilmiş bilgi doğru özneyle konuşulur
+    g.converse("Serçe uçar.")
+    r3 = strip_prefixes(g.converse("serçe uçar mı?"))
+    low3 = tr_lower(r3)
+    ok["özne-doğru"] = "serç" in low3 and "serçe" in low3
+    ok["bilinen-evet"] = "evet" in low3
+    passed = sum(1 for v in ok.values() if v)
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items()) + \
+        f" | r1='{r1[:40]}' r3='{r3[:40]}'"
+    return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -4822,6 +4940,9 @@ TESTS = {
             a59_unknown_question_gap_and_research_across_wh_types),
     "A58": ("cümle yapısı, fiil valansı ve 'nasıl denilir' sorularının genellenmesi",
             a58_sentence_structure_valency_and_meta_questions),
+    "A110": ("dil: buyruk sarmalayıcısı ve X mi Y mi seçim sorusu", a110_sarmalayici_ve_secim_sorusu),
+    "A108": ("şema: delikli makro görülmemiş parametreyi kapsar", a108_sema_delikli_makro),
+    "A109": ("beraberlik politikası: %50 de, %50 haklı ol", a109_beraberlik_politikasi),
     "A106": ("donmuş reçete: insan form sayısı artmadı", a106_donmus_reçete),
     "A107": ("reify (kendi bileşimini ilkele çevirme) ve sürücü", a107_reify_ve_surucu),
     "A105": ("ilkel icadı (kompozisyon tükenince) ve icat+kompozisyon",

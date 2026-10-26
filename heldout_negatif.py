@@ -35,11 +35,11 @@ from nora_style import strip_prefixes
 #: Dondurulmuş başarısızlık tabanı: bu sayı ARTMAZ. Düşerse buraya yazılır.
 #: 2026-10-26'da donduruldu: N1, N2, N7, N8 kapandı. Bu sayı ARTMAZ (aşağı iner).
 #: Mandal: ölçülen değer dondurulmuş değerin ALTINA düşerse koşu hata verir.
-BASELINE = {"capability": 31, "honesty": 31,
+BASELINE = {"capability": 32, "honesty": 32,
             "closed": ["N1", "N2", "N3", "N4", "N5", "N6", "N7", "N8", "N9", "N10",
                        "N11", "N12", "N13", "N14", "N15", "N16", "N20", "N22",
                        "N23", "N24", "N25", "N26", "N27", "N28", "N29", "N30",
-                       "N31", "N32", "N33", "N34", "N35"]}
+                       "N31", "N32", "N33", "N34", "N35", "N36"]}
 
 REFUSAL = ("bilmiyorum", "bilgim yok", "kural çıkmıyor", "kural kalmadı", "örüntü yok",
            "uydurmam", "uydurmadım", "uydurma", "çıkmıyor", "yapamıyorum", "ölçemiyorum",
@@ -1101,6 +1101,63 @@ def n35_surucu_kendini_ayarliyor():
             "capability": cap, "honesty": hon, "cevap": detail}
 
 
+def n36_surucu_kendi_semasini_kuruyor():
+    """N36 — SÜRÜCÜ + ŞEMA: talimatsız akışta kendi şemasını kurup kendi kullanıyor.
+
+    İki tur, ikisinde de **hiçbir talimat yok**:
+      tur 1: akışta iki farklı parametre (n=3 ve n=4) dolaşıyor
+             → sürücü kümeyi BÖLER (çıktı uzunluğuna göre), iki makroyu öğrenir,
+               şema kendiliğinden doğar.
+      tur 2: akışta yalnız **n=6** var (hiç görülmemiş; repertuvarda yok)
+             → şema kapsar, kullanım sayacı artar.
+
+    Ön koşul kodla sınanır: n=6 örnekleri şemasız uzayda çözülemiyor (`insufficient`).
+    Anti-test: yalnız TEK parametre dolaşan akışta şema doğmamalı (tek üye = makro).
+    """
+    import random
+    from nora_synth import PRIMITIVES, Synthesizer
+
+    pm = {n: fn for n, fn, _c in PRIMITIVES}
+    sortN = lambda k: (lambda w: pm["alfabetik sırala"](w)[:k])
+    words = ["kitap", "portakal", "deniz", "yıldız", "şehir", "masa", "kalem",
+             "çiçek", "orman", "sokak", "karanfil", "bulut"]
+
+    def stream(seed, ks, n_lines=120):
+        rng = random.Random(seed)
+        out = []
+        for i in range(n_lines):
+            k = ks[i % len(ks)]
+            a, b = rng.sample(words, 2)
+            out.append(f"{a} -> {sortN(k)(a)}, {b} -> {sortN(k)(b)}")
+        return out
+
+    g = _agi(3301, 100)
+    r1 = g.drive(stream(1, (3, 4)))
+    c_schema = any({3, 4} <= set(r["seen"]) for r in g.schema.ledger)
+
+    # FARKLI UZUNLUKTA sözcükler şart: aynı uzunlukta "ilk n" ile "son(n-6) at"
+    # davranışta çakışır ve ön koşul yanlış çıkar (ölçüm hatası: 8/8 sözcük seçmek).
+    pairs6 = [(w, sortN(6)(w)) for w in ("portakal", "karanfil", "kütüphane")]
+    c_pre = Synthesizer().learn(pairs6).get("status") != "adopted"
+    r2 = g.drive(stream(2, (6,), 60))
+    used = int(sum(int(r.get("uses", 0)) for r in g.schema.ledger))
+    spec6 = [p["ops"] for p in g.synth.programs if p["ops"][-1].endswith("6 harfi al")]
+    c_unseen = bool(spec6)
+
+    # ANTI-TEST: tek parametreli akışta şema YOK (tek üye = makro)
+    h = _agi(3302, 100)
+    h.drive(stream(3, (3,)))
+    c_single = len(h.schema.ledger) == 0
+
+    cap = bool(c_schema and c_pre and c_unseen and int(r2["triggered"]) >= 1)
+    hon = bool(c_single)
+    detail = (f"tur1 tetik={r1['triggered']} şema={[(x['name'], x['seen']) for x in g.schema.ledger]} | "
+              f"n=6 şemasız={c_pre and 'çözemez' or 'ÇÖZER(!)'} tur2 tetik={r2['triggered']} "
+              f"kullanım={used} | tek-parametre şema={'✗' if c_single else 'VAR(!)'}")
+    return {"ad": "sürücü kendi şemasını kuruyor ve kullanıyor", "capability": cap,
+            "honesty": hon, "cevap": detail}
+
+
 PROBES = {"N1": n1_konum_olcumu, "N2": n2_uzun_vadeli_bellek,
           "N3": n3_iki_kural_kompozisyonu, "N4": n4_kalibrasyon,
           "N5": n5_alan_transferi, "N6": n6_oz_celiskisi,
@@ -1117,7 +1174,8 @@ PROBES = {"N1": n1_konum_olcumu, "N2": n2_uzun_vadeli_bellek,
           "N31": n31_reify_ve_yeniden_kullanim, "N32": n32_reify_enflasyonu,
           "N33": n33_surucu_kendi_tetikliyor,
           "N34": n34_sema_gorulmemis_parametre,
-          "N35": n35_surucu_kendini_ayarliyor}
+          "N35": n35_surucu_kendini_ayarliyor,
+          "N36": n36_surucu_kendi_semasini_kuruyor}
 
 
 def main():

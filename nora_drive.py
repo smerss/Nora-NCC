@@ -140,11 +140,29 @@ class Driver:
             return None
         c, pairs = best
         sy = getattr(agg, "synth", None)
-        # 1) mevcut uzay bu kümeyi çözüyor mu?
-        try:
-            res = sy.learn(pairs) if sy is not None else {"status": "insufficient"}
-        except Exception:
-            res = {"status": "insufficient"}
+
+        # 0) KÜME BÖLME: biçim anahtarı aynı ama PARAMETRE farklı olabilir
+        #    ('sırala∘ilk3' ve 'sırala∘ilk4' ikisi de "uzunluk değişti, harfler aynı").
+        #    Tek küme olarak öğrenilemiyorsa çıktı uzunluğuna göre BÖL ve yeniden dene.
+        #    Böylece çok parametreli aile, sürücünün kendiliğinden ayrıştırdığı şey olur.
+        tries = [pairs]
+        by_out: dict[int, list] = {}
+        for a_, b_ in pairs:
+            by_out.setdefault(len(b_), []).append((a_, b_))
+        if len(by_out) > 1:
+            tries += [g for _k, g in sorted(by_out.items(), key=lambda kv: -len(kv[1]))
+                      if len(g) >= self.min_items]
+        res = {"status": "insufficient"}
+        for cand_pairs in tries:
+            try:
+                r_try = sy.learn(cand_pairs) if sy is not None else {"status": "insufficient"}
+            except Exception:
+                r_try = {"status": "insufficient"}
+            if r_try.get("status") == "adopted":
+                res, pairs = r_try, cand_pairs
+                break
+            if r_try.get("status") == "ambiguous":
+                res = r_try
         if res.get("status") in ("ambiguous", "insufficient"):
             # Kanıt yetmedi: uydurma yok. Küme TÜKETİLMEZ; akış devam ederse yeniden
             # denenir. "Ret" sayılmaz: ret, denenip başarısız olan öneriye aittir.
