@@ -2891,3 +2891,43 @@ politikası düzeyindedir.
 
 Sıra-dayanıklılığı: karışık tam pil **121/121 (608.7 sn)** · heldout
 `--repeat=2` **46/46 · 46/46, SIRA-DAYANIKLI ✓**.
+
+## Aşama BF — Üç köprü testi: entegrasyon ölçümü (Tur 42)
+
+`bridge_battery.py` yalnız testtir; üretim organlarına köprü/adaptör eklenmedi ve
+yeni üretim modülü yazılmadı. Testler genel arayüzleri çağırır; bir iç temsili
+başka organa uydurmak için test tarafında dönüşüm/enjeksiyon yapmaz. Beklenen
+sonuçlar sabit cümlelerden değil, bağımsız ölçütlerden hesaplanır.
+
+| test | ölçülen halka | sonuç |
+|---|---|---|
+| **B1** | metinden genel `CAUSES` kenarı → `Mind`/`Universe` ilk-temas davranışı | **KALDI** |
+| **B2** | bedensel somatik değer → Broca'nın iki seçenekli tercihi | **GEÇTİ** |
+| **B3** | öğrenilen kural → konuşma arayüzüyle başka alan (dil → mutfak) | **GEÇTİ** |
+
+İlk koşu: **2/3**. Ters sırada (`B3 B2 B1`) da aynı sonuç: **2/3**.
+
+**B1'in kanıtı:** `Yiyecek zehirlenmeye neden olur.` genel dil öğrenme arayüzüyle
+gerçekten `yiyecek → CAUSES → zehirlenme` kenarını kurdu. Aynı tohum ve aynı
+zehirli-yiyecek sahnesinde kontrol de metin verilen deney de **11. adımda ilk
+temas** etti; enerji ikisinde de **0,40 → 0,05** oldu. Temas sonrası beden
+deneyiminden doğan öğrenme başarı sayılmadı. Kırılan halka:
+**`GroundedConceptGraph → Mind/Universe` (ilk temas öncesi)**. Bu, özel
+`zehirlidir/azaltır` valans kestirmesinin değil, genel nedensel kenarın sonucudur.
+Bu turda halka düzeltilmedi.
+
+**B2'nin kanıtı:** aynı tohumda `elma/diken` beden değerleri `+0,9/−0,9` iken
+Broca `elmayı`, ters koşuda `−0,9/+0,9` iken `dikeni` seçti. Beklenen kök,
+her koşuda dışarıdan verilen değerlerin büyüklüğünden hesaplandı; doğuştan
+"elma iyi / diken kötü" önseli tek başına bu iki koşuyu geçemez.
+
+**B3'ün kanıtı:** nonce etiketler (`zorvath`/`blorg`) kullanıldı; bunlar deney
+sembolüdür, önceden öğrenilmiş olgu değildir. `tuz karabiber` için kontrol,
+bağımsız **5 sesli harf** ölçütüyle `zorvath`; yalnız konuşma komutuyla mutfak
+alanına taşınan deney, bağımsız **2 sözcük** ölçütüyle `blorg` verdi. Test
+`Rule`, `feature` veya `mapping` nesnesini okuyup taşımadı. Bu sonuç dar bir
+**komutla alan transferi** kanıtıdır; genel modüller-arası yayın, otonom transfer
+veya yeni temsil icadı değildir.
+
+Çalıştırma: `python bridge_battery.py` (seçili: `python bridge_battery.py B1`).
+Bu üç sonuç yetenek/entegrasyon ölçümüdür; **bilinç veya AGI kanıtı değildir.**
