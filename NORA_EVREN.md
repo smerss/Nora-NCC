@@ -2843,3 +2843,6 @@ yapılacağını Nora adaylarının davranışından seçiyor. Bu, yeni ilkel/fo
 mevcut uzayda daha verimli öğrenme politikasıdır.
 
 Ölçüm: **A122 GEÇTİ · N48 yetenek ✓ dürüstlük ✓**; A120/A121 ve N46/N47 yeşil.
+
+Tam doğrulama: **119/119 (459.4 sn)** · N39–N48 ters sırada **10/10 · 10/10** ·
+audit **1125/127 (+3/+0)** · integrate **10/10 + kalıcılık 4/4**.
