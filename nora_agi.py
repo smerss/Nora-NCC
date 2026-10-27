@@ -413,6 +413,13 @@ class NoraAGI:
             self.crossmodal = CrossModalBinder()
         except Exception:
             self.crossmodal = None
+        # GEÇİCİ DİL DERSLERİ: sözcük/fiil eşlemleri ve kısa paralel cümlelerden
+        # yeniden kullanılabilir yapı çıkarır; her yaşam kendi boş defteriyle başlar.
+        try:
+            from nora_translation import LearnedTranslator
+            self.translator = LearnedTranslator()
+        except Exception:
+            self.translator = None
         self._prediction_target = ""
         self.plastic_discourse = PlasticDiscourseCortex(chem=self.chem, seed=seed + 19)
         self.auto_net = AutonomousConsciousnessNetwork()
@@ -1530,7 +1537,8 @@ class NoraAGI:
 
         # SÖZ BİÇİMİ: cevabın iskeleti her tur aynı olmasın; bedenin derdi varsa o öne geçsin.
         try:
-            if getattr(self, "style", None) is not None and ans and not ans.startswith("["):
+            if (getattr(self, "style", None) is not None and ans and not ans.startswith("[")
+                    and not getattr(self, "_translation_output", False)):
                 _isq = ("?" in (text or ""))
                 _shape = self.style.decide(
                     self, is_question=_isq,
@@ -1668,7 +1676,7 @@ class NoraAGI:
             pass
         # HEDEF SÜRDÜRME: verilen hedef, hatırlatılana kadar HER turda sürer.
         try:
-            _g = self._goal_step()
+            _g = None if getattr(self, "_translation_output", False) else self._goal_step()
             if _g:
                 ans = f"{ans} {_g}"
         except Exception:
@@ -1695,6 +1703,7 @@ class NoraAGI:
         # gelen "bunu demin de sormuştun" süsü cevabı EZMEZ. Tekrar farkındalığı bir
         # süslemedir; ölçülmüş bir cevabın üstüne yazmak onu gasp etmektir.
         self._intent_locked = False
+        self._translation_output = False
         # --- TÜRKÇE EDİNİMİ: duyulan bilinmeyen fiil biçimleri, kendi çekim üreticisiyle
         #     yeniden üretilebiliyorsa kök olarak öğrenilir (kalıcı, sözlüğe yazılır).
         try:
@@ -1704,6 +1713,17 @@ class NoraAGI:
         except Exception:
             pass
         self._remember_focus(raw)
+        # GEÇİCİ ÇEVİRİ DERSİ / UYGULAMASI: kişisel-olgu ve sohbet yollarından önce.
+        # Öğrenilmemiş yapı açıkça reddedilir; öğrenilen yapı yeni cümleye uygulanır.
+        try:
+            _translation = self._translation_turn(raw)
+        except Exception:
+            _translation = None
+        if _translation:
+            self._turn_path = "translation"
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _translation, t0)
+            return _translation
         # KİŞİSEL OLGU: karşıdaki bir şey SÖYLEDİYSE (soru değilse) açık kalıpla yazılır.
         self._learned_facts = []
         try:
@@ -3994,6 +4014,61 @@ class NoraAGI:
             return {str(k): str(v) for k, v in (blob.get("forge_why") or {}).items()}
         except Exception:
             return {}
+
+    def _translation_turn(self, raw: str) -> str | None:
+        """Geçici dil dersini öğren, sorulan eşlemi/yapıyı uygula; yoksa sus.
+
+        Bu hat genel sohbetten önce çalışır. Böylece ders cümlesi kişisel olgu diye
+        yanlış sınıflanmaz ve çeviri isteği konuşma/algı yolu tarafından gasp edilmez.
+        """
+        translator = getattr(self, "translator", None)
+        if translator is None:
+            return None
+        lesson = translator.teach(raw)
+        if lesson is not None:
+            if lesson.get("status") == "learned":
+                self._apply_tag("ag", 1)
+                return f"Öğrendim: {lesson.get('summary', '')}."
+            answer = self._say("op.missing_rel", {"act": "çeviri dersi"},
+                               fallback="Ölçüm yok.")
+            return f"{answer} ({lesson.get('reason', 'eksik ders')})."
+
+        lexical = re.match(
+            r"^(.+?)\s+(?:İngilizcede|ingilizcede)\s+ne\s+demek\s*[?.!]*$",
+            raw.strip(),
+        )
+        if lexical:
+            source = lexical.group(1).strip().strip("‘’“”\"'")
+            result = translator.translate_lexicon(source)
+            if result.get("status") == "ok":
+                self._translation_output = True
+                self._apply_tag("ag", 1)
+                return result["text"]
+            return self._say("discourse.unknown", {"w": source},
+                             ctx={"register": "ask"}, fallback="Ölçüm yok.")
+
+        request = re.match(
+            r"^(?P<src>.+?)\s+cümlesini\s+(?:İngilizceye|ingilizceye)\s+"
+            r"çevir(?:ir\s+misin(?:iz)?)?\s*[.!]*$",
+            raw.strip(),
+        )
+        if request is None:
+            request = re.match(
+                r"^(?P<src>.+?)\s+(?:İngilizceye|ingilizceye)\s+"
+                r"çevir(?:ir\s+misin(?:iz)?)?\s*[.!]*$",
+                raw.strip(),
+            )
+        if request:
+            source = request.group("src").strip().strip("‘’“”\"'")
+            result = translator.translate(source)
+            if result.get("status") == "ok":
+                self._translation_output = True
+                self._apply_tag("islem", 1)
+                return result["text"]
+            answer = self._say("op.missing_rel", {"act": "çeviri"},
+                               fallback="Ölçüm yok.")
+            return f"{answer} ({result.get('reason', 'çözümlenemedi')})."
+        return None
 
     def _handle_forge(self, raw: str, speaker: str = "insan") -> str | None:
         """Kuralı Nora yazar: örnekler -> adaylar -> (gerekirse) ayırt edici örnek -> operatör."""
@@ -7031,6 +7106,7 @@ class NoraAGI:
             "symbolic_law": (self.symbolic_law.state_dict() if getattr(self, "symbolic_law", None) is not None else {}),
             "workspace": (self.workspace.state_dict() if getattr(self, "workspace", None) is not None else {}),
             "crossmodal": (self.crossmodal.state_dict() if getattr(self, "crossmodal", None) is not None else {}),
+            "translation": (self.translator.state_dict() if getattr(self, "translator", None) is not None else {}),
             "nervous": self.nervous.state_dict(),
             "mortality": self.mortality.state_dict(),
             "life": life,
@@ -7061,6 +7137,8 @@ class NoraAGI:
             self.workspace.load_state_dict(data.get("workspace") or {})
         if getattr(self, "crossmodal", None) is not None:
             self.crossmodal.load_state_dict(data.get("crossmodal") or {})
+        if getattr(self, "translator", None) is not None:
+            self.translator.load_state_dict(data.get("translation") or {})
         self.nervous.load_state_dict(data.get("nervous") or {})
         self.mortality.load_state_dict(data.get("mortality") or {})
         if getattr(self, "entropy", None) is not None and data.get("individuality"):

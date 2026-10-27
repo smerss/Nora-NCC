@@ -3043,3 +3043,48 @@ persistence **4/4**.
 nedensel etkidir; öznel qualia'nın doğrudan ölçümü değildir. C/G sonuçları dar
 bilinç-mimarisi ve AGI bileşenleridir; 127/127 tek başına fenomenal bilinç veya
 genel AGI beyanı değildir.
+
+## Aşama BI — Geçici dil dersinden bileşimsel çeviriye
+
+İlk gerçek üretim denemesinde `su/water`, `nehir/river`, `düşmek/fall` dersleri
+çeviri bilgisi oluşturmadı; `nehir` sorgusu hatırlanamadı ve uzun cümle isteği
+sohbet/algı yoluna düştü. Bu başarısızlık test gevşetilmeden üretim tarafında
+çözüldü.
+
+Yeni `nora_translation.py` organı her Nora yaşamına boş bir ders defteriyle bağlanır.
+Fiillerin `base/past/gerund` biçimleri ve sözcük eşlemleri dersten öğrenilir. Kısa
+paralel cümleler bütün-cevap olarak saklanmaz; özne, fiil, yapı terimleri ve hedef
+fiil çevresi ayrılır. `-ken`, `-ip`, `-ten sonra` ve geçmiş zaman rolleri yeni
+yan-cümle zincirlerinde birleştirilir. Ana cümlesi olmayan yarım zincir veya
+öğretilmemiş yapı `unresolved` döner. Hedef Harun cümlesi, onun İngilizce karşılığı
+veya hedefe özel üretim kuralı üretim dosyalarında yoktur; dış test oracle'ındadır.
+
+Temiz üretim oturumunda dokuz bileşim dersi ve bir doğrudan `nehir/river` dersi
+verildi. On ders **0,028 sn** sürdü; `Nehir İngilizcede ne demek?` yanıtı **river**
+oldu. Kullanıcının yeni cümlesi **3,3 ms** içinde şu çıktıyı verdi:
+
+> While going down the slide in turn, Harun tripped, and after dropping his ice
+> cream on the ground, Harun fell into the river.
+
+Aynı derslerle görülmemiş özne aktarımı `Selin nehire düştü` →
+`Selin fell into the river.` oldu. Öğretilmeyen `okuldan` yapısında sistem
+çeviriyi yürütecek yolu olmadığını söyledi; kelime kelime çeviri uydurmadı.
+Üretim kaydı: `/tmp/nora_translation_practical.log`.
+
+| ölçüm | sonuç |
+|---|---|
+| **T1** doğrudan sözcük dersi + yeni yaşamda sızıntı yok | **GEÇTİ** |
+| **T2** ders yokken dürüst ret | **GEÇTİ** |
+| **T3 / A131** uzun cümlede bileşim + yeni özne + bilinmeyen yapıda ret | **GEÇTİ** — tam pilde çeviri **2,7 ms** |
+| **T4** `düş|nehire` yapı ablasyonu → kayıp → state restore + yarım zincir reddi | **GEÇTİ** — `ok → unresolved`; restore ile `Mert fell into the river.` |
+| **T5** save/load sonrası öğrenilen yapıyla aktarım | **GEÇTİ** — `Ece fell into the river.` |
+
+İlk A73 koşusunda dört yeni uzun geri-bildirim dizgesi tarihsel kod-sözü tavanını
+**1129 > 1125** ile aştı. Test değiştirilmedi; çeviriye özel hazır cümleler yerine
+mevcut genel bilgi-boşluğu ve operatör-yokluğu söz organları kullanıldı. Son denetim
+**1125/127**, A73 **8/8** oldu. Dürüstlük ölçütü hâlâ çeviri konusunu ve açık
+bilmeme/yapmamayı zorunlu tutar.
+
+Bağımsız pratik pil **5/5**; mimari **4/4**, persistence **4/4**, seçili eski
+organ-boşluğu/dürüstlük/prior testleri geçti. Tam izole ana pil
+**128/128 (948,5 sn), KALDI=0**; kayıt `/tmp/nora_full_128.log`.
