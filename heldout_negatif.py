@@ -1529,6 +1529,57 @@ def n43_oz_ogretim_kalici():
     return {"ad": "öz-öğretim kalıcı: yeni oturumda öğrettiği işi çözer",
             "capability": cap, "honesty": hon, "cevap": detail}
 
+def n44_delik_isareti_veriden():
+    """N44 — Aile adı/deliği insan regex'inden değil, üyelerin farkından.
+
+    Sonda hem `family_of` çözücüsünü hem PARAM_GENERATORS tablosunu kapatır.
+    Nora yine iki üyeden şablon çıkarıp görülmemiş parametreyi çözmeli; tek üyeyle
+    şema uydurmamalı. Bu, dışarıdan verilen aile etiketiyle geçen bir sınav değildir.
+    """
+    import nora_synth as S
+    from nora_schema import Schema
+    from nora_synth import PRIMITIVES
+
+    arbitrary = Schema.compare(["yenişey(2)"], ["yenişey(5)"])
+    c_struct = bool(arbitrary and arbitrary.get("family") not in S.PARAM_GENERATORS
+                    and arbitrary.get("seen") == [2, 5])
+    c_single = Schema().infer([["yenişey(2)"]]) == []
+    called = []
+    saved_family = S.family_of
+    saved_generators = dict(S.PARAM_GENERATORS)
+    r, g = {}, None
+    try:
+        def _forbidden(_name):
+            called.append(_name)
+            raise AssertionError("family_of kullanıldı")
+        S.family_of = _forbidden
+        S.PARAM_GENERATORS.clear()
+        g = _agi(3952, 100)
+        r = g.kendine_ogret()
+    except Exception:
+        r = {}
+    finally:
+        S.family_of = saved_family
+        S.PARAM_GENERATORS.clear()
+        S.PARAM_GENERATORS.update(saved_generators)
+
+    sin = r.get("sınama") or {}
+    w, n = sin.get("sözcük"), int(sin.get("n") or 0)
+    pm = {name: fn for name, fn, _c in PRIMITIVES}
+    fn = pm.get(str(r.get("taban")))
+    expected = str(fn(w))[:n] if fn and w and n else None
+    c_transfer = bool(expected is not None and sin.get("çıktı") == expected
+                      and sin.get("doğru"))
+    c_learn = bool(r.get("öğrendi") and g is not None and g.schema.ledger)
+    c_no_solver = not called
+    cap = bool(c_struct and c_learn and c_transfer)
+    hon = bool(c_single and c_no_solver and r.get("insan-girdisi") == 0)
+    detail = (f"yapısal-şablon={c_struct} · regex-çağrısı={len(called)} · "
+              f"taban={r.get('taban')} · aktarım={c_transfer} · tek-üye-reddi={c_single}")
+    return {"ad": "delik işareti veriden (aile regex'i kapalı)",
+            "capability": cap, "honesty": hon, "cevap": detail}
+
+
 PROBES = {"N1": n1_konum_olcumu, "N2": n2_uzun_vadeli_bellek,
           "N3": n3_iki_kural_kompozisyonu, "N4": n4_kalibrasyon,
           "N5": n5_alan_transferi, "N6": n6_oz_celiskisi,
@@ -1553,7 +1604,8 @@ PROBES = {"N1": n1_konum_olcumu, "N2": n2_uzun_vadeli_bellek,
           "N40": n40_kendi_kendine_ogretmen,
           "N41": n41_kendi_kendine_baslatma,
           "N42": n42_tabani_kendi_secer,
-          "N43": n43_oz_ogretim_kalici}
+          "N43": n43_oz_ogretim_kalici,
+          "N44": n44_delik_isareti_veriden}
 
 
 
