@@ -7,7 +7,7 @@ altında o basamağın TABANI yazılıdır: "bu işi kim yaptı, insan ne yazdı
     python merdiven.py          # tam sınav
     python merdiven.py -v       # kanıtlarla
 
-Çıkış kodu 0 = yedi basamak da geçti. Bu bir başarı süsü değil: taban satırları
+Çıkış kodu 0 = on basamak da geçti. Bu bir başarı süsü değil: taban satırları
 basamağın ne kadarının insana ait olduğunu söyler. Basamak "geçti" demek,
 "insan hiçbir şey yazmadı" demek DEĞİLDİR.
 """
