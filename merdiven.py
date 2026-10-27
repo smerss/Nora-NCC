@@ -130,8 +130,9 @@ def main():
     except Exception as e:
         det4 = f"hata: {e}"
     rows.append(("4 şema (delik)", ok4, det4,
-                 "taban: parametrik aileleri BEN işaretledim; hangi bileşimin delikli "
-                 "olduğunu ve kapsamı Nora buldu. Görülmemiş k=17'yi İLK KEZ uzay genişletti."))
+                 "taban: ilkel/işlem uzayını BEN verdim; DELİĞİ iki üyenin yapısal "
+                 "farkından Nora çıkardı, kapsamı kendi örnekleriyle doğruladı. "
+                 "Görülmemiş k=17'yi İLK KEZ uzay genişletti."))
 
     # ---------------------------------------------------------------- 5 sürücü
     g = mk(7005)

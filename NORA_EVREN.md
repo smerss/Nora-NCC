@@ -2731,3 +2731,25 @@ Dürüst taban: kalıcılık mekanizması (save/load) insan yazımı. Ama içeri
 öğrenmesi; sınav bunu dış doğrulamayla ölçüyor (çözümün örnekleri gerçekten açıklaması).
 
 Ölçüm: **N43** `True True` · **A117** 6/6.
+
+## Aşama AY — Delik işareti de veriden (Tur 41i)
+
+Önceki öz-öğretimde ikinci parametre için `_parametre_degistir` içindeki
+`ilk/son ... harfi` regex'i kullanılıyordu. Bu, Nora'nın şemayı kurduğu yerde
+deliğin yerini yine insanın işaretlemesiydi. AY bunu kaldırır:
+
+- `Schema.compare` iki programı karşılaştırır; yalnız bir adımdaki sayısal parça
+  değişiyorsa ortak metinden şablonu ve deliği çıkarır. Ada özel aile listesi
+  okunmaz; bilinmeyen `yenişey(2)` / `yenişey(5)` bile yapısal şablon verir.
+- `kendine_ogret` önce **onun şema defterindeki** şablondan hipotez kurar. İlk
+  şema yoksa ikinci üye bağımsız sentezlenir; iki üyenin yapısal farkı şema olur.
+  Arama sonucu yalnızca aynı şablonun üyesiyse kabul edilir.
+- `family_of` ve `PARAM_GENERATORS` kapatılarak sınandı: öğrenme ve görülmemiş
+  aktarım sürüyor. Tek üye hâlâ şema değil; anlam çıkarımı için iki üye şart.
+
+Dürüst taban: ilkel işlemler ve sayısal parametrelerin davranışını veren mekanizma
+insan yazımı; ama **hangi adımın delik olduğu** artık insan regex'iyle belirlenmiyor.
+Bu basamak seviye 4'ün içidir; bilinç iddiası değildir.
+
+Ölçüm: **A118 GEÇTİ · N44 yetenek ✓ dürüstlük ✓**; A108/A111/A113–A117 ve N36–N43
+tekrar yeşil. Merdiven 7/7; tam pil A118 ile **115 teste** çıktı.

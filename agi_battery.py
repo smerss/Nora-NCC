@@ -5190,6 +5190,58 @@ def a112_beklenti_modeli() -> tuple[bool, str]:
     return passed == len(ok), detail
 
 
+def a118_delik_isareti_veriden() -> tuple[bool, str]:
+    """A118 — DELİĞİN İŞARETİ DE VERİDEN: ada özel aile regex'i yok.
+
+    Eski yolda `ilk/son ... harfi` ve `kaydırma(...)` kalıplarını insan önceden
+    işaretliyordu. Şimdi iki program karşılaştırılır; tek fark sayısal parçaysa
+    şablon iki addan türetilir. Sonda insanın `family_of` çözücüsü ve parametre
+    tablosu devre dışı bırakılır; buna rağmen öz-öğretim ve görülmemiş aktarım
+    çalışmalıdır. Tek üye ise şema sayılmaz (anti-test).
+    """
+    import nora_synth as S
+    from nora_schema import Schema
+    from nora_synth import PRIMITIVES
+
+    ok = {}
+    arbitrary = Schema.compare(["bilinmeyen(2)"], ["bilinmeyen(5)"])
+    ok["aile-veriden"] = bool(arbitrary and arbitrary.get("hole") == 0
+                              and arbitrary.get("seen") == [2, 5]
+                              and arbitrary.get("family") not in S.PARAM_GENERATORS)
+    ok["tek-üye-şema-değil"] = Schema().infer([["bilinmeyen(2)"]]) == []
+
+    saved_family = S.family_of
+    saved_generators = dict(S.PARAM_GENERATORS)
+    r = {}
+    g = None
+    try:
+        def _forbidden(_name):
+            raise AssertionError("insanın aile çözücüsü çağrıldı")
+        S.family_of = _forbidden
+        S.PARAM_GENERATORS.clear()
+        g = NoraAGI(seed=2202, boot_thinker=False)
+        g.step_life(100)
+        r = g.kendine_ogret()
+    finally:
+        S.family_of = saved_family
+        S.PARAM_GENERATORS.clear()
+        S.PARAM_GENERATORS.update(saved_generators)
+
+    sin = r.get("sınama") or {}
+    n = int(sin.get("n") or 0)
+    w = sin.get("sözcük")
+    pm = {name: fn for name, fn, _c in PRIMITIVES}
+    fn = pm.get(str(r.get("taban")))
+    expected = str(fn(w))[:n] if fn and w and n else None
+    ok["regex-siz-öğrendi"] = bool(r.get("öğrendi"))
+    ok["şema-doğdu"] = bool(g is not None and g.schema.ledger)
+    ok["görülmemiş-doğru"] = bool(expected is not None and sin.get("çıktı") == expected
+                                  and sin.get("doğru"))
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    detail += f" · taban={r.get('taban')} · şema={[x.get('family') for x in (g.schema.ledger if g else [])]}"
+    return all(ok.values()), detail
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -5302,6 +5354,7 @@ TESTS = {
     "A115": ("kendi kendine öğrenmeyi kendisi başlatır (insan hiç konuşmadı)", a115_kendi_kendine_baslatma),
     "A116": ("neyi öğreneceğini kendisi seçer (taban onun kayıtlarından)", a116_ne_yi_ogrenecegini_kendi_secer),
     "A117": ("öz-öğretimin kalıcılığı: yeni oturumda öğrettiği işi çözer", a117_oz_ogretim_kalici),
+    "A118": ("delik işareti veriden: ada özel aile regex'i olmadan şema", a118_delik_isareti_veriden),
     "A111": ("icadın şeması: görülmemiş parametre icat gerektirmez", a111_icadin_semasi),
     "A110": ("dil: buyruk sarmalayıcısı ve X mi Y mi seçim sorusu", a110_sarmalayici_ve_secim_sorusu),
     "A108": ("şema: delikli makro görülmemiş parametreyi kapsar", a108_sema_delikli_makro),

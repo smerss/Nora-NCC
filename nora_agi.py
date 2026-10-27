@@ -4707,17 +4707,20 @@ class NoraAGI:
         except Exception:
             pass
 
-    @staticmethod
-    def _parametre_degistir(spec: list[str], n: int) -> list[str] | None:
-        """ŞEMA HİPOTEZİ: programın parametresini değiştir (ilk/son k harfi al|at)."""
-        import re
-        out, dokundu = [], False
-        for nm in spec or []:
-            yeni = re.sub(r"\b(ilk|son)\s+\d+\s+harfi\b", lambda m: f"{m.group(1)} {int(n)} harfi", str(nm))
-            if yeni != str(nm):
-                dokundu = True
-            out.append(yeni)
-        return out if dokundu else None
+    def _sema_hipotezi(self, spec: list[str], n: int) -> list[str] | None:
+        """Sayısal deliği ONUN şema defteri çözer; ada özel regex yok.
+
+        Şema henüz yoksa `None` döner. O zaman ikinci üye bağımsız sentezlenir ve
+        `Schema.compare` iki üyenin yapısal farkından şablonu çıkarır. Yani ilk
+        şema da insanın işaretlediği bir delikle başlamaz.
+        """
+        sc = getattr(self, "schema", None)
+        return sc.hypothesis(spec, n) if sc is not None else None
+
+    def _ayni_sema_mi(self, a: list[str], b: list[str]) -> bool:
+        """İki üye gerçekten aynı şablonda, yalnız sayısal delikte mi ayrışıyor?"""
+        sc = getattr(self, "schema", None)
+        return bool(sc is not None and sc.compare(a, b) is not None)
 
     def _taban_adaylari(self) -> list[tuple[str, object]]:
         """NEYİ öğreneceğini kendisi seçer: repertuvardaki ilkeller, KENDİ kullanım sayısına göre.
@@ -4804,11 +4807,11 @@ class NoraAGI:
                 _ops1 = list(sy.programs[-1]["ops"])
                 _ok = True
                 _kur.append(_ops1)
-                # (ii) İKİNCİ PARAMETRE: arama DEĞİL, HİPOTEZ — birinci programdaki
-                # sayıyı n2 yap (şema fikri bu) ve kendi örnekleriyle SINА. Hipotez
-                # tutmazsa geri döner; tutarsa onun kendi bulduğu genellemedir.
+                # (ii) İKİNCİ PARAMETRE: önce ONUN şema defterindeki şablondan
+                # hipotez kur ve kendi örnekleriyle SINА. İlk şema henüz yoksa
+                # bağımsız sentez veri toplar; iki üyenin YAPISAL farkı deliği bulur.
                 _ex2 = [(w, kes_t(w, n2)) for w in aday]
-                _hyp = self._parametre_degistir(_ops1, n2)
+                _hyp = self._sema_hipotezi(_ops1, n2)
                 _prog2 = Program.from_spec(_hyp, spec_map=sy.spec_map()) if _hyp else None
                 if _prog2 is None or any(_prog2.apply(a) != b for a, b in _ex2):
                     # hipotez tutmadı: aramaya dön (insan yardımı yok)
@@ -4817,8 +4820,9 @@ class NoraAGI:
                     _prog2 = sy.last
                     _hyp = list(sy.programs[-1]["ops"])
                     # İKİ PROGRAM AYNI ŞABLONUN İKİ PARAMETRESİ OLMALI; değilse bu bir
-                    # şema adayı değil, iki ayrı tesadüftür — yeniden seçer.
-                    if self._parametre_degistir(_ops1, n2) != _hyp:
+                    # şema adayı değil, iki ayrı tesadüftür — yeniden seçer. Kararı
+                    # insanın regex'i değil, iki programın karşılaştırması verir.
+                    if not self._ayni_sema_mi(_ops1, _hyp):
                         continue
                 else:
                     sy.programs.append({"id": f"kendi.op.{len(sy.programs) + 1}", "ops": _hyp,
