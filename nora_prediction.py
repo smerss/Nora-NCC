@@ -254,6 +254,27 @@ class UnifiedPredictor:
                             })
             except Exception:
                 pass
+        # Aynı beden deneyiminin ikinci kanalı: ham önce/sonra geçişlerinden
+        # öğrenilen model. Grafik/yiyecek adı bilmez; yalnız gerçek müdahale
+        # kayıtlarıyla ve yeterli karşılaştırma varsa aday üretir.
+        causal = getattr(self.owner, "causal", None)
+        if causal is not None and motor_action is not None:
+            for pred in causal.predict(obs, motor_action):
+                name = str(pred.get("variable", ""))
+                if not (name.startswith("f") and name[1:].isdigit()):
+                    continue
+                index = int(name[1:]) - 45
+                if not 0 <= index < len(self.BODY_VARS):
+                    continue
+                out.append({
+                    "variable": self.BODY_VARS[index],
+                    "delta": float(np.clip(float(pred["delta"]), -1.0, 1.0)),
+                    "confidence": float(pred["confidence"]), "authority": 2.8,
+                    "source": "beden-geçiş", "target": target,
+                    "novel": pred.get("evidence") == "intervention",
+                    "evidence": pred.get("evidence", "association"),
+                    "support": int(pred.get("support", 0)),
+                })
         return out
 
     # ------------------------------------------------------------------ grafik etkisini bedene bağlama
@@ -444,11 +465,12 @@ class UnifiedPredictor:
         return float(total)
 
     def guided_action(self, proposed: int) -> int:
-        """Öğrenilmiş grafik kanıtı varsa beş motor eylemini tahmin × değerle karşılaştır.
+        """Öğrenilmiş grafik/geçiş kanıtı varsa eylemleri tahmin × değerle karşılaştır.
 
-        Grafikte sonradan öğrenilmiş ilgili ileri yol yoksa mevcut politika aynen
-        korunur; doğuştan önsel ikinci kez sayılmaz. Beraberlikte de önerilen
-        eylem korunur; bu organ sürücüyü gereksiz yere ele geçirmez.
+        Sonradan öğrenilmiş ilgili ileri yol veya yeterli müdahale-geçiş kanıtı
+        yoksa mevcut politika aynen korunur; doğuştan önsel ikinci kez sayılmaz.
+        Beraberlikte de önerilen eylem korunur; bu organ sürücüyü gereksiz yere
+        ele geçirmez.
         """
         proposed = int(proposed)
         if not 0 <= proposed < Universe.N_ACT:
@@ -462,20 +484,25 @@ class UnifiedPredictor:
             )
             for path in paths
         )
-        if not target or not learned_path:
+        causal = getattr(self.owner, "causal", None)
+        enough_transition = bool(causal is not None and
+                                 getattr(causal, "transitions", 0) >= 2 * getattr(causal, "min_support", 3))
+        if (not target or not learned_path) and not enough_transition:
             return proposed
         predictions: list[list[tuple[str, float, float]]] = []
         graph_found = False
+        transition_found = False
         for action in range(Universe.N_ACT):
             pred = self.predict(self.owner.obs, {"act": action, "target": target})
             predictions.append(pred)
-            if any(
-                c.get("source") == "grafik" and c.get("novel", False)
-                and c.get("variable") in self.BODY_INDEX
-                for c in self.last_trace.get("candidates", [])
-            ):
-                graph_found = True
-        if not graph_found:
+            for c in self.last_trace.get("candidates", []):
+                if c.get("variable") not in self.BODY_INDEX:
+                    continue
+                if c.get("source") == "grafik" and c.get("novel", False):
+                    graph_found = True
+                if c.get("source") == "beden-geçiş" and c.get("novel", False):
+                    transition_found = True
+        if not graph_found and not transition_found:
             return proposed
         utilities = np.asarray([self.value(p) for p in predictions], dtype=np.float64)
         best = float(np.max(utilities))

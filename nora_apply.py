@@ -244,18 +244,26 @@ class WorkingMemory:
         return {k: self.slots[k].value for k in self.order if k in self.slots}
 
     def state_dict(self) -> dict:
-        return {"slots": [{"key": s.key, "value": str(s.value)[:300], "source": s.source}
-                          for s in (self.slots[k] for k in self.order if k in self.slots)]}
+        from nora_state import encode
+        return {"slots": [{"key": s.key, "value": encode(s.value), "source": s.source}
+                          for s in (self.slots[k] for k in self.order if k in self.slots)],
+                "evicted": [{"key": s.key, "value": encode(s.value), "source": s.source}
+                            for s in self.evicted[-self.capacity:]],
+                "writes": int(self.writes)}
 
     def load_state_dict(self, d: dict | None) -> None:
         if not isinstance(d, dict):
             return
-        try:
-            self.clear()
-            for rec in (d.get("slots") or [])[: self.capacity]:
-                self.write(str(rec.get("key", "")), rec.get("value", ""), str(rec.get("source", "")))
-        except Exception:
-            pass
+        from nora_state import decode
+        self.clear()
+        self.evicted.clear()
+        for rec in (d.get("evicted") or []):
+            self.evicted.append(Slot(str(rec.get("key", "")), decode(rec.get("value")),
+                                     str(rec.get("source", ""))))
+        for rec in (d.get("slots") or [])[: self.capacity]:
+            self.write(str(rec.get("key", "")), decode(rec.get("value")),
+                       str(rec.get("source", "")))
+        self.writes = int(d.get("writes", self.writes) or 0)
 
 
 @dataclass

@@ -227,6 +227,15 @@ class PeripheralNervousSystem:
         s["last_locus"] = self.last_pain_locus
         return s
 
+    def state_dict(self) -> dict:
+        from nora_state import capture_attrs
+        return {"version": 1, "fields": capture_attrs(self, list(self.__dict__))}
+
+    def load_state_dict(self, data: dict | None) -> None:
+        if data:
+            from nora_state import restore_attrs
+            restore_attrs(self, data.get("fields") or {}, strict=True)
+
 
 # ============================================================================
 # 2. TEKİL ÖLÜMLÜ YAŞAM & VAROLUŞSAL SON BİLİNCİ (YENİDEN DOĞUŞ YOK!)
@@ -276,6 +285,15 @@ class SingleLifeMortality:
             "near_death_memories": self.near_death_encounters,
             "existential_dread": round(self.existential_dread, 3),
         }
+
+    def state_dict(self) -> dict:
+        from nora_state import capture_attrs
+        return {"version": 1, "fields": capture_attrs(self, list(self.__dict__))}
+
+    def load_state_dict(self, data: dict | None) -> None:
+        if data:
+            from nora_state import restore_attrs
+            restore_attrs(self, data.get("fields") or {}, strict=True)
 
 
 # ============================================================================
