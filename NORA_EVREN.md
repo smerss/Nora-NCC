@@ -2775,3 +2775,6 @@ değildir.
 Ölçüm: **A119 GEÇTİ · N45 yetenek ✓ dürüstlük ✓ · merdiven 8/8**.
 Doğrulama örneği: tohum 9003'te 6 aday başarısız → 12 adayla `alfabetik sırala`
 üzerinde görülmemiş parametre doğru; dış beklenen sınav tarafından hesaplandı.
+
+Tam doğrulama: **116/116 (424.4 sn)** · audit **1125/127 (+3/+0)** ·
+integrate **10/10 + kalıcılık 4/4** · solo **10/10**.
