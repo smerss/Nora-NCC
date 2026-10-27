@@ -212,7 +212,7 @@ class UnifiedPredictor:
 
     # ------------------------------------------------------------------ gövdesel kaynak
     def _body_source(self, obs: np.ndarray, action: Any, motor_action: int | None,
-                     target: str) -> list[dict]:
+                     target: str, include_motor: bool = True) -> list[dict]:
         mind = self.owner.mind
         out: list[dict] = []
         channel = self._target_channel(target)
@@ -233,7 +233,7 @@ class UnifiedPredictor:
                 pass
         # Wsm, Mind.imagine ile aynı öğrenilmiş geçiş/ışın modelinin beden
         # kısmıdır. Eğitim yoksa sıfır matrisi bilgi gibi sunulmaz.
-        if motor_action is not None:
+        if include_motor and motor_action is not None:
             try:
                 ctx = mind.ctxs[mind.cur]
                 n = int(ctx.get("n", 0))
@@ -258,7 +258,7 @@ class UnifiedPredictor:
         # öğrenilen model. Grafik/yiyecek adı bilmez; yalnız gerçek müdahale
         # kayıtlarıyla ve yeterli karşılaştırma varsa aday üretir.
         causal = getattr(self.owner, "causal", None)
-        if causal is not None and motor_action is not None:
+        if include_motor and causal is not None and motor_action is not None:
             for pred in causal.predict(obs, motor_action):
                 name = str(pred.get("variable", ""))
                 if not (name.startswith("f") and name[1:].isdigit()):
@@ -423,7 +423,12 @@ class UnifiedPredictor:
         physics, physical = self._physics_source(obs, motor_action, target)
         approach = 1.0 if high_level else float(physical.get("approach", 0.0))
         candidates = [
-            *self._body_source(obs, action, motor_action, target),
+            # 'tehlikeye git' gibi üst-düzey bir niyet, tek bir ileri-motor
+            # adımın metabolik gürültüsü değildir. Ayrık motor sorgusunda
+            # Wsm/geçiş kanıtı korunur; hedef sorgusunda yalnız hedefin
+            # somatik ve nedensel kanıtı kullanılır.
+            *self._body_source(obs, action, motor_action, target,
+                               include_motor=not high_level),
             *self._graph_source(target, approach),
             *physics,
         ]
@@ -464,8 +469,13 @@ class UnifiedPredictor:
                 total += weights[UnifiedPredictor.BODY_INDEX[name]] * float(delta)
         return float(total)
 
-    def guided_action(self, proposed: int) -> int:
+    def guided_action(self, proposed: int, target: str | None = None,
+                      allow_transition: bool = True) -> int:
         """Öğrenilmiş grafik/geçiş kanıtı varsa eylemleri tahmin × değerle karşılaştır.
+
+        ``allow_transition=False`` hedefli otonom yönelimde yalnız açık hedefe
+        bağlı nedensel grafiğin sürücüyü değiştirmesine izin verir; genel motor
+        geçişlerindeki küçük ilişkiler yaşamsal rotayı ele geçiremez.
 
         Sonradan öğrenilmiş ilgili ileri yol veya yeterli müdahale-geçiş kanıtı
         yoksa mevcut politika aynen korunur; doğuştan önsel ikinci kez sayılmaz.
@@ -475,7 +485,9 @@ class UnifiedPredictor:
         proposed = int(proposed)
         if not 0 <= proposed < Universe.N_ACT:
             return proposed
-        target = self._context_target(np.asarray(self.owner.obs))
+        if target is None:
+            target = self._context_target(np.asarray(self.owner.obs))
+        target = tr_lower(str(target or "")).strip()
         paths = self._graph_paths(target)
         learned_path = any(
             any(
@@ -485,7 +497,7 @@ class UnifiedPredictor:
             for path in paths
         )
         causal = getattr(self.owner, "causal", None)
-        enough_transition = bool(causal is not None and
+        enough_transition = bool(allow_transition and causal is not None and
                                  getattr(causal, "transitions", 0) >= 2 * getattr(causal, "min_support", 3))
         if (not target or not learned_path) and not enough_transition:
             return proposed
@@ -500,7 +512,7 @@ class UnifiedPredictor:
                     continue
                 if c.get("source") == "grafik" and c.get("novel", False):
                     graph_found = True
-                if c.get("source") == "beden-geçiş" and c.get("novel", False):
+                if allow_transition and c.get("source") == "beden-geçiş" and c.get("novel", False):
                     transition_found = True
         if not graph_found and not transition_found:
             return proposed

@@ -109,6 +109,21 @@ def no_need_and_unresolved() -> tuple[bool, str]:
         d.cleanup()
 
 
+def timeout_rolls_back() -> tuple[bool, str]:
+    original = "def transform(x):\n    while True:\n        pass\n"
+    d, ws = _workspace(original)
+    try:
+        modifier = SelfModifier(ws, synthesizer=ExpressionSynthesizer(max_depth=2, max_exprs=300))
+        result = modifier.improve("target.py", "transform", ["x"],
+                                  train=[{"args": ["a"], "expect": "q?"}],
+                                  validation=[{"args": ["b"], "expect": "z!"}],
+                                  timeout=0.1)
+        ok = result["status"] == "unresolved" and ws.read("target.py") == original
+        return ok, f"status={result['status']} timeout-baseline={result.get('baseline')} original={ws.read('target.py') == original}"
+    finally:
+        d.cleanup()
+
+
 def safety_boundary() -> tuple[bool, str]:
     d, ws = _workspace()
     try:
@@ -140,7 +155,8 @@ def main():
              ("E3 validation başarısız → rollback", validation_rolls_back),
              ("E4 audit başarısız → rollback", audit_rolls_back),
              ("E5 no-need ve çözülemeyende dürüstlük", no_need_and_unresolved),
-             ("E6 güvenli AST ve çalışma alanı sınırı", safety_boundary)]
+             ("E6 timeout sonrası rollback", timeout_rolls_back),
+             ("E7 güvenli AST ve çalışma alanı sınırı", safety_boundary)]
     failed = 0
     t0 = time.time()
     for _ in range(max(1, args.repeat)):

@@ -41,6 +41,10 @@ class SomaticRecord:
     prior_val: float = 0.0        # evrimsel/doğuştan gelen zayıf somatik önsel (deneyimle ezilir!)
     vec3: list[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])  # [dE, dW, dI] tahmini etki
     last_step: int = 0
+    # Aynı yaşam olayı hem Mind'in V izinde hem de doğrudan somatik kayıtta
+    # görünür. Bu sayımlar iki kanalı birbirinin üzerine yazmak yerine uzlaştırır.
+    direct_count: int = 0
+    mind_count: int = 0
 
     @property
     def precision_exp(self) -> float:
@@ -230,6 +234,7 @@ class CoreSelf:
         obs_v3 = self._channel_unit_vec(channel, v)
         rec.vec3 = [float((1.0 - alpha) * rec.vec3[i] + alpha * obs_v3[i]) for i in range(3)]
         rec.exp_count += 1
+        rec.direct_count += 1
         rec.channel = channel
         rec.last_step = st
 
@@ -264,12 +269,21 @@ class CoreSelf:
                         self.somatic[cname] = SomaticRecord(
                             concept=cname, exp_val=scaled, exp_count=cnt,
                             channel=ch, vec3=v3, last_step=self.lived_steps,
+                            mind_count=cnt,
                         )
                     else:
-                        rec.exp_val = scaled
+                        # Doğrudan beden olayları bu döngüde zaten
+                        # observe_bodily_event ile yazıldı. Mind'in daha küçük
+                        # ölçekli V ortalamasını üzerine dökmek hem olayın
+                        # büyüklüğünü hem de sonraki gerçek deneyimleri siler.
+                        # Yalnız henüz doğrudan kanıtı olmayan eski/gözlemsel
+                        # kayıtlar Mind özetini yeni bilgi olarak alabilir.
+                        if rec.direct_count <= 0:
+                            rec.exp_val = scaled
+                            rec.channel = ch
+                            rec.vec3 = v3
                         rec.exp_count = max(rec.exp_count, cnt)
-                        rec.channel = ch
-                        rec.vec3 = v3
+                        rec.mind_count = max(rec.mind_count, cnt)
 
         err_n = float(getattr(mind, "err_n", 0.5))
         skill = float(np.clip(1.0 - err_n, 0.0, 1.0))
@@ -523,8 +537,16 @@ class CoreSelf:
         g_wait, _ = simulate_policy(lambda t, h: np.zeros(3, dtype=np.float64))
         g_care, _ = simulate_policy(lambda t, h: care_step_vec)
         homeo_gain = max(0.0, g_wait - g_care)
-        # Eğer istenen eylem zaten acil kanalı iyileştiriyorsa (ör. açken 'yiyeceğe git'), erteleme gereksizdir!
-        helps_urgent = float(delta_act[urgent_ch]) > 0.08
+        # Eğer istenen eylem zaten acil kanalı iyileştiriyorsa (ör. açken
+        # 'yiyeceğe git'), erteleme gereksizdir. Suyun küçük enerji yan etkisi
+        # ise açlığı gideren ana hedef değildir: hedefin somatik kanalı ile
+        # acil kanal eşleşmedikçe çapraz etki bu kapıyı açmaz.
+        target_rec = self.somatic.get(tgt) if tgt else None
+        channel_name = str(getattr(target_rec, "channel", "") or "")
+        target_ch = {"enerji": 0, "su": 1, "bütünlük": 2}.get(channel_name)
+        if target_ch is None:
+            target_ch = {"ye": 0, "iç": 1}.get(act)
+        helps_urgent = bool(target_ch == urgent_ch and float(delta_act[urgent_ch]) > 0.08)
 
         G = np.zeros(4, dtype=np.float64)
         G[0] = g_comply + harm_projection + distrust_risk - coop_val
@@ -680,7 +702,8 @@ class CoreSelf:
             "traits": dict(self.traits),
             "somatic": {
                 k: [r.exp_val, r.exp_count, r.channel, r.hearsay_val, r.hearsay_count,
-                    r.hearsay_speaker, r.prior_val, r.vec3, r.last_step]
+                    r.hearsay_speaker, r.prior_val, r.vec3, r.last_step,
+                    r.direct_count, r.mind_count]
                 for k, r in self.somatic.items()
             },
         }
@@ -700,12 +723,14 @@ class CoreSelf:
                     concept=str(k), exp_val=float(row[0]), exp_count=int(row[1]), channel=str(row[2]),
                     hearsay_val=float(row[3]), hearsay_count=int(row[4]), hearsay_speaker=str(row[5]),
                     prior_val=float(row[6]), vec3=[float(x) for x in row[7]], last_step=int(row[8]),
+                    direct_count=int(row[9]) if len(row) >= 11 else int(row[1]),
+                    mind_count=int(row[10]) if len(row) >= 11 else int(row[1]),
                 )
             else:
                 self.somatic[str(k)] = SomaticRecord(
                     concept=str(k), exp_val=float(row[0]), exp_count=int(row[1]), channel=str(row[2]),
                     hearsay_val=float(row[3]), hearsay_count=int(row[4]), hearsay_speaker=str(row[5]),
-                    last_step=int(row[6]),
+                    last_step=int(row[6]), direct_count=int(row[1]), mind_count=int(row[1]),
                 )
 
 

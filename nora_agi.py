@@ -404,6 +404,11 @@ class NoraAGI:
             self.meta_monitor = PredictionMonitor()
         except Exception:
             self.meta_monitor = None
+        try:
+            from nora_crossmodal import CrossModalBinder
+            self.crossmodal = CrossModalBinder()
+        except Exception:
+            self.crossmodal = None
         self._prediction_target = ""
         self.plastic_discourse = PlasticDiscourseCortex(chem=self.chem, seed=seed + 19)
         self.auto_net = AutonomousConsciousnessNetwork()
@@ -844,28 +849,75 @@ class NoraAGI:
                         source="predictor", kind="prediction")
         return result
 
-    def _autonomic_survival_reflex(self, proposed_act: int) -> int:
-        """Hipotalamik hayatta kalma yönelimi + yumuşak itici potansiyel alanıyla omurilik kaçınma refleksi."""
+    def _autonomic_survival_reflex(self, proposed_act: int,
+                                   respect_proposal: bool = False) -> int:
+        """Hipotalamik hayatta kalma yönelimi + omurilik kaçınma refleksi.
+
+        ``respect_proposal`` genel yayın yarışmasını dış bir uzman kazandığında
+        normal foraging dürtüsünü geri çeker; acil güvenlik frenleri yine
+        çalışır. Böylece yayın mimarisi dekoratif kalmaz, yaşam da korumasız
+        bırakılmaz.
+        """
+        # Tehlike bölgesinden çıkış, kaynak aramadan ve öğrenilmiş eylem
+        # rehberliğinden önce gelir. Önceki sürüm bu alanı yalnız hedefli
+        # foraging sırasında uyguluyor, hedefsiz dolaşmada aynı yarayı defalarca
+        # alabiliyordu. Zehir bayrağı veya gelecekteki beden sonucu okunmaz.
+        if len(self.world.haz_c) > 0:
+            haz_dists = np.hypot(*(self.world.haz_c - self.world.pos).T)
+            haz_idx = int(np.argmin(haz_dists))
+            # v/k yaklaşık durma mesafesidir; hızlı beden için aynı sabit
+            # tampon yeterli değildir. Rüzgârla hızlanan beden freni daha
+            # erken ateşler, yavaş beden gereksiz geniş yörüngeye sapmaz.
+            speed = float(np.hypot(*self.world.vel))
+            stop_distance = speed / max(float(self.world.fric), 1e-6)
+            if float(haz_dists[haz_idx]) < self.world.zone_h + 0.9 + stop_distance:
+                away = self.world.pos - self.world.haz_c[haz_idx]
+                if float(np.hypot(*away)) < 1e-6:
+                    away = np.array([1.0, 0.0], dtype=np.float64)
+                ang = float(np.arctan2(away[1], away[0]) - self.world.th)
+                ang = (ang + np.pi) % (2 * np.pi) - np.pi
+                return 1 if abs(ang) < 0.45 else (2 if ang > 0 else 3)
+
         if self.nervous.reflex_recoil_steps > 0:
             act_r, _ = self.nervous.spinal_reflex_override(proposed_act, hazard_ahead=0.0)
             return act_r
 
         food_v = float(self.mind.ctxs[self.mind.cur]["V"][0])
-        food_learned_toxic = bool(np.isfinite(food_v) and food_v < -0.05)
         food_n = int(self.mind.ctxs[self.mind.cur]["Vn"][0])
-        forage_thresh = 0.55 if food_n == 0 else 0.32
+        # Zehirli temas info['ate']==0 döndürebilir; dolayısıyla Mind'in
+        # yemek sayacı olayı kaçırabilir. CoreSelf ise gerçek dE düşüşünü
+        # ayrıca kaydeder. İki organın kanıtını birleştir; doğrudan somatik
+        # deneyim varken yalnız eksik sayaca güvenip zehre yönelme.
+        food_rec = self.self_model.somatic.get("yiyecek")
+        if food_rec is not None and int(food_rec.exp_count) > 0:
+            food_v = float(food_rec.exp_val)
+            food_n = max(food_n, int(food_rec.exp_count))
+        food_learned_toxic = bool(np.isfinite(food_v) and food_v < -0.05)
+        # Bilinmeyen besini ilk kez ölüm eşiğinde sınamak güvenli keşif
+        # değildir. Etkisi henüz öğrenilmediyse rezerv yüksekken örnekle;
+        # öğrenilmiş güvenli besin için normal homeostatik eşik yeterlidir.
+        forage_thresh = 0.82 if food_n == 0 else 0.32
 
         e_now, w_now = float(self.obs[I_E]), float(self.obs[I_W])
+        # Öğrenilmiş rehber normal keşifte eylem önerebilir; fakat yaşamsal
+        # rezerv kritik düzeye indiğinde homeostatik/omurilik freni son sözü
+        # söyler. Aksi durumda küçük model gürültüsü, suya/yeme yönelen
+        # refleksi her adımda başka bir dönüşe çevirip bedeni öldürebilir.
+        homeostatic_emergency = min(e_now, w_now, float(self.obs[I_I])) < 0.28
+        drive_allowed = bool(not respect_proposal or homeostatic_emergency)
         tgt = None
-        if self.mortality.single_life and (w_now < 0.28 or (food_learned_toxic and e_now < 0.82)):
+        target_name = ""
+        if drive_allowed and self.mortality.single_life and (w_now < 0.28 or (food_learned_toxic and e_now < 0.82)):
             dists = np.hypot(*(self.world.water_c - self.world.pos).T)
             min_idx = int(np.argmin(dists))
             if dists[min_idx] < self.world.zone_w * 0.72:
                 return 0
             tgt = self.world.water_c[min_idx]
-        elif self.mortality.single_life and not food_learned_toxic and e_now < forage_thresh and len(self.world.food) > 0:
+            target_name = "su"
+        elif drive_allowed and self.mortality.single_life and not food_learned_toxic and e_now < forage_thresh and len(self.world.food) > 0:
             dists = np.hypot(*(self.world.food - self.world.pos).T)
             tgt = self.world.food[int(np.argmin(dists))]
+            target_name = "yiyecek"
 
         if tgt is not None:
             vec = tgt - self.world.pos
@@ -887,11 +939,37 @@ class NoraAGI:
             ang = float(np.arctan2(steer[1], steer[0]) - self.world.th)
             ang = (ang + np.pi) % (2 * np.pi) - np.pi
             proposed = 1 if abs(ang) < 0.45 else (2 if ang > 0 else 3)
-            return self.predictor.guided_action(proposed)
+            if homeostatic_emergency:
+                return proposed
+            # Açık komut hedefi ('elma') aynı fiziksel kanala bağlıysa genel
+            # kanal adıyla ('yiyecek') üzerine yazma; ISA/grafik yolu B4'teki
+            # gibi yeni kavramda da aynen kullanılabilsin.
+            guidance_target = target_name
+            explicit_target = str(getattr(self, "_prediction_target", "") or "").strip()
+            if (explicit_target and
+                    self.predictor._target_channel(explicit_target) ==
+                    self.predictor._target_channel(target_name)):
+                guidance_target = explicit_target
+            return self.predictor.guided_action(
+                proposed, target=guidance_target, allow_transition=False,
+            )
 
         rays = self.obs[:45].reshape(9, 5)
         haz_front = float(np.max(rays[3:6, 3]))
         act, _ = self.nervous.spinal_reflex_override(proposed_act, hazard_ahead=haz_front)
+        if haz_front > 0.78:
+            # Yakın tehlike bir tercih değil, sensörden gelen omurilik
+            # frenidir. İleri gitme yerine daha az tehlike görünen tarafa
+            # dön; tehlike içinde beklemek de güvenli bir eylem değildir.
+            if proposed_act == 1:
+                left_haz = float(np.max(rays[:3, 3]))
+                right_haz = float(np.max(rays[6:, 3]))
+                act = 2 if left_haz <= right_haz else 3
+            elif proposed_act == 0:
+                act = 4
+            return act
+        if homeostatic_emergency:
+            return act
         return self.predictor.guided_action(act)
 
     def inflict_pain(self, intensity: float = 0.7, locus: str = "gövde", cause: str = "dış darbe", attacker: str | None = None) -> dict:
@@ -1001,10 +1079,23 @@ class NoraAGI:
         if getattr(self, "objects", None) is None:
             return []
         rows = self.objects.observe(objects or [], dt=dt)
+        if getattr(self, "crossmodal", None) is not None:
+            for row in rows:
+                if row.get("visible"):
+                    self.crossmodal.observe("vision", row["id"], row.get("features") or {},
+                                            timestamp=time.monotonic())
         bus = getattr(self, "bus", None)
         if bus is not None and bus.has_listeners("perception.objects"):
             bus.publish("perception.objects", rows, source="object_belief", kind="perception")
         return rows
+
+    def modal_event(self, modality: str, token: str, features: dict | None = None,
+                    *, timestamp: float | None = None) -> dict:
+        """Başka bir duyu organından gelen iç izi çapraz-modal günlüğe ekle."""
+        if getattr(self, "crossmodal", None) is None:
+            return {"status": "unavailable"}
+        return self.crossmodal.observe(modality, token, features or {},
+                                       timestamp=time.monotonic() if timestamp is None else timestamp)
 
     def monitored_prediction(self, state, action) -> list[dict]:
         """Nedensel tahmini, geçmiş kendi-hata ölçümüyle kalibre edilmiş döndür."""
@@ -1124,7 +1215,12 @@ class NoraAGI:
                                     {"candidate": repr(candidate), "reason": "geçersiz eylem"},
                                     source="integration", kind="error",
                                     parents=(action_offer.get("signal"),))
-            act = self._autonomic_survival_reflex(raw_act)
+            external_proposal = bool(
+                action_offer is not None and action_offer.get("winner") not in (None, "mind")
+            )
+            act = self._autonomic_survival_reflex(
+                raw_act, respect_proposal=external_proposal,
+            )
             meta_token = None
             monitor = getattr(self, "meta_monitor", None)
             if monitor is not None and int(getattr(self.causal, "transitions", 0)) > 0:
@@ -1248,6 +1344,10 @@ class NoraAGI:
             except Exception:
                 pass
 
+        # Bu çağrıda simüle edilen yaşam süresi, sonraki konuşmada bir de
+        # "kullanıcı sessizliği" olarak sayılmaz. Duvar saati boşluk ölçümü
+        # ancak gerçekten işlenmemiş dış zamandan devam etmelidir.
+        self.last_real_time = time.time()
         return {
             "age": self.mind.age,
             "alive": self.mortality.is_alive,
@@ -1326,6 +1426,10 @@ class NoraAGI:
             try:
                 ev = self.ear.listen(raw, source=speaker)
                 self.last_auditory = ev
+                if getattr(self, "crossmodal", None) is not None:
+                    self.modal_event("sound", ev.voice_id,
+                                     dict(zip(("pitch", "jitter", "tempo", "brightness", "roughness"),
+                                              ev.print.vec())))
                 self.audio_log.append(ev)
                 if len(self.audio_log) > 24:
                     del self.audio_log[:-24]
@@ -2814,7 +2918,8 @@ class NoraAGI:
         """Kendi kulağından ne duyduğunu kendi sözleriyle anlatır (ölçüm değil, algı)."""
         ev = getattr(self, "last_auditory", None)
         if ev is None or getattr(self, "ear", None) is None:
-            return "Henüz kimseyi duymadım."
+            return self._say("narration.frame", ctx={"frame": "ear", "state": "none"},
+                             fallback="Duyum yok.")
         who = self.who_is_speaking()
         parts = [f"Az önce {ev.print.describe()} duydum."]
         if who.get("known"):
@@ -6921,6 +7026,7 @@ class NoraAGI:
             "meta_monitor": (self.meta_monitor.state_dict() if getattr(self, "meta_monitor", None) is not None else {}),
             "symbolic_law": (self.symbolic_law.state_dict() if getattr(self, "symbolic_law", None) is not None else {}),
             "workspace": (self.workspace.state_dict() if getattr(self, "workspace", None) is not None else {}),
+            "crossmodal": (self.crossmodal.state_dict() if getattr(self, "crossmodal", None) is not None else {}),
             "nervous": self.nervous.state_dict(),
             "mortality": self.mortality.state_dict(),
             "life": life,
@@ -6949,6 +7055,8 @@ class NoraAGI:
             self.symbolic_law.load_state_dict(law_data)
         if getattr(self, "workspace", None) is not None:
             self.workspace.load_state_dict(data.get("workspace") or {})
+        if getattr(self, "crossmodal", None) is not None:
+            self.crossmodal.load_state_dict(data.get("crossmodal") or {})
         self.nervous.load_state_dict(data.get("nervous") or {})
         self.mortality.load_state_dict(data.get("mortality") or {})
         if getattr(self, "entropy", None) is not None and data.get("individuality"):

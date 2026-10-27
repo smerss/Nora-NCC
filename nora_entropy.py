@@ -231,20 +231,26 @@ class Individuality:
             pass
 
     def runtime_state(self) -> dict:
-        """Aynı bireyin entropi akışını checkpoint sonrası sürdürmek için."""
+        """Kimlik ve entropi geçmişini taşı; gelecekteki donanım gürültüsünü kopyalama.
+
+        Dünya/öğrenme RNG'leri checkpoint'ten birebir sürdürülür. Buna karşılık
+        fiziksel zamanlama kaynağı yeni yürütmenin gerçek zamanından tazelenir;
+        aksi hâlde aynı kayıttan açılan iki beden aynı gelecek gürültüsünü
+        yaşayarak işlemsel klon olurdu.
+        """
         from nora_state import capture_attrs
         own = ("uid", "birth_ns", "birth_iso", "phase", "steps", "drift",
                "race_wins", "_tick_mark", "log")
-        src = ("seed", "birth_ns", "_counter", "_k", "_vac", "_draws", "last_jitter_ns")
-        return {"version": 1, "fields": capture_attrs(self, own),
-                "src": capture_attrs(self.src, src)}
+        return {"version": 2, "fields": capture_attrs(self, own)}
 
     def load_runtime_state(self, data: dict | None) -> None:
         if not data:
             return
         from nora_state import restore_attrs
         restore_attrs(self, data.get("fields") or {}, strict=True)
-        restore_attrs(self.src, data.get("src") or {}, strict=True)
+        # Eski kayıtlardaki 'src' alanı bilerek geri yazılmaz. Kimlik aynı
+        # bireye ait kalır; yeni fiziksel sürecin entropisi ise paylaşılmaz.
+        self.src.reseed()
 
     def identity_line(self) -> str:
         return f"{self.uid[:6]} · doğum {self.birth_iso}"

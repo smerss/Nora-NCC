@@ -185,8 +185,6 @@ class ExpressionSynthesizer:
                     fresh, hit = offer(expr, depth)
                     if hit:
                         solutions.append(ExpressionCandidate(expr, depth, 1.0))
-                        if len(solutions) >= self.max_solutions:
-                            return self._rank(solutions)
             # Koşullu ifade: karşılaştırma ve iki dal aynı örneklerden birlikte
             # sınanır. Böylece yalnız doğrusal/tek biçimli yasa değil, veriyle
             # seçilen parçalı bir temsil de sentezlenebilir.
@@ -219,8 +217,6 @@ class ExpressionSynthesizer:
                         fresh, hit = offer(expr, depth)
                         if hit:
                             solutions.append(ExpressionCandidate(expr, depth, 1.0))
-                            if len(solutions) >= self.max_solutions:
-                                return self._rank(solutions)
                         if self.evaluated >= self.max_exprs:
                             break
                     if self.evaluated >= self.max_exprs:
@@ -230,7 +226,7 @@ class ExpressionSynthesizer:
             # İkili dönüşümler. Havuz sınırlı; önce kısa ifadeler denenir.
             for a in current:
                 for b in current:
-                    ops = [ast.Add(), ast.Sub(), ast.Mult(), ast.Div(), ast.FloorDiv(), ast.Mod()]
+                    ops = [ast.Add(), ast.Sub(), ast.Mult(), ast.FloorDiv(), ast.Mod()]
                     # Üs alma taşması/uzun hesap güvenli aramaya dahil değil.
                     for op in ops:
                         expr = ast.BinOp(left=a, op=op, right=b)
@@ -242,20 +238,29 @@ class ExpressionSynthesizer:
                         fresh, hit = offer(expr, depth)
                         if hit:
                             solutions.append(ExpressionCandidate(expr, depth, 1.0))
-                    if self.evaluated >= self.max_exprs or len(solutions) >= self.max_solutions:
+                    if self.evaluated >= self.max_exprs:
                         break
-                if self.evaluated >= self.max_exprs or len(solutions) >= self.max_solutions:
+                if self.evaluated >= self.max_exprs:
                     break
-            if len(solutions) >= self.max_solutions:
-                break
         return self._rank(solutions)
 
-    @staticmethod
-    def _rank(solutions) -> list[ExpressionCandidate]:
+    def _rank(self, solutions) -> list[ExpressionCandidate]:
         unique = {}
         for c in solutions:
             unique.setdefault(c.text, c)
-        return sorted(unique.values(), key=lambda c: (c.cost, c.text))[:]
+        ordered = sorted(unique.values(), key=lambda c: (c.cost, c.text))
+        # İlk bulunan aile bütün aday bütçesini yutmasın: her kök AST biçiminden
+        # sırayla aday al. Böylece validation'da çakılan koşullu form, aritmetik
+        # veya dilim formunun hiç denenmemesine yol açmaz.
+        groups: dict[str, list[ExpressionCandidate]] = {}
+        for candidate in ordered:
+            groups.setdefault(type(candidate.expression).__name__, []).append(candidate)
+        out = []
+        while len(out) < self.max_solutions and any(groups.values()):
+            for kind in sorted(groups):
+                if groups[kind] and len(out) < self.max_solutions:
+                    out.append(groups[kind].pop(0))
+        return out
 
 
 # --------------------------------------------------------------------------- çalışma alanı

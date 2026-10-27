@@ -402,6 +402,17 @@
       "desc": "Anlatım çerçeveleri: cümlenin iskeleti burada, İÇERİĞİ kavram ağından gelir. Slotlar broca ile çekilir.",
       "priors": [
         {
+          "id": "ear.none",
+          "text": "Henüz kimseyi duymadım.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "ear",
+              "state": "none"
+            }
+          }
+        },
+        {
           "id": "frame.nominal",
           "text": "{gen} işi {inf}.",
           "bias": 1.0,
