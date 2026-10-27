@@ -543,6 +543,7 @@ class NoraAGI:
         # KENDİ GÖREV İCADİ: hedef dönüşümün biçimi de sabit değil; defter ve saat
         # kalıcıdır. Böylece "ne zaman" ile "neyi"nin yanına "hangi görevi" de eklenir.
         self._kendi_gorevler: list[dict] = []
+        self._gorev_derinligi = 2
         self._son_gorev_age = -10 ** 9
         self._son_gorev_sonuc: dict = {}
         # PLAN DEFTERİ: kullanıcının verdiği adımlar; koşul değişince YENİDEN kurulur.
@@ -5005,7 +5006,8 @@ class NoraAGI:
         """Kendi hedef dönüşümünü seç, örnek/tanık üret, öğren ve dıştan sına.
 
         `kendine_ogret` içindeki önek kesme görevi artık tek seçenek değil. Burada
-        hedef, ONUN ilkel havuzundan seçtiği İKİ adımlı bir bileşimdir. İnsan hedef
+        hedef, ONUN ilkel havuzundan seçtiği bir bileşimdir; başarılı görevlerden
+        sonra derinliği kendi ilerlemesiyle artırır. İnsan hedef
         adı, örnek çifti veya beklenen çıktı vermez. Belirsizlikte hazır sözcük
         listesi yerine kendi çektiği tanıklar kullanılır; öğrenilen program tanıkta
         hedefi karşılamazsa başarı yazılmaz.
@@ -5033,9 +5035,11 @@ class NoraAGI:
         havuz = pool[:min(14, len(pool))]
         bilinen = {tuple(str(x) for x in (p.get("ops") or [])) for p in (sy.programs or [])}
         hatalar: list[str] = []
+        derinlik = max(1, min(int(getattr(self, "_gorev_derinligi", 2) or 2),
+                              int(getattr(sy, "MAX_DEPTH", 3) or 3)))
         for _deneme in range(16):
-            sec = rng.sample(havuz, 2)
-            hedef = Program([(str(n), fn) for n, fn in sec], cost=2)
+            sec = rng.sample(havuz, derinlik)
+            hedef = Program([(str(n), fn) for n, fn in sec], cost=derinlik)
             spec = hedef.spec()
             if tuple(spec) in bilinen:
                 continue
@@ -5079,7 +5083,8 @@ class NoraAGI:
                 hatalar.append("tanık-yok")
                 continue
             dogru = all(sy.last.apply(w) == hedef.apply(w) for w in kalan)
-            kayit = {"hedef": spec, "örnekler": [[a, b] for a, b in examples],
+            kayit = {"hedef": spec, "derinlik": derinlik,
+                     "örnekler": [[a, b] for a, b in examples],
                      "tanıklar": list(kalan),
                      "yeni-tanıklar": [w for w in kalan if w not in words],
                      "ayırtma": ayirtma, "deneyler": deneyler,
@@ -5092,6 +5097,11 @@ class NoraAGI:
             sonuc["öğrendi"] = bool(dogru)
             self._son_gorev_sonuc = sonuc
             if dogru:
+                # Kendi müfredatı: başarı kanıtlanmadan derinlik artmaz; sınır
+                # sentez organının mevcut MAX_DEPTH'i, yeni ilkel/form değil.
+                self._gorev_derinligi = min(int(getattr(sy, "MAX_DEPTH", 3) or 3),
+                                            derinlik + 1)
+                sonuc["sonraki-derinlik"] = int(self._gorev_derinligi)
                 return sonuc
             hatalar.append("tanıkta-çürüdü")
         sonuc = {"durum": "görev_kurulamadı", "öğrendi": False,
@@ -6668,6 +6678,7 @@ class NoraAGI:
             "oz_aday_butce": int(getattr(self, "_oz_aday_butce", 6) or 6),
             "oz_degisim": list(getattr(self, "_oz_degisim", []) or [])[-16:],
             "kendi_gorevler": list(getattr(self, "_kendi_gorevler", []) or [])[-16:],
+            "gorev_derinligi": int(getattr(self, "_gorev_derinligi", 2) or 2),
             "son_gorev_age": int(getattr(self, "_son_gorev_age", -10 ** 9) or -10 ** 9),
         }
         # ATOMİK YAZMA: önce .tmp, sonra os.replace. Yazma yarıda kesilirse ESKİ sağlam
@@ -6780,6 +6791,7 @@ class NoraAGI:
                                    if isinstance(r, dict)]
                 agi._kendi_gorevler = [r for r in (meta.get("kendi_gorevler") or [])
                                        if isinstance(r, dict)]
+                agi._gorev_derinligi = int(meta.get("gorev_derinligi") or 2)
                 agi._son_gorev_age = int(meta.get("son_gorev_age") or -10 ** 9)
             except Exception:
                 pass

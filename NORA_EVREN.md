@@ -2846,3 +2846,22 @@ mevcut uzayda daha verimli öğrenme politikasıdır.
 
 Tam doğrulama: **119/119 (459.4 sn)** · N39–N48 ters sırada **10/10 · 10/10** ·
 audit **1125/127 (+3/+0)** · integrate **10/10 + kalıcılık 4/4**.
+
+## Aşama BD — Kendi müfredatını derinleştirir (Tur 41n)
+
+BA'nın dürüst tabanında iki-adımlı hedef biçimi de insan sabitiydi. BD bunu
+kaldırır: başlangıç derinliği 2'dir; başarılı ve dıştan doğrulanabilir görevden
+sonra Nora bir sonraki görevi `Synthesizer.MAX_DEPTH` içinde 3 adıma çıkarır.
+
+- Derinlik artışı başarıdan önce yapılmaz; boş dağarcık/başarısızlık artış
+  doğurmaz. Üst sınır aşılmaz ve yeni ilkel/form eklenmez.
+- Üç-adımlı hedefin öğrenilen programı nonce tanıklarda bağımsız hedefle
+  karşılaştırılır. Derinlik ve görev defteri save/load'da kalıcıdır.
+- Merdivenin 9. basamağı artık yaşam akışında üretilmiş gerçek bir 3-adımlı
+  görevi gösterir.
+
+Dürüst taban: derinlik artış kuralını ve MAX_DEPTH sınırını insan yazdı; artışın
+zamanı Nora'nın kendi başarı kanıtına bağlıdır. Bu, açık uçlu yeni yasa formu
+değil, kendi müfredatını düzenlemedir.
+
+Ölçüm: **A123 GEÇTİ · N49 yetenek ✓ dürüstlük ✓ · merdiven 10/10**.

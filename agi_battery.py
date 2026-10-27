@@ -5415,6 +5415,50 @@ def a122_ayirt_edici_deneyi_secer() -> tuple[bool, str]:
     return all(ok.values()), detail
 
 
+def a123_kendi_müfredatını_derinleştirir() -> tuple[bool, str]:
+    """A123 — MÜFREDAT: görev derinliği başarı kanıtıyla Nora'da büyür.
+
+    Başlangıç politikası iki adımdır; başarılı dıştan doğrulanabilir görevden sonra
+    derinlik MAX_DEPTH içinde üçe çıkar. Başarısız/boş dağarcık durumunda artış
+    yoktur. Derinlik ve görev defteri yeni oturumda da korunur.
+    """
+    import os
+    import tempfile
+    from nora_synth import Program
+
+    g = NoraAGI(seed=9101, boot_thinker=False)
+    g.step_life(100)
+    r1 = g.kendine_gorev()
+    d1 = int(getattr(g, "_gorev_derinligi", 0) or 0)
+    r2 = g.kendine_gorev()
+    ok = {}
+    ok["başarıyla-derinleşti"] = bool(r1.get("öğrendi") and r1.get("derinlik") == 2
+                                      and d1 == 3 and r2.get("derinlik") == 3)
+    target = Program.from_spec(list(r2.get("hedef") or []), spec_map=g.synth.spec_map())
+    learned = Program.from_spec(list(r2.get("program") or []), spec_map=g.synth.spec_map())
+    ws = list(r2.get("tanıklar") or [])
+    ok["üç-adım-dış-doğrulama"] = bool(r2.get("öğrendi") and target is not None
+                                      and learned is not None and len(ws) >= 2
+                                      and all(learned.apply(w) == target.apply(w) for w in ws))
+    ok["sınır-aşılmadı"] = int(getattr(g, "_gorev_derinligi", 0) or 0) <= int(g.synth.MAX_DEPTH)
+
+    d = tempfile.mkdtemp()
+    pref = os.path.join(d, "nora")
+    g.save(pref)
+    h = NoraAGI.load(pref)
+    ok["müfredat-kalıcı"] = int(getattr(h, "_gorev_derinligi", 0) or 0) == 3 and \
+        any(int(r.get("derinlik") or 0) == 3 for r in h._kendi_gorevler)
+
+    k = NoraAGI(seed=9109, boot_thinker=False)
+    k.step_life(100)
+    k.lang.graph.lexicon.clear()
+    rk = k.kendine_gorev()
+    ok["başarısızda-artış-yok"] = not rk.get("öğrendi") and int(k._gorev_derinligi) == 2
+    detail = " | ".join(f"{k_}={'✓' if v else '✗'}" for k_, v in ok.items())
+    detail += f" · derinlik={r1.get('derinlik')}→{r2.get('derinlik')}"
+    return all(ok.values()), detail
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -5532,6 +5576,7 @@ TESTS = {
     "A120": ("kendi görevini icat eder: hedef biçimi ve tanıklar ondan", a120_kendi_gorevini_icat_eder),
     "A121": ("kendi deney sözcüklerini üretir: nonce tanık, bilgi değil", a121_kendi_deney_sözcüklerini_üretir),
     "A122": ("aktif öğrenme: en çok ayırt eden deneyi entropiyle seçer", a122_ayirt_edici_deneyi_secer),
+    "A123": ("kendi müfredatını derinleştirir: başarı kanıtıyla 2→3", a123_kendi_müfredatını_derinleştirir),
     "A111": ("icadın şeması: görülmemiş parametre icat gerektirmez", a111_icadin_semasi),
     "A110": ("dil: buyruk sarmalayıcısı ve X mi Y mi seçim sorusu", a110_sarmalayici_ve_secim_sorusu),
     "A108": ("şema: delikli makro görülmemiş parametreyi kapsar", a108_sema_delikli_makro),

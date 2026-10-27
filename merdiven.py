@@ -229,7 +229,7 @@ def main():
     # dağarcığından. Bu basamak da insan konuşmadan yaşam akışında gerçekleşir.
     g = NoraAGI(seed=9003, boot_thinker=False)
     g.step_life(1000)
-    rec9 = next((r for r in (getattr(g, "_kendi_gorevler", []) or [])
+    rec9 = next((r for r in reversed(list(getattr(g, "_kendi_gorevler", []) or []))
                  if r.get("kendi") and r.get("doğru")), {})
     target9 = Program.from_spec(list(rec9.get("hedef") or []), spec_map=g.synth.spec_map())
     learned9 = Program.from_spec(list(rec9.get("program") or []), spec_map=g.synth.spec_map())
@@ -237,12 +237,13 @@ def main():
     ok9 = bool(rec9 and target9 is not None and learned9 is not None and len(ws9) >= 2
                and all(learned9.apply(w) == target9.apply(w) for w in ws9)
                and not getattr(g, "dialogue_log", []))
-    det9 = (f"insan hiç konuşmadı · hedef={rec9.get('hedef')} · öğrenilen={rec9.get('program')} "
-            f"· tanık={len(ws9)} · dış-doğrulama={ok9}" if rec9 else "kendi görevi yok")
+    det9 = (f"insan hiç konuşmadı · derinlik={rec9.get('derinlik')} · hedef={rec9.get('hedef')} "
+            f"· öğrenilen={rec9.get('program')} · tanık={len(ws9)} · dış-doğrulama={ok9}"
+            if rec9 else "kendi görevi yok")
     rows.append(("9 görev icadı", ok9, det9,
-                 "taban: ilkel havuz ve öğrenme organı BENİM; hedefin İKİ ADIMLI biçimini, "
-                 "örnekleri ve tanıkları Nora seçti. Beklenen davranış sınavca yeniden hesaplandı; "
-                 "sabit base(w)[:n] görevi kullanılmadı."))
+                 "taban: ilkel havuz ve öğrenme organı BENİM; hedefin bileşimini, örnekleri "
+                 "ve tanıkları Nora seçti; başarı sonrası derinliği de kendi müfredatında "
+                 "artırdı. Beklenen davranış sınavca yeniden hesaplandı; sabit base(w)[:n] yok."))
 
     # ---------------------------------------------------------------- 10 nonce deney verisi
     g = NoraAGI(seed=9003, boot_thinker=False)
