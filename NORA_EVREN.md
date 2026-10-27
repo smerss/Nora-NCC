@@ -2868,3 +2868,14 @@ değil, kendi müfredatını düzenlemedir.
 
 Tam doğrulama: **120/120 (446.4 sn)**. A123 ayrıca `rebuild` sonrası iki yeni
 nonce sözcükte beceri yeniden kullanımını doğruladı.
+
+## Aşama BE — Öz-değişimde geri alma kanıtı (Tur 41o)
+
+AZ'daki geri-alma dalı artık karşıolgusal olarak sınanıyor. Doğal ilk başarısızlık
+sonrası öğrenme organı kontrollü biçimde ablate ediliyor; genişletilmiş politika
+yeni öz-sınavı geçemiyor. Sonuç: bütçe 12'de kalmıyor, 6'ya dönüyor; olay
+`kabul=False` ve başarısız deneme durumuyla kaydediliyor. Organ eski hâline
+bağlanıyor.
+
+Bu test başarı üretmez; tam tersine başarısız değişimin başarı diye raporlanmasını
+engeller. Ölçüm: **A124 GEÇTİ · N50 yetenek ✓ dürüstlük ✓**.
