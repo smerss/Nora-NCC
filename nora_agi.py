@@ -6440,6 +6440,11 @@ class NoraAGI:
             "schema": (self.schema.state() if getattr(self, "schema", None) is not None else {}),
             "testimony": (self.testimony.state_dict() if getattr(self, "testimony", None) is not None else {}),
             "plans": {"goal": self._plan_goal, "steps": list(self.plans.get(self._plan_goal) or [])},
+            # KENDİ KENDİNE ÖĞRENDİKLERİ: defter ve sayaçlar da beyinle birlikte gider.
+            "kendi_ogretim": list(getattr(self, "kendi_ögretim", []) or [])[-16:],
+            "kendi_ogrenme": int(getattr(self, "_kendi_ogrenme", 0) or 0),
+            "son_oz_ogretim": int(getattr(self, "_son_oz_ogretim", -10 ** 9) or -10 ** 9),
+            "son_etkilesim": int(getattr(self, "_son_etkilesim_age", 0) or 0),
         }
         # ATOMİK YAZMA: önce .tmp, sonra os.replace. Yazma yarıda kesilirse ESKİ sağlam
         # dosya yerinde kalır (tek satır kaybı bile olmaz; yarım beyin yüklenmez).
@@ -6539,6 +6544,15 @@ class NoraAGI:
                 agi.driver.load_state(meta.get("driver") or {})
             if getattr(agi, "schema", None) is not None:
                 agi.schema.load_state(meta.get("schema") or {}, agi.synth)
+            # ÖZ-ÖĞRETİM DEFTERİ: kendi kendine öğrendikleri yeni oturumda da onda kalır.
+            try:
+                agi.kendi_ögretim = [r for r in (meta.get("kendi_ogretim") or [])
+                                     if isinstance(r, dict)]
+                agi._kendi_ogrenme = int(meta.get("kendi_ogrenme") or 0)
+                agi._son_oz_ogretim = int(meta.get("son_oz_ogretim") or -10 ** 9)
+                agi._son_etkilesim_age = int(meta.get("son_etkilesim") or 0)
+            except Exception:
+                pass
             if getattr(agi, "reify", None) is not None:
                 agi.reify.load_state(meta.get("reify") or {})
                 # Reify defterindeki ÖLÜ OLMAYAN ilkeller yeni oturumda da kurulur.
