@@ -359,7 +359,8 @@ class NoraAGI:
 
     def __init__(self, name: str = "Nora", seed: int = 0, boot_thinker: bool = False,
                  thinker_iters: int = 800, world_kwargs: dict | None = None, single_life: bool = True,
-                 corpus: list[str] | None = None, broca: str | None = None):
+                 corpus: list[str] | None = None, broca: str | None = None,
+                 code_pretrain: bool = True):
         self.name = name
         self.seed = int(seed)
         # KOPYALANAMAZLIK: aynı seed -> aynı GENETİK. Ama doğum anının nanosaniye fazı,
@@ -444,7 +445,7 @@ class NoraAGI:
         self.epi_speech = BeliefSpeech(self.episteme)
         self.researcher = TrustedResearcher(self.episteme)
         # --- KOD SENTEZİ: çalıştırıp doğrulamadan tek satır bile vermez ---
-        self.code_cortex = CodeSynthesisCortex(seed=seed + 61)
+        self.code_cortex = CodeSynthesisCortex(seed=seed + 61, pretrain=code_pretrain)
         self.last_epistemic: dict = {}
         self.last_code: dict = {}
         self.last_utterance_class: dict = {}
@@ -1538,7 +1539,8 @@ class NoraAGI:
         # SÖZ BİÇİMİ: cevabın iskeleti her tur aynı olmasın; bedenin derdi varsa o öne geçsin.
         try:
             if (getattr(self, "style", None) is not None and ans and not ans.startswith("[")
-                    and not getattr(self, "_translation_output", False)):
+                    and not getattr(self, "_translation_output", False)
+                    and not getattr(self, "_structured_output", False)):
                 _isq = ("?" in (text or ""))
                 _shape = self.style.decide(
                     self, is_question=_isq,
@@ -1676,7 +1678,8 @@ class NoraAGI:
             pass
         # HEDEF SÜRDÜRME: verilen hedef, hatırlatılana kadar HER turda sürer.
         try:
-            _g = None if getattr(self, "_translation_output", False) else self._goal_step()
+            _g = (None if (getattr(self, "_translation_output", False)
+                           or getattr(self, "_structured_output", False)) else self._goal_step())
             if _g:
                 ans = f"{ans} {_g}"
         except Exception:
@@ -1704,6 +1707,7 @@ class NoraAGI:
         # süslemedir; ölçülmüş bir cevabın üstüne yazmak onu gasp etmektir.
         self._intent_locked = False
         self._translation_output = False
+        self._structured_output = False
         # --- TÜRKÇE EDİNİMİ: duyulan bilinmeyen fiil biçimleri, kendi çekim üreticisiyle
         #     yeniden üretilebiliyorsa kök olarak öğrenilir (kalıcı, sözlüğe yazılır).
         try:
@@ -1724,6 +1728,15 @@ class NoraAGI:
             self._intent_locked = True
             self._log_turn(speaker, raw, _translation, t0)
             return _translation
+        # Açık belge girdisi öğrenme eylemidir; örnek/kural sohbeti onu gasp edemez.
+        if self.code_cortex.is_document(raw):
+            _doc, _trace, _sal = self._code_channel(raw)
+            if _doc:
+                self._turn_path = "organ"
+                self._intent_locked = True
+                self._apply_tag("ag", 1)
+                self._log_turn(speaker, raw, _doc, t0)
+                return _doc
         # KİŞİSEL OLGU: karşıdaki bir şey SÖYLEDİYSE (soru değilse) açık kalıpla yazılır.
         self._learned_facts = []
         try:
@@ -2125,7 +2138,7 @@ class NoraAGI:
             return seq_ans
 
         # Kod istemi tek bir bütündür: içindeki ünlem/nokta metnin PARÇASI olabilir ('Merhaba! Ey Ahali!')
-        if self.code_cortex.is_requested(raw):
+        if self.code_cortex.is_requested(raw) or self.code_cortex.is_document(raw):
             self.last_utterance_class = self.utter_cortex.classify(raw)
             reply = self._handle_single_sentence(raw, speaker=speaker)
             self._log_turn(speaker, raw, reply, t0)
@@ -3017,8 +3030,8 @@ class NoraAGI:
         """Soru ise inanç deposundan KANITLA yanıtlar; bildirim ise KARŞILAŞTIRARAK öğrenir.
         Hiçbir iddia 'kaydettim' diye kör kabul edilmez: çelişki/eksik ad -> yarışan hipotezler."""
         try:
-            # Kod istemi bir iddia değildir: inanç defterine yazılmaz.
-            if self.code_cortex.is_requested(raw):
+            # Kod istemi/belgesi bir iddia değildir: inanç defterine yazılmaz.
+            if self.code_cortex.is_requested(raw) or self.code_cortex.is_document(raw):
                 return None, "", 0.0
             # Soruysa önce kanıt deposundan yanıtla; değilse öğren. (Soru asla 'iddia' diye kaydedilmez.)
             ans = self.episteme.answer(raw)
@@ -3038,17 +3051,22 @@ class NoraAGI:
         return None, "", 0.0
 
     def _code_channel(self, raw: str) -> tuple[str | None, str, float]:
-        """Plastik operatör korteksi kod isteğini kendi ağırlıklarıyla seçerse devreye girer.
-        Program yalnızca çalıştırılıp çıktısı doğrulandıktan sonra söylenir."""
+        """Kod/belge niyetini çöz; programı ancak çalıştırıp doğruladıktan sonra söyle."""
         try:
+            if self.code_cortex.is_document(raw):
+                res = self.code_cortex.handle_document(raw)
+                self.last_code = res
+                return self.code_cortex.speak(res), "code:document", 0.988
             if not self.code_cortex.is_requested(raw):
                 return None, "", 0.0
             res = self.code_cortex.handle(raw)
             self.last_code = res
             if res.get("ok"):
                 self.chem.pulse_learning(novelty=0.5, valence=0.35)
+                self._structured_output = res.get("path") == "composed"
+                self._apply_tag("islem", 1)
                 return self.code_cortex.speak(res), f"code:{res.get('path')}", 0.988
-            if res.get("reason") in ("metin_yok", "belirsiz_niyet"):
+            if res.get("reply_hint"):
                 return self.code_cortex.speak(res), f"code:{res.get('reason')}", 0.958
         except Exception:
             return None, "", 0.0

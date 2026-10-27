@@ -27,11 +27,13 @@ import sys
 import tempfile
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import numpy as np
 
 from nora_broca import NP, VerbSpec, TurkishSyntaxEngine
 from nora_lang import tr_capitalize, tr_lower
+from nora_semantic_code import CompositionalCodeLearner, SemanticGoal, ProgramPlan
 
 
 # ============================================================================
@@ -297,7 +299,7 @@ class CodeSynthesisCortex:
         op, probs = self.cortex.select(raw)
         return op == "DISPLAY" and float(probs.get("DISPLAY", 0.0)) >= 0.45
 
-    def __init__(self, seed: int = 0):
+    def __init__(self, seed: int = 0, pretrain: bool = True):
         self.cortex = PlasticOperatorCortex(seed=seed)
         self.grounder = RequestGrounder(self.cortex)
         self.verifier = ExecutionVerifier()
@@ -305,6 +307,13 @@ class CodeSynthesisCortex:
         self.skills: dict[str, dict] = {}      # niyet imzası -> doğrulanmış program (System-1)
         self.feedback_log: list[dict] = []
         self.min_score = 0.30
+        self.semantic = CompositionalCodeLearner()
+        if pretrain:
+            primer = Path(__file__).resolve().parent / "data" / "python_semantics_primer.md"
+            try:
+                self.semantic.load_primer(primer)
+            except (OSError, UnicodeError):
+                pass
 
     # --------------------------------------------------------------- yardımcılar
     @staticmethod
@@ -344,9 +353,77 @@ class CodeSynthesisCortex:
                                        neg=True, tense="PAST", person="1SG"))
         return f"{tr_capitalize(c1)}, ama {c2}. Ne yapmamı istediğini tek cümleyle söyle; uydurmak yerine soruyorum."
 
+    # --------------------------------------------------------------- anlamsal bileşim
+    def _handle_semantic(self, goal: SemanticGoal, request: str, started: float) -> dict:
+        if goal.layout != "vertical":
+            solved = {"ok": False, "reason": "layout_gap", "missing": [goal.layout],
+                      "trace": list(goal.trace)}
+        else:
+            solved = self.semantic.solve(goal)
+        if isinstance(solved, dict):
+            missing = [str(value) for value in solved.get("missing") or ()]
+            c_plan = self.syn.realize_verb(VerbSpec(
+                verb_root="kur", obj=NP("plan", case="ACC"), neg=True,
+                tense="PAST", person="1SG",
+            ))
+            return {"ok": False, "path": "semantic_gap", "program": "", "verified": False,
+                    "confidence": 0.0, "reason": solved.get("reason", "semantic_gap"),
+                    "missing": missing, "reply_hint": tr_capitalize(c_plan) + ": " + ", ".join(missing),
+                    "ms": round((time.perf_counter() - started) * 1000, 2),
+                    "trace": solved.get("trace") or list(goal.trace), "intent": goal}
+        plan: ProgramPlan = solved
+        ver = self.verifier.run(plan.program)
+        matched = bool(ver.get("ok") and ver.get("stdout") == plan.expected)
+        trace = list(plan.trace) + [f"exact_output={matched}"]
+        if not matched:
+            return {"ok": False, "path": "unverified", "program": "", "verified": False,
+                    "confidence": 0.0, "reason": "doğrulanamadı", "reply_hint": self._clarify("intent"),
+                    "ms": round((time.perf_counter() - started) * 1000, 2),
+                    "trace": trace + [f"stderr={ver.get('stderr', '')}"], "intent": goal}
+        self.verifier.successes += 1
+        self.semantic.adopt(goal, plan)
+        self.cortex.reinforce(request, "DISPLAY", good=True)
+        if "iterate" in plan.operators:
+            self.cortex.reinforce(request, "LOOP", good=True)
+        self.feedback_log.append({"sig": "semantic:" + "|".join(goal.key),
+                                  "program": plan.program, "ok": True})
+        return {"ok": True, "path": "composed", "program": plan.program,
+                "stdout": ver["stdout"], "expected": plan.expected, "verified": True,
+                "confidence": 1.0, "operators": list(plan.operators), "run_ms": ver["ms"],
+                "ms": round((time.perf_counter() - started) * 1000, 2),
+                "trace": trace, "intent": goal}
+
+    @staticmethod
+    def is_document(request: str) -> bool:
+        low = tr_lower(request or "")
+        has_url = bool(re.search(r"https?://", low))
+        return (bool(re.match(r"^\s*(?:doküman|belge|document)\s*:", low))
+                or ("```" in low and any(cue in low for cue in ("öğren", "oku", "belge")))
+                or (has_url and any(cue in low for cue in ("öğren", "oku", "belge", "doküman"))))
+
+    def handle_document(self, request: str) -> dict:
+        url = re.search(r"https?://[^\s<>]+", request)
+        if url:
+            result = self.semantic.learn_url(url.group(0).rstrip(".,;"))
+        else:
+            body = re.sub(r"^\s*(?:doküman|belge|document)\s*:\s*", "", request,
+                          count=1, flags=re.IGNORECASE)
+            result = self.semantic.learn_document(body, source="conversation")
+        result.update({"path": "document", "program": "", "verified": False})
+        if not result.get("ok"):
+            c_read = self.syn.realize_verb(VerbSpec(
+                verb_root="oku", obj=NP("belge", case="ACC"), neg=True,
+                tense="PAST", person="1SG",
+            ))
+            result["reply_hint"] = tr_capitalize(c_read) + ": " + str(result.get("error", "0"))
+        return result
+
     # --------------------------------------------------------------- ana giriş
     def handle(self, request: str) -> dict:
         t0 = time.perf_counter()
+        goal = self.semantic.request(request)
+        if goal is not None:
+            return self._handle_semantic(goal, request, t0)
         intent = self.grounder.ground(request)
         trace = list(intent.trace)
 
@@ -410,6 +487,23 @@ class CodeSynthesisCortex:
         syn = self.syn
         if not res.get("ok"):
             return str(res.get("reply_hint") or "")
+        if res.get("path") == "document":
+            learned = list(res.get("new_operators") or ()) + list(res.get("new_facts") or ())
+            if not learned:
+                learned = list(res.get("operators") or ()) + list((res.get("facts") or {}).keys())
+            c_read = syn.realize_verb(VerbSpec(verb_root="oku", obj=NP("belge", case="ACC"),
+                                               tense="PAST", person="1SG"))
+            return tr_capitalize(c_read) + ": " + (", ".join(learned) or "0") + "."
+        if res.get("path") == "composed":
+            prog = str(res.get("program") or "")
+            out = str(res.get("stdout") or "").rstrip("\n")
+            c_write = syn.realize_verb(VerbSpec(verb_root="yaz", obj=NP("program", case="ACC"),
+                                                tense="PAST", person="1SG"))
+            c_run = syn.realize_verb(VerbSpec(verb_root="çalıştır", obj="onu",
+                                              tense="PAST", person="1SG"))
+            head = tr_capitalize(c_write) + "."
+            return (head + "\n```python\n" + prog + "\n```\n"
+                    + tr_capitalize(c_run) + "; çıktı:\n```text\n" + out + "\n```")
         prog = res.get("program", "")
         out = str(res.get("stdout", "")).strip()
         c_run = syn.realize_verb(VerbSpec(verb_root="çalıştır", obj="onu", advs=("hemen",),
@@ -432,6 +526,8 @@ class CodeSynthesisCortex:
         return {
             "skills": len(self.skills), "learning_events": self.cortex.learning_events,
             "verified_runs": self.verifier.runs, "successes": self.verifier.successes,
+            "semantic_operators": len(self.semantic.operators),
+            "composite_operators": len(self.semantic.composites),
             "weights": {op: {k: round(v, 2) for k, v in list(w.items())[:5]} for op, w in self.cortex.W.items()},
         }
 
@@ -439,7 +535,8 @@ class CodeSynthesisCortex:
         return {"W": {k: dict(v) for k, v in self.cortex.W.items()},
                 "skills": {k: {"program": v["program"], "payload": v["payload"], "hits": v.get("hits", 1)}
                            for k, v in list(self.skills.items())[-400:]},
-                "events": self.cortex.learning_events}
+                "events": self.cortex.learning_events,
+                "semantic": self.semantic.state_dict()}
 
     def load_state_dict(self, d: dict):
         for opn, wmap in (d.get("W") or {}).items():
@@ -447,3 +544,5 @@ class CodeSynthesisCortex:
                 self.cortex.W[opn].update({k: float(v) for k, v in wmap.items()})
         self.skills = {k: dict(v, payload=v.get("payload", "")) for k, v in (d.get("skills") or {}).items()}
         self.cortex.learning_events = int(d.get("events", 0))
+        if d.get("semantic") is not None:
+            self.semantic.load_state_dict(d.get("semantic") or {})
