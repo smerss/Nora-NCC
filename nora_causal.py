@@ -87,9 +87,12 @@ class LinearTransition:
         self.n += 1
         self.interventions += int(bool(intervened))
 
-    def beta(self, ridge: float = 1e-5) -> np.ndarray:
+    def beta(self, ridge: float = 1e-8) -> np.ndarray:
+        # Model tanımlıysa OLS kullan: ridge'in sistematik shrinkage sapması
+        # hedefe erişim ve held-out büyüklük ölçümüne yapay hata eklemesin.
+        if int(np.linalg.matrix_rank(self.xx)) >= self.dim:
+            return np.linalg.lstsq(self.xx, self.xy, rcond=None)[0]
         reg = float(ridge) * np.eye(self.dim)
-        # Kesişim katsayısını da çok hafif düzenle; sıfır-rank'ta çözüm üretme.
         return np.linalg.solve(self.xx + reg, self.xy)
 
     def ready(self) -> bool:
@@ -182,6 +185,10 @@ class CausalTransitionModel:
                     raw = [v for _k, v in sorted(numeric, key=lambda kv: str(kv[0]))]
         if raw is None:
             return None
+        if isinstance(raw, dict):
+            # Öznitelik adları sıralı vektöre çevrilir; eylem adı/target gibi
+            # sayısal olmayan alanlar burada zaten dışarıdadır.
+            raw = [raw[k] for k in sorted(raw, key=lambda k: str(k))]
         try:
             vec = np.asarray(raw, dtype=np.float64).reshape(-1)
         except (TypeError, ValueError):
