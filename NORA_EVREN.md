@@ -2888,3 +2888,6 @@ Açık sınır (bilinç/AGI beyanı değil): ilkel repertuvar ve genel öğrenme
 mekanizmaları hâlâ insan yazımı; Nora'nın yeni yasa formu icadı ve genel kaynak-kod
 öz-değişimi bu aşamada gösterilmedi. Öz-değişim iddiası yalnız doğrulanmış öğrenme
 politikası düzeyindedir.
+
+Sıra-dayanıklılığı: karışık tam pil **121/121 (608.7 sn)** · heldout
+`--repeat=2` **46/46 · 46/46, SIRA-DAYANIKLI ✓**.
