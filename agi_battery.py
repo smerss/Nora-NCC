@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""agi_battery.py — NORA-AGI Profesyonel Dil, Nörokimya, Öz-Benlik, Matematik, Fizik ve Sohbet Paketi (A1–A19).
+"""agi_battery.py — Nora'nın işlevsel ve nedensel davranış pilidir.
+
+A125–A130 qualia vekilleri, bilinç mimarisi ve dar AGI bileşenleri için
+müdahale/ablasyon/geri-yükleme kanıtı arar. Test geçmek öznel deneyimi veya genel
+AGI'yi tek başına kanıtlamaz.
 
 Kullanım:
-  python agi_battery.py              # Tüm A1–A19 testleri
-  python agi_battery.py A14 A17 A18  # Seçili testler
+  python agi_battery.py                 # bütün kayıtlı testler
+  python agi_battery.py A125 A128 A130  # seçili testler
 """
 from __future__ import annotations
 
@@ -5499,6 +5503,38 @@ def a124_başarısız_öz_değişimi_geri_alır() -> tuple[bool, str]:
     return all(ok.values()), detail
 
 
+# A125–A130: yalnız sonuç doğruluğu değil, müdahale/ablasyon/geri-yükleme ile
+# nedensel işlev kanıtı. Protokoller bağımsız dosyada da çalıştırılabilir.
+def a125_somatik_qualia_vekili():
+    from consciousness_battery import q1_somatic_state_causes_preference
+    return q1_somatic_state_causes_preference()
+
+
+def a126_nosiseptif_qualia_vekili():
+    from consciousness_battery import q2_nociception_causes_report_and_reflex
+    return q2_nociception_causes_report_and_reflex()
+
+
+def a127_küresel_yayın_nedenselliği():
+    from consciousness_battery import c1_global_broadcast_causes_body_action
+    return c1_global_broadcast_causes_body_action()
+
+
+def a128_üstbiliş_plan_nedenselliği():
+    from consciousness_battery import c2_metacognition_causes_plan_inhibition
+    return c2_metacognition_causes_plan_inhibition()
+
+
+def a129_transfer_nedenselliği():
+    from consciousness_battery import g1_learned_model_causes_cross_family_transfer
+    return g1_learned_model_causes_cross_family_transfer()
+
+
+def a130_öz_değişim_nedenselliği():
+    from consciousness_battery import g2_source_change_causes_unseen_improvement
+    return g2_source_change_causes_unseen_improvement()
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -5618,6 +5654,12 @@ TESTS = {
     "A122": ("aktif öğrenme: en çok ayırt eden deneyi entropiyle seçer", a122_ayirt_edici_deneyi_secer),
     "A123": ("kendi müfredatını derinleştirir: başarı kanıtıyla 2→3", a123_kendi_müfredatını_derinleştirir),
     "A124": ("öz-değişim güvenliği: başarısız politikayı geri alır", a124_başarısız_öz_değişimi_geri_alır),
+    "A125": ("nedensel qualia vekili: somatik iz → tercih + ablasyon", a125_somatik_qualia_vekili),
+    "A126": ("nedensel qualia vekili: nosisepsiyon → rapor + refleks", a126_nosiseptif_qualia_vekili),
+    "A127": ("nedensel bilinç mimarisi: taze yayın → uzman → beden", a127_küresel_yayın_nedenselliği),
+    "A128": ("nedensel üst-biliş: hata → güven → plan inhibisyonu", a128_üstbiliş_plan_nedenselliği),
+    "A129": ("nedensel AGI bileşeni: model → aileler arası transfer", a129_transfer_nedenselliği),
+    "A130": ("nedensel AGI bileşeni: kaynak değişimi → yeni dış sınav", a130_öz_değişim_nedenselliği),
     "A111": ("icadın şeması: görülmemiş parametre icat gerektirmez", a111_icadin_semasi),
     "A110": ("dil: buyruk sarmalayıcısı ve X mi Y mi seçim sorusu", a110_sarmalayici_ve_secim_sorusu),
     "A108": ("şema: delikli makro görülmemiş parametreyi kapsar", a108_sema_delikli_makro),
@@ -5709,7 +5751,7 @@ def main():
         passed += int(bool(ok))
         st = "GEÇTİ" if ok else "KALDI"
         print(f"{k:<4s} {desc:<64s} {st:<8s} {detail}", flush=True)
-    print(f"\nSONUÇ: {passed}/{len(wanted)} AGI TESTİ GEÇTİ ({time.time() - t0:.1f} sn)")
+    print(f"\nSONUÇ: {passed}/{len(wanted)} İŞLEVSEL TEST GEÇTİ ({time.time() - t0:.1f} sn)")
     sys.exit(0 if passed == len(wanted) else 1)
 
 

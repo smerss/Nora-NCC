@@ -28,12 +28,17 @@ class PlanNode:
 
 class AdaptivePlanner:
     def __init__(self, model, *, beam: int = 12, max_horizon: int = 8,
-                 min_confidence: float = 0.08, max_expansions: int = 512):
+                 min_confidence: float = 0.08, max_expansions: int = 512,
+                 monitor=None):
         self.model = model
         self.beam = max(2, int(beam))
         self.max_horizon = max(1, int(max_horizon))
         self.min_confidence = float(min_confidence)
         self.max_expansions = max(16, int(max_expansions))
+        # İşlevsel üst-biliş yalnız rapor üretmez: geçmiş tahmin hatasıyla
+        # kalibre edilen güven, aynı genel eşik üzerinden plan uzayına girer.
+        # Monitor yoksa eski ham-model davranışı aynen korunur.
+        self.monitor = monitor
         self.last_trace: dict = {}
 
     def _index(self, variable: str) -> int | None:
@@ -47,6 +52,10 @@ class AdaptivePlanner:
 
     def _step(self, state: np.ndarray, action: Any) -> tuple[np.ndarray, list[dict], float] | None:
         pred = self.model.predict(state, action)
+        if self.monitor is not None:
+            # Kalibrasyon yeni satır döndürür; öğrenilen dünya modelini veya ham
+            # güveni yerinde değiştirmez. Böylece ham-model kontrolü mümkündür.
+            pred = self.monitor.calibrate(pred)
         if not pred:
             return None
         nxt = state.copy()
