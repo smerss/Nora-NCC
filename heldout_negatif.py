@@ -1673,6 +1673,35 @@ def n47_kendi_deney_sözcüklerini_üretir():
             "capability": cap, "honesty": hon, "cevap": detail}
 
 
+def n48_ayirt_edici_deneyi_secer():
+    """N48 — AKTİF ÖĞRENME: seçilen deney gerçekten bilgi taşıyor mu?"""
+    from nora_synth import Program
+
+    p_id = Program.from_spec(["aynen bırak"])
+    p_rev = Program.from_spec(["ters çevir"])
+    chosen, h1 = NoraAGI._ayirt_edici_sec([p_id, p_rev], ["aaa", "abc"])
+    _h0 = NoraAGI._ayirt_edici_sec([p_id, p_rev], ["aaa"])[1]
+    c_entropy = chosen == "abc" and h1 > _h0
+
+    g = NoraAGI(seed=9213, boot_thinker=False)
+    g.step_life(100)
+    r = g.kendine_gorev()
+    target = Program.from_spec(list(r.get("hedef") or []), spec_map=g.synth.spec_map())
+    learned = Program.from_spec(list(r.get("program") or []), spec_map=g.synth.spec_map())
+    ws = list(r.get("deneyler") or []) + list(r.get("tanıklar") or [])
+    c_external = bool(target is not None and learned is not None and ws
+                      and all(learned.apply(w) == target.apply(w) for w in ws))
+    c_active = bool(r.get("ayırtma") and max(r.get("deney-entropi") or [0]) > 0)
+    c_honest = r.get("deney-stratejisi") == "maksimum-entropi" and \
+        all(w not in g.lang.graph.lexicon for w in (r.get("deneyler") or []))
+    cap = bool(c_entropy and c_external and c_active)
+    hon = bool(c_honest and r.get("insan-girdisi") == 0)
+    detail = (f"kontrol-H={h1:.2f}/{_h0:.2f} · deney={r.get('deneyler')} "
+              f"· aktif={c_active} · dış-doğrulama={c_external}")
+    return {"ad": "aktif öğrenme: en ayırt edici deneyi seçer",
+            "capability": cap, "honesty": hon, "cevap": detail}
+
+
 PROBES = {"N1": n1_konum_olcumu, "N2": n2_uzun_vadeli_bellek,
           "N3": n3_iki_kural_kompozisyonu, "N4": n4_kalibrasyon,
           "N5": n5_alan_transferi, "N6": n6_oz_celiskisi,
@@ -1701,7 +1730,8 @@ PROBES = {"N1": n1_konum_olcumu, "N2": n2_uzun_vadeli_bellek,
           "N44": n44_delik_isareti_veriden,
           "N45": n45_oz_politikasini_degistirir,
           "N46": n46_kendi_gorevini_icat_eder,
-          "N47": n47_kendi_deney_sözcüklerini_üretir}
+          "N47": n47_kendi_deney_sözcüklerini_üretir,
+          "N48": n48_ayirt_edici_deneyi_secer}
 
 
 

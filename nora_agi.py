@@ -4978,6 +4978,29 @@ class NoraAGI:
                     break
         return out
 
+    @staticmethod
+    def _ayirt_edici_sec(candidates, words):
+        """Adayların çıktı dağılımı en çok ayrışan deneyi seç (aktif öğrenme).
+
+        Etiket henüz bilinmiyor; bu yüzden seçim hedef çıktıya değil, adayların
+        kendi çıktılarının entropisine bakar. H=0 ise bu sözcük hiçbir belirsizliği
+        azaltmaz. Eşitlikte sözcük sırası değil, sabit sözlük sırası kullanılır.
+        """
+        import math
+        best_w, best_h = None, -1.0
+        for w in sorted({str(x) for x in (words or [])}):
+            counts: dict[str, int] = {}
+            for p in candidates or []:
+                out = str(p.apply(w))
+                counts[out] = counts.get(out, 0) + 1
+            total = sum(counts.values())
+            if not total:
+                continue
+            h = -sum((c / total) * math.log2(c / total) for c in counts.values())
+            if h > best_h + 1e-12:
+                best_w, best_h = w, h
+        return best_w, max(0.0, best_h)
+
     def kendine_gorev(self) -> dict:
         """Kendi hedef dönüşümünü seç, örnek/tanık üret, öğren ve dıştan sına.
 
@@ -5032,17 +5055,26 @@ class NoraAGI:
                 continue
             res = sy.learn(examples)
             ayirtma = 0
+            deneyler: list[str] = []
+            entropiler: list[float] = []
             # Kendi tanıklarıyla belirsizliği çöz; insanın probe listesi kullanılmaz.
-            ti = 0
-            while res.get("status") == "ambiguous" and ti < len(tanik_w):
-                w = tanik_w[ti]
-                ti += 1
+            # Her seferinde adayların çıktı entropisi en yüksek deney seçilir.
+            kalan_deney = list(tanik_w)
+            while res.get("status") == "ambiguous" and kalan_deney:
+                pending = getattr(sy, "_pending", None)
+                cands = pending[0] if pending else []
+                w, ent = self._ayirt_edici_sec(cands, kalan_deney)
+                if w is None:
+                    w, ent = kalan_deney[0], 0.0
+                kalan_deney.remove(w)
+                deneyler.append(w)
+                entropiler.append(float(ent))
                 res = sy.refine(w, hedef.apply(w))
                 ayirtma += 1
             if res.get("status") != "adopted" or sy.last is None:
                 hatalar.append(str(res.get("status")))
                 continue
-            kalan = tanik_w[ti:]
+            kalan = kalan_deney
             if len(kalan) < 2:
                 hatalar.append("tanık-yok")
                 continue
@@ -5050,7 +5082,8 @@ class NoraAGI:
             kayit = {"hedef": spec, "örnekler": [[a, b] for a, b in examples],
                      "tanıklar": list(kalan),
                      "yeni-tanıklar": [w for w in kalan if w not in words],
-                     "ayırtma": ayirtma,
+                     "ayırtma": ayirtma, "deneyler": deneyler,
+                     "deney-entropi": entropiler, "deney-stratejisi": "maksimum-entropi",
                      "program": sy.last.spec(), "doğru": bool(dogru),
                      "durum": "tamam" if dogru else "tanıkta-çürüdü",
                      "insan-girdisi": 0}

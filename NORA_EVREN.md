@@ -2824,3 +2824,22 @@ kullanılan yeni dizgeler Nora'nın seçimi ve üretimidir. Bu, ansiklopedik bil
 Ölçüm: **A121 GEÇTİ · N47 yetenek ✓ dürüstlük ✓ · merdiven 10/10**.
 
 Tam doğrulama: **118/118 (458.5 sn)**.
+
+## Aşama BC — Ayırt edici deneyi kendisi seçer (Tur 41m)
+
+Rastgele tanık seçmek yerine aktif öğrenme:
+
+- Belirsizlikte aday programların her nonce sözcükteki çıktı dağılımı ölçülür.
+- Etiket henüz bilinmediği için hedefe değil, bu dağılımın **entropisine** bakılır;
+  en yüksek entropili deney seçilir. H=0 olan sözcük belirsizliği azaltmaz.
+- Seçilen sözcük Nora'nın ürettiği nonce tanıktır; hazır insan probe listesi yok.
+- `refine` sonrası kalan tanıklar ve kullanılan deney dış doğrulamadan geçer.
+
+Kontrol: `aynen bırak` / `ters çevir` için `abc` H=1, `aaa` H=0. Gerçek 9213
+görevinde seçilen deney H=1.0 ve tek ayırtma yeterli oldu.
+
+Dürüst taban: entropi ölçümünü ve refine mekanizmasını insan yazdı; hangi deneyin
+yapılacağını Nora adaylarının davranışından seçiyor. Bu, yeni ilkel/form değil,
+mevcut uzayda daha verimli öğrenme politikasıdır.
+
+Ölçüm: **A122 GEÇTİ · N48 yetenek ✓ dürüstlük ✓**; A120/A121 ve N46/N47 yeşil.
