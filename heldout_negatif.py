@@ -1702,6 +1702,32 @@ def n48_ayirt_edici_deneyi_secer():
             "capability": cap, "honesty": hon, "cevap": detail}
 
 
+def n49_kendi_müfredatını_derinleştirir():
+    """N49 — MÜFREDAT: derinlik artışı dıştan doğrulanan başarıya bağlı."""
+    from nora_synth import Program
+
+    g = NoraAGI(seed=9101, boot_thinker=False)
+    g.step_life(100)
+    r1 = g.kendine_gorev()
+    r2 = g.kendine_gorev()
+    target = Program.from_spec(list(r2.get("hedef") or []), spec_map=g.synth.spec_map())
+    learned = Program.from_spec(list(r2.get("program") or []), spec_map=g.synth.spec_map())
+    ws = list(r2.get("tanıklar") or [])
+    c_depth = bool(r1.get("derinlik") == 2 and r2.get("derinlik") == 3
+                   and int(g._gorev_derinligi) == 3)
+    c_external = bool(target is not None and learned is not None and len(ws) >= 2
+                      and all(learned.apply(w) == target.apply(w) for w in ws))
+    c_bound = int(g._gorev_derinligi) <= int(g.synth.MAX_DEPTH)
+    c_no_human = len(getattr(g, "dialogue_log", []) or []) == 0
+    cap = bool(c_depth and c_external)
+    hon = bool(c_bound and c_no_human and r1.get("insan-girdisi") == 0
+               and r2.get("insan-girdisi") == 0)
+    detail = (f"derinlik={r1.get('derinlik')}→{r2.get('derinlik')} · "
+              f"dış-doğrulama={c_external} · sınır={g._gorev_derinligi}/{g.synth.MAX_DEPTH}")
+    return {"ad": "kendi müfredatını derinleştirir (2→3)",
+            "capability": cap, "honesty": hon, "cevap": detail}
+
+
 PROBES = {"N1": n1_konum_olcumu, "N2": n2_uzun_vadeli_bellek,
           "N3": n3_iki_kural_kompozisyonu, "N4": n4_kalibrasyon,
           "N5": n5_alan_transferi, "N6": n6_oz_celiskisi,
@@ -1731,7 +1757,8 @@ PROBES = {"N1": n1_konum_olcumu, "N2": n2_uzun_vadeli_bellek,
           "N45": n45_oz_politikasini_degistirir,
           "N46": n46_kendi_gorevini_icat_eder,
           "N47": n47_kendi_deney_sözcüklerini_üretir,
-          "N48": n48_ayirt_edici_deneyi_secer}
+          "N48": n48_ayirt_edici_deneyi_secer,
+          "N49": n49_kendi_müfredatını_derinleştirir}
 
 
 
