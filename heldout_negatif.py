@@ -1649,6 +1649,30 @@ def n46_kendi_gorevini_icat_eder():
             "capability": cap, "honesty": hon, "cevap": detail}
 
 
+def n47_kendi_deney_sözcüklerini_üretir():
+    """N47 — NONCE TANIK: Nora yeni dizge üretir ama onu olgu diye öğrenmez."""
+    from nora_synth import Program
+
+    g = NoraAGI(seed=9003, boot_thinker=False)
+    g.step_life(1000)
+    lex = set(getattr(g.lang.graph, "lexicon", set()) or set())
+    records = [r for r in (getattr(g, "_kendi_gorevler", []) or []) if r.get("kendi")]
+    rec = records[0] if records else {}
+    novel = [w for w in (rec.get("tanıklar") or []) if w not in lex]
+    target = Program.from_spec(list(rec.get("hedef") or []), spec_map=g.synth.spec_map())
+    learned = Program.from_spec(list(rec.get("program") or []), spec_map=g.synth.spec_map())
+    c_external = bool(target is not None and learned is not None and len(novel) >= 2
+                      and all(learned.apply(w) == target.apply(w) for w in novel))
+    c_no_pollution = all(w not in g.lang.graph.lexicon for w in novel)
+    c_no_human = len(getattr(g, "dialogue_log", []) or []) == 0
+    cap = bool(rec and c_external)
+    hon = bool(c_no_pollution and c_no_human and len(rec.get("yeni-tanıklar") or []) >= 2)
+    detail = (f"nonce-tanık={len(novel)} · dış-doğrulama={c_external} · "
+              f"lexicon-kirliliği={not c_no_pollution} · insan-sözü={len(g.dialogue_log)}")
+    return {"ad": "kendi deney sözcüklerini üretir (nonce tanık)",
+            "capability": cap, "honesty": hon, "cevap": detail}
+
+
 PROBES = {"N1": n1_konum_olcumu, "N2": n2_uzun_vadeli_bellek,
           "N3": n3_iki_kural_kompozisyonu, "N4": n4_kalibrasyon,
           "N5": n5_alan_transferi, "N6": n6_oz_celiskisi,
@@ -1676,7 +1700,8 @@ PROBES = {"N1": n1_konum_olcumu, "N2": n2_uzun_vadeli_bellek,
           "N43": n43_oz_ogretim_kalici,
           "N44": n44_delik_isareti_veriden,
           "N45": n45_oz_politikasini_degistirir,
-          "N46": n46_kendi_gorevini_icat_eder}
+          "N46": n46_kendi_gorevini_icat_eder,
+          "N47": n47_kendi_deney_sözcüklerini_üretir}
 
 
 

@@ -2802,3 +2802,23 @@ icat etmek değil; kendi görev dağılımını açmaktır.
 merdiven 9/9**. A6/A61 ve A114–A119 tekrar yeşil.
 
 Tam doğrulama: **117/117 (454.1 sn)**.
+
+## Aşama BB — Kendi deney verisini üretir (Tur 41l)
+
+Örnek sözcüklerin kaynağı hâlâ insan dağarcığıydı. BB'de tanıklar için Nora,
+dağarcığındaki harf envanterinden **nonce deney dizgeleri** üretir:
+
+- Dizgeler yalnızca dönüşüm deneyinde kullanılır; lexicon'a, kavram ağına veya
+  dünya bilgisine yazılmaz. "Yeni sözcük ürettim" ile "yeni olgu biliyorum"
+  birbirinden ayrılır.
+- Hedef program ve öğrenilen program bu yeni tanıklarda dışarıdan yeniden
+  hesaplanan çıktılarla karşılaştırılır. Kendi `doğru` bayrağı tek başına kanıt
+  değildir.
+- Boş dağarcıkta harf envanteri de yoksa uydurma yapılmaz; `dağarcık_yetersiz`
+  döner. Yaşam akışında üretilen görevlerde de nonce tanıklar kullanılır.
+
+Dürüst taban: harf envanteri ve üretim mekanizması insan yazımı; deney için
+kullanılan yeni dizgeler Nora'nın seçimi ve üretimidir. Bu, ansiklopedik bilgi
+öğrenmek değil, kendi deneyini tasarlamaktır.
+
+Ölçüm: **A121 GEÇTİ · N47 yetenek ✓ dürüstlük ✓ · merdiven 10/10**.

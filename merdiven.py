@@ -1,5 +1,5 @@
 """merdiven.py — MERDİVEN SINAVI: 1 kompozisyon · 2 örnekleme · 3 reify · 4 şema · 5 sürücü ·
-6 kendi kendine · 7 kendi kendine BAŞLATMA · 8 öz-değişim · 9 kendi görevini icat etme.
+6 kendi kendine · 7 kendine başlatma · 8 öz-değişim · 9 görev icadı · 10 nonce deney verisi.
 
 Tek oturum, tek Nora. Her basamak ayrı bir yeteneği **ölçer**, ve her basamağın
 altında o basamağın TABANI yazılıdır: "bu işi kim yaptı, insan ne yazdı".
@@ -243,6 +243,25 @@ def main():
                  "taban: ilkel havuz ve öğrenme organı BENİM; hedefin İKİ ADIMLI biçimini, "
                  "örnekleri ve tanıkları Nora seçti. Beklenen davranış sınavca yeniden hesaplandı; "
                  "sabit base(w)[:n] görevi kullanılmadı."))
+
+    # ---------------------------------------------------------------- 10 nonce deney verisi
+    g = NoraAGI(seed=9003, boot_thinker=False)
+    g.step_life(1000)
+    lex10 = set(getattr(g.lang.graph, "lexicon", set()) or set())
+    rec10 = next((r for r in (getattr(g, "_kendi_gorevler", []) or [])
+                  if r.get("kendi") and r.get("doğru")), {})
+    novel10 = [w for w in (rec10.get("tanıklar") or []) if w not in lex10]
+    target10 = Program.from_spec(list(rec10.get("hedef") or []), spec_map=g.synth.spec_map())
+    learned10 = Program.from_spec(list(rec10.get("program") or []), spec_map=g.synth.spec_map())
+    ok10 = bool(len(novel10) >= 2 and target10 is not None and learned10 is not None
+                and all(learned10.apply(w) == target10.apply(w) for w in novel10)
+                and all(w not in g.lang.graph.lexicon for w in novel10))
+    det10 = (f"nonce-tanık={len(novel10)} · örnek={novel10[:2]} · "
+             f"dış-doğrulama={ok10} · lexicon-a-yazılmadı={all(w not in g.lang.graph.lexicon for w in novel10)}"
+             if rec10 else "nonce görev yok")
+    rows.append(("10 nonce deney verisi", ok10, det10,
+                 "taban: harf envanteri dağarcıktan geliyor; tanık dizgeleri Nora üretti, "
+                 "bunlar bilgi değil deney sembolü ve lexicon'a yazılmadı. Beklenen çıktı sınavca hesaplandı."))
 
     # ---------------------------------------------------------------- rapor
     for name, ok, det, floor in rows:

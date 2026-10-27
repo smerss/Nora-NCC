@@ -4957,6 +4957,27 @@ class NoraAGI:
         return sonuc
 
     # ------------------------------------------------------- kendi görevini icat etme
+    def _deney_sozcukleri(self, n: int, rng) -> list[str]:
+        """Sözlüğe YAZILMAYAN nonce deney dizgeleri üret.
+
+        Bunlar bilgi/iddia değil, yalnızca dönüşüm sınamak için sembollerdir. Harf
+        envanteri Nora'nın mevcut dağarcığından gelir; üretilen dizge lexicon'a
+        eklenmez ve daha sonra 'biliyorum' diye sunulmaz.
+        """
+        lex = getattr(getattr(self.lang, "graph", None), "lexicon", None) or set()
+        known = {str(w) for w in lex}
+        letters = sorted({ch for w in known for ch in w if ch.isalpha()})
+        if not letters:
+            return []
+        out: list[str] = []
+        for _ in range(max(40, int(n) * 30)):
+            w = "".join(rng.choice(letters) for _ in range(5 + rng.randrange(5)))
+            if w not in known and w not in out:
+                out.append(w)
+                if len(out) >= int(n):
+                    break
+        return out
+
     def kendine_gorev(self) -> dict:
         """Kendi hedef dönüşümünü seç, örnek/tanık üret, öğren ve dıştan sına.
 
@@ -4995,9 +5016,16 @@ class NoraAGI:
             spec = hedef.spec()
             if tuple(spec) in bilinen:
                 continue
-            # 4 örnek + 4 tanık: hem tek-çıktı tuzağına düşme hem de ayırt etme şansı olsun.
-            secili = rng.sample(words, 8)
-            ornek_w, tanik_w = secili[:4], secili[4:]
+            # 4 örnek dağarcıktan; 4 tanık Nora'nın ÜRETTİĞİ nonce dizgelerden.
+            # Tanık üretimi lexicon'a yazılmaz; eksik kalırsa ancak o zaman eski
+            # dağarcıktan tamamlanır ve bu durum kayıtta görünür.
+            ornek_w = rng.sample(words, 4)
+            tanik_w = self._deney_sozcukleri(4, rng)
+            if len(tanik_w) < 4:
+                tanik_w += [w for w in words if w not in ornek_w and w not in tanik_w][:(4 - len(tanik_w))]
+            if len(tanik_w) < 4:
+                hatalar.append("tanık-üretilemedi")
+                continue
             examples = [(w, hedef.apply(w)) for w in ornek_w]
             if len({o for _a, o in examples}) < 2:
                 hatalar.append("tek-çıktı")
@@ -5020,7 +5048,9 @@ class NoraAGI:
                 continue
             dogru = all(sy.last.apply(w) == hedef.apply(w) for w in kalan)
             kayit = {"hedef": spec, "örnekler": [[a, b] for a, b in examples],
-                     "tanıklar": list(kalan), "ayırtma": ayirtma,
+                     "tanıklar": list(kalan),
+                     "yeni-tanıklar": [w for w in kalan if w not in words],
+                     "ayırtma": ayirtma,
                      "program": sy.last.spec(), "doğru": bool(dogru),
                      "durum": "tamam" if dogru else "tanıkta-çürüdü",
                      "insan-girdisi": 0}
