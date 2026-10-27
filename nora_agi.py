@@ -389,6 +389,21 @@ class NoraAGI:
         # Geçişlerden öğrenilen dördüncü bir olgu tabanı değil; beden deneyiminin
         # istatistiksel olarak ayrı tutulan kanalı. İlk kanıt oluşmadan tahmin vermez.
         self.causal = CausalTransitionModel()
+        try:
+            from nora_planning import AdaptivePlanner
+            self.planner = AdaptivePlanner(self.causal)
+        except Exception:
+            self.planner = None
+        try:
+            from nora_objects import ObjectBelief
+            self.objects = ObjectBelief()
+        except Exception:
+            self.objects = None
+        try:
+            from nora_metacog import PredictionMonitor
+            self.meta_monitor = PredictionMonitor()
+        except Exception:
+            self.meta_monitor = None
         self._prediction_target = ""
         self.plastic_discourse = PlasticDiscourseCortex(chem=self.chem, seed=seed + 19)
         self.auto_net = AutonomousConsciousnessNetwork()
@@ -563,6 +578,10 @@ class NoraAGI:
         self._gorev_derinligi = 2
         self._son_gorev_age = -10 ** 9
         self._son_gorev_sonuc: dict = {}
+        # KAYNAK-KOD ÖZ-DEĞİŞİMİ: her sonuç ölçüm ve rollback defterine yazılır.
+        self._source_changes: list[dict] = []
+        self._law_history: list[dict] = []
+        self.symbolic_law = None
         # PLAN DEFTERİ: kullanıcının verdiği adımlar; koşul değişince YENİDEN kurulur.
         self.plans: dict[str, list[str]] = {}
         # SAYISAL OLGULAR: "Ali'nin boyu 180" -> {"boy": {"ali": 180.0}}
@@ -657,6 +676,17 @@ class NoraAGI:
             self.architecture = ArchitectureModel(self, self.bus)
         else:
             self.architecture = None
+        # Bus ve bütün organlar hazır olduktan sonra paylaşılan çalışma alanını bağla.
+        # WM'ye otomatik yazma yok; focus açıkça istenir.
+        try:
+            from nora_workspace import IntegrationWorkspace
+            self.workspace = IntegrationWorkspace(
+                self.bus, self.apply_eng.wm if getattr(self, "apply_eng", None) is not None else None)
+            self.workspace.attach()
+            if self.architecture is not None:
+                self.architecture.refresh()
+        except Exception:
+            self.workspace = None
 
     def read_corpus(self, path: str):
         """Nora'yı bir metinle baş başa bırakır: söz organı yalnızca bundan öğrenir (hangi dil olduğu fark etmez)."""
@@ -904,6 +934,117 @@ class NoraAGI:
         except Exception as exc:            # pragma: no cover
             return {"total": 0, "passed": 0, "domains": {}, "failures": [str(exc)], "ratio": 0.0}
 
+    def source_change(self, module: str, function: str, args: list[str], *,
+                      train: list[dict], validation: list[dict], audit: list[dict] | None = None,
+                      activate: bool = False) -> dict:
+        """Ölçüm-kapılı kaynak değişimi; canlı depo için bağımsız audit zorunlu.
+
+        ``activate=False`` gerçek bir geçici çalışma alanında kod yazar ve
+        çalıştırır, fakat depoyu değiştirmez. ``activate=True`` hedef `.py`
+        dosyasını atomik değiştirir; yüklü modülün yeniden yüklenmesi/yeniden
+        başlatma ayrı bir adımdır. Bu, bütün beynin sınırsız yeniden yazımı
+        iddiası değil, dar ve doğrulanabilir bir öz-değişim operatörüdür.
+        """
+        if not str(module).endswith(".py"):
+            return {"status": "invalid-protocol", "reason": "python module required"}
+        if activate and not audit:
+            return {"status": "invalid-protocol", "reason": "active change requires audit"}
+        import shutil
+        import tempfile
+        from nora_evolution import SelfModifier, SourceWorkspace
+        repo = os.path.dirname(os.path.abspath(__file__))
+        # Path kontrolünü önce ana çalışma alanında yap; traversal hiçbir kopyada
+        # güvenli hâle gelmez.
+        try:
+            source_path = SourceWorkspace(repo).path(module)
+        except ValueError as exc:
+            return {"status": "invalid-protocol", "reason": str(exc)}
+        result: dict
+        if activate:
+            ws = SourceWorkspace(repo)
+            try:
+                result = SelfModifier(ws).improve(module, function, args,
+                                                  train=train, validation=validation,
+                                                  audit=audit)
+            except Exception as exc:
+                ws.restore()
+                result = {"status": "error", "error": f"{type(exc).__name__}: {exc}"}
+            result["activated"] = bool(result.get("status") == "accepted")
+            result["restart_required"] = bool(result["activated"])
+        else:
+            with tempfile.TemporaryDirectory(prefix="nora_source_change_") as tmp:
+                ws = SourceWorkspace(tmp)
+                if os.path.exists(source_path):
+                    os.makedirs(os.path.dirname(ws.path(module)), exist_ok=True)
+                    shutil.copy2(source_path, ws.path(module))
+                try:
+                    result = SelfModifier(ws).improve(module, function, args,
+                                                      train=train, validation=validation,
+                                                      audit=audit)
+                    if result.get("status") == "accepted":
+                        result["source"] = ws.read(module)
+                except Exception as exc:
+                    ws.restore()
+                    result = {"status": "error", "error": f"{type(exc).__name__}: {exc}"}
+                result["activated"] = False
+                result["restart_required"] = False
+        self._source_changes.append({k: v for k, v in result.items() if k != "source"})
+        self._source_changes = self._source_changes[-32:]
+        bus = getattr(self, "bus", None)
+        if bus is not None and bus.has_listeners("source.change"):
+            bus.publish("source.change", {k: v for k, v in result.items() if k != "source"},
+                        source="self_modifier", kind="source_change")
+        return result
+
+    def perceive_objects(self, objects: list[dict] | None = None, *, dt: float = 1.0) -> list[dict]:
+        """Duyusal nesne listesini iç iz inancına çevirir; dış id'yi cevap saymaz."""
+        if getattr(self, "objects", None) is None:
+            return []
+        rows = self.objects.observe(objects or [], dt=dt)
+        bus = getattr(self, "bus", None)
+        if bus is not None and bus.has_listeners("perception.objects"):
+            bus.publish("perception.objects", rows, source="object_belief", kind="perception")
+        return rows
+
+    def monitored_prediction(self, state, action) -> list[dict]:
+        """Nedensel tahmini, geçmiş kendi-hata ölçümüyle kalibre edilmiş döndür."""
+        raw = self.causal.predict(state, action)
+        monitor = getattr(self, "meta_monitor", None)
+        return monitor.calibrate(raw) if monitor is not None else raw
+
+    def meta_report(self) -> dict:
+        monitor = getattr(self, "meta_monitor", None)
+        return monitor.report() if monitor is not None else {"status": "unavailable"}
+
+    def induce_transition_law(self, feature_names: list[str], *, train: list[dict],
+                              validation: list[dict], audit: list[dict]) -> dict:
+        """Örnek geçişlerden koşullu yasa kur; kabul edilirse planlayıcıya bağla."""
+        from nora_laws import SymbolicTransitionModel
+        candidate = SymbolicTransitionModel(feature_names)
+        result = candidate.fit(train, validation, audit)
+        if result.get("status") == "accepted":
+            self.symbolic_law = candidate
+        self._law_history.append({"status": result.get("status"),
+                                  "feature_names": list(feature_names),
+                                  "reports": result.get("reports", {})})
+        self._law_history = self._law_history[-16:]
+        return result
+
+    def plan_actions(self, state, actions, goal, *, use_symbolic: bool = False,
+                     scoring=None, horizon: int | None = None) -> dict:
+        """Öğrenilen nedensel veya kabul edilmiş sembolik modelle plan kur."""
+        model = self.symbolic_law if use_symbolic else self.causal
+        if model is None:
+            return {"status": "unresolved", "reason": "no accepted law", "actions": []}
+        if use_symbolic:
+            from nora_planning import AdaptivePlanner
+            planner = AdaptivePlanner(model)
+        else:
+            planner = getattr(self, "planner", None)
+        if planner is None:
+            return {"status": "unavailable", "actions": []}
+        return planner.plan(state, actions, goal, scoring=scoring, horizon=horizon)
+
     # ---------------------------------------------------------------- YAPI PEKİŞTİRME
     def _queue_structure(self, text: str) -> None:
         """Sözü yapı pekiştirme kuyruğuna at (O(1); çözümleme sonra)."""
@@ -984,10 +1125,24 @@ class NoraAGI:
                                     source="integration", kind="error",
                                     parents=(action_offer.get("signal"),))
             act = self._autonomic_survival_reflex(raw_act)
+            meta_token = None
+            monitor = getattr(self, "meta_monitor", None)
+            if monitor is not None and int(getattr(self.causal, "transitions", 0)) > 0:
+                try:
+                    # Tahmin, dünya değiştirilmeden ÖNCE kaydedilir; sonuç geldikten
+                    # sonra geriye dönük doğru cevap yazılmaz.
+                    meta_token = monitor.begin(self.causal.predict(prev_obs, int(act)), prev_obs, int(act))
+                except Exception:
+                    meta_token = None
             self.obs, info = self.world.step(act)
             # Gerçek müdahale kaydı: yalnız duyulan önce/sonra ve seçilen eylem.
             # world.poison gibi gizli dünya bayrakları bu öğreniciye verilmez.
             self.causal.observe(prev_obs, int(act), self.obs, intervened=True)
+            if monitor is not None and meta_token is not None:
+                try:
+                    monitor.resolve(meta_token, self.obs, feature_names=self.causal.feature_names)
+                except Exception:
+                    pass
             self.died = info["died"] is not None
             if bus is not None and bus.has_listeners("body.transition"):
                 parents = tuple(x for x in ((obs_signal.id if obs_signal is not None else ""),
@@ -6741,6 +6896,7 @@ class NoraAGI:
         "_turn_path", "_prev_answers", "_notice_spoken", "_voice_label", "_narrated",
         "_joked", "last_proactive", "_session0", "_forge_pending",
         "_son_oz_ogretim_sonuc", "_son_gorev_sonuc", "_journal_life_acc",
+        "_source_changes", "_law_history",
     )
     _LIFE_RUNTIME_FIELDS = (
         "rng", "hab", "outbox", "summaries", "news", "rates_log", "sources", "stride",
@@ -6761,6 +6917,10 @@ class NoraAGI:
             "world": self.world.state_dict(),
             "mind": self.mind.runtime_state(),
             "causal": self.causal.state_dict(),
+            "objects": (self.objects.state_dict() if getattr(self, "objects", None) is not None else {}),
+            "meta_monitor": (self.meta_monitor.state_dict() if getattr(self, "meta_monitor", None) is not None else {}),
+            "symbolic_law": (self.symbolic_law.state_dict() if getattr(self, "symbolic_law", None) is not None else {}),
+            "workspace": (self.workspace.state_dict() if getattr(self, "workspace", None) is not None else {}),
             "nervous": self.nervous.state_dict(),
             "mortality": self.mortality.state_dict(),
             "life": life,
@@ -6778,6 +6938,17 @@ class NoraAGI:
         self.world.load_state_dict(data.get("world") or {})
         self.mind.load_runtime_state(data.get("mind") or {})
         self.causal.load_state_dict(data.get("causal") or {})
+        if getattr(self, "objects", None) is not None:
+            self.objects.load_state_dict(data.get("objects") or {})
+        if getattr(self, "meta_monitor", None) is not None:
+            self.meta_monitor.load_state_dict(data.get("meta_monitor") or {})
+        law_data = data.get("symbolic_law") or {}
+        if law_data:
+            from nora_laws import SymbolicTransitionModel
+            self.symbolic_law = SymbolicTransitionModel(law_data.get("feature_names") or [])
+            self.symbolic_law.load_state_dict(law_data)
+        if getattr(self, "workspace", None) is not None:
+            self.workspace.load_state_dict(data.get("workspace") or {})
         self.nervous.load_state_dict(data.get("nervous") or {})
         self.mortality.load_state_dict(data.get("mortality") or {})
         if getattr(self, "entropy", None) is not None and data.get("individuality"):
