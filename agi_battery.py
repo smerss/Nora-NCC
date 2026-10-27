@@ -5423,6 +5423,7 @@ def a123_kendi_müfredatını_derinleştirir() -> tuple[bool, str]:
     yoktur. Derinlik ve görev defteri yeni oturumda da korunur.
     """
     import os
+    import random
     import tempfile
     from nora_synth import Program
 
@@ -5442,12 +5443,20 @@ def a123_kendi_müfredatını_derinleştirir() -> tuple[bool, str]:
                                       and all(learned.apply(w) == target.apply(w) for w in ws))
     ok["sınır-aşılmadı"] = int(getattr(g, "_gorev_derinligi", 0) or 0) <= int(g.synth.MAX_DEPTH)
 
+    rid = str(g.synth.programs[-1].get("id")) if g.synth.programs else ""
     d = tempfile.mkdtemp()
     pref = os.path.join(d, "nora")
     g.save(pref)
     h = NoraAGI.load(pref)
     ok["müfredat-kalıcı"] = int(getattr(h, "_gorev_derinligi", 0) or 0) == 3 and \
         any(int(r.get("derinlik") or 0) == 3 for r in h._kendi_gorevler)
+    rebuilt = h.synth.rebuild(rid) if rid else None
+    target_h = Program.from_spec(list(r2.get("hedef") or []), spec_map=h.synth.spec_map())
+    new_words = h._deney_sozcukleri(2, random.Random(991))
+    ok["beceri-yeniden-kullanım"] = bool(rebuilt is not None and target_h is not None
+                                        and len(new_words) == 2
+                                        and all(rebuilt.apply(w) == target_h.apply(w)
+                                                for w in new_words))
 
     k = NoraAGI(seed=9109, boot_thinker=False)
     k.step_life(100)
