@@ -2753,3 +2753,25 @@ Bu basamak seviye 4'ün içidir; bilinç iddiası değildir.
 
 Ölçüm: **A118 GEÇTİ · N44 yetenek ✓ dürüstlük ✓**; A108/A111/A113–A117 ve N36–N43
 tekrar yeşil. Merdiven 7/7; tam pil A118 ile **115 teste** çıktı.
+
+## Aşama AZ — Öz-değişim: öğrenme politikasını değiştirir (Tur 41j)
+
+Bu basamak **kaynak kodu yamamak değildir**; öyle yazılmayacak. Nora'nın kendi
+öz-öğretiminde izlediği aday politikasının duruşu değişiyor:
+
+- İlk öz-öğretim kendi örneklerini çözemezse sonuç `kendi_ornegi_cozulemedi` olarak
+  kalıyor; başarısızlık gizlenmiyor.
+- Nora aday bütçesini büyütüyor (6 → 12), aynı organla yeni bir öz-sınav yapıyor.
+  Yeni sınav öğrenmeyle sonuçlanırsa politikayı tutuyor; sonuçlanmazsa eski bütçe
+  geri yükleniyor. Olay defterine neden, eski/yeni değer ve deneme sonucu yazılıyor.
+- Yaşam akışında insan hiç konuşmadan da tetikleniyor. Değişim ve olay defteri
+  save/load'dan geçiyor. Başarılı bir öz-öğretimden sonra keyfî değişim yok.
+
+Dürüst taban: değişim/geri-alma mekanizmasını insan yazdı; değişen şey kaynak kod
+değil, Nora'nın kendi karar politikasının bir parametresi. Bu, 8. basamağın
+**politika düzeyinde** açılmasıdır; genel kaynak-kod öz-değişimi veya bilinç kanıtı
+değildir.
+
+Ölçüm: **A119 GEÇTİ · N45 yetenek ✓ dürüstlük ✓ · merdiven 8/8**.
+Doğrulama örneği: tohum 9003'te 6 aday başarısız → 12 adayla `alfabetik sırala`
+üzerinde görülmemiş parametre doğru; dış beklenen sınav tarafından hesaplandı.

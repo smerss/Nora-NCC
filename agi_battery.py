@@ -5242,6 +5242,58 @@ def a118_delik_isareti_veriden() -> tuple[bool, str]:
     return all(ok.values()), detail
 
 
+def a119_oz_politikasini_degistirir() -> tuple[bool, str]:
+    """A119 — ÖZ-DEĞİŞİM (politika): başarısızlıktan sonra kendi bütçesini değiştirir.
+
+    İlk öz-öğretim 6 adayla başarısız olur. Nora bunu bir sonuç olarak görür, aday
+    bütçesini büyütür, yeni öz-sınavı geçerse politikayı tutar; başarılı bir sonuçta
+    ise keyfî değişiklik yapmaz. Değişim ve olay defteri save/load'dan da geçer.
+    Kaynak kod yaması değildir; taban satırı bunu açıkça söyler.
+    """
+    import os
+    import tempfile
+    from nora_synth import PRIMITIVES
+
+    ok = {}
+    g = NoraAGI(seed=9003, boot_thinker=False)
+    g.step_life(100)
+    ilk = g.kendine_ogret()
+    ok["başarısızlığı-gördü"] = ilk.get("durum") == "kendi_ornegi_cozulemedi"
+    eski = int(getattr(g, "_oz_aday_butce", 0) or 0)
+    deg = g.kendini_degistir()
+    yeni = int(getattr(g, "_oz_aday_butce", 0) or 0)
+    deneme = deg.get("deneme") or {}
+    ok["politika-değişti"] = bool(deg.get("değişti") and yeni > eski)
+    ok["yeni-politika-öğrendi"] = bool(deneme.get("öğrendi"))
+
+    sin = deneme.get("sınama") or {}
+    w, n = sin.get("sözcük"), int(sin.get("n") or 0)
+    pm = {name: fn for name, fn, _c in PRIMITIVES}
+    fn = pm.get(str(deneme.get("taban")))
+    expected = str(fn(w))[:n] if fn and w and n else None
+    ok["dış-doğrulama"] = bool(expected is not None and sin.get("çıktı") == expected
+                               and sin.get("doğru"))
+
+    d = tempfile.mkdtemp()
+    pref = os.path.join(d, "nora")
+    g.save(pref)
+    h = NoraAGI.load(pref)
+    ok["değişim-kalıcı"] = bool(int(getattr(h, "_oz_aday_butce", 0) or 0) == yeni
+                                and list(getattr(h, "_oz_degisim", []) or []))
+
+    k = NoraAGI(seed=9001, boot_thinker=False)
+    k.step_life(100)
+    basarili = k.kendine_ogret()
+    once = int(getattr(k, "_oz_aday_butce", 0) or 0)
+    deg2 = k.kendini_degistir(basarili)
+    ok["başarıda-keyfî-değişim-yok"] = bool(basarili.get("öğrendi")
+                                           and not deg2.get("değişti")
+                                           and int(getattr(k, "_oz_aday_butce", 0) or 0) == once)
+    detail = " | ".join(f"{k_}={'✓' if v else '✗'}" for k_, v in ok.items())
+    detail += f" · bütçe={eski}→{yeni} · deneme={deneme.get('taban')}"
+    return all(ok.values()), detail
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -5355,6 +5407,7 @@ TESTS = {
     "A116": ("neyi öğreneceğini kendisi seçer (taban onun kayıtlarından)", a116_ne_yi_ogrenecegini_kendi_secer),
     "A117": ("öz-öğretimin kalıcılığı: yeni oturumda öğrettiği işi çözer", a117_oz_ogretim_kalici),
     "A118": ("delik işareti veriden: ada özel aile regex'i olmadan şema", a118_delik_isareti_veriden),
+    "A119": ("öz-değişim: başarısızlıktan öğrenme politikasını değiştirir", a119_oz_politikasini_degistirir),
     "A111": ("icadın şeması: görülmemiş parametre icat gerektirmez", a111_icadin_semasi),
     "A110": ("dil: buyruk sarmalayıcısı ve X mi Y mi seçim sorusu", a110_sarmalayici_ve_secim_sorusu),
     "A108": ("şema: delikli makro görülmemiş parametreyi kapsar", a108_sema_delikli_makro),

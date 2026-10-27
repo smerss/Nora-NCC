@@ -534,6 +534,12 @@ class NoraAGI:
         except Exception:
             self.synth = None
         self._synth_last_reply = ""
+        # ÖZ-DEĞİŞİM (dar basamak): öğrenme politikasının aday bütçesi. Kaynak kod
+        # değil, Nora'nın kendi karar politikasının duruşu; değişim ancak kendi
+        # başarısızlığından sonra ve yeni öz-sınav geçerse kalıcı olur.
+        self._oz_aday_butce = 6
+        self._oz_degisim: list[dict] = []
+        self._son_oz_ogretim_sonuc: dict = {}
         # PLAN DEFTERİ: kullanıcının verdiği adımlar; koşul değişince YENİDEN kurulur.
         self.plans: dict[str, list[str]] = {}
         # SAYISAL OLGULAR: "Ali'nin boyu 180" -> {"boy": {"ali": 180.0}}
@@ -4697,6 +4703,10 @@ class NoraAGI:
             if age - int(getattr(self, "_son_oz_ogretim", -10 ** 9)) < 600:
                 return
             r = self.kendine_ogret()
+            if r.get("durum") == "kendi_ornegi_cozulemedi":
+                deg = self.kendini_degistir(r)
+                if deg.get("değişti") and (deg.get("deneme") or {}).get("durum") == "tamam":
+                    r = deg["deneme"]
             self._son_oz_ogretim = age
             if r.get("durum") == "tamam":
                 led = getattr(self, "kendi_ögretim", None) or []
@@ -4740,6 +4750,39 @@ class NoraAGI:
         return sorted(havuz, key=lambda nf: (kullanim.get(nf[0], 0),
                                              zlib.crc32(f"{int(self.seed)}:{nf[0]}".encode())))
 
+    def kendini_degistir(self, sonuc: dict | None = None) -> dict:
+        """Kendi öğrenme politikasını DEĞİŞTİR, sına, gerekiyorsa GERİ AL.
+
+        Bu basamak kaynak kod yamamak değildir. Nora'nın öz-öğretimde kaç taban
+        adayını deneyeceği bir politikadır. Son öz-öğretim kendi örneklerini
+        çözememişse aday bütçesini iki katına çıkarır ve **aynı organla yeni bir
+        öz-sınav** yapar. Sınav öğrenmeyle sonuçlanmazsa eski bütçe geri yüklenir.
+        Böylece 'değiştirdim' demek için davranışsal kanıt vardır; başarısız değişim
+        başarı diye kaydedilmez.
+        """
+        r = sonuc if sonuc is not None else (getattr(self, "_son_oz_ogretim_sonuc", {}) or {})
+        if r.get("durum") != "kendi_ornegi_cozulemedi":
+            return {"değişti": False, "neden": "doğrulanmış-başarısızlık-yok",
+                    "bütçe": int(getattr(self, "_oz_aday_butce", 6))}
+        eski = int(getattr(self, "_oz_aday_butce", 6) or 6)
+        toplam = len(self._taban_adaylari())
+        yeni = min(toplam, max(eski + 1, eski * 2))
+        if yeni <= eski:
+            return {"değişti": False, "neden": "aday-uzayı-tükendi", "bütçe": eski}
+        self._oz_aday_butce = yeni
+        deneme = self.kendine_ogret()
+        kabul = bool(deneme.get("öğrendi"))
+        if not kabul:
+            self._oz_aday_butce = eski       # yalnız POLİTİKA geri alınır
+        olay = {"yaş": int(getattr(self.mind, "age", 0) or 0),
+                "tür": "aday-bütçesi", "neden": r.get("durum"),
+                "eski": eski, "yeni": yeni,
+                "kabul": kabul, "deneme-durum": deneme.get("durum"),
+                "deneme-taban": deneme.get("taban")}
+        self._oz_degisim.append(olay)
+        return {"değişti": kabul, "geri-alındı": not kabul, "olay": olay,
+                "bütçe": int(self._oz_aday_butce), "deneme": deneme}
+
     def kendine_ogret(self) -> dict:
         """ÖĞRETMENSİZ: kendi dağarcığından kendi örneklerini üretip şemayı kendi kurar.
 
@@ -4765,7 +4808,7 @@ class NoraAGI:
         if not pm:
             return {"durum": "taban_ilkel_yok", "öğrendi": False}
         # Tabanı o seçer (kendi kullanım sayımına göre); tutmazsa sıradakini dener.
-        adaylar = self._taban_adaylari()[:6]
+        adaylar = self._taban_adaylari()[:int(getattr(self, "_oz_aday_butce", 6) or 6)]
         if not adaylar:
             return {"durum": "taban_ilkel_yok", "öğrendi": False}
         taban: tuple[str, object] | None = None
@@ -4838,9 +4881,12 @@ class NoraAGI:
             if secili:
                 break
         if not secili:
-            return {"durum": "kendi_ornegi_cozulemedi",
-                    "öğrendi": False, "sözcük": len(words),
-                    "parametreler": [n1, n2], "deneme": denemeler}
+            sonuc = {"durum": "kendi_ornegi_cozulemedi",
+                     "öğrendi": False, "sözcük": len(words),
+                     "parametreler": [n1, n2], "deneme": denemeler,
+                     "aday-bütçe": int(getattr(self, "_oz_aday_butce", 6) or 6)}
+            self._son_oz_ogretim_sonuc = sonuc
+            return sonuc
 
         # 2) ŞEMA: iki programdan delikli şablon (insan girdisi yok)
         eklenen = self._schema_maybe()
@@ -4877,11 +4923,14 @@ class NoraAGI:
             led = []
             self.kendi_ögretim = led
         led.append(kayit)
-        return {"durum": "tamam", "öğrendi": bool(eklenen and sinama.get("doğru")),
-                "taban": kayit.get("taban"), "deneme": denemeler,
-                "örnek": kayit["örnekler"], "parametreler": [n1, n2, n3],
-                "programlar": kurulan, "şema": sema, "eklenen": eklenen,
-                "sınama": sinama, "sözcük": len(words), "insan-girdisi": 0}
+        sonuc = {"durum": "tamam", "öğrendi": bool(eklenen and sinama.get("doğru")),
+                 "taban": kayit.get("taban"), "deneme": denemeler,
+                 "örnek": kayit["örnekler"], "parametreler": [n1, n2, n3],
+                 "programlar": kurulan, "şema": sema, "eklenen": eklenen,
+                 "sınama": sinama, "sözcük": len(words), "insan-girdisi": 0,
+                 "aday-bütçe": int(getattr(self, "_oz_aday_butce", 6) or 6)}
+        self._son_oz_ogretim_sonuc = sonuc
+        return sonuc
 
     # ------------------------------------------------------------------ sürücü
     def drive(self, lines, tick_every: int = 25, max_steps: int = 8) -> dict:
@@ -6449,6 +6498,8 @@ class NoraAGI:
             "kendi_ogrenme": int(getattr(self, "_kendi_ogrenme", 0) or 0),
             "son_oz_ogretim": int(getattr(self, "_son_oz_ogretim", -10 ** 9) or -10 ** 9),
             "son_etkilesim": int(getattr(self, "_son_etkilesim_age", 0) or 0),
+            "oz_aday_butce": int(getattr(self, "_oz_aday_butce", 6) or 6),
+            "oz_degisim": list(getattr(self, "_oz_degisim", []) or [])[-16:],
         }
         # ATOMİK YAZMA: önce .tmp, sonra os.replace. Yazma yarıda kesilirse ESKİ sağlam
         # dosya yerinde kalır (tek satır kaybı bile olmaz; yarım beyin yüklenmez).
@@ -6555,6 +6606,9 @@ class NoraAGI:
                 agi._kendi_ogrenme = int(meta.get("kendi_ogrenme") or 0)
                 agi._son_oz_ogretim = int(meta.get("son_oz_ogretim") or -10 ** 9)
                 agi._son_etkilesim_age = int(meta.get("son_etkilesim") or 0)
+                agi._oz_aday_butce = int(meta.get("oz_aday_butce") or 6)
+                agi._oz_degisim = [r for r in (meta.get("oz_degisim") or [])
+                                   if isinstance(r, dict)]
             except Exception:
                 pass
             if getattr(agi, "reify", None) is not None:

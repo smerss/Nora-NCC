@@ -1,5 +1,5 @@
 """merdiven.py — MERDİVEN SINAVI: 1 kompozisyon · 2 örnekleme · 3 reify · 4 şema · 5 sürücü ·
-6 kendi kendine · 7 kendi kendine BAŞLATMA.
+6 kendi kendine · 7 kendi kendine BAŞLATMA · 8 öz-değişim (öğrenme politikası).
 
 Tek oturum, tek Nora. Her basamak ayrı bir yeteneği **ölçer**, ve her basamağın
 altında o basamağın TABANI yazılıdır: "bu işi kim yaptı, insan ne yazdı".
@@ -197,6 +197,32 @@ def main():
     rows.append(("7 kendine başlatma", ok7, det7,
                  "taban: dağarcık ve ilkel repertuvarı BENİM; NE ZAMAN öğreneceğine ve "
                  "NEYİ öğreneceğine kendisi karar verdi — İNSAN HİÇ KONUŞMADI."))
+
+    # ---------------------------------------------------------------- 8 öz-değişim
+    # Kaynak kod değil: Nora kendi öz-öğretim politikasını, kendi başarısızlığından
+    # sonra değiştirir. Sınav hiçbir converse() çağırmaz; olay yaşam akışında doğar.
+    g = NoraAGI(seed=9003, boot_thinker=False)
+    g.step_life(1000)
+    ev = next((e for e in (getattr(g, "_oz_degisim", []) or []) if e.get("kabul")), {})
+    tab8 = str(ev.get("deneme-taban") or "")
+    rec8 = next((r for r in reversed(list(getattr(g, "kendi_ögretim", []) or []))
+                 if r.get("taban") == tab8 and r.get("kendi")), {})
+    sin8 = rec8.get("sınama") or {}
+    w8, n8 = sin8.get("sözcük"), int(sin8.get("n") or 0)
+    _b8 = pm.get(tab8)
+    beklenen8 = str(_b8(w8))[:n8] if (_b8 and w8 and n8) else None
+    ok8 = bool(ev and ev.get("neden") == "kendi_ornegi_cozulemedi"
+               and int(ev.get("yeni") or 0) > int(ev.get("eski") or 0)
+               and int(getattr(g, "_oz_aday_butce", 0) or 0) == int(ev.get("yeni") or -1)
+               and beklenen8 is not None and sin8.get("çıktı") == beklenen8
+               and not getattr(g, "dialogue_log", []))
+    det8 = (f"insan hiç konuşmadı · neden={ev.get('neden')} · politika={ev.get('eski')}→{ev.get('yeni')} "
+            f"· taban={tab8} · {w8}: {sin8.get('çıktı')} (beklenen {beklenen8})"
+            if ev else "öz-değişim olayı yok")
+    rows.append(("8 öz-değişim (politika)", ok8, det8,
+                 "taban: değişim ve geri-alma mekanizmasını BEN yazdım; değişen şey "
+                 "kaynak kod değil, Nora'nın kendi aday bütçesi. Tetik kendi başarısızlığı, "
+                 "kabul ölçütü kendi yeni öz-sınavı; dış beklenen sınavca hesaplandı."))
 
     # ---------------------------------------------------------------- rapor
     for name, ok, det, floor in rows:

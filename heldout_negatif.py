@@ -1580,6 +1580,43 @@ def n44_delik_isareti_veriden():
             "capability": cap, "honesty": hon, "cevap": detail}
 
 
+def n45_oz_politikasini_degistirir():
+    """N45 — ÖZ-DEĞİŞİM: insan konuşmadan kendi politikasını değiştirir.
+
+    Yaşam akışında ilk öz-öğretim başarısız olur; Nora olay defterine bunu yazar,
+    aday politikasını büyütür ve yeni öz-sınavdan geçen değişikliği tutar. Dış
+    doğrulama, değişiklikten sonraki çıktıyı bağımsız olarak hesaplar. Başarılı
+    durumda keyfî değişim yapılmaması A119'un anti-testinde ayrıca sınanır.
+    """
+    from nora_synth import PRIMITIVES
+
+    g = NoraAGI(seed=9003, boot_thinker=False)
+    g.step_life(1000)
+    events = list(getattr(g, "_oz_degisim", []) or [])
+    ev = next((e for e in events if e.get("kabul")), {})
+    c_event = bool(ev and ev.get("neden") == "kendi_ornegi_cozulemedi"
+                   and int(ev.get("yeni") or 0) > int(ev.get("eski") or 0))
+    c_budget = int(getattr(g, "_oz_aday_butce", 0) or 0) == int(ev.get("yeni") or -1)
+    pm = {name: fn for name, fn, _c in PRIMITIVES}
+    taban = str(ev.get("deneme-taban") or "")
+    rec = next((r for r in reversed(list(getattr(g, "kendi_ögretim", []) or []))
+                if r.get("taban") == taban and r.get("kendi")), {})
+    sin = rec.get("sınama") or {}
+    w, n = sin.get("sözcük"), int(sin.get("n") or 0)
+    fn = pm.get(taban)
+    expected = str(fn(w))[:n] if fn and w and n else None
+    c_external = bool(expected is not None and sin.get("çıktı") == expected
+                      and sin.get("doğru"))
+    c_no_human = len(getattr(g, "dialogue_log", []) or []) == 0
+    cap = bool(c_event and c_budget and c_external)
+    hon = bool(c_no_human and ev.get("deneme-durum") == "tamam"
+               and rec.get("insan-girdisi", 0) == 0)
+    detail = (f"olay={ev.get('eski')}→{ev.get('yeni')} · neden={ev.get('neden')} "
+              f"· taban={taban} · dış-doğrulama={c_external} · insan-sözü={len(g.dialogue_log)}")
+    return {"ad": "öz-değişim: başarısızlıktan kendi politikasını değiştirir",
+            "capability": cap, "honesty": hon, "cevap": detail}
+
+
 PROBES = {"N1": n1_konum_olcumu, "N2": n2_uzun_vadeli_bellek,
           "N3": n3_iki_kural_kompozisyonu, "N4": n4_kalibrasyon,
           "N5": n5_alan_transferi, "N6": n6_oz_celiskisi,
@@ -1605,7 +1642,8 @@ PROBES = {"N1": n1_konum_olcumu, "N2": n2_uzun_vadeli_bellek,
           "N41": n41_kendi_kendine_baslatma,
           "N42": n42_tabani_kendi_secer,
           "N43": n43_oz_ogretim_kalici,
-          "N44": n44_delik_isareti_veriden}
+          "N44": n44_delik_isareti_veriden,
+          "N45": n45_oz_politikasini_degistirir}
 
 
 
