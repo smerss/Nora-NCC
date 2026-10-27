@@ -100,6 +100,7 @@ except Exception:  # sentez organı yoksa sistem yine çalışır
     def parse_pairs(_t):
         return []
 from nora_code import CodeSynthesisCortex
+from nora_prediction import UnifiedPredictor
 
 
 @dataclass
@@ -373,6 +374,10 @@ class NoraAGI:
         self.nervous = PeripheralNervousSystem()
         self.mortality = SingleLifeMortality(single_life=bool(w_kw["mortal"]))
         self.lang = NoraLanguage(chem=self.chem, seed=seed)
+        # Üç kaynaklı genel ileri öngörü: gövde + nedensel grafik + fizik.
+        # Bu nesne yalnız mevcut organları okur; ayrı bir olgu/ödül tabanı değildir.
+        self.predictor = UnifiedPredictor(self)
+        self._prediction_target = ""
         self.plastic_discourse = PlasticDiscourseCortex(chem=self.chem, seed=seed + 19)
         self.auto_net = AutonomousConsciousnessNetwork()
         self.meta_reflector = MetaConsciousReflector()
@@ -769,6 +774,16 @@ class NoraAGI:
         return self.cognition
 
     # ------------------------------------------------------------------ 1) Canlı yaşam adımı & Sinir Sistemi
+    def tahmin_et(self, durum=None, eylem=None) -> list[tuple[str, float, float]]:
+        """Genel birleşik öngörü: ``[(değişken, delta, güven), ...]``.
+
+        Örnek: ``agi.tahmin_et(agi.obs, {"act": "git", "target":
+        "yiyecek"})``. Gövdesel model, genel nedensel grafik ve Universe
+        fiziği aynı sonuç biçiminde birleşir; ayrıntılı kaynak izi
+        ``agi.predictor.last_trace`` içinde tutulur.
+        """
+        return self.predictor.predict(durum, eylem)
+
     def _autonomic_survival_reflex(self, proposed_act: int) -> int:
         """Hipotalamik hayatta kalma yönelimi + yumuşak itici potansiyel alanıyla omurilik kaçınma refleksi."""
         if self.nervous.reflex_recoil_steps > 0:
@@ -811,12 +826,13 @@ class NoraAGI:
                 steer = np.array([-attract[1], attract[0]])
             ang = float(np.arctan2(steer[1], steer[0]) - self.world.th)
             ang = (ang + np.pi) % (2 * np.pi) - np.pi
-            return 1 if abs(ang) < 0.45 else (2 if ang > 0 else 3)
+            proposed = 1 if abs(ang) < 0.45 else (2 if ang > 0 else 3)
+            return self.predictor.guided_action(proposed)
 
         rays = self.obs[:45].reshape(9, 5)
         haz_front = float(np.max(rays[3:6, 3]))
         act, _ = self.nervous.spinal_reflex_override(proposed_act, hazard_ahead=haz_front)
-        return act
+        return self.predictor.guided_action(act)
 
     def inflict_pain(self, intensity: float = 0.7, locus: str = "gövde", cause: str = "dış darbe", attacker: str | None = None) -> dict:
         """Nora'nın sinir sistemine doğrudan acı uyarısı verir: A-delta refleksi + geri çekilme + güven kaybı."""
@@ -5408,7 +5424,9 @@ class NoraAGI:
         target = str(last.get("target") or "su")
         try:
             cf = self.self_model.counterfactual_volition(
-                action, target, mind=self.mind, obs=self.obs, ablate=ab)
+                action, target, mind=self.mind, obs=self.obs, ablate=ab,
+                predictor=self.tahmin_et,
+            )
         except Exception:
             return None
         self._apply_tag("cikarim", 1)
@@ -6209,7 +6227,13 @@ class NoraAGI:
             return ("Elimde önerecek bir liste yok. Ama şunu önerebilirim: bana bir kavram söyle; "
                     "onun hakkında ne bildiğimi kendi sözlerimle anlatayım.")
 
-        vol = self.self_model.evaluate_volition(fr.rel, fr.obj, mind=self.mind, obs=self.obs, speaker=speaker)
+        # Komut hedefi, üst düzey karar kabul etmese bile alt düzey eylem
+        # seçiminde aynı öngörü bağlamını korur.
+        self._prediction_target = fr.obj or ""
+        vol = self.self_model.evaluate_volition(
+            fr.rel, fr.obj, mind=self.mind, obs=self.obs, speaker=speaker,
+            predictor=self.tahmin_et,
+        )
         tgt_label = fr.obj or fr.rel
         bg = vol.get("bg_rates", {})
         fe = vol.get("free_energy", {})
@@ -6443,7 +6467,11 @@ class NoraAGI:
             for step_cmd in steps_list:
                 fr_sub = self.lang.wernicke.parse(step_cmd)
                 if fr_sub.kind == "command":
-                    vol = self.self_model.evaluate_volition(fr_sub.rel, fr_sub.obj, mind=self.mind, obs=self.obs, speaker=speaker)
+                    self._prediction_target = fr_sub.obj or ""
+                    vol = self.self_model.evaluate_volition(
+                        fr_sub.rel, fr_sub.obj, mind=self.mind, obs=self.obs, speaker=speaker,
+                        predictor=self.tahmin_et,
+                    )
                     if vol["decision"] == "red":
                         return (
                             f"'{mname}' prosedürünü yürütmeyi reddediyorum; çünkü içindeki '{step_cmd}' adımı "

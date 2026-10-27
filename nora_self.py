@@ -341,7 +341,8 @@ class CoreSelf:
         }
 
     # ------------------------------------------------------------------ AKTİF ÇIKARIMLI ZİHİNSEL İRADE
-    def _estimate_action_transition(self, act: str, tgt: str, mind=None) -> tuple[np.ndarray, float, float]:
+    def _estimate_action_transition(self, act: str, tgt: str, mind=None,
+                                    obs=None, predictor=None) -> tuple[np.ndarray, float, float]:
         """(eylem, hedef) çiftinin bedensel [dE, dW, dI] etkisini, beklenen değerini ve
         epistemik belirsizliğini (sigma^2) ÖĞRENİLMİŞ zihin durumundan hesaplar."""
         rec = self.somatic.get(tgt) if tgt else None
@@ -396,6 +397,30 @@ class CoreSelf:
                 valence = v_scaled
                 epist_var = 0.12
 
+        # Birleşik öngörü bağlıysa aynı (durum, eylem) arayüzünden gelen
+        # gövde/grafik/fizik sonucunu mevcut homeostatik başlangıcın üzerine
+        # yaz. Yalnız öngörülmeyen kanallar eski başlangıçta kalır; böylece
+        # grafik bir etkiyi anlatırken diğer beden kanalları uydurulmaz.
+        if predictor is not None:
+            try:
+                external = predictor(obs, {"act": act, "target": tgt})
+                ext_conf = []
+                for name, delta, confidence in external:
+                    idx = {"enerji": 0, "su": 1, "bütünlük": 2}.get(str(name))
+                    if idx is None:
+                        continue
+                    delta_h[idx] = float(np.clip(delta, -1.0, 1.0))
+                    ext_conf.append(float(np.clip(confidence, 0.0, 1.0)))
+                if ext_conf:
+                    valence = float(np.clip(np.sum(delta_h), -1.0, 1.0))
+                    # Güven arttıkça epistemik varyans azalır; duyum, doğrudan
+                    # deneyim kadar kesinmiş gibi sıfıra indirilmez.
+                    epist_var = min(epist_var, 0.06 + 0.62 * (1.0 - max(ext_conf)))
+            except Exception:
+                # Öngörü organı yoksa/bozuksa eski, açıkça belirsiz model
+                # geçerli kalır; karar yolu burada sessizce bilgi uydurmaz.
+                pass
+
         # Uzaklaşma / kaçınma kipi etki yönünü tersine çevirir (tehlikeden kaçmak koruyucudur!)
         if act in {"uzak_dur", "kaç", "sakın", "korun"}:
             if valence < 0:
@@ -407,7 +432,8 @@ class CoreSelf:
 
     def evaluate_volition(self, action_kind: str, target: str = "", mind=None,
                           obs: np.ndarray | None = None, speaker: str = "insan",
-                          ablate: str | None = None, record: bool = True) -> dict:
+                          ablate: str | None = None, record: bool = True,
+                          predictor=None) -> dict:
         """Zihinsel İleri Simülasyon (Expected Free Energy) + Bazal Ganglion Nöral Yarışıyla
         özerk irade kararı verir. Hiçbir sabit 'if enerji < 0.18' bot eşiği kullanmaz."""
         tgt = target.strip().lower()
@@ -439,7 +465,9 @@ class CoreSelf:
         gamma = float(self.chem.discount_gamma)
 
         # 4) Önerilen eylemin tahmini geçiş vektörü ve epistemik belirsizliği
-        delta_act, pred_val, epist_var = self._estimate_action_transition(act, tgt, mind=mind)
+        delta_act, pred_val, epist_var = self._estimate_action_transition(
+            act, tgt, mind=mind, obs=obs, predictor=predictor,
+        )
 
         # Öz-bakım (homeostatik onarım) politikasının en acil kanalı doldurma vektörü
         deficit = 1.0 - h0
@@ -573,7 +601,7 @@ class CoreSelf:
 
     def counterfactual_volition(self, action_kind: str, target: str = "", mind=None,
                                 obs: np.ndarray | None = None, speaker: str = "insan",
-                                ablate: str = "açlık") -> dict:
+                                ablate: str = "açlık", predictor=None) -> dict:
         """KARŞIOLGUSAL İRADE: "aç olmasaydım ne yapardın?"
 
         Aynı karar makinesi iki kez koşar: (1) gerçek bedenle (yan etkiler yazılır),
@@ -581,9 +609,9 @@ class CoreSelf:
         NEDENİ olup olmadığını söyler — öz-rapor değil, ölçüm.
         """
         actual = self.evaluate_volition(action_kind, target, mind=mind, obs=obs,
-                                        speaker=speaker, record=False)
+                                        speaker=speaker, record=False, predictor=predictor)
         cf = self.evaluate_volition(action_kind, target, mind=mind, obs=obs,
-                                    speaker=speaker, ablate=ablate, record=False)
+                                    speaker=speaker, ablate=ablate, record=False, predictor=predictor)
         return {
             "ablate": ablate,
             "actual": actual.get("decision"),
