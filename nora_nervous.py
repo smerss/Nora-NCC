@@ -70,6 +70,19 @@ class PeripheralNervousSystem:
 
         self._prev_integrity: float = 1.0
 
+    def calibrate_baseline(self, *, integrity: float) -> None:
+        """Doğum/yükleme anındaki beden değerini duyusal taban yap.
+
+        Başlangıç bütünlüğü 1.0 olmak zorunda değildir. Önceki değeri gerçek
+        bedenle eşitlemeden ilk farkı 'yara' saymak, dış hasar olmadan acı ve
+        geri-çekilme üretir. Bu yordam yalnız referansı kurar; ağrıyı silmek için
+        yaşam sırasında çağrılmaz.
+        """
+        value = float(integrity)
+        if not np.isfinite(value):
+            raise ValueError("bütünlük tabanı sonlu olmalı")
+        self._prev_integrity = value
+
     def step_from_body(self, energy: float, water: float, integrity: float, touch: float,
                        hurt_delta: float, chem: NeuroChemistry, step_num: int = 0) -> dict:
         """O(1) (~0.01 ms) duyusal-viseral sinir iletimi."""

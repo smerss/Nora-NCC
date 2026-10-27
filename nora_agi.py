@@ -86,6 +86,13 @@ try:
     from nora_drive import Driver
 except Exception:  # sürücü organı yoksa sistem yine çalışır
     Driver = None
+try:
+    from nora_bus import CognitiveBus, Bid
+    from nora_architecture import ArchitectureModel
+except Exception:  # genel çalışma-zamanı çekirdeği isteğe bağlı değil; eski kayıtlar için koruma
+    CognitiveBus = None
+    Bid = None
+    ArchitectureModel = None
 from nora_episteme import EpistemicEngine, BeliefSpeech, TrustedResearcher
 try:
     from nora_sets import SetSynth
@@ -372,6 +379,7 @@ class NoraAGI:
         self.chem = NeuroChemistry()
         self.self_model = CoreSelf(name=name, chem=self.chem)
         self.nervous = PeripheralNervousSystem()
+        self.nervous.calibrate_baseline(integrity=float(self.obs[I_I]))
         self.mortality = SingleLifeMortality(single_life=bool(w_kw["mortal"]))
         self.lang = NoraLanguage(chem=self.chem, seed=seed)
         # Üç kaynaklı genel ileri öngörü: gövde + nedensel grafik + fizik.
@@ -635,6 +643,17 @@ class NoraAGI:
         if broca:
             self.attach_broca(broca)
 
+        # GENEL ÇALIŞMA-ZAMANI ÇEKİRDEĞİ: varsayılan abone yok; eski politika
+        # değişmez. Yeni organlar kayıt olduğunda aynı yayın/yarışma yolunu kullanır.
+        if CognitiveBus is not None:
+            self.bus = CognitiveBus()
+        else:
+            self.bus = None
+        if ArchitectureModel is not None:
+            self.architecture = ArchitectureModel(self, self.bus)
+        else:
+            self.architecture = None
+
     def read_corpus(self, path: str):
         """Nora'yı bir metinle baş başa bırakır: söz organı yalnızca bundan öğrenir (hangi dil olduğu fark etmez)."""
         self.life.voice.hear_file(path, state_vector(self))
@@ -782,7 +801,14 @@ class NoraAGI:
         fiziği aynı sonuç biçiminde birleşir; ayrıntılı kaynak izi
         ``agi.predictor.last_trace`` içinde tutulur.
         """
-        return self.predictor.predict(durum, eylem)
+        result = self.predictor.predict(durum, eylem)
+        bus = getattr(self, "bus", None)
+        if bus is not None and bus.has_listeners("prediction"):
+            bus.publish("prediction",
+                        {"state": durum, "action": eylem, "result": list(result),
+                         "trace": dict(getattr(self.predictor, "last_trace", {}) or {})},
+                        source="predictor", kind="prediction")
+        return result
 
     def _autonomic_survival_reflex(self, proposed_act: int) -> int:
         """Hipotalamik hayatta kalma yönelimi + yumuşak itici potansiyel alanıyla omurilik kaçınma refleksi."""
@@ -922,10 +948,47 @@ class NoraAGI:
             # Serotonin (5-HT) zaman ufkunu (gamma) canlı olarak modüle eder!
             self.mind.gamma = self.chem.discount_gamma
             prev_obs = self.obs.copy()
+            bus = getattr(self, "bus", None)
+            obs_signal = None
+            action_offer = None
+            if bus is not None and (bus.has_listeners("body.observation") or
+                                    bus.has_listeners("action.propose") or
+                                    bus.has_listeners("body.transition")):
+                obs_signal = bus.publish(
+                    "body.observation",
+                    {"obs": self.obs.copy(), "age": int(self.mind.age), "died": bool(self.died)},
+                    source="world", kind="observation")
             raw_act = self.mind.act(self.obs, self.died)
+            if bus is not None and bus.has_listeners("action.propose"):
+                # Yarışma mind'in teklifini değiştirebilir; otonom güvenlik refleksi
+                # sonra çalışır, dolayısıyla yeni uzman güvenlik frenini aşamaz.
+                baseline = Bid(0.0, {"action": int(raw_act)}, "mind") if Bid is not None else None
+                action_offer = bus.auction(
+                    "action.propose",
+                    {"obs": self.obs.copy(), "proposed": int(raw_act),
+                     "age": int(self.mind.age)},
+                    source="mind", baseline=baseline,
+                    parents=(obs_signal.id,) if obs_signal is not None else ())
+                if action_offer is not None:
+                    candidate = action_offer.get("payload")
+                    candidate = candidate.get("action") if isinstance(candidate, dict) else candidate
+                    if isinstance(candidate, (int, np.integer)) and 0 <= int(candidate) < Universe.N_ACT:
+                        raw_act = int(candidate)
+                    else:
+                        bus.publish("action.rejected",
+                                    {"candidate": repr(candidate), "reason": "geçersiz eylem"},
+                                    source="integration", kind="error",
+                                    parents=(action_offer.get("signal"),))
             act = self._autonomic_survival_reflex(raw_act)
             self.obs, info = self.world.step(act)
             self.died = info["died"] is not None
+            if bus is not None and bus.has_listeners("body.transition"):
+                parents = tuple(x for x in ((obs_signal.id if obs_signal is not None else ""),
+                                            (action_offer or {}).get("signal", "")) if x)
+                bus.publish("body.transition",
+                            {"before": prev_obs, "after": self.obs.copy(), "action": int(act),
+                             "info": dict(info), "age": int(self.mind.age)},
+                            source="world", kind="transition", parents=parents)
 
             # Periferik sinir sistemi (A-delta / C-lifi acı + viseral iç-duyum)
             self.nervous.step_from_body(
@@ -972,6 +1035,12 @@ class NoraAGI:
                 died=self.died,
             )
             self.self_model.sync_from_mind(self.mind, self.obs, died=self.died)
+            if bus is not None and bus.has_listeners("self.state"):
+                bus.publish("self.state",
+                            {"age": int(self.mind.age), "goal": int(self.mind.goal),
+                             "valence": float(self.mind.valence), "mood": float(self.mind.mood),
+                             "error": float(self.mind.err_n), "confidence": float(self.mind.conf)},
+                            source="self_model", kind="self_state")
             # BİREYSELLEŞME: bu adımın nanosaniye fazı + donanım gürültüsü sinapslara işlenir.
             # Maliyet O(1) (sabit sayıda sinaps); ağ büyüdükçe yanıt süresi değişmez.
             if getattr(self, "entropy", None) is not None:
