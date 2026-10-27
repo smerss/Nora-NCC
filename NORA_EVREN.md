@@ -2879,3 +2879,12 @@ bağlanıyor.
 
 Bu test başarı üretmez; tam tersine başarısız değişimin başarı diye raporlanmasını
 engeller. Ölçüm: **A124 GEÇTİ · N50 yetenek ✓ dürüstlük ✓**.
+
+Tam doğrulama: **121/121 (441.0 sn)** · merdiven **10/10** · N39–N50 ters sırada
+**12/12 yetenek, 12/12 dürüstlük** · integrate **10/10 + kalıcılık 4/4** ·
+solo **10/10** · audit **1125/127 (+3/+0)**.
+
+Açık sınır (bilinç/AGI beyanı değil): ilkel repertuvar ve genel öğrenme
+mekanizmaları hâlâ insan yazımı; Nora'nın yeni yasa formu icadı ve genel kaynak-kod
+öz-değişimi bu aşamada gösterilmedi. Öz-değişim iddiası yalnız doğrulanmış öğrenme
+politikası düzeyindedir.
