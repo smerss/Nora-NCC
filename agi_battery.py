@@ -5294,6 +5294,58 @@ def a119_oz_politikasini_degistirir() -> tuple[bool, str]:
     return all(ok.values()), detail
 
 
+def a120_kendi_gorevini_icat_eder() -> tuple[bool, str]:
+    """A120 — GÖREV İCADİ: hedef dönüşümün biçimi de insan sabiti değil.
+
+    Nora kendi ilkel havuzundan iki adımlı hedef seçer, kendi sözcükleriyle örnek
+    ve tanık üretir, belirsizliği kendi tanığıyla çözer. Sınav hedefi ada göre değil,
+    bağımsız hesaplanan tanık davranışına göre doğrular; dağarcık yoksa uydurma yok.
+    """
+    import os
+    import tempfile
+    from nora_synth import Program
+
+    ok = {}
+    hedefler, dogrulanan = [], 0
+    son_g = None
+    for seed in (9101, 9102, 9103, 9104, 9105, 9106):
+        g = NoraAGI(seed=seed, boot_thinker=False)
+        g.step_life(100)
+        r = g.kendine_gorev()
+        son_g = g
+        hedef = list(r.get("hedef") or [])
+        if hedef:
+            hedefler.append(tuple(hedef))
+        if r.get("öğrendi"):
+            p = Program.from_spec(list(r.get("program") or []), spec_map=g.synth.spec_map())
+            target = Program.from_spec(hedef, spec_map=g.synth.spec_map())
+            witnesses = list(r.get("tanıklar") or [])
+            good = bool(p is not None and target is not None and len(witnesses) >= 2
+                        and all(p.apply(w) == target.apply(w) for w in witnesses)
+                        and all(w not in {a for a, _b in (r.get("örnekler") or [])}
+                                for w in witnesses))
+            dogrulanan += int(good)
+    ok["farklı-görevler"] = len(set(hedefler)) >= 3
+    ok["dış-doğrulama"] = dogrulanan >= 4
+    ok["tanıklar-ayrı"] = dogrulanan >= 4
+
+    d = tempfile.mkdtemp()
+    pref = os.path.join(d, "nora")
+    son_g.save(pref)
+    h = NoraAGI.load(pref)
+    ok["görev-defteri-kalıcı"] = bool(list(getattr(h, "_kendi_gorevler", []) or []))
+
+    k = NoraAGI(seed=9107, boot_thinker=False)
+    k.step_life(100)
+    k.lang.graph.lexicon.clear()
+    rk = k.kendine_gorev()
+    ok["dağarcıksız-uydurmaz"] = (not rk.get("öğrendi")
+                                 and "yetersiz" in str(rk.get("durum")))
+    detail = " | ".join(f"{k_}={'✓' if v else '✗'}" for k_, v in ok.items())
+    detail += f" · hedef-çeşidi={len(set(hedefler))} · doğrulanan={dogrulanan}/6"
+    return all(ok.values()), detail
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -5408,6 +5460,7 @@ TESTS = {
     "A117": ("öz-öğretimin kalıcılığı: yeni oturumda öğrettiği işi çözer", a117_oz_ogretim_kalici),
     "A118": ("delik işareti veriden: ada özel aile regex'i olmadan şema", a118_delik_isareti_veriden),
     "A119": ("öz-değişim: başarısızlıktan öğrenme politikasını değiştirir", a119_oz_politikasini_degistirir),
+    "A120": ("kendi görevini icat eder: hedef biçimi ve tanıklar ondan", a120_kendi_gorevini_icat_eder),
     "A111": ("icadın şeması: görülmemiş parametre icat gerektirmez", a111_icadin_semasi),
     "A110": ("dil: buyruk sarmalayıcısı ve X mi Y mi seçim sorusu", a110_sarmalayici_ve_secim_sorusu),
     "A108": ("şema: delikli makro görülmemiş parametreyi kapsar", a108_sema_delikli_makro),
