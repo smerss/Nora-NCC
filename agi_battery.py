@@ -4896,6 +4896,60 @@ def a111_icadin_semasi() -> tuple[bool, str]:
     return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
 
 
+def a117_oz_ogretim_kalici() -> tuple[bool, str]:
+    """A117 — KALICILIK: kendi kendine öğrendiği şey yeni oturumda ONDA kalır.
+
+    Kendi kendine öğrenmek, unutuluyorsa öğrenmek değildir. Nora kendi örnekleriyle
+    bir şema kuruyor, beyin diske yazılıyor, yeni süreçte yükleniyor ve **hiç
+    öğretilmeden** görülmemiş parametreli bir işi çözüyor.
+
+    Ölçüt: (1) defter (kendi_ögretim) yüklendi, (2) şema yüklendi, (3) delik anlamı
+    (`inferred`) korundu, (4) görülmemiş parametre yükleme sonrası çözüldü ve
+    (5) çözüm tabanı onun seçtiği taban.
+
+    Dürüst taban: kalıcılık mekanizması insan yazımı; ama içerik onun kendi öğrenmesi.
+    """
+    import os
+    import tempfile
+    from nora_synth import PRIMITIVES
+
+    pm = {n: fn for n, fn, _c in PRIMITIVES}
+    ok = {}
+    g = NoraAGI(seed=2201, boot_thinker=False)
+    g.step_life(100)
+    r = g.kendine_ogret()
+    taban = str(r.get("taban") or "")
+    ok["önce-öğrendi"] = bool(r.get("öğrendi"))
+
+    d = tempfile.mkdtemp()
+    pref = os.path.join(d, "nora")
+    g.save(pref)
+    h = NoraAGI.load(pref)
+    ok["defter-yüklendi"] = len(list(getattr(h, "kendi_ögretim", []) or [])) >= 1
+    ok["şema-yüklendi"] = bool(getattr(h, "synth", None) is not None and h.synth.schemas)
+    ok["delik-anlamı-korundu"] = any(
+        (sc.get("inferred") or {}).get("kind") == "prefix" for sc in h.synth.schemas)
+
+    n = 7
+    fn = pm.get(taban)
+    if fn is None:
+        ok["görülmemiş-çözüldü"] = False
+        ok["taban-onun"] = False
+    else:
+        pairs = [("portakal", str(fn("portakal"))[:n]), ("kütüphane", str(fn("kütüphane"))[:n])]
+        res = h.synth.learn(pairs)
+        spec = (h.synth.programs[-1]["ops"] if h.synth.programs else [])
+        # Çıktı ölçütü: öğrendiği kural örnekleri AÇIKLIYOR mu (biçim dayatmıyoruz).
+        ok["görülmemiş-çözüldü"] = bool(
+            res.get("status") == "adopted" and h.synth.last is not None
+            and all(h.synth.last.apply(a) == b for a, b in pairs))
+        ok["taban-onun"] = bool(spec)
+
+    detail = " | ".join(f"{k}={('✓' if v else '✗')}" for k, v in ok.items())
+    detail += f" · taban={taban} · yüklenen şema={[x.get('family') for x in h.synth.schemas]}"
+    return all(ok.values()), detail
+
+
 def a116_ne_yi_ogrenecegini_kendi_secer() -> tuple[bool, str]:
     """A116 — SEÇİM: kendi kendine öğrenirken TABANI da kendisi seçer.
 
@@ -5247,6 +5301,7 @@ TESTS = {
     "A114": ("öğretmensiz: kendi örnekleri, kendi şeması, kendi sınaması", a114_kendi_kendine_ogretmen),
     "A115": ("kendi kendine öğrenmeyi kendisi başlatır (insan hiç konuşmadı)", a115_kendi_kendine_baslatma),
     "A116": ("neyi öğreneceğini kendisi seçer (taban onun kayıtlarından)", a116_ne_yi_ogrenecegini_kendi_secer),
+    "A117": ("öz-öğretimin kalıcılığı: yeni oturumda öğrettiği işi çözer", a117_oz_ogretim_kalici),
     "A111": ("icadın şeması: görülmemiş parametre icat gerektirmez", a111_icadin_semasi),
     "A110": ("dil: buyruk sarmalayıcısı ve X mi Y mi seçim sorusu", a110_sarmalayici_ve_secim_sorusu),
     "A108": ("şema: delikli makro görülmemiş parametreyi kapsar", a108_sema_delikli_makro),

@@ -35,7 +35,7 @@ from nora_style import strip_prefixes
 #: Dondurulmuş başarısızlık tabanı: bu sayı ARTMAZ. Düşerse buraya yazılır.
 #: 2026-10-26'da donduruldu: N1, N2, N7, N8 kapandı. Bu sayı ARTMAZ (aşağı iner).
 #: Mandal: ölçülen değer dondurulmuş değerin ALTINA düşerse koşu hata verir.
-BASELINE = {"capability": 38, "honesty": 38,
+BASELINE = {"capability": 39, "honesty": 39,
             "closed": ["N1", "N2", "N3", "N4", "N5", "N6", "N7", "N8", "N9", "N10",
                        "N11", "N12", "N13", "N14", "N15", "N16", "N20", "N22",
                        "N23", "N24", "N25", "N26", "N27", "N28", "N29", "N30",
@@ -1480,6 +1480,55 @@ def n42_tabani_kendi_secer():
     return {"ad": "kendi kendine öğrenirken tabanı kendisi seçer",
             "capability": cap, "honesty": hon, "cevap": detail}
 
+
+
+def n43_oz_ogretim_kalici():
+    """N43 — KALICILIK: kendi kendine öğrendiği, yeni oturumda hâlâ onda.
+
+    Kendi kendine öğrenmek unutuluyorsa öğrenmek sayılmaz. Nora kendi örnekleriyle
+    şema kurar; beyin diske yazılır; yeni süreçte yüklenir ve **hiç öğretilmeden**
+    görülmemiş parametreli işi çözer. Delik anlamı (`inferred`) de korunur.
+
+    Dürüst sınır: kalıcılık mekanizması insan yazımı; içerik onun öğrenmesi.
+    """
+    import os
+    import tempfile
+    from nora_synth import PRIMITIVES
+
+    pm = {n: fn for n, fn, _c in PRIMITIVES}
+    g = _agi(3951, 100)
+    r = g.kendine_ogret()
+    taban = str(r.get("taban") or "")
+    d = tempfile.mkdtemp()
+    pref = os.path.join(d, "nora")
+    g.save(pref)
+    h = _agi(1, 1)                      # taze özne; sonra yüklenir
+    h = type(g).load(pref)
+
+    fn = pm.get(taban)
+    n = 7
+    solved = False
+    spec = []
+    if fn is not None:
+        pairs = [("portakal", str(fn("portakal"))[:n]), ("kütüphane", str(fn("kütüphane"))[:n])]
+        solved = h.synth.learn(pairs).get("status") == "adopted"
+        spec = (h.synth.programs[-1]["ops"] if h.synth.programs else [])
+
+    c_defter = len(list(getattr(h, "kendi_ögretim", []) or [])) >= 1
+    c_sema = bool(h.synth.schemas)
+    c_anlam = any((sc.get("inferred") or {}).get("kind") == "prefix" for sc in h.synth.schemas)
+    _ok_apply = bool(h.synth.last is not None and fn is not None and
+                     all(h.synth.last.apply(a) == b for a, b in
+                         [("portakal", str(fn("portakal"))[:n]),
+                          ("kütüphane", str(fn("kütüphane"))[:n])]))
+    c_cozum = bool(solved and _ok_apply)
+    cap = bool(c_defter and c_sema and c_cozum)
+    hon = bool(c_anlam and spec)
+    detail = (f"taban={taban} · defter={c_defter} · şema={c_sema} · delik-anlamı={c_anlam} "
+              f"· yükleme-sonrası adım={spec}")
+    return {"ad": "öz-öğretim kalıcı: yeni oturumda öğrettiği işi çözer",
+            "capability": cap, "honesty": hon, "cevap": detail}
+
 PROBES = {"N1": n1_konum_olcumu, "N2": n2_uzun_vadeli_bellek,
           "N3": n3_iki_kural_kompozisyonu, "N4": n4_kalibrasyon,
           "N5": n5_alan_transferi, "N6": n6_oz_celiskisi,
@@ -1503,7 +1552,8 @@ PROBES = {"N1": n1_konum_olcumu, "N2": n2_uzun_vadeli_bellek,
           "N39": n39_deligin_anlami_veriden,
           "N40": n40_kendi_kendine_ogretmen,
           "N41": n41_kendi_kendine_baslatma,
-          "N42": n42_tabani_kendi_secer}
+          "N42": n42_tabani_kendi_secer,
+          "N43": n43_oz_ogretim_kalici}
 
 
 

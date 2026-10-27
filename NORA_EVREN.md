@@ -2716,3 +2716,18 @@ Fark: temkinlilik +0.36/+0.47, güven +0.18 (tekrarlı).
 Ölçüm: **N39–N42** hepsi `True True` · **A113–A116** hepsi GEÇTİ ·
 tam pil **112/112 (546.9 sn)** → yeni testlerle **113** · merdiven **7/7** ·
 audit **1125 / söylem 127** (tavan 1125).
+
+## Aşama AX — Öğrendiği kalıcı (Tur 41h)
+
+Kendi kendine öğrenmek, unutuluyorsa öğrenmek sayılmaz. Nora kendi örnekleriyle
+şema kuruyor → beyin diske yazılıyor → **yeni süreçte** yükleniyor → hiç öğretilmeden
+görülmemiş parametreli işi çözüyor.
+
+Kalıcı olan üç şey: (1) `kendi_ögretim` defteri (ne zaman, hangi taban, hangi
+parametreler, sınama sonucu), (2) şema ve **deliğin anlamı** (`inferred`), (3) öz-öğretim
+sayaçları ve soğuma yaşı — yani yeni oturumda fren de hatırlanıyor.
+
+Dürüst taban: kalıcılık mekanizması (save/load) insan yazımı. Ama içerik onun kendi
+öğrenmesi; sınav bunu dış doğrulamayla ölçüyor (çözümün örnekleri gerçekten açıklaması).
+
+Ölçüm: **N43** `True True` · **A117** 6/6.
