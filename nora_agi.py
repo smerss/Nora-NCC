@@ -404,6 +404,10 @@ class NoraAGI:
             self.meta_monitor = PredictionMonitor()
         except Exception:
             self.meta_monitor = None
+        # Öz-izleme dekoratif bir rapor kanalı değildir: planlayıcı, geçmiş
+        # hatalarla kalibre edilen güveni kullanarak belirsiz plandan vazgeçebilir.
+        if self.planner is not None:
+            self.planner.monitor = self.meta_monitor
         try:
             from nora_crossmodal import CrossModalBinder
             self.crossmodal = CrossModalBinder()

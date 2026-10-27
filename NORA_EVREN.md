@@ -2999,3 +2999,47 @@ sonra tam pil yeniden koşuldu.
 entegrasyon kanıtıdır; fenomenal bilinç veya genel AGI kanıtı değildir.
 Somatik eşleme/ontoloji ve genel kaynak birleştirme mekanizması insan yazımıdır;
 yeni ilkel, yeni yasa formu veya genel kaynak-kod öz-değişimi gösterilmedi.
+
+## Aşama BH — Qualia/bilinç/AGI için nedensel kanıt katmanı
+
+`consciousness_battery.py` mevcut sonuç testlerini yalnızca yeni etiketlerle
+büyütmez. Ana pildeki A125–A130 protokolleri müdahale, eşleştirilmiş kontrol,
+ablasyon ve geri-yükleme arar. Beklenen dış durumlar üretim koduna yazılmaz;
+bağımsız test oracle'ı yalnız sonucu ölçer.
+
+| test | nedensel halka | sonuç |
+|---|---|---|
+| **A125 / Q1** | somatik iç iz → aynı soruda tercih; ilgisiz olay kontrolü, konuşma-öncesi lezyon ve state restore | **GEÇTİ** — taban `norvan`, işaretler terslenince `selkar`; ablasyonda tercih yok/bilinmiyor, restore ile dönüş |
+| **A126 / Q2** | nosisepsiyon → sözlü rapor + omurilik refleksi | **GEÇTİ** — kontrol no-pain/refleks-yok; müdahale pain/refleks; sinir lezyonunda kayıp, restore ile dönüş |
+| **A127 / C1** | taze `body.observation` yayını → bağımsız uzman → gerçek beden eylemi | **GEÇTİ** — aktif `(external,0)`, eşleştirilmiş ablasyon `(mind,2)`, yeniden bağlamada `(external,0)`; bayat yayın kabul edilmiyor |
+| **A128 / C2** | kendi hata geçmişi → kalibre güven → plan inhibisyonu | **GEÇTİ** — güven **0,934→0,072**, plan `ok→unresolved`; ham model `ok`, doğru-geçmiş kontrolü `ok` |
+| **A129 / G1** | öğrenilen geçiş modeli → yeni eylem adı/özelliği ve hedef → bağımsız rollout | **GEÇTİ** — dış durum `[2,-1]`; lineer model ablasyonunda `unresolved`, restore ile hedefe dönüş |
+| **A130 / G2** | kaynak-kod değişimi → kabul kümesinde kullanılmamış dış sınav | **GEÇTİ** — dış başarı **0,00→1,00**; eski kaynakta kayıp, değiştirilmiş kaynakla dönüş |
+
+### Önce kırmızı sonuç, sonra kök düzeltme
+
+İlk dış koşu **3/6** idi. Q1'de aynı oturumdaki ilk tercih cevabının dilsel
+priming'i somatik lezyonu maskeliyordu; lezyon ve restore eşleştirilmiş,
+konuşma-öncesi koşulara taşındı. C1'de bağımsız `body.transition` gözlemcisi
+olmadığı için lezyon koşulunda dış eylem ölçülemiyordu; yalnız ölçüm gözlemcisi
+eklendi. İkinci koşudaki C1 hatası da tazelik listesinin restore öncesinde
+dondurulmamasıydı; üretim davranışı zaten `external→mind→external` idi.
+
+C2 ise gerçek üretim eksiğiydi: `PredictionMonitor` güveni kalibre ediyor fakat
+`AdaptivePlanner` bunu kullanmıyordu. Genel üretim arayüzüne isteğe bağlı
+`monitor` bağlandı; kalibrasyon ham modeli değiştirmeden plan güvenine uygulanıyor
+ve `NoraAGI` mevcut `meta_monitor` nesnesini planlayıcıya bağlıyor. Monitör yoksa
+eski planlayıcı davranışı korunuyor. Teste özel görev/cümle veya beklenen karar
+eklenmedi.
+
+### Ölçüm ve kapsam
+
+Bağımsız katman **6/6**, iki tekrar **12/12**; ana pil kaydı A125–A130 **6/6**.
+Tam izole ana pil **127/127 (985,3 sn)**. Regresyonlar: planlama **5/5**,
+metabiliş **4/4**, yasa **5/5**, mimari **4/4**, workspace **4/4**, köprü **5/5**,
+persistence **4/4**.
+
+**Dürüst sınır:** Q sonuçları işlevsel iç-durum ayrımı ve rapor/eylem üzerindeki
+nedensel etkidir; öznel qualia'nın doğrudan ölçümü değildir. C/G sonuçları dar
+bilinç-mimarisi ve AGI bileşenleridir; 127/127 tek başına fenomenal bilinç veya
+genel AGI beyanı değildir.
