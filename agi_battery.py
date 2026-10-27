@@ -5381,6 +5381,40 @@ def a121_kendi_deney_sözcüklerini_üretir() -> tuple[bool, str]:
     return all(ok.values()), detail
 
 
+def a122_ayirt_edici_deneyi_secer() -> tuple[bool, str]:
+    """A122 — AKTİF ÖĞRENME: belirsizliği en çok azaltan deneyi seçer.
+
+    Hazır probe listesi veya rastgele sıra yerine aday programların çıktılarına
+    bakılır; entropisi en yüksek nonce sözcük seçilir. Küçük kontrolde 'abc' iki
+    adayı ayırır (H=1), 'aaa' ayırmaz (H=0). Gerçek görevde de seçim ve dış
+    davranış doğrulaması ölçülür.
+    """
+    from nora_synth import Program
+
+    ok = {}
+    p_id = Program.from_spec(["aynen bırak"])
+    p_rev = Program.from_spec(["ters çevir"])
+    chosen, h = NoraAGI._ayirt_edici_sec([p_id, p_rev], ["aaa", "abc"])
+    _h0 = NoraAGI._ayirt_edici_sec([p_id, p_rev], ["aaa"])[1]
+    ok["entropi-ayırır"] = chosen == "abc" and h > _h0 and h > 0.9
+
+    g = NoraAGI(seed=9213, boot_thinker=False)
+    g.step_life(100)
+    r = g.kendine_gorev()
+    ok["belirsizlikte-seçti"] = bool(r.get("ayırtma") and r.get("deneyler")
+                                   and max(r.get("deney-entropi") or [0]) > 0)
+    ok["strateji-kayıtlı"] = r.get("deney-stratejisi") == "maksimum-entropi"
+    target = Program.from_spec(list(r.get("hedef") or []), spec_map=g.synth.spec_map())
+    learned = Program.from_spec(list(r.get("program") or []), spec_map=g.synth.spec_map())
+    witnesses = list(r.get("deneyler") or []) + list(r.get("tanıklar") or [])
+    ok["dış-doğrulama"] = bool(target is not None and learned is not None and witnesses
+                               and all(learned.apply(w) == target.apply(w) for w in witnesses))
+    ok["deney-nonce"] = all(w not in g.lang.graph.lexicon for w in (r.get("deneyler") or []))
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    detail += f" · deney={r.get('deneyler')} · H={r.get('deney-entropi')}"
+    return all(ok.values()), detail
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -5497,6 +5531,7 @@ TESTS = {
     "A119": ("öz-değişim: başarısızlıktan öğrenme politikasını değiştirir", a119_oz_politikasini_degistirir),
     "A120": ("kendi görevini icat eder: hedef biçimi ve tanıklar ondan", a120_kendi_gorevini_icat_eder),
     "A121": ("kendi deney sözcüklerini üretir: nonce tanık, bilgi değil", a121_kendi_deney_sözcüklerini_üretir),
+    "A122": ("aktif öğrenme: en çok ayırt eden deneyi entropiyle seçer", a122_ayirt_edici_deneyi_secer),
     "A111": ("icadın şeması: görülmemiş parametre icat gerektirmez", a111_icadin_semasi),
     "A110": ("dil: buyruk sarmalayıcısı ve X mi Y mi seçim sorusu", a110_sarmalayici_ve_secim_sorusu),
     "A108": ("şema: delikli makro görülmemiş parametreyi kapsar", a108_sema_delikli_makro),
