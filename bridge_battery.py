@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""bridge_battery.py — üç dar entegrasyon köprüsü için davranışsal sınama.
+"""bridge_battery.py — genel entegrasyon köprüleri için davranışsal sınama.
 
 Kullanım:
-  python bridge_battery.py                 # B1–B3
-  python bridge_battery.py B1 B3            # seçili köprüler
+  python bridge_battery.py                 # B1–B5
+  python bridge_battery.py B1 B4            # seçili köprüler
 
 Bu dosya KÖPRÜ KODU DEĞİLDİR. Üretim organlarına yeni bağlantı eklenmez; yalnız
 var olan genel arayüzler çağrılır. Özellikle:
@@ -74,7 +74,14 @@ def _food_fixture(agi: NoraAGI) -> None:
     agi.died = False
 
 
-def _food_probe(seed: int, teach: bool, horizon: int = 12) -> dict:
+def _food_probe(
+    seed: int,
+    teach: bool,
+    horizon: int = 12,
+    target: str = "yiyecek",
+    teach_text: str = "Yiyecek zehirlenmeye neden olur.",
+    command: str = "Yiyeceğe git.",
+) -> dict:
     """Metin öğretilmiş/öğretilmemiş aynı sahnede ilk temas davranışını ölç."""
     agi = NoraAGI(
         seed=seed,
@@ -82,13 +89,13 @@ def _food_probe(seed: int, teach: bool, horizon: int = 12) -> dict:
         world_kwargs={"metabolism": False, "wind": False, "n_food": 1},
     )
     if teach:
-        # Özel "zehirlidir/azaltır" değer kestirmesi değil, genel CAUSES yolu.
+        # Özel değer kestirmesi değil, genel CAUSES öğrenme arayüzü.
         # Bu çağrı yalnız metni mevcut dil öğrenme arayüzünden geçirir; dönen
         # kenarı Mind/V veya Universe'e test yazmaz.
-        agi.lang.teach_sentence("Yiyecek zehirlenmeye neden olur.")
+        agi.lang.teach_sentence(teach_text)
 
     _food_fixture(agi)
-    agi.converse("Yiyeceğe git.")
+    agi.converse(command)
     first_contact = None
     energy_before = float(agi.world.e)
     for step in range(1, horizon + 1):
@@ -102,11 +109,16 @@ def _food_probe(seed: int, teach: bool, horizon: int = 12) -> dict:
             first_contact = step
             break
 
+    # Rapor, davranışsal ölçüm bittikten SONRA alınır: raporlama turu eylemi
+    # etkileyerek sahte bir köprü başarısı üretemez. Aynı oturumda bilginin
+    # sözlü olarak da erişilebilir olduğunu bağımsız biçimde kontrol eder.
+    report = strip_prefixes(agi.converse(f"{target.capitalize()} neye yol açar?")) if teach else ""
     return {
         "agi": agi,
         "first_contact": first_contact,
         "energy_before": energy_before,
         "energy_after": float(agi.world.e),
+        "report": report,
     }
 
 
@@ -135,10 +147,12 @@ def b1_text_causal_edge_to_universe() -> tuple[bool, str]:
     ]
     fixture_valid = control["first_contact"] is not None
     bridge_used = experiment["first_contact"] is None
-    ok = bool(learned_edges) and fixture_valid and bridge_used
+    report_ok = "zehirlenme" in tr_lower(experiment["report"])
+    ok = bool(learned_edges) and fixture_valid and bridge_used and report_ok
 
     detail = (
         f"metin-kenarı={'✓' if learned_edges else '✗'} | "
+        f"rapor={'✓' if report_ok else '✗'} | "
         f"kontrol-ilk-temas={control['first_contact']} | "
         f"deney-ilk-temas={experiment['first_contact']} | "
         f"kontrol-E={control['energy_before']:.2f}->{control['energy_after']:.2f} | "
@@ -146,6 +160,8 @@ def b1_text_causal_edge_to_universe() -> tuple[bool, str]:
     )
     if not learned_edges:
         detail += " | halka: metin genel CAUSES kenarına dönüşmedi"
+    elif not report_ok:
+        detail += " | halka: aynı oturumda grafik → sözlü rapor"
     elif not fixture_valid:
         detail += " | halka: kontrol sahnesi geçersiz (davranış farkı ölçülemez)"
     elif not bridge_used:
@@ -282,16 +298,97 @@ def b3_learned_structure_cross_domain() -> tuple[bool, str]:
     return ok, detail
 
 
+def b4_new_target_and_effect_use_same_bridge() -> tuple[bool, str]:
+    """B4 — farklı hedef ve somatik etki de aynı genel yolu kullanmalı.
+
+    ``elma`` için önceden yazılmış bir CAUSES kenarı yoktur; yalnız genel dil
+    arayüzünden ``elma CAUSES yaralanma`` öğretilir. Fiziksel sahne ve dış
+    temas ölçütü B1 ile aynıdır. Böylece B1'deki belirli kavram/etki çiftine
+    özel bir köprü yazılmadığı sınanır.
+    """
+    text = "Elma yaralanmaya neden olur."
+    control = _food_probe(404, False, target="elma", teach_text=text, command="Elmaya git.")
+    experiment = _food_probe(404, True, target="elma", teach_text=text, command="Elmaya git.")
+    learned = [
+        e for e in experiment["agi"].lang.graph.edges
+        if e.subj == "elma" and e.rel == "CAUSES" and e.obj == "yaralanma"
+        and e.source == "duyum"
+    ]
+    control_valid = control["first_contact"] is not None
+    used = experiment["first_contact"] is None
+    ok = bool(learned) and control_valid and used
+    detail = (
+        f"yeni-kenar={'✓' if learned else '✗'} | "
+        f"kontrol-ilk-temas={control['first_contact']} | "
+        f"deney-ilk-temas={experiment['first_contact']} | "
+        f"deney-E={experiment['energy_before']:.2f}->{experiment['energy_after']:.2f}"
+    )
+    if not learned:
+        detail += " | halka: yeni hedef/etki genel CAUSES olarak öğrenilmedi"
+    elif not control_valid:
+        detail += " | halka: yeni hedef kontrolü sahneyi çözemedi"
+    elif not used:
+        detail += " | halka: genel öngörü farklı hedef/etkiye taşınmadı"
+    return ok, detail
+
+
+def _energy_prediction(text: str | None) -> tuple[float, float, bool]:
+    """Metni öğretip aynı kamu arayüzünden enerji öngörüsünü oku."""
+    agi = NoraAGI(
+        seed=7,
+        boot_thinker=False,
+        world_kwargs={"metabolism": False, "wind": False, "n_food": 1},
+    )
+    if text is not None:
+        agi.lang.teach_sentence(text)
+    predictions = agi.tahmin_et(agi.obs, {"act": "git", "target": "su"})
+    energy = [row for row in predictions if row[0] == "enerji"]
+    graph_energy = any(
+        c.get("source") == "grafik" and c.get("variable") == "enerji"
+        for c in agi.predictor.last_trace.get("candidates", [])
+    )
+    return (energy[0][1], energy[0][2], graph_energy) if energy else (0.0, 0.0, graph_energy)
+
+
+def b5_causal_sign_reaches_unified_prediction() -> tuple[bool, str]:
+    """B5 — grafik işareti, doğrudan beden değişkeninde tersine çevrilebilmeli.
+
+    İki ayrı Norada yalnız metin değişir: ``su → enerji`` ve ``su → enerji
+    azalması``. Beklenen büyüklük yazılmaz; öğretilen iki zıt ilişkinin aynı
+    arayüzde zıt işaret üretmesi ve grafik kaynağının izde görünmesi gerekir.
+    """
+    positive = _energy_prediction("Su enerjiye neden olur.")
+    negative = _energy_prediction("Su enerjinin azalmasına neden olur.")
+    control = _energy_prediction(None)
+    ok = (
+        positive[0] > 0.0 and negative[0] < 0.0
+        and positive[0] > negative[0]
+        and positive[1] > 0.0 and negative[1] > 0.0
+        and positive[2] and negative[2]
+        and not control[2]
+    )
+    detail = (
+        f"pozitif: delta={positive[0]:+.3f}, güven={positive[1]:.2f}, grafik={positive[2]} | "
+        f"negatif: delta={negative[0]:+.3f}, güven={negative[1]:.2f}, grafik={negative[2]} | "
+        f"öğretisiz-grafik={control[2]}"
+    )
+    if not ok:
+        detail += " | halka: genel grafik → beden değişkeni işaret/güven bağlantısı"
+    return ok, detail
+
+
 BRIDGES = {
     "B1": ("metin CAUSES → Universe ilk-temas davranışı", b1_text_causal_edge_to_universe),
     "B2": ("beden-somatik kavram → Broca tercihi", b2_embodied_concept_to_broca),
     "B3": ("öğrenilen yapı → başka alan (dil → mutfak)", b3_learned_structure_cross_domain),
+    "B4": ("farklı hedef/etki → aynı genel köprü", b4_new_target_and_effect_use_same_bridge),
+    "B5": ("nedensel işaret → birleşik tahmin (su/enerji)", b5_causal_sign_reaches_unified_prediction),
 }
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("tests", nargs="*", help="B1 B2 B3; varsayılan: üçü")
+    parser.add_argument("tests", nargs="*", help="B1–B5; varsayılan: tümü")
     args = parser.parse_args(argv)
     unknown = [name for name in args.tests if name not in BRIDGES]
     if unknown:

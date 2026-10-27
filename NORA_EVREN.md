@@ -26,6 +26,7 @@ Gerekli küçük sinek alt çizgesi (`data/fly_reservoir_96.npz`) depoda.
 | `nora_world.py` | Evren: Newton fiziği, sürtünme, momentum korunumlu çarpışma, itilebilir kaya, gün/gece, rüzgâr, metabolizma; kalın-ışın görme (9×5 kanal), iç duyu, propriosepsiyon, pusula (yön; konum VERİLMEZ); kural değişimleri (`invert`: kumanda ters, `poison`: yiyecek zehirli); bilmeceli kutular |
 | `nora_neuron.py` | Nöron temeli: FlyWire sinek konektomu LIF simülatörü (Brian2 referansıyla r=0,967), `MushroomBody`, `LobedMushroomBody` |
 | `nora_mind.py` | Yaşayan zihin (aşağıda) + deney aşamaları: `run`, `compare`, `shift`, `transfer`, `introspect`, `narrate` |
+| `nora_prediction.py` | Birleşik ileri öngörü: `Mind` gövde geçişleri/V + genel nedensel grafik + salt-okunur `Universe` fiziği; `NoraAGI.tahmin_et` ve tahmin × değer eylem seçimi |
 | `make_fly_reservoir.py`, `data/fly_reservoir_96.npz` | FlyWire konektomundan 96 nöronluk yoğun alt çizge (işaretli sinaps sayıları, Dale yasası korunur); `Mind(reservoir="fly")` / `-flyres` ile süreklilik durumunun yinelemeli ağırlıkları olarak kullanılır |
 | `nora_bridge.py` | Eski hat (`nora_think`: düşün → doğrula → uyu → sezgi) ile yaşayan zihin köprüsü |
 
@@ -2931,3 +2932,70 @@ veya yeni temsil icadı değildir.
 
 Çalıştırma: `python bridge_battery.py` (seçili: `python bridge_battery.py B1`).
 Bu üç sonuç yetenek/entegrasyon ölçümüdür; **bilinç veya AGI kanıtı değildir.**
+
+## Aşama BG — Birleşik öngörü ve genel grafik → eylem düzeltmesi (Tur 43)
+
+BF'deki B1 teşhisi üretim tarafında düzeltildi. Yeni `nora_prediction.py`
+organının kamu arayüzü:
+
+```python
+agi.tahmin_et(durum, eylem)  # [(değişken, delta, güven), ...]
+```
+
+Aynı imzanın arkasında üç mevcut kaynak birleşir:
+
+- **Gövde:** `Mind`'in öğrenilmiş `Wsm` geçişleri ve doğrudan deneyimsel `V`
+  belleği. `Mind.imagine` politikasının normalize skorları sahte bir beden
+  deltasına çevrilmez; tek-adım beden öngörüsü için ölçülebilir `Wsm/V`
+  bileşenleri kullanılır.
+- **Önermesel model:** `GroundedConceptGraph` üzerindeki genel
+  `CAUSES`/`IF_THEN` yolları. Etki sözcükleri mevcut somatik kayıtlar ve
+  homeostatik değişken adlarıyla beden kanallarına bağlanır; hedefin fiziksel
+  kanalı gerekiyorsa mevcut `ISA` taksonomisi izlenir. Belirli bir kenara özel
+  `if edge(...)` köprüsü yoktur.
+- **Fizik:** `Universe.predict_transition` derin kopya üzerinde mekanik
+  önizleme yapar. Gerçek dünyanın zamanı, konumu ve enerjisi değişmez. Kopya
+  dünyanın gizli `poison` sonucu ajanın önceden bildiği beden bilgisi olarak
+  kullanılmaz; fizik kaynağından yalnız hız ve geometrik ilerleme alınır.
+
+Eylem seçimi öngörülen beden deltalarını homeostatik değerle çarpar. Üst düzey
+komut/irade ve alt düzey motor seçimi aynı arayüzü kullanır. Doğrudan beden
+deneyimi aynı değişkende duyumdan daha yüksek kanıt ağırlığına sahiptir.
+Doğuştan grafik önselleri alt düzeyde ikinci kez uygulanmaz; bu, mevcut
+somatik/refleks politikasının çift sayılmasını önler. Sonradan öğrenilmiş
+`duyum`/`deneyim`/`çıkarım` kanıtı için genel yol açıktır.
+
+### Ölçümler
+
+`bridge_battery.py` artık B1'i kalıcı regresyon olarak korur ve B4/B5 ile
+genellik sınaması yapar. Son koşu: **5/5 (15,4 sn)**.
+
+| test | ölçüt | son sonuç |
+|---|---|---|
+| **B1** | `yiyecek CAUSES zehirlenme`; davranıştan sonra aynı oturumda sözlü rapor; kontrol/deney ilk temas | **GEÇTİ** — rapor ✓; kontrol **11**, deney **temas yok**; E kontrol **0,40→0,05**, deney **0,40→0,40** |
+| **B2** | zıt bedensel değerlerde bağımsız tercih ölçütü | **GEÇTİ** |
+| **B3** | yalnız `converse` ile dil → mutfak transferi | **GEÇTİ** |
+| **B4** | yeni `elma CAUSES yaralanma` kenarı, aynı fiziksel temas ölçütü | **GEÇTİ** — kontrol **11**, deney **temas yok** |
+| **B5** | `su → enerji` ve `su → enerji azalması` için aynı arayüzde zıt işaret ve grafik kaynağı | **GEÇTİ** — sırasıyla **+0,720 / −0,720**, güven **0,72**; öğretisiz kontrolde grafik enerji öngörüsü yok |
+
+B1/B4'te beklenen temas adımı veya delta büyüklüğü testte elle yazılmaz;
+kontrolün gerçek teması ve deneyin ilk temas öncesi kaçınması dışarıdan ölçülür.
+B1 sözlü raporu davranışsal koşudan **sonra** alınır, böylece rapor turu eylemi
+etkileyip sahte başarı üretemez.
+
+Ek sondajlar: gerçek güvenli temasla öğrenilmiş `V`, çelişen duyum grafiğinin
+aynı enerji kanalındaki öngörüsünü ezip `beden` kaynağını seçti. Yalnız metin
+kenarı olan taze Norada save/load sonrası da deney düzeneği eşitlendiğinde ilk
+temas oluşmadı ve `V=[nan,nan,nan]` korundu.
+
+Son regresyon: **121/121 (432,9 sn)** · heldout `--repeat=2`
+**46/46 · 46/46 — SIRA-DAYANIKLI ✓** · integrate **10/10 + kalıcılık 4/4** ·
+solo **10/10** · audit **1125/127 (+3/+0)**. `py_compile` ve
+`git diff --check` başarılı. İlk entegrasyon koşusundaki 117/121 sonucu
+nihai sonuç değildir; doğuştan önselin alt düzeyde çift sayımı giderildikten
+sonra tam pil yeniden koşuldu.
+
+**Dürüst sınır:** Bu aşama genel bir öngörü arayüzü ve dar davranışsal
+entegrasyon kanıtıdır; fenomenal bilinç veya genel AGI kanıtı değildir.
+Somatik eşleme/ontoloji ve genel kaynak birleştirme mekanizması insan yazımıdır;
+yeni ilkel, yeni yasa formu veya genel kaynak-kod öz-değişimi gösterilmedi.

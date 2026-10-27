@@ -154,6 +154,26 @@ class Universe:
         """Bilmece ödülü: çözülen terminalin enerjisi."""
         self.e = min(1.0, self.e + gain)
 
+    def predict_transition(self, a):
+        """Salt-okunur bir fizik önizlemesi döndür; gerçek evreni ilerletme.
+
+        ``deepcopy`` üzerindeki adım, ajanın henüz yaşamadığı bir geleceği
+        deneyim belleğine veya gerçek metabolizmaya yazmaz. Dönen ``info``
+        fiziksel olayları içerebilir; üst katman bunlardan yalnız ajanın
+        meşru biçimde bilebileceği mekanik/geometrik büyüklükleri seçmelidir.
+        """
+        import copy
+
+        sim = copy.deepcopy(self)
+        next_obs, info = sim.step(int(a))
+        return {
+            "obs": next_obs,
+            "info": info,
+            "position": sim.pos.copy(),
+            "velocity": sim.vel.copy(),
+            "time": int(sim.t),
+        }
+
     # ---- fizik
     def step(self, a):
         dt, info = self.dt, dict(ate=0.0, drank=0.0, hurt=0.0, died=None, ext=False, push=False, puzzle=0.0)
