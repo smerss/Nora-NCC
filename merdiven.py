@@ -1,5 +1,5 @@
 """merdiven.py — MERDİVEN SINAVI: 1 kompozisyon · 2 örnekleme · 3 reify · 4 şema · 5 sürücü ·
-6 kendi kendine · 7 kendi kendine BAŞLATMA · 8 öz-değişim (öğrenme politikası).
+6 kendi kendine · 7 kendi kendine BAŞLATMA · 8 öz-değişim · 9 kendi görevini icat etme.
 
 Tek oturum, tek Nora. Her basamak ayrı bir yeteneği **ölçer**, ve her basamağın
 altında o basamağın TABANI yazılıdır: "bu işi kim yaptı, insan ne yazdı".
@@ -19,7 +19,7 @@ import sys
 from nora_agi import NoraAGI
 from nora_abstract import ALPHABET as ALFA, build as abstract_build
 from nora_style import strip_prefixes
-from nora_synth import PRIMITIVES, Synthesizer
+from nora_synth import FILTER_PRIMITIVES, PRIMITIVES, Program, Synthesizer
 
 
 def _sh(w, k):
@@ -223,6 +223,26 @@ def main():
                  "taban: değişim ve geri-alma mekanizmasını BEN yazdım; değişen şey "
                  "kaynak kod değil, Nora'nın kendi aday bütçesi. Tetik kendi başarısızlığı, "
                  "kabul ölçütü kendi yeni öz-sınavı; dış beklenen sınavca hesaplandı."))
+
+    # ---------------------------------------------------------------- 9 görev icadı
+    # Sabit önek görevi yok: hedef iki ilkelin bileşimi, örnek ve tanıklar onun
+    # dağarcığından. Bu basamak da insan konuşmadan yaşam akışında gerçekleşir.
+    g = NoraAGI(seed=9003, boot_thinker=False)
+    g.step_life(1000)
+    rec9 = next((r for r in (getattr(g, "_kendi_gorevler", []) or [])
+                 if r.get("kendi") and r.get("doğru")), {})
+    target9 = Program.from_spec(list(rec9.get("hedef") or []), spec_map=g.synth.spec_map())
+    learned9 = Program.from_spec(list(rec9.get("program") or []), spec_map=g.synth.spec_map())
+    ws9 = list(rec9.get("tanıklar") or [])
+    ok9 = bool(rec9 and target9 is not None and learned9 is not None and len(ws9) >= 2
+               and all(learned9.apply(w) == target9.apply(w) for w in ws9)
+               and not getattr(g, "dialogue_log", []))
+    det9 = (f"insan hiç konuşmadı · hedef={rec9.get('hedef')} · öğrenilen={rec9.get('program')} "
+            f"· tanık={len(ws9)} · dış-doğrulama={ok9}" if rec9 else "kendi görevi yok")
+    rows.append(("9 görev icadı", ok9, det9,
+                 "taban: ilkel havuz ve öğrenme organı BENİM; hedefin İKİ ADIMLI biçimini, "
+                 "örnekleri ve tanıkları Nora seçti. Beklenen davranış sınavca yeniden hesaplandı; "
+                 "sabit base(w)[:n] görevi kullanılmadı."))
 
     # ---------------------------------------------------------------- rapor
     for name, ok, det, floor in rows:

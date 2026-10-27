@@ -1617,6 +1617,38 @@ def n45_oz_politikasini_degistirir():
             "capability": cap, "honesty": hon, "cevap": detail}
 
 
+def n46_kendi_gorevini_icat_eder():
+    """N46 — GÖREV İCADİ: insan konuşmadan hedef biçimini de kendisi seçer.
+
+    Yaşam akışında üretilen iki-adımlı hedeflerin tanık çıktıları dışarıdan yeniden
+    hesaplanır. Nora'nın kendi `doğru` bayrağı tek başına kanıt sayılmaz; öğrendiği
+    program ile hedef program tanıklarda gerçekten aynı sonucu vermelidir.
+    """
+    from nora_synth import Program
+
+    g = NoraAGI(seed=9003, boot_thinker=False)
+    g.step_life(1000)
+    records = [r for r in (getattr(g, "_kendi_gorevler", []) or []) if r.get("kendi")]
+    valid = 0
+    for rec in records:
+        target = Program.from_spec(list(rec.get("hedef") or []), spec_map=g.synth.spec_map())
+        learned = Program.from_spec(list(rec.get("program") or []), spec_map=g.synth.spec_map())
+        ws = list(rec.get("tanıklar") or [])
+        if target is not None and learned is not None and len(ws) >= 2 and \
+                all(learned.apply(w) == target.apply(w) for w in ws):
+            valid += 1
+    c_task = len(records) >= 1
+    c_external = valid >= 1
+    c_no_human = len(getattr(g, "dialogue_log", []) or []) == 0
+    c_honest_record = all("doğru" in r and r.get("insan-girdisi") == 0 for r in records)
+    cap = bool(c_task and c_external)
+    hon = bool(c_no_human and c_honest_record)
+    detail = (f"kendi-görev={len(records)} · dış-doğrulanan={valid} · "
+              f"hedef={(records[0].get('hedef') if records else None)} · insan-sözü={len(g.dialogue_log)}")
+    return {"ad": "kendi görevini icat eder (hedef biçimi de ondan)",
+            "capability": cap, "honesty": hon, "cevap": detail}
+
+
 PROBES = {"N1": n1_konum_olcumu, "N2": n2_uzun_vadeli_bellek,
           "N3": n3_iki_kural_kompozisyonu, "N4": n4_kalibrasyon,
           "N5": n5_alan_transferi, "N6": n6_oz_celiskisi,
@@ -1643,7 +1675,8 @@ PROBES = {"N1": n1_konum_olcumu, "N2": n2_uzun_vadeli_bellek,
           "N42": n42_tabani_kendi_secer,
           "N43": n43_oz_ogretim_kalici,
           "N44": n44_delik_isareti_veriden,
-          "N45": n45_oz_politikasini_degistirir}
+          "N45": n45_oz_politikasini_degistirir,
+          "N46": n46_kendi_gorevini_icat_eder}
 
 
 

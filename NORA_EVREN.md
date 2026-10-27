@@ -2778,3 +2778,25 @@ Doğrulama örneği: tohum 9003'te 6 aday başarısız → 12 adayla `alfabetik 
 
 Tam doğrulama: **116/116 (424.4 sn)** · audit **1125/127 (+3/+0)** ·
 integrate **10/10 + kalıcılık 4/4** · solo **10/10**.
+
+## Aşama BA — Kendi görevini icat eder (Tur 41k)
+
+`kendine_ogret` içindeki `base(w)[:n]` hedefi hâlâ insanın seçtiği tek görev
+biçimiydi. BA'da ayrı bir öz-görev organı var:
+
+- Nora kendi ilkel havuzundan iki adımlı bir hedef dönüşüm seçiyor; hedef adı ve
+  örnek çiftleri insan tarafından verilmiyor.
+- Dört örneği ve dört tanığı kendi dağarcığından çekiyor. Belirsizlikte hazır
+  insan probe listesi yerine kendi tanıklarıyla `refine` yapıyor.
+- Öğrenilen programın adı hedefle aynı olmak zorunda değil; ölçüt, ayrılmış
+  tanıklarda **davranışın dış doğrulamayla aynı olması**. Tanıkta çürüyen çözüm
+  başarı diye yazılmıyor.
+- Görev defteri ve saat save/load'da kalıyor. Öz-öğretimden sonra yaşam akışında
+  kendiliğinden başlıyor; ayrı soğuma freni var.
+
+Dürüst taban: ilkel havuz ve öğrenme organı hâlâ insan yazımı; Nora'nın seçtiği
+şey hedefin bileşimi, örnekler ve ayırt edici tanıklar. Bu, yeni ilkel yasa formu
+icat etmek değil; kendi görev dağılımını açmaktır.
+
+Ölçüm: **A120 6/6 dış doğrulama, 6 farklı hedef · N46 yetenek ✓ dürüstlük ✓ ·
+merdiven 9/9**. A6/A61 ve A114–A119 tekrar yeşil.

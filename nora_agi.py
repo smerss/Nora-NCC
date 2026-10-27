@@ -540,6 +540,11 @@ class NoraAGI:
         self._oz_aday_butce = 6
         self._oz_degisim: list[dict] = []
         self._son_oz_ogretim_sonuc: dict = {}
+        # KENDİ GÖREV İCADİ: hedef dönüşümün biçimi de sabit değil; defter ve saat
+        # kalıcıdır. Böylece "ne zaman" ile "neyi"nin yanına "hangi görevi" de eklenir.
+        self._kendi_gorevler: list[dict] = []
+        self._son_gorev_age = -10 ** 9
+        self._son_gorev_sonuc: dict = {}
         # PLAN DEFTERİ: kullanıcının verdiği adımlar; koşul değişince YENİDEN kurulur.
         self.plans: dict[str, list[str]] = {}
         # SAYISAL OLGULAR: "Ali'nin boyu 180" -> {"boy": {"ali": 180.0}}
@@ -4714,6 +4719,25 @@ class NoraAGI:
                     led[-1]["kendi"] = True
                     led[-1]["yaş"] = age
                 self._kendi_ogrenme = int(getattr(self, "_kendi_ogrenme", 0)) + 1
+                # Öğretmenlikten sonra görev biçimini de kendisi açar. Ayrı saat
+                # ve fren, bunu her yaşam adımında çalışan bir döngüye çevirmez.
+                self._kendine_gorev_maybe()
+        except Exception:
+            pass
+
+    def _kendine_gorev_maybe(self) -> None:
+        """Öz-öğretim sonrası KENDİ görevini başlat; insan cümlesi gerekmez."""
+        try:
+            age = int(self.mind.age)
+            if age - int(getattr(self, "_son_etkilesim_age", 0) or 0) < 180:
+                return
+            if age - int(getattr(self, "_son_gorev_age", -10 ** 9)) < 600:
+                return
+            r = self.kendine_gorev()
+            self._son_gorev_age = age
+            if r.get("öğrendi") and self._kendi_gorevler:
+                self._kendi_gorevler[-1]["kendi"] = True
+                self._kendi_gorevler[-1]["yaş"] = age
         except Exception:
             pass
 
@@ -4930,6 +4954,86 @@ class NoraAGI:
                  "sınama": sinama, "sözcük": len(words), "insan-girdisi": 0,
                  "aday-bütçe": int(getattr(self, "_oz_aday_butce", 6) or 6)}
         self._son_oz_ogretim_sonuc = sonuc
+        return sonuc
+
+    # ------------------------------------------------------- kendi görevini icat etme
+    def kendine_gorev(self) -> dict:
+        """Kendi hedef dönüşümünü seç, örnek/tanık üret, öğren ve dıştan sına.
+
+        `kendine_ogret` içindeki önek kesme görevi artık tek seçenek değil. Burada
+        hedef, ONUN ilkel havuzundan seçtiği İKİ adımlı bir bileşimdir. İnsan hedef
+        adı, örnek çifti veya beklenen çıktı vermez. Belirsizlikte hazır sözcük
+        listesi yerine kendi çektiği tanıklar kullanılır; öğrenilen program tanıkta
+        hedefi karşılamazsa başarı yazılmaz.
+        """
+        import random as _r
+
+        sy = getattr(self, "synth", None)
+        lex = getattr(getattr(self.lang, "graph", None), "lexicon", None) or set()
+        words = sorted({str(w) for w in lex
+                        if isinstance(w, str) and w.isalpha() and w.islower() and len(w) >= 5})
+        if sy is None or len(words) < 8:
+            sonuc = {"durum": "dağarcık_yetersiz", "öğrendi": False,
+                     "sözcük": len(words), "insan-girdisi": 0}
+            self._son_gorev_sonuc = sonuc
+            return sonuc
+        pool = self._taban_adaylari()
+        if len(pool) < 2:
+            sonuc = {"durum": "ilkel_yetersiz", "öğrendi": False, "insan-girdisi": 0}
+            self._son_gorev_sonuc = sonuc
+            return sonuc
+
+        # Az kullanılan ilkeller önce gelir; onun kullanım geçmişi seçimi yönlendirir.
+        # Her denemede hedef ve sözcükler tohum + kendi görev sayısından değişir.
+        rng = _r.Random(int(self.seed) * 104729 + len(self._kendi_gorevler) * 97 + len(words))
+        havuz = pool[:min(14, len(pool))]
+        bilinen = {tuple(str(x) for x in (p.get("ops") or [])) for p in (sy.programs or [])}
+        hatalar: list[str] = []
+        for _deneme in range(16):
+            sec = rng.sample(havuz, 2)
+            hedef = Program([(str(n), fn) for n, fn in sec], cost=2)
+            spec = hedef.spec()
+            if tuple(spec) in bilinen:
+                continue
+            # 4 örnek + 4 tanık: hem tek-çıktı tuzağına düşme hem de ayırt etme şansı olsun.
+            secili = rng.sample(words, 8)
+            ornek_w, tanik_w = secili[:4], secili[4:]
+            examples = [(w, hedef.apply(w)) for w in ornek_w]
+            if len({o for _a, o in examples}) < 2:
+                hatalar.append("tek-çıktı")
+                continue
+            res = sy.learn(examples)
+            ayirtma = 0
+            # Kendi tanıklarıyla belirsizliği çöz; insanın probe listesi kullanılmaz.
+            ti = 0
+            while res.get("status") == "ambiguous" and ti < len(tanik_w):
+                w = tanik_w[ti]
+                ti += 1
+                res = sy.refine(w, hedef.apply(w))
+                ayirtma += 1
+            if res.get("status") != "adopted" or sy.last is None:
+                hatalar.append(str(res.get("status")))
+                continue
+            kalan = tanik_w[ti:]
+            if len(kalan) < 2:
+                hatalar.append("tanık-yok")
+                continue
+            dogru = all(sy.last.apply(w) == hedef.apply(w) for w in kalan)
+            kayit = {"hedef": spec, "örnekler": [[a, b] for a, b in examples],
+                     "tanıklar": list(kalan), "ayırtma": ayirtma,
+                     "program": sy.last.spec(), "doğru": bool(dogru),
+                     "durum": "tamam" if dogru else "tanıkta-çürüdü",
+                     "insan-girdisi": 0}
+            self._kendi_gorevler.append(kayit)
+            sonuc = dict(kayit)
+            sonuc["öğrendi"] = bool(dogru)
+            self._son_gorev_sonuc = sonuc
+            if dogru:
+                return sonuc
+            hatalar.append("tanıkta-çürüdü")
+        sonuc = {"durum": "görev_kurulamadı", "öğrendi": False,
+                 "deneme": len(hatalar), "hatalar": hatalar[-8:], "insan-girdisi": 0}
+        self._son_gorev_sonuc = sonuc
         return sonuc
 
     # ------------------------------------------------------------------ sürücü
@@ -6500,6 +6604,8 @@ class NoraAGI:
             "son_etkilesim": int(getattr(self, "_son_etkilesim_age", 0) or 0),
             "oz_aday_butce": int(getattr(self, "_oz_aday_butce", 6) or 6),
             "oz_degisim": list(getattr(self, "_oz_degisim", []) or [])[-16:],
+            "kendi_gorevler": list(getattr(self, "_kendi_gorevler", []) or [])[-16:],
+            "son_gorev_age": int(getattr(self, "_son_gorev_age", -10 ** 9) or -10 ** 9),
         }
         # ATOMİK YAZMA: önce .tmp, sonra os.replace. Yazma yarıda kesilirse ESKİ sağlam
         # dosya yerinde kalır (tek satır kaybı bile olmaz; yarım beyin yüklenmez).
@@ -6609,6 +6715,9 @@ class NoraAGI:
                 agi._oz_aday_butce = int(meta.get("oz_aday_butce") or 6)
                 agi._oz_degisim = [r for r in (meta.get("oz_degisim") or [])
                                    if isinstance(r, dict)]
+                agi._kendi_gorevler = [r for r in (meta.get("kendi_gorevler") or [])
+                                       if isinstance(r, dict)]
+                agi._son_gorev_age = int(meta.get("son_gorev_age") or -10 ** 9)
             except Exception:
                 pass
             if getattr(agi, "reify", None) is not None:
