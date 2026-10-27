@@ -3088,3 +3088,71 @@ bilmeme/yapmamayı zorunlu tutar.
 Bağımsız pratik pil **5/5**; mimari **4/4**, persistence **4/4**, seçili eski
 organ-boşluğu/dürüstlük/prior testleri geçti. Tam izole ana pil
 **128/128 (948,5 sn), KALDI=0**; kayıt `/tmp/nora_full_128.log`.
+
+## Aşama BJ — Belgeden anlam çıkaran ve kodu bileşimle kuran pratik katman
+
+İlk üretim sondası, kod organının kısıtları yok saydığını gösterdi: “alt satırlara /
+harf harf” isteğinde yalnız `print("Merhaba Baran!")` üretti; ikinci parafrazda
+gömülü metni `harf harf` diye çıkardı. Belge okuma isteği de kod istemiyle
+karışıyordu. Bu, doğru görünen tek-satır testinin pratik niyeti kapsamadığını
+kanıtladı.
+
+Yeni `nora_semantic_code.py` dört ayrı temsil kullanır:
+
+1. **SemanticGoal:** metin, birim (`character`/`word`), düzen ve çalıştırma isteği.
+2. **Belge öğrenimi:** Markdown, reST ve `>>>` örneklerinden Python AST'si çıkarır;
+   `For`, `print`, `split` ve atama düğümlerini genel operatör anlamlarına dönüştürür.
+   Doğal belgeden `text_sequence` ve `print_newline` olgularını da öğrenir.
+3. **Plan:** amaç durumuna genel operatörleri arayarak ulaşır; hedefe özel
+   `vertical_print` işlevi veya hazır hedef programı yoktur. Başarılı yol yeni bir
+   bileşik operatör olarak saklanır ve yeni metinlerde yeniden kullanılır.
+4. **Bağımsız doğrulama:** üretilen AST `ast.unparse` ile programa çevrilir, ayrı
+   süreçte çalıştırılır ve standart çıktı amaçtan hesaplanan bütün satırlarla
+   birebir karşılaştırılır. Boşluk karakteri ve son yeni satır da karşılaştırmaya
+   dahildir.
+
+Normal yaşam küçük ve genel bir Python ön eğitimiyle başlar; `code_pretrain=False`
+nedensel kontrol sağlar. Ön eğitimsiz organda hedef `semantic_gap` döner. Aynı genel
+belge verildikten sonra `character_view -> iterate -> display` yolu kurulur.
+`iterate` veya `text_sequence` kaldırıldığında, daha önce oluşmuş bileşik operatör
+de başarıyı sürdüremez; state restore ile yeni metinde çalışma geri gelir.
+
+### Gerçek CPython belgeleriyle canlı öğrenme
+
+Belge okuyucu herhangi bir HTTP(S) alan adından metin/JSON/HTML okuyabilir; kaynak
+kodunu çalıştırmaz, yalnız belge ve AST örneklerinden anlam çıkarır. Canlı oturumda
+`code_pretrain=False` ile başlayan Nora'ya `converse` üzerinden şu üç gerçek belge
+okutuldu:
+
+- CPython `Doc/tutorial/controlflow.rst` (3.14): **47 AST örneği**;
+  `bind`, `display`, `iterate`.
+- CPython `Doc/library/functions.rst` (3.12): **51 AST örneği**;
+  `print_newline`.
+- CPython `Doc/library/stdtypes.rst` (3.12): **258 AST örneği**;
+  `split_words`, `text_sequence`.
+
+Toplam **356 AST örneği** sonrasında, hedef cümle veya çevirisi belgelerde yer
+almadan Nora şu programı kurdu ve çalıştırdı:
+
+```python
+for character in 'Merhaba Baran!':
+    print(character)
+```
+
+Gerçek standart çıktı `M`, `e`, `r`, `h`, `a`, `b`, `a`, boşluk, `B`, `a`, `r`,
+`a`, `n`, `!` satırlarıdır; bağımsız oracle **14/14** satırı ve son yeni satırı
+doğruladı. Aynı oturumda sözcük-sözcük istek `split_words -> iterate -> display`
+yoluyla `Merhaba\nBaran!\n` çıktısını verdi. Canlı kayıt:
+`/tmp/nora_practical_web_code.log`.
+
+### Aktarım, ablasyon ve regresyon
+
+- Çevrimdışı pratik pil **5/5**: belge-öncesi/sonrası, gerçek `converse`, beş
+  parafraz/yük aktarımı, iki bileşik operatör, operatör/anlam ablasyonu,
+  save/load.
+- Canlı internet pili **1/1**: üç gerçek CPython belgesi, 356 AST örneği,
+  karakter ve sözcük uygulaması (`practical_language_battery.py --web`).
+- A39/A40 eski kod ve kalıcılık testleri, A73 **8/8**, A76 ve mimari/persistence
+  regresyonları geçti; kod-sözü denetimi **1125/127** ile tarihsel tavanı aşmadı.
+- Ana pil A132 olarak kalıcılaştı. Tam izole koşu **129/129 (947,7 sn), KALDI=0**;
+  kayıt `/tmp/nora_full_129.log`.
