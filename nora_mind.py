@@ -1446,6 +1446,61 @@ class Mind:
         return ("amaç=%s | duygu-tonu=%+.2f ruh-hali=%s(%+.2f) | öz-model hatası=%.2f güven=%.2f | görme=%.2f motor=%.2f"
                 % (goal, self.valence, mood, self.mood, self.err_n, self.conf, self.vis_prec, self.motor_eff))
 
+    # ------------------------------------------------------------ süreklilik: dinamik çalışma durumu
+    _RUNTIME_FIELDS = (
+        "mode", "gamma", "lr", "use_sm", "shape", "ctx", "use_map", "grow",
+        "use_model", "use_imag", "use_replay", "use_anchor", "intro_on", "stakes",
+        "report_loop", "rep_mode", "perc_sem", "modular", "broadcast", "slack_arb",
+        "vis_prec", "vis_base", "_zero_vis", "motor_eff", "motor_ref", "_prev_tok",
+        "cur", "cerr", "oerr", "cool", "prob", "freeze", "n_created", "acc", "B",
+        "mood", "valence", "goal", "ignited", "prev", "pred", "z", "conf", "err_n",
+        "err_vel", "_last_kind", "drift_e", "drift_w", "n_idle", "n_fix_e", "n_fix_w",
+        "ev_mu", "ev_var", "agency_z", "_prev_pos", "err_head", "age", "last_obs",
+        "last_y", "_why", "force", "sensor_bias", "sleep_acc", "sleep_last",
+        "last_reward", "last_act", "look_x", "look_y", "last_self_action",
+    )
+
+    def runtime_state(self) -> dict:
+        """NPZ ağırlıklarının taşımadığı, gelecek adımı etkileyen durumu kodla."""
+        from nora_state import capture_attrs, capture_rng
+        ctx_dynamic = []
+        for c in self.ctxs:
+            ctx_dynamic.append({"S": c.get("S"), "n": c.get("n", 0), "ok": c.get("ok", 0)})
+        return {
+            "version": 1,
+            "fields": capture_attrs(self, self._RUNTIME_FIELDS),
+            "rng": capture_rng(self.rng),
+            "ctx_dynamic": capture_attrs(type("CtxBox", (), {"value": ctx_dynamic})(), ("value",)),
+            "epi": capture_attrs(self.epi, ("cap", "items")),
+            "intro": capture_attrs(self.intro, list(self.intro.__dict__)),
+            "mirror": capture_attrs(self.mirror, list(self.mirror.__dict__)),
+            "map": capture_attrs(self.map, list(self.map.__dict__)),
+            "fc": capture_attrs(self.fc, list(self.fc.__dict__)) if self.fc is not None else {},
+            "mb": capture_attrs(self.mb, ("nov_rate",)),
+        }
+
+    def load_runtime_state(self, data: dict | None) -> None:
+        if not data:
+            return
+        from nora_state import decode, restore_attrs, restore_rng
+        restore_attrs(self, data.get("fields") or {}, strict=True)
+        self.rng = restore_rng(self.rng, data.get("rng"))
+        ctx_box = data.get("ctx_dynamic") or {}
+        ctx_values = (ctx_box.get("values") or {}).get("value") if isinstance(ctx_box, dict) else None
+        if ctx_values is not None:
+            dynamic = decode(ctx_values)
+            for c, d in zip(self.ctxs, dynamic):
+                for key in ("S", "n", "ok"):
+                    if key in d:
+                        c[key] = d[key]
+        restore_attrs(self.epi, data.get("epi") or {}, strict=True)
+        restore_attrs(self.intro, data.get("intro") or {}, strict=True)
+        restore_attrs(self.mirror, data.get("mirror") or {}, strict=True)
+        restore_attrs(self.map, data.get("map") or {}, strict=True)
+        if self.fc is not None and data.get("fc"):
+            restore_attrs(self.fc, data.get("fc") or {}, strict=True)
+        restore_attrs(self.mb, data.get("mb") or {}, strict=True)
+
     # ------------------------------------------------------------ süreklilik: kayıt
     def save(self, path):
         np.savez(path, Wq=np.stack([c['Wq'] for c in self.ctxs]), Wsm=np.stack([c['Wsm'] for c in self.ctxs]),

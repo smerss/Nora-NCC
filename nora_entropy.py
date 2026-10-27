@@ -230,6 +230,22 @@ class Individuality:
         except Exception:
             pass
 
+    def runtime_state(self) -> dict:
+        """Aynı bireyin entropi akışını checkpoint sonrası sürdürmek için."""
+        from nora_state import capture_attrs
+        own = ("uid", "birth_ns", "birth_iso", "phase", "steps", "drift",
+               "race_wins", "_tick_mark", "log")
+        src = ("seed", "birth_ns", "_counter", "_k", "_vac", "_draws", "last_jitter_ns")
+        return {"version": 1, "fields": capture_attrs(self, own),
+                "src": capture_attrs(self.src, src)}
+
+    def load_runtime_state(self, data: dict | None) -> None:
+        if not data:
+            return
+        from nora_state import restore_attrs
+        restore_attrs(self, data.get("fields") or {}, strict=True)
+        restore_attrs(self.src, data.get("src") or {}, strict=True)
+
     def identity_line(self) -> str:
         return f"{self.uid[:6]} · doğum {self.birth_iso}"
 

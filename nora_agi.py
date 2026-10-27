@@ -108,6 +108,7 @@ except Exception:  # sentez organı yoksa sistem yine çalışır
         return []
 from nora_code import CodeSynthesisCortex
 from nora_prediction import UnifiedPredictor
+from nora_causal import CausalTransitionModel
 
 
 @dataclass
@@ -385,6 +386,9 @@ class NoraAGI:
         # Üç kaynaklı genel ileri öngörü: gövde + nedensel grafik + fizik.
         # Bu nesne yalnız mevcut organları okur; ayrı bir olgu/ödül tabanı değildir.
         self.predictor = UnifiedPredictor(self)
+        # Geçişlerden öğrenilen dördüncü bir olgu tabanı değil; beden deneyiminin
+        # istatistiksel olarak ayrı tutulan kanalı. İlk kanıt oluşmadan tahmin vermez.
+        self.causal = CausalTransitionModel()
         self._prediction_target = ""
         self.plastic_discourse = PlasticDiscourseCortex(chem=self.chem, seed=seed + 19)
         self.auto_net = AutonomousConsciousnessNetwork()
@@ -981,6 +985,9 @@ class NoraAGI:
                                     parents=(action_offer.get("signal"),))
             act = self._autonomic_survival_reflex(raw_act)
             self.obs, info = self.world.step(act)
+            # Gerçek müdahale kaydı: yalnız duyulan önce/sonra ve seçilen eylem.
+            # world.poison gibi gizli dünya bayrakları bu öğreniciye verilmez.
+            self.causal.observe(prev_obs, int(act), self.obs, intervened=True)
             self.died = info["died"] is not None
             if bus is not None and bus.has_listeners("body.transition"):
                 parents = tuple(x for x in ((obs_signal.id if obs_signal is not None else ""),
@@ -6725,6 +6732,67 @@ class NoraAGI:
             pass
 
     # ------------------------------------------------------------------ 4) Kaydet / Yükle
+    _RUNTIME_FIELDS = (
+        "obs", "died", "last_epistemic", "last_code", "last_utterance_class",
+        "_turn_mint_label", "macros", "last_gw_trace", "last_turn_latency_ms",
+        "dialogue_log", "pending_research", "last_meta_question", "last_meta_repeat",
+        "last_meta_thought", "_exam_age_mark", "wallclock_steps", "last_gap_s",
+        "_goals", "_goal", "_goal_turn0", "_plan_goal", "plans", "_conf_pending",
+        "_turn_path", "_prev_answers", "_notice_spoken", "_voice_label", "_narrated",
+        "_joked", "last_proactive", "_session0", "_forge_pending",
+        "_son_oz_ogretim_sonuc", "_son_gorev_sonuc", "_journal_life_acc",
+    )
+    _LIFE_RUNTIME_FIELDS = (
+        "rng", "hab", "outbox", "summaries", "news", "rates_log", "sources", "stride",
+        "enabled", "unanswered", "last_interaction_age", "last_sleep_age", "last_reach_age",
+        "prev_oxy", "t", "tick_seconds", "stats",
+    )
+
+    def _runtime_state(self) -> dict:
+        from nora_state import capture_attrs, capture_rng, encode
+        life = capture_attrs(self.life, self._LIFE_RUNTIME_FIELDS)
+        # Bu iki organın mevcut state_dict'i olmayan kısa dinamik belleği de gelecek
+        # turu etkiler; yalnız ilkel/RNG/kapsayıcı alanları taşınır.
+        deliberation = capture_attrs(self.deliberation, list(self.deliberation.__dict__))
+        speculation = capture_attrs(self.speculation, list(self.speculation.__dict__))
+        return {
+            "version": 1,
+            "fields": capture_attrs(self, self._RUNTIME_FIELDS),
+            "world": self.world.state_dict(),
+            "mind": self.mind.runtime_state(),
+            "causal": self.causal.state_dict(),
+            "nervous": self.nervous.state_dict(),
+            "mortality": self.mortality.state_dict(),
+            "life": life,
+            "deliberation": deliberation,
+            "speculation": speculation,
+            "individuality": (self.entropy.runtime_state() if getattr(self, "entropy", None) is not None else {}),
+            "say_rng": capture_rng(self._say_rng),
+            "bus": encode(self.bus.state_dict()) if getattr(self, "bus", None) is not None else {},
+        }
+
+    def _load_runtime_state(self, data: dict | None) -> None:
+        if not data:
+            return
+        from nora_state import decode, restore_attrs, restore_rng
+        self.world.load_state_dict(data.get("world") or {})
+        self.mind.load_runtime_state(data.get("mind") or {})
+        self.causal.load_state_dict(data.get("causal") or {})
+        self.nervous.load_state_dict(data.get("nervous") or {})
+        self.mortality.load_state_dict(data.get("mortality") or {})
+        if getattr(self, "entropy", None) is not None and data.get("individuality"):
+            self.entropy.load_runtime_state(data.get("individuality") or {})
+        restore_attrs(self, data.get("fields") or {}, strict=True)
+        restore_attrs(self.life, data.get("life") or {}, strict=True)
+        restore_attrs(self.deliberation, data.get("deliberation") or {}, strict=True)
+        restore_attrs(self.speculation, data.get("speculation") or {}, strict=True)
+        self._say_rng = restore_rng(self._say_rng, data.get("say_rng"))
+        if getattr(self, "bus", None) is not None and data.get("bus"):
+            self.bus.load_state_dict(decode(data["bus"]))
+        # Duvar saati dış dünyaya aittir; eski zaman damgasını yükleyip yapay bir
+        # sessizlik/ölüm aralığı yaratma. Yaşam sayaçları yukarıda korunur.
+        self.last_real_time = time.time()
+
     def save(self, path_prefix: str):
         meta = {
             "name": self.name,
@@ -6777,6 +6845,9 @@ class NoraAGI:
             "kendi_gorevler": list(getattr(self, "_kendi_gorevler", []) or [])[-16:],
             "gorev_derinligi": int(getattr(self, "_gorev_derinligi", 2) or 2),
             "son_gorev_age": int(getattr(self, "_son_gorev_age", -10 ** 9) or -10 ** 9),
+            # Ağırlıklar dışında kalan gelecek-davranış durumu; eski kayıtlarda yoksa
+            # load bunu atlar ve geriye uyumlu kalır.
+            "runtime": self._runtime_state(),
         }
         # ATOMİK YAZMA: önce .tmp, sonra os.replace. Yazma yarıda kesilirse ESKİ sağlam
         # dosya yerinde kalır (tek satır kaybı bile olmaz; yarım beyin yüklenmez).
@@ -6973,6 +7044,9 @@ class NoraAGI:
                 agi.ear.load_state_dict(meta.get("voices") or {})
         except Exception:
             pass
+        # Dinamik yaşam durumu en son geri yazılır: organların eski state_dict'leri
+        # bazı alanları varsayılan bırakır; runtime katmanı bunları tek kaynaktan eşitler.
+        agi._load_runtime_state(meta.get("runtime") or {})
         # Günlük varsa yaşam kaldığı yerden kaydedilmeye devam eder (kayıtlar korunur).
         _jp = str(meta.get("journal_path") or "") or (path_prefix + ".journal.ndjson")
         if os.path.exists(_jp):

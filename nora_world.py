@@ -107,6 +107,21 @@ class Universe:
         self.e = self.w = self.i = 0.8
         self.lives += 1
 
+    # ---- tam çalışma-zamanı snapshot'ı
+    def state_dict(self) -> dict:
+        """Yalnız ağırlıkları değil, gelecek fiziği etkileyen bütün alanları taşı."""
+        from nora_state import capture_attrs, capture_rng
+        names = [k for k in self.__dict__ if k != "rng"]
+        return {"version": 1, "fields": capture_attrs(self, names),
+                "rng": capture_rng(self.rng)}
+
+    def load_state_dict(self, data: dict | None) -> None:
+        if not data:
+            return
+        from nora_state import restore_attrs, restore_rng
+        restore_attrs(self, data.get("fields") or {}, strict=True)
+        self.rng = restore_rng(getattr(self, "rng", None), data.get("rng"))
+
     # ---- gün/gece
     def light(self):
         return 0.5 + 0.5 * np.cos(2 * np.pi * self.t / self.day_len)
