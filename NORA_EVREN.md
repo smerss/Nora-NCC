@@ -2800,3 +2800,5 @@ icat etmek değil; kendi görev dağılımını açmaktır.
 
 Ölçüm: **A120 6/6 dış doğrulama, 6 farklı hedef · N46 yetenek ✓ dürüstlük ✓ ·
 merdiven 9/9**. A6/A61 ve A114–A119 tekrar yeşil.
+
+Tam doğrulama: **117/117 (454.1 sn)**.
