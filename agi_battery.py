@@ -5346,6 +5346,41 @@ def a120_kendi_gorevini_icat_eder() -> tuple[bool, str]:
     return all(ok.values()), detail
 
 
+def a121_kendi_deney_sözcüklerini_üretir() -> tuple[bool, str]:
+    """A121 — DENEY VERİSİ: tanık dizgeleri Nora üretir, bilgi diye kaydetmez.
+
+    Örnekler dağarcıktan gelirken ayırt edici tanıklar Nora'nın harf envanterinden
+    ürettiği nonce dizgelerdir. Bu dizgeler lexicon'a eklenmez; yalnız dıştan
+    doğrulanabilen dönüşüm deneyinde kullanılır. Böylece yeni veri üretmek, olgu
+    uydurmakla karıştırılmaz.
+    """
+    from nora_synth import Program
+
+    g = NoraAGI(seed=9101, boot_thinker=False)
+    g.step_life(100)
+    lex = set(getattr(g.lang.graph, "lexicon", set()) or set())
+    r = g.kendine_gorev()
+    novel = [w for w in (r.get("tanıklar") or []) if w not in lex]
+    target = Program.from_spec(list(r.get("hedef") or []), spec_map=g.synth.spec_map())
+    learned = Program.from_spec(list(r.get("program") or []), spec_map=g.synth.spec_map())
+    ok = {}
+    ok["nonce-tanık-var"] = len(novel) >= 2
+    ok["dış-doğrulama"] = bool(target is not None and learned is not None and
+                               all(learned.apply(w) == target.apply(w) for w in novel))
+    ok["sözlüğe-yazılmadı"] = all(w not in g.lang.graph.lexicon for w in novel)
+    ok["kayıt-ayrımı"] = len(list(r.get("yeni-tanıklar") or [])) >= 2 and \
+        r.get("insan-girdisi") == 0
+
+    h = NoraAGI(seed=9108, boot_thinker=False)
+    h.step_life(100)
+    h.lang.graph.lexicon.clear()
+    rh = h.kendine_gorev()
+    ok["boşken-uydurmaz"] = not rh.get("öğrendi") and "yetersiz" in str(rh.get("durum"))
+    detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
+    detail += f" · nonce={len(novel)} · tanıklar={novel[:2]}"
+    return all(ok.values()), detail
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -5461,6 +5496,7 @@ TESTS = {
     "A118": ("delik işareti veriden: ada özel aile regex'i olmadan şema", a118_delik_isareti_veriden),
     "A119": ("öz-değişim: başarısızlıktan öğrenme politikasını değiştirir", a119_oz_politikasini_degistirir),
     "A120": ("kendi görevini icat eder: hedef biçimi ve tanıklar ondan", a120_kendi_gorevini_icat_eder),
+    "A121": ("kendi deney sözcüklerini üretir: nonce tanık, bilgi değil", a121_kendi_deney_sözcüklerini_üretir),
     "A111": ("icadın şeması: görülmemiş parametre icat gerektirmez", a111_icadin_semasi),
     "A110": ("dil: buyruk sarmalayıcısı ve X mi Y mi seçim sorusu", a110_sarmalayici_ve_secim_sorusu),
     "A108": ("şema: delikli makro görülmemiş parametreyi kapsar", a108_sema_delikli_makro),
