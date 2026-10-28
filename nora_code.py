@@ -31,6 +31,7 @@ from pathlib import Path
 
 import numpy as np
 
+from nora_architecture import capability
 from nora_broca import NP, VerbSpec, TurkishSyntaxEngine
 from nora_lang import tr_capitalize, tr_lower
 from nora_semantic_code import CompositionalCodeLearner, SemanticGoal, ProgramPlan
@@ -419,6 +420,8 @@ class CodeSynthesisCortex:
         return result
 
     # --------------------------------------------------------------- ana giriş
+    @capability("request", "code_result",
+                validator=lambda value: isinstance(value, dict) and bool(value.get("ok")))
     def handle(self, request: str) -> dict:
         t0 = time.perf_counter()
         goal = self.semantic.request(request)

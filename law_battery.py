@@ -112,6 +112,53 @@ def nora_induce_plan_checkpoint() -> tuple[bool, str]:
                 pass
 
 
+def latent_representation_opens_only_when_needed() -> tuple[bool, str]:
+    """Eski akış ifadeleri yetmezse gizli durumlu temsil aç; held-out'ta sına."""
+    from nora_semantic_code import CompositionalCodeLearner
+
+    def oracle(text):
+        parity = 0
+        output = []
+        for character in text:
+            if character == "a":
+                parity = 1 - parity
+            output.append(str(parity))
+        return "".join(output)
+
+    def pairs(texts):
+        return [(text, oracle(text)) for text in texts]
+
+    learner = CompositionalCodeLearner()
+    learner.load_primer("data/python_semantics_primer.md")
+    before = learner.representation_kinds()
+    train = pairs(["abca", "cba", "bac", "cca", "abcabc", "cbacba"])
+    validation = pairs(["acbb", "ccaa", "baca"])
+    result = learner.invent_representation(train, validation)
+    heldout = ["cabca", "bbaca", "ccabca"]
+    outputs = [learner.apply_representation(result.get("id"), text) for text in heldout]
+    expected = [oracle(text) for text in heldout]
+    saved = learner.state_dict()
+    if result.get("id") in learner.representations:
+        learner.representations[result["id"]]["transitions"] = []
+    ablated = learner.apply_representation(result.get("id"), heldout[0])
+    learner.load_state_dict(saved)
+    restored = learner.apply_representation(result.get("id"), heldout[0])
+
+    control = CompositionalCodeLearner()
+    control.load_primer("data/python_semantics_primer.md")
+    existing = control.invent_representation(
+        [("ab", "ab"), ("xy", "xy")], [("pq", "pq")],
+    )
+    ok = (result.get("status") == "invented"
+          and result.get("kind") not in before and result.get("states", 0) > 1
+          and outputs == expected and ablated is None and restored == expected[0]
+          and existing.get("status") == "existing" and not control.representations)
+    detail = (f"durum={result.get('status')} tür={result.get('kind')} durum-sayısı={result.get('states')} | "
+              f"held-out={outputs} beklenen={expected} | ablasyon={ablated} restore={restored} | "
+              f"eski-temsil-kontrolü={existing.get('status')}")
+    return ok, detail
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--repeat", type=int, default=1)
@@ -120,7 +167,8 @@ def main():
              ("Y2 sembolik yasa → bağımsız plan", learned_law_plans),
              ("Y3 lineer ablasyon karşılaştırması", linear_ablation),
              ("Y4 audit reddi + atomik fit", audit_rejects_and_atomic_fit),
-             ("Y5 Nora induce→plan→checkpoint", nora_induce_plan_checkpoint)]
+             ("Y5 Nora induce→plan→checkpoint", nora_induce_plan_checkpoint),
+             ("Y6 gerektiğinde gizli-durum temsili açma", latent_representation_opens_only_when_needed)]
     failed = 0
     t0 = time.time()
     for _ in range(max(1, args.repeat)):

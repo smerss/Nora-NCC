@@ -9,7 +9,10 @@ orijinali korunur.
 from __future__ import annotations
 
 import argparse
+import json
 import os
+import subprocess
+import sys
 import tempfile
 import time
 
@@ -146,6 +149,73 @@ def safety_boundary() -> tuple[bool, str]:
         d.cleanup()
 
 
+def _external_reverse_battery(workspace: SourceWorkspace) -> dict:
+    """Aday üretiminde kullanılmayan, ayrı Python sürecinde çalışan kabul pili."""
+    cases = ["dış sınav", "ab cd", "12345", "Nora!"]
+    script = """import json, runpy, sys
+namespace = runpy.run_path(sys.argv[1])
+function = namespace['transform']
+cases = json.loads(sys.argv[2])
+results = [function(value) == value[::-1] for value in cases]
+print(json.dumps({'passed': sum(results), 'total': len(results)}))
+raise SystemExit(0 if all(results) else 1)
+"""
+    proc = subprocess.run(
+        [sys.executable, "-I", "-c", script, workspace.path("target.py"), json.dumps(cases)],
+        capture_output=True, text=True, timeout=10,
+    )
+    return {"status": "passed" if proc.returncode == 0 else "failed",
+            "returncode": proc.returncode, "stdout": proc.stdout.strip(),
+            "stderr": proc.stderr.strip()}
+
+
+def approval_battery_and_rollback() -> tuple[bool, str]:
+    original = "def transform(x):\n    return x\n"
+    d, ws = _workspace(original)
+    try:
+        modifier = SelfModifier(ws, synthesizer=ExpressionSynthesizer(max_depth=3, max_exprs=3000))
+        train = _cases(["ab", "xyz", "kalem"], lambda value: value[::-1])
+        validation = _cases(["nora", "qrs"], lambda value: value[::-1])
+        proposal = modifier.propose_patch("target.py", "transform", ["x"],
+                                          train=train, validation=validation)
+        calls = []
+        battery = lambda: calls.append(1) or _external_reverse_battery(ws)
+        unapproved = modifier.apply_patch(proposal, battery=battery, approved=False)
+        unchanged_without_approval = ws.read("target.py") == original and not calls
+        accepted = modifier.apply_patch(proposal, battery=battery, approved=True)
+        kept_source = ws.read("target.py")
+        kept_ok = (accepted.get("status") == "accepted" and len(calls) == 1
+                   and kept_source != original
+                   and ws.evaluate("target.py", "transform",
+                                   _cases(["taze", "heldout"], lambda value: value[::-1]))["score"] == 1.0)
+    finally:
+        d.cleanup()
+
+    bad_original = "def transform(x):\n    return ''\n"
+    d2, ws2 = _workspace(bad_original)
+    try:
+        modifier2 = SelfModifier(ws2, synthesizer=ExpressionSynthesizer(max_depth=3, max_exprs=3000))
+        # Palindromlar kimlik ve ters çevirmeyi ayırt etmez; dış pil ayırt eder.
+        train2 = _cases(["aa", "bb"], lambda value: value[::-1])
+        validation2 = _cases(["cc"], lambda value: value[::-1])
+        proposal2 = modifier2.propose_patch("target.py", "transform", ["x"],
+                                            train=train2, validation=validation2)
+        rejected = modifier2.apply_patch(proposal2, battery=lambda: _external_reverse_battery(ws2),
+                                         approved=True)
+        rollback_ok = (rejected.get("status") == "rolled_back"
+                       and ws2.read("target.py") == bad_original)
+    finally:
+        d2.cleanup()
+    ok = (proposal.get("status") == "proposed" and unapproved.get("status") == "approval-required"
+          and unchanged_without_approval and kept_ok and proposal2.get("status") == "proposed"
+          and rollback_ok)
+    detail = (f"öneri={proposal.get('status')}:{proposal.get('expression')} | "
+              f"onaysız={unapproved.get('status')} değişim={not unchanged_without_approval} | toplam-pil={len(calls)} | "
+              f"kabul={accepted.get('status')} | dış-pil-ret={rejected.get('status')} | "
+              f"kayıp-yama={proposal2.get('expression')} rollback={rollback_ok}")
+    return ok, detail
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--repeat", type=int, default=1)
@@ -156,7 +226,8 @@ def main():
              ("E4 audit başarısız → rollback", audit_rolls_back),
              ("E5 no-need ve çözülemeyende dürüstlük", no_need_and_unresolved),
              ("E6 timeout sonrası rollback", timeout_rolls_back),
-             ("E7 güvenli AST ve çalışma alanı sınırı", safety_boundary)]
+             ("E7 güvenli AST ve çalışma alanı sınırı", safety_boundary),
+             ("E8 öneri + onay + bağımsız pil + rollback", approval_battery_and_rollback)]
     failed = 0
     t0 = time.time()
     for _ in range(max(1, args.repeat)):

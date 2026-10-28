@@ -85,6 +85,7 @@ class CognitiveBus:
         self.dropped = 0
         self.errors: list[dict] = []
         self.last_winner: dict | None = None
+        self._module_inboxes: dict[str, list[Signal]] = {}
 
     # ------------------------------------------------------------------ abonelik
     def subscribe(self, pattern: str, callback: Callable[[Signal], Any], *,
@@ -125,6 +126,51 @@ class CognitiveBus:
                  "enabled": s.enabled, "calls": s.calls, "failures": s.failures}
                 for s in self._subs]
 
+    def sync_modules(self, modules: dict[str, Any]) -> None:
+        """Mimari organ kümesini genel yayın alıcılarıyla tek seferde eşitle.
+
+        Her organ için ayrı konu köprüsü yazılmaz. Alıcılar özel konu yayınlarını
+        dinlemez; ``publish_global`` bütün etkin alıcılara aynı sinyali ulaştırır.
+        """
+        prefix = "module."
+        wanted = {str(name) for name in modules}
+        existing = {sub.name[len(prefix):] for sub in self._subs if sub.name.startswith(prefix)}
+        for name in existing - wanted:
+            self.unsubscribe(prefix + name)
+            self._module_inboxes.pop(name, None)
+        for name, obj in modules.items():
+            key = str(name)
+            if key in existing:
+                continue
+
+            def receive(signal, key=key, obj=obj):
+                inbox = self._module_inboxes.setdefault(key, [])
+                inbox.append(signal)
+                del inbox[:-8]
+                # Ortak alıcı protokolü olan organ sinyali doğrudan işler; diğerleri
+                # aynı sinyali sınırlı gelen kutularından okuyabilir.
+                try:
+                    callback = getattr(obj, "receive_broadcast", None)
+                    if callable(callback):
+                        callback(signal)
+                    else:
+                        local = getattr(obj, "broadcast_inbox", None)
+                        if local is None:
+                            local = []
+                            setattr(obj, "broadcast_inbox", local)
+                        local.append(signal)
+                        del local[:-8]
+                except Exception as exc:
+                    # Veri yolundaki kayıt alındığını kanıtlar; organ tarafındaki
+                    # özel işleme hatası yayını başka organlardan etkilemez.
+                    self.errors.append({"signal": signal.id, "subscriber": prefix + key,
+                                        "error": f"{type(exc).__name__}: {exc}"})
+
+            self.subscribe("\0global", receive, name=prefix + key)
+
+    def module_inbox(self, name: str) -> list[Signal]:
+        return list(self._module_inboxes.get(str(name), ()))
+
     def has_listeners(self, topic: str) -> bool:
         """Bu konu için etkin abone var mı? Boş yaşam döngüsünde kopya maliyetini önler."""
         return any(s.enabled and fnmatch.fnmatchcase(str(topic), s.pattern)
@@ -133,7 +179,7 @@ class CognitiveBus:
     # ------------------------------------------------------------------ yayın
     def publish(self, topic: str, payload: Any = None, *, source: str = "unknown",
                 kind: str = "event", confidence: float = 1.0,
-                parents=(), _deliver: bool = True) -> Signal:
+                parents=(), _deliver: bool = True, _everyone: bool = False) -> Signal:
         if self._dispatch_depth > self.max_dispatch_depth:
             self.dropped += 1
             raise RuntimeError("publish feedback depth exceeded")
@@ -152,7 +198,9 @@ class CognitiveBus:
             self._dispatch_depth += 1
             try:
                 for sub in tuple(self._subs):
-                    if not sub.enabled or not fnmatch.fnmatchcase(sig.topic, sub.pattern):
+                    if not sub.enabled:
+                        continue
+                    if not _everyone and not fnmatch.fnmatchcase(sig.topic, sub.pattern):
                         continue
                     sub.calls += 1
                     try:
@@ -175,6 +223,12 @@ class CognitiveBus:
         return sig
 
     broadcast = publish
+
+    def publish_global(self, topic: str, payload: Any = None, *, source: str = "unknown",
+                       kind: str = "broadcast", confidence: float = 1.0, parents=()) -> Signal:
+        """Aynı bütünleşik sinyali konu filtresinden bağımsız bütün etkin organlara dağıt."""
+        return self.publish(topic, payload, source=source, kind=kind, confidence=confidence,
+                            parents=parents, _everyone=True)
 
     # ------------------------------------------------------------------ yarışma
     def auction(self, topic: str, payload: Any = None, *, source: str = "unknown",
