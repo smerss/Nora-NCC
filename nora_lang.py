@@ -2599,6 +2599,18 @@ class WernickeComprehender:
         return out
 
     def _extract_math(self, s: str) -> tuple[int, str, int] | None:
+        def number_token(token: str) -> str | None:
+            normalized = TurkishMorphology.normalize_num_token(token)
+            if normalized is not None:
+                return normalized
+            # Aynı kavram ağında öğrenilmiş sembol-değer bilgisi, matematikte de
+            # kullanılır. Kalıtsal sınıf özelliği değil, doğrudan ve tekil bağ gerekir.
+            values = {
+                int(edge.obj) for edge, path in self.graph.query(tr_lower(token), ("NUMERIC_VALUE",))
+                if not path and re.fullmatch(r"-?\d+", str(edge.obj))
+            }
+            return str(next(iter(values))) if len(values) == 1 else None
+
         # 1) Rakamlı ifade: '247 + 389', '84 eksi 59', '125 ile 47 toplamı'
         m = re.search(r"(-?\d+)\s*(\+|\-|artı|eksi|topla|çıkar|ile)\s*(-?\d+)", s)
         if m:
@@ -2613,10 +2625,11 @@ class WernickeComprehender:
         for kw, op in ((" artı ", "+"), (" eksi ", "-"), (" ile ", "+" if "fark" not in s else "-")):
             if kw in s and ("kaç" in s or "eder" in s or "toplam" in s or "fark" in s or "sonuç" in s or "?" in s):
                 left, right = s.split(kw, 1)
-                ltoks = [nt for t in re.findall(r"[\wçğıöşü]+", left) if (nt := TurkishMorphology.normalize_num_token(t)) is not None]
+                ltoks = [nt for t in re.findall(r"[\wçğıöşü]+", left)
+                         if (nt := number_token(t)) is not None]
                 rtoks = []
                 for t in re.findall(r"[\wçğıöşü]+", right):
-                    nt = TurkishMorphology.normalize_num_token(t)
+                    nt = number_token(t)
                     if nt is not None:
                         rtoks.append(nt)
                     elif rtoks:
@@ -2665,6 +2678,24 @@ class WernickeComprehender:
             m_an = re.search(r"([\wçğıöşü]+)\s+([\wçğıöşü]+)\s+ise\s+([\wçğıöşü]+)\s+nedir", s)
         if m_an:
             return SemanticFrame(kind="analogy_query", raw=s_raw, analogy=(m_an.group(1), m_an.group(2), m_an.group(3)))
+
+        # 2a) Sayısal sembol bağlama: 'alfa bir demektir' gibi genel bir olgu.
+        # Sağ tarafın tamamı sayı olarak çözümlenebiliyorsa özel isim/taksonomi değil,
+        # diğer alanların da okuyabileceği paylaşılan NUMERIC_VALUE bilgisidir.
+        statement = s.strip().rstrip(".!?")
+        numeric_definition = re.fullmatch(
+            r"([\wçğıöşü+\-×÷=<>%√²³π∞]{1,32})\s+(.+?)\s+demektir", statement,
+        )
+        if numeric_definition:
+            number_tokens = re.findall(r"[\wçğıöşü]+", numeric_definition.group(2))
+            if (number_tokens and all(TurkishMorphology.normalize_num_token(token) is not None
+                                      for token in number_tokens)):
+                value = TurkishMorphology.words_to_int(number_tokens)
+                if value is not None:
+                    return SemanticFrame(
+                        kind="teach_fact", raw=s_raw, subj=numeric_definition.group(1),
+                        rel="NUMERIC_VALUE", obj=str(value),
+                    )
 
         # 2) Matematik / Aritmetik sorgusu
         math_ex = self._extract_math(s)

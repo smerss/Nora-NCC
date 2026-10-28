@@ -21,7 +21,7 @@ import re
 from typing import Any
 import urllib.request
 
-from nora_lang import tr_lower
+from nora_lang import TurkishMorphology, tr_lower
 
 
 _QUOTES = (
@@ -48,14 +48,19 @@ class SemanticGoal:
     raw: str
     trace: tuple[str, ...] = field(default_factory=tuple)
     cumulative: bool = False
+    cumulative_step: int = 1
 
     @property
     def key(self) -> tuple[str, str]:
-        return self.unit, self.layout + ("+cumulative" if self.cumulative else "")
+        suffix = "+cumulative" if self.cumulative else ""
+        if self.cumulative and self.cumulative_step != 1:
+            suffix += f":{self.cumulative_step}"
+        return self.unit, self.layout + suffix
 
     def units(self) -> list[str]:
         if self.cumulative and self.unit == "character":
-            return [self.payload[:index] for index in range(1, len(self.payload) + 1)]
+            step = max(1, int(self.cumulative_step))
+            return [self.payload[:index] for index in range(step, len(self.payload) + 1, step)]
         if self.unit == "character":
             return list(self.payload)
         if self.unit == "word":
@@ -71,7 +76,7 @@ class SemanticGoal:
     def state_dict(self) -> dict:
         return {"payload": self.payload, "unit": self.unit, "layout": self.layout,
                 "execute": self.execute, "raw": self.raw, "trace": list(self.trace),
-                "cumulative": self.cumulative}
+                "cumulative": self.cumulative, "cumulative_step": int(self.cumulative_step)}
 
 
 @dataclass(frozen=True)
@@ -80,6 +85,21 @@ class ProgramPlan:
     program: str
     expected: str
     trace: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class TransformationGoal:
+    """Belgede öğrenilmiş bir değer/dizgi dönüşümünün yeni girdiye uygulanması."""
+
+    payload: str
+    operation: str
+    raw: str
+    reference: str = ""
+    trace: tuple[str, ...] = field(default_factory=tuple)
+
+    @property
+    def key(self) -> tuple[str, str]:
+        return "transformation", self.operation
 
 
 class CompositionalCodeLearner:
@@ -94,6 +114,9 @@ class CompositionalCodeLearner:
         # küçük programların taşınabilir temsilleridir.
         self.stream_operators: dict[str, dict[str, Any]] = {}
         self.representations: dict[str, dict[str, Any]] = {}
+        self.value_decoders: dict[str, dict[str, Any]] = {}
+        self.string_transforms: dict[str, dict[str, Any]] = {}
+        self.cumulative_rules: dict[str, int] = {}
         self.documents: list[str] = []
         self.learning_events = 0
         self.failure_experiments = 0
@@ -123,14 +146,54 @@ class CompositionalCodeLearner:
     def _unit(text: str) -> str:
         character = re.search(r"\b(?:harf|karakter)[\wçğıöşü]*", text)
         word = re.search(r"\b(?:sözcük|kelime)[\wçğıöşü]*", text)
+        syllable = re.search(r"\bhece[\wçğıöşü]*", text)
         if character and (not word or character.start() > word.start()):
             return "character"
         if word:
             return "word"
+        if syllable:
+            return "syllable"
         return "whole"
 
-    def request(self, raw: str) -> SemanticGoal | None:
-        """Ground only constrained display requests; simple requests use the legacy path."""
+    def _transformation_request(self, raw: str) -> TransformationGoal | None:
+        """Açık dönüşüm isteklerini gömülü metin ve işlem referansıyla ayır."""
+        decimal = re.match(
+            r"^\s*(.+?)(?:'[\wçğıöşü]*)?\s+"
+            r"(?:ondalığa|ondalık|sayıya|decimal)\s+çevir\b",
+            raw, flags=re.IGNORECASE,
+        )
+        if decimal and decimal.group(1).strip():
+            payload = decimal.group(1).strip(" ,.:;-\n\t")
+            return TransformationGoal(
+                payload, "decimal", raw,
+                trace=(f"payload_length={len(payload)}", "operation=decimal"),
+            )
+
+        payload, _start, _end = self._payload(raw)
+        if not payload:
+            return None
+        low = tr_lower(raw)
+        reference = ""
+        for name, record in self.string_transforms.items():
+            alias = tr_lower(str(record.get("name") or ""))
+            if alias and re.search(r"\b" + re.escape(alias) + r"\b", low):
+                reference = name
+                break
+        anaphoric = bool(re.search(r"\bbu\s+işlem", low))
+        applies = bool(re.search(r"(?:işlemden\s+geçir|dönüştür|transform|uygula)", low))
+        if applies and (anaphoric or reference):
+            return TransformationGoal(
+                payload, "string", raw, reference,
+                (f"payload_length={len(payload)}", "operation=string",
+                 f"reference={reference or 'latest'}"),
+            )
+        return None
+
+    def request(self, raw: str) -> SemanticGoal | TransformationGoal | None:
+        """Ground constrained transformations and display requests."""
+        transformed = self._transformation_request(raw)
+        if transformed is not None:
+            return transformed
         payload, start, end = self._payload(raw)
         if not payload:
             return None
@@ -144,9 +207,16 @@ class CompositionalCodeLearner:
             return None
         execute = any(cue in low for cue in ("çalıştır", "yürüt", "run"))
         cumulative = any(cue in low for cue in _CUMULATIVE)
+        cumulative_step = 1
+        for phrase, step in sorted(self.cumulative_rules.items(), key=lambda row: -len(row[0])):
+            if phrase in low:
+                cumulative = True
+                cumulative_step = max(1, int(step))
+                break
         trace = (f"payload_length={len(payload)}", f"unit={unit}", f"layout={layout}",
-                 f"execute={execute}", f"cumulative={cumulative}")
-        return SemanticGoal(payload, unit, layout, execute, raw, trace, cumulative)
+                 f"execute={execute}", f"cumulative={cumulative}",
+                 f"cumulative_step={cumulative_step}")
+        return SemanticGoal(payload, unit, layout, execute, raw, trace, cumulative, cumulative_step)
 
     # -------------------------------------------------------------- document learning
     @staticmethod
@@ -210,15 +280,162 @@ class CompositionalCodeLearner:
                     elif isinstance(name, ast.Attribute) and name.attr == "split" and not node.args:
                         self.operators.add("split_words")
         invented = self._learn_stream_relations(text)
+        decoders = self._learn_value_decoders(text)
+        transforms = self._learn_string_transforms(text)
+        cumulative = self._learn_cumulative_rules(text)
         self.learning_events += 1
         self.documents.append(str(source))
         self.documents = self.documents[-40:]
         new_ops = sorted(self.operators - before_ops)
         new_facts = sorted(set(self.facts) - before_facts)
-        return {"ok": bool(parsed or new_facts or invented), "source": source, "parsed": parsed,
-                "new_operators": new_ops + [f"invented:{name}" for name in invented],
+        learned = ([f"invented:{name}" for name in invented]
+                   + [f"decoder:{name}" for name in decoders]
+                   + [f"transform:{name}" for name in transforms]
+                   + [f"cumulative:{phrase}" for phrase in cumulative])
+        return {"ok": bool(parsed or new_facts or learned), "source": source, "parsed": parsed,
+                "new_operators": new_ops + learned,
                 "new_facts": new_facts, "operators": sorted(self.operators),
-                "invented": invented, "facts": dict(self.facts)}
+                "invented": invented, "decoders": decoders, "transforms": transforms,
+                "cumulative_rules": cumulative, "facts": dict(self.facts)}
+
+    @staticmethod
+    def _decode_with_symbols(symbols: dict[str, int], text: str, rule: str) -> int | None:
+        if not text or any(symbol not in symbols for symbol in text):
+            return None
+        total = 0
+        for index, symbol in enumerate(text):
+            value = int(symbols[symbol])
+            following = symbols.get(text[index + 1]) if index + 1 < len(text) else None
+            if rule == "subtractive_sum" and following is not None and value < following:
+                total -= value
+            else:
+                total += value
+        return total
+
+    def _learn_value_decoders(self, text: str) -> list[str]:
+        """Belgedeki sembol/değer eşlemesi ve toplama kuralını birlikte öğren.
+
+        Hedef girdi veya ondalık cevap burada yoktur. Çok sembollü belge örnekleri
+        kuralın bağımsız doğrulamasıdır; onları açıklayamayan çözücü kabul edilmez.
+        """
+        low = tr_lower(text)
+        subtractive = bool(
+            ("küçük" in low and "çıkar" in low and "topla" in low and "önce" in low)
+            or ("smaller" in low and "subtract" in low and "before" in low)
+        )
+        if not subtractive:
+            return []
+        rows = [(match.group(1), int(match.group(2))) for match in re.finditer(
+            r"(?<![\wçğıöşü])([\wçğıöşü]+)\s*=\s*(-?\d+)", text,
+        )]
+        symbols: dict[str, int] = {}
+        for symbol, value in rows:
+            if len(symbol) != 1:
+                continue
+            if symbol in symbols and symbols[symbol] != value:
+                return []
+            symbols[symbol] = value
+        if len(symbols) < 2:
+            return []
+        rule = "subtractive_sum"
+        checks = [(symbol, value) for symbol, value in rows if len(symbol) > 1]
+        if not checks or any(self._decode_with_symbols(symbols, symbol, rule) != value
+                             for symbol, value in checks):
+            return []
+        signature = repr((sorted(symbols.items()), rule))
+        if any(record.get("signature") == signature for record in self.value_decoders.values()):
+            return []
+        serial = 1 + max(
+            [int(name[7:]) for name in self.value_decoders
+             if name.startswith("decoder") and name[7:].isdigit()] or [0],
+        )
+        name = f"decoder{serial}"
+        self.value_decoders[name] = {
+            "symbols": dict(symbols), "rule": rule, "signature": signature,
+            "evidence": len(checks),
+        }
+        return [name]
+
+    STRING_OPERATION_CUES = (
+        ("reverse", r"ters(?:ine)?\s+çevir|reverse"),
+        ("uppercase", r"büyük\s+harf(?:e)?(?:\s+çevir)?|uppercase|upper"),
+        ("lowercase", r"küçük\s+harf(?:e)?(?:\s+çevir)?|lowercase|lower"),
+        ("titlecase", r"baş\s+harf(?:ler)?(?:ini|\s+harf)?\s+büyüt|title\s*case|title"),
+    )
+
+    def _learn_string_transforms(self, text: str) -> list[str]:
+        """Kodsuz anlam tanımındaki ilkel dönüşümleri sırasıyla çıkar."""
+        learned: list[str] = []
+        segments = [part.strip() for part in re.split(r"(?<=[.!?])\s+|\n\s*\n", text)
+                    if part.strip()]
+        for segment in segments:
+            low = tr_lower(segment)
+            if not any(cue in low for cue in ("işlem", "dönüşüm", "dönüştür", "transformation", "operation")):
+                continue
+            hits = []
+            for operation, pattern in self.STRING_OPERATION_CUES:
+                hits.extend((match.start(), match.end(), operation)
+                            for match in re.finditer(pattern, low))
+            hits.sort(key=lambda row: (row[0], -(row[1] - row[0])))
+            operations: list[str] = []
+            occupied = -1
+            for start, end, operation in hits:
+                if start < occupied:
+                    continue
+                occupied = end
+                if not operations or operations[-1] != operation:
+                    operations.append(operation)
+            if not operations:
+                continue
+            alias_match = re.search(r"([\wçğıöşü]+)\s+işlemi\b", low)
+            alias = alias_match.group(1) if alias_match else ""
+            signature = repr((alias, operations))
+            if any(record.get("signature") == signature for record in self.string_transforms.values()):
+                continue
+            if alias:
+                for key, record in list(self.string_transforms.items()):
+                    if record.get("name") == alias:
+                        del self.string_transforms[key]
+            serial = 1 + max(
+                [int(name[9:]) for name in self.string_transforms
+                 if name.startswith("transform") and name[9:].isdigit()] or [0],
+            )
+            name = f"transform{serial}"
+            self.string_transforms[name] = {
+                "name": alias, "operations": operations, "signature": signature,
+            }
+            learned.append(name)
+        return learned
+
+    def _learn_cumulative_rules(self, text: str) -> list[str]:
+        """Belge bir kümülatif ifadeyi yeniden tanımlarsa adımını güncelle."""
+        low = tr_lower(text)
+        learned: list[str] = []
+        quoted = re.findall(r"['\"“]([^'\"”\n]{3,})['\"”]", text)
+        for raw_phrase in quoted:
+            phrase = tr_lower(raw_phrase).strip()
+            if not phrase:
+                continue
+            location = low.find(phrase)
+            window = low[max(0, location): location + len(phrase) + 420] if location >= 0 else low
+            initial = re.search(
+                r"ilk\s+satır[^.\n]*?\bilk\s+([\wçğıöşü]+)\s+(?:öğe|karakter|harf)", window,
+            )
+            increment = re.search(
+                r"\b([\wçğıöşü]+)\s+yeni\s+(?:öğe|karakter|harf)", window,
+            )
+            if not initial or not increment:
+                continue
+            first = TurkishMorphology.words_to_int([initial.group(1)])
+            step = TurkishMorphology.words_to_int([increment.group(1)])
+            if first is None or step is None or first != step or step < 1:
+                continue
+            if self.cumulative_rules.get(phrase) == step:
+                continue
+            self.cumulative_rules[phrase] = int(step)
+            self.operators.add("cumulative_window")
+            learned.append(phrase)
+        return learned
 
     def load_primer(self, path: str | Path) -> dict:
         source = Path(path)
@@ -685,9 +902,11 @@ class CompositionalCodeLearner:
             invented = [(name, 1) for name in self._matching_streams(goal)]
             if goal.cumulative:
                 direct = []
-                if (goal.unit == "character" and self.facts.get("text_sequence")
-                        and "accumulate" in self.operators):
-                    direct.append(("accumulate", 1))
+                if goal.unit == "character" and self.facts.get("text_sequence"):
+                    if goal.cumulative_step > 1 and "cumulative_window" in self.operators:
+                        direct.append(("cumulative_window", 1))
+                    elif goal.cumulative_step == 1 and "accumulate" in self.operators:
+                        direct.append(("accumulate", 1))
                 return direct + invented
             if goal.unit == "character" and self.facts.get("text_sequence"):
                 return [("character_view", 1)] + invented
@@ -716,7 +935,7 @@ class CompositionalCodeLearner:
 
     def _path_available(self, path: tuple[str, ...]) -> bool:
         for operator in path:
-            if operator in {"character_view", "accumulate"} and not self.facts.get("text_sequence"):
+            if operator in {"character_view", "accumulate", "cumulative_window"} and not self.facts.get("text_sequence"):
                 return False
             if operator.startswith("invent:"):
                 construction = self.stream_operators.get(operator.split(":", 1)[1])
@@ -733,10 +952,14 @@ class CompositionalCodeLearner:
         missing = []
         if goal.unit == "character" and not self.facts.get("text_sequence"):
             missing.append("text_sequence")
-        if goal.cumulative and "accumulate" not in self.operators and not self._matching_streams(goal):
-            missing.append("accumulate")
+        if goal.cumulative and not self._matching_streams(goal):
+            required = "cumulative_window" if goal.cumulative_step > 1 else "accumulate"
+            if required not in self.operators:
+                missing.append(required)
         if goal.unit == "word" and "split_words" not in self.operators:
             missing.append("split_words")
+        if goal.unit not in {"character", "word"}:
+            missing.append(f"unit:{goal.unit}")
         if "iterate" not in self.operators:
             missing.append("iterate")
         if "display" not in self.operators:
@@ -784,6 +1007,30 @@ class CompositionalCodeLearner:
                 body=body, orelse=[],
             ))
         else:
+            if "cumulative_window" in path:
+                step = max(1, int(goal.cumulative_step))
+                end = ast.Name(id="end", ctx=ast.Load())
+                iterator = ast.Call(
+                    func=ast.Name(id="range", ctx=ast.Load()),
+                    args=[ast.Constant(value=step),
+                          ast.BinOp(left=ast.Call(func=ast.Name(id="len", ctx=ast.Load()),
+                                                  args=[source], keywords=[]),
+                                    op=ast.Add(), right=ast.Constant(value=1)),
+                          ast.Constant(value=step)], keywords=[],
+                )
+                body = ast.Expr(value=ast.Call(
+                    func=ast.Name(id="print", ctx=ast.Load()),
+                    args=[ast.Subscript(value=source,
+                                        slice=ast.Slice(lower=None, upper=end, step=None),
+                                        ctx=ast.Load())], keywords=[],
+                ))
+                statements.append(ast.For(
+                    target=ast.Name(id="end", ctx=ast.Store()), iter=iterator,
+                    body=[body], orelse=[],
+                ))
+                module = ast.Module(body=statements, type_ignores=[])
+                ast.fix_missing_locations(module)
+                return ast.unparse(module)
             if "accumulate" in path:
                 statements.append(ast.ImportFrom(
                     module="itertools", names=[ast.alias(name="accumulate")], level=0,
@@ -805,20 +1052,129 @@ class CompositionalCodeLearner:
         ast.fix_missing_locations(module)
         return ast.unparse(module)
 
-    def solve(self, goal: SemanticGoal) -> ProgramPlan | dict:
+    @staticmethod
+    def _emit_decoder(payload: str, decoder: dict[str, Any]) -> str:
+        # Yalnız belgeden gelen sembol tablosu ve genel soldan-sağa kuralı.
+        # Hedef girdinin önceden hesaplanmış cevabı programa gömülmez.
+        program = "\n".join([
+            f"text = {payload!r}",
+            f"values = {dict(decoder['symbols'])!r}",
+            "total = 0",
+            "for index in range(len(text)):",
+            "    value = values[text[index]]",
+            "    if index + 1 < len(text) and value < values[text[index + 1]]:",
+            "        total -= value",
+            "    else:",
+            "        total += value",
+            "print(total)",
+        ])
+        return ast.unparse(ast.parse(program))
+
+    @staticmethod
+    def _apply_string_operations(payload: str, operations: list[str]) -> str | None:
+        value = str(payload)
+        for operation in operations:
+            if operation == "reverse":
+                value = value[::-1]
+            elif operation == "uppercase":
+                value = value.upper()
+            elif operation == "lowercase":
+                value = value.lower()
+            elif operation == "titlecase":
+                value = value.title()
+            else:
+                return None
+        return value
+
+    @staticmethod
+    def _emit_string_transform(payload: str, operations: list[str]) -> str:
+        expression: ast.expr = ast.Constant(value=str(payload))
+        for operation in operations:
+            if operation == "reverse":
+                expression = ast.Subscript(
+                    value=expression,
+                    slice=ast.Slice(lower=None, upper=None,
+                                    step=ast.UnaryOp(op=ast.USub(), operand=ast.Constant(value=1))),
+                    ctx=ast.Load(),
+                )
+            else:
+                method = {"uppercase": "upper", "lowercase": "lower", "titlecase": "title"}[operation]
+                expression = ast.Call(
+                    func=ast.Attribute(value=expression, attr=method, ctx=ast.Load()),
+                    args=[], keywords=[],
+                )
+        module = ast.Module(body=[ast.Expr(value=ast.Call(
+            func=ast.Name(id="print", ctx=ast.Load()), args=[expression], keywords=[],
+        ))], type_ignores=[])
+        ast.fix_missing_locations(module)
+        return ast.unparse(module)
+
+    def _solve_transformation(self, goal: TransformationGoal) -> ProgramPlan | dict:
+        if goal.operation == "decimal":
+            candidates = [(name, record) for name, record in self.value_decoders.items()
+                          if goal.payload and all(symbol in record.get("symbols", {})
+                                                  for symbol in goal.payload)]
+            if not candidates:
+                return {"ok": False, "reason": "semantic_gap", "missing": ["value_decoder"],
+                        "gap_stage": "decode", "trace": list(goal.trace) + ["gap_stage=decode"]}
+            if len(candidates) != 1:
+                return {"ok": False, "reason": "ambiguous_decoder", "missing": ["decoder:ambiguous"],
+                        "gap_stage": "decode", "trace": list(goal.trace) + ["gap_stage=decode"]}
+            name, decoder = candidates[0]
+            value = self._decode_with_symbols(decoder["symbols"], goal.payload, decoder["rule"])
+            if value is None:
+                return {"ok": False, "reason": "unknown_symbol", "missing": ["decoder:symbol"],
+                        "gap_stage": "decode", "trace": list(goal.trace) + ["gap_stage=decode"]}
+            program = self._emit_decoder(goal.payload, decoder)
+            return ProgramPlan(
+                (f"decode:{name}", "iterate", "display"), program, f"{value}\n",
+                tuple(goal.trace) + (f"decoder={name}", "rule=subtractive_sum"),
+            )
+
+        name = goal.reference or next(reversed(self.string_transforms), "")
+        record = self.string_transforms.get(name)
+        if not record:
+            return {"ok": False, "reason": "semantic_gap", "missing": ["string_transformation"],
+                    "gap_stage": "transform", "trace": list(goal.trace) + ["gap_stage=transform"]}
+        operations = [str(value) for value in record.get("operations") or ()]
+        value = self._apply_string_operations(goal.payload, operations)
+        if value is None:
+            return {"ok": False, "reason": "unknown_transform", "missing": ["transform:operation"],
+                    "gap_stage": "transform", "trace": list(goal.trace) + ["gap_stage=transform"]}
+        program = self._emit_string_transform(goal.payload, operations)
+        return ProgramPlan(
+            (f"transform:{name}", "display"), program, value + "\n",
+            tuple(goal.trace) + (f"transform={name}", "operations=" + "->".join(operations)),
+        )
+
+    def _gap_stage(self, goal: SemanticGoal) -> str:
+        if not self._transitions(goal, 0):
+            return "unit" if goal.unit not in {"character", "word"} else "transformation"
+        if "iterate" not in self.operators:
+            return "iteration"
+        if "display" not in self.operators or not self.facts.get("print_newline"):
+            return "display"
+        return "plan"
+
+    def solve(self, goal: SemanticGoal | TransformationGoal) -> ProgramPlan | dict:
+        if isinstance(goal, TransformationGoal):
+            return self._solve_transformation(goal)
         key = "|".join(goal.key)
         cached = self.composites.get(key)
         path = cached if cached and self._path_available(cached) else self._search(goal)
         if path is None:
+            stage = self._gap_stage(goal)
             return {"ok": False, "reason": "semantic_gap", "missing": self._missing(goal),
-                    "trace": list(goal.trace)}
+                    "gap_stage": stage, "trace": list(goal.trace) + [f"gap_stage={stage}"]}
         program = self._emit(goal, path)
         trace = list(goal.trace) + ["plan=" + " -> ".join(path)]
         if cached == path:
             trace.append("composite=reused")
         return ProgramPlan(path, program, goal.expected_output(), tuple(trace))
 
-    def adopt(self, goal: SemanticGoal, plan: ProgramPlan) -> None:
+    def adopt(self, goal: SemanticGoal | TransformationGoal, plan: ProgramPlan) -> None:
+        if isinstance(goal, TransformationGoal):
+            return
         self.composites["|".join(goal.key)] = tuple(plan.operators)
 
     # -------------------------------------------------------------- persistence
@@ -827,6 +1183,9 @@ class CompositionalCodeLearner:
                 "composites": {key: list(value) for key, value in self.composites.items()},
                 "stream_operators": copy.deepcopy(self.stream_operators),
                 "representations": copy.deepcopy(self.representations),
+                "value_decoders": copy.deepcopy(self.value_decoders),
+                "string_transforms": copy.deepcopy(self.string_transforms),
+                "cumulative_rules": dict(self.cumulative_rules),
                 "documents": list(self.documents), "events": self.learning_events,
                 "failure_experiments": int(self.failure_experiments),
                 "last_failure": copy.deepcopy(self.last_failure)}
@@ -844,6 +1203,43 @@ class CompositionalCodeLearner:
             str(key): value for key, value in (data.get("representations") or {}).items()
             if isinstance(value, dict) and value.get("kind") == "finite_state_transducer"
         })
+        self.value_decoders = {}
+        for key, value in (data.get("value_decoders") or {}).items():
+            if not isinstance(value, dict) or value.get("rule") != "subtractive_sum":
+                continue
+            try:
+                symbols = {str(symbol): int(number)
+                           for symbol, number in (value.get("symbols") or {}).items()}
+            except (TypeError, ValueError):
+                continue
+            if symbols:
+                self.value_decoders[str(key)] = {
+                    "symbols": symbols, "rule": "subtractive_sum",
+                    "signature": repr((sorted(symbols.items()), "subtractive_sum")),
+                    "evidence": int(value.get("evidence", 0) or 0),
+                }
+        allowed = {"reverse", "uppercase", "lowercase", "titlecase"}
+        self.string_transforms = {}
+        for key, value in (data.get("string_transforms") or {}).items():
+            if not isinstance(value, dict):
+                continue
+            operations = [str(operation) for operation in value.get("operations") or ()]
+            if operations and all(operation in allowed for operation in operations):
+                alias = str(value.get("name") or "")
+                self.string_transforms[str(key)] = {
+                    "name": alias, "operations": operations,
+                    "signature": repr((alias, operations)),
+                }
+        self.cumulative_rules = {}
+        for phrase, step in (data.get("cumulative_rules") or {}).items():
+            try:
+                number = int(step)
+            except (TypeError, ValueError):
+                continue
+            if number >= 1:
+                self.cumulative_rules[str(phrase)] = number
+        if self.cumulative_rules:
+            self.operators.add("cumulative_window")
         self.documents = [str(value) for value in data.get("documents") or ()][-40:]
         self.learning_events = int(data.get("events", 0) or 0)
         self.failure_experiments = int(data.get("failure_experiments", 0) or 0)
@@ -851,4 +1247,4 @@ class CompositionalCodeLearner:
         self.last_failure = copy.deepcopy(failure) if isinstance(failure, dict) else None
 
 
-__all__ = ["CompositionalCodeLearner", "SemanticGoal", "ProgramPlan"]
+__all__ = ["CompositionalCodeLearner", "SemanticGoal", "TransformationGoal", "ProgramPlan"]
