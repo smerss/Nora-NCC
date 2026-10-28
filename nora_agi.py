@@ -1745,6 +1745,22 @@ class NoraAGI:
                 self._apply_tag("ag", 1)
                 self._log_turn(speaker, raw, _doc, t0)
                 return _doc
+        # Kalıcı temsilin doğrulanmış uygulaması, genel örnek→operatör sentezi
+        # uygulamasından önce gelir. Aksi hâlde "uygula" sözcüğü eski sentez
+        # kanalını açıp mevcut FST'nin yeni girdisini sentez belirsizliğine
+        # düşürür. Diğer kod/sentez isteklerinin yarış sırası değişmez.
+        try:
+            _persistent_goal = (self.code_cortex.semantic.request(raw)
+                                if self.code_cortex.is_requested(raw) else None)
+        except Exception:
+            _persistent_goal = None
+        if getattr(_persistent_goal, "operation", None) == "representation":
+            _persistent, _trace, _sal = self._code_channel(raw)
+            if _persistent:
+                self._turn_path = "organ"
+                self._intent_locked = True
+                self._log_turn(speaker, raw, _persistent, t0)
+                return _persistent
         # KİŞİSEL OLGU: karşıdaki bir şey SÖYLEDİYSE (soru değilse) açık kalıpla yazılır.
         self._learned_facts = []
         try:

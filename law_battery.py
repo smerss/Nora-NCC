@@ -160,13 +160,33 @@ def latent_representation_opens_only_when_needed() -> tuple[bool, str]:
     existing = control.invent_representation(
         [("ab", "ab"), ("xy", "xy")], [("pq", "pq")],
     )
+    # Modulo-6 regresyonu: iki minimal çözüm exhaustive sayılmalı, yalnız
+    # recurrent aday açık tercihle seçilmeli ve held-out tam geçmelidir.
+    hard_task = _counter_task(6)
+    hard_learner = _prior_learner()
+    hard = hard_learner.invent_representation(
+        hard_task["train"], hard_task["validation"], max_states=6,
+        max_expansions=SEARCH_EXPANSION_LIMIT,
+    )
+    hard_name = str(hard.get("id") or "")
+    hard_correct = sum(
+        hard_learner.apply_representation(hard_name, source) == expected
+        for source, expected in hard_task["heldout"]
+    ) if hard_name else 0
+    hard_ok = (hard.get("status") == "invented"
+               and hard.get("selection") == "unique-minimal-recurrent"
+               and hard.get("candidates") == 2
+               and hard.get("recurrent_candidates") == 1
+               and hard_correct == len(hard_task["heldout"]))
     ok = (result.get("status") == "invented"
           and result.get("kind") not in before and result.get("states", 0) > 1
           and outputs == expected and ablated is None and restored == expected[0]
-          and existing.get("status") == "existing" and not control.representations)
+          and existing.get("status") == "existing" and not control.representations
+          and hard_ok)
     detail = (f"durum={result.get('status')} tür={result.get('kind')} durum-sayısı={result.get('states')} | "
               f"held-out={outputs} beklenen={expected} | ablasyon={ablated} restore={restored} | "
-              f"eski-temsil-kontrolü={existing.get('status')}")
+              f"eski-temsil-kontrolü={existing.get('status')} | "
+              f"mod6={hard_correct}/{len(hard_task['heldout'])}:{hard.get('selection')}")
     return ok, detail
 
 
@@ -198,12 +218,23 @@ def learned_representation_personal_application() -> tuple[bool, str]:
     result = restored.handle(request)
     unknown = restored.handle("cabc2 metnini öğrendiğin işlemle dönüştürüp çıktısını yazdır")
     expected = oracle(source) + "\n"
+    # Genel operatör-sentez kanalı, kalıcı temsilin "uygula" parafrazını
+    # kod kanalından önce kapmamalı. Bu ayrı AGI ve ayrı state ile sınanır.
+    from nora_agi import NoraAGI
+    agi = NoraAGI(seed=733, boot_thinker=False)
+    agi.code_cortex.semantic.load_state_dict(state)
+    agi.converse(f'"{source}" için aynı öğrendiğin işlemi uygulayıp çıktıyı yazdır.')
+    agi_code = dict(agi.last_code or {})
+    anaphoric_ok = bool(agi_code.get("ok") and agi_code.get("verified")
+                        and agi_code.get("stdout") == expected)
     ok = (learned.get("status") == "invented" and result.get("ok")
           and result.get("verified") and result.get("stdout") == expected
-          and not unknown.get("ok") and unknown.get("reason") == "representation_input_gap")
+          and not unknown.get("ok") and unknown.get("reason") == "representation_input_gap"
+          and anaphoric_ok)
     detail = (f"öğrenme={learned.get('status')} yol={result.get('path')} "
               f"stdout={result.get('stdout')!r} beklenen={expected!r} "
-              f"doğrulama={result.get('verified')} alfabe-dışı={unknown.get('reason')}")
+              f"doğrulama={result.get('verified')} alfabe-dışı={unknown.get('reason')} "
+              f"AGI-anaför={anaphoric_ok}")
     return ok, detail
 
 
@@ -418,7 +449,7 @@ class RestrictedGitHubResearch:
             "independence_method": "README token Jaccard >= 0.80 collapsed (conservative)",
             "corroborated": len(independent) >= 2,
             "learned_concepts": tokens if len(independent) >= 2 else [],
-            "used_for": "high-budget representation search requires independent corroboration",
+            "used_for": "external family provenance only; never a synthesis or budget gate",
             "network_log": self.log, "allowed_hosts": sorted(self.ALLOWED_HOSTS),
             "downloaded_code_executed": False,
         }
@@ -480,13 +511,15 @@ def autonomous_invention_mission(*, network: bool = True,
     }
     if initial.get("id"):
         result = initial
-    elif not research.get("corroborated"):
-        result = {"status": "unresolved", "reason": "representation_not_corroborated"}
     else:
+        # Araştırma artık bir hesaplama/bütçe kapısı değildir. Genel dış
+        # kaynaklar provenance sağlar; sentez aynı veri ve tavanla her zaman
+        # çalışır. Aşağıdaki zorlanmış kontrol bunun nedensel etkisini ölçer.
         result = learner.invent_representation(
             train, validation, max_states=AUTONOMOUS_STATE_CAP,
             max_expansions=SEARCH_EXPANSION_LIMIT,
         )
+    research["role"] = "external_provenance_not_a_synthesis_gate"
     report["synthesis"] = result
     name = str(result.get("id") or "")
     correct = 0
@@ -502,6 +535,43 @@ def autonomous_invention_mission(*, network: bool = True,
     report["heldout"] = {"correct": correct, "total": total,
                          "accuracy": correct / total, "exact": exact,
                          "first_mismatches": mismatches}
+    research_control = {"run": False, "reason": "research_forced_off_for_whole_mission"}
+    if network and not initial.get("id"):
+        control_learner = _prior_learner()
+        control_result = control_learner.invent_representation(
+            train, validation, max_states=AUTONOMOUS_STATE_CAP,
+            max_expansions=SEARCH_EXPANSION_LIMIT,
+        )
+        control_name = str(control_result.get("id") or "")
+        control_correct = sum(
+            control_learner.apply_representation(control_name, source) == expected
+            for source, expected in heldout
+        ) if control_name else 0
+        same_operator = bool(name and control_name) and (
+            learner.representations[name]["transitions"]
+            == control_learner.representations[control_name]["transitions"]
+        )
+        same_search = result.get("expansions") == control_result.get("expansions")
+        research_control = {
+            "run": True, "research": "forced_off_synthesis_only",
+            "same_data": True, "same_state_cap": AUTONOMOUS_STATE_CAP,
+            "status": control_result.get("status"),
+            "heldout_correct": control_correct, "heldout_total": total,
+            "exact": bool(control_name) and control_correct == total,
+            "operator_identical": same_operator,
+            "search_expansions": control_result.get("expansions", 0),
+            "same_search_expansions": same_search,
+            "solution_causal_effect_detected": not (
+                same_operator and same_search and control_correct == correct
+            ),
+            "conclusion": (
+                "Bu ölçümde araştırmanın operatör, held-out veya arama üzerinde nedensel "
+                "etkisi yok; rolü dış provenance ile sınırlı."
+                if same_operator and same_search and control_correct == correct else
+                "Kontrol ayrıştı; araştırma etkisi hakkında üstünlük iddiası kurulmaz."
+            ),
+        }
+    report["research_causal_control"] = research_control
     if old_scan["accessible"] or result.get("status") == "existing":
         classification = "KESIF"
     elif result.get("status") == "invented" and exact:
@@ -544,8 +614,12 @@ def autonomous_invention_mission(*, network: bool = True,
             persistence.update({"promoted": True, "checkpoint": checkpoint,
                                 "sha256": checkpoint_hash})
     report["persistence"] = persistence
+    research_control_ok = (not research_control["run"] or
+                           (research_control.get("exact")
+                            and research_control.get("operator_identical")
+                            and research_control.get("same_search_expansions")))
     report["success"] = bool(classification == "ICAT_OPERATOR" and ablation_ok
-                             and persistence["promoted"])
+                             and persistence["promoted"] and research_control_ok)
     report["not_claimed"] = [
         "general_intelligence", "phenomenal_consciousness", "better_than_LLMs",
         "research_is_computationally_necessary",
@@ -594,6 +668,11 @@ def _measured_attempt(task: dict, max_states: int) -> dict:
         "timing_profile": "untraced", "memory_profile": "second_tracemalloc_run",
         "search_expansions": result.get("expansions", 0),
         "peak_search_stack": result.get("peak_stack", 0),
+        "algorithm": result.get("algorithm", "canonical-dfs-fallback"),
+        "selection": result.get("selection", ""),
+        "recurrent_candidates": result.get("recurrent_candidates", 0),
+        "constraint_checks": result.get("constraint_checks", 0),
+        "proof_completions": result.get("proof_completions", 0),
     }
 
 
@@ -621,7 +700,7 @@ def representation_scaling() -> dict:
         "forced_no_research_control": {
             **forced_control,
             "conclusion": (
-                "Araştırma hesaplama için zorunlu değil; kanıta dayalı bütçe politikasında kullanılıyor."
+                "Araştırma hesaplama için zorunlu değil; sentez kapısı kaldırıldı, rolü dış provenance."
                 if forced_control["exact"] else
                 "Araştırmasız zorlanan kontrol çözemedi; bu tek sonuç nedensellik kanıtı değil."
             ),

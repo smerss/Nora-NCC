@@ -3646,3 +3646,128 @@ ve `/tmp/nora_law_final.log`. `external_battery.py` SHA-256 değişmedi:
 `2199072553017a7846eb4fcae3ac872c01a92da6226a4dca155be756b7a491c4`.
 Kod-sözü denetimi **1125/127**, fark **+3/+0**, `py_compile` ve
 `git diff --check` geçti. Bilinç satırı yine yalnız işlevsel nedensel kanıttır.
+
+## Aşama BR — Karakteristik kanıt, modulo 6 ve nedensel araştırma kontrolü
+
+Bu aşamada da yeni üretim modülü eklenmedi. `nora_semantic_code.py` içindeki
+mevcut FST sentezi derinleştirildi; `law_battery.py` içindeki görev, veri,
+**100.000 expansion** sınırı ve **1…8** genel durum tavanı değiştirilmedi.
+Önceki BQ ölçümleri ve modulo-6 `budget-exceeded` kaydı tarihsel kanıt olarak
+yukarıda korunmuştur.
+
+### Genel sentez kökü: kör tablo aramasından kanıtlı gözlem tablosuna
+
+Yeni hızlı yol, hedef sayaç veya modulus bilgisi almaz. Bütün örnek önekleri için
+gelecek-çıktı kalıntıları çıkarır. Aynı gelecekte farklı çıktı veren iki önek
+aynı gizli durumda olamaz; bu kısıtlar bir uyumsuzluk grafiği kurar. Farklı
+derinliklerdeki gözlem tabloları aday geçişleri üretir, kısa gelecek
+penceresinde kalan az sayıdaki geçiş belirsizliği exhaustive sayılır.
+
+Bir adayın başarı yazabilmesi için:
+
+1. train+validation'ın tamamını gerçek tablo yürütmesiyle geçmesi;
+2. erişilemeyen durum ve hiç örnekte görülmeyen geçiş bulundurmaması;
+3. bir klikle aynı sayıdan daha az durumun mümkün olmaması;
+4. klik çapalarının bütün durum permütasyonları ve kalan geçiş/çıktı
+   tamamlamaları denendiğinde seçim ölçütüne aykırı başka makine kalmaması
+   gerekir. Kanıt kurulamazsa eski kanonik DFS fallback'i ve dürüst
+   `ambiguous`/`budget-exceeded` durumları korunur.
+
+Bu, yeni bir temsil sınıfı veya insan eliyle eklenmiş hedef operatör değildir;
+aynı `finite_state_transducer` ailesinde daha güçlü genel sentezdir. Ek çapraz
+kontrolde 100 küçük rastgele FST görevinin 81 başarılı sonucu eski DFS'in minimal
+çözüm kümesiyle eşleşti; 17 belirsizlik korundu. Ayrı 160 görevlik taramadaki
+**5 recurrent tie-break**in her biri eski enumeration içinde gerçekten tek
+güçlü-bağlı sınıf çıktı.
+
+### Modulo 6: iki minimal çözüm ve açık recurrent Occam tercihi
+
+Modulo 6'da train+validation **iki farklı minimal 6-durumlu FST** kabul eder.
+Bu yüzden sonucu “bütün makineler arasında matematiksel olarak tekil” diye
+sunmak yanlış olur. Yeni ölçüt, exhaustive çıkarılan alternatifler arasında
+yalnız bir **güçlü bağlı/recurrent** makine varsa onu seçer; seçim
+`unique-minimal-recurrent` olarak kaydedilir ve **2 aday / 1 recurrent aday**
+açıkça raporlanır. Held-out bu seçime verilmez; yalnız seçimden sonra ölçülür.
+
+Sonuç: önceki **0/1088 `budget-exceeded`** yerine **1088/1088 exact**.
+Kanıt 6-klik, 720 çapa permütasyonu ve 2.400 proof completion içerir; toplam
+3.136 expansion ve 522.753 kısıt kontrolü yapılır. Modulo 5 ise tek minimal
+çözüm (`unique-minimal`), 576/576, 409 expansion ve 130.305 kısıt kontrolü ile
+doğrulanır. Expansion sayıları yeni algoritmanın ölçüsüdür; eski DFS sayılarıyla
+aynı birimmiş gibi karşılaştırılmaz.
+
+Son ölçek kanıtı `/tmp/nora_representation_scaling_final.json`:
+
+| durum bütçesi | held-out | süre (sn) | heap (MiB) | expansion | sonuç |
+|---:|---:|---:|---:|---:|---|
+| 1 | 0/576 | 0,0809 | 2,6033 | 2 | unresolved |
+| 2 | 0/576 | 0,0865 | 2,6032 | 13 | unresolved |
+| 3 | 0/576 | 0,0969 | 2,6680 | 838 | unresolved |
+| 4 | 0/576 | 0,2027 | 2,6723 | 2.312 | unresolved |
+| 5 | **576/576** | **0,1509** | 2,6062 | 409 | invented |
+
+| modulus / durum bütçesi | held-out | süre (sn) | heap (MiB) | expansion | seçim |
+|---:|---:|---:|---:|---:|---|
+| 2 | 128/128 | 0,0035 | 0,0831 | 4 | unique-minimal |
+| 3 | 192/192 | 0,0075 | 0,2669 | 11 | unique-minimal |
+| 4 | 320/320 | 0,0299 | 1,0470 | 67 | unique-minimal |
+| 5 | 576/576 | 0,1530 | 2,6075 | 409 | unique-minimal |
+| 6 | **1088/1088** | **1,6050** | 11,9460 | 3.136 | unique-minimal-recurrent |
+
+Süre yine izlemesiz, heap ikinci deterministik `tracemalloc` koşusundadır;
+iki koşunun sonuç ve doğruluğu birebir aynıdır. Grafik kanıtı heap'i özellikle
+6'da büyütür; bu maliyet gizlenmez. Düşük bütçelerde ön işleme nedeniyle süre
+monoton değildir. Veri, görev, bütçe veya held-out eşiği gevşetilmemiştir.
+
+### Araştırma artık sentez kapısı değil
+
+Önceki “bağımsız kaynak varsa yüksek bütçe” kapısı kaldırıldı. Kısıtlı GitHub
+araştırması yalnız dış aile/provenance kanıtıdır; başarısızlık sonrası sentez
+aynı veri ve tavanla araştırma sonucundan bağımsız çalışır. Mission içindeki
+zorlanmış araştırmasız kontrol **aynı geçiş tablosu, 576/576 ve aynı 409
+expansion** verdi. Dolayısıyla ölçülen çözüm/operatör/arama nedensel etkisi
+**sıfır**; internetin hesaplama için zorunlu olduğu veya araştırmanın
+üstünlük sağladığı iddia edilmez. Dört README/üç bağımsız aile ve ağ hash'leri
+korunur, dış kod çalıştırılmaz.
+
+Son mission `ICAT_OPERATOR`, held-out **576/576**, geçiş-ablasyonu ve
+persistence kontrolleriyle geçti (`/tmp/nora_autonomous_mission_final.json`).
+Yeni checkpoint SHA-256:
+`49a5b50ed660ab7a5a00d3962cd7d5c15166481790d420f70ee4d9d46ca2362f`.
+Daha önceki hiçbir bölümde bulunmayan son mühür **1077/1077** oldu
+(`/tmp/nora_final_sealed_audit.json`).
+
+### Kişisel kullanımda bulunan ve düzeltilen kanal hatası
+
+Yeni checkpoint ile 25 ve 29 bitlik iki fresh doğal istek denendi. İlk deneme
+**1/2** kaldı: “aynı öğrendiğin işlemi uygulayıp” parafrazı genel
+örnek→operatör sentez kanalı tarafından kalıcı FST uygulamasından önce
+yakalanıyordu. Bu başarısız cevap silinmedi; kanıt
+`/tmp/nora_personal_failed_paraphrase.json` içindedir.
+
+Parser'da hedefe özel şablon eklenmedi. `nora_agi.py` içindeki genel kanal
+önceliği düzeltildi: semantik çözümleme mevcut bir kalıcı temsil hedefi verdiğinde
+çalıştırılarak doğrulanan kod kanalı, genel sentez uygulamasından önce gelir.
+Diğer sentez isteklerinin sırası korunur. Temiz Studio oturumunda aynı iki
+isteğin bağımsız oracle ile stdout karşılaştırması **2/2 exact** oldu
+(`/tmp/nora_personal_final_characteristic.json`). Mevcut Y7 testi de test
+sayısı değiştirilmeden gerçek `NoraAGI.converse` anaför doğrulamasıyla
+derinleştirildi.
+
+### Son regresyon ve kalan tek dış kırmızı
+
+Yeni üretimle kesintisiz ana pil **134/134 (869,9 sn)**
+(`/tmp/nora_full_final_characteristic.log`), law **8/8** (Y6'da modulo-6,
+Y7'de AGI-anaför denetimi), pratik **7/7**, kanal/hedef seçkisi **17/17**,
+işlevsel bilinç **9/9** geçti. Kod-sözü sayacı
+**1125/127 (+3/+0)** ve A73 korunur; `py_compile` ile `git diff --check`
+geçti. Önceki 132/134 ve diğer bütün tarihsel kırmızılar yukarıda saklıdır.
+
+Dondurulmuş dış ölçüm yeniden **9/10**'dur
+(`/tmp/nora_external_final_characteristic.log`). Tek kırmızı yine D2'nin
+`RANOR`/`ARON` tarif çelişkisidir; bağımsız işlem `ARON` üretir. Test, eşik veya
+üretim bu çelişkiyi sahte yeşile çevirmek için değiştirilmemiştir.
+`external_battery.py` SHA-256 hâlâ
+`2199072553017a7846eb4fcae3ac872c01a92da6226a4dca155be756b7a491c4`
+değerindedir. LLM eş-bütçeli baseline, genel zekâ veya fenomenal bilinç
+iddiası yoktur.
