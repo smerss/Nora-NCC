@@ -66,6 +66,10 @@ class PeripheralNervousSystem:
         # Omurilik refleksi ve anlık acı dışavurumu
         self.pending_pain_vocalization: bool = False
         self.reflex_recoil_steps: int = 0
+        # Merkezi ajanlık kestifinden (Mind.motor_eff) ayrı, gerçek periferik
+        # efferent çıkış. Açık ablasyon dışında daima açıktır; kestif geri beslemeli
+        # hareket kilidine dönüşmez.
+        self.efferent_enabled: bool = True
         self.pain_history: deque[NociceptiveEvent] = deque(maxlen=64)
 
         self._prev_integrity: float = 1.0

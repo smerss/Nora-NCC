@@ -103,7 +103,7 @@ def cumulative_trial() -> tuple[bool, str]:
 
 
 def invention_trial() -> tuple[bool, str]:
-    """Kod vermeyen kavram belgesinden ilkel bileşimiyle operatör icadı."""
+    """Belgeli ilk icat + belgesiz, kendi öngörü hatasından doğan ikinci icat."""
     cortex = CodeSynthesisCortex(seed=609)
     document = PREFIX_CONCEPT.read_text(encoding="utf-8")
     lesson = cortex.handle_document("Doküman: " + document)
@@ -120,17 +120,65 @@ def invention_trial() -> tuple[bool, str]:
     ablated = cortex.handle(request)
     cortex.semantic.load_state_dict(saved)
     restored = cortex.handle(request)
+    # Belgesiz ikinci kavram: dışarıdan input/output veya hedef program verilmez.
+    # Bağımsız sınav, Nora'nın öz-deney düzeneğini ayrı bir yorumlayıcıyla tekrarlar.
+    def eval_expr(expression, environment):
+        kind = expression[0]
+        if kind == "const":
+            return expression[1]
+        if kind == "name":
+            return environment[expression[1]]
+        if kind == "add":
+            return eval_expr(expression[1], environment) + eval_expr(expression[2], environment)
+        raise ValueError("bilinmeyen sınav ifadesi")
+
+    def replay(construction, source):
+        state = eval_expr(construction["initial"], {})
+        outputs = []
+        for item in source:
+            environment = {"item": item, "state": state}
+            if construction["after"]:
+                state = eval_expr(construction["update"], environment)
+                environment["state"] = state
+                outputs.append(eval_expr(construction["emit"], environment))
+            else:
+                outputs.append(eval_expr(construction["emit"], environment))
+                state = eval_expr(construction["update"], environment)
+        return outputs
+
+    documents_before = list(cortex.semantic.documents)
+    novel = cortex.semantic.invent_from_failure()
+    novel_id = novel.get("id", "")
+    experiment = novel.get("experiment") or {}
+    novel_rows = novel.get("heldout") or []
+    independent_outputs = [replay(experiment, row["source"]) for row in novel_rows] if experiment else []
+    novel_outputs = [cortex.semantic.apply_stream(novel_id, row["source"]) for row in novel_rows]
+    novel_saved = cortex.semantic.state_dict()
+    cortex.semantic.operators.discard("concatenate")
+    novel_ablated = cortex.semantic.apply_stream(novel_id, novel_rows[0]["source"]) if novel_rows else None
+    cortex.semantic.load_state_dict(novel_saved)
+    novel_restored = (cortex.semantic.apply_stream(novel_id, novel_rows[0]["source"])
+                      if novel_rows else None)
+
     document_clean = "itertools" not in document.lower() and "accumulate(" not in document.lower()
     invented = (result.get("ok") and "itertools" not in program.lower()
                 and "accumulate(" not in program.lower() and "+" in program)
-    ok = (document_clean and lesson.get("ok") and invented
+    documentless = (novel.get("status") == "invented" and novel.get("origin") == "self_failure"
+                    and novel.get("failure", {}).get("mismatches", 0) > 0
+                    and cortex.semantic.documents == documents_before and len(novel_rows) >= 2
+                    and novel_outputs == independent_outputs
+                    and [row.get("outputs") for row in novel_rows] == independent_outputs
+                    and novel_ablated is None and novel_restored == independent_outputs[0])
+    ok = (document_clean and lesson.get("ok") and invented and documentless
           and result.get("stdout") == expected and result.get("verified")
           and second.get("stdout") == second_expected and second.get("verified")
           and not ablated.get("ok") and restored.get("stdout") == expected)
     detail = (f"belge-temiz={document_clean} | öğrenme={lesson.get('new_operators')} | "
               f"program={program!r} | held-out={result.get('stdout')!r} | "
               f"ikinci={second.get('stdout')!r} | ilkel-ablasyon={ablated.get('path')} | "
-              f"restore={restored.get('verified')}")
+              f"restore={restored.get('verified')} | belgesiz={novel_id}:"
+              f"{novel.get('failure', {}).get('mismatches', 0)} öngörü hatası "
+              f"bağımsız-held-out={novel_outputs == independent_outputs}")
     return ok, detail
 
 
@@ -219,7 +267,7 @@ def main() -> None:
             ("P4 operatör/anlam ablasyonu ve geri yükleme", test_operator_ablation_and_restore),
             ("P5 öğrenilen anlam ve planın kalıcılığı", test_semantic_persistence),
             ("P6 belgeden birikimli önek operatörü", cumulative_trial),
-            ("P7 kodsuz kavramdan ilkel bileşimle operatör icadı", invention_trial),
+            ("P7 belgeli ve belgesiz öz-hata kaynaklı operatör icadı", invention_trial),
         )
     passed = 0
     started = time.perf_counter()

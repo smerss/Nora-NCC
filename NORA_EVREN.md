@@ -3301,3 +3301,101 @@ sonraki tam koşuda geçti. Üretim kuralı veya eşik değiştirilmedi. A69 ve 
 pil sarmalayıcıları genel Python/NumPy RNG durumunu girişte sabitleyip çıkışta geri
 yükleyecek biçimde yalıtıldı; A69 beş farklı dış başlangıç tohumunda da 4/4 geçti.
 Böylece ölçüm, başka testin tükettiği genel RNG akışına bağımlı bırakılmadı.
+
+## Aşama BN — Yeni basamak değil: beş derinlik sınaması
+
+Bu aşamada yeni üretim modülü ve yeni ana test kimliği eklenmedi. A134–A136 ile
+R1–R3'ün içeriği derinleştirildi; A137 ve bağımsız yasa pili regresyon olarak korundu.
+
+### Belgesiz, öz-başarısızlık kaynaklı icat
+
+A134'ün ikinci bölümünde artık dışarıdan kavram belgesi, input/output çifti veya
+hedef program verilmiyor. Mevcut `CompositionalCodeLearner` kendi ilkel ifade
+uzayından bir deney seçiyor, kendi metinlerini üretiyor ve önceki operatörünün
+öngörüsünü bu gözlemlerle karşılaştırıyor. Son öz-deneyde eski model **7/7**
+gözlemde yanıldı. Yeni operatör yalnız beş train hata gözlemiyle sentezlendi, iki
+ayrı validation gözleminden geçti ve belge listesi değişmedi. İki son held-out
+kaynak, aday seçiminde kullanılmadı; dış sınav bunları üretim yorumlayıcısından
+bağımsız küçük bir yorumlayıcıyla yeniden hesapladı. İki çıktı da eşleşti, ilkel
+ablasyonu uygulamayı kaldırdı ve checkpoint geri getirdi.
+
+Bu sınırlı bir öz-oyun/öz-hata icadıdır: ilkel arama uzayı hâlâ önseldir; sınırsız
+kavram yaratımı veya hiç önsel olmadan öğrenme iddiası değildir.
+
+### Görülmemiş kombine ablasyon
+
+`ArchitectureModel.predict_removal` artık bir düğüm kümesini aynı grafik
+aramasında birlikte dışlıyor. Canlı `code_cortex + lang` çiftinde tahmin önce
+alındı, sonra gerçek ablasyon aynı `unresolved` sonucu verdi. Asıl etkileşim
+sınamasında iki tokenizer ve iki counter bulunan yedekli grafik kullanıldı:
+dört tekil ablasyonun tamamında alternatif yol çalıştı. Daha önce hiç
+çıkarılmamış üç çiftin tahminleri çift ablasyonlarından önce kaydedildi; iki
+aynı-tür çifti birlikte kritik, karma çift ise alternatif yol nedeniyle çalışır
+bulundu. Tahmin–gerçek eşleşmesi **3/3**, tekil kontroller **4/4**, restore tam.
+
+### Yapısal ve çok adımlı öz-yama
+
+A136 artık sabit/parametre değişimini değil AST yapısının büyümesini sınıyor.
+Birinci kabul edilen yama `x[::-1]`, ikinci yama `x[::-1].upper()` oldu. İkinci
+sentez mevcut kabul edilmiş AST'yi ilkel girdi olarak aldı ve birinci ifadeyi
+alt ağaç olarak korudu; bu yüzden ikinci değişim birinciyi silen bağımsız bir
+yeniden yazma değildir. Her iki kabul de ayrı Python sürecindeki dış ölçüme
+bağlıdır. Başarısız ikinci pil birinci kabul edilmiş kaynağa, başarılı ikinci
+pil yeni yapıya commit etti; ayrı başarısız aday rollback'i de korunuyor.
+
+Bu derinleştirme iki genel üretim hatasını da açığa çıkardı ve düzeltti: kabul
+edilen kaynak artık sonraki adımın rollback tabanıdır; sentez arama bütçesi her
+çağrıda yeniden başlar ve güvenli metot adayları tür bilgisiyle budanır. Evrim
+pili **8/8**.
+
+### Rapor–davranış ayrışması
+
+R1'deki ortak iç-durum müdahalesi korunurken mevcut periferik sinir sisteminin
+`efferent_enabled` yolu ablasyona açıldı. Bütünleşik enerji kanalı ve dış beden sabitken rapor açlığı
+bildirmeye devam etti, hedefli eylem `1 → 0` oldu; motor geri yüklenince eylem
+döndü. R2 bunu yalnız eylem sayısıyla bırakmadı: aynı motor ablasyonunda açlık
+raporu önce/sonra korunurken gerçek fiziksel yaklaşma **+0,1516 → 0** oldu.
+Yani rapor ve davranış aynı durumdan beslenebilse de tek bir global değişkenin
+zorunlu kopyaları değildir; motor okuma yolu ayrıca gereklidir. Yakın tehlike ve
+omurilik geri-çekilme yolu bu kapının dışında bırakıldı.
+
+İlk denemede öğrenilen `Mind.motor_eff` ajanlık kestifi doğrudan aktüatör kilidi
+yapıldı; bu geri beslemeli kilitlenme ve A4–A6 regresyonu üretti. Ölçüm bunu
+başarı saymadı. Kestif ile gerçek efferent çıkış birbirinden ayrıldı; normal
+yaşamda efferent yol açık olduğundan A4–A6 yeniden **3/3** oldu. Yani ayrışma
+eklenirken eski yaşam davranışı korunmuştur.
+
+### Seçici ve kapasiteli yayın
+
+R3'te doğrudan her içeriği her aboneye yazan ölçüm kaldırıldı. Genel dağıtım
+mevcut `auction` yarışmasına bağlandı: iki farklı tekliften yalnız kazananın
+seçim sinyali bütün etkin alıcılara gitti, kaybeden içerik hiçbir organın gelen
+kutusuna düşmedi. `global_capacity=0` ablasyonunda kazanan yine hesaplandı fakat
+`signal=None` ve `blocked=global_capacity` döndü; aynı anda yerel konu yayını
+yalnız kendi abonesine ulaşmaya devam etti. Kapasite geri geldiğinde genel işlev
+de geri geldi. Canlı ölçümde seçilen içerik **61/61 organa** ulaştı; iki yarışmacı
+ile birlikte **70 etkin abone** kapsandı ve kaybeden içerik hiçbirinde yoktu.
+
+Bu nedenle 61/61 artık “her şey paylaşılan bellekte” ölçümü değil, seçilmiş tek
+içeriğin sınırlı yayınıdır. Bilinç pili **9/9**; kapsam yine işlevsel nedensel
+kanıtla sınırlıdır, fenomenal bilinç iddiası değildir.
+
+### Goodhart sınırı
+
+Bu derinlik sınamaları da geliştirici tarafından yazılmış iç sondalardır. Kodu
+görmeyen bağımsız bir tarafın yalnız tariften yazacağı dış pilin yerine sayılmaz;
+Goodhart riskini ortadan kaldırdıkları iddia edilmez. Dış pil ayrı doğrulama olarak
+açık bırakılmıştır.
+
+Alt pil kayıtları `/tmp/nora_deep_practical.log`,
+`/tmp/nora_deep_architecture.log`, `/tmp/nora_deep_evolution.log`,
+`/tmp/nora_deep_law.log`, `/tmp/nora_deep_bridge.log`,
+`/tmp/nora_deep_workspace.log` ve `/tmp/nora_deep_consciousness.log` altındadır.
+
+### Derinlik sonrası kesintisiz koşu
+
+Son efferent ayrımı ve bütün üretim değişiklikleriyle ana pil tek başına,
+kesintisiz çalıştırıldı: **134/134 GEÇTİ (981,1 sn)**, sıfır `KALDI`.
+Kanıt `/tmp/nora_deep_full_134.log`. A4–A6 yaşam regresyonları ile A134–A137
+aynı koşuda geçti; bilinç pili de aynı son üretim sürümüyle **9/9** olarak
+`/tmp/nora_deep_consciousness.log` içine kaydedildi.

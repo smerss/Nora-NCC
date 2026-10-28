@@ -385,10 +385,28 @@ def r1_report_action_share_integrated_state() -> tuple[bool, str]:
     agi.obs[I_E] = 0.2
     restored_report = _hunger_report(agi)
     restored_action = agi._autonomic_survival_reflex(0)
+
+    # Ayrışma: bütünleşik açlık durumunu ve dış bedeni sabit tutarken yalnız
+    # motor okuma yolunu kapat. Ortak global değişken olsaydı raporun da aynı
+    # biçimde düşmesi gerekirdi; burada rapor kalır, hedefli eylem kaybolur.
+    integrated_before = float(agi.obs[I_E])
+    efferent_enabled = bool(agi.nervous.efferent_enabled)
+    agi.nervous.efferent_enabled = False
+    motor_report = _hunger_report(agi)
+    motor_action = agi._autonomic_survival_reflex(0)
+    integrated_same = (np.isclose(float(agi.obs[I_E]), integrated_before, atol=1e-7, rtol=0.0)
+                       and np.isclose(integrated_before, 0.2, atol=1e-7, rtol=0.0))
+    agi.nervous.efferent_enabled = efferent_enabled
+    motor_restored = agi._autonomic_survival_reflex(0)
+
     ok = (base_report and not ablated_report and restored_report
-          and base_action != ablated_action and restored_action == base_action)
+          and base_action != ablated_action and restored_action == base_action
+          and motor_report and motor_action != base_action and integrated_same
+          and motor_restored == base_action)
     detail = (f"rapor={base_report}/{ablated_report}/{restored_report} | "
-              f"eylem={base_action}/{ablated_action}/{restored_action} | dış-beden-sabit=True")
+              f"eylem={base_action}/{ablated_action}/{restored_action} | "
+              f"ayrışma=motor-ablasyonda rapor:{motor_report} eylem:{motor_action} "
+              f"iç-durum-sabit:{integrated_same} geri:{motor_restored} | dış-beden-sabit=True")
     return ok, detail
 
 
@@ -402,43 +420,99 @@ def r2_body_drive_changes_physical_behavior() -> tuple[bool, str]:
         return before - after
     hungry = approach(0.2)
     satiated = approach(0.9)
-    ok = hungry > 0.0 and satiated <= 0.0 and hungry > satiated
-    return ok, f"gerçek mesafe kazancı: aç={hungry:+.4f} tok={satiated:+.4f}"
+
+    paralyzed = _integrated_body_agent(0.2)
+    paralyzed.nervous.efferent_enabled = False
+    paralyzed_report_before = _hunger_report(paralyzed)
+    before = float(np.hypot(*(paralyzed.world.food[0] - paralyzed.world.pos)))
+    paralyzed.step_life(1)
+    after = float(np.hypot(*(paralyzed.world.food[0] - paralyzed.world.pos)))
+    paralyzed_gain = before - after
+    paralyzed_report_after = _hunger_report(paralyzed)
+
+    ok = (hungry > 0.0 and satiated <= 0.0 and hungry > satiated
+          and paralyzed_gain <= 0.0 and paralyzed_report_before and paralyzed_report_after)
+    return ok, (f"gerçek mesafe kazancı: aç={hungry:+.4f} tok={satiated:+.4f} | "
+                f"motor-ablasyon={paralyzed_gain:+.4f} rapor={paralyzed_report_before}/{paralyzed_report_after}")
 
 
 def r3_global_broadcast_reaches_all_modules() -> tuple[bool, str]:
-    """Genel yayın konu filtresine takılmadan bütün etkin modüllere ulaşmalı."""
-    from nora_bus import CognitiveBus
-    bus = CognitiveBus()
+    """Yalnız yarışmayı kazanan içerik, sınırlı kapasiteyle bütün organlara gider."""
+    from nora_bus import Bid, CognitiveBus
+    bus = CognitiveBus(global_capacity=1)
     names = ["rapor", "sürücü", "bellek", "fizik", "mimari"]
     received = {name: [] for name in names}
     for index, name in enumerate(names):
         bus.subscribe(f"özel.kanal.{index}",
-                      lambda signal, name=name: received[name].append(signal.id), name=name)
-    first = bus.publish_global("bütünleşik.durum", {"enerji": 0.2}, source="beden")
-    active_first = {name for name in names if received[name] == [first.id]}
+                      lambda signal, name=name: received[name].append(
+                          (signal.id, signal.topic, signal.payload)), name=name)
+    offers = {
+        "aday.düşük": (0.2, {"içerik": "kayıp", "enerji": 0.9}),
+        "aday.yüksek": (0.8, {"içerik": "kazanan", "enerji": 0.2}),
+    }
+    for name, (score, payload) in offers.items():
+        bus.subscribe("bütünleşik.durum",
+                      lambda signal, score=score, payload=payload: Bid(
+                          score, dict(payload), "bağımsız içerik teklifi"), name=name)
+    expected_winner = max(offers, key=lambda name: offers[name][0])
+    loser_payload = offers[min(offers, key=lambda name: offers[name][0])][1]
+
+    first = bus.auction("bütünleşik.durum", source="beden", global_broadcast=True)
+    first_signal = bus.get(first.get("signal"))
+    active_first = {name for name in names if [row[0] for row in received[name]] == [first_signal.id]}
+    loser_free = all(all(row[2] != loser_payload for row in received[name]) for name in names)
+
     bus.set_enabled("bellek", False)
-    second = bus.publish_global("bütünleşik.durum", {"enerji": 0.9}, source="beden")
+    second = bus.auction("bütünleşik.durum", source="beden", global_broadcast=True)
+    second_signal = bus.get(second.get("signal"))
     expected_second = {name for name in names if name != "bellek"}
-    active_second = {name for name in names if second.id in received[name]}
+    active_second = {name for name in names if second_signal.id in [row[0] for row in received[name]]}
     bus.set_enabled("bellek", True)
-    third = bus.publish_global("bütünleşik.durum", {"enerji": 0.2}, source="beden")
-    restored = all(third.id in received[name] for name in names)
+
+    # Kapasite ablasyonu yalnız genel dağıtımı kesmeli; yarışma hesabı ve yerel
+    # konu kanalı çalışmaya devam ederse bu paylaşılan global değişken değildir.
+    bus.global_capacity = 0
+    local = bus.publish("özel.kanal.0", {"yerel": True}, source="yerel-test")
+    local_ok = (received["rapor"][-1][0] == local.id
+                and all(received[name][-1][0] != local.id for name in names if name != "rapor"))
+    before_blocked = {name: len(rows) for name, rows in received.items()}
+    blocked = bus.auction("bütünleşik.durum", source="beden", global_broadcast=True)
+    selective_block = (blocked.get("winner") == expected_winner and blocked.get("signal") is None
+                       and blocked.get("blocked") == "global_capacity" and local_ok
+                       and all(len(received[name]) == before_blocked[name] for name in names))
+
+    bus.global_capacity = 1
+    third = bus.auction("bütünleşik.durum", source="beden", global_broadcast=True)
+    third_signal = bus.get(third.get("signal"))
+    restored = all(third_signal.id in [row[0] for row in received[name]] for name in names)
+
     from nora_agi import NoraAGI
     live = NoraAGI(seed=772, boot_thinker=False,
                    world_kwargs={"metabolism": False, "wind": False})
-    live_signal = live.bus.publish_global("bütünleşik.durum", {"enerji": 0.2}, source="beden")
+    for name, (score, payload) in offers.items():
+        live.bus.subscribe("bütünleşik.durum",
+                           lambda signal, score=score, payload=payload: Bid(
+                               score, dict(payload), "canlı içerik teklifi"), name=name)
+    live_result = live.bus.auction("bütünleşik.durum", source="beden", global_broadcast=True)
+    live_signal = live.bus.get(live_result.get("signal"))
     live_expected = {row["name"] for row in live.bus.subscribers() if row["enabled"]}
     node_names = set(live.architecture.nodes)
     node_received = {name for name in node_names
                      if any(signal.id == live_signal.id for signal in live.bus.module_inbox(name))}
-    live_all = (set(live_signal.delivered) == live_expected and bool(live_expected)
-                and node_received == node_names)
-    ok = (active_first == set(names) and active_second == expected_second
-          and "bellek" not in active_second and restored and live_all)
-    detail = (f"ilk={sorted(active_first)} | ablasyon={sorted(active_second)} | "
-              f"geri={restored} | canlı-abone={len(live_expected)} canlı-organ={len(node_received)}/{len(node_names)} | "
-              f"taşınan-durum-değişimi=0.2→0.9→0.2")
+    live_loser_free = all(
+        all(signal.payload != loser_payload for signal in live.bus.module_inbox(name))
+        for name in node_names
+    )
+    live_all = (live_result.get("winner") == expected_winner
+                and set(live_signal.delivered) == live_expected and bool(live_expected)
+                and node_received == node_names and live_loser_free)
+    ok = (first.get("winner") == expected_winner and active_first == set(names) and loser_free
+          and active_second == expected_second and "bellek" not in active_second
+          and selective_block and restored and live_all)
+    detail = (f"kazanan={first.get('winner')} kayıp-yayınlanmadı={loser_free and live_loser_free} | "
+              f"ablasyon={sorted(active_second)} | kapasite0-yarışma+yerel={selective_block} | "
+              f"geri={restored} | canlı-abone={len(live_expected)} "
+              f"canlı-organ={len(node_received)}/{len(node_names)}")
     return ok, detail
 
 
@@ -449,9 +523,9 @@ TESTS = [
     ("C2 hata geçmişi → güven → plan inhibisyonu", c2_metacognition_causes_plan_inhibition),
     ("G1 öğrenilen model → aileler arası transfer + plan", g1_learned_model_causes_cross_family_transfer),
     ("G2 kaynak değişimi → yeni dış sınavda iyileşme", g2_source_change_causes_unseen_improvement),
-    ("R1 tek ölçüt: rapor-davranış / bütünleşik durum ablasyonu", r1_report_action_share_integrated_state),
+    ("R1 rapor-davranış + bütünleşik durum ve motor yolu ayrışması", r1_report_action_share_integrated_state),
     ("R2 beden → sürücü eşiği → fiziksel davranış", r2_body_drive_changes_physical_behavior),
-    ("R3 genel yayın → bütün modüller + ablasyon", r3_global_broadcast_reaches_all_modules),
+    ("R3 seçici yarışma → sınırlı genel yayın + spesifik ablasyon", r3_global_broadcast_reaches_all_modules),
 ]
 
 

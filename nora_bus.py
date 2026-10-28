@@ -72,9 +72,11 @@ class _Subscription:
 class CognitiveBus:
     """Sınırlı, izlenebilir, dinamik yayın/abonelik ve teklif yarışması."""
 
-    def __init__(self, history: int = 2048, max_subscribers: int = 256):
+    def __init__(self, history: int = 2048, max_subscribers: int = 256,
+                 global_capacity: int = 1):
         self.history_limit = max(16, int(history))
         self.max_subscribers = max(1, int(max_subscribers))
+        self.global_capacity = max(0, int(global_capacity))
         self._subs: list[_Subscription] = []
         self._signals: dict[str, Signal] = {}
         self._order: list[str] = []
@@ -130,7 +132,7 @@ class CognitiveBus:
         """Mimari organ kümesini genel yayın alıcılarıyla tek seferde eşitle.
 
         Her organ için ayrı konu köprüsü yazılmaz. Alıcılar özel konu yayınlarını
-        dinlemez; ``publish_global`` bütün etkin alıcılara aynı sinyali ulaştırır.
+        dinlemez; yalnız seçilmiş genel yayın bütün etkin alıcılara ulaştırılır.
         """
         prefix = "module."
         wanted = {str(name) for name in modules}
@@ -225,14 +227,22 @@ class CognitiveBus:
     broadcast = publish
 
     def publish_global(self, topic: str, payload: Any = None, *, source: str = "unknown",
-                       kind: str = "broadcast", confidence: float = 1.0, parents=()) -> Signal:
-        """Aynı bütünleşik sinyali konu filtresinden bağımsız bütün etkin organlara dağıt."""
+                       kind: str = "broadcast", confidence: float = 1.0, parents=()) -> Signal | None:
+        """Önceden seçilmiş tek içeriği kapasite varsa bütün etkin organlara dağıt.
+
+        Yarışmacıları dağıtmaz; seçim ``auction(..., global_broadcast=True)`` ile
+        yapılır. Kapasite sıfırken içerik üretimi ve yerel yayın çalışmaya devam
+        eder, yalnız bu genel dağıtım engellenir.
+        """
+        if self.global_capacity <= 0:
+            self.dropped += 1
+            return None
         return self.publish(topic, payload, source=source, kind=kind, confidence=confidence,
                             parents=parents, _everyone=True)
 
     # ------------------------------------------------------------------ yarışma
     def auction(self, topic: str, payload: Any = None, *, source: str = "unknown",
-                baseline: Bid | None = None, parents=()) -> dict | None:
+                baseline: Bid | None = None, parents=(), global_broadcast: bool = False) -> dict | None:
         """Teklifleri topla, en yüksek puanlı geçerli teklifi yayınla.
 
         Abone ``Bid`` döndürebilir; kolay entegrasyon için doğrudan payload ya da
@@ -254,10 +264,18 @@ class CognitiveBus:
         score, _order, winner, bid = offers[0]
         result = {"request": request.id, "winner": winner, "score": float(score),
                   "payload": bid.payload, "reason": bid.reason,
-                  "confidence": float(bid.confidence), "offers": len(offers)}
+                  "confidence": float(bid.confidence), "offers": len(offers),
+                  "global": bool(global_broadcast), "capacity": int(self.global_capacity)}
+        if global_broadcast and self.global_capacity <= 0:
+            # Kazanan yine açıkça raporlanır; dağıtım yapılmaması başarılmış
+            # yayın gibi gösterilmez ve yerel veri yolu kapatılmaz.
+            self.dropped += 1
+            result.update({"signal": None, "blocked": "global_capacity"})
+            self.last_winner = result
+            return result
         selected = self.publish(topic + ".selected", bid.payload, source=winner,
                                 kind="selection", confidence=bid.confidence,
-                                parents=(request.id,))
+                                parents=(request.id,), _everyone=bool(global_broadcast))
         result["signal"] = selected.id
         self.last_winner = result
         return result
@@ -335,6 +353,7 @@ class CognitiveBus:
         # metaverisinden ayrılır. Sinyal yükleri de burada saklanmaz: büyük duyusal
         # dizilerin checkpoint'i şişirmesini ve güvensiz pickle'ı önleriz.
         return {"published": int(self.published), "dropped": int(self.dropped),
+                "global_capacity": int(self.global_capacity),
                 "history": [self._signals[s].summary() for s in self._order],
                 "subscribers": self.subscribers(), "errors": list(self.errors[-32:]),
                 "last_winner": (dict(self.last_winner) if self.last_winner else None)}
@@ -345,6 +364,7 @@ class CognitiveBus:
         d = d or {}
         self.published = int(d.get("published", 0) or 0)
         self.dropped = int(d.get("dropped", 0) or 0)
+        self.global_capacity = max(0, int(d.get("global_capacity", self.global_capacity)))
         self.errors = [dict(x) for x in (d.get("errors") or []) if isinstance(x, dict)]
 
 

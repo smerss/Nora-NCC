@@ -33,8 +33,10 @@ _SAFE_BUILTINS = {
     "abs": abs, "round": round, "sum": sum, "min": min, "max": max,
     "sorted": sorted,
 }
+_SAFE_METHODS = {"upper", "lower", "strip", "title"}
 _ALLOWED_NODES = (
     ast.Expression, ast.Name, ast.Load, ast.Constant, ast.Tuple, ast.List,
+    ast.Attribute,
     ast.UnaryOp, ast.UAdd, ast.USub, ast.Not, ast.BinOp, ast.Add, ast.Sub,
     ast.Mult, ast.Div, ast.FloorDiv, ast.Mod, ast.Pow, ast.Compare, ast.Eq,
     ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE, ast.BoolOp, ast.And, ast.Or,
@@ -47,10 +49,14 @@ def _safe_tree(tree: ast.AST) -> None:
         if not isinstance(node, _ALLOWED_NODES):
             raise ValueError(f"unsafe AST node: {type(node).__name__}")
         if isinstance(node, ast.Call):
-            if not isinstance(node.func, ast.Name) or node.func.id not in _SAFE_BUILTINS:
+            named = isinstance(node.func, ast.Name) and node.func.id in _SAFE_BUILTINS
+            method = isinstance(node.func, ast.Attribute) and node.func.attr in _SAFE_METHODS
+            if not (named or method):
                 raise ValueError("unsafe call")
-            if node.keywords:
-                raise ValueError("keyword calls are not in the safe subset")
+            if node.keywords or (method and node.args):
+                raise ValueError("call arguments are not in the safe method subset")
+        if isinstance(node, ast.Attribute) and node.attr not in _SAFE_METHODS:
+            raise ValueError("unsafe attribute")
         if isinstance(node, ast.Name) and node.id.startswith("__"):
             raise ValueError("private name")
         if isinstance(node, ast.Constant) and isinstance(node.value, (bytes, complex)):
@@ -118,9 +124,14 @@ class ExpressionSynthesizer:
     def _terminal(self, value: Any) -> ast.AST:
         return ast.Constant(value=value)
 
-    def candidates(self, names: list[str], cases: list[dict]) -> list[ExpressionCandidate]:
+    def candidates(self, names: list[str], cases: list[dict], *,
+                   incumbents=()) -> list[ExpressionCandidate]:
         if not names or not cases:
             return []
+        # Arama bütçesi çağrı başınadır; önceki yamanın harcadığı bütçe ikinci
+        # yapısal adımı daha başlamadan tüketmemelidir.
+        self.evaluated = 0
+        self.pruned = 0
         expected = tuple(_signature(c.get("expect")) for c in cases)
         # Her semantik imzada en ucuz ifadeyi tut: aynı davranışın yüzlerce
         # sözdizimsel varyantı aramayı şişirmesin.
@@ -155,6 +166,9 @@ class ExpressionSynthesizer:
 
         terminals = [ast.Name(id=n, ctx=ast.Load()) for n in names]
         terminals += [self._terminal(v) for v in self._constants(cases)]
+        # Kabul edilmiş mevcut AST, çok adımlı yamada yeni yapının ilkel girdisi
+        # olabilir. Böylece ikinci yama birincinin davranışını genişletebilir.
+        terminals += [expr for expr in (incumbents or ()) if isinstance(expr, ast.AST)]
         solutions: list[ExpressionCandidate] = []
         for expr in terminals:
             fresh, hit = offer(expr, 0)
@@ -182,6 +196,10 @@ class ExpressionSynthesizer:
                     lower=ast.Constant(1), upper=None, step=None), ctx=ast.Load()),
                           ast.Subscript(value=a, slice=ast.Slice(
                     lower=None, upper=ast.Constant(-1), step=None), ctx=ast.Load())]
+                values_a = value_cache.get(ast.dump(a, include_attributes=False), ())
+                if values_a and all(isinstance(value, str) for value in values_a):
+                    unary += [ast.Call(func=ast.Attribute(value=a, attr=method, ctx=ast.Load()),
+                                       args=[], keywords=[]) for method in sorted(_SAFE_METHODS)]
                 for expr in unary:
                     fresh, hit = offer(expr, depth)
                     if hit:
@@ -289,6 +307,13 @@ class SourceWorkspace:
         path = self.path(module)
         if module not in self._original:
             self._original[module] = open(path, encoding="utf-8").read() if os.path.exists(path) else None
+
+    def commit(self, module: str | None = None) -> None:
+        """Kabul edilen çalışma ağacını sonraki adımın yeni rollback tabanı yap."""
+        names = list(self._original) if module is None else [str(module)]
+        for name in names:
+            self._original.pop(name, None)
+            self._created.discard(name)
 
     def write(self, module: str, source: str) -> None:
         self.snapshot(module)
@@ -418,6 +443,20 @@ class SelfModifier:
         ast.fix_missing_locations(tree)
         return ast.unparse(tree) + "\n"
 
+    @staticmethod
+    def _incumbent_expression(source: str, function: str) -> ast.AST | None:
+        if not source:
+            return None
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            return None
+        for node in tree.body:
+            if isinstance(node, ast.FunctionDef) and node.name == function:
+                if len(node.body) == 1 and isinstance(node.body[0], ast.Return):
+                    return node.body[0].value
+        return None
+
     def propose_patch(self, module: str, function: str, args: list[str], *,
                       train: list[dict], validation: list[dict],
                       timeout: float = 4.0) -> dict:
@@ -434,7 +473,10 @@ class SelfModifier:
         if base_val.get("score", 0.0) >= 1.0 and base_train.get("score", 0.0) >= 1.0:
             return {"status": "no-need", "train": base_train.get("score", 0.0),
                     "validation": base_val.get("score", 0.0)}
-        candidates = self.synthesizer.candidates(args, train)
+        incumbent = self._incumbent_expression(original, function)
+        candidates = self.synthesizer.candidates(
+            args, train, incumbents=[incumbent] if incumbent is not None else [],
+        )
         try:
             for candidate in candidates:
                 try:
@@ -454,6 +496,7 @@ class SelfModifier:
                     return {
                         "status": "proposed", "module": module, "function": function,
                         "args": list(args), "expression": candidate.text,
+                        "incumbent": ast.unparse(incumbent) if incumbent is not None else "",
                         "source": source, "patch": patch, "sha256": digest,
                         "proposal_id": digest[:16], "candidates": len(candidates),
                         "train": train_result.get("score"), "validation": val_result.get("score"),
@@ -494,6 +537,7 @@ class SelfModifier:
                         battery_result.get("status") in {"ok", "passed"})))
             record["battery"] = battery_result
             if passed:
+                self.workspace.commit(module)
                 record.update({"status": "accepted", "kept": True, "sha256": digest})
                 self.ledger.append(dict(record))
                 return record
