@@ -3961,3 +3961,147 @@ Yeniden üretim: `python law_battery.py --generalization`,
 `python law_battery.py --scaling`, `python law_battery.py --mission` ve
 `python law_battery.py --audit`. Eşbütçeli LLM üstünlüğü, genel zekâ,
 genel FST tanımlanabilirliği veya fenomenal bilinç iddiası yoktur.
+
+## Aşama BT — Aktif oracle sorguları ve ek-durum conformance
+
+Bu aşamada da yeni üretim modülü yoktur; mevcut `nora_semantic_code.py` ile
+`law_battery.py` derinleştirildi. Amaç yukarıdaki **aktif-sorgusuz 6/12**
+tablosunu yeniden adlandırmak değil, kalan belirsizliği açık veri-toplama
+protokolüyle çözmek ve `unique-minimal` yanlış genellemeyi de sınamaktı.
+Eski tablo ve kanıt dosyası değiştirilmedi. Yeni üretimle aktif sorgu olmayan
+ayrı tekrar da **6/12 exact**, beş ambiguous ve `ternary_weighted-8`
+**678/793** verdi (`/tmp/nora_representation_generalization_post_active.json`).
+Dolayısıyla aşağıdaki kazanç baseline'ın sessizce yeşile çevrilmesi değildir.
+
+### Sorgu/held-out ayrımı ve öğrenme protokolü
+
+Her görevde 1.024 etiketsiz girdilik donmuş havuz kullanıldı. Binary aktif
+uzunluklar `m+13…m+15`, ternary uzunluklar `7…m+4`; bunlar train, validation,
+deterministik held-out ve uzun rastgele held-out aralıklarından ayrışıktır.
+Program bütün sorguların önceki splitlerin hiçbirinde bulunmadığını ayrıca
+doğrular. `_active_representation` fonksiyonuna held-out hiç verilmez;
+bağımsız `_family_oracle` yalnız seçilen girdinin cevabı için çağrılır.
+Held-out ölçümü model ve sorgular durduktan sonra yapılır.
+
+- **Disagreement:** en çok 32 deterministik örneklenmiş aday arasında önce
+  farklı çıktı sayısı, sonra entropi en yüksek girdi seçilir; en kısa güvenli
+  uzunluk katmanı önceliklidir. Cevap bütün mevcut exhaustive aday kümesini
+  filtreler. Bu filtrelerin expansion sayısı **0**'dır; sentezi her sorguda
+  baştan çalıştırmaz.
+- **Conformance:** tek aday varken iki kısa tahminin tutması yeterli sayılmaz.
+  Durum kapsama yolları, durumları ayıran W ekleri ve
+  `k=max_states-learned_states` için `0…k+1` orta parçalar kullanılır. Böylece
+  aynı boyutlu hatalar kadar eksik-durum hatası da sınanır. Tahmin çelişirse
+  kanıt validation'a eklenir ve `min_states=learned_states+1` ile arama açılır.
+- **Recovery:** daha yüksek durumlu characteristic arama `unresolved` veya
+  `budget-exceeded` olursa son çürütülen hipotezin conformance kuyruğundan en
+  fazla 24 ek sonda alınır ve arama bir kez yenilenir. Aktif sürücü pahalı DFS
+  fallback yerine characteristic kanıtı ister; varsayılan üretim çağrılarının
+  fallback davranışı değişmez.
+- Üst sınır görev başına **64 sorgu**dur. `budget` durması conformance
+  kuyruğunun tüketilemediğini bildirir; held-out `exact` ile aynı alan değildir
+  ve ikisi raporda ayrıdır.
+
+### Dondurulmuş 12 OOD görevi: sorgusuz → aktif
+
+Tam kanıt `/tmp/nora_active_generalization_final.json`; toplam **40,16 sn**.
+`d/c/r`, disagreement/conformance/recovery sorgu sayılarıdır. Expansion
+yalnız yeniden sentezlerin toplamıdır; sıfır-expansion aday filtreleri buna
+eklenmez.
+
+| modulus | aile | sorgusuz tarihsel sonuç | aktif held-out | q (d/c/r) | aktif expansion | durma |
+|---:|---|---|---:|---:|---:|---|
+| 5 | reset | ambiguous, 0/576 | **576/576** | 7 (2/5/0) | 145 | conformance-complete |
+| 5 | affine | 576/576 | **576/576** | 12 (0/12/0) | 9 | conformance-complete |
+| 5 | ternary-reset | 793/793 | **793/793** | 44 (0/44/0) | 2 | conformance-complete |
+| 5 | ternary-weighted | 793/793 | **793/793** | 44 (0/44/0) | 2 | conformance-complete |
+| 7 | reset | ambiguous, 0/2112 | **2112/2112** | 14 (1/0/13) | 1.685 | conformance-complete |
+| 7 | affine | 2112/2112 | **2112/2112** | 24 (0/24/0) | 22 | conformance-complete |
+| 7 | ternary-reset | ambiguous, 0/793 | **793/793** | 64 (12/28/24) | 53.938 | budget |
+| 7 | ternary-weighted | 793/793 | **793/793** | 64 (0/64/0) | 8 | budget |
+| 8 | reset | ambiguous, 0/4160 | **4160/4160** | 16 (1/0/15) | 12.910 | conformance-complete |
+| 8 | affine | 4160/4160 | **4160/4160** | 64 (0/64/0) | 4 | budget |
+| 8 | ternary-reset | ambiguous, 0/793 | **793/793** | 64 (25/15/24) | 58.643 | budget |
+| 8 | ternary-weighted | unique-minimal **678/793** | **793/793** | 64 (7/57/0) | 1.999 | budget |
+
+Sonuç **12/12 exact**, toplam **481 oracle çağrısı/sorgu**: 48 disagreement,
+357 conformance, 76 recovery. Beş exact satırda conformance bütçesi dolmuştur;
+bu satırlar için tam conformance kanıtı iddia edilmez, yalnız bağımsız
+held-out exact sonucu bildirilir. `ternary_weighted-8`de ilk 7 durumlu
+unique-minimal makine conformance tarafından reddedilmiş, 8 durumlu aday
+kümesi açılmış ve son model 793/793 olmuştur. Böylece yalnız ambiguous
+satırları çözmek değil, unique-minimal yanlış genellemeyi yakalamak da test
+edilmiştir.
+
+### Genel sentez düzeltmeleri ve bağımsız karşılaştırma
+
+Aktif sorgular üç genel üretim sorununu görünür kıldı:
+
+1. Belirsiz kaynak seçeneklerini birleştiren yoldaki geçersiz Python
+   `set.union_update` çağrısı `set.update` olarak düzeltildi.
+2. Clique aramasının ilk çapaları derin ve tek-residual prefixlerden
+   oluşabiliyordu. Aynı greedy-color üst sınırında residual/geçiş kanıtı
+   zengin prefixler önceliklendirildi. Recovery sonrası diagnostic kanıtta
+   `reset-7` **412**, `reset-8` **11.358 completion-node** ile tek recurrent
+   adaya ulaştı; önceki zayıf çapada reset-8 iki milyon completion'da da
+   bulunamıyordu.
+3. Eksik geçişler `itertools.product` ile sonuna kadar doldurulmak yerine
+   validation prefix-trie'si üzerinde kısmi atanır; bilinen çıktı hatası dalı
+   erken keser, eksik geçiş yanlış sayılmaz. Dinamik sıra ilk eksik geçiş
+   olarak en çok doğrulama yolunda görülen transition'ı seçer.
+   `completion_nodes` bütün kısmi-atama işini, `completions` ise tam yaprakları
+   ayrı sayar; bütçe gerçek düğüm işini kapsar.
+
+Y10 tam-N!/kanonik denetimi yine **aynı 2/2 aday ve aynı seçim** ile geçti;
+expansion **3.120/26 → 1.800/15**. Ayrıca `d8ab13c` sürümünün yalnız kesin
+`union_update` Python hatası düzeltilmiş referansıyla 100 rastgele FST
+karşılaştırıldı; erişilebilir **61/61** örnekte durum, aday sayısı, recurrent
+sayısı ve seçilen tablo aynı, **0 mismatch**
+(`/tmp/nora_pre_post_active_candidate_crosscheck.json`). Aynı 100 görevin
+clique-anchor yolunu da içeren tam `invent_representation` karşılaştırması da
+**61/61 aynı, 0 mismatch** verdi
+(`/tmp/nora_pre_post_active_full_synthesis_crosscheck.json`). Bu kontroller
+hız iyileştirmesinin aday kümesini değiştirdiğine dair bir bulgu vermedi.
+
+Yeni scaling koşusu `/tmp/nora_representation_scaling_post_active.json`:
+mod2–8 expansion sırasıyla **2, 4, 8, 11, 31, 802, 832** ve held-out
+**128/128, 192/192, 320/320, 576/576, 1088/1088, 2112/2112, 4160/4160**.
+Mod7 **1,922 sn**, mod8 **6,239 sn**; mod8 ikinci tracemalloc ölçümü
+**142,648 MiB**. Toplam scaling **127,09 sn** ve bütün mod2–8 satırları
+exact. Önceki expansion tabloları tarihsel kanıt olarak yukarıda saklıdır.
+
+### Regresyon ve yeniden üretim
+
+- Kesintisiz ana pil **134/134 (953,6 sn)**:
+  `/tmp/nora_main_post_active.log`.
+- Law **11/11 (35,9 sn)**; yeni Y11 hem `reset-5` ambiguity çözümünü hem de
+  `ternary_weighted-8` unique-minimal conformance reddini denetler:
+  `/tmp/nora_law_post_active.log`.
+- Pratik **7/7**, işlevsel nedensel bilinç **9/9**; kapsam yine fenomenal
+  bilinç/qualia iddiası değildir.
+- Dondurulmuş dış ölçüm **9/10**, yalnız D2 `RANOR`/`ARON` kırmızısı;
+  `external_battery.py` değiştirilmedi.
+- Mission **576/576** (`/tmp/nora_mission_post_active.json`) ve yeni mühürlü
+  audit **1077/1077**, bütün kaynaklar önceki splitlerden ayrı
+  (`/tmp/nora_audit_post_active.json`). Yeni checkpoint SHA-256
+  `e7fbf34d8017ea01f7a5a90be8ef5cdfd3fc40d90aef4f8f95560f2a4e029330`;
+  dondurulmuş `external_battery.py` SHA-256 ise yine
+  `2199072553017a7846eb4fcae3ac872c01a92da6226a4dca155be756b7a491c4`.
+- Aktif ölçümün ikinci bağımsız koşusunda 12 satırın sorgu hash’leri, durma
+  durumları, expansion’ları ve held-out sonuçları aynı; **0 determinizm farkı**
+  (`/tmp/nora_active_determinism.json`, süreler 40,16/41,86 sn).
+- Gerçek Studio `/api/chat` ve yeni checkpoint ile iki teknik soru + iki fresh
+  25/29-bit kişisel istek **4/4 exact**; kişisel yollar `composed`, stdout
+  bağımsız oracle ile doğrulandı:
+  `/tmp/nora_studio_technical_personal_final.json`. İlave iki alıntısız serbest
+  parafraz kod kanalına girmedi; bu ayrı **0/2 kapsam kaydı** başarıya
+  katılmadı ve hedefe özel şablonla yamalanmadı:
+  `/tmp/nora_studio_freeform_personal_post_active.json`.
+- Kod-sözü **1125/127**, baseline kontrolü, `py_compile` ve `git diff --check`
+  geçti. Aktif ölçümde internet veya harici LLM/API çağrısı yoktur.
+
+Yeniden üretim: `python law_battery.py --active-generalization`,
+`python law_battery.py --generalization`, `python law_battery.py --scaling`.
+Aktif oracle erişimi artık açık bir veri maliyetidir; 12/12 sonuç sorgusuz
+identifiability, sınırsız FST genellemesi, genel zekâ veya LLM üstünlüğü
+iddiası değildir.

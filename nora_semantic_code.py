@@ -403,6 +403,15 @@ class _FiniteObservationEvidence:
                 found = clique
                 return
             order, bounds = color_sort(candidates)
+            # Aynı greedy-color sınırı içindeki sıralama tamlığı değiştirmez.
+            # Derin/tek-residual çapalar yerine kanıtı zengin prefixleri önce dene.
+            decorated = sorted(zip(order, bounds), key=lambda row: (
+                row[1], len(self.residuals[self.vertices[row[0]]]),
+                len(self.steps[self.vertices[row[0]]]), -len(self.vertices[row[0]]),
+                self.vertices[row[0]],
+            ))
+            order = [vertex for vertex, _bound in decorated]
+            bounds = [bound for _vertex, bound in decorated]
             for index in range(len(order) - 1, -1, -1):
                 if found is not None or capped:
                     return
@@ -425,7 +434,7 @@ class _FiniteObservationEvidence:
     def prove(self, initial_table: dict[tuple, tuple] | None, expansion_limit: int,
               *, anchor_vertices: list[int] | None = None,
               selection_strategy: str = "recurrent", selection_seed: int = 0,
-              exhaustive_labelings: bool = False) -> dict:
+              exhaustive_labelings: bool = False, return_candidates: bool = False) -> dict:
         """Bütün aynı-boyutlu makineleri sabit clique çapaları altında say.
 
         Klik, daha az durumun mümkün olmadığını kanıtlar. Zorunlu geçişler
@@ -477,7 +486,7 @@ class _FiniteObservationEvidence:
             anchors = found
 
         valid = set()
-        permutations = completions = validations = max_missing = 0
+        permutations = completions = completion_nodes = validations = max_missing = 0
         # Sabit clique çapalarında yalnız başlangıcın hangi çapa olduğu önemlidir.
         # Kalan durum adları kanonik BFS ile normalize edilir; N! yerine en fazla
         # N etiketleme bütün izomorfizm sınıflarını eksiksiz kapsar.
@@ -499,10 +508,20 @@ class _FiniteObservationEvidence:
                     permutation[index] = state
                 labelings.append(tuple(permutation))
             labeling_space = "root-anchor-canonical"
+        validation_trie = [{}]
+        for source, expected in self.examples:
+            node = 0
+            for symbol, emitted in zip(source, expected):
+                key = (symbol, emitted)
+                if key not in validation_trie[node]:
+                    validation_trie[node][key] = len(validation_trie)
+                    validation_trie.append({})
+                node = validation_trie[node][key]
         for permutation in labelings:
             permutations += 1
-            if permutations + completions > expansion_limit:
-                return {"status": "budget-exceeded", "expansions": permutations + completions}
+            if permutations + completion_nodes > expansion_limit:
+                return {"status": "budget-exceeded",
+                        "expansions": permutations + completion_nodes}
             domains = []
             inconsistent = False
             for vertex in range(len(self.vertices)):
@@ -556,6 +575,7 @@ class _FiniteObservationEvidence:
             ]
             max_missing = max(max_missing, len(missing))
             options = []
+            support = []
             for state, symbol in missing:
                 definite = [
                     vertex for vertex, prefix in enumerate(self.vertices)
@@ -584,24 +604,65 @@ class _FiniteObservationEvidence:
                         elif definite:
                             choices.intersection_update(current)
                         else:
-                            choices.union_update(current)
+                            choices.update(current)
                 if not choices:
                     inconsistent = True
                     break
                 options.append(sorted(choices))
+                support.append(len(sources))
             if inconsistent:
                 continue
 
-            for values in itertools.product(*options):
+            option_map = dict(zip(missing, options))
+            support_map = dict(zip(missing, support))
+            capped = False
+
+            def inspect(candidate, remaining):
+                """Bilinen hataları ve ilk-eksik geçişlerin yol desteğini bul."""
+                pending = [(0, 0)]  # (girdi-trie düğümü, FST durumu)
+                missing_support = {}
+                while pending:
+                    node, state = pending.pop()
+                    for (symbol, expected), child in validation_trie[node].items():
+                        key = (state, symbol)
+                        transition = candidate.get(key)
+                        if transition is None:
+                            if key in remaining:
+                                missing_support[key] = missing_support.get(key, 0) + 1
+                            continue  # Bu dalın devamı henüz bilinmiyor; yanlış sayma.
+                        target, emitted = transition
+                        if emitted != expected:
+                            return False, missing_support
+                        pending.append((child, target))
+                return True, missing_support
+
+            def complete(remaining, candidate):
+                nonlocal completions, completion_nodes, validations, capped
+                if capped:
+                    return
+                matches, missing_support = inspect(candidate, remaining)
+                if not matches:
+                    return
+                if remaining:
+                    key = min(remaining, key=lambda item: (
+                        -missing_support.get(item, 0), -support_map[item], item,
+                    ))
+                    following = tuple(item for item in remaining if item != key)
+                    for value in option_map[key]:
+                        completion_nodes += 1
+                        if permutations + completion_nodes > expansion_limit:
+                            capped = True
+                            return
+                        candidate[key] = value
+                        complete(following, candidate)
+                        candidate.pop(key, None)
+                        if capped:
+                            return
+                    return
                 completions += 1
-                if permutations + completions > expansion_limit:
-                    return {"status": "budget-exceeded",
-                            "expansions": permutations + completions}
-                candidate = dict(forced)
-                candidate.update(zip(missing, values))
                 canonical = self.canonical(candidate)
                 if canonical is None:
-                    continue
+                    return
                 anchor_ok = True
                 for candidate_state, anchor in enumerate(anchors):
                     traced = self.run(candidate, self.vertices[anchor], trace=True)
@@ -609,7 +670,7 @@ class _FiniteObservationEvidence:
                         anchor_ok = False
                         break
                 if not anchor_ok:
-                    continue
+                    return
                 validations += 1
                 witnessed = set()
                 matches = True
@@ -631,8 +692,16 @@ class _FiniteObservationEvidence:
                 # Eski DFS de yalnız örneklerde kurulabilen tam tabloları kabul
                 # eder; hiç görülmeyen geçişlerle sahte alternatif üretme.
                 if not matches or witnessed != set(candidate):
-                    continue
+                    return
                 valid.add(tuple(sorted(canonical.items())))
+
+            complete(tuple(missing), dict(forced))
+            if capped:
+                return {"status": "budget-exceeded",
+                        "expansions": permutations + completion_nodes,
+                        "permutations": permutations, "completions": completions,
+                        "completion_nodes": completion_nodes, "validations": validations,
+                        "max_missing": max_missing}
 
         tables = [dict(items) for items in sorted(valid)]
         recurrent = [
@@ -655,8 +724,9 @@ class _FiniteObservationEvidence:
             selection = "mdl-tie" if selection_strategy == "mdl" and tables else "ambiguous"
             selected = None
         stats = {
-            "expansions": permutations + completions,
+            "expansions": permutations + completion_nodes,
             "permutations": permutations, "completions": completions,
+            "completion_nodes": completion_nodes,
             "validations": validations, "max_missing": max_missing,
             "candidates": len(tables), "recurrent_candidates": len(recurrent),
             "selection": selection, "selection_strategy": selection_strategy,
@@ -664,9 +734,13 @@ class _FiniteObservationEvidence:
             "labeling_space": labeling_space,
             "mdl_bits_per_candidate": mdl_bits,
         }
-        if selected is None:
-            return {"status": "ambiguous" if tables else "unresolved", **stats}
-        return {"status": "proved", "table": selected, **stats}
+        result = {"status": "ambiguous" if selected is None and tables else
+                  ("unresolved" if selected is None else "proved"), **stats}
+        if selected is not None:
+            result["table"] = selected
+        if return_candidates:
+            result["candidate_tables"] = tables
+        return result
 
 
 class CompositionalCodeLearner:
@@ -1439,7 +1513,8 @@ class CompositionalCodeLearner:
         return solutions, stats
 
     def _finite_characteristic(self, constraints, alphabet, max_states, expansion_limit,
-                               *, selection_strategy="recurrent", selection_seed=0):
+                               *, min_states=1, selection_strategy="recurrent", selection_seed=0,
+                               return_candidates=False):
         """Gözlem/klik hızlı yolu; kanıt kurulamazsa eski DFS'e dön."""
         try:
             evidence = _FiniteObservationEvidence(constraints, alphabet)
@@ -1465,6 +1540,10 @@ class CompositionalCodeLearner:
                 return {"status": "budget-exceeded", **common}
             if not tables:
                 continue
+            tables = [table for table in tables
+                      if int(min_states) <= evidence.state_count(table) <= int(max_states)]
+            if not tables:
+                continue
             minimal = min(evidence.state_count(table) for table in tables)
             ordered = sorted(
                 (table for table in tables if evidence.state_count(table) == minimal),
@@ -1474,6 +1553,7 @@ class CompositionalCodeLearner:
                 proof = evidence.prove(
                     table, max(0, expansion_limit - total_expansions),
                     selection_strategy=selection_strategy, selection_seed=selection_seed,
+                    return_candidates=return_candidates,
                 )
                 total_expansions += int(proof.get("expansions", 0))
                 common.update({
@@ -1489,6 +1569,8 @@ class CompositionalCodeLearner:
                     "minimal_clique": proof.get("minimal_clique", 0),
                     "labeling_space": proof.get("labeling_space", ""),
                 })
+                if return_candidates and "candidate_tables" in proof:
+                    common["candidate_tables"] = proof["candidate_tables"]
                 if proof.get("status") == "budget-exceeded":
                     return {"status": "budget-exceeded", **common}
                 if proof.get("status") == "ambiguous":
@@ -1518,7 +1600,7 @@ class CompositionalCodeLearner:
             "prefixes": len(evidence.vertices), "selection_strategy": selection_strategy,
             "selection_seed": int(selection_seed),
         }
-        for states in range(max(1, int(max_states)), 0, -1):
+        for states in range(max(1, int(max_states)), max(1, int(min_states)) - 1, -1):
             anchors, used, color_visits, anchor_capped = evidence.clique_anchors(
                 states, max(0, expansion_limit - total_expansions),
             )
@@ -1542,7 +1624,7 @@ class CompositionalCodeLearner:
             proof = evidence.prove(
                 None, max(0, expansion_limit - total_expansions),
                 anchor_vertices=anchors, selection_strategy=selection_strategy,
-                selection_seed=selection_seed,
+                selection_seed=selection_seed, return_candidates=return_candidates,
             )
             total_expansions += int(proof.get("expansions", 0))
             common.update({
@@ -1556,6 +1638,8 @@ class CompositionalCodeLearner:
                 "minimal_clique": proof.get("minimal_clique", 0),
                 "labeling_space": proof.get("labeling_space", ""),
             })
+            if return_candidates and "candidate_tables" in proof:
+                common["candidate_tables"] = proof["candidate_tables"]
             if proof.get("status") in {"ambiguous", "budget-exceeded"}:
                 return {"status": proof["status"], **common}
             if proof.get("status") == "proved":
@@ -1577,9 +1661,11 @@ class CompositionalCodeLearner:
         return {"status": "unresolved", "reason": "no-clique", **common}
 
     def invent_representation(self, train, validation, *, max_states: int = 3,
-                              max_expansions: int = 100000,
+                              min_states: int = 1, max_expansions: int = 100000,
                               selection_strategy: str = "recurrent",
-                              selection_seed: int = 0) -> dict:
+                              selection_seed: int = 0,
+                              return_candidates: bool = False,
+                              allow_dfs_fallback: bool = True) -> dict:
         """Eski temsil yetmezse minimal gizli-durum transdüseri kur.
 
         Önce mevcut akış ifadeleri denenir. Yeni tür yalnız başarısızlıkta açılır;
@@ -1589,11 +1675,18 @@ class CompositionalCodeLearner:
         yalnız bir güçlü-bağlı minimal makine bulunmasıdır. Deney amaçlı açık
         uniform-random/lexicographic/MDL stratejileri de aynı aday kanıtını kullanır.
         Her seçim ``selection`` alanında matematiksel teklikten ayrı bildirilir.
+        ``min_states`` daha küçük modellerin önceki exhaustive kanıtla elendiği
+        aktif-sorgu devamları içindir. ``return_candidates`` ham iç tabloları
+        yalnız aday-filtreleme sürücüsüne açar; normal JSON sonucunu büyütmez.
+        ``allow_dfs_fallback=False`` characteristic recovery deneyinde pahalı
+        son çare aramasını devre dışı bırakır; varsayılan davranış korunur.
         """
         train_rows = self._relation_examples(train)
         validation_rows = self._relation_examples(validation)
         if not train_rows or not validation_rows:
             return {"status": "invalid-protocol"}
+        if not 1 <= int(min_states) <= max(1, int(max_states)):
+            return {"status": "invalid-protocol", "reason": "state-bound"}
         stream = self._synthesize_stream([(s, list(y)) for s, y in train_rows])
         if stream is not None and all(self._run_stream(stream, s) == list(y)
                                      for s, y in validation_rows):
@@ -1608,7 +1701,9 @@ class CompositionalCodeLearner:
         constraints = train_rows + validation_rows
         characteristic = self._finite_characteristic(
             constraints, alphabet, max(1, int(max_states)), expansion_limit,
+            min_states=max(1, int(min_states)),
             selection_strategy=selection_strategy, selection_seed=selection_seed,
+            return_candidates=return_candidates,
         )
         total_expansions += int(characteristic.get("expansions", 0))
         if characteristic.get("status") == "proved":
@@ -1636,11 +1731,13 @@ class CompositionalCodeLearner:
             }
             self.representations[name] = canonical
             public = {key: value for key, value in characteristic.items()
-                      if key not in {"status", "representation"}}
+                      if key not in {"status", "representation", "candidate_tables"}}
             return {"status": "invented", "id": name, **public}
         if characteristic.get("status") in {"ambiguous", "budget-exceeded"}:
             return characteristic
-        for states in range(1, max(1, int(max_states)) + 1):
+        if not allow_dfs_fallback:
+            return characteristic
+        for states in range(max(1, int(min_states)), max(1, int(max_states)) + 1):
             candidates, stats = self._finite_candidates(
                 constraints, states, alphabet, max_expansions=expansion_limit,
             )
@@ -1660,7 +1757,10 @@ class CompositionalCodeLearner:
             canonical = validated[0]
             if any(not self._finite_equivalent(canonical, other, alphabet)
                    for other in validated[1:]):
-                return {"status": "ambiguous", "candidates": len(validated), **common}
+                result = {"status": "ambiguous", "candidates": len(validated), **common}
+                if return_candidates:
+                    result["candidate_representations"] = validated
+                return result
             serial = 1 + max(
                 [int(name[4:]) for name in self.representations if name.startswith("repr")
                  and name[4:].isdigit()] or [0],

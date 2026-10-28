@@ -5,9 +5,11 @@ from __future__ import annotations
 
 import argparse
 import base64
+import collections
 import hashlib
 import itertools
 import json
+import math
 import os
 import random
 import re
@@ -349,6 +351,423 @@ def _prior_learner():
     learner = CompositionalCodeLearner()
     learner.operators.update({"bind", "iterate", "concatenate"})
     return learner
+
+
+ACTIVE_QUERY_BUDGET = 64
+ACTIVE_POOL_SIZE = 1024
+ACTIVE_RECOVERY_QUERIES = 24
+ACTIVE_CANDIDATE_SAMPLE = 32
+
+
+def _run_finite_candidate(candidate, source: str) -> str | None:
+    """Kanonik temsil veya iç aday tablosunu bağımsız oracle'a karşı yürüt."""
+    if isinstance(candidate, dict) and "transitions" in candidate:
+        table = {(int(state), symbol): (int(target), output)
+                 for state, symbol, target, output in candidate["transitions"]}
+    else:
+        table = candidate
+    state = 0
+    output = []
+    for symbol in source:
+        transition = table.get((state, symbol))
+        if transition is None:
+            return None
+        state, emitted = transition
+        output.append(emitted)
+    return "".join(output)
+
+
+def _table_representation(table, alphabet) -> dict:
+    states = 1 + max([state for state, _symbol in table]
+                     + [target for target, _output in table.values()])
+    return {
+        "kind": "finite_state_transducer", "states": states,
+        "alphabet": list(alphabet), "initial": 0,
+        "transitions": [[state, symbol, target, output]
+                        for (state, symbol), (target, output) in sorted(table.items())],
+    }
+
+
+def _active_query_domain(family: str, modulus: int, alphabet: str,
+                         pool_size: int = ACTIVE_POOL_SIZE):
+    """Bütün orijinal splitlerden uzunluğuyla ayrışan etiketsiz sorgu alanı."""
+    if family.startswith("ternary"):
+        # Dondurulmuş ternary held-out |x|=6 ve uzun rastgeleler |x|>=m+5.
+        lengths = list(range(7, int(modulus) + 5))
+    else:
+        # Binary held-out |x|=m+4 ve uzun rastgeleler en çok m+12.
+        lengths = [int(modulus) + 13, int(modulus) + 14, int(modulus) + 15]
+    rng = random.Random(MISSION_SEED + 100003 * int(modulus) + sum(map(ord, family)))
+    pool = set()
+    for length in lengths:
+        pool.add(alphabet[0] * length)
+        pool.add(alphabet[-1] * length)
+        pool.add("".join(alphabet[i % len(alphabet)] for i in range(length)))
+        pool.add("".join(alphabet[-1 - (i % len(alphabet))] for i in range(length)))
+    while len(pool) < int(pool_size):
+        length = lengths[len(pool) % len(lengths)]
+        pool.add("".join(rng.choice(alphabet) for _ in range(length)))
+    return sorted(pool), lengths
+
+
+def _conformance_probes(candidate, alphabet: str, lengths, max_states: int) -> list[str]:
+    """Adaydan türetilen W-method ve ek-durum conformance sondaları.
+
+    ``k=max_states-learned_states`` için durum kapsama yolları ile W ekleri
+    arasına 0..k+1 genişliğinde orta parçalar konur. Uzunluk doldurma sondanın
+    ayırt edici önekini değiştirmez ve girdiyi güvenli aktif alana taşır.
+    """
+    if isinstance(candidate, dict) and "transitions" in candidate:
+        table = {(int(state), symbol): (int(target), output)
+                 for state, symbol, target, output in candidate["transitions"]}
+    else:
+        table = candidate
+    states = sorted({state for state, _symbol in table}
+                    | {target for target, _output in table.values()})
+    cover = {0: ""}
+    queue = collections.deque([0])
+    while queue:
+        state = queue.popleft()
+        for symbol in alphabet:
+            target = table[(state, symbol)][0]
+            if target not in cover:
+                cover[target] = cover[state] + symbol
+                queue.append(target)
+    characterization = {""}
+    for left, right in itertools.combinations(states, 2):
+        queue = collections.deque([((left, right), "")])
+        seen = {(left, right)}
+        suffix = None
+        while queue and suffix is None:
+            (a_state, b_state), path = queue.popleft()
+            for symbol in alphabet:
+                next_a, output_a = table[(a_state, symbol)]
+                next_b, output_b = table[(b_state, symbol)]
+                if output_a != output_b:
+                    suffix = path + symbol
+                    break
+                pair = (next_a, next_b)
+                if pair not in seen:
+                    seen.add(pair)
+                    queue.append((pair, path + symbol))
+        if suffix is None:
+            raise ValueError("non-minimal-candidate")
+        characterization.add(suffix)
+    extra = max(0, int(max_states) - len(states))
+    middles = ["".join(row) for width in range(extra + 2)
+               for row in itertools.product(alphabet, repeat=width)]
+    probes = {}
+    allowed = sorted(set(map(int, lengths)))
+    for state in states:
+        for middle in middles:
+            for suffix in characterization:
+                base = cover[state] + middle + suffix
+                target_lengths = [length for length in allowed if length >= len(base)]
+                if not target_lengths:
+                    continue
+                target_length = target_lengths[0]
+                source = base + alphabet[0] * (target_length - len(base))
+                row = (len(middle), len(suffix), len(base), base, source)
+                previous = probes.get(source)
+                if previous is None or row[:4] > previous[:4]:
+                    probes[source] = row
+    ordered = sorted(probes.values(), key=lambda row: (-row[0], -row[1], -row[2], row[3]))
+    return [row[4] for row in ordered]
+
+
+def _active_representation(train, validation, pool, oracle, *, max_states: int,
+                           alphabet: str, lengths, budget: int = ACTIVE_QUERY_BUDGET):
+    """Aday ayrımı + conformance + bağımsız oracle ile aktif FST öğrenimi.
+
+    Bu fonksiyona held-out hiç verilmez. Oracle yalnız seçilen girdi için
+    çağrılır; disagreement cevapları mevcut exhaustive küme üzerinde sıfır
+    expansion'lı filtre uygular. Minimal küme boşalırsa durum alt sınırı artar.
+    """
+    train, validation = list(train), list(validation)
+    used = set()
+    queries, syntheses, filters = [], [], []
+    selected = candidates = None
+    last_key = None
+    verification_queue = []
+    minimum_states = 1
+    recovery_reference = None
+    recovery_attempted = set()
+    stop = "budget"
+    while True:
+        if candidates is None:
+            learner = _prior_learner()
+            result = learner.invent_representation(
+                train, validation, min_states=minimum_states, max_states=max_states,
+                return_candidates=True, allow_dfs_fallback=False,
+            )
+            tables = result.pop("candidate_tables", None)
+            representations = result.pop("candidate_representations", None)
+            syntheses.append(result)
+            if result.get("status") == "invented":
+                selected = learner.representations[result["id"]]
+                candidates = [selected]
+            elif result.get("status") == "ambiguous":
+                selected = None
+                candidates = tables if tables is not None else (representations or [])
+            else:
+                status = str(result.get("status"))
+                recovery_key = None
+                reference = None
+                if recovery_reference is not None:
+                    reference = (recovery_reference if "transitions" in recovery_reference
+                                 else _table_representation(recovery_reference, alphabet))
+                    recovery_key = (minimum_states, json.dumps(
+                        reference["transitions"], sort_keys=True,
+                    ))
+                if (status in {"budget-exceeded", "unresolved"} and minimum_states > 1
+                        and recovery_key is not None and recovery_key not in recovery_attempted
+                        and len(queries) < int(budget)):
+                    recovery_attempted.add(recovery_key)
+                    probes = _conformance_probes(reference, alphabet, lengths, max_states)
+                    extra = [source for source in probes if source not in used]
+                    extra = extra[:ACTIVE_RECOVERY_QUERIES]
+                    if extra:
+                        for source in extra:
+                            if len(queries) >= int(budget):
+                                break
+                            prediction = _run_finite_candidate(reference, source)
+                            expected = oracle(source)
+                            queries.append({
+                                "source": source, "output": expected,
+                                "reason": "recovery-conformance", "candidates_before": 0,
+                                "prediction": prediction,
+                                "prediction_matched": prediction == expected,
+                            })
+                            used.add(source)
+                            validation.append((source, expected))
+                        candidates = selected = None
+                        continue
+                stop = "synthesis-" + status
+                break
+            if not candidates:
+                stop = "no-candidates"
+                break
+        if candidates:
+            recovery_reference = candidates[0]
+        if len(candidates) == 1:
+            if "transitions" not in candidates[0]:
+                selected = _table_representation(candidates[0], alphabet)
+                candidates = [selected]
+            else:
+                selected = candidates[0]
+            key = json.dumps(selected.get("transitions", []), sort_keys=True)
+            if key != last_key:
+                verification_queue = _conformance_probes(
+                    selected, alphabet, lengths, max_states,
+                )
+                last_key = key
+        else:
+            selected = last_key = None
+            verification_queue = []
+        verification_mismatch = False
+        while len(candidates) == 1 and len(queries) < int(budget):
+            unused = [source for source in verification_queue if source not in used]
+            if not unused:
+                stop = "unique-conformance-complete"
+                return selected, {
+                    "stop": stop, "queries": queries, "syntheses": syntheses,
+                    "filters": filters, "train_rows": len(train),
+                    "validation_rows": len(validation),
+                    "conformance_probe_count": len(verification_queue),
+                }
+            source = unused[0]
+            prediction = _run_finite_candidate(selected, source)
+            expected = oracle(source)
+            queries.append({
+                "source": source, "output": expected, "reason": "conformance",
+                "candidates_before": 1, "prediction": prediction,
+                "prediction_matched": prediction == expected,
+            })
+            used.add(source)
+            validation.append((source, expected))
+            if prediction != expected:
+                verification_mismatch = True
+                break
+        if verification_mismatch:
+            minimum_states = max(minimum_states, int(selected["states"]) + 1)
+            candidates = selected = None
+            if minimum_states > int(max_states):
+                stop = "state-cap"
+                break
+            if len(queries) >= int(budget):
+                stop = "budget"
+                break
+            continue
+        if len(candidates) == 1:
+            stop = "budget" if len(queries) >= int(budget) else "verification-reduced"
+            break
+        if len(queries) >= int(budget):
+            stop = "budget"
+            break
+        unused = [source for source in pool if source not in used]
+        if not unused:
+            stop = "pool-exhausted"
+            break
+        count = min(ACTIVE_CANDIDATE_SAMPLE, len(candidates))
+        indices = {0, len(candidates) - 1}
+        if count > 2:
+            indices.update((i * (len(candidates) - 1)) // (count - 1)
+                           for i in range(count))
+        sample = [candidates[index] for index in sorted(indices)]
+        best = None
+        # En kısa güvenli katmanda ayrım varken daha uzun katmana çıkma.
+        for length in lengths:
+            tier = [source for source in unused if len(source) == int(length)]
+            for source in tier:
+                outputs = [_run_finite_candidate(candidate, source) for candidate in sample]
+                counts = collections.Counter(outputs)
+                distinct = len(counts)
+                if distinct <= 1:
+                    continue
+                entropy = -sum((number / len(outputs)) * math.log(number / len(outputs))
+                               for number in counts.values())
+                score = (distinct, entropy)
+                if best is None or score > best[0]:
+                    best = (score, source, distinct, entropy)
+            if best is not None:
+                break
+        if best is None:
+            stop = "no-pool-disagreement"
+            break
+        _score, source, distinct, entropy = best
+        expected = oracle(source)
+        before = len(candidates)
+        candidates = [candidate for candidate in candidates
+                      if _run_finite_candidate(candidate, source) == expected]
+        filters.append({"before": before, "after": len(candidates), "expansions": 0})
+        queries.append({
+            "source": source, "output": expected, "reason": "disagreement",
+            "candidates_before": before, "candidates_after": len(candidates),
+            "sample_distinct_outputs": distinct, "sample_entropy": entropy,
+            "prediction": None, "prediction_matched": None,
+        })
+        used.add(source)
+        validation.append((source, expected))
+        if not candidates:
+            minimum_states = max(minimum_states, int(result.get("states", max_states)) + 1)
+            candidates = None
+            if minimum_states > int(max_states):
+                stop = "state-cap"
+                break
+    return selected, {
+        "stop": stop, "queries": queries, "syntheses": syntheses,
+        "filters": filters, "train_rows": len(train),
+        "validation_rows": len(validation),
+        "conformance_probe_count": len(verification_queue),
+    }
+
+
+def _active_measure(family: str, modulus: int,
+                    budget: int = ACTIVE_QUERY_BUDGET) -> dict:
+    task = _family_task(modulus, family)
+    alphabet = "".join(sorted({symbol for source, _expected in
+                               task["train"] + task["validation"] for symbol in source}))
+    pool, lengths = _active_query_domain(family, modulus, alphabet)
+    original_sources = {source for split in ("train", "validation", "heldout")
+                        for source, _expected in task[split]}
+    if set(pool) & original_sources:
+        raise AssertionError("active_pool_overlaps_frozen_splits")
+    started = time.perf_counter()
+    selected, detail = _active_representation(
+        task["train"], task["validation"], pool,
+        lambda source: _family_oracle(source, modulus, family),
+        max_states=modulus, alphabet=alphabet, lengths=lengths, budget=budget,
+    )
+    # Bu noktadan önce held-out, sorgu seçicinin fonksiyon kapsamına hiç girmez.
+    correct = (sum(_run_finite_candidate(selected, source) == expected
+                   for source, expected in task["heldout"])
+               if selected is not None else 0)
+    queries = detail["queries"]
+    if (any(query["source"] in original_sources for query in queries)
+            or any(len(query["source"]) not in lengths for query in queries)
+            or len({query["source"] for query in queries}) != len(queries)):
+        raise AssertionError("active_query_protocol_violation")
+    total = len(task["heldout"])
+    reason_counts = collections.Counter(query["reason"] for query in queries)
+    return {
+        "family": family, "modulus": int(modulus), "status": detail["stop"],
+        "resolved": selected is not None, "correct": correct, "total": total,
+        "accuracy": correct / total, "exact": correct == total,
+        "seconds": time.perf_counter() - started,
+        "query_count": len(queries), "oracle_calls": len(queries),
+        "disagreement_queries": reason_counts["disagreement"],
+        "conformance_queries": reason_counts["conformance"],
+        "recovery_queries": reason_counts["recovery-conformance"],
+        "synthesis_count": len(detail["syntheses"]),
+        "synthesis_expansions": sum(int(row.get("expansions", 0))
+                                    for row in detail["syntheses"]),
+        "filter_count": len(detail["filters"]),
+        "filter_expansions": sum(int(row["expansions"]) for row in detail["filters"]),
+        "max_candidates_before_query": max(
+            [int(query["candidates_before"]) for query in queries] or [0],
+        ),
+        "final_states": int(selected.get("states", 0)) if selected else 0,
+        "conformance_probe_count": detail["conformance_probe_count"],
+        "active_lengths": lengths, "pool_size": len(pool),
+        "pool_disjoint_from_all_original_splits": True,
+        "queries_not_in_any_prior_split": True,
+        "heldout_passed_to_active_learner": False,
+        "train_sha256": _rows_hash(task["train"]),
+        "validation_sha256": _rows_hash(task["validation"]),
+        "heldout_sha256": _rows_hash(task["heldout"]),
+        "active_queries_sha256": _rows_hash([
+            (query["source"], query["output"]) for query in queries
+        ]),
+        "queries": queries, "syntheses": detail["syntheses"], "filters": detail["filters"],
+    }
+
+
+def active_representation_generalization() -> dict:
+    """Dondurulmuş 12 OOD görevinde ayrı aktif-sorgu ölçümü."""
+    rows = [_active_measure(family, modulus)
+            for modulus in (5, 7, 8)
+            for family in ("reset", "affine", "ternary_reset", "ternary_weighted")]
+    complete = (len(rows) == 12 and all(row["status"] for row in rows)
+                and all(row["queries_not_in_any_prior_split"] for row in rows))
+    return {
+        "protocol": {
+            "query_budget": ACTIVE_QUERY_BUDGET, "pool_size": ACTIVE_POOL_SIZE,
+            "candidate_sample": ACTIVE_CANDIDATE_SAMPLE,
+            "recovery_batch": ACTIVE_RECOVERY_QUERIES,
+            "query_selection": "tiered max-distinct/entropy disagreement; W-method extra-state conformance",
+            "heldout_passed_to_active_learner": False,
+            "heldout_used_for_query_selection": False,
+            "baseline_comparison": "run representation_generalization separately; frozen rows are not rewritten",
+        },
+        "rows": rows,
+        "findings": {
+            "exact_rows": sum(row["exact"] for row in rows), "total_rows": len(rows),
+            "nonexact": [f"{row['family']}-{row['modulus']}:{row['status']}"
+                         for row in rows if not row["exact"]],
+            "total_queries": sum(row["query_count"] for row in rows),
+            "total_disagreement_queries": sum(row["disagreement_queries"] for row in rows),
+            "total_conformance_queries": sum(row["conformance_queries"] for row in rows),
+            "total_recovery_queries": sum(row["recovery_queries"] for row in rows),
+            "all_oracle_calls_accounted": all(
+                row["oracle_calls"] == row["query_count"] for row in rows
+            ),
+        },
+        "measurement_complete": complete,
+    }
+
+
+def active_query_protocol_audit() -> tuple[bool, str]:
+    """Ambiguity ve unique-minimal yanlış genellemeyi bağımsız aktif testte yakala."""
+    reset = _active_measure("reset", 5)
+    weighted = _active_measure("ternary_weighted", 8)
+    ok = (reset["exact"] and weighted["exact"]
+          and reset["disagreement_queries"] > 0
+          and any(query["reason"] == "conformance" and query["prediction_matched"] is False
+                  for query in weighted["queries"]))
+    detail = (f"reset5={reset['correct']}/{reset['total']} q={reset['query_count']} "
+              f"weighted8={weighted['correct']}/{weighted['total']} q={weighted['query_count']} "
+              f"weighted_conformance_reject={any(q['prediction_matched'] is False for q in weighted['queries'])}")
+    return ok, detail
 
 
 def _scan_old_repertoire(train, validation) -> dict:
@@ -1142,12 +1561,14 @@ def main():
     mode.add_argument("--mission", action="store_true", help="kısıtlı-ağ otonom icat görevi")
     mode.add_argument("--scaling", action="store_true", help="durum ve zorluk ölçeklemesi")
     mode.add_argument("--generalization", action="store_true", help="mod7/8, OOD ve seçim-prior ölçümü")
+    mode.add_argument("--active-generalization", action="store_true",
+                      help="ayrı aktif-oracle OOD sorgu ve conformance ölçümü")
     mode.add_argument("--audit", action="store_true", help="terfi checkpoint'ine yeni mühürlü denetim")
     ap.add_argument("--offline", action="store_true", help="görevde ağı kapalı tut")
     ap.add_argument("--output", default="")
     ap.add_argument("--checkpoint", default="/tmp/nora_autonomous_skill.json")
     args = ap.parse_args()
-    if args.mission or args.scaling or args.generalization or args.audit:
+    if args.mission or args.scaling or args.generalization or args.active_generalization or args.audit:
         started = time.perf_counter()
         if args.mission:
             report = autonomous_invention_mission(network=not args.offline,
@@ -1163,6 +1584,10 @@ def main():
             report = representation_generalization()
             output = args.output or "/tmp/nora_representation_generalization.json"
             success = bool(report["measurement_complete"])
+        elif args.active_generalization:
+            report = active_representation_generalization()
+            output = args.output or "/tmp/nora_active_generalization.json"
+            success = bool(report["measurement_complete"])
         else:
             report = sealed_checkpoint_audit(args.checkpoint)
             output = args.output or "/tmp/nora_final_sealed_audit.json"
@@ -1171,7 +1596,8 @@ def main():
         with open(output, "w", encoding="utf-8") as handle:
             json.dump(report, handle, ensure_ascii=False, indent=2, sort_keys=True)
         print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True), flush=True)
-        label = "ÖLÇÜM TAMAM" if args.generalization and success else ("GEÇTİ" if success else "KALDI")
+        label = ("ÖLÇÜM TAMAM" if (args.generalization or args.active_generalization) and success
+                 else ("GEÇTİ" if success else "KALDI"))
         print(f"KANIT {output} | {label}", flush=True)
         raise SystemExit(0 if success else 1)
     tests = [("Y1 koşullu ifade yeni örneklerde", conditional_expression),
@@ -1183,7 +1609,8 @@ def main():
              ("Y7 kalıcı temsil kişisel istekte çalışır", learned_representation_personal_application),
              ("Y8 kısıtlı araştırma ağ sınırı", restricted_research_boundary),
              ("Y9 teknik niyet ve bibliyografik kanıt", technical_epistemic_boundary),
-             ("Y10 kanonik etiketleme ve seçim ablasyonu", selection_and_labeling_audit)]
+             ("Y10 kanonik etiketleme ve seçim ablasyonu", selection_and_labeling_audit),
+             ("Y11 aktif sorgu ve conformance protokolü", active_query_protocol_audit)]
     failed = 0
     t0 = time.time()
     for _ in range(max(1, args.repeat)):
