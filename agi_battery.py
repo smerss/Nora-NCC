@@ -5545,6 +5545,11 @@ def a132_belgeden_anlam_ve_bilesimli_kod():
     return practical_code_trial()
 
 
+def a133_belgeden_birikimli_onek_operatoru():
+    from practical_language_battery import cumulative_trial
+    return cumulative_trial()
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -5672,6 +5677,7 @@ TESTS = {
     "A130": ("nedensel AGI bileşeni: kaynak değişimi → yeni dış sınav", a130_öz_değişim_nedenselliği),
     "A131": ("geçici dil dersi: yapı çıkar, yeni cümleye uygula, bilinmeyeni reddet", a131_gecici_dil_dersi_ve_bilesim),
     "A132": ("belgeden anlam çıkar, kod operatörü kur ve gerçek çıktıyı doğrula", a132_belgeden_anlam_ve_bilesimli_kod),
+    "A133": ("birikimli önek isteğini belgeden öğren, yeni metne uygula", a133_belgeden_birikimli_onek_operatoru),
     "A111": ("icadın şeması: görülmemiş parametre icat gerektirmez", a111_icadin_semasi),
     "A110": ("dil: buyruk sarmalayıcısı ve X mi Y mi seçim sorusu", a110_sarmalayici_ve_secim_sorusu),
     "A108": ("şema: delikli makro görülmemiş parametreyi kapsar", a108_sema_delikli_makro),

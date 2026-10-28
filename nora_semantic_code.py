@@ -33,6 +33,8 @@ _QUOTES = (
 _NOMINALS = ("yazısını", "metnini", "ifadesini", "dizesini", "cümlesini")
 _DISPLAY = ("yazdır", "yazdir", "bastır", "print", "göster", "çıktı")
 _VERTICAL = ("alt alta", "alt satır", "satır satır", "dikey", "her satır")
+_CUMULATIVE = ("bir harf daha", "1 harf daha", "bir karakter daha", "1 karakter daha",
+               "birer harf", "harf eklen", "artan önek", "birikimli", "kümülatif")
 
 
 @dataclass(frozen=True)
@@ -43,12 +45,15 @@ class SemanticGoal:
     execute: bool
     raw: str
     trace: tuple[str, ...] = field(default_factory=tuple)
+    cumulative: bool = False
 
     @property
     def key(self) -> tuple[str, str]:
-        return self.unit, self.layout
+        return self.unit, self.layout + ("+cumulative" if self.cumulative else "")
 
     def units(self) -> list[str]:
+        if self.cumulative and self.unit == "character":
+            return [self.payload[:index] for index in range(1, len(self.payload) + 1)]
         if self.unit == "character":
             return list(self.payload)
         if self.unit == "word":
@@ -63,7 +68,8 @@ class SemanticGoal:
 
     def state_dict(self) -> dict:
         return {"payload": self.payload, "unit": self.unit, "layout": self.layout,
-                "execute": self.execute, "raw": self.raw, "trace": list(self.trace)}
+                "execute": self.execute, "raw": self.raw, "trace": list(self.trace),
+                "cumulative": self.cumulative}
 
 
 @dataclass(frozen=True)
@@ -128,9 +134,10 @@ class CompositionalCodeLearner:
         if unit == "whole" and layout == "inline":
             return None
         execute = any(cue in low for cue in ("çalıştır", "yürüt", "run"))
+        cumulative = any(cue in low for cue in _CUMULATIVE)
         trace = (f"payload_length={len(payload)}", f"unit={unit}", f"layout={layout}",
-                 f"execute={execute}")
-        return SemanticGoal(payload, unit, layout, execute, raw, trace)
+                 f"execute={execute}", f"cumulative={cumulative}")
+        return SemanticGoal(payload, unit, layout, execute, raw, trace, cumulative)
 
     # -------------------------------------------------------------- document learning
     @staticmethod
@@ -184,6 +191,8 @@ class CompositionalCodeLearner:
                     name = node.func
                     if isinstance(name, ast.Name) and name.id == "print":
                         self.operators.add("display")
+                    elif isinstance(name, ast.Name) and name.id == "accumulate":
+                        self.operators.add("accumulate")
                     elif isinstance(name, ast.Attribute) and name.attr == "split" and not node.args:
                         self.operators.add("split_words")
         self.learning_events += 1
@@ -244,6 +253,11 @@ class CompositionalCodeLearner:
     # -------------------------------------------------------------- planning
     def _transitions(self, goal: SemanticGoal, stage: int) -> list[tuple[str, int]]:
         if stage == 0:
+            if goal.cumulative:
+                if (goal.unit == "character" and self.facts.get("text_sequence")
+                        and "accumulate" in self.operators):
+                    return [("accumulate", 1)]
+                return []
             if goal.unit == "character" and self.facts.get("text_sequence"):
                 return [("character_view", 1)]
             if goal.unit == "word" and "split_words" in self.operators:
@@ -271,7 +285,7 @@ class CompositionalCodeLearner:
 
     def _path_available(self, path: tuple[str, ...]) -> bool:
         for operator in path:
-            if operator == "character_view" and not self.facts.get("text_sequence"):
+            if operator in {"character_view", "accumulate"} and not self.facts.get("text_sequence"):
                 return False
             if operator == "display" and not self.facts.get("print_newline"):
                 return False
@@ -283,6 +297,8 @@ class CompositionalCodeLearner:
         missing = []
         if goal.unit == "character" and not self.facts.get("text_sequence"):
             missing.append("text_sequence")
+        if goal.cumulative and "accumulate" not in self.operators:
+            missing.append("accumulate")
         if goal.unit == "word" and "split_words" not in self.operators:
             missing.append("split_words")
         if "iterate" not in self.operators:
@@ -296,17 +312,25 @@ class CompositionalCodeLearner:
     @staticmethod
     def _emit(goal: SemanticGoal, path: tuple[str, ...]) -> str:
         source: ast.expr = ast.Constant(value=goal.payload)
-        if "split_words" in path:
+        statements: list[ast.stmt] = []
+        if "accumulate" in path:
+            statements.append(ast.ImportFrom(
+                module="itertools", names=[ast.alias(name="accumulate")], level=0,
+            ))
+            source = ast.Call(func=ast.Name(id="accumulate", ctx=ast.Load()),
+                              args=[source], keywords=[])
+        elif "split_words" in path:
             source = ast.Call(func=ast.Attribute(value=source, attr="split", ctx=ast.Load()),
                               args=[], keywords=[])
-        variable = {"character": "character", "word": "word"}.get(goal.unit, "item")
+        variable = "prefix" if goal.cumulative else {"character": "character", "word": "word"}.get(goal.unit, "item")
         body = ast.Expr(value=ast.Call(
             func=ast.Name(id="print", ctx=ast.Load()),
             args=[ast.Name(id=variable, ctx=ast.Load())], keywords=[],
         ))
         loop = ast.For(target=ast.Name(id=variable, ctx=ast.Store()), iter=source,
                        body=[body], orelse=[])
-        module = ast.Module(body=[loop], type_ignores=[])
+        statements.append(loop)
+        module = ast.Module(body=statements, type_ignores=[])
         ast.fix_missing_locations(module)
         return ast.unparse(module)
 

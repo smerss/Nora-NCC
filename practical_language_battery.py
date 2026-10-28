@@ -20,6 +20,10 @@ from nora_style import strip_prefixes
 
 ROOT = Path(__file__).resolve().parent
 PRIMER = ROOT / "data" / "python_semantics_primer.md"
+ACCUMULATION = ROOT / "data" / "python_accumulation.md"
+CUMULATIVE_TARGET = ("selamlar dünyalılar! yazısını her satırda bir harf daha "
+                     "eklenmiş hâlde alt alta yazdır ve çalıştır.")
+CUMULATIVE_PAYLOAD = "selamlar dünyalılar!"
 TARGET = ("Merhaba Baran! yazısını alt satırlara doğru giderek harf harf "
           "nasıl yazdırılacağını iste. Kodu ver ve kodu çalıştır.")
 PAYLOAD = "Merhaba Baran!"
@@ -68,6 +72,32 @@ def practical_trial() -> tuple[bool, str]:
           and "operatörüm yok" not in reply.lower())
     detail = (f"{elapsed:.1f} ms | plan={result.get('operators')} | "
               f"satırlar={len(lines)}/{len(independent_lines)} | kod={result.get('program')!r}")
+    return ok, detail
+
+
+def cumulative_trial() -> tuple[bool, str]:
+    cortex = CodeSynthesisCortex(seed=608)
+    before = cortex.handle(CUMULATIVE_TARGET)
+    lesson = cortex.handle_document("Doküman: " + ACCUMULATION.read_text(encoding="utf-8"))
+    result = cortex.handle(CUMULATIVE_TARGET)
+    expected_prefixes = "".join(CUMULATIVE_PAYLOAD[:index] + "\n"
+                                for index in range(1, len(CUMULATIVE_PAYLOAD) + 1))
+    heldout = cortex.handle("Nora! yazısını her satırda bir harf daha eklenmiş hâlde alt alta yazdır.")
+    flat = cortex.handle("Nora! yazısını alt alta harf harf yazdır.")
+    saved = cortex.semantic.state_dict()
+    cortex.semantic.operators.discard("accumulate")
+    ablated = cortex.handle(CUMULATIVE_TARGET)
+    cortex.semantic.load_state_dict(saved)
+    restored = cortex.handle("Ece! yazısını her satırda bir harf daha eklenmiş hâlde alt alta yazdır.")
+    ok = (not before.get("ok") and "accumulate" in (before.get("missing") or ())
+          and lesson.get("ok") and result.get("stdout") == expected_prefixes
+          and result.get("verified") and heldout.get("stdout") == "N\nNo\nNor\nNora\nNora!\n"
+          and flat.get("stdout") == "N\no\nr\na\n!\n"
+          and not ablated.get("ok") and restored.get("stdout") == "E\nEc\nEce\nEce!\n")
+    detail = (f"önce={before.get('path')}:{before.get('missing')} | öğrenilen={lesson.get('new_operators')} | "
+              f"plan={result.get('operators')} | satır={len(result.get('stdout', '').splitlines())} | "
+              f"yeni metin={heldout.get('stdout')!r} | düz kontrol={flat.get('stdout')!r} | "
+              f"ablasyon={ablated.get('path')} restore={restored.get('stdout')!r}")
     return ok, detail
 
 
@@ -155,6 +185,7 @@ def main() -> None:
             ("P3 parafraz/yük aktarımı ve bileşik operatör", test_transfer_and_composite_reuse),
             ("P4 operatör/anlam ablasyonu ve geri yükleme", test_operator_ablation_and_restore),
             ("P5 öğrenilen anlam ve planın kalıcılığı", test_semantic_persistence),
+            ("P6 belgeden birikimli önek operatörü", cumulative_trial),
         )
     passed = 0
     started = time.perf_counter()
