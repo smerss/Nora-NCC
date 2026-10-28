@@ -14,6 +14,7 @@ import base64
 import copy
 from dataclasses import dataclass, field
 import html
+import itertools
 import json
 from pathlib import Path
 import random
@@ -100,6 +101,460 @@ class TransformationGoal:
     @property
     def key(self) -> tuple[str, str]:
         return "transformation", self.operation
+
+
+class _FiniteObservationEvidence:
+    """Örnek öneklerinden FST adayı ve exhaustif minimalite kanıtı.
+
+    Bu bir temsil sınıfı değildir; yalnız mevcut ``finite_state_transducer``
+    ailesi için arama verisidir. İki önek aynı gelecekte farklı çıktı veriyorsa
+    aynı gizli durumda olamaz. Gözlem tabloları aday kurmak için bu kısıtı,
+    klik/çapa analizi ise bütün minimal makineleri saymak için kullanılır.
+    """
+
+    def __init__(self, examples: list[tuple[str, str]], alphabet: list[str]):
+        self.examples = list(examples)
+        self.alphabet = tuple(alphabet)
+        self.output_alphabet = tuple(sorted({
+            output for _source, expected in self.examples for output in expected
+        }))
+        self.residuals: dict[str, dict[str, str]] = {}
+        for source, expected in self.examples:
+            for depth in range(len(source) + 1):
+                prefix, suffix = source[:depth], source[depth:]
+                row = self.residuals.setdefault(prefix, {})
+                residual = expected[depth:]
+                if suffix in row and row[suffix] != residual:
+                    raise ValueError("conflicting_duplicate_example")
+                row[suffix] = residual
+        self.vertices = sorted(self.residuals, key=lambda text: (len(text), text))
+        self.index = {text: pos for pos, text in enumerate(self.vertices)}
+        self.levels: dict[int, list[str]] = {}
+        for text in self.vertices:
+            self.levels.setdefault(len(text), []).append(text)
+        self.steps: dict[str, dict[str, tuple[str, str]]] = {}
+        for prefix in self.vertices:
+            row = {}
+            for symbol in self.alphabet:
+                # Kısa bir önek için tek karakterlik örnek bulunmayabilir.
+                # Daha uzun herhangi bir geleceğin ilk çıktısı aynı adımı verir.
+                outputs = {
+                    residual[0] for suffix, residual in self.residuals[prefix].items()
+                    if suffix.startswith(symbol) and residual
+                }
+                if len(outputs) > 1:
+                    raise ValueError("inconsistent_single_step_outputs")
+                if outputs and prefix + symbol in self.residuals:
+                    row[symbol] = (next(iter(outputs)), prefix + symbol)
+            self.steps[prefix] = row
+        self.adjacency = [set() for _ in self.vertices]
+        self.constraint_checks = 0
+        for left in range(len(self.vertices)):
+            for right in range(left + 1, len(self.vertices)):
+                self.constraint_checks += 1
+                if not self.compatible(self.residuals[self.vertices[left]],
+                                       self.residuals[self.vertices[right]]):
+                    self.adjacency[left].add(right)
+                    self.adjacency[right].add(left)
+        self.adjacency_bits = [
+            sum(1 << other for other in row) for row in self.adjacency
+        ]
+
+    @staticmethod
+    def compatible(left: dict[str, str], right: dict[str, str]) -> bool:
+        small, other = (left, right) if len(left) <= len(right) else (right, left)
+        return not any(suffix in other and residual != other[suffix]
+                       for suffix, residual in small.items())
+
+    @staticmethod
+    def state_count(table: dict[tuple, tuple]) -> int:
+        return len({state for state, _symbol in table})
+
+    def run(self, table: dict[tuple, tuple], source: str, *, trace: bool = False):
+        state = 0
+        states = [0]
+        output = []
+        for symbol in source:
+            transition = table.get((state, symbol))
+            if transition is None:
+                return None
+            state, emitted = transition
+            states.append(state)
+            output.append(emitted)
+        return (states, "".join(output)) if trace else "".join(output)
+
+    def canonical(self, table: dict[tuple, tuple]) -> dict[tuple, tuple] | None:
+        """Başlangıçtan BFS etiketle; erişilemeyen/eksik makineleri ele."""
+        if not table:
+            return None
+        states = {state for state, _symbol in table}
+        states.update(next_state for next_state, _output in table.values())
+        mapping = {0: 0}
+        queue = [0]
+        result = {}
+        for state in queue:
+            for symbol in self.alphabet:
+                transition = table.get((state, symbol))
+                if transition is None:
+                    return None
+                next_state, output = transition
+                if next_state not in mapping:
+                    mapping[next_state] = len(mapping)
+                    queue.append(next_state)
+                result[mapping[state], symbol] = (mapping[next_state], output)
+        if len(mapping) != len(states) or len(result) != len(table):
+            return None
+        return result
+
+    def candidates(self, depth: int, state_cap: int, expansion_limit: int):
+        """Bir gözlem derinliğindeki küçük geçiş belirsizliklerini say."""
+        prefixes = self.levels.get(int(depth), [])
+        if not prefixes or not self.alphabet or expansion_limit <= 0:
+            return [], 0, False
+        common = set(self.residuals[prefixes[0]])
+        for prefix in prefixes[1:]:
+            common.intersection_update(self.residuals[prefix])
+        if not common:
+            return [], 0, False
+        suffixes = sorted(common, key=lambda text: (len(text), text))
+        groups = {}
+        base_class = {}
+        base_members = []
+        for prefix in prefixes:
+            row = tuple(self.residuals[prefix][suffix] for suffix in suffixes)
+            if row not in groups:
+                groups[row] = len(groups)
+                base_members.append([])
+            base_class[prefix] = groups[row]
+            base_members[groups[row]].append(prefix)
+        if len(base_members) > state_cap:
+            return [], 0, False
+
+        keys, outputs, options = [], [], []
+        total_choices = 1
+        for source_class, members in enumerate(base_members):
+            for symbol in self.alphabet:
+                choices = None
+                emitted = None
+                for prefix in members:
+                    step = self.steps[prefix].get(symbol)
+                    if step is None:
+                        continue
+                    output, child = step
+                    if emitted is None:
+                        emitted = output
+                    elif emitted != output:
+                        return [], 0, False
+                    possible = {
+                        target_class
+                        for target_class, targets in enumerate(base_members)
+                        if all(self.compatible(self.residuals[child],
+                                               self.residuals[target])
+                               for target in targets)
+                    }
+                    choices = possible if choices is None else choices & possible
+                    if not choices:
+                        return [], 0, False
+                if emitted is None or not choices:
+                    return [], 0, False
+                keys.append((source_class, symbol))
+                outputs.append(emitted)
+                options.append(sorted(choices))
+                total_choices *= len(choices)
+                if total_choices > expansion_limit:
+                    return [], 0, True
+
+        found = {}
+        expansions = 0
+        for targets in itertools.product(*options):
+            if expansions >= expansion_limit:
+                return list(found.values()), expansions, True
+            expansions += 1
+            transitions = {
+                key: (target, output)
+                for key, target, output in zip(keys, targets, outputs)
+            }
+            prefix_class = dict(base_class)
+            members = [list(row) for row in base_members]
+            invalid = False
+            # Bilinen sınıfları başlangıca doğru katla. Yeni sınıf yalnız
+            # mevcut hiçbir deterministik imzaya uymuyorsa açılır.
+            for level in range(depth - 1, -1, -1):
+                signatures = {}
+                for source_class in range(len(members)):
+                    signature = tuple(
+                        (symbol, transitions[source_class, symbol][1],
+                         transitions[source_class, symbol][0])
+                        for symbol in self.alphabet
+                    )
+                    if signature in signatures and signatures[signature] != source_class:
+                        invalid = True
+                        break
+                    signatures[signature] = source_class
+                if invalid:
+                    break
+                for prefix in self.levels.get(level, []):
+                    if len(self.steps[prefix]) != len(self.alphabet):
+                        invalid = True
+                        break
+                    signature = tuple(
+                        (symbol, self.steps[prefix][symbol][0],
+                         prefix_class[self.steps[prefix][symbol][1]])
+                        for symbol in self.alphabet
+                    )
+                    if signature not in signatures:
+                        source_class = len(members)
+                        if source_class >= state_cap:
+                            invalid = True
+                            break
+                        signatures[signature] = source_class
+                        members.append([prefix])
+                        for symbol, output, target in signature:
+                            transitions[source_class, symbol] = (target, output)
+                    prefix_class[prefix] = signatures[signature]
+                if invalid:
+                    break
+            if invalid:
+                continue
+            initial = prefix_class[""]
+            mapping = {initial: 0}
+            queue = [initial]
+            try:
+                for source_class in queue:
+                    for symbol in self.alphabet:
+                        target = transitions[source_class, symbol][0]
+                        if target not in mapping:
+                            mapping[target] = len(mapping)
+                            queue.append(target)
+            except KeyError:
+                continue
+            if len(mapping) != len(members):
+                continue
+            table = {
+                (mapping[source], symbol): (mapping[target], output)
+                for (source, symbol), (target, output) in transitions.items()
+            }
+            canonical = self.canonical(table)
+            if canonical is None or self.state_count(canonical) > state_cap:
+                continue
+            if any(self.run(canonical, source) != expected
+                   for source, expected in self.examples):
+                continue
+            found[tuple(sorted(canonical.items()))] = canonical
+        return list(found.values()), expansions, False
+
+    def _strongly_connected(self, table: dict[tuple, tuple], states: int) -> bool:
+        adjacency = {state: set() for state in range(states)}
+        for (state, _symbol), (target, _output) in table.items():
+            adjacency[state].add(target)
+        for initial in range(states):
+            seen = {initial}
+            queue = [initial]
+            for state in queue:
+                for target in adjacency[state]:
+                    if target not in seen:
+                        seen.add(target)
+                        queue.append(target)
+            if len(seen) != states:
+                return False
+        return True
+
+    def prove(self, initial_table: dict[tuple, tuple], expansion_limit: int) -> dict:
+        """Bütün aynı-boyutlu makineleri çapa etiketleri altında say.
+
+        Klik, daha az durumun mümkün olmadığını kanıtlar. Zorunlu geçişler
+        yayılır; kalan az sayıdaki geçiş ve çapa permütasyonu exhaustively
+        denenir. Birden çok minimal çözüm varsa yalnız tek güçlü-bağlı çözüm
+        olması durumunda açık bir recurrent Occam tercihi uygulanır.
+        """
+        table = self.canonical(initial_table)
+        if table is None:
+            return {"status": "unresolved", "expansions": 0}
+        states = self.state_count(table)
+        full_domain = (1 << states) - 1
+        prefix_states = [self.run(table, prefix, trace=True)[0][-1]
+                         for prefix in self.vertices]
+        by_state = [[] for _ in range(states)]
+        for vertex, state in enumerate(prefix_states):
+            by_state[state].append(vertex)
+        order = sorted(range(states), key=lambda state: len(by_state[state]))
+
+        def clique(position, anchors):
+            if position == states:
+                return anchors
+            for vertex in by_state[order[position]]:
+                if all((self.adjacency_bits[vertex] >> anchor) & 1
+                       for anchor in anchors):
+                    found = clique(position + 1, anchors + [vertex])
+                    if found is not None:
+                        return found
+            return None
+
+        found = clique(0, [])
+        if found is None:
+            return {"status": "unresolved", "reason": "no-clique", "expansions": 0}
+        anchors = [None] * states
+        for vertex in found:
+            anchors[prefix_states[vertex]] = vertex
+
+        valid = set()
+        permutations = completions = validations = max_missing = 0
+        for permutation in itertools.permutations(range(states)):
+            permutations += 1
+            if permutations + completions > expansion_limit:
+                return {"status": "budget-exceeded", "expansions": permutations + completions}
+            domains = []
+            inconsistent = False
+            for vertex in range(len(self.vertices)):
+                forbidden = 0
+                for candidate_state, anchor in enumerate(anchors):
+                    if (self.adjacency_bits[vertex] >> anchor) & 1:
+                        forbidden |= 1 << permutation[candidate_state]
+                domain = full_domain & ~forbidden
+                if vertex == self.index[""]:
+                    domain &= 1  # FST başlangıcı her zaman durum 0.
+                if not domain:
+                    inconsistent = True
+                    break
+                domains.append(domain)
+            if inconsistent:
+                continue
+
+            forced = {}
+            changed = True
+            while changed and not inconsistent:
+                changed = False
+                for vertex, prefix in enumerate(self.vertices):
+                    domain = domains[vertex]
+                    if not domain or domain & (domain - 1):
+                        continue
+                    source_state = domain.bit_length() - 1
+                    for symbol, (output, child) in self.steps[prefix].items():
+                        child_vertex = self.index[child]
+                        key = (source_state, symbol)
+                        if key in forced:
+                            target = forced[key][0]
+                            narrowed = domains[child_vertex] & (1 << target)
+                            if not narrowed:
+                                inconsistent = True
+                                break
+                            if narrowed != domains[child_vertex]:
+                                domains[child_vertex] = narrowed
+                                changed = True
+                        elif not (domains[child_vertex] & (domains[child_vertex] - 1)):
+                            target = domains[child_vertex].bit_length() - 1
+                            forced[key] = (target, output)
+                            changed = True
+                    if inconsistent:
+                        break
+            if inconsistent:
+                continue
+
+            missing = [
+                (state, symbol) for state in range(states) for symbol in self.alphabet
+                if (state, symbol) not in forced
+            ]
+            max_missing = max(max_missing, len(missing))
+            options = []
+            for state, symbol in missing:
+                definite = [
+                    vertex for vertex, prefix in enumerate(self.vertices)
+                    if domains[vertex] == 1 << state and symbol in self.steps[prefix]
+                ]
+                sources = definite or [
+                    vertex for vertex, prefix in enumerate(self.vertices)
+                    if (domains[vertex] >> state) & 1 and symbol in self.steps[prefix]
+                ]
+                if not sources:
+                    choices = {
+                        (target, output) for target in range(states)
+                        for output in self.output_alphabet
+                    }
+                else:
+                    choices = None
+                    for vertex in sources:
+                        output, child = self.steps[self.vertices[vertex]][symbol]
+                        child_domain = domains[self.index[child]]
+                        current = {
+                            (target, output) for target in range(states)
+                            if (child_domain >> target) & 1
+                        }
+                        if choices is None:
+                            choices = current
+                        elif definite:
+                            choices.intersection_update(current)
+                        else:
+                            choices.union_update(current)
+                if not choices:
+                    inconsistent = True
+                    break
+                options.append(sorted(choices))
+            if inconsistent:
+                continue
+
+            for values in itertools.product(*options):
+                completions += 1
+                if permutations + completions > expansion_limit:
+                    return {"status": "budget-exceeded",
+                            "expansions": permutations + completions}
+                candidate = dict(forced)
+                candidate.update(zip(missing, values))
+                canonical = self.canonical(candidate)
+                if canonical is None:
+                    continue
+                anchor_ok = True
+                for candidate_state, anchor in enumerate(anchors):
+                    traced = self.run(candidate, self.vertices[anchor], trace=True)
+                    if traced is None or traced[0][-1] != permutation[candidate_state]:
+                        anchor_ok = False
+                        break
+                if not anchor_ok:
+                    continue
+                validations += 1
+                witnessed = set()
+                matches = True
+                for source, expected in self.examples:
+                    state = 0
+                    output = []
+                    for symbol in source:
+                        key = (state, symbol)
+                        transition = candidate.get(key)
+                        if transition is None:
+                            matches = False
+                            break
+                        witnessed.add(key)
+                        state, emitted = transition
+                        output.append(emitted)
+                    if not matches or "".join(output) != expected:
+                        matches = False
+                        break
+                # Eski DFS de yalnız örneklerde kurulabilen tam tabloları kabul
+                # eder; hiç görülmeyen geçişlerle sahte alternatif üretme.
+                if not matches or witnessed != set(candidate):
+                    continue
+                valid.add(tuple(sorted(canonical.items())))
+
+        tables = [dict(items) for items in valid]
+        recurrent = [
+            candidate for candidate in tables
+            if self._strongly_connected(candidate, states)
+        ]
+        if len(tables) == 1:
+            selected, selection = tables[0], "unique-minimal"
+        elif len(recurrent) == 1:
+            selected, selection = recurrent[0], "unique-minimal-recurrent"
+        else:
+            selected, selection = None, "ambiguous"
+        stats = {
+            "expansions": permutations + completions,
+            "permutations": permutations, "completions": completions,
+            "validations": validations, "max_missing": max_missing,
+            "candidates": len(tables), "recurrent_candidates": len(recurrent),
+            "selection": selection, "minimal_clique": states,
+        }
+        if selected is None:
+            return {"status": "ambiguous" if tables else "unresolved", **stats}
+        return {"status": "proved", "table": selected, **stats}
 
 
 class CompositionalCodeLearner:
@@ -871,13 +1326,80 @@ class CompositionalCodeLearner:
         }
         return solutions, stats
 
+    def _finite_characteristic(self, constraints, alphabet, max_states, expansion_limit):
+        """Gözlem/klik hızlı yolu; kanıt kurulamazsa eski DFS'e dön."""
+        try:
+            evidence = _FiniteObservationEvidence(constraints, alphabet)
+        except ValueError:
+            return {"status": "unresolved", "expansions": 0, "peak_stack": 0}
+        total_expansions = 0
+        for depth in range(max(evidence.levels, default=0)):
+            tables, used, capped = evidence.candidates(
+                depth, max_states, max(0, expansion_limit - total_expansions),
+            )
+            total_expansions += used
+            common = {
+                "kind": "finite_state_transducer", "expansions": total_expansions,
+                "peak_stack": 0, "algorithm": "characteristic-observation-table",
+                "constraint_checks": evidence.constraint_checks,
+                "prefixes": len(evidence.vertices), "characteristic_depth": depth,
+            }
+            if capped:
+                return {"status": "budget-exceeded", **common}
+            if not tables:
+                continue
+            minimal = min(evidence.state_count(table) for table in tables)
+            ordered = sorted(
+                (table for table in tables if evidence.state_count(table) == minimal),
+                key=lambda table: tuple(sorted(table.items())),
+            )
+            for table in ordered:
+                proof = evidence.prove(
+                    table, max(0, expansion_limit - total_expansions),
+                )
+                total_expansions += int(proof.get("expansions", 0))
+                common.update({
+                    "states": minimal, "expansions": total_expansions,
+                    "candidates": proof.get("candidates", 0),
+                    "recurrent_candidates": proof.get("recurrent_candidates", 0),
+                    "selection": proof.get("selection", "unresolved"),
+                    "proof_permutations": proof.get("permutations", 0),
+                    "proof_completions": proof.get("completions", 0),
+                    "minimal_clique": proof.get("minimal_clique", 0),
+                })
+                if proof.get("status") == "budget-exceeded":
+                    return {"status": "budget-exceeded", **common}
+                if proof.get("status") == "ambiguous":
+                    return {"status": "ambiguous", **common}
+                if proof.get("status") != "proved":
+                    continue
+                selected = proof["table"]
+                representation = {
+                    "kind": "finite_state_transducer",
+                    "states": evidence.state_count(selected),
+                    "alphabet": list(alphabet), "initial": 0,
+                    "transitions": [
+                        [state, symbol, target, output]
+                        for (state, symbol), (target, output) in sorted(selected.items())
+                    ],
+                }
+                return {"status": "proved", "representation": representation, **common}
+        return {
+            "status": "unresolved", "expansions": total_expansions, "peak_stack": 0,
+            "constraint_checks": evidence.constraint_checks,
+            "prefixes": len(evidence.vertices),
+        }
+
     def invent_representation(self, train, validation, *, max_states: int = 3,
                               max_expansions: int = 100000) -> dict:
         """Eski temsil yetmezse minimal gizli-durum transdüseri kur.
 
         Önce mevcut akış ifadeleri denenir. Yeni tür yalnız başarısızlıkta açılır;
         validation arama kısıtıdır, held-out ise bu yönteme hiç verilmez.
-        Validation'dan geçen minimal adaylar eşdeğer değilse seçim yapılmaz.
+        Validation'dan geçen minimal adaylar eşdeğer değilse seçim yapılmaz;
+        tek istisna, exhaustively sayılmış alternatifler arasında yalnız bir
+        güçlü-bağlı minimal makine bulunmasıdır. Bu durum ``selection`` alanında
+        matematiksel teklikten ayrı ve açık bir Occam tercihi olarak bildirilir.
         """
         train_rows = self._relation_examples(train)
         validation_rows = self._relation_examples(validation)
@@ -895,6 +1417,35 @@ class CompositionalCodeLearner:
         peak_stack = 0
         expansion_limit = max(1, int(max_expansions))
         constraints = train_rows + validation_rows
+        characteristic = self._finite_characteristic(
+            constraints, alphabet, max(1, int(max_states)), expansion_limit,
+        )
+        total_expansions += int(characteristic.get("expansions", 0))
+        if characteristic.get("status") == "proved":
+            canonical = characteristic["representation"]
+            serial = 1 + max(
+                [int(name[4:]) for name in self.representations if name.startswith("repr")
+                 and name[4:].isdigit()] or [0],
+            )
+            name = f"repr{serial}"
+            canonical["evidence"] = {
+                "train": len(train_rows), "validation": len(validation_rows),
+                "validated_candidates": characteristic.get("candidates", 0),
+                "recurrent_candidates": characteristic.get("recurrent_candidates", 0),
+                "selection": characteristic.get("selection"),
+                "algorithm": characteristic.get("algorithm"),
+                "constraint_checks": characteristic.get("constraint_checks", 0),
+                "proof_permutations": characteristic.get("proof_permutations", 0),
+                "proof_completions": characteristic.get("proof_completions", 0),
+                "minimal_clique": characteristic.get("minimal_clique", 0),
+                "search_expansions": total_expansions,
+            }
+            self.representations[name] = canonical
+            public = {key: value for key, value in characteristic.items()
+                      if key not in {"status", "representation"}}
+            return {"status": "invented", "id": name, **public}
+        if characteristic.get("status") in {"ambiguous", "budget-exceeded"}:
+            return characteristic
         for states in range(1, max(1, int(max_states)) + 1):
             candidates, stats = self._finite_candidates(
                 constraints, states, alphabet, max_expansions=expansion_limit,
