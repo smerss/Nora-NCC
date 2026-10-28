@@ -153,13 +153,68 @@ def live_counterfactual_removal() -> tuple[bool, str]:
     actual_noncritical = model.run(values, "code_result")
     model.register("lang", lang)
 
+    # Canlı çift daha önce birlikte çıkarılmadı: tahmin önce, gerçek ablasyon sonra.
+    pair = ("code_cortex", "lang")
+    pair_prediction = model.predict_removal(pair, values, "code_result")
+    pair_objects = {name: model._objects[name] for name in pair}
+    for name in pair:
+        model.unregister(name)
+    actual_pair = model.run(values, "code_result")
+    for name in pair:
+        model.register(name, pair_objects[name])
+    final_restored = model.run(values, "code_result")
+
+    # Yedekli genel grafikte tekil ablasyonlar zararsız, bazı held-out çiftler
+    # kritik olmalı. Bütün çift tahminleri herhangi bir çift çıkarılmadan önce alınır.
+    root = _Root()
+    redundant = ArchitectureModel(root)
+    organs = {
+        "tokenizer_a": _Tokenizer(), "tokenizer_b": _Tokenizer(),
+        "counter_a": _Counter(), "counter_b": _Counter(),
+    }
+    for name, organ in organs.items():
+        redundant.register(name, organ)
+    text = "yedekli yol kombinasyon sınavı"
+    single_ok = []
+    for name in organs:
+        redundant.unregister(name)
+        outcome = redundant.run({"text": text}, "count")
+        single_ok.append(outcome.get("status") == "ok" and outcome.get("value") == len(text.split()))
+        redundant.register(name, organs[name])
+    heldout_pairs = [("tokenizer_a", "tokenizer_b"),
+                     ("counter_a", "counter_b"),
+                     ("tokenizer_a", "counter_a")]
+    pair_predictions = {pair: redundant.predict_removal(pair, {"text": text}, "count")
+                        for pair in heldout_pairs}
+    pair_actual = {}
+    for pair in heldout_pairs:
+        for name in pair:
+            redundant.unregister(name)
+        pair_actual[pair] = redundant.run({"text": text}, "count")
+        for name in pair:
+            redundant.register(name, organs[name])
+    pair_match = all(
+        pair_actual[pair].get("status") == pair_predictions[pair].get("status")
+        and (pair_actual[pair].get("status") != "ok"
+             or pair_actual[pair].get("value") == len(text.split()))
+        for pair in heldout_pairs
+    )
+    synergistic = all(pair_predictions[pair].get("status") == "unresolved"
+                      for pair in heldout_pairs[:2])
+    surviving_pair = pair_predictions[heldout_pairs[-1]].get("status") == "ok"
+
     ok = (critical.get("status") == "unresolved" and actual_critical.get("status") == critical.get("status")
           and still_present and restored.get("status") == "ok" and restored["value"].get("stdout") == expected
           and noncritical.get("status") == "ok" and actual_noncritical.get("status") == noncritical.get("status")
-          and actual_noncritical.get("value", {}).get("stdout") == expected)
+          and actual_noncritical.get("value", {}).get("stdout") == expected
+          and actual_pair.get("status") == pair_prediction.get("status")
+          and final_restored.get("status") == "ok" and final_restored["value"].get("stdout") == expected
+          and all(single_ok) and pair_match and synergistic and surviving_pair)
     detail = (f"kritik: tahmin={critical.get('status')} gerçek={actual_critical.get('status')} | "
               f"alternatif: tahmin={noncritical.get('status')} gerçek={actual_noncritical.get('status')} | "
-              f"geri={restored.get('status')} yürütme={baseline.get('plan')}")
+              f"canlı-çift={pair_prediction.get('status')}:{actual_pair.get('status')} | "
+              f"held-out-yedekli-çiftler={sum(pair_actual[p].get('status') == pair_predictions[p].get('status') for p in heldout_pairs)}/{len(heldout_pairs)} "
+              f"tekil={sum(single_ok)}/{len(single_ok)} | geri={final_restored.get('status')}")
     return ok, detail
 
 
@@ -171,7 +226,7 @@ def main():
              ("C2 genel yayın/yarışma + kaynak + ablasyon", bus_auction_and_ablation),
              ("C3 hatalı çıktı başarı sayılmaz", invalid_output_is_not_success),
              ("C4 Nora canlı yayın → beden eylemi", live_nora_integration),
-             ("C5 çıkarma yanıtı → gerçek ablasyonla doğrulama", live_counterfactual_removal)]
+             ("C5 tekil + held-out kombine ablasyon tahmini ve doğrulama", live_counterfactual_removal)]
     t0 = time.time()
     failed = 0
     for rep in range(max(1, args.repeat)):

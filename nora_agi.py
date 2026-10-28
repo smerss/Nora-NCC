@@ -916,7 +916,13 @@ class NoraAGI:
         # söyler. Aksi durumda küçük model gürültüsü, suya/yeme yönelen
         # refleksi her adımda başka bir dönüşe çevirip bedeni öldürebilir.
         homeostatic_emergency = min(e_now, w_now, float(self.obs[I_I])) < 0.28
-        drive_allowed = bool(not respect_proposal or homeostatic_emergency)
+        # İç-duyu raporu ile motor eylem aynı durumdan beslenebilir, fakat tek
+        # bir global değişkenin zorunlu kopyaları değildir: periferik efferent yol
+        # ablate edilirse açlık raporu kalır, hedefli hareket sürücüsü düşer.
+        # Mind.motor_eff yalnız öğrenilen ajanlık kestifidir; aktüatör kilidi değildir.
+        # Tehlike ve omurilik geri-çekilmesi yukarıdaki bağımsız refleks yolunda kalır.
+        motor_available = bool(getattr(self.nervous, "efferent_enabled", True))
+        drive_allowed = bool(motor_available and (not respect_proposal or homeostatic_emergency))
         tgt = None
         target_name = ""
         if drive_allowed and self.mortality.single_life and (w_now < 0.28 or (food_learned_toxic and e_now < 0.82)):
@@ -980,6 +986,8 @@ class NoraAGI:
             elif proposed_act == 0:
                 act = 4
             return act
+        if not motor_available:
+            return 0
         if homeostatic_emergency:
             return act
         return self.predictor.guided_action(act)

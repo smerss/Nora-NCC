@@ -283,20 +283,27 @@ class ArchitectureModel:
             return {"status": "error", "value": None, "record": rec,
                     "error": str(exc)}
 
-    def predict_removal(self, node_name: str, values: dict[str, Any], goal: str) -> dict:
-        """Organı çıkarmadan, aynı hedefin arayüz grafiğinde kalıp kalmadığını yanıtla.
+    def predict_removal(self, node_name, values: dict[str, Any], goal: str) -> dict:
+        """Bir organı veya organ kombinasyonunu çıkarma sonucunu önceden yanıtla.
 
         Bu yalnız tip-erişilebilirliği tahminidir; çalıştırma veya doğrulama
-        başarısını uydurmaz. Dış ölçüm bu yanıtı gerçek ablasyonla sınayabilir.
+        başarısını uydurmaz. Kombinasyon, tekil sonuçların üzerine etiketle
+        yazılmaz; aynı grafik araması bütün çıkarılan düğümleri birlikte dışlar.
         """
-        name = str(node_name)
-        if name not in self.nodes:
-            return {"status": "error", "error": "unknown node", "removed": name}
+        names = ([str(node_name)] if isinstance(node_name, (str, bytes))
+                 else [str(name) for name in (node_name or ())])
+        if not names or len(set(names)) != len(names):
+            return {"status": "error", "error": "invalid node combination", "removed_nodes": names}
+        unknown = [name for name in names if name not in self.nodes]
+        if unknown:
+            return {"status": "error", "error": "unknown node", "unknown": unknown,
+                    "removed_nodes": names}
         baseline = self.plan(values.keys(), goal)
-        remaining = self.plan(values.keys(), goal, excluded={name})
+        remaining = self.plan(values.keys(), goal, excluded=names)
         return {
             "status": "unresolved" if remaining is None else "ok",
-            "removed": name, "goal": str(goal), "basis": "interface_graph",
+            "removed": names[0] if len(names) == 1 else list(names),
+            "removed_nodes": names, "goal": str(goal), "basis": "interface_graph",
             "baseline_plan": [cap.key for cap in baseline or []],
             "plan": [cap.key for cap in remaining or []],
         }

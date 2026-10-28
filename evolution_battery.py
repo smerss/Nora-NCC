@@ -9,6 +9,7 @@ orijinali korunur.
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import os
 import subprocess
@@ -149,24 +150,32 @@ def safety_boundary() -> tuple[bool, str]:
         d.cleanup()
 
 
-def _external_reverse_battery(workspace: SourceWorkspace) -> dict:
-    """Aday üretiminde kullanılmayan, ayrı Python sürecinde çalışan kabul pili."""
-    cases = ["dış sınav", "ab cd", "12345", "Nora!"]
+def _external_oracle_battery(workspace: SourceWorkspace, oracle, values) -> dict:
+    """Beklentileri bağımsız oracle hesaplar; aday ayrı Python sürecinde sınanır."""
+    cases = [[value, oracle(value)] for value in values]
     script = """import json, runpy, sys
 namespace = runpy.run_path(sys.argv[1])
 function = namespace['transform']
 cases = json.loads(sys.argv[2])
-results = [function(value) == value[::-1] for value in cases]
+results = [function(value) == expected for value, expected in cases]
 print(json.dumps({'passed': sum(results), 'total': len(results)}))
 raise SystemExit(0 if all(results) else 1)
 """
     proc = subprocess.run(
-        [sys.executable, "-I", "-c", script, workspace.path("target.py"), json.dumps(cases)],
+        [sys.executable, "-I", "-c", script, workspace.path("target.py"),
+         json.dumps(cases, ensure_ascii=False)],
         capture_output=True, text=True, timeout=10,
     )
     return {"status": "passed" if proc.returncode == 0 else "failed",
             "returncode": proc.returncode, "stdout": proc.stdout.strip(),
             "stderr": proc.stderr.strip()}
+
+
+def _external_reverse_battery(workspace: SourceWorkspace) -> dict:
+    """Aday üretiminde kullanılmayan, ayrı Python sürecinde çalışan kabul pili."""
+    return _external_oracle_battery(
+        workspace, lambda value: value[::-1], ["dış sınav", "ab cd", "12345", "Nora!"],
+    )
 
 
 def approval_battery_and_rollback() -> tuple[bool, str]:
@@ -188,6 +197,46 @@ def approval_battery_and_rollback() -> tuple[bool, str]:
                    and kept_source != original
                    and ws.evaluate("target.py", "transform",
                                    _cases(["taze", "heldout"], lambda value: value[::-1]))["score"] == 1.0)
+
+        # İkinci gereksinim, kabul edilmiş ilk yapının üstüne kurulur. Dış pilin
+        # beklentisi yeni oracle'dan hesaplanır; ilk yama artık tek başına yetmez.
+        second_oracle = lambda value: value[::-1].upper()
+        second_proposal = modifier.propose_patch(
+            "target.py", "transform", ["x"],
+            train=_cases(["ab", "xyz", "kalem"], second_oracle),
+            validation=_cases(["nora", "qrs"], second_oracle),
+        )
+        second_rejected = modifier.apply_patch(
+            second_proposal, battery=lambda: {"status": "failed"}, approved=True,
+        )
+        rollback_to_first = ws.read("target.py") == kept_source
+        second_calls = []
+        second_battery = lambda: (second_calls.append(1) or _external_oracle_battery(
+            ws, second_oracle, ["dış sınav", "ab cd", "Nora!", "123ab"],
+        ))
+        second_accepted = modifier.apply_patch(second_proposal, battery=second_battery, approved=True)
+        second_source = ws.read("target.py")
+
+        def returned_expression(source):
+            tree = ast.parse(source)
+            function = next(node for node in tree.body
+                            if isinstance(node, ast.FunctionDef) and node.name == "transform")
+            return function.body[0].value
+
+        first_expression = returned_expression(kept_source)
+        second_expression = returned_expression(second_source)
+        first_dump = ast.dump(first_expression, include_attributes=False)
+        incumbent_preserved = any(ast.dump(node, include_attributes=False) == first_dump
+                                  for node in ast.walk(second_expression))
+        structural = (any(isinstance(node, ast.Subscript) for node in ast.walk(first_expression))
+                      and any(isinstance(node, ast.Attribute) for node in ast.walk(second_expression))
+                      and incumbent_preserved
+                      and second_proposal.get("incumbent") == proposal.get("expression"))
+        second_ok = (second_accepted.get("status") == "accepted" and len(second_calls) == 1
+                     and second_rejected.get("status") == "rolled_back" and rollback_to_first
+                     and structural and sum(row.get("status") == "accepted" for row in modifier.ledger) == 2
+                     and ws.evaluate("target.py", "transform",
+                                     _cases(["taze", "heldout"], second_oracle))["score"] == 1.0)
     finally:
         d.cleanup()
 
@@ -207,12 +256,15 @@ def approval_battery_and_rollback() -> tuple[bool, str]:
     finally:
         d2.cleanup()
     ok = (proposal.get("status") == "proposed" and unapproved.get("status") == "approval-required"
-          and unchanged_without_approval and kept_ok and proposal2.get("status") == "proposed"
-          and rollback_ok)
+          and unchanged_without_approval and kept_ok and second_ok
+          and proposal2.get("status") == "proposed" and rollback_ok)
     detail = (f"öneri={proposal.get('status')}:{proposal.get('expression')} | "
-              f"onaysız={unapproved.get('status')} değişim={not unchanged_without_approval} | toplam-pil={len(calls)} | "
-              f"kabul={accepted.get('status')} | dış-pil-ret={rejected.get('status')} | "
-              f"kayıp-yama={proposal2.get('expression')} rollback={rollback_ok}")
+              f"onaysız={unapproved.get('status')} değişim={not unchanged_without_approval} | "
+              f"kabul={accepted.get('status')} | yapısal-zincir={proposal.get('expression')} → "
+              f"{second_proposal.get('expression')} AST-korundu={structural} ikinci-pil={len(second_calls)} "
+              f"ikinci-rollback={rollback_to_first} | "
+              f"dış-pil-ret={rejected.get('status')} | kayıp-yama={proposal2.get('expression')} "
+              f"rollback={rollback_ok}")
     return ok, detail
 
 
@@ -227,7 +279,7 @@ def main():
              ("E5 no-need ve çözülemeyende dürüstlük", no_need_and_unresolved),
              ("E6 timeout sonrası rollback", timeout_rolls_back),
              ("E7 güvenli AST ve çalışma alanı sınırı", safety_boundary),
-             ("E8 öneri + onay + bağımsız pil + rollback", approval_battery_and_rollback)]
+             ("E8 onaylı yapısal çok-adımlı yama + bağımsız pil + rollback", approval_battery_and_rollback)]
     failed = 0
     t0 = time.time()
     for _ in range(max(1, args.repeat)):

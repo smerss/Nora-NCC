@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 import html
 import json
 from pathlib import Path
+import random
 import re
 from typing import Any
 import urllib.request
@@ -95,6 +96,8 @@ class CompositionalCodeLearner:
         self.representations: dict[str, dict[str, Any]] = {}
         self.documents: list[str] = []
         self.learning_events = 0
+        self.failure_experiments = 0
+        self.last_failure: dict[str, Any] | None = None
 
     # -------------------------------------------------------------- request meaning
     @staticmethod
@@ -391,6 +394,116 @@ class CompositionalCodeLearner:
         })
         self.stream_operators[name] = chosen
         return [name]
+
+    def apply_stream(self, name: str, source: str) -> list[str] | None:
+        """Kurulmuş akış operatörünü yeni metne uygula; ilkel yoksa başarı uydurma."""
+        construction = self.stream_operators.get(str(name))
+        if not construction or not self._construction_uses(construction).issubset(self.operators):
+            return None
+        return self._run_stream(construction, str(source))
+
+    def invent_from_failure(self, *, budget: int = 64) -> dict[str, Any]:
+        """Belgesiz öz-deney: eski modelin kendi deneyindeki hatasından operatör kur.
+
+        Dışarıdan kavram, örnek veya hedef program alınmaz. Nora ilkel ifade
+        uzayından bir deney seçer, kendi metinlerini üretir ve mevcut akış
+        modellerinin gözlemleri açıklayamamasını öğrenme verisi yapar. Sentez
+        yalnız train gözlemlerini görür; validation ve held-out kaynaklar ayrıdır.
+        """
+        if not self.stream_operators:
+            return {"status": "no-baseline", "reason": "failure requires an existing model"}
+        alphabet = "abcxyz"
+        for _ in range(max(1, int(budget))):
+            self.failure_experiments += 1
+            rng = random.Random(7919 + 104729 * self.failure_experiments)
+            expressions = self._expression_space()
+            experiment = {
+                "initial": ("const", ""),
+                "update": rng.choice(expressions),
+                "emit": rng.choice(expressions),
+                "after": bool(rng.randrange(2)),
+            }
+            uses = self._construction_uses(experiment)
+            if "concatenate" not in uses or not uses.issubset(self.operators):
+                continue
+
+            sources: list[str] = []
+            while len(sources) < 7:
+                source = "".join(rng.choice(alphabet) for _ in range(rng.randint(2, 5)))
+                if source not in sources:
+                    sources.append(source)
+            train_sources, validation_sources = sources[:5], sources[5:]
+            train = [(source, self._run_stream(experiment, source)) for source in train_sources]
+            validation = [(source, self._run_stream(experiment, source)) for source in validation_sources]
+            observed = train + validation
+            if any(outputs is None or not any(outputs) or len(set(outputs)) < 2
+                   for _, outputs in observed):
+                continue
+
+            # Mevcut modellerden hiçbiri bütün öz-deneyi açıklamıyorsa bu gerçek
+            # bir öngörü başarısızlığıdır. Doğrudan karakter görünümü de eski
+            # repertuvarda sayılır; sığ bir "yeni" kimlik operatörü kabul edilmez.
+            baseline_scores = {}
+            for name, construction in self.stream_operators.items():
+                if not self._construction_uses(construction).issubset(self.operators):
+                    continue
+                baseline_scores[name] = sum(
+                    self._run_stream(construction, source) == outputs
+                    for source, outputs in observed
+                )
+            identity_known = bool(self.facts.get("text_sequence")) and all(
+                list(source) == outputs for source, outputs in observed
+            )
+            if identity_known or any(score == len(observed) for score in baseline_scores.values()):
+                continue
+            best_model = max(baseline_scores, key=baseline_scores.get, default="")
+            best_score = baseline_scores.get(best_model, 0)
+            self.last_failure = {
+                "kind": "stream_prediction", "model": best_model,
+                "mismatches": len(observed) - best_score, "trials": len(observed),
+                "experiment": self.failure_experiments,
+            }
+
+            chosen = self._synthesize_stream(train)
+            if chosen is None or not all(self._run_stream(chosen, source) == outputs
+                                         for source, outputs in validation):
+                continue
+            signature = repr((chosen["initial"], chosen["update"], chosen["emit"], chosen["after"]))
+            if any(existing.get("signature") == signature
+                   for existing in self.stream_operators.values()):
+                continue
+            serial = 1 + max(
+                [int(name[6:]) for name in self.stream_operators if name.startswith("stream")
+                 and name[6:].isdigit()] or [0],
+            )
+            name = f"stream{serial}"
+            chosen.update({
+                "signature": signature,
+                "examples": [[source, expected] for source, expected in train],
+                "uses": sorted(self._construction_uses(chosen)),
+                "origin": "self_failure",
+                "evidence": {"validation": len(validation), **self.last_failure},
+            })
+            self.stream_operators[name] = chosen
+            self.learning_events += 1
+            heldout_sources = []
+            while len(heldout_sources) < 2:
+                source = "".join(rng.choice(alphabet) for _ in range(rng.randint(3, 6)))
+                if source not in sources and source not in heldout_sources:
+                    heldout_sources.append(source)
+            return {
+                "status": "invented", "id": name, "kind": "stream_expression",
+                "origin": "self_failure", "failure": dict(self.last_failure),
+                "train": len(train), "validation": len(validation),
+                "heldout": [{"source": source,
+                             "outputs": self._run_stream(experiment, source)}
+                            for source in heldout_sources],
+                # Açıklanabilir deney düzeneği; sentezci bu yapıyı değil yalnız
+                # train input/output çiftlerini gördü.
+                "experiment": experiment,
+            }
+        return {"status": "unresolved", "experiments": self.failure_experiments,
+                "failure": self.last_failure}
 
     def _matching_streams(self, goal: SemanticGoal) -> list[str]:
         if goal.unit != "character" or not self.facts.get("text_sequence"):
@@ -714,7 +827,9 @@ class CompositionalCodeLearner:
                 "composites": {key: list(value) for key, value in self.composites.items()},
                 "stream_operators": copy.deepcopy(self.stream_operators),
                 "representations": copy.deepcopy(self.representations),
-                "documents": list(self.documents), "events": self.learning_events}
+                "documents": list(self.documents), "events": self.learning_events,
+                "failure_experiments": int(self.failure_experiments),
+                "last_failure": copy.deepcopy(self.last_failure)}
 
     def load_state_dict(self, data: dict | None) -> None:
         data = data or {}
@@ -731,6 +846,9 @@ class CompositionalCodeLearner:
         })
         self.documents = [str(value) for value in data.get("documents") or ()][-40:]
         self.learning_events = int(data.get("events", 0) or 0)
+        self.failure_experiments = int(data.get("failure_experiments", 0) or 0)
+        failure = data.get("last_failure")
+        self.last_failure = copy.deepcopy(failure) if isinstance(failure, dict) else None
 
 
 __all__ = ["CompositionalCodeLearner", "SemanticGoal", "ProgramPlan"]
