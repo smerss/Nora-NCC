@@ -125,6 +125,44 @@ def live_nora_integration() -> tuple[bool, str]:
     return True, "3/3 dış seçim bedene ulaştı; kapatınca yeni dış seçim yok"
 
 
+def live_counterfactual_removal() -> tuple[bool, str]:
+    """Modelin çıkarma yanıtı, sonraki gerçek ablasyonla aynı olmalı."""
+    from nora_agi import NoraAGI
+    agi = NoraAGI(seed=4402, boot_thinker=False,
+                  world_kwargs={"metabolism": False, "wind": False, "n_food": 3})
+    model = agi.architecture
+    payload = "Mimari!"
+    request = f"{payload} yazısını alt alta harf harf yazdır."
+    expected = "".join(character + "\n" for character in payload)
+    values = {"request": request}
+    baseline = model.run(values, "code_result")
+    if baseline.get("status") != "ok" or baseline["value"].get("stdout") != expected:
+        return False, f"canlı yürütülebilir model tabanı yok: {baseline}"
+
+    critical = model.predict_removal("code_cortex", values, "code_result")
+    still_present = agi.code_cortex is model._objects["code_cortex"]
+    cortex = agi.code_cortex
+    model.unregister("code_cortex")
+    actual_critical = model.run(values, "code_result")
+    model.register("code_cortex", cortex)
+    restored = model.run(values, "code_result")
+
+    noncritical = model.predict_removal("lang", values, "code_result")
+    lang = agi.lang
+    model.unregister("lang")
+    actual_noncritical = model.run(values, "code_result")
+    model.register("lang", lang)
+
+    ok = (critical.get("status") == "unresolved" and actual_critical.get("status") == critical.get("status")
+          and still_present and restored.get("status") == "ok" and restored["value"].get("stdout") == expected
+          and noncritical.get("status") == "ok" and actual_noncritical.get("status") == noncritical.get("status")
+          and actual_noncritical.get("value", {}).get("stdout") == expected)
+    detail = (f"kritik: tahmin={critical.get('status')} gerçek={actual_critical.get('status')} | "
+              f"alternatif: tahmin={noncritical.get('status')} gerçek={actual_noncritical.get('status')} | "
+              f"geri={restored.get('status')} yürütme={baseline.get('plan')}")
+    return ok, detail
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--repeat", type=int, default=1)
@@ -132,7 +170,8 @@ def main():
     tests = [("C1 dinamik tip-zinciri + ablasyon", dynamic_composition),
              ("C2 genel yayın/yarışma + kaynak + ablasyon", bus_auction_and_ablation),
              ("C3 hatalı çıktı başarı sayılmaz", invalid_output_is_not_success),
-             ("C4 Nora canlı yayın → beden eylemi", live_nora_integration)]
+             ("C4 Nora canlı yayın → beden eylemi", live_nora_integration),
+             ("C5 çıkarma yanıtı → gerçek ablasyonla doğrulama", live_counterfactual_removal)]
     t0 = time.time()
     failed = 0
     for rep in range(max(1, args.repeat)):

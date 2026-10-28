@@ -189,6 +189,10 @@ class ArchitectureModel:
                                  str(meta.get("name") or method_name),
                                  meta.get("validator"))
                 self.capabilities[cap.key] = cap
+        if self.bus is not None:
+            sync = getattr(self.bus, "sync_modules", None)
+            if callable(sync):
+                sync(self._objects)
 
     def node(self, name: str) -> Node | None:
         return self.nodes.get(str(name))
@@ -200,7 +204,8 @@ class ArchitectureModel:
                 "failed_executions": sum(r.get("status") == "error" for r in self.executions)}
 
     # ------------------------------------------------------------------ planlama
-    def plan(self, available, goal: str, *, max_depth: int | None = None) -> list[Capability] | None:
+    def plan(self, available, goal: str, *, max_depth: int | None = None,
+             excluded=()) -> list[Capability] | None:
         """Tip kümesinden hedef türe en düşük maliyetli kısa zinciri ara.
 
         Arama yalnız kayıtlı arayüzleri kullanır; belirli organ veya görev adı
@@ -208,6 +213,7 @@ class ArchitectureModel:
         """
         start = frozenset(str(x) for x in (available or ()))
         target = str(goal)
+        blocked = frozenset(str(x) for x in (excluded or ()))
         if target in start:
             return []
         limit = min(self.MAX_PLAN_DEPTH, int(max_depth or self.MAX_PLAN_DEPTH))
@@ -221,6 +227,8 @@ class ArchitectureModel:
             if len(path) >= limit:
                 continue
             for cap in self.capabilities.values():
+                if cap.node in blocked:
+                    continue
                 if cap in path or not set(cap.inputs).issubset(types):
                     continue
                 new_types = frozenset(set(types) | set(cap.outputs))
@@ -274,6 +282,24 @@ class ArchitectureModel:
                                error=f"{type(exc).__name__}: {exc}")
             return {"status": "error", "value": None, "record": rec,
                     "error": str(exc)}
+
+    def predict_removal(self, node_name: str, values: dict[str, Any], goal: str) -> dict:
+        """Organı çıkarmadan, aynı hedefin arayüz grafiğinde kalıp kalmadığını yanıtla.
+
+        Bu yalnız tip-erişilebilirliği tahminidir; çalıştırma veya doğrulama
+        başarısını uydurmaz. Dış ölçüm bu yanıtı gerçek ablasyonla sınayabilir.
+        """
+        name = str(node_name)
+        if name not in self.nodes:
+            return {"status": "error", "error": "unknown node", "removed": name}
+        baseline = self.plan(values.keys(), goal)
+        remaining = self.plan(values.keys(), goal, excluded={name})
+        return {
+            "status": "unresolved" if remaining is None else "ok",
+            "removed": name, "goal": str(goal), "basis": "interface_graph",
+            "baseline_plan": [cap.key for cap in baseline or []],
+            "plan": [cap.key for cap in remaining or []],
+        }
 
     def run(self, values: dict[str, Any], goal: str) -> dict:
         """Tip->değer haritasından hedefe giden zinciri gerçekten çalıştır."""

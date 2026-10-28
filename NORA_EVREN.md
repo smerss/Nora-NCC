@@ -3193,3 +3193,111 @@ ablasyonunda `semantic_gap` döndüğünü ve state restore sonrası `Ece!` akta
 doğrular. Çevrimdışı pratik pil **6/6**, seçili A39/A73/A132/A133 **4/4** ve
 kod-sözü denetimi **1125/127** sonucu verdi. A133'ü içeren tam izole ana pil
 **130/130 (1017,2 sn)** olarak tamamlandı; kayıt `/tmp/nora_full_130.log`.
+
+## Aşama BL — Yetenek hattı: B1, icat, öz-mimari, öz-değişim ve temsil
+
+Bu aşama bilinç ölçümünden ayrıdır; sonuçlar yetenek ve entegrasyon kanıtıdır.
+
+### B1 ve farklı kenar türü
+
+Bu dalda B1'in temel `CAUSES` hattı başlangıç ölçümünde zaten çalışıyordu. Yeni B6,
+aynı dış davranış ölçütünü `IF_THEN` kenarına taşıdı. İlk kırmızı sonucun nedeni
+üretim değil, testin sonuç nesnesindeki nokta işaretini hesaba katmamasıydı; önce
+ölçüm düzeltildi. Beklenen koşul ve sonuç, öğretim cümlesinden kodla çıkarılıyor.
+Kontrolün gerçek teması ile deneyin ilk temas öncesi kaçınması birlikte arandı.
+Köprü pili **6/6**; kayıt `/tmp/nora_bridge_6.log`.
+
+### Kodsuz kavramdan operatör icadı
+
+`data/prefix_operator_concept.md` `itertools`, `accumulate` çağrısı, kod bloğu veya
+hedef metin içermez. Kavramı ve iki küçük girdi–çıktı verisi örneğini verir. Genel
+akış sentezci `item`, `state`, boş string, öğrenilmiş string `+`, `bind`, `iterate`
+ve `display` ilkelleriyle aday ifade/deyim sıralarını araştırır. Bütün örnekleri
+sağlayan en yalın bileşim şu oldu:
+
+```python
+state = ''
+for item in 'Zemberek!':
+    state = state + item
+    print(state)
+```
+
+Held-out `Zemberek!` ve `Nora!` stdout'ları bağımsız önek oracle'ıyla birebir
+doğrulandı. `concatenate` ablasyonunda bileşik önbelleğe rağmen `semantic_gap`
+döndü; state restore yeteneği geri getirdi. P7/A134 ve pratik pil **7/7** oldu.
+Kayıt `/tmp/nora_practical_7.log`.
+
+### Çalıştırılabilir öz-mimari
+
+Mevcut kod korteksinin genel `handle` yeteneği `ArchitectureModel`e açıldı; yeni
+modül eklenmedi. `predict_removal` organı çıkarmadan yalnız arayüz grafiğindeki
+hedef erişilebilirliğini hesaplar ve tahminin türünü açıkça bildirir. Canlı C5/A135
+koşusunda kritik `code_cortex` için tahmin `unresolved`, gerçek ablasyon da
+`unresolved`; `lang` çıkarmada alternatif yol tahmini ve gerçek sonuç `ok` oldu.
+Restore sonrası aynı kod isteği yine bağımsız stdout oracle'ını geçti. Mimari pil
+**5/5**; kayıt `/tmp/nora_architecture_5.log`.
+
+### Onaylı öz-kod-değişimi
+
+`SelfModifier.propose_patch` adayı kendi sentezler, train/validation için gerçek
+kaynak olarak dener ve öneri sonunda dosyayı geri yükler. `apply_patch` açık onay
+olmadan yazma veya pil çağrısı yapmaz. Onaydan sonra bağımsız pil çalışır; yalnız
+başarılı yama kalır. E8/A136'da `x[::-1]` önerisi ayrı Python sürecindeki dış pili
+geçip kaldı. Palindromlarda iyi görünen `x` önerisi yeni dış örneklerde başarısız
+olup `rolled_back` döndü ve kaynak birebir eski hâline geldi. Evrim pili **8/8**;
+kayıt `/tmp/nora_evolution_8.log`.
+
+### Repertuvarın ötesinde yeni temsil
+
+Y6/A137 önce mevcut akış ifadelerini dener. Kimlik ilişkisinde sonuç `existing`
+oldu ve yeni temsil açılmadı. Aynı `a` sembolünün geçmişteki pariteye göre farklı
+çıktı verdiği veride eski temsil çözemedi; minimal **iki durumlu
+`finite_state_transducer`** açıldı. Geçişler yalnız train ile kuruldu, ayrı
+validation ile elendi ve validation'dan geçen minimal adayların tam gizli-durum
+ürün otomatında davranışsal eşdeğerliği arandı. Üç held-out dizinin çıktıları
+bağımsız parite oracle'ıyla aynıydı; geçiş tablosu ablasyonunda cevap kayboldu,
+state restore geri getirdi. Yasa pili **6/6**; kayıt `/tmp/nora_law_6.log`.
+
+Bu, tanımlı eski akış-ifade repertuvarının ötesinde ölçülmüş yeni bir temsil
+türüdür; sınırsız temsil icadı iddiası değildir. Genel arama/AST/otomata önselleri
+insan yazımıdır; seçilen operatör, yama, durum sayısı ve geçiş tabloları veriyle
+kurulur.
+
+## Aşama BM — Bilinç hattı: tek ölçüt ve iki destek
+
+Bu bölüm yetenek hattındaki A134–A137 sonuçlarını bilinç kanıtı olarak kullanmaz.
+Yeni ana ölçüt yalnız **rapor–davranış tutarlılığı, bütünleşik durum ablasyonu
+altında**dır.
+
+- **R1:** Dış beden enerjisi sabitken bütünleşik iç-duyu enerji kanalı ablate
+  edildi. Rapor `açlık var → açlık yok → açlık var`, aynı durum müdahalesinde
+  eylem `1 → 0 → 1` oldu. Restore her iki kanalı birlikte geri getirdi.
+- **R2 / beden → sürücü:** Aynı fiziksel sahnede aç durum gerçek yiyecek mesafesini
+  **0,1516** azalttı; tok bütünleşik durumda kazanç **0** oldu. Yani değişim yalnız
+  rapor metninde değil, beden davranışında da görüldü.
+- **R3 / genel yayın:** `publish_global` konu filtresinden bağımsız olarak bütün
+  etkin alıcılara aynı sinyali dağıtır. `ArchitectureModel.refresh` canlı organ
+  kümesini genel alıcılarla eşitler; tek tek organ köprüsü yoktur. Son ölçümde
+  canlı **61/61 organ** ve **68 etkin abone** aynı sinyali aldı. Eşleştirilmiş
+  ablasyonda yalnız kapatılan alıcı sinyali kaybetti, yeniden bağlamada döndü.
+
+Bağımsız nedensel işlev katmanı **9/9**, workspace **4/4**; kayıtlar
+`/tmp/nora_consciousness_9.log` ve önceki workspace kaydıdır. R3, organların
+sinyali aldığını kanıtlar; her organın içeriği kararında kullandığını tek başına
+kanıtlamaz. Bilinç ölçümü **yetenek değil, kanıt** problemidir. Yapıyı kurmak
+bilinci kanıtlamaz; yalnız olasılığı büyütür.
+
+Kod-sözü denetimi bu aşamada da **1125/127** ile sabit kaldı.
+
+### Kesintisiz son doğrulama ve ölçüm hijyeni
+
+Ana `TESTS` kaydında A100/A102/A104 bulunmadığından en yüksek kimlik A137 olsa da
+gerçek tam pil **134 testtir**. Son üretim ve ölçüm koduyla kesintisiz koşu
+**134/134 GEÇTİ (984,8 sn)**; kanıt `/tmp/nora_full_134.log`. A134–A137'nin tamamı
+bu koşuda ayrı ayrı geçti.
+
+İlk tam koşuda eski A69 bir kez biçim-çeşitliliği ölçütünde kaldı, tek başına ve
+sonraki tam koşuda geçti. Üretim kuralı veya eşik değiştirilmedi. A69 ve yeni dış
+pil sarmalayıcıları genel Python/NumPy RNG durumunu girişte sabitleyip çıkışta geri
+yükleyecek biçimde yalıtıldı; A69 beş farklı dış başlangıç tohumunda da 4/4 geçti.
+Böylece ölçüm, başka testin tükettiği genel RNG akışına bağımlı bırakılmadı.

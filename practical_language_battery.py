@@ -21,6 +21,7 @@ from nora_style import strip_prefixes
 ROOT = Path(__file__).resolve().parent
 PRIMER = ROOT / "data" / "python_semantics_primer.md"
 ACCUMULATION = ROOT / "data" / "python_accumulation.md"
+PREFIX_CONCEPT = ROOT / "data" / "prefix_operator_concept.md"
 CUMULATIVE_TARGET = ("selamlar dünyalılar! yazısını her satırda bir harf daha "
                      "eklenmiş hâlde alt alta yazdır ve çalıştır.")
 CUMULATIVE_PAYLOAD = "selamlar dünyalılar!"
@@ -98,6 +99,38 @@ def cumulative_trial() -> tuple[bool, str]:
               f"plan={result.get('operators')} | satır={len(result.get('stdout', '').splitlines())} | "
               f"yeni metin={heldout.get('stdout')!r} | düz kontrol={flat.get('stdout')!r} | "
               f"ablasyon={ablated.get('path')} restore={restored.get('stdout')!r}")
+    return ok, detail
+
+
+def invention_trial() -> tuple[bool, str]:
+    """Kod vermeyen kavram belgesinden ilkel bileşimiyle operatör icadı."""
+    cortex = CodeSynthesisCortex(seed=609)
+    document = PREFIX_CONCEPT.read_text(encoding="utf-8")
+    lesson = cortex.handle_document("Doküman: " + document)
+    heldout = "Zemberek!"
+    request = f"{heldout} yazısını her satırda bir harf daha eklenmiş hâlde alt alta yazdır ve çalıştır."
+    result = cortex.handle(request)
+    expected = "".join(heldout[:index] + "\n" for index in range(1, len(heldout) + 1))
+    second_text = "Nora!"
+    second = cortex.handle(f"{second_text} yazısını her satırda bir harf daha eklenmiş hâlde alt alta yazdır.")
+    second_expected = "".join(second_text[:index] + "\n" for index in range(1, len(second_text) + 1))
+    program = result.get("program", "")
+    saved = cortex.semantic.state_dict()
+    cortex.semantic.operators.discard("concatenate")
+    ablated = cortex.handle(request)
+    cortex.semantic.load_state_dict(saved)
+    restored = cortex.handle(request)
+    document_clean = "itertools" not in document.lower() and "accumulate(" not in document.lower()
+    invented = (result.get("ok") and "itertools" not in program.lower()
+                and "accumulate(" not in program.lower() and "+" in program)
+    ok = (document_clean and lesson.get("ok") and invented
+          and result.get("stdout") == expected and result.get("verified")
+          and second.get("stdout") == second_expected and second.get("verified")
+          and not ablated.get("ok") and restored.get("stdout") == expected)
+    detail = (f"belge-temiz={document_clean} | öğrenme={lesson.get('new_operators')} | "
+              f"program={program!r} | held-out={result.get('stdout')!r} | "
+              f"ikinci={second.get('stdout')!r} | ilkel-ablasyon={ablated.get('path')} | "
+              f"restore={restored.get('verified')}")
     return ok, detail
 
 
@@ -186,6 +219,7 @@ def main() -> None:
             ("P4 operatör/anlam ablasyonu ve geri yükleme", test_operator_ablation_and_restore),
             ("P5 öğrenilen anlam ve planın kalıcılığı", test_semantic_persistence),
             ("P6 belgeden birikimli önek operatörü", cumulative_trial),
+            ("P7 kodsuz kavramdan ilkel bileşimle operatör icadı", invention_trial),
         )
     passed = 0
     started = time.perf_counter()

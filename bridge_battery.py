@@ -3,8 +3,8 @@
 """bridge_battery.py — genel entegrasyon köprüleri için davranışsal sınama.
 
 Kullanım:
-  python bridge_battery.py                 # B1–B5
-  python bridge_battery.py B1 B4            # seçili köprüler
+  python bridge_battery.py                 # B1–B6
+  python bridge_battery.py B1 B6            # seçili köprüler
 
 Bu dosya KÖPRÜ KODU DEĞİLDİR. Üretim organlarına yeni bağlantı eklenmez; yalnız
 var olan genel arayüzler çağrılır. Özellikle:
@@ -377,18 +377,47 @@ def b5_causal_sign_reaches_unified_prediction() -> tuple[bool, str]:
     return ok, detail
 
 
+def b6_conditional_edge_reaches_action() -> tuple[bool, str]:
+    """B6 — farklı kenar türü de aynı kamu öngörü/eylem yolunu kullanmalı.
+
+    Beklenen davranış bir adım sayısından değil, aynı sahnedeki öğretisiz
+    kontrolün gerçekleşen temasından ve deneyin temas gerçekleşmemesinden
+    hesaplanır. Test grafik kenarını başka bir organa kopyalamaz.
+    """
+    text = "Elma olursa zehirlenme olur."
+    control = _food_probe(404, False, target="elma", teach_text=text, command="Elmaya git.")
+    experiment = _food_probe(404, True, target="elma", teach_text=text, command="Elmaya git.")
+    condition, consequence = text.rstrip(".").split(" olursa ", 1)
+    learned = [
+        e for e in experiment["agi"].lang.graph.edges
+        if e.subj == tr_lower(condition) and e.rel == "IF_THEN"
+        and e.obj.rstrip(".") == consequence and e.source == "duyum"
+    ]
+    control_valid = control["first_contact"] is not None
+    used = experiment["first_contact"] is None
+    ok = bool(learned) and control_valid and used
+    detail = (
+        f"IF_THEN={'✓' if learned else '✗'} | "
+        f"kontrol-ilk-temas={control['first_contact']} | "
+        f"deney-ilk-temas={experiment['first_contact']} | "
+        f"deney-E={experiment['energy_before']:.2f}->{experiment['energy_after']:.2f}"
+    )
+    return ok, detail
+
+
 BRIDGES = {
     "B1": ("metin CAUSES → Universe ilk-temas davranışı", b1_text_causal_edge_to_universe),
     "B2": ("beden-somatik kavram → Broca tercihi", b2_embodied_concept_to_broca),
     "B3": ("öğrenilen yapı → başka alan (dil → mutfak)", b3_learned_structure_cross_domain),
     "B4": ("farklı hedef/etki → aynı genel köprü", b4_new_target_and_effect_use_same_bridge),
     "B5": ("nedensel işaret → birleşik tahmin (su/enerji)", b5_causal_sign_reaches_unified_prediction),
+    "B6": ("metin IF_THEN → aynı birleşik öngörü/eylem hattı", b6_conditional_edge_reaches_action),
 }
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("tests", nargs="*", help="B1–B5; varsayılan: tümü")
+    parser.add_argument("tests", nargs="*", help="B1–B6; varsayılan: tümü")
     args = parser.parse_args(argv)
     unknown = [name for name in args.tests if name not in BRIDGES]
     if unknown:

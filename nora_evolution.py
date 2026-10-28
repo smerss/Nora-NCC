@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass
+import difflib
 import hashlib
 import json
 import os
@@ -416,6 +417,92 @@ class SelfModifier:
             found.body = [ast.Return(value=expr)]
         ast.fix_missing_locations(tree)
         return ast.unparse(tree) + "\n"
+
+    def propose_patch(self, module: str, function: str, args: list[str], *,
+                      train: list[dict], validation: list[dict],
+                      timeout: float = 4.0) -> dict:
+        """Kendi adayını seç; doğrula fakat onay/pil öncesinde kaynağı değiştirme."""
+        if not train or not validation or self._same_cases(train, validation):
+            return {"status": "invalid-protocol", "reason": "train/validation ayrı ve boş olmamalı"}
+        self.workspace.snapshot(module)
+        try:
+            original = self.workspace.read(module)
+        except FileNotFoundError:
+            original = ""
+        base_train = self.workspace.evaluate(module, function, train, timeout=timeout) if original else {"score": 0.0}
+        base_val = self.workspace.evaluate(module, function, validation, timeout=timeout) if original else {"score": 0.0}
+        if base_val.get("score", 0.0) >= 1.0 and base_train.get("score", 0.0) >= 1.0:
+            return {"status": "no-need", "train": base_train.get("score", 0.0),
+                    "validation": base_val.get("score", 0.0)}
+        candidates = self.synthesizer.candidates(args, train)
+        try:
+            for candidate in candidates:
+                try:
+                    source = self._replace_function(original, function, args, candidate.text)
+                    self.workspace.write(module, source)
+                    train_result = self.workspace.evaluate(module, function, train, timeout=timeout)
+                    if train_result.get("score", 0.0) < 1.0:
+                        continue
+                    val_result = self.workspace.evaluate(module, function, validation, timeout=timeout)
+                    if val_result.get("score", 0.0) < 1.0:
+                        continue
+                    digest = hashlib.sha256(source.encode("utf-8")).hexdigest()
+                    patch = "".join(difflib.unified_diff(
+                        original.splitlines(keepends=True), source.splitlines(keepends=True),
+                        fromfile=f"a/{module}", tofile=f"b/{module}",
+                    ))
+                    return {
+                        "status": "proposed", "module": module, "function": function,
+                        "args": list(args), "expression": candidate.text,
+                        "source": source, "patch": patch, "sha256": digest,
+                        "proposal_id": digest[:16], "candidates": len(candidates),
+                        "train": train_result.get("score"), "validation": val_result.get("score"),
+                        "baseline": {"train": base_train.get("score", 0.0),
+                                     "validation": base_val.get("score", 0.0)},
+                    }
+                except Exception:
+                    continue
+            return {"status": "unresolved", "candidates": len(candidates), "rolled_back": True}
+        finally:
+            # Öneri ile kabul birbirinden ayrıdır: bu metot hiçbir adayı bırakmaz.
+            self.workspace.restore()
+
+    def apply_patch(self, proposal: dict, *, battery, approved: bool = False) -> dict:
+        """Açık onayla dış pili çalıştır; yalnız başarılı yamayı bırak."""
+        if not isinstance(proposal, dict) or proposal.get("status") != "proposed":
+            return {"status": "invalid-protocol", "reason": "valid proposal required"}
+        if approved is not True:
+            return {"status": "approval-required", "proposal_id": proposal.get("proposal_id"),
+                    "changed": False}
+        if not callable(battery):
+            return {"status": "invalid-protocol", "reason": "callable battery required"}
+        module = str(proposal.get("module") or "")
+        source = str(proposal.get("source") or "")
+        digest = hashlib.sha256(source.encode("utf-8")).hexdigest()
+        if not module or not source or digest != proposal.get("sha256"):
+            return {"status": "invalid-protocol", "reason": "proposal integrity", "changed": False}
+        self.workspace.snapshot(module)
+        record = {"module": module, "function": proposal.get("function"),
+                  "proposal_id": proposal.get("proposal_id"),
+                  "expression": proposal.get("expression")}
+        try:
+            self.workspace.write(module, source)
+            battery_result = battery()
+            passed = (battery_result is True or
+                      (isinstance(battery_result, dict) and
+                       (battery_result.get("passed") is True or
+                        battery_result.get("status") in {"ok", "passed"})))
+            record["battery"] = battery_result
+            if passed:
+                record.update({"status": "accepted", "kept": True, "sha256": digest})
+                self.ledger.append(dict(record))
+                return record
+        except Exception as exc:
+            record["battery"] = {"status": "error", "error": f"{type(exc).__name__}: {exc}"}
+        self.workspace.restore()
+        record.update({"status": "rolled_back", "rolled_back": True, "kept": False})
+        self.ledger.append(dict(record))
+        return record
 
     def improve(self, module: str, function: str, args: list[str], *,
                 train: list[dict], validation: list[dict], audit: list[dict] | None = None,

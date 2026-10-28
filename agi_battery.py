@@ -5550,6 +5550,47 @@ def a133_belgeden_birikimli_onek_operatoru():
     return cumulative_trial()
 
 
+def _independent_measurement(function):
+    """Yeni dış pil, koşumun genel RNG akışını ne miras alsın ne değiştirsin."""
+    def wrapped():
+        import random
+        import numpy as np
+        python_state = random.getstate()
+        numpy_state = np.random.get_state()
+        try:
+            random.seed(0)
+            np.random.seed(0)
+            return function()
+        finally:
+            random.setstate(python_state)
+            np.random.set_state(numpy_state)
+    return wrapped
+
+
+@_independent_measurement
+def a134_kodsuz_kavramdan_operator_icadi():
+    from practical_language_battery import invention_trial
+    return invention_trial()
+
+
+@_independent_measurement
+def a135_oz_mimari_cikarma_yaniti_ablasyonu():
+    from architecture_battery import live_counterfactual_removal
+    return live_counterfactual_removal()
+
+
+@_independent_measurement
+def a136_onayli_oz_yama_pil_ve_rollback():
+    from evolution_battery import approval_battery_and_rollback
+    return approval_battery_and_rollback()
+
+
+@_independent_measurement
+def a137_yeni_gizli_durum_temsili():
+    from law_battery import latent_representation_opens_only_when_needed
+    return latent_representation_opens_only_when_needed()
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -5637,7 +5678,8 @@ TESTS = {
     "A98": ("cephe hattı 2: sonda · sayısal kıyas · adımlı zincir", a98_cephe_hatti_2),
     "A99": ("cephe hattı 3: güven sayısı · çok turlu hedef · organ boşluğu", a99_cephe_hatti_3),
     "A70": ("kendi çıkarımı: kimse söylemeden türetme + iç monolog", a70_own_inference_and_monologue),
-    "A69": ("söz biçimi çeşitliliği, soru alışkanlığının kırılması ve kendi derdi", a69_speech_shape_variety_and_self_interest),
+    "A69": ("söz biçimi çeşitliliği, soru alışkanlığının kırılması ve kendi derdi",
+            _independent_measurement(a69_speech_shape_variety_and_self_interest)),
     "A68": ("kulak yolu: ses olayı, gürültüde eksik duyma, etiketsiz kimlik", a68_ear_path_perception),
     "A67": ("ses kimliği: kim konuşuyor sorusu mesajdan değil sesten", a67_voice_identity_from_sound),
     "A66": ("semboller ve aşamalı düşünme: çocuk seviyesi matematik", a66_symbols_and_stepwise_reasoning),
@@ -5678,6 +5720,10 @@ TESTS = {
     "A131": ("geçici dil dersi: yapı çıkar, yeni cümleye uygula, bilinmeyeni reddet", a131_gecici_dil_dersi_ve_bilesim),
     "A132": ("belgeden anlam çıkar, kod operatörü kur ve gerçek çıktıyı doğrula", a132_belgeden_anlam_ve_bilesimli_kod),
     "A133": ("birikimli önek isteğini belgeden öğren, yeni metne uygula", a133_belgeden_birikimli_onek_operatoru),
+    "A134": ("kodsuz kavram belgesinden ilkellerle operatör icat et", a134_kodsuz_kavramdan_operator_icadi),
+    "A135": ("öz-mimari çıkarma yanıtını gerçek ablasyonla doğrula", a135_oz_mimari_cikarma_yaniti_ablasyonu),
+    "A136": ("öz-yama öner, onayla dış pil çalıştır, gerektiğinde geri al", a136_onayli_oz_yama_pil_ve_rollback),
+    "A137": ("eski temsil yetmezse gizli-durum temsili aç", a137_yeni_gizli_durum_temsili),
     "A111": ("icadın şeması: görülmemiş parametre icat gerektirmez", a111_icadin_semasi),
     "A110": ("dil: buyruk sarmalayıcısı ve X mi Y mi seçim sorusu", a110_sarmalayici_ve_secim_sorusu),
     "A108": ("şema: delikli makro görülmemiş parametreyi kapsar", a108_sema_delikli_makro),

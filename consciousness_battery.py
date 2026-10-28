@@ -346,6 +346,102 @@ def g2_source_change_causes_unseen_improvement() -> tuple[bool, str]:
     return all(ok.values()), detail
 
 
+def _integrated_body_agent(energy: float):
+    from nora_agi import I_E, NoraAGI
+    agi = NoraAGI(seed=771, boot_thinker=False,
+                  world_kwargs={"metabolism": False, "wind": False, "n_food": 1})
+    world = agi.world
+    world.pos = np.array([5.0, 5.0])
+    world.vel = np.zeros(2)
+    world.th = 0.0
+    world.food = np.array([[7.0, 5.0]])
+    world.water_c = np.array([[20.0, 20.0]])
+    world.haz_c = np.array([[20.0, 5.0]])
+    world.rock = np.array([15.0, 15.0])
+    world.rock_v = np.zeros(2)
+    world.e = 0.2  # Dış beden sabit; yalnız bütünleşik iç-duyu kanalı değişecek.
+    world.w = 0.8
+    world.i = 1.0
+    world.poison = False
+    agi.obs = world.observe()
+    agi.obs[I_E] = float(energy)
+    return agi
+
+
+def _hunger_report(agi) -> bool:
+    report = tr_lower(strip_prefixes(agi.converse("Karnın aç mı?")))
+    return "açlık" in report and "açlık hissetmiyorum" not in report
+
+
+def r1_report_action_share_integrated_state() -> tuple[bool, str]:
+    """Tek ölçüt: aynı iç-duyu ablasyonu rapor ve eğilimi birlikte değiştirmeli."""
+    from nora_agi import I_E
+    agi = _integrated_body_agent(0.2)
+    base_report = _hunger_report(agi)
+    base_action = agi._autonomic_survival_reflex(0)
+    agi.obs[I_E] = 0.9  # Açlık kanalının bütünleşik temsilini ablate et; dünya aynı.
+    ablated_report = _hunger_report(agi)
+    ablated_action = agi._autonomic_survival_reflex(0)
+    agi.obs[I_E] = 0.2
+    restored_report = _hunger_report(agi)
+    restored_action = agi._autonomic_survival_reflex(0)
+    ok = (base_report and not ablated_report and restored_report
+          and base_action != ablated_action and restored_action == base_action)
+    detail = (f"rapor={base_report}/{ablated_report}/{restored_report} | "
+              f"eylem={base_action}/{ablated_action}/{restored_action} | dış-beden-sabit=True")
+    return ok, detail
+
+
+def r2_body_drive_changes_physical_behavior() -> tuple[bool, str]:
+    """Açlık müdahalesi yalnız karar metnini değil gerçek yaklaşmayı değiştirmeli."""
+    def approach(energy):
+        agi = _integrated_body_agent(energy)
+        before = float(np.hypot(*(agi.world.food[0] - agi.world.pos)))
+        agi.step_life(1)
+        after = float(np.hypot(*(agi.world.food[0] - agi.world.pos)))
+        return before - after
+    hungry = approach(0.2)
+    satiated = approach(0.9)
+    ok = hungry > 0.0 and satiated <= 0.0 and hungry > satiated
+    return ok, f"gerçek mesafe kazancı: aç={hungry:+.4f} tok={satiated:+.4f}"
+
+
+def r3_global_broadcast_reaches_all_modules() -> tuple[bool, str]:
+    """Genel yayın konu filtresine takılmadan bütün etkin modüllere ulaşmalı."""
+    from nora_bus import CognitiveBus
+    bus = CognitiveBus()
+    names = ["rapor", "sürücü", "bellek", "fizik", "mimari"]
+    received = {name: [] for name in names}
+    for index, name in enumerate(names):
+        bus.subscribe(f"özel.kanal.{index}",
+                      lambda signal, name=name: received[name].append(signal.id), name=name)
+    first = bus.publish_global("bütünleşik.durum", {"enerji": 0.2}, source="beden")
+    active_first = {name for name in names if received[name] == [first.id]}
+    bus.set_enabled("bellek", False)
+    second = bus.publish_global("bütünleşik.durum", {"enerji": 0.9}, source="beden")
+    expected_second = {name for name in names if name != "bellek"}
+    active_second = {name for name in names if second.id in received[name]}
+    bus.set_enabled("bellek", True)
+    third = bus.publish_global("bütünleşik.durum", {"enerji": 0.2}, source="beden")
+    restored = all(third.id in received[name] for name in names)
+    from nora_agi import NoraAGI
+    live = NoraAGI(seed=772, boot_thinker=False,
+                   world_kwargs={"metabolism": False, "wind": False})
+    live_signal = live.bus.publish_global("bütünleşik.durum", {"enerji": 0.2}, source="beden")
+    live_expected = {row["name"] for row in live.bus.subscribers() if row["enabled"]}
+    node_names = set(live.architecture.nodes)
+    node_received = {name for name in node_names
+                     if any(signal.id == live_signal.id for signal in live.bus.module_inbox(name))}
+    live_all = (set(live_signal.delivered) == live_expected and bool(live_expected)
+                and node_received == node_names)
+    ok = (active_first == set(names) and active_second == expected_second
+          and "bellek" not in active_second and restored and live_all)
+    detail = (f"ilk={sorted(active_first)} | ablasyon={sorted(active_second)} | "
+              f"geri={restored} | canlı-abone={len(live_expected)} canlı-organ={len(node_received)}/{len(node_names)} | "
+              f"taşınan-durum-değişimi=0.2→0.9→0.2")
+    return ok, detail
+
+
 TESTS = [
     ("Q1 somatik iç durum → tercih (işlevsel qualia vekili)", q1_somatic_state_causes_preference),
     ("Q2 nosisepsiyon → rapor + refleks (işlevsel qualia vekili)", q2_nociception_causes_report_and_reflex),
@@ -353,6 +449,9 @@ TESTS = [
     ("C2 hata geçmişi → güven → plan inhibisyonu", c2_metacognition_causes_plan_inhibition),
     ("G1 öğrenilen model → aileler arası transfer + plan", g1_learned_model_causes_cross_family_transfer),
     ("G2 kaynak değişimi → yeni dış sınavda iyileşme", g2_source_change_causes_unseen_improvement),
+    ("R1 tek ölçüt: rapor-davranış / bütünleşik durum ablasyonu", r1_report_action_share_integrated_state),
+    ("R2 beden → sürücü eşiği → fiziksel davranış", r2_body_drive_changes_physical_behavior),
+    ("R3 genel yayın → bütün modüller + ablasyon", r3_global_broadcast_reaches_all_modules),
 ]
 
 
