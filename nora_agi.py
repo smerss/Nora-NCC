@@ -1749,10 +1749,11 @@ class NoraAGI:
         # Kalıcı temsilin doğrulanmış uygulaması, genel örnek→operatör sentezi
         # uygulamasından önce gelir. Aksi hâlde "uygula" sözcüğü eski sentez
         # kanalını açıp mevcut FST'nin yeni girdisini sentez belirsizliğine
-        # düşürür. Diğer kod/sentez isteklerinin yarış sırası değişmez.
+        # düşürür. Representation hedefi kendi payload+anaför kanıtını taşır;
+        # "sonucu yazar mısın" veya yalnız "uygula" genel DISPLAY eşiğine
+        # takılmaz. Diğer kod/sentez isteklerinin yarış sırası değişmez.
         try:
-            _persistent_goal = (self.code_cortex.semantic.request(raw)
-                                if self.code_cortex.is_requested(raw) else None)
+            _persistent_goal = self.code_cortex.semantic.request(raw)
         except Exception:
             _persistent_goal = None
         if getattr(_persistent_goal, "operation", None) == "representation":
@@ -3099,7 +3100,14 @@ class NoraAGI:
                 self.last_code = res
                 return self.code_cortex.speak(res), "code:document", 0.988
             if not self.code_cortex.is_requested(raw):
-                return None, "", 0.0
+                # Representation hedefi payload+anaförle zaten kanıtlanmıştır;
+                # genel DISPLAY eşiğini diğer niyetler için değiştirmeden geç.
+                try:
+                    _goal = self.code_cortex.semantic.request(raw)
+                except Exception:
+                    _goal = None
+                if getattr(_goal, "operation", None) != "representation":
+                    return None, "", 0.0
             res = self.code_cortex.handle(raw)
             self.last_code = res
             if res.get("ok"):

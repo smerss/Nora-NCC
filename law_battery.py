@@ -229,14 +229,38 @@ def learned_representation_personal_application() -> tuple[bool, str]:
     agi_code = dict(agi.last_code or {})
     anaphoric_ok = bool(agi_code.get("ok") and agi_code.get("verified")
                         and agi_code.get("stdout") == expected)
+    # Alıntı ve nominal işaret olmadan, iki nokta sonrası payload da aynı genel
+    # kompozisyon kanalına girmeli. Beklenenler yukarıdaki bağımsız oracle'dan
+    # gelir; isteklerin hazır stdout veya görev-özel şablonu yoktur.
+    freeform_rows = []
+    for free_source, free_request in (
+        ("ccaba", "Daha önce kendi bulduğun işlemi şu yeni dizgiye aynen uygula: ccaba"),
+        ("babcca", "Aynı öğrendiğin işlemi bu diziye de uygulayıp sonucu yazar mısın: babcca"),
+    ):
+        agi.converse(free_request)
+        free_code = dict(agi.last_code or {})
+        freeform_rows.append(bool(
+            free_code.get("ok") and free_code.get("verified")
+            and free_code.get("path") == "composed"
+            and free_code.get("stdout") == oracle(free_source) + "\n"
+        ))
+    agi.converse("Aynı öğrendiğin işlemi bu diziye de uygulayıp sonucu yazar mısın: cab2a")
+    free_unknown = dict(agi.last_code or {})
+    control_goal = restored.semantic.request("Sonucu yazar mısın: ccaba")
+    freeform_ok = all(freeform_rows)
+    freeform_unknown_ok = (not free_unknown.get("ok")
+                           and free_unknown.get("reason") == "representation_input_gap")
+    colon_control_ok = getattr(control_goal, "operation", None) != "representation"
     ok = (learned.get("status") == "invented" and result.get("ok")
           and result.get("verified") and result.get("stdout") == expected
           and not unknown.get("ok") and unknown.get("reason") == "representation_input_gap"
-          and anaphoric_ok)
+          and anaphoric_ok and freeform_ok and freeform_unknown_ok and colon_control_ok)
     detail = (f"öğrenme={learned.get('status')} yol={result.get('path')} "
               f"stdout={result.get('stdout')!r} beklenen={expected!r} "
               f"doğrulama={result.get('verified')} alfabe-dışı={unknown.get('reason')} "
-              f"AGI-anaför={anaphoric_ok}")
+              f"AGI-anaför={anaphoric_ok} serbest={freeform_rows} "
+              f"serbest-alfabe-dışı={free_unknown.get('reason')} "
+              f"anaförsüz-kontrol={colon_control_ok}")
     return ok, detail
 
 

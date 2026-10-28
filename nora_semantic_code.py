@@ -812,11 +812,19 @@ class CompositionalCodeLearner:
 
         payload, _start, _end = self._payload(raw)
         if not payload:
+            # Dönüşüm hedefi belirliyken sondaki açık payload da geçerlidir:
+            # "... öğrendiğin işlemi uygula: 01001". Bu kural genel display
+            # çözümlemesine değil, yalnız işlem referanslı isteklere uygulanır.
+            trailing = re.search(r":\s*([^\n]+?)\s*$", raw)
+            if trailing:
+                payload = trailing.group(1).strip()
+        if not payload:
             return None
         low = tr_lower(raw)
         applies = bool(re.search(r"(?:işlemden\s+geçir|dönüştür|transform|uygula)", low))
         anaphoric = bool(re.search(
-            r"\b(?:bu|öğrendiğin|öğrendiğim|kurduğun|kurduğum)\s+(?:işlem|operatör)", low,
+            r"\b(?:bu|aynı|kendi|öğren\w*|kur\w*|bul\w*|geliştir\w*)\s+"
+            r"(?:işlem|operatör)", low,
         ))
         representation_reference = ""
         for name, record in self.representations.items():
