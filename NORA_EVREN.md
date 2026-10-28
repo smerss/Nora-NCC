@@ -3156,3 +3156,40 @@ yoluyla `Merhaba\nBaran!\n` çıktısını verdi. Canlı kayıt:
   regresyonları geçti; kod-sözü denetimi **1125/127** ile tarihsel tavanı aşmadı.
 - Ana pil A132 olarak kalıcılaştı. Tam izole koşu **129/129 (947,7 sn), KALDI=0**;
   kayıt `/tmp/nora_full_129.log`.
+
+## Aşama BK — Belgeden öğrenilen birikimli karakter önekleri
+
+Yeni pratik sonda eski sistem “her satırda bir harf daha” kısıtını düz dikey
+istediğiyle karıştırdı ve `s, e, l, ...` çıktı. Bu nedenle niyet ayrıştırmasına
+**cumulative** amacı, plan durumuna ise karakter görünümünden bağımsız bir
+`character|vertical+cumulative` anahtarı eklendi. Cumulative operatör bilinmiyorken
+sistem artık düz plana düşüp yanlış başarı bildirmiyor; `semantic_gap ['accumulate']`
+döndürüyor.
+
+`data/python_accumulation.md` hedef metni içermeyen genel bir belgedir. Yalnız
+`itertools.accumulate` işlevinin bir sequence üzerindeki birikimli ara sonuçları
+ürettiğini, `abc` örneğinde `a`, `ab`, `abc` olduğunu öğretir. Belge okuyucu
+import/for örneğinin AST'sinden genel `accumulate` operatörünü çıkarır; bu operatör
+önceden öğrenilmiş `iterate` ve `display` ile birleşir. Hedef isteğe özel program,
+çıktı şablonu veya hedef cümle kodda/belgede yoktur.
+
+Gerçek `NoraAGI.converse` oturumunda belge bir kez okutuldu, hedef isteği bir kez
+verildi ve Nora şu programı sentezleyip çalıştırdı:
+
+```python
+from itertools import accumulate
+for prefix in accumulate('selamlar dünyalılar!'):
+    print(prefix)
+```
+
+Bağımsız stdout oracle'ı **20/20** satırı doğruladı: `s`, `se`, `sel`, ..., son
+satırda `selamlar dünyalılar!`. Yeni metin `Nora!` için aynı bilgiyle
+`N`, `No`, `Nor`, `Nora`, `Nora!` çıktı; bileşik plan yeniden kullanıldı. Gerçek
+konuşma ve program kaydı `/tmp/nora_cumulative_practical.log` içindedir.
+
+A133/P6 ayrıca belge öncesi eksik anlamı, belge sonrası exact stdout'u, yeni metin
+aktarımını, eski düz `N, o, r, a, !` davranışının bozulmadığını, `accumulate`
+ablasyonunda `semantic_gap` döndüğünü ve state restore sonrası `Ece!` aktarımını
+doğrular. Çevrimdışı pratik pil **6/6**, seçili A39/A73/A132/A133 **4/4** ve
+kod-sözü denetimi **1125/127** sonucu verdi. A133'ü içeren tam izole ana pil
+**130/130 (1017,2 sn)** olarak tamamlandı; kayıt `/tmp/nora_full_130.log`.
