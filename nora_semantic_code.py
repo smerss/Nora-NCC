@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 import html
 import itertools
 import json
+import math
 from pathlib import Path
 import random
 import re
@@ -359,47 +360,146 @@ class _FiniteObservationEvidence:
                 return False
         return True
 
-    def prove(self, initial_table: dict[tuple, tuple], expansion_limit: int) -> dict:
-        """Bütün aynı-boyutlu makineleri çapa etiketleri altında say.
+    def clique_anchors(self, states: int, expansion_limit: int):
+        """Greedy-coloring üst sınırlı, tam geri izlemeli clique araması.
+
+        Dönüş: ``(çapalar, arama_düğümü, coloring_ziyareti, bütçe_aşıldı)``.
+        Coloring ziyaretleri pairwise constraint-check türündendir ve arama
+        expansion'larından ayrı raporlanır. Bütçe aşılmadan clique bulunamazsa
+        geri izleme tamamlandığı için sonuç eksiksizdir.
+        """
+        states = int(states)
+        if states <= 0 or states > len(self.vertices):
+            return None, 0, 0, False
+        adjacency = self.adjacency_bits
+        nodes = visits = 0
+        found = None
+        capped = False
+
+        def color_sort(candidates):
+            nonlocal visits
+            order, bounds = [], []
+            color = 0
+            remaining = candidates
+            while remaining:
+                color += 1
+                available = remaining
+                while available:
+                    visits += 1
+                    bit = available & -available
+                    vertex = bit.bit_length() - 1
+                    available -= bit
+                    order.append(vertex)
+                    bounds.append(color)
+                    remaining -= bit
+                    available &= ~adjacency[vertex]
+            return order, bounds
+
+        def expand(candidates, clique):
+            nonlocal nodes, found, capped
+            if found is not None or capped:
+                return
+            if len(clique) == states:
+                found = clique
+                return
+            order, bounds = color_sort(candidates)
+            for index in range(len(order) - 1, -1, -1):
+                if found is not None or capped:
+                    return
+                if len(clique) + bounds[index] < states:
+                    return
+                vertex = order[index]
+                bit = 1 << vertex
+                if not candidates & bit:
+                    continue
+                nodes += 1
+                if nodes > expansion_limit:
+                    capped = True
+                    return
+                expand(candidates & adjacency[vertex], clique + [vertex])
+                candidates &= ~bit
+
+        expand((1 << len(self.vertices)) - 1, [])
+        return found, nodes, visits, capped
+
+    def prove(self, initial_table: dict[tuple, tuple] | None, expansion_limit: int,
+              *, anchor_vertices: list[int] | None = None,
+              selection_strategy: str = "recurrent", selection_seed: int = 0,
+              exhaustive_labelings: bool = False) -> dict:
+        """Bütün aynı-boyutlu makineleri sabit clique çapaları altında say.
 
         Klik, daha az durumun mümkün olmadığını kanıtlar. Zorunlu geçişler
-        yayılır; kalan az sayıdaki geçiş ve çapa permütasyonu exhaustively
-        denenir. Birden çok minimal çözüm varsa yalnız tek güçlü-bağlı çözüm
-        olması durumunda açık bir recurrent Occam tercihi uygulanır.
+        yayılır; kalan geçişler ve çapa permütasyonu exhaustively denenir.
+        Birden çok minimal çözümde seçim yalnız açık stratejiyle yapılır.
         """
-        table = self.canonical(initial_table)
-        if table is None:
+        if selection_strategy not in {"recurrent", "uniform-random", "lexicographic", "mdl"}:
+            raise ValueError("unknown_selection_strategy")
+        table = self.canonical(initial_table) if initial_table is not None else None
+        if initial_table is not None and table is None:
             return {"status": "unresolved", "expansions": 0}
-        states = self.state_count(table)
-        full_domain = (1 << states) - 1
-        prefix_states = [self.run(table, prefix, trace=True)[0][-1]
-                         for prefix in self.vertices]
-        by_state = [[] for _ in range(states)]
-        for vertex, state in enumerate(prefix_states):
-            by_state[state].append(vertex)
-        order = sorted(range(states), key=lambda state: len(by_state[state]))
+        prefix_states = []
+        if table is not None:
+            states = self.state_count(table)
+            prefix_states = [self.run(table, prefix, trace=True)[0][-1]
+                             for prefix in self.vertices]
+            by_state = [[] for _ in range(states)]
+            for vertex, state in enumerate(prefix_states):
+                by_state[state].append(vertex)
+            order = sorted(range(states), key=lambda state: len(by_state[state]))
 
-        def clique(position, anchors):
-            if position == states:
-                return anchors
-            for vertex in by_state[order[position]]:
-                if all((self.adjacency_bits[vertex] >> anchor) & 1
-                       for anchor in anchors):
-                    found = clique(position + 1, anchors + [vertex])
-                    if found is not None:
-                        return found
-            return None
+            def clique(position, anchors):
+                if position == states:
+                    return anchors
+                for vertex in by_state[order[position]]:
+                    if all((self.adjacency_bits[vertex] >> anchor) & 1
+                           for anchor in anchors):
+                        found = clique(position + 1, anchors + [vertex])
+                        if found is not None:
+                            return found
+                return None
 
-        found = clique(0, [])
-        if found is None:
+            found = clique(0, [])
+        else:
+            found = list(anchor_vertices or [])
+            states = len(found)
+        if not found:
             return {"status": "unresolved", "reason": "no-clique", "expansions": 0}
+        if (len(set(found)) != states or any(
+                not (self.adjacency_bits[left] >> right) & 1
+                for i, left in enumerate(found) for right in found[i + 1:])):
+            return {"status": "unresolved", "reason": "invalid-clique", "expansions": 0}
+        full_domain = (1 << states) - 1
         anchors = [None] * states
-        for vertex in found:
-            anchors[prefix_states[vertex]] = vertex
+        if table is not None:
+            for vertex in found:
+                anchors[prefix_states[vertex]] = vertex
+        else:
+            anchors = found
 
         valid = set()
         permutations = completions = validations = max_missing = 0
-        for permutation in itertools.permutations(range(states)):
+        # Sabit clique çapalarında yalnız başlangıcın hangi çapa olduğu önemlidir.
+        # Kalan durum adları kanonik BFS ile normalize edilir; N! yerine en fazla
+        # N etiketleme bütün izomorfizm sınıflarını eksiksiz kapsar.
+        if exhaustive_labelings:
+            # Bağımsız denetim kapısı: kanonik azaltmanın aday kümesini N! ile
+            # karşılaştırmak için kullanılır; üretim varsayılanı değildir.
+            labelings = itertools.permutations(range(states))
+            labeling_space = "all-anchor-permutations"
+        else:
+            root_vertex = self.index[""]
+            labelings = []
+            for root_anchor in range(states):
+                if (self.adjacency_bits[root_vertex] >> anchors[root_anchor]) & 1:
+                    continue
+                permutation = [None] * states
+                permutation[root_anchor] = 0
+                others = [index for index in range(states) if index != root_anchor]
+                for index, state in zip(others, range(1, states)):
+                    permutation[index] = state
+                labelings.append(tuple(permutation))
+            labeling_space = "root-anchor-canonical"
+        for permutation in labelings:
             permutations += 1
             if permutations + completions > expansion_limit:
                 return {"status": "budget-exceeded", "expansions": permutations + completions}
@@ -534,23 +634,35 @@ class _FiniteObservationEvidence:
                     continue
                 valid.add(tuple(sorted(canonical.items())))
 
-        tables = [dict(items) for items in valid]
+        tables = [dict(items) for items in sorted(valid)]
         recurrent = [
             candidate for candidate in tables
             if self._strongly_connected(candidate, states)
         ]
+        state_bits = math.log2(states) if states > 1 else 0.0
+        output_bits = math.log2(len(self.output_alphabet)) if len(self.output_alphabet) > 1 else 0.0
+        mdl_bits = states * len(self.alphabet) * (state_bits + output_bits)
         if len(tables) == 1:
             selected, selection = tables[0], "unique-minimal"
-        elif len(recurrent) == 1:
+        elif selection_strategy == "recurrent" and len(recurrent) == 1:
             selected, selection = recurrent[0], "unique-minimal-recurrent"
+        elif selection_strategy == "uniform-random" and tables:
+            selected = random.Random(int(selection_seed)).choice(tables)
+            selection = "uniform-random"
+        elif selection_strategy == "lexicographic" and tables:
+            selected, selection = tables[0], "lexicographic"
         else:
-            selected, selection = None, "ambiguous"
+            selection = "mdl-tie" if selection_strategy == "mdl" and tables else "ambiguous"
+            selected = None
         stats = {
             "expansions": permutations + completions,
             "permutations": permutations, "completions": completions,
             "validations": validations, "max_missing": max_missing,
             "candidates": len(tables), "recurrent_candidates": len(recurrent),
-            "selection": selection, "minimal_clique": states,
+            "selection": selection, "selection_strategy": selection_strategy,
+            "selection_seed": int(selection_seed), "minimal_clique": states,
+            "labeling_space": labeling_space,
+            "mdl_bits_per_candidate": mdl_bits,
         }
         if selected is None:
             return {"status": "ambiguous" if tables else "unresolved", **stats}
@@ -1326,7 +1438,8 @@ class CompositionalCodeLearner:
         }
         return solutions, stats
 
-    def _finite_characteristic(self, constraints, alphabet, max_states, expansion_limit):
+    def _finite_characteristic(self, constraints, alphabet, max_states, expansion_limit,
+                               *, selection_strategy="recurrent", selection_seed=0):
         """Gözlem/klik hızlı yolu; kanıt kurulamazsa eski DFS'e dön."""
         try:
             evidence = _FiniteObservationEvidence(constraints, alphabet)
@@ -1345,6 +1458,10 @@ class CompositionalCodeLearner:
                 "prefixes": len(evidence.vertices), "characteristic_depth": depth,
             }
             if capped:
+                # Cartesian seçenek sayısı daha dal açılmadan bütçeyi aşabilir.
+                # Kalan bütçe varsa aynı graph'ın global clique kanıtına geç.
+                if total_expansions < expansion_limit:
+                    break
                 return {"status": "budget-exceeded", **common}
             if not tables:
                 continue
@@ -1356,6 +1473,7 @@ class CompositionalCodeLearner:
             for table in ordered:
                 proof = evidence.prove(
                     table, max(0, expansion_limit - total_expansions),
+                    selection_strategy=selection_strategy, selection_seed=selection_seed,
                 )
                 total_expansions += int(proof.get("expansions", 0))
                 common.update({
@@ -1363,9 +1481,13 @@ class CompositionalCodeLearner:
                     "candidates": proof.get("candidates", 0),
                     "recurrent_candidates": proof.get("recurrent_candidates", 0),
                     "selection": proof.get("selection", "unresolved"),
+                    "selection_strategy": proof.get("selection_strategy", selection_strategy),
+                    "selection_seed": proof.get("selection_seed", int(selection_seed)),
+                    "mdl_bits_per_candidate": proof.get("mdl_bits_per_candidate", 0.0),
                     "proof_permutations": proof.get("permutations", 0),
                     "proof_completions": proof.get("completions", 0),
                     "minimal_clique": proof.get("minimal_clique", 0),
+                    "labeling_space": proof.get("labeling_space", ""),
                 })
                 if proof.get("status") == "budget-exceeded":
                     return {"status": "budget-exceeded", **common}
@@ -1384,22 +1506,89 @@ class CompositionalCodeLearner:
                     ],
                 }
                 return {"status": "proved", "representation": representation, **common}
-        return {
-            "status": "unresolved", "expansions": total_expansions, "peak_stack": 0,
+        # Derinlik tabloları uyumlu satırları gereğinden fazla birleştirebilir.
+        # Bu durumda aday uydurmak yerine aynı incompatibility graph'tan bağımsız
+        # bir clique çapası ara; bütün makine uzayını yine exhaustive prove sayar.
+        anchor_used = anchor_color_visits = 0
+        anchor_attempts = []
+        common = {
+            "kind": "finite_state_transducer", "expansions": total_expansions,
+            "peak_stack": 0, "algorithm": "characteristic-global-clique",
             "constraint_checks": evidence.constraint_checks,
-            "prefixes": len(evidence.vertices),
+            "prefixes": len(evidence.vertices), "selection_strategy": selection_strategy,
+            "selection_seed": int(selection_seed),
         }
+        for states in range(max(1, int(max_states)), 0, -1):
+            anchors, used, color_visits, anchor_capped = evidence.clique_anchors(
+                states, max(0, expansion_limit - total_expansions),
+            )
+            total_expansions += used
+            anchor_used += used
+            anchor_color_visits += color_visits
+            anchor_attempts.append({
+                "states": states, "expansions": used,
+                "color_visits": color_visits, "found": bool(anchors),
+            })
+            common.update({
+                "expansions": total_expansions, "states": states,
+                "anchor_expansions": anchor_used,
+                "anchor_color_visits": anchor_color_visits,
+                "anchor_attempts": anchor_attempts,
+            })
+            if anchor_capped:
+                return {"status": "budget-exceeded", **common}
+            if not anchors:
+                continue
+            proof = evidence.prove(
+                None, max(0, expansion_limit - total_expansions),
+                anchor_vertices=anchors, selection_strategy=selection_strategy,
+                selection_seed=selection_seed,
+            )
+            total_expansions += int(proof.get("expansions", 0))
+            common.update({
+                "expansions": total_expansions,
+                "candidates": proof.get("candidates", 0),
+                "recurrent_candidates": proof.get("recurrent_candidates", 0),
+                "selection": proof.get("selection", "unresolved"),
+                "mdl_bits_per_candidate": proof.get("mdl_bits_per_candidate", 0.0),
+                "proof_permutations": proof.get("permutations", 0),
+                "proof_completions": proof.get("completions", 0),
+                "minimal_clique": proof.get("minimal_clique", 0),
+                "labeling_space": proof.get("labeling_space", ""),
+            })
+            if proof.get("status") in {"ambiguous", "budget-exceeded"}:
+                return {"status": proof["status"], **common}
+            if proof.get("status") == "proved":
+                selected = proof["table"]
+                representation = {
+                    "kind": "finite_state_transducer",
+                    "states": evidence.state_count(selected),
+                    "alphabet": list(alphabet), "initial": 0,
+                    "transitions": [
+                        [state, symbol, target, output]
+                        for (state, symbol), (target, output) in sorted(selected.items())
+                    ],
+                }
+                return {"status": "proved", "representation": representation, **common}
+            # N-clique daha küçük makineyi dışlar; N kanıtı yoksa N−1'e inmek
+            # geçerli bir çözüm üretmez, sonucu unresolved olarak koru.
+            return {"status": "unresolved", **common}
+        common["states"] = 0
+        return {"status": "unresolved", "reason": "no-clique", **common}
 
     def invent_representation(self, train, validation, *, max_states: int = 3,
-                              max_expansions: int = 100000) -> dict:
+                              max_expansions: int = 100000,
+                              selection_strategy: str = "recurrent",
+                              selection_seed: int = 0) -> dict:
         """Eski temsil yetmezse minimal gizli-durum transdüseri kur.
 
         Önce mevcut akış ifadeleri denenir. Yeni tür yalnız başarısızlıkta açılır;
         validation arama kısıtıdır, held-out ise bu yönteme hiç verilmez.
-        Validation'dan geçen minimal adaylar eşdeğer değilse seçim yapılmaz;
-        tek istisna, exhaustively sayılmış alternatifler arasında yalnız bir
-        güçlü-bağlı minimal makine bulunmasıdır. Bu durum ``selection`` alanında
-        matematiksel teklikten ayrı ve açık bir Occam tercihi olarak bildirilir.
+        Validation'dan geçen minimal adaylar eşdeğer değilse varsayılan olarak
+        seçim yapılmaz; tek istisna, exhaustively sayılmış alternatifler arasında
+        yalnız bir güçlü-bağlı minimal makine bulunmasıdır. Deney amaçlı açık
+        uniform-random/lexicographic/MDL stratejileri de aynı aday kanıtını kullanır.
+        Her seçim ``selection`` alanında matematiksel teklikten ayrı bildirilir.
         """
         train_rows = self._relation_examples(train)
         validation_rows = self._relation_examples(validation)
@@ -1419,6 +1608,7 @@ class CompositionalCodeLearner:
         constraints = train_rows + validation_rows
         characteristic = self._finite_characteristic(
             constraints, alphabet, max(1, int(max_states)), expansion_limit,
+            selection_strategy=selection_strategy, selection_seed=selection_seed,
         )
         total_expansions += int(characteristic.get("expansions", 0))
         if characteristic.get("status") == "proved":
@@ -1433,11 +1623,15 @@ class CompositionalCodeLearner:
                 "validated_candidates": characteristic.get("candidates", 0),
                 "recurrent_candidates": characteristic.get("recurrent_candidates", 0),
                 "selection": characteristic.get("selection"),
+                "selection_strategy": characteristic.get("selection_strategy", selection_strategy),
+                "selection_seed": characteristic.get("selection_seed", int(selection_seed)),
+                "mdl_bits_per_candidate": characteristic.get("mdl_bits_per_candidate", 0.0),
                 "algorithm": characteristic.get("algorithm"),
                 "constraint_checks": characteristic.get("constraint_checks", 0),
                 "proof_permutations": characteristic.get("proof_permutations", 0),
                 "proof_completions": characteristic.get("proof_completions", 0),
                 "minimal_clique": characteristic.get("minimal_clique", 0),
+                "labeling_space": characteristic.get("labeling_space", ""),
                 "search_expansions": total_expansions,
             }
             self.representations[name] = canonical

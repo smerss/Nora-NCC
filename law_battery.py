@@ -279,6 +279,65 @@ def _counter_task(modulus: int, seed: int = MISSION_SEED) -> dict:
     }
 
 
+def _symbol_strings(alphabet: str, length: int) -> list[str]:
+    return ["".join(row) for row in itertools.product(alphabet, repeat=int(length))]
+
+
+def _family_oracle(source: str, modulus: int, family: str) -> str:
+    """Bağımsız OOD oracle'ı; sentez yalnız string çiftlerini görür."""
+    state = 0
+    output = []
+    for symbol in source:
+        if family == "counter":
+            state = (state + int(symbol)) % modulus
+        elif family == "reset":
+            state = (state + 1) % modulus if symbol == "a" else 0
+        elif family == "affine":
+            state = (state * 2 + int(symbol)) % modulus
+        elif family == "ternary_reset":
+            state = 0 if symbol == "c" else (state + (1 if symbol == "a" else 2)) % modulus
+        elif family == "ternary_weighted":
+            state = (state + (1, 2, 3)[int(symbol)]) % modulus
+        else:
+            raise ValueError("unknown_family")
+        output.append(str(int(state == modulus - 1)))
+    return "".join(output)
+
+
+def _family_task(modulus: int, family: str, seed: int = MISSION_SEED) -> dict:
+    """Dondurulmuş binary ve bounded-ternary veri protokolü."""
+    if family == "counter":
+        task = _counter_task(modulus, seed)
+        task["family"] = family
+        return task
+    if family in {"reset", "affine"}:
+        alphabet = "ab" if family == "reset" else "01"
+        train = _bits(modulus + 1)
+        validation = _bits(modulus + 2) + _bits(modulus + 3)
+        heldout = _bits(modulus + 4)
+        if family == "reset":
+            convert = lambda rows: ["".join("ab"[int(x)] for x in source) for source in rows]
+            train, validation, heldout = convert(train), convert(validation), convert(heldout)
+    elif family in {"ternary_reset", "ternary_weighted"}:
+        alphabet = "abc" if family == "ternary_reset" else "012"
+        train = sum((_symbol_strings(alphabet, length) for length in range(4)), [])
+        validation = _symbol_strings(alphabet, 4) + _symbol_strings(alphabet, 5)
+        heldout = _symbol_strings(alphabet, 6)
+    else:
+        raise ValueError("unknown_family")
+    rng = random.Random(seed + modulus + sum(map(ord, family)))
+    for _ in range(64):
+        length = rng.randint(modulus + 5, modulus + 12)
+        heldout.append("".join(rng.choice(alphabet) for _ in range(length)))
+    pairs = lambda sources: [(source, _family_oracle(source, modulus, family))
+                             for source in sources]
+    return {
+        "modulus": int(modulus), "family": family,
+        "train": pairs(train), "validation": pairs(validation),
+        "heldout": pairs(heldout),
+    }
+
+
 def _rows_hash(rows) -> str:
     raw = json.dumps(rows, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(raw).hexdigest()
@@ -673,6 +732,11 @@ def _measured_attempt(task: dict, max_states: int) -> dict:
         "recurrent_candidates": result.get("recurrent_candidates", 0),
         "constraint_checks": result.get("constraint_checks", 0),
         "proof_completions": result.get("proof_completions", 0),
+        "proof_labelings": result.get("proof_permutations", 0),
+        "labeling_space": result.get("labeling_space", ""),
+        "anchor_expansions": result.get("anchor_expansions", 0),
+        "anchor_color_visits": result.get("anchor_color_visits", 0),
+        "mdl_bits_per_candidate": result.get("mdl_bits_per_candidate", 0.0),
     }
 
 
@@ -686,7 +750,7 @@ def representation_scaling() -> dict:
         row["research"] = "forced_off_state_sweep"
         state_budget.append(row)
     difficulty = []
-    for modulus in range(2, 7):
+    for modulus in range(2, 9):
         row = _measured_attempt(_counter_task(modulus), modulus)
         row["modulus"] = modulus
         difficulty.append(row)
@@ -707,6 +771,114 @@ def representation_scaling() -> dict:
         },
         "llm_baseline": {"run": False, "comparison_claimed": False,
                          "reason": "same-task same-data same-budget LLM run not available"},
+    }
+
+
+def representation_generalization() -> dict:
+    """Mod7/8, OOD FST aileleri ve açık seçim-prior ablasyonları."""
+    tasks: dict[tuple[str, int], dict] = {}
+    measurements: dict[tuple[str, int, str, int], dict] = {}
+
+    def measure(family: str, modulus: int, strategy="recurrent", seed=0) -> dict:
+        task_key = (family, int(modulus))
+        if task_key not in tasks:
+            tasks[task_key] = _family_task(modulus, family)
+        task = tasks[task_key]
+        key = (family, int(modulus), strategy, int(seed))
+        if key in measurements:
+            return measurements[key]
+        learner = _prior_learner()
+        started = time.perf_counter()
+        result = learner.invent_representation(
+            task["train"], task["validation"], max_states=modulus,
+            max_expansions=SEARCH_EXPANSION_LIMIT,
+            selection_strategy=strategy, selection_seed=seed,
+        )
+        seconds = time.perf_counter() - started
+        name = str(result.get("id") or "")
+        correct = sum(
+            learner.apply_representation(name, source) == expected
+            for source, expected in task["heldout"]
+        ) if name else 0
+        total = len(task["heldout"])
+        row = {
+            "family": family, "modulus": int(modulus),
+            "selection_strategy": strategy, "selection_seed": int(seed),
+            "status": result.get("status"), "resolved": bool(name),
+            "correct": correct, "total": total, "accuracy": correct / total,
+            "exact": bool(name) and correct == total,
+            "seconds": seconds, "algorithm": result.get("algorithm", "canonical-dfs-fallback"),
+            "learned_states": result.get("states", 0),
+            "candidates": result.get("candidates", 0),
+            "recurrent_candidates": result.get("recurrent_candidates", 0),
+            "selection": result.get("selection", ""),
+            "search_expansions": result.get("expansions", 0),
+            "proof_labelings": result.get("proof_permutations", 0),
+            "proof_completions": result.get("proof_completions", 0),
+            "anchor_expansions": result.get("anchor_expansions", 0),
+            "anchor_color_visits": result.get("anchor_color_visits", 0),
+            "labeling_space": result.get("labeling_space", ""),
+            "mdl_bits_per_candidate": result.get("mdl_bits_per_candidate", 0.0),
+            "train_sha256": _rows_hash(task["train"]),
+            "validation_sha256": _rows_hash(task["validation"]),
+            "heldout_sha256": _rows_hash(task["heldout"]),
+        }
+        measurements[key] = row
+        return row
+
+    counter = [dict(measure("counter", modulus)) for modulus in range(2, 9)]
+    ood = [dict(measure(family, modulus))
+           for modulus in (5, 7, 8)
+           for family in ("reset", "affine", "ternary_reset", "ternary_weighted")]
+    tie_break = []
+    tie_specs = [
+        ("counter", 6, (0, 1, 2)), ("counter", 7, (0, 1, 2)),
+        ("counter", 8, (0, 1, 2)), ("reset", 5, (0, 1, 2)),
+        ("ternary_reset", 7, (0,)), ("ternary_reset", 8, (0,)),
+    ]
+    for family, modulus, seeds in tie_specs:
+        strategies = [("recurrent", 0)]
+        strategies.extend(("uniform-random", seed) for seed in seeds)
+        strategies.extend([("lexicographic", 0), ("mdl", 0)])
+        for strategy, seed in strategies:
+            tie_break.append(dict(measure(family, modulus, strategy, seed)))
+
+    mdl_rows = [row for row in tie_break if row["selection_strategy"] == "mdl"]
+    unique_failures = [row["family"] + "-" + str(row["modulus"]) for row in ood
+                       if row["selection"] == "unique-minimal" and not row["exact"]]
+    complete = (len(counter) == 7 and len(ood) == 12 and len(tie_break) == 32
+                and all(row["status"] for row in counter + ood + tie_break))
+    return {
+        "protocol": {
+            "binary": "train |x|=m+1; validation |x|=m+2,m+3; heldout |x|=m+4 + 64 long",
+            "ternary": "train |x|<=3; validation 4,5; heldout 6 + 64 long",
+            "expansion_limit": SEARCH_EXPANSION_LIMIT,
+            "heldout_passed_to_learner": False,
+            "oracle_passed_to_learner": False,
+            "families": ["counter", "reset", "affine", "ternary_reset", "ternary_weighted"],
+        },
+        "counter_mod2_8": counter,
+        "ood_families": ood,
+        "selection_ablation": tie_break,
+        "findings": {
+            "counter_all_exact": all(row["exact"] for row in counter),
+            "ood_exact_rows": sum(row["exact"] for row in ood),
+            "ood_total_rows": len(ood),
+            "ood_nonexact": [row["family"] + "-" + str(row["modulus"]) + ":" + row["status"]
+                             for row in ood if not row["exact"]],
+            "unique_minimal_but_nonexact": unique_failures,
+            "recurrent_prior": "selects only when exactly one recurrent minimal candidate exists",
+            "uniform_and_lexicographic": "resolve ambiguity by preference; exactness is task/seed dependent",
+            "fixed_width_mdl_all_multi_candidate_ties": all(
+                row["candidates"] <= 1 or (not row["resolved"] and row["selection"] == "mdl-tie")
+                for row in mdl_rows
+            ),
+        },
+        "measurement_complete": complete,
+        "llm_baseline": {"run": False, "comparison_claimed": False,
+                         "reason": "same-task same-data same-budget LLM run not available"},
+        "not_claimed": ["general_FST_identifiability", "unique_minimal_implies_OOD_exact",
+                        "recurrent_prior_is_mathematical_uniqueness", "better_than_LLMs"],
     }
 
 
@@ -743,18 +915,239 @@ def sealed_checkpoint_audit(checkpoint: str = "/tmp/nora_autonomous_skill.json")
     }
 
 
+def selection_and_labeling_audit() -> tuple[bool, str]:
+    """Kanonik kök etiketleme, tam N! ile aynı adayları üretmeli."""
+    from nora_semantic_code import _FiniteObservationEvidence
+
+    task = _counter_task(6)
+    learner = _prior_learner()
+    result = learner.invent_representation(
+        task["train"], task["validation"], max_states=6,
+        max_expansions=SEARCH_EXPANSION_LIMIT,
+    )
+    name = str(result.get("id") or "")
+    if not name:
+        return False, "default recurrent selection failed"
+    representation = learner.representations[name]
+    table = {(state, symbol): (target, output)
+             for state, symbol, target, output in representation["transitions"]}
+    evidence = _FiniteObservationEvidence(task["train"] + task["validation"], ["0", "1"])
+    reduced = evidence.prove(table, SEARCH_EXPANSION_LIMIT)
+    exhaustive = evidence.prove(table, SEARCH_EXPANSION_LIMIT, exhaustive_labelings=True)
+    same_candidates = (
+        reduced.get("status") == exhaustive.get("status") == "proved"
+        and reduced.get("candidates") == exhaustive.get("candidates")
+        and reduced.get("recurrent_candidates") == exhaustive.get("recurrent_candidates")
+        and reduced.get("table") == exhaustive.get("table")
+    )
+    exact = all(learner.apply_representation(name, source) == expected
+                for source, expected in task["heldout"])
+    alternatives = {}
+    for strategy in ("uniform-random", "lexicographic", "mdl"):
+        other = _prior_learner()
+        row = other.invent_representation(
+            task["train"], task["validation"], max_states=6,
+            max_expansions=SEARCH_EXPANSION_LIMIT, selection_strategy=strategy,
+        )
+        alternatives[strategy] = row
+    alternative_ok = (
+        alternatives["mdl"].get("status") == "ambiguous"
+        and alternatives["mdl"].get("selection") == "mdl-tie"
+        and all(alternatives[s].get("candidates") == result.get("candidates")
+                for s in alternatives)
+        and all(alternatives[s].get("id") for s in ("uniform-random", "lexicographic"))
+    )
+    ok = (same_candidates and exact and alternative_ok
+          and reduced.get("expansions", 0) < exhaustive.get("expansions", 0))
+    detail = (f"N!-canonical candidates={exhaustive.get('candidates')}/"
+              f"{reduced.get('candidates')} expansions={exhaustive.get('expansions')}/"
+              f"{reduced.get('expansions')} exact={exact} mdl={alternatives['mdl'].get('status')}")
+    return ok, detail
+
+
+def _technical_independent_oracles() -> tuple[bool, bool]:
+    """Dil testinin evet/hayır beklentisi üretim metninden değil makine sayımından gelir."""
+    alphabet = ("0", "1")
+
+    def run(table, source):
+        state, output = 0, []
+        for symbol in source:
+            state, emitted = table[(state, symbol)]
+            output.append(emitted)
+        return "".join(output)
+
+    # Aynı sonlu gözlem, iki farklı tek-durumlu recurrent etiketlemeye açıktır.
+    observed_forms = []
+    for unseen_output in alphabet:
+        table = {(0, "0"): (0, "0"), (0, "1"): (0, unseen_output)}
+        if run(table, "0") == "0":
+            observed_forms.append(tuple(sorted(table.items())))
+    finite_observation_nonunique = len(set(observed_forms)) == 2
+
+    # Bağımsız tam-davranış kontrolü: bütün iki-durumlu deterministik Mealy
+    # makinelerini tara; hedefle eşdeğer olanların kanonik minimal biçimlerini say.
+    target = {(0, "0"): (0, "0"), (0, "1"): (1, "1"),
+              (1, "0"): (1, "1"), (1, "1"): (0, "0")}
+    sources = [""]
+    for length in range(1, 6):
+        sources.extend("".join(bits) for bits in itertools.product(alphabet, repeat=length))
+
+    def behavior(table):
+        return tuple(run(table, source) for source in sources)
+
+    def canonical(table):
+        mapping, queue = {0: 0}, [0]
+        for state in queue:
+            for symbol in alphabet:
+                nxt, _output = table[(state, symbol)]
+                if nxt not in mapping:
+                    mapping[nxt] = len(mapping)
+                    queue.append(nxt)
+        if len(mapping) != 2:
+            return None
+        return tuple((mapping[state], symbol, mapping[table[(state, symbol)][0]],
+                      table[(state, symbol)][1])
+                     for state in queue for symbol in alphabet)
+
+    wanted = behavior(target)
+    equivalent_forms = set()
+    keys = tuple(target)
+    for encoded in itertools.product(range(4), repeat=4):
+        table = {key: (value // 2, str(value % 2)) for key, value in zip(keys, encoded)}
+        if behavior(table) == wanted:
+            form = canonical(table)
+            if form is not None:
+                equivalent_forms.add(form)
+    fixed_behavior_unique = len(equivalent_forms) == 1 and canonical(target) in equivalent_forms
+    return finite_observation_nonunique, fixed_behavior_unique
+
+
+def technical_epistemic_boundary() -> tuple[bool, str]:
+    """Teknik niyet, parafraz, negasyon ve bibliyografik kanıtın uçtan uca sınavı."""
+    from nora_agi import NoraAGI
+
+    finite_nonunique, fixed_unique = _technical_independent_oracles()
+    checks = []
+
+    def record(name, ok, detail=""):
+        checks.append((name, bool(ok), str(detail)))
+
+    record("independent_no_oracle", finite_nonunique)
+    record("independent_yes_oracle", fixed_unique)
+
+    def fresh(seed=41):
+        return NoraAGI(seed=seed, boot_thinker=False)
+
+    no_questions = [
+        "minimal recurrent form her zaman tek midir? Evet ya da hayır de ve nedenini açıkla; emin değilsen bilmiyorum de.",
+        "Bir FST’nin minimal recurrent biçimi her koşulda tekil midir? Neden?",
+        "Does a strongly connected finite-state transducer always have a unique minimal form?",
+    ]
+    for i, question in enumerate(no_questions):
+        agi = fresh()
+        response = agi.converse(question)
+        low = response.lower()
+        ok = (finite_nonunique and low.startswith("hayır;") and "sonlu gözlem" in low
+              and "izomorfizm" in low and "; ancak aynı tam davranış" in low
+              and agi.episteme.guard.audit_response(question, response)["safe"])
+        record(f"no_paraphrase_{i}", ok, response)
+
+    positive = "Deterministik ve tam bir Mealy makinesinin minimal biçimi izomorfizmaya kadar tek midir?"
+    agi = fresh()
+    response = agi.converse(positive)
+    record("fixed_behavior_positive", fixed_unique and response.lower().startswith("evet;")
+           and "; ancak aynı tam davranış" in response, response)
+
+    negated = [
+        "Deterministik değil ama tam bir Mealy makinesinin minimal biçimi tek midir?",
+        "Deterministik olmayan, tam bir Mealy makinesinin minimal biçimi tek midir?",
+        "Deterministic not: is a complete Mealy machine's minimal form unique?",
+    ]
+    for i, question in enumerate(negated):
+        agi = fresh()
+        query = agi.episteme.technical.parse(question)
+        response = agi.converse(question)
+        ok = bool(query and "deterministic" in query.negated
+                  and "complete" not in query.negated and response.lower().startswith("hayır;"))
+        record(f"negation_direction_{i}", ok, response)
+
+    negative_polarity = "Deterministik ve tam bir Mealy makinesinin minimal biçimi tek değil mi?"
+    agi = fresh()
+    response = agi.converse(negative_polarity)
+    record("negative_question_polarity", response.lower().startswith("hayır;"), response)
+
+    bibliographic = [
+        "2014 Computational Linguistics, “Halvorsen & Erdoğan, Recurrent Minimization of Weighted Transducers via Prefix-Incompatibility Graphs” kaydındaki algoritmanın adı ve temel fikri nedir?",
+        "Halvorsen ve Erdoğan’ın 2014’teki Recurrent Minimization of Weighted Transducers via Prefix-Incompatibility Graphs çalışmasında kullanılan algoritma ne, temel fikri ne?",
+    ]
+    for i, question in enumerate(bibliographic):
+        agi = fresh()
+        response = agi.converse(question)
+        low = response.lower()
+        refusal = "doğrulamadım" in low and "bilmiyorum" in low
+        safe = agi.episteme.guard.audit_response(question, response)["safe"]
+        hallucination = ("Algoritmanın adı Prefix-Incompatibility Minimization; "
+                         "temel fikri seq2seq hata optimizasyonudur.")
+        caught = not agi.episteme.guard.audit_response(question, hallucination)["safe"]
+        mixed = "Bilmiyorum. Algoritmanın adı Prefix-Incompatibility Minimization."
+        mixed_caught = not agi.episteme.guard.audit_response(question, mixed)["safe"]
+        record(f"unknown_source_{i}", refusal and safe and caught and mixed_caught, response)
+
+    title = "Recurrent Minimization of Weighted Transducers via Prefix-Incompatibility Graphs"
+    document = ("Algorithm: QV-Bridge\n"
+                "Basic idea: eşlenmeyen önekleri ayrı tutup geçişleri birleştirmek\n")
+    metadata = {"title": title, "year": 2014, "venue": "Computational Linguistics",
+                "authors": ["A. Researcher"]}
+    agi = fresh()
+    stored = agi.episteme.technical.register_document("local:verified", document, metadata, verified=True)
+    response = agi.converse(bibliographic[0])
+    fields = dict(line.split(":", 1) for line in document.strip().splitlines())
+    documented = (stored["status"] == "verified" and fields["Algorithm"].strip() in response
+                  and fields["Basic idea"].strip() in response
+                  and agi.episteme.guard.audit_response(bibliographic[0], response)["safe"])
+    record("verified_document_positive", documented, response)
+
+    agi = fresh()
+    unverified = agi.episteme.technical.register_document("local:unverified", document, metadata, verified=False)
+    response = agi.converse(bibliographic[0])
+    record("unverified_document_rejected", unverified["status"] == "unverified"
+           and "bilmiyorum" in response and fields["Algorithm"] not in response, response)
+
+    wrong_year = bibliographic[0].replace("2014", "2015")
+    agi = fresh()
+    agi.episteme.technical.register_document("local:verified", document, metadata, verified=True)
+    response = agi.converse(wrong_year)
+    record("bibliographic_year_mismatch", "bilmiyorum" in response and fields["Algorithm"] not in response, response)
+
+    agi = fresh()
+    compound = "Prefix-incompatibility graph nedir?"
+    response = agi.converse(compound)
+    record("compound_without_invention", "bilmiyorum" in response and "önek uyumsuzluğu" in response
+           and "çizge" in response, response)
+    record("nontechnical_control", agi.episteme.technical.answer("Kediler neden mırlar?") is None
+           and agi.episteme.technical.answer("2 + 2 kaç eder?") is None)
+
+    passed = sum(ok for _name, ok, _detail in checks)
+    failed = [name for name, ok, _detail in checks if not ok]
+    detail = f"{passed}/{len(checks)}"
+    if failed:
+        detail += " failed=" + ",".join(failed)
+    return passed == len(checks), detail
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--repeat", type=int, default=1)
     mode = ap.add_mutually_exclusive_group()
     mode.add_argument("--mission", action="store_true", help="kısıtlı-ağ otonom icat görevi")
     mode.add_argument("--scaling", action="store_true", help="durum ve zorluk ölçeklemesi")
+    mode.add_argument("--generalization", action="store_true", help="mod7/8, OOD ve seçim-prior ölçümü")
     mode.add_argument("--audit", action="store_true", help="terfi checkpoint'ine yeni mühürlü denetim")
     ap.add_argument("--offline", action="store_true", help="görevde ağı kapalı tut")
     ap.add_argument("--output", default="")
     ap.add_argument("--checkpoint", default="/tmp/nora_autonomous_skill.json")
     args = ap.parse_args()
-    if args.mission or args.scaling or args.audit:
+    if args.mission or args.scaling or args.generalization or args.audit:
         started = time.perf_counter()
         if args.mission:
             report = autonomous_invention_mission(network=not args.offline,
@@ -764,7 +1157,12 @@ def main():
         elif args.scaling:
             report = representation_scaling()
             output = args.output or "/tmp/nora_representation_scaling.json"
-            success = bool(report["same_task_state_budget"][-1]["exact"])
+            success = bool(report["same_task_state_budget"][-1]["exact"]
+                           and all(row["exact"] for row in report["task_family_difficulty"]))
+        elif args.generalization:
+            report = representation_generalization()
+            output = args.output or "/tmp/nora_representation_generalization.json"
+            success = bool(report["measurement_complete"])
         else:
             report = sealed_checkpoint_audit(args.checkpoint)
             output = args.output or "/tmp/nora_final_sealed_audit.json"
@@ -773,7 +1171,8 @@ def main():
         with open(output, "w", encoding="utf-8") as handle:
             json.dump(report, handle, ensure_ascii=False, indent=2, sort_keys=True)
         print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True), flush=True)
-        print(f"KANIT {output} | {'GEÇTİ' if success else 'KALDI'}", flush=True)
+        label = "ÖLÇÜM TAMAM" if args.generalization and success else ("GEÇTİ" if success else "KALDI")
+        print(f"KANIT {output} | {label}", flush=True)
         raise SystemExit(0 if success else 1)
     tests = [("Y1 koşullu ifade yeni örneklerde", conditional_expression),
              ("Y2 sembolik yasa → bağımsız plan", learned_law_plans),
@@ -782,7 +1181,9 @@ def main():
              ("Y5 Nora induce→plan→checkpoint", nora_induce_plan_checkpoint),
              ("Y6 gerektiğinde gizli-durum temsili açma", latent_representation_opens_only_when_needed),
              ("Y7 kalıcı temsil kişisel istekte çalışır", learned_representation_personal_application),
-             ("Y8 kısıtlı araştırma ağ sınırı", restricted_research_boundary)]
+             ("Y8 kısıtlı araştırma ağ sınırı", restricted_research_boundary),
+             ("Y9 teknik niyet ve bibliyografik kanıt", technical_epistemic_boundary),
+             ("Y10 kanonik etiketleme ve seçim ablasyonu", selection_and_labeling_audit)]
     failed = 0
     t0 = time.time()
     for _ in range(max(1, args.repeat)):

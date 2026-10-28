@@ -3771,3 +3771,193 @@ Dondurulmuş dış ölçüm yeniden **9/10**'dur
 `2199072553017a7846eb4fcae3ac872c01a92da6226a4dca155be756b7a491c4`
 değerindedir. LLM eş-bütçeli baseline, genel zekâ veya fenomenal bilinç
 iddiası yoktur.
+
+## Aşama BS — Teknik episteme, mod7/8 ve seçim-prior sınırları
+
+Bu aşamada da yeni üretim modülü eklenmedi. `nora_episteme.py`,
+`nora_agi.py`, `nora_semantic_code.py` ve mevcut `law_battery.py`
+derinleştirildi. Genel kavram sözlüğü ve teorem koşulları kod iskeleti değil,
+`data/technical_epistemics.json` içinde veri olarak tutulur. Sorgudaki makale
+başlığı, yazarlar veya onun cevabı bu veri dosyasında yoktur.
+
+### Başlangıç kanıtı: iki kullanıcı sorusu ve dört ek kontrol
+
+Değiştirilmemiş üretim, kullanıcının teklik sorusuna anlamsız bir evet/hayır
+açıklaması, bibliyografik soruya ise “-” çıkarma sembolü açıklaması verdi
+(`/tmp/nora_llm_questions_before.json`). Daha geniş kırmızı ölçüm iki özgün
+soru, iki parafraz, İngilizce `strongly connected` ve pozitif Mealy kontrolüyle
+**0/6** oldu (`/tmp/nora_technical_red.jsonl`). Bu kayıtlar silinmedi.
+
+Yeni genel çözümleyici yüzeysel bilinmeyen kelimeyi doğrudan reddetmek yerine:
+
+- `finite-state transducer / FST / sonlu-durum transdüseri`,
+  `strongly connected / güçlü bağlı` gibi parçaları birleşik kavramlara çözer;
+- teklik sorusunu, birleşik terim tanımını ve bibliyografik kaynak
+  yükümlülüğünü ayırır;
+- `not deterministic`, `deterministic not`, `deterministik olmayan` ve
+  `deterministik değil` biçimlerinde olumsuzluğun yönünü ve kapsamını izler;
+  “deterministik olmayan, tam” ifadesindeki `tam` özelliğini yanlışlıkla
+  olumsuzlamaz;
+- doğrulanmış belgede açık `Algorithm:` ve `Basic idea:`/`Temel fikir:` alanı
+  yoksa makale başlığından algoritma adı türetmez;
+- doğrulanamayan kaynak için “böyle bir makale yok” demez, yalnız mevcut
+  bilgi sınırını bildirir.
+
+`HallucinationGuard.audit_response` artık kelime-grounding oranından ayrı olarak
+teknik iddianın kaynak kanıtını denetler. Doğrulanmamış bibliyografik soruda
+“Bilmiyorum. Algoritmanın adı …” gibi karışık cevap da güvensizdir; her
+cümleciğin epistemik sınır taşıması gerekir. Doğrulanmış-belge pozitif kontrolü,
+belgeden bağımsız okunan algoritma ve temel fikir alanlarını aynen döndürür;
+yanlış yıl ve doğrulanmamış belge kontrolleri reddedilir.
+
+Kullanıcının iki sorusunun son Studio cevapları:
+
+> Hayır; recurrentlik genel teklik garantisi sonlu gözlemlerde sağlamıyor;
+> ancak aynı tam davranışı veren deterministik, tam ve sabit başlangıçlı Mealy
+> makinelerinde minimal form izomorfizmeye kadar tek.
+
+> Bibliyografik kaydı doğrulamadım; algoritmanın adını ve temel fikrini
+> bilmiyorum.
+
+İlk cümle iki durumu ayırır: sonlu gözlemlerle teklik garantisi yoktur;
+klasik teklik sonucu ise **aynı tam davranış** koşuluna bağlıdır ve koşulsuz
+bir teorem gibi sunulmaz. İkinci cümle kaynağın varlığı hakkında olumsuz
+bibliyografik iddia üretmez.
+
+Kalıcı Y9 sınavı **17/17**'dir. Evet/hayır beklentisi cümle şablonundan değil,
+iki bağımsız makine oracle'ından gelir: aynı `0→0` gözlemine uyan iki farklı
+tek-durumlu recurrent etiketleme ve 256 iki-durumlu Mealy makinesinin tam
+davranış/kanonik-form taraması. Parafraz, negasyon, pozitif belge, yanlış yıl,
+halüsinasyon ve teknik-olmayan kontrolleri de bu sınavdadır.
+
+### Mod7/8: clique çapası ve kök-kanonik etiketleme
+
+İlk yeni mod7 koşusu **73,0 sn, budget-exceeded, 0/2112** verdi. Nedeni eşik
+değil, derinlik tablosunun uyumlu satırları birleştirip hedefi aday uzayından
+düşürmesiydi. İlk greedy clique denemesi de mod8'de **99.224 expansion** ile
+çapa bulamadı. Bu iki başlangıç kanıtı
+`/tmp/nora_mod7_baseline.json` ve
+`/tmp/nora_mod8_after_global_clique.json` içinde korunur.
+
+Genel düzeltme iki parçalıdır:
+
+1. Observation derinliği çözemediğinde aynı incompatibility graph üzerinde
+   greedy-coloring üst sınırlı, geri izlemeli clique aranır. Clique yoksa durum
+   boyutu `max_states…1` azaltılır; clique bulunup adaylar çoksa sonuç
+   zorlanmadan `ambiguous` kalır.
+2. Sabit clique çapalarında yalnız başlangıcın hangi çapa olduğu önemlidir.
+   Diğer durum adları kanonik BFS ile normalize edildiğinden N! yerine en fazla
+   N kök-çapa etiketlemesi bütün izomorfizm sınıflarını kapsar. Bu, hedef
+   modulusuna özel kısayol değil, genel izomorfizm simetrisidir.
+
+Y10 denetimi aynı mod6 clique'inde tam N! taramayla kök-kanonik taramayı
+karşılaştırdı: **aynı 2 aday, aynı 1 recurrent, aynı seçilen tablo**;
+expansion **3.120 → 26**. Ek 100 rastgele küçük FST taramasında erişilebilir
+65 makinenin durum/aday/recurrent/seçim sonuçları da tam N! ile birebir aynı,
+**0 mismatch** çıktı (`/tmp/nora_root_canonical_random_crosscheck.json`).
+Dolayısıyla hız kazancı aday kümesini değiştiren bir test/üretim manipülasyonu
+değildir.
+
+İkinci deterministik koşulu `/tmp/nora_representation_scaling_mod8_final.json`:
+
+| modulus | held-out | eski BR expansion | yeni expansion | aday / recurrent | süre (sn) | heap (MiB) |
+|---:|---:|---:|---:|---:|---:|---:|
+| 2 | 128/128 | 4 | 3 | 1 / 1 | 0,0035 | 0,0835 |
+| 3 | 192/192 | 11 | 4 | 1 / 1 | 0,0072 | 0,2678 |
+| 4 | 320/320 | 67 | 10 | 1 / 1 | 0,0232 | 1,0470 |
+| 5 | 576/576 | 409 | 16 | 1 / 1 | 0,0813 | 2,6068 |
+| 6 | 1088/1088 | 3.136 | 42 | 2 / 1 | 0,3108 | 11,9434 |
+| 7 | **2112/2112** | ölçülmedi | **983** | **3 / 1** | **1,6857** | **41,2917** |
+| 8 | **4160/4160** | ölçülmedi | **1.101** | **4 / 1** | **6,4291** | **142,0221** |
+
+Mod7 ve mod8 seçimi `unique-minimal-recurrent`; bu yine matematiksel teklik
+değil, tek recurrent adaya uygulanan açık prior'dur. Mod8 clique araması
+220 arama düğümü ve ayrı raporlanan 201.089 coloring/bitset ziyareti yapar;
+pairwise constraint-check sayısı 8.382.465'tir. Expansion ile yerel kısıt
+işlemleri aynı birimmiş gibi birleştirilmez.
+
+Eski **409** artık genel verimlilik kanıtı değildir: büyük bölümü durum
+etiketi permütasyonlarıymış. Yeni algoritmada mod5 expansion **16**, mod6
+**42**'dir; eski BR değerleri tarihsel karşılaştırma olarak yukarıda ve bu
+tabloda korunur.
+
+### Dondurulmuş OOD aileleri: hız ile genelleme aynı şey değil
+
+İkili ailelerde önceki tam uzunluk protokolü, üçlü alfabelerde ise sonuçlar
+görülmeden sabitlenen `train |x|≤3`, `validation |x|=4,5`,
+`held-out |x|=6 + 64 uzun rastgele` protokolü kullanıldı. Bütün beklenen
+çıktılar bağımsız `_family_oracle` ile hesaplandı; held-out senteze verilmedi.
+Tam kanıt `/tmp/nora_representation_generalization_final.json`.
+
+| modulus | aile | sonuç | held-out | expansion | aday / recurrent |
+|---:|---|---|---:|---:|---:|
+| 5 | reset | **ambiguous** | 0/576 (seçim yok) | 152 | 4 / 3 |
+| 5 | affine | exact | 576/576 | 13 | 1 / 1 |
+| 5 | ternary-reset | exact | 793/793 | 3 | 1 / 1 |
+| 5 | ternary-weighted | exact | 793/793 | 3 | 1 / 1 |
+| 7 | reset | **ambiguous** | 0/2112 (seçim yok) | 279 | 4 / 4 |
+| 7 | affine | exact | 2112/2112 | 491 | 1 / 1 |
+| 7 | ternary-reset | **ambiguous** | 0/793 (seçim yok) | 519 | 512 / 512 |
+| 7 | ternary-weighted | exact | 793/793 | 9 | 1 / 1 |
+| 8 | reset | **ambiguous** | 0/4160 (seçim yok) | 1.668 | 18 / 18 |
+| 8 | affine | exact | 4160/4160 | 4 | 1 / 1 |
+| 8 | ternary-reset | **ambiguous** | 0/793 (seçim yok) | 28.133 | 28.125 / 28.125 |
+| 8 | ternary-weighted | **unique-minimal, non-exact** | **678/793** | 9 | 1 / 1 |
+
+OOD özeti **6/12 exact**'tir. Beş satır gözlemsel belirsizlik nedeniyle
+seçim yapmaz; bir satır ise tek minimal aday bulmasına rağmen held-out'ta
+yanılır. Bu son satır özellikle önemlidir: `unique-minimal`, doğru OOD
+genellemenin garantisi değildir. Veri veya eşik bu kırmızıları kaldırmak için
+değiştirilmemiştir.
+
+### Recurrent, uniform, lexicographic ve MDL ablasyonu
+
+Aynı exhaustive aday kümeleri dört açık seçim politikasıyla denendi.
+`resolved` bir tablo seçilmesi, `exact` ise held-out başarısıdır; ikisi
+birbirinden ayrı değerlendirilir.
+
+| görev | recurrent | uniform-random | lexicographic | fixed-width MDL |
+|---|---|---|---|---|
+| counter-6 | 1088/1088 | seed0 1075/1088; seed1/2 exact | exact | `mdl-tie` |
+| counter-7 | 2112/2112 | seed0 2110/2112; seed1/2 exact | exact | `mdl-tie` |
+| counter-8 | 4160/4160 | seed0 4155/4160; seed1/2 exact | exact | `mdl-tie` |
+| reset-5 | ambiguous | seed0 572/576; seed1 574/576; seed2 exact | exact | `mdl-tie` |
+| ternary-reset-7 | ambiguous | seed0 762/793 | 790/793 | `mdl-tie` |
+| ternary-reset-8 | ambiguous | seed0 757/793 | 787/793 | `mdl-tie` |
+
+Uniform-random ve lexicographic belirsizliği bir tercih yaparak çözer, fakat
+seed/aileye göre yanlış genelleyebilir. Recurrent prior yalnız **tek recurrent
+minimal aday** olduğunda seçer; reset ailelerindeki birden çok recurrent
+adayı keyfi biçimde elemez. Aynı durum/alfabe için fixed-width MDL kod
+uzunluğu bütün adaylarda eşittir; gizli ikinci tie-break eklenmediği için
+çok-adaylı bütün ölçümlerde `mdl-tie` kalır. Bu sonuçlardan genel bir prior
+üstünlüğü veya bütün FST ailelerine genelleme iddiası kurulmaz.
+
+### Son regresyon, mission ve canlı Studio
+
+- Kesintisiz ana pil **134/134 (842,4 sn)**:
+  `/tmp/nora_main_after_generalization.log`.
+- Law **10/10 (32,5 sn)**; Y9 teknik 17/17, Y10 tam-N!/kanonik denetimi:
+  `/tmp/nora_law_after_generalization.log`.
+- Pratik **7/7**, işlevsel bilinç **9/9**; bilinç satırı yine fenomenal
+  bilinç/qualia iddiası değildir.
+- Dondurulmuş dış ölçüm **9/10**; yalnız D2 `RANOR`/`ARON` kırmızısı ve
+  `external_battery.py` SHA-256 `2199072553017a7846eb4fcae3ac872c01a92da6226a4dca155be756b7a491c4`
+  değişmedi.
+- Mission `ICAT_OPERATOR`, **576/576**, 16 expansion; araştırma açık/kapalı
+  kontrol aynı operatör ve expansion'ı verdi. Araştırmanın rolü yine yalnız
+  dış provenance'dır: `/tmp/nora_autonomous_mission_after_generalization.json`.
+- Yeni checkpoint SHA-256
+  `440dba3744d15f8d4531ab98dcbdea7503c64a7503fc32eeb6947c95769b81bb`;
+  bağımsız, önceki split'lerde olmayan mühür **1077/1077**:
+  `/tmp/nora_final_sealed_audit_after_generalization.json`.
+- Kod-sözü **1125/127 (+3/+0)**, `py_compile` ve `git diff --check` geçti.
+- Gerçek Studio'da kullanıcının iki teknik sorusu ve iki fresh kişisel
+  parafraz **4/4** geçti; kişisel stdout'lar bağımsız oracle ile exact:
+  `/tmp/nora_studio_technical_personal_final.json`. Önceki tarihsel kişisel
+  **1/2** hata kaydı yukarıda korunur.
+
+Yeniden üretim: `python law_battery.py --generalization`,
+`python law_battery.py --scaling`, `python law_battery.py --mission` ve
+`python law_battery.py --audit`. Eşbütçeli LLM üstünlüğü, genel zekâ,
+genel FST tanımlanabilirliği veya fenomenal bilinç iddiası yoktur.
