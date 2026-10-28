@@ -793,11 +793,17 @@ def main():
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--think-iters", type=int, default=600)
     ap.add_argument("--no-besin", action="store_true", help="dünya/Türkçe besinini kapat")
+    ap.add_argument("--semantic-checkpoint", default="", help="JSON checkpoint")
     args = ap.parse_args()
 
     print(f"[nora-studio] Nora-AGI başlatılıyor (seed={args.seed}, S2 boot={args.think_iters})...", flush=True)
     t0 = time.time()
     RUNTIME = StudioRuntime(seed=args.seed, think_iters=args.think_iters, besin=not args.no_besin)
+    if args.semantic_checkpoint:
+        with open(args.semantic_checkpoint, "r", encoding="utf-8") as handle:
+            RUNTIME.agi.code_cortex.semantic.load_state_dict(json.load(handle))
+        count = len(RUNTIME.agi.code_cortex.semantic.representations)
+        print(f"[nora-studio] semantic_repr={count}", flush=True)
     srv = ThreadingHTTPServer((args.host, args.port), StudioHandler)
     print(f"[nora-studio] Canlı Gözlemevi hazır ({time.time() - t0:.1f}s) -> http://{args.host}:{args.port}", flush=True)
     srv.serve_forever()

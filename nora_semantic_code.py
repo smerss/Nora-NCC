@@ -173,14 +173,31 @@ class CompositionalCodeLearner:
         if not payload:
             return None
         low = tr_lower(raw)
+        applies = bool(re.search(r"(?:işlemden\s+geçir|dönüştür|transform|uygula)", low))
+        anaphoric = bool(re.search(
+            r"\b(?:bu|öğrendiğin|öğrendiğim|kurduğun|kurduğum)\s+(?:işlem|operatör)", low,
+        ))
+        representation_reference = ""
+        for name, record in self.representations.items():
+            alias = tr_lower(str(record.get("name") or ""))
+            named = re.search(r"\b" + re.escape(tr_lower(name)) + r"\b", low)
+            if named or (alias and re.search(r"\b" + re.escape(alias) + r"\b", low)):
+                representation_reference = name
+                break
+        if applies and self.representations and (
+                representation_reference or (anaphoric and not self.string_transforms)):
+            return TransformationGoal(
+                payload, "representation", raw, representation_reference,
+                (f"payload_length={len(payload)}", "operation=representation",
+                 f"reference={representation_reference or 'latest'}"),
+            )
+
         reference = ""
         for name, record in self.string_transforms.items():
             alias = tr_lower(str(record.get("name") or ""))
             if alias and re.search(r"\b" + re.escape(alias) + r"\b", low):
                 reference = name
                 break
-        anaphoric = bool(re.search(r"\bbu\s+işlem", low))
-        applies = bool(re.search(r"(?:işlemden\s+geçir|dönüştür|transform|uygula)", low))
         if applies and (anaphoric or reference):
             return TransformationGoal(
                 payload, "string", raw, reference,
@@ -794,62 +811,73 @@ class CompositionalCodeLearner:
 
     @classmethod
     def _finite_candidates(cls, examples: list[tuple[str, str]], states: int,
-                           alphabet: list[str], limit: int = 512) -> list[dict[str, Any]]:
-        table: dict[tuple, tuple] = {}
+                           alphabet: list[str], limit: int = 512,
+                           max_expansions: int = 100000) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        """Kanonik, özyinelemesiz gizli-durum araması.
+
+        Durum etiketleri yalnız ilk kullanım sırasıyla açılır; aynı makinenin
+        permütasyonları tekrar aranmaz. Bir iş, bütün örneklerde derinlemesine
+        ilerlediği için kolay ilk örneklerde binlerce kısmi makine biriktirilmez.
+        ``max_expansions`` tükenmemiş aramayı ``unresolved`` diye etiketlememek
+        için ayrıca döndürülür.
+        """
+        # example index, symbol position, current state, immutable table, used states
+        stack: list[tuple[int, int, int, dict[tuple, tuple], int]] = [(0, 0, 0, {}, 1)]
         solutions: list[dict[str, Any]] = []
-
-        def finish():
-            if len(table) != states * len(alphabet) or len(solutions) >= limit:
-                return
-            transitions = [
-                [state, symbol, next_state, output]
-                for (state, symbol), (next_state, output) in sorted(table.items())
-            ]
-            solutions.append({
-                "kind": "finite_state_transducer", "states": states,
-                "alphabet": list(alphabet), "initial": 0,
-                "transitions": transitions,
-            })
-
-        def visit_example(index: int):
-            if len(solutions) >= limit:
-                return
+        expansions = 0
+        peak_stack = 1
+        while stack and len(solutions) < limit and expansions < max_expansions:
+            peak_stack = max(peak_stack, len(stack))
+            index, position, state, table, used = stack.pop()
             if index >= len(examples):
-                finish()
-                return
+                if used != states or len(table) != states * len(alphabet):
+                    continue
+                transitions = [
+                    [source_state, symbol, next_state, output]
+                    for (source_state, symbol), (next_state, output) in sorted(table.items())
+                ]
+                solutions.append({
+                    "kind": "finite_state_transducer", "states": states,
+                    "alphabet": list(alphabet), "initial": 0,
+                    "transitions": transitions,
+                })
+                continue
             source, expected = examples[index]
+            if position >= len(source):
+                stack.append((index + 1, 0, 0, table, used))
+                continue
+            symbol = source[position]
+            emitted = expected[position]
+            key = (state, symbol)
+            known = table.get(key)
+            if known is not None:
+                if known[1] == emitted:
+                    stack.append((index, position + 1, known[0], table, used))
+                continue
+            expansions += 1
+            # Mevcut durumlar veya yalnız sıradaki tek yeni durum. Bu restricted-
+            # growth canonicalization hedef ilişkisinden bağımsızdır.
+            choices = range(min(states, used + 1))
+            for next_state in reversed(list(choices)):
+                branch = dict(table)
+                branch[key] = (next_state, emitted)
+                stack.append((index, position + 1, next_state, branch,
+                              used + int(next_state == used)))
+        capped = len(solutions) >= limit or (expansions >= max_expansions and bool(stack))
+        stats = {
+            "expansions": expansions, "peak_stack": peak_stack,
+            "budget_exceeded": capped, "candidate_limit": int(limit),
+            "expansion_limit": int(max_expansions),
+        }
+        return solutions, stats
 
-            def step(position: int, state: int):
-                if len(solutions) >= limit:
-                    return
-                if position >= len(source):
-                    visit_example(index + 1)
-                    return
-                symbol = source[position]
-                emitted = expected[position]
-                key = (state, symbol)
-                known = table.get(key)
-                if known is not None:
-                    if known[1] == emitted:
-                        step(position + 1, known[0])
-                    return
-                for next_state in range(states):
-                    table[key] = (next_state, emitted)
-                    step(position + 1, next_state)
-                    del table[key]
-                    if len(solutions) >= limit:
-                        return
-
-            step(0, 0)
-
-        visit_example(0)
-        return solutions
-
-    def invent_representation(self, train, validation, *, max_states: int = 3) -> dict:
+    def invent_representation(self, train, validation, *, max_states: int = 3,
+                              max_expansions: int = 100000) -> dict:
         """Eski temsil yetmezse minimal gizli-durum transdüseri kur.
 
         Önce mevcut akış ifadeleri denenir. Yeni tür yalnız başarısızlıkta açılır;
-        validation'dan geçen minimal adaylar eşdeğer değilse seçim yapılmaz.
+        validation arama kısıtıdır, held-out ise bu yönteme hiç verilmez.
+        Validation'dan geçen minimal adaylar eşdeğer değilse seçim yapılmaz.
         """
         train_rows = self._relation_examples(train)
         validation_rows = self._relation_examples(validation)
@@ -857,15 +885,28 @@ class CompositionalCodeLearner:
             return {"status": "invalid-protocol"}
         stream = self._synthesize_stream([(s, list(y)) for s, y in train_rows])
         if stream is not None and all(self._run_stream(stream, s) == list(y)
-                                      for s, y in validation_rows):
+                                     for s, y in validation_rows):
             return {"status": "existing", "kind": "stream_expression"}
         alphabet = sorted({symbol for source, _ in train_rows for symbol in source})
         if any(symbol not in alphabet for source, _ in validation_rows for symbol in source):
-            return {"status": "unresolved", "reason": "validation-alphabet"}
+            return {"status": "unresolved", "kind": "finite_state_transducer",
+                    "reason": "validation-alphabet"}
+        total_expansions = 0
+        peak_stack = 0
+        expansion_limit = max(1, int(max_expansions))
+        constraints = train_rows + validation_rows
         for states in range(1, max(1, int(max_states)) + 1):
-            candidates = self._finite_candidates(train_rows, states, alphabet)
-            if len(candidates) >= 512:
-                return {"status": "budget-exceeded", "states": states}
+            candidates, stats = self._finite_candidates(
+                constraints, states, alphabet, max_expansions=expansion_limit,
+            )
+            total_expansions += int(stats["expansions"])
+            peak_stack = max(peak_stack, int(stats["peak_stack"]))
+            common = {"kind": "finite_state_transducer", "states": states,
+                      "expansions": total_expansions, "peak_stack": peak_stack}
+            if stats["budget_exceeded"]:
+                return {"status": "budget-exceeded", **common}
+            # Aramada kullanılan validation ayrıca yürütülür; tablo kurma hatası
+            # veya kısıt atlaması bu bağımsız kontrolde başarıya dönüşemez.
             validated = [candidate for candidate in candidates
                          if all(self._run_finite(candidate, source) == expected
                                 for source, expected in validation_rows)]
@@ -874,19 +915,22 @@ class CompositionalCodeLearner:
             canonical = validated[0]
             if any(not self._finite_equivalent(canonical, other, alphabet)
                    for other in validated[1:]):
-                return {"status": "ambiguous", "states": states,
-                        "candidates": len(validated)}
+                return {"status": "ambiguous", "candidates": len(validated), **common}
             serial = 1 + max(
                 [int(name[4:]) for name in self.representations if name.startswith("repr")
                  and name[4:].isdigit()] or [0],
             )
             name = f"repr{serial}"
-            canonical["evidence"] = {"train": len(train_rows), "validation": len(validation_rows),
-                                     "equivalent_candidates": len(validated)}
+            canonical["evidence"] = {
+                "train": len(train_rows), "validation": len(validation_rows),
+                "equivalent_candidates": len(validated),
+                "search_expansions": total_expansions,
+            }
             self.representations[name] = canonical
-            return {"status": "invented", "id": name, "kind": canonical["kind"],
-                    "states": states, "candidates": len(validated)}
-        return {"status": "unresolved"}
+            return {"status": "invented", "id": name,
+                    "candidates": len(validated), **common}
+        return {"status": "unresolved", "kind": "finite_state_transducer",
+                "expansions": total_expansions, "peak_stack": peak_stack}
 
     def apply_representation(self, name: str, source: str) -> str | None:
         representation = self.representations.get(str(name))
@@ -1071,6 +1115,27 @@ class CompositionalCodeLearner:
         return ast.unparse(ast.parse(program))
 
     @staticmethod
+    def _emit_representation(payload: str, representation: dict[str, Any]) -> str:
+        """Öğrenilmiş transdüseri, cevabı gömmeden çalıştırılabilir AST'ye çevir."""
+        if representation.get("kind") != "finite_state_transducer":
+            raise ValueError("unsupported representation")
+        table = {
+            (int(state), str(symbol)): (int(next_state), str(output))
+            for state, symbol, next_state, output in representation.get("transitions") or ()
+        }
+        program = "\n".join([
+            f"text = {payload!r}",
+            f"table = {table!r}",
+            f"state = {int(representation.get('initial', 0))!r}",
+            "outputs = []",
+            "for item in text:",
+            "    state, emitted = table[(state, item)]",
+            "    outputs.append(emitted)",
+            "print(''.join(outputs))",
+        ])
+        return ast.unparse(ast.parse(program))
+
+    @staticmethod
     def _apply_string_operations(payload: str, operations: list[str]) -> str | None:
         value = str(payload)
         for operation in operations:
@@ -1129,6 +1194,25 @@ class CompositionalCodeLearner:
             return ProgramPlan(
                 (f"decode:{name}", "iterate", "display"), program, f"{value}\n",
                 tuple(goal.trace) + (f"decoder={name}", "rule=subtractive_sum"),
+            )
+
+        if goal.operation == "representation":
+            name = goal.reference or next(reversed(self.representations), "")
+            if not name or (goal.reference == "" and len(self.representations) != 1):
+                return {"ok": False, "reason": "ambiguous_representation",
+                        "missing": ["representation:reference"], "gap_stage": "transform",
+                        "trace": list(goal.trace) + ["gap_stage=transform"]}
+            representation = self.representations.get(name)
+            value = self.apply_representation(name, goal.payload) if representation else None
+            if value is None:
+                return {"ok": False, "reason": "representation_input_gap",
+                        "missing": ["representation:domain"], "gap_stage": "transform",
+                        "trace": list(goal.trace) + ["gap_stage=transform"]}
+            program = self._emit_representation(goal.payload, representation)
+            return ProgramPlan(
+                (f"represent:{name}", "iterate", "display"), program, value + "\n",
+                tuple(goal.trace) + (f"representation={name}",
+                                     f"states={representation.get('states', 0)}"),
             )
 
         name = goal.reference or next(reversed(self.string_transforms), "")
