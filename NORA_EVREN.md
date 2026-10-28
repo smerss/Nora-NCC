@@ -3307,7 +3307,7 @@ Böylece ölçüm, başka testin tükettiği genel RNG akışına bağımlı bı
 Bu aşamada yeni üretim modülü ve yeni ana test kimliği eklenmedi. A134–A136 ile
 R1–R3'ün içeriği derinleştirildi; A137 ve bağımsız yasa pili regresyon olarak korundu.
 
-### Belgesiz, öz-başarısızlık kaynaklı icat
+### Belgesiz, öz-başarısızlık kaynaklı operatör kurma
 
 A134'ün ikinci bölümünde artık dışarıdan kavram belgesi, input/output çifti veya
 hedef program verilmiyor. Mevcut `CompositionalCodeLearner` kendi ilkel ifade
@@ -3319,8 +3319,10 @@ kaynak, aday seçiminde kullanılmadı; dış sınav bunları üretim yorumlayı
 bağımsız küçük bir yorumlayıcıyla yeniden hesapladı. İki çıktı da eşleşti, ilkel
 ablasyonu uygulamayı kaldırdı ve checkpoint geri getirdi.
 
-Bu sınırlı bir öz-oyun/öz-hata icadıdır: ilkel arama uzayı hâlâ önseldir; sınırsız
-kavram yaratımı veya hiç önsel olmadan öğrenme iddiası değildir.
+Bu sınırlı bir öz-oyun/öz-hata kaynaklı operatör kurmadır: ilkel arama uzayı hâlâ
+önseldir; sınırsız kavram yaratımı veya hiç önsel olmadan öğrenme iddiası değildir.
+Eski ilkellerin kompozisyonuyla erişilebilirlik ölçülmeden buna “icat” denmez;
+Aşama BO'daki bağımsız tarama bu dar örneği **keşif** olarak sınıflandırmıştır.
 
 ### Görülmemiş kombine ablasyon
 
@@ -3399,3 +3401,50 @@ kesintisiz çalıştırıldı: **134/134 GEÇTİ (981,1 sn)**, sıfır `KALDI`.
 Kanıt `/tmp/nora_deep_full_134.log`. A4–A6 yaşam regresyonları ile A134–A137
 aynı koşuda geçti; bilinç pili de aynı son üretim sürümüyle **9/9** olarak
 `/tmp/nora_deep_consciousness.log` içine kaydedildi.
+
+## Aşama BO — Kullanıcı tarifinden dış pil ve icat/keşif ayrımı
+
+`external_battery.py`, kullanıcının D1–D10 tariflerini iç pilin test yardımcılarına
+bağlanmadan ayrı davranışlar olarak sınar. Sayısal beklenenler bağımsız oracle ile
+hesaplanır; her test kendi nesnesini kurar ve D9 kabul zinciri kendi geçici
+çalışma alanında yürür. Bu, kullanıcı tarifinden yazılmış bir **dış pil**dir;
+kodu hiç görmeyen bağımsız bir insan denetçinin pili olduğu iddia edilmez.
+
+İlk koşu ve sonraki ölçüm-hijyeni düzeltmeleri boyunca üretim commit'i
+**`3b38dd7`** olarak donduruldu; kırmızıları kaldırmak için üretim yaması
+yapılmadı. İlk ham sonuç `/tmp/nora_external_d1_d10_initial.log` içinde **3/10**
+idi. D5'te ilk ağrı raporunun akut sözel tepkiyi tükettiği, D6'da yerel sayacın
+global seçimi de saydığı görüldü. Yalnız bu iki yanlış atıf düzeltildi: D5 aynı
+başlangıçlı iki ajanla tek-rapor/tek-ablasyon karşılaştırmasına, D6 gerçek
+`local.only` konusunun sayımına çevrildi. Düzeltilmiş dış koşu **5/10 (9,0 sn)**;
+kanıt `/tmp/nora_external_d1_d10.log`.
+
+| dış test | sonuç | ölçülen davranış |
+|---|---|---|
+| D1 belge-only Roma rakamı | **KALDI** | Belge öğrenilemedi, program/stdout yok; belgesiz kontrol dürüst `abstain` verdi |
+| D2 kodsuz kavramdan dönüşüm | **KALDI** | Tarifteki `RANOR` ile bağımsız `'NorA'[::-1].upper()` sonucu `ARON` çelişiyor; düzeltilmiş `ARON` tanısalı da geçmedi, gerçek stdout `NorA` |
+| D3 standart dışı belge tanımı | **KALDI** | Belge sonrası ikişer-artırmalı beklenen stdout üretilmedi; belge önsel davranışı yenmedi |
+| D4 görülmemiş ikili ablasyon | **GEÇTİ** | Üç yeni çiftte tahmin/gerçek **3/3**; üç tekil kontrol ve restore geçerli |
+| D5 yeni periferik ayrışma | **GEÇTİ** | Omurilik geri-çekilme adımları ablate edilirken ağrı raporu sürdü, refleks `(2,True)→(1,False)`; bütünleşik durum sabit ve restore başarılı |
+| D6 kapasite=1 seçici yayın | **GEÇTİ** | Tek seçim, yalnız kazanan işlev çağrısı; kaybeden çağrılmadı, yerel kanal çalıştı |
+| D7 iki kat ilkelde skor | **GEÇTİ** | Gerçek metot-ilkelleri **4→8**, aynı 10 tek-örnek görevde skor **9/10→9/10** |
+| D8 köprüsüz dil→matematik | **KALDI** | Yeni ders sonrası `I artı I` için doğru iki/2 cevabı yok; kontrol de doğru cevap vermedi |
+| D9 kusurlu yama rollback | **GEÇTİ** | İki kabul sonrası kusurlu üçüncü yama eski pilde kaldı; kaynak ara kabulün hash'ine döndü, eski dış pil geçti ve geçici dosya kalmadı |
+| D10 bilinmeyen istek konumlu gap | **KALDI** | Dürüst `semantic_gap` var, program/stdout uydurulmadı; fakat takılan anlamlandırma adımı ayrı bir konum olarak bildirilmedi |
+
+### Eski ilkel kompozisyonu taraması
+
+D1–D10'dan ayrı kontrol, belgesiz kurulan `stream2`yi yeni operatörün kendisini
+kullanmadan eski `bind`, `iterate` ve `concatenate` ilkellerinin bağımsız küçük
+ifade uzayında yeniden aradı. Train beş örneğin tamamını geçen adaylar arasında
+iki held-out çıktıyı da bağımsız yorumlayıcıyla eşleştiren bir kompozisyon 106.
+aday denetiminde bulundu. Tanık kompozisyon boş durumla başlıyor; her öğede
+çıktıdan önce `durum ← öğe + durum` ve `çıktı ← öğe + durum` uyguluyor. Yani
+yeni operatör çağrısı olmadan yalnız eski birleştirme ilkeliyle aynı held-out
+davranış kurulabiliyor. Dolayısıyla bu dar deneyde yeni yapı eski ilkellerle
+erişilebilirdi ve doğru sınıflandırma **“icat” değil, “keşif”**tir.
+Bu sonuç başka temsil türleri için genel bir icat-olumsuzluğu iddiası değildir.
+
+Bu aşamada yalnız dış ölçüm ve belge değişti; üretim davranışı değişmediği için
+önceki **134/134** ana pil ve **9/9** bilinç pilinin üretim kanıtı geçerliliğini
+korur. Açık D1/D2/D3/D8/D10 kırmızıları bilgi olarak bırakılmıştır.
