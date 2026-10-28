@@ -4105,3 +4105,80 @@ Yeniden üretim: `python law_battery.py --active-generalization`,
 Aktif oracle erişimi artık açık bir veri maliyetidir; 12/12 sonuç sorgusuz
 identifiability, sınırsız FST genellemesi, genel zekâ veya LLM üstünlüğü
 iddiası değildir.
+
+## Aşama BU — Serbest kişisel dönüşüm isteği ve frozen D2 ayrımı
+
+### Ölçülen arıza ve genel düzeltme
+
+Aşama BT sonundaki iki teknik + iki fresh kişisel Studio isteği 4/4 olsa da,
+aynı 25/29-bit girdilerin alıntısız serbest parafrazları **0/2** kalmıştı
+(`/tmp/nora_studio_freeform_personal_post_active.json`). Yerel ön ölçüm iki
+isteğin de `semantic.request` hedefi üretmediğini, AGI yazdırma kanıtının
+sırasıyla **0,0/0,5** olduğunu gösterdi. İkinci isteğin doğrudan eski genel
+grounder'a düştüğünde istek parçasını yazdırması da başarı sayılmadı
+(`/tmp/nora_freeform_before.json`).
+
+Üç genel kök düzeltildi; iki cümleye, 25/29 bit uzunluğuna veya ikili alfabeye
+özel şablon/stdout eklenmedi:
+
+1. `CompositionalCodeLearner._transformation_request`, alıntı veya nominal
+   işaret yoksa **sondaki iki nokta + payload** biçimini çıkarıyor. Bu fallback
+   genel display çözümlemesine değil, uygulama ve işlem anaförü gerektiren
+   dönüşüm hedefine uygulanıyor.
+2. Anaför çözümü `bu/aynı/kendi` belirleyicileriyle `öğren-/kur-/bul-/geliştir-`
+   çekimlerini kapsıyor; yalnız dört hazır kişi biçimi listeleyen kural
+   kaldırıldı.
+3. AGI'nin iki katmanındaki genel `DISPLAY` eşiği, yalnız payload+anaförü
+   çözülmüş `operation=representation` hedefinde bypass ediliyor. Diğer kod,
+   sohbet, belge ve teknik niyet eşikleri gevşetilmedi.
+
+Y7 artık iki yeni serbest isteği, bağımsız parity oracle'ını, `composed` yolunu,
+alfabe dışı `representation_input_gap` reddini ve anaförsüz iki-nokta
+kontrolünü birlikte sınıyor. Beklenen stdout elle yazılmadı.
+
+### Gerçek Studio ve bağımsız çalıştırma
+
+Aynı checkpoint ve gerçek `/api/chat` ile iki teknik kontrol + önceki başarısız
+iki serbest kişisel istek **4/4 exact** oldu. Kişisel sonuçlar **2/2**,
+`path=composed`, gerçek programlı ve `verified=True`; programlar ayrı
+subprocess'te çalıştırılıp stdout'ları bağımsız beş-durum oracle'ıyla
+karşılaştırıldı. Alfabe dışı `2` içeren ek Studio isteği program üretmeden
+reddedildi. Kanıt: `/tmp/nora_studio_freeform_personal_fixed.json`; yerel
+karşılaştırma: `/tmp/nora_freeform_after_local.json`.
+
+### D2: üretim hatası değil, dondurulmuş tarif çelişkisi
+
+D2'de belge “ters çevir, ardından büyük harfe çevir” der. Bağımsız işlem
+`"NorA"[::-1].upper()` sonucu **ARON**, üretim de **ARON**; frozen tarifteki
+beklenen ise **RANOR** ve `spec_consistent=False`. Bu nedenle üretimi yanlış
+`RANOR` çıktısına zorlamak, oracle'ı değiştirmek veya ayrı bir yeşil tanı
+testiyle kırmızıyı yeniden adlandırmak yapılmadı. `external_battery.py`
+değişmedi; SHA-256 yine
+`2199072553017a7846eb4fcae3ac872c01a92da6226a4dca155be756b7a491c4`.
+Dış sonuç bilinçli olarak **9/10** kalır; D2'nin üretim/oracle tanısı doğrudur,
+frozen tarif düzeltilmeden 10/10 iddiası kurulamaz.
+
+### Regresyonlar
+
+- Kesintisiz izole ana pil **134/134 (982,3 sn)**:
+  `/tmp/nora_main_freeform_fix_isolated.log`. Diğer ağır battery'lerle eşzamanlı
+  ilk koşu A6'da **133/134** verdi; A6 izole **1/1**, ardından başka ağır iş
+  olmadan tam pil **134/134** oldu. Test/eşik değiştirilmedi ve ilk kayıt
+  `/tmp/nora_main_freeform_fix.log` içinde korundu.
+- Law **11/11 (46,7 sn)**; genişletilmiş Y7 bütün yeni pozitif/negatif
+  kontrollerle geçti: `/tmp/nora_law_freeform_fix.log`.
+- Pratik dil **7/7**, işlevsel nedensel bilinç **9/9**, kod-sözü
+  **1125/127 (+3/+0)**, `py_compile` ve `git diff --check` geçti.
+- Aktif OOD yine **12/12 exact, 481 sorgu**; sorgusuz baseline yine **6/12**.
+  Önceki/yeni 12 aktif satırın sorgu hash'i, aday/expansion, durma ve held-out
+  alanlarında **0 fark** var. Mühürlü checkpoint audit'i **1077/1077** ve bütün
+  kaynaklar önceki splitlerden ayrı (`/tmp/nora_audit_freeform_fix.json`).
+  Ayrı checkpoint ile offline mission da **576/576 exact** oldu
+  (`/tmp/nora_mission_freeform_fix.json`). Yeni ölçümler
+  `/tmp/nora_active_freeform_fix.json` ve
+  `/tmp/nora_baseline_freeform_fix.json`; eski sonuçlar yeniden adlandırılmadı.
+- Dış battery **9/10**, yalnız yukarıdaki frozen D2 tarif çelişkisi:
+  `/tmp/nora_external_freeform_fix.log`.
+- Checkpoint SHA-256 değişmedi:
+  `e7fbf34d8017ea01f7a5a90be8ef5cdfd3fc40d90aef4f8f95560f2a4e029330`.
+  Bu düzeltmelerde internet veya harici LLM/API kullanılmadı.
