@@ -3515,3 +3515,134 @@ bilinç pili **9/9 (18,5 sn)**. Kayıtlar sırasıyla
 `/tmp/nora_consciousness_after_external_fixes.log`. Kod-sözü denetimi
 **1125/127**, önceki farkla aynı **+3/+0** düzeyindedir. Bilinç satırı yalnız
 işlevsel nedensel kanıt kapsamındadır; fenomenal bilinç iddiası değildir.
+
+## Aşama BQ — Kısıtlı ağda operatör icadı, kişisel kullanım ve ölçek
+
+Yeni üretim modülü eklenmedi. `nora_semantic_code.py` içindeki gizli-durum
+sentezi derinleştirildi; mevcut `law_battery.py` içine dondurulmuş dış görev,
+kısıtlı araştırma ve ölçekleme düzeneği, `nora_studio.py` içine ise önceden terfi
+etmiş anlamsal checkpoint yükleme seçeneği eklendi.
+
+### Dondurulmuş görev ve eski-repertuvar yoklaması
+
+Nora'ya yalnız genel görev metni ve input/output çiftleri verildi: **64 train,
+384 validation**. Çözüm kuralı, modulus, kaynak program, URL veya arama tarifi
+verilmedi. Görev mührü açıldıktan sonra açıklanabilir ki bağımsız oracle, her
+input bitinden sonra gizli sayacı modulus 5'te güncelleyen ve yalnız son durumda
+1 yayan bir transdüserdir. Sentezci bu oracle'ı ve **576 held-out** çiftini hiç
+görmedi; beklenenler oracle ile kodda hesaplandı.
+
+İlk iki-durum bütçesi `unresolved` döndü ve sistem “Bilmiyorum: bu ilişkiyi
+açıklayan doğrulanmış bir operatörüm yok” durumunda kaldı. Önceki genel akış
+ifadelerinin **288** kompozisyonu ayrıca tarandı; **0/288** aday train'i bile
+açıklamadı. Bu yoklama, her olası Python programının görevi çözemeyeceğini değil,
+tanımlı eski akış-repertuvarı içinde çözümün erişilebilir olmadığını gösterir.
+
+Son protokol denetiminde, yüksek bütçenin görev modulusundan alınmasının doğru
+durum sayısını dolaylı sızdıracağı görüldü. Bu koşular nihai kanıt sayılmadı.
+Ana ajan artık görevden bağımsız **1…8** genel kaynak tavanıyla arıyor; modulus
+bütçe olarak verilmiyor ve minimal çözüm yine kendiliğinden 5 durumda bulunuyor.
+
+### Gerçek kısıtlı araştırma ve katkısının sınırı
+
+Başarısızlık tanısındaki temsil ailesi otomatik olarak `finite state transducer`
+sorgusuna çevrildi. Yalnız HTTPS `api.github.com`/`github.com` erişimine izin
+verildi; beş isteğin tümü 200 döndü, URL/boyut/hash kaydedildi ve indirilen hiçbir
+kod çalıştırılmadı. Dört README okundu. README token-Jaccard benzerliği 0,80 ve
+üzerinde olan belgeler aynı aileye indirgendi; iki `vellum` belgesi tek sayıldı ve
+**üç bağımsız belge ailesi** kaldı: `BurntSushi/fst`, `facebookresearch/gtn` ve
+`vellum` ailesi. Proxy kapalıdır; ilk URL kadar her yönlendirme de HTTPS, 443 ve
+allowlist denetiminden geçer. Beş yanıtın `final_url` alanı da aynı API alanında
+kaldı. Alıntılar ve ağ kanıtı `/tmp/nora_autonomous_mission_v4.json` içindedir.
+
+Araştırma yalnız desteklenmeyen temsil ailesine yüksek arama bütçesi ayırma
+politikasını bilgilendirdi; geçiş tablosunu veya sentez algoritmasını vermedi.
+Aynı veri ve genel **1…8** bütçeyle **araştırma zorla kapatılmış kontrol de
+5 durumda durarak 576/576** çözdü (1,679 sn). Dolayısıyla “internet bu çözüm
+için hesaplama bakımından zorunluydu” denemez;
+kanıtlanan katkı, başarısızlık sonrası genel kaynak bulma ve kanıta dayalı bütçe
+kararıdır.
+
+### Operatör icadı ve kişisel kullanım
+
+Kanonik durum-adlandırma ve özyinelemesiz derinlik-öncelikli arama **1 aday,
+5 durum, 10 geçiş ve 28.175 genişletme** ile yeni bir geçiş tablosu kurdu.
+Sonuç **ICAT_OPERATOR**: held-out **576/576**, geçişleri çıkarma ablasyonu
+cevabı kaldırdı, geri yükleme getirdi ve JSON checkpoint'ten yeni nesne de
+**576/576** yaptı. Terfi edilen checkpoint SHA-256:
+`2f4894c06a869cc11a632c5a995827a912474793b3bcd7514d141689d03363fd`.
+
+Bu, **yeni bir temsil sınıfı icadı değildir**; A137'den beri var olan sonlu-durum
+transdüser ailesinde öğrenilmiş yeni bir operatör örneğidir. İnsan eliyle hedef
+tablo veya modulus üretim koduna yazılmadı.
+
+Protokol donduktan sonra checkpoint salt okunur açılıp önceki train, validation
+ve held-out kümelerinin hiçbirinde bulunmayan yeni girdilerle ayrıca denetlendi:
+**1077/1077**. Bu son mühür terfi veya ayar için kullanılmadı; kanıt
+`/tmp/nora_final_sealed_audit.json`, komut `python law_battery.py --audit`.
+
+Ölçüm oturumu kapandıktan sonra ayrı Stüdyo oturumu bu checkpoint'i yükledi.
+Eğitim, validation ve held-out'un hiçbirinde bulunmayan **23 ve 27 bitlik iki
+kişisel kayıt**, doğal Türkçe “öğrendiğin işlemle dönüştür” istekleriyle doğru
+dönüştürüldü (**2/2**). Stüdyo öğrenilen tablodan AST programı üretti, ayrı
+süreçte çalıştırdı ve stdout'u bağımsız oracle birebir doğruladı. Kanıt
+`/tmp/nora_personal_session.json`. İlk Stüdyo açılışı eksik `torch` bağımlılığıyla
+kaldı; bu deneme başarı sayılmadı, bağımlılık kurulduktan sonra oturum açıldı.
+
+### Parametre ve zorluk ölçeklemesi
+
+Süreler `tracemalloc` kapalı ayrı koşuda, bellek ise ikinci deterministik koşuda
+ölçüldü; sonuç ve doğruluk iki koşuda da birebir aynıydı. Bellek sütunu toplam
+RSS değil, **izlenen Python heap tepe değeri (MiB)**dir. Her durum bütçesi için
+100.000 genişletme sınırı değiştirilmedi.
+
+Aynı dondurulmuş modulus-5 görevi, araştırma kapalı:
+
+| durum bütçesi | held-out doğruluğu | süre (sn) | heap (MiB) | genişletme | sonuç |
+|---:|---:|---:|---:|---:|---|
+| 1 | 0/576 | 0,0024 | 0,0128 | 2 | unresolved |
+| 2 | 0/576 | 0,0036 | 0,0127 | 13 | unresolved |
+| 3 | 0/576 | 0,0080 | 0,0127 | 109 | unresolved |
+| 4 | 0/576 | 0,1045 | 0,0143 | 1.567 | unresolved |
+| 5 | **576/576** | **1,7714** | 0,0188 | 28.175 | invented |
+
+Aynı görev ailesinde zorluk büyütme:
+
+| modulus / durum bütçesi | held-out | süre (sn) | heap (MiB) | genişletme | sonuç |
+|---:|---:|---:|---:|---:|---|
+| 2 | 128/128 | 0,0023 | 0,0045 | 12 | invented |
+| 3 | 192/192 | 0,0036 | 0,0074 | 82 | invented |
+| 4 | 320/320 | 0,0226 | 0,0117 | 1.112 | invented |
+| 5 | 576/576 | 1,5473 | 0,0188 | 28.175 | invented |
+| 6 | **0/1088** | **22,8388** | 0,0336 | **134.071** | **budget-exceeded** |
+
+Yani kapasite 5'e çıkınca doğruluk sıçradı, fakat arama maliyeti çok daha hızlı
+büyüdü ve 6'da bütçe kırmızısı korunarak çözüm bulunamadı. “Parametre büyüdükçe
+her zaman iyileşir” sonucu çıkmaz. Bellek bu aralıkta küçük ve artan, süre/arama
+asıl darboğazdır. Ölçüm kanıtı `/tmp/nora_representation_scaling_v3.json`;
+ilk izleme-yüklü süre ölçümü başarı kanıtı sayılmadı.
+
+Aynı görev/veri/bütçeyle bir LLM baseline çalıştırılmadı; LLM'lerden üstünlük,
+genel zekâ veya fenomenal bilinç iddiası yoktur. Yeniden üretim:
+`python law_battery.py --mission` ve `python law_battery.py --scaling`.
+
+### Regresyon ve kırmızı kayıtları
+
+İlk kesintisiz ana koşu **132/134 (874,4 sn)** oldu ve silinmedi
+(`/tmp/nora_full_after_mission.log`). A73, Stüdyo'ya eklenen iki uzun metinle
+kod-sözü toplamı 1127'ye çıktığı için kaldı; metinler teknik forma indirildi,
+test/eşik değiştirilmedi ve toplam 1125'e döndü. A6 ilk koşuda +0,03 temkinlilik
+farkıyla kaldı; Stüdyo kapalıyken önceden belirlenen üç izole koşu ve sonraki
+A1–A6 sıralı tanısal koşular +0,13 ile geçti. İlk sonuç yeniden üretilemedi,
+fakat nedeni kesin olarak yalnız eşzamanlılık diye etiketlenmedi.
+
+Son üretimle kesintisiz ana pil **134/134 (918,3 sn)**; A6 ve A73 aynı koşuda
+geçti (`/tmp/nora_full_final_mission.log`). Diğer kanıtlar: dış pil **9/10**
+(yalnız dondurulmuş D2 `RANOR`/`ARON` tarif çelişkisi), pratik **7/7**, hedefli
+ana seçki **8/8**, işlevsel bilinç **9/9**, law **8/8**. Kayıtlar sırasıyla
+`/tmp/nora_external_after_mission.log`, `/tmp/nora_practical_after_mission.log`,
+`/tmp/nora_targeted_after_mission.log`, `/tmp/nora_consciousness_after_mission.log`
+ve `/tmp/nora_law_final.log`. `external_battery.py` SHA-256 değişmedi:
+`2199072553017a7846eb4fcae3ac872c01a92da6226a4dca155be756b7a491c4`.
+Kod-sözü denetimi **1125/127**, fark **+3/+0**, `py_compile` ve
+`git diff --check` geçti. Bilinç satırı yine yalnız işlevsel nedensel kanıttır.
