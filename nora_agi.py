@@ -1548,7 +1548,8 @@ class NoraAGI:
         try:
             if (getattr(self, "style", None) is not None and ans and not ans.startswith("[")
                     and not getattr(self, "_translation_output", False)
-                    and not getattr(self, "_structured_output", False)):
+                    and not getattr(self, "_structured_output", False)
+                    and not getattr(self, "_intent_locked", False)):
                 _isq = ("?" in (text or ""))
                 _shape = self.style.decide(
                     self, is_question=_isq,
@@ -1561,7 +1562,7 @@ class NoraAGI:
             pass
         # SESİN KENDİSİNE TEPKİ: yeni bir ses ya da uzaktan gelen ses, cevabın tonunu değiştirir.
         try:
-            _note = self._perception_note()
+            _note = "" if getattr(self, "_intent_locked", False) else self._perception_note()
             if _note:
                 ans = f"{_note} {ans}"
         except Exception:
@@ -1761,6 +1762,17 @@ class NoraAGI:
                 self._intent_locked = True
                 self._log_turn(speaker, raw, _persistent, t0)
                 return _persistent
+        # Teknik soru, sembol/iç-durum/dekompoze kanallarından önce tek parça olarak
+        # çözülür. Kaynak gerekiyorsa kanıt yoksa özgül cevap yerine bilgi sınırı döner.
+        try:
+            _technical = self.episteme.technical.answer(raw)
+        except Exception:
+            _technical = None
+        if _technical:
+            self._turn_path = "organ"
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _technical, t0)
+            return _technical
         # KİŞİSEL OLGU: karşıdaki bir şey SÖYLEDİYSE (soru değilse) açık kalıpla yazılır.
         self._learned_facts = []
         try:
@@ -3057,6 +3069,11 @@ class NoraAGI:
             # Kod istemi/belgesi bir iddia değildir: inanç defterine yazılmaz.
             if self.code_cortex.is_requested(raw) or self.code_cortex.is_document(raw):
                 return None, "", 0.0
+            # Teknik terim/künye sorusunda önce kavramı ve kanıt yükümlülüğünü çöz.
+            # Doğrulanmamış kaynakta özgül ad üretmek yerine epistemik sınır döner.
+            technical = self.episteme.technical.answer(raw)
+            if technical is not None:
+                return technical, "epi_q:technical", 0.994
             # Soruysa önce kanıt deposundan yanıtla; değilse öğren. (Soru asla 'iddia' diye kaydedilmez.)
             ans = self.episteme.answer(raw)
             if ans is not None:
