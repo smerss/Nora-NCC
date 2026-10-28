@@ -3448,3 +3448,70 @@ Bu sonuç başka temsil türleri için genel bir icat-olumsuzluğu iddiası değ
 Bu aşamada yalnız dış ölçüm ve belge değişti; üretim davranışı değişmediği için
 önceki **134/134** ana pil ve **9/9** bilinç pilinin üretim kanıtı geçerliliğini
 korur. Açık D1/D2/D3/D8/D10 kırmızıları bilgi olarak bırakılmıştır.
+
+## Aşama BP — Dış kırmızılardan genel kök düzeltmeleri
+
+Aşama BO'nun dış pili ve beklenenleri değiştirilmeden üretim kökleri derinleştirildi.
+`external_battery.py` SHA-256'sı sabit kaldı; D1/D2/D3/D8/D10 için hedefe özel
+program, cevap veya stdout müdahalesi eklenmedi. Yeni üretim modülü yoktur;
+değişimler mevcut `nora_semantic_code.py`, `nora_code.py` ve `nora_lang.py`
+içindedir.
+
+### Belgeden değer ve dönüşüm anlamı
+
+- **D1:** Belgedeki tek sembol/değer eşlemeleri ile soldan-sağa çıkarmalı toplama
+  kuralı artık birlikte öğreniliyor. Çok sembollü belge örnekleri kuralı doğrulamadan
+  çözücü kabul edilmiyor. Program, hedefin önceden hesaplanmış cevabını değil,
+  belgeden gelen tabloyu ve genel döngüyü AST'ye dönüştürüyor. `MCMLIV` ve `1954`
+  üretim kodunda yoktur. Belgesiz kontrol `value_decoder` boşluğunu dürüstçe
+  bildirirken belgeli çalışma gerçek programla **1954** üretti.
+- **D2:** Kodsuz anlam belgesindeki ilkel dizgi dönüşümleri sıralanıp taşınabilir
+  bir işlem hattı olarak öğreniliyor; yeni girdinin AST'si bu sırayla kuruluyor.
+  Bağımsız beklenen `ARON` artık doğrulanmış programdan geliyor. Dondurulmuş dış
+  testteki `RANOR` beklentisi bağımsız oracle ile çeliştiği için D2 biçimsel olarak
+  yine **KALDI**, fakat `ARON tanısal=True` oldu. Bu fark skorla gizlenmedi.
+- **Aktarım:** Roma adı içermeyen yeni `A=1, B=5, C=10` belgesiyle `CAB` için
+  bağımsız `10−1+5` oracle'ı ve başka bir dizgi de doğrulandı. Yani çözüm hedef
+  sembollerine veya hazır cevaba bağlı değildir.
+
+### Belgenin önseli yenmesi ve konumlu boşluk
+
+Kümülatif ifade artık yalnız Boolean değil, belgeyle öğrenilen bir adım taşıyor.
+Alıntılanan ifadenin ilk satır ve sonraki satır tanımlarındaki öğe sayıları
+eşleşirse genel `cumulative_window` planı öğreniliyor; bileşik anahtar da adımı
+içerdiğinden birer-artırım önbelleği ikişer-artırımı ezemiyor. D3'te belge,
+önsel davranışa karşı kazandı ve yeni girdi için `ab / abcd / abcdef` programı
+doğrulandı. Birer-artırımlı eski P6/A133 davranışı da korunmuştur.
+
+İstek ayrıştırıcı `hece`yi artık bilinen bir harf/dizgi birimi gibi yutmuyor;
+`unit=syllable` olarak ayırıyor. Planlayıcı ilk çözülemeyen aşamayı
+`gap_stage`, `missing` ve iz üzerinden bildiriyor. D10'da program/stdout
+uydurulmadan `semantic_gap`, `unit:syllable`, `gap_stage=unit` döndü.
+
+### Paylaşılan bilgiyle köprüsüz alan aktarımı
+
+D8 için özel bir dil→matematik köprüsü yazılmadı. “X bir demektir” gibi sağ
+tarafı bütünüyle sayı olan genel öğretiler kavram ağına `NUMERIC_VALUE` olgusu
+olarak yazılıyor. Mevcut matematik ayrıştırıcısı sayı sözcüğü/rakam dışındaki
+bir sembolü ancak doğrudan ve tekil bir paylaşılan sayı bağlantısı varsa çözüyor;
+çelişkili veya kalıtsal bağlar sayı sayılmıyor. Öğrenilmiş ajan `I artı I` için
+**2**, belgesiz kontrol ise bilmediğini söyledi. Ayrı `alfa` sembolü de aynı
+mekanizmayla `(1,+,1)` çerçevesine çözümlendi. Bilgi yeni oturum/checkpoint
+state'inde de korunuyor.
+
+### Son kanıt
+
+Dış pil aynen yeniden koşuldu: **9/10 (35,5 sn)**. D1, D3, D8 ve D10 yeşil oldu;
+D2'nin bağımsız `ARON` tanısalı da yeşil, tek biçimsel kırmızı ise tarifin kendi
+`RANOR`/`ARON` ölçüm çelişkisidir. Önceki beş geçiş (D4–D7 ve D9) korunmuştur.
+Kanıt `/tmp/nora_external_after_fixes.log`; dış dosyanın değişmediği ayrıca hash
+ile denetlendi.
+
+Regresyonlar: pratik belge pili **7/7 (4,89 sn)**, ilgili ana test seçimi
+**7/7**, kesintisiz ana pil **134/134 (973,9 sn)** ve aynı üretimle işlevsel
+bilinç pili **9/9 (18,5 sn)**. Kayıtlar sırasıyla
+`/tmp/nora_practical_after_fixes.log`, `/tmp/nora_targeted_after_fixes.log`,
+`/tmp/nora_full_after_external_fixes.log` ve
+`/tmp/nora_consciousness_after_external_fixes.log`. Kod-sözü denetimi
+**1125/127**, önceki farkla aynı **+3/+0** düzeyindedir. Bilinç satırı yalnız
+işlevsel nedensel kanıt kapsamındadır; fenomenal bilinç iddiası değildir.

@@ -356,9 +356,9 @@ class CodeSynthesisCortex:
 
     # --------------------------------------------------------------- anlamsal bileşim
     def _handle_semantic(self, goal: SemanticGoal, request: str, started: float) -> dict:
-        if goal.layout != "vertical":
+        if isinstance(goal, SemanticGoal) and goal.layout != "vertical":
             solved = {"ok": False, "reason": "layout_gap", "missing": [goal.layout],
-                      "trace": list(goal.trace)}
+                      "gap_stage": "layout", "trace": list(goal.trace) + ["gap_stage=layout"]}
         else:
             solved = self.semantic.solve(goal)
         if isinstance(solved, dict):
