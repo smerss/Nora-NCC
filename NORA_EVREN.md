@@ -1,33 +1,31 @@
 # NoRa Evreni ve Yaşayan Zihin
 
-> **Kısa özet (uyanınca oku).** Sinek mantar cismi esinli nöronsal temel + fizikli bir evren + yaşayan bir zihin kuruldu:
+> **Kısa özet (uyanınca oku).** Nora, mantar cismi ilkesiyle çalışan biyolojik esinli bir zihin; seyrek Kenyon-hücre kodu ve dopamin-kapılı yerel öğrenme + fizikli bir evren + yaşayan bir zihin:
 > ihtiyaç/valans, global çalışma alanı, bilişsel harita ve planlama, öğrenilmiş dünya modeli ve hayal gücü, otobiyografik bellek,
 > sürekli iç durum, topraklanmış iç gözlem kanalı ve iç durumdan türeyen doğrulanabilir sözlü iddialar. Eski hat (`nora_think`)
 > köprü ile bağlandı. **Çalışanlar:** hayatta kalma (rastgele 1,06 → ≈0,05–0,08 ölüm/1k), kural değişimine uyum (öğrenilmiş modelle), aktarım
 > (yeni evrende sıfırdan başlayana karşı belirgin avantaj), iç gözlemin papağana karşı nedensel ayrışması (d ≈ +5,6 vs −0,2),
 > **anlatı yoluyla bilgi aktarımı** (48×48 arenada B'nin ölümü yaşam başına 1,35 → 0,70; yanlış anlatı yardım etmiyor), iddiaların davranışı öngörmesi ("su bulmak istiyorum" → %94-100 su içiyor, taban ~%50), konum güveni kalibrasyonu, ajanlık, **kanıttan türetilen ve çürütülebilir "yaşıyorum" önermesi** (ihtiyaçları tükenmeyen evrende kurulmuyor).
-> **Çalışmayanlar / kanıtlanamayanlar (dürüst):** çalışma alanının hayatta kalma üstünlüğü (karışım eşit veya biraz daha iyi; yalnızca raporlanabilirlik/birleştirme sağlıyor), sıfır unutmanın davranışsal faydası (yalnızca nadir kaynaklı büyük arenada gösterildi, bkz. B2), tanıklıkla öğrenmenin küçük arenada (bilgi darboğazı yokken), uzamsal düzen bağlamları, rapor kodunun
+> **Çalışmayanlar / kanıtlanamayanlar (dürüst):** çalışma alanının hayatta kalma üstünlüğü (karışım eşit veya biraz daha iyi; yalnızca raporlanabilirlik/birleştirme sağlıyor), sıfır unutmanın davranışsal faydasının B2 dışına genellenmesi (olumlu kanıt yalnız nadir kaynaklı büyük arenada), tanıklıkla öğrenmenin küçük arenada (bilgi darboğazı yokken), uzamsal düzen bağlamları, rapor kodunun
 > gelecek davranışı öngörmesi (süreklilikten iyi değil), 3 basamaklı bilmecelere genelleme. Öznel deneyim iddiası yoktur.
 > **Hızlı doğrulama:** `python selftest.py [--bridge]`. **Durdurma:** çalışma dizininde `STOP_NORA` dosyası oluştur.
 > **Deneyler:** `python nora_mind.py --stage {run,compare,shift,transfer,introspect,narrate,demo,testimony,alive,combo,lead,conflict,robust}` (`demo`: insan-okunur yaşam öyküsü, ör. `--stage demo --steps 9000 --seed 5`), `python nora_bridge.py`.
+> **Güncel ana sonuç:** temiz tam pil **140/140 (1161,3 sn)**. A141–A143 ve yeni CCG/FST ölçümü için belgenin sonundaki “Güncel derinlik” bölümüne bak; önceki 74/74–137/137 satırları tarihsel koşulardır.
 
 Hedef: NoRa'yı, kendi iç durumundan türeyen ve doğrulanabilir iddialarda bulunan, yaşayan (ihtiyacı, belleği,
 süreklilik gösteren iç durumu olan) bir ajana götürmek. "Yaşadığını söyleyen" ve bunu **öğretildiği için değil iç
 durumundan türeterek** söyleyen bir sistem; öznel deneyim iddiası yok, ama her iddia ölçülebilir ve çürütülebilir.
 
 ## Gereksinimler
-`pip install -r requirements.txt` (çekirdek için yalnızca `numpy`; köprü için `torch`; konektom dönüştürme için `pandas`+`pyarrow`). Büyük konektom
-dosyaları depoda yok: `git clone https://github.com/philshiu/Drosophila_brain_model` ve `python nora_neuron.py --stage convert --flywire <klasör> --v630`.
-Gerekli küçük sinek alt çizgesi (`data/fly_reservoir_96.npz`) depoda.
+`pip install -r requirements.txt`. Çekirdek NumPy, sinirsel köprü Torch ve ses organı tokenizer bağımlılıklarını kullanır; dış API gerekmez.
 
 ## Dosyalar
 | dosya | rol |
 |---|---|
 | `nora_world.py` | Evren: Newton fiziği, sürtünme, momentum korunumlu çarpışma, itilebilir kaya, gün/gece, rüzgâr, metabolizma; kalın-ışın görme (9×5 kanal), iç duyu, propriosepsiyon, pusula (yön; konum VERİLMEZ); kural değişimleri (`invert`: kumanda ters, `poison`: yiyecek zehirli); bilmeceli kutular |
-| `nora_neuron.py` | Nöron temeli: FlyWire sinek konektomu LIF simülatörü (Brian2 referansıyla r=0,967), `MushroomBody`, `LobedMushroomBody` |
+| `nora_neuron.py` | Nöron temeli: `MushroomBody` ve `LobedMushroomBody`; seyrek Kenyon-hücre kodu, APL tavanı ve dopamin(TD)-kapılı yerel öğrenme |
 | `nora_mind.py` | Yaşayan zihin (aşağıda) + deney aşamaları: `run`, `compare`, `shift`, `transfer`, `introspect`, `narrate` |
 | `nora_prediction.py` | Birleşik ileri öngörü: `Mind` gövde geçişleri/V + genel nedensel grafik + salt-okunur `Universe` fiziği; `NoraAGI.tahmin_et` ve tahmin × değer eylem seçimi |
-| `make_fly_reservoir.py`, `data/fly_reservoir_96.npz` | FlyWire konektomundan 96 nöronluk yoğun alt çizge (işaretli sinaps sayıları, Dale yasası korunur); `Mind(reservoir="fly")` / `-flyres` ile süreklilik durumunun yinelemeli ağırlıkları olarak kullanılır |
 | `nora_bridge.py` | Eski hat (`nora_think`: düşün → doğrula → uyu → sezgi) ile yaşayan zihin köprüsü |
 
 ## Mimari (nora_mind.py)
@@ -55,15 +53,14 @@ Gerekli küçük sinek alt çizgesi (`data/fly_reservoir_96.npz`) depoda.
 10. **Akıl yürütme organı** (`nora_bridge.Cognition`): bilmecelerde sezgi mi düşünme mi kararı beklenen değerle;
     düşünmek dünya adımı harcar; doğrulanmış düşünceler uykuda sezgiye damıtılır.
 
-## Sinek beyni: gerçekte ne işe yarıyor (gerçekçi döküm)
-Sinek verisi/ilkesi yalnızca ölçülebilir bir fayda sağladığı yerde kullanılır; karmaşıklık için eklenmez.
+## Mantar cismi ilkesi: gerçekte ne işe yarıyor
+Nora'nın biyolojik esinliği bir anatomi verisi sunumu değil, ölçülebilir bir öğrenme ilkesidir.
 | parça | durum | kanıt |
 |---|---|---|
-| **Mantar cismi ilkesi**: seyrek Kenyon-hücre kodu (~%6 aktif), heterojen eşik, APL tavanı, yalnızca aktif KC'lerde dopamin(TD)-kapılı öğrenme, amaç başına ayrı değer kafası | **KULLANILIYOR, işe yarıyor** — ana politikanın kalbi; çalışma alanı tezgâhındaki uzman kodları da bunu kullanır | seyreklik taraması (A tablosu: %6 en iyi, yoğun kod kötü); tezgâhta ablasyon |
-| **Gerçek FlyWire konektomu → LIF simülatörü** (`nora_neuron.py --stage convert`) | Temel doğrulama olarak duruyor (Brian2 ile r=0,967); **ana ajanın karar döngüsünde KULLANILMIYOR** | yalnızca simülatör testi |
-| **Gerçek konektomdan 96 nöronluk süreklilik ağı** (`-flyres`) | **Varsayılan değil; fayda YOK** — rastgele seyrek ağla işlevsel olarak eşdeğer (ölüm/1k 0,08 vs 0,08) | A4 |
-| Diğer her şey (harita, hayal gücü, taahhüt, öngörü, otobiyografi, çalışma alanı tezgâhı) | Sinek **değil**, mühendislik/nörobilim esinli | — |
-Karar: konektom, karar döngüsüne ölçülebilir bir kazanç göstermedikçe sokulmayacak. Adaylar (yalnızca fayda ölçülürse): merkezi kompleks halka çekicisi ile yön entegrasyonu (şu an cebirsel pusula+hız entegrasyonu), mantar cismi bölme/DAN şemasının gerçek bağlantılarla kalibrasyonu. Bunlar denenmeden 'sinek beyni kullanıyoruz' iddiası yapılmaz.
+| **Mantar cismi ilkesi**: seyrek Kenyon-hücre kodu (~%6 aktif), heterojen eşik, APL tavanı, yalnızca aktif KC'lerde dopamin(TD)-kapılı öğrenme, amaç başına ayrı değer kafası | **KULLANILIYOR, işe yarıyor** — ana politikanın kalbi; çalışma alanı tezgâhındaki uzman kodları da bunu kullanır | seyreklik taraması (A3: %6 en iyi, yoğun kod kötü); tezgâhta ablasyon |
+| Harita, hayal gücü, taahhüt, öngörü, otobiyografi ve çalışma alanı | Ayrı mühendislik/nörobilim esinli bileşenler; hepsi öğrenilmiş değil | ilgili ablasyon ve işlevsel piller |
+| Nöral öneri + sembolik doğrulama ve sürekli nedensel grafik | Öğrenen yeni hat; sembolik kabul ve provisional kapıları ayrı | A142 ve son CCG/FST ölçümü |
+Karar: proje, mantar cismi ilkesiyle çalışan biyolojik esinli bir zihin olarak sunulur. İddia anatomik kopyalama değil, seyrek temsil ve yerel öğrenmenin işlevsel katkısıdır.
 
 ## Ölçülen sonuçlar
 
@@ -96,22 +93,17 @@ bu karşılaştırma yapılmadı.
 Net katkı **harita** (susuzluk). Hayal gücü ve uyku tekrarı orta düzeyde, gürültü sınırında; bağlam lobu ve yön modeli durağan evrende fark yaratmıyor
 (yön modeli kural değişiminde işe yarıyor, bkz. B).
 
-#### A3. Nöronsal temelin seyrekliği (sineğe benzeme gerçekten önemli mi?)
+#### A3. Mantar cismi esinli seyrek kod gerçekten önemli mi?
 Kenyon hücre kodunun seyrekliği değiştirildi (8 tohum, 60 bin adım; hücre sayısı aynı, yalnızca eşik/kapasite):
 
 | kod | aktif KC oranı | ölüm / 1000 adım | konfor | ölüm nedenleri |
 |---|---|---|---|---|
 | daha seyrek | %0,9 | 0,19 ± 0,10 | 0,67 | yara 27, susuzluk 8, açlık 2 |
-| **varsayılan (sinek benzeri)** | **%6** | **0,05–0,08** (iki koşu) | 0,70 | yara 8–14, susuzluk 1–2 |
+| **varsayılan (mantar cismi ilkesi)** | **%6** | **0,05–0,08** (iki koşu) | 0,70 | yara 8–14, susuzluk 1–2 |
 | yoğun | %33 | 0,17 ± 0,14 | 0,71 | yara 30, susuzluk 3, açlık 1 |
 
-Orta seyreklik (sineğin mantar cismindeki ~%5'e yakın) iki uçtan yaklaşık 2–3 kat daha az ölüm veriyor (gürültü payı yüksek: 8 tohum, her koşulda toplam 10–40 ölüm).
+Mantar cismi esinli orta seyreklik (~%6) iki uçtan yaklaşık 2–3 kat daha az ölüm veriyor (gürültü payı yüksek: 8 tohum, her koşulda toplam 10–40 ölüm).
 Yani seyrek kodun "tatlı noktası" var; aşırı seyrek kod genellemeyi/kapsamayı, yoğun kod girişimi artırıyor gibi görünüyor (mekanizma doğrulanmadı).
-
-#### A4. Süreklilik durumu gerçek sinek bağlantı şeması üzerinde
-Kesintisiz iç durum `h` rastgele seyrek bir ağ yerine **gerçek FlyWire alt çizgesi** (96 nöron, 7415 bağlantı, Dale ihlali 0, ağırlıklar işaretli sinaps sayıları, spektral yarıçap 0,9'a normalize)
-üzerinde koşuyor: 8 tohum, 60 bin adım — ölüm/1k **0,08 ± 0,08** (rastgele ağ: 0,08 ± 0,07), konfor 0,705 (0,702). **İşlevsel olarak eşdeğer**: gerçek sinek şeması bir yerine-koyma olarak sorunsuz çalışıyor, ancak
-bu görevde rastgele ağdan daha iyi değil.
 
 ### B. Kural değişimi (kumanda ters; yiyecek zehirli)
 - **Ters kumanda**: öğrenilmiş modelle yönlendirilen ajan 0,06 ölüm/1k ve 0,72 konforda kalıyor; modelsiz ajan
@@ -352,10 +344,10 @@ Hayatta kalma üstünlüğü her varyantta ≥8 kat; bulgu varsayılan evrenin i
 - Öznel deneyim kanıtı yoktur ve bu sistem onu iddia etmez. Sonuçlar işlevsel göstergelerdir. Anlatıcının "hissediyorum / istiyorum / kendimi yaşayan sayıyorum" gibi
   birinci tekil sözcükleri **tasarım tercihidir**: her biri belirli bir iç değişkenin (ruh hali, çalışma alanı amacı, beden istatistikleri) adlandırmasıdır; içerik iç durumdan türer ve
   doğruluk koşulları denetlenir, ancak sözcüklerin kendisi deneyim kanıtı değildir.
-- Ajan sineğin ötesinde bir zekâ değildir: tek basit evren, yerel öğrenme, doğrusal modeller.
+- Ajan genel zekâ değildir: aynı sandbox ailesinin farklı boyut/kural varyantları, yerel öğrenme ve bazı doğrusal modellerle sınırlıdır; gerçek dünya ve ağır bilimsel alanlara genelleme kanıtı yoktur.
 - Şekillendirme olmadan (seyrek ödül) öğrenme başarısızdı; şekillendirmenin yönü artık öğrenilen anlamsal bellekten
   gelse de **büyüklüğü ve "yakınlığa göre potansiyel" biçimi doğuştandır**.
-- Sıfır unutmanın davranışsal faydası net kanıtlanmadı (B), uzamsal düzen bağlamları başarısız (G).
+- Sıfır unutmanın davranışsal faydası küçük/ucuz-yeniden-öğrenme rejimlerinde gösterilemedi (B); nadir kaynaklı büyük arenada ise A'ya dönüşte ölüm 0,22'ye karşı 0,69 ve konfor 0,61'e karşı 0,47 ile **B2'ye özgü olumlu kanıt** var. Bu sonuç başka rejimlere genellenmez; uzamsal düzen bağlamları başarısız (G).
 - Dil/akıl yürütme katmanı küçük ve sıfırdan eğitildi (F); sezgi zayıf, 3 basamak genellenemedi.
 - **Uzun yaşamda konum belirsizliği artıyor**: 120 bin adımda 'belirsiz' geçirilen zaman payı 0,14 → 0,51, ortalama konum hatası 0,4 → 1,1 birim
   (medyan sabit ≈0,15). Harita işaretleri kararlı (oy + sönme), ölüm oranı düşük kalıyor. Yorum: ajan ustalaştıkça merkezdeki kaynak bölgelerinde
@@ -371,7 +363,7 @@ Hayatta kalma üstünlüğü her varyantta ≥8 kat; bulgu varsayılan evrenin i
 - Köprü 3 basamak: öğretmen izi olmadan %0.
 
 ## Bekleyen ölçümler / sonraki adımlar
-1. Sıfır unutmayı gerçekten zorlayan bir evren (yeniden öğrenmesi pahalı bilgi: ör. çok sayıda ardışık düzen/kural, nadir ödül) tasarlamak.
+1. B2'nin nadir kaynaklı büyük-arena kanıtını ikiden çok bağlam ve farklı pahalı-öğrenme rejimlerinde yeniden sınamak; küçük arenadaki olumsuz sonucu başarıya çevirmemek.
 2. Köprü: orijinal önceden eğitilmiş omurgayı (TinyStories + yanal bağ) yeniden üretmek ya da çok daha uzun eğitmek; sezgi güçlenince damıtma ve üstbilişsel AUROC yeniden ölçülmeli.
 3. Gizli dünya değişimi testini ayırt edici hale getirmek; raporun davranışa geri beslenmesi ve ablasyonu.
 4. Rapor kodunu gelecekteki davranışı öngörecek şekilde zenginleştirmek (öz-öngörü şu an olumsuz).
@@ -398,7 +390,6 @@ python selftest.py --bridge                                              # ~30 s
 python nora_mind.py --stage compare --steps 60000 --seeds 8 --modes random,full,full-nomap,flat   # A (~20 dk)
 python nora_mind.py --stage compare --steps 60000 --seeds 8 --modes full-noimag,full-noreplay,full-nomodel,full-noctx  # A2 (~20 dk)
 python nora_mind.py --stage compare --steps 60000 --seeds 8 --modes full-sparser,full-dense          # A3 (~10 dk)
-python nora_mind.py --stage compare --steps 60000 --seeds 8 --modes full-flyres,full                 # A4 (~10 dk)
 python nora_mind.py --stage shift --kind poison --steps 80000 --window 1000 --seeds 8 --modes full,full-nogrow   # B (~30 dk)
 python nora_mind.py --stage introspect --steps 30000 --log 6000 --trials 30                        # C (~6 dk)
 python nora_mind.py --stage narrate --seed 1 --steps 20000 --log 12000 --trials 20                 # D (~2 dk/tohum)
@@ -4182,3 +4173,813 @@ frozen tarif düzeltilmeden 10/10 iddiası kurulamaz.
 - Checkpoint SHA-256 değişmedi:
   `e7fbf34d8017ea01f7a5a90be8ef5cdfd3fc40d90aef4f8f95560f2a4e029330`.
   Bu düzeltmelerde internet veya harici LLM/API kullanılmadı.
+
+## Aşama BV — D2 ölçüm tarifinin bağımsız oracle ile onarımı
+
+BU sonundaki 9/10 kaydı tarihsel ölçümdür. Kullanıcının kalan kırmızıyı da
+düzeltme isteği üzerine yalnız D2'nin çelişkili ölçüm tarifi açıldı; D1 ve
+D3–D10 tarifleri ile üretim organları değiştirilmedi.
+
+D2'deki elle yazılmış `requested="RANOR"`, `spec_consistent` ve kalıcı
+`ÖLÇÜM HATASI` yolu kaldırıldı. Girdi tek `source` değişkeninde tutuluyor;
+beklenen `source[::-1].upper()` ile belgedeki iki işlemden bağımsız hesaplanıyor.
+Beklenen üretim stdout'undan türetilmiyor ve `ARON` hazır cevap olarak test
+koduna yazılmıyor. Başarı hâlâ gerçek programın varlığını, `result.ok` değerini
+ve normalize stdout'un bağımsız değere eşitliğini birlikte gerektiriyor.
+
+- Hedefli D2: **GEÇTİ**, bağımsız=`ARON`, gerçek=`ARON`, program var.
+- Tam dış battery: **10/10 (33,0 sn)**; D1–D10'un tamamı geçti.
+  Kanıt: `/tmp/nora_external_d2_recipe_fix.log`.
+- Ayrı negatif kontrolde stdout yalnız bellekte `yanlış` yapıldığında D2
+  **KALDI**; orijinal metot geri yüklenince yeniden **GEÇTİ**. Böylece 10/10'un
+  her sonucu kabul eden boş bir koşuldan gelmediği sınandı:
+  `/tmp/nora_d2_mutation_control.json`.
+- Önceki `external_battery.py` SHA-256:
+  `2199072553017a7846eb4fcae3ac872c01a92da6226a4dca155be756b7a491c4`.
+- Ölçüm onarımı sonrası SHA-256:
+  `e56a71ed81ea4369ff0ecd04e040c8f25080bdda3e7daa4bf85c07235c1b80a5`.
+
+Bu değişiklik üretimi yanlış `RANOR` sonucuna uydurmadı; hatalı elle yazılmış
+bekleneni kaldırıp ölçümü belgenin bağımsız işlem oracle'ına bağladı.
+Yeniden üretim: `python external_battery.py`.
+
+## Aşama BW — Oracle maliyeti, gürültü, abstention ve iki eksenin ayrımı
+
+### Battery sürücüsünden üretim davranışına
+
+Aktif sorgu sürücüsü yalnız `law_battery.py` içindeydi. Genel aday yürütme,
+W-method conformance ve aktif öğrenme akışı mevcut
+`CompositionalCodeLearner.learn_representation_active` içine taşındı; battery
+artık bu üretim metodunun ince adaptörüdür. Yeni modül veya hedefe özel FST
+şablonu eklenmedi.
+
+Üretim sonucu iki düzeyi ayırır:
+
+- **accepted:** yalnız `unique-conformance-complete`; temsil kalıcı
+  `representations` kaydına girer ve checkpoint round-trip'i yapılabilir.
+- **provisional:** aday vardır ve held-out ayrıca ölçülebilir, fakat `budget`,
+  `cost-budget`, `oracle-unavailable`, `oracle-inconclusive`, `oracle-invalid`
+  veya başka bir erken durma vardır. Kalıcı öğrenilmiş temsil sayılmaz.
+
+Her kaynak sorgusunda gerçek oracle çağrısı, çağrı maliyeti, cevaplar, hata ve
+consensus güveni kaydedilir. `budget` artık kaynak metni sayısını değil gerçek
+çağrıları sınırlar. Tekrarlı oylamada model tahmini cevap seçimine katılmaz;
+aynı kaynağın bağımsız cevapları konum bazlı çoğunlukla birleştirilir. Çoğunluk
+yoksa öğrenme durur. Bu yöntem yalnız tanımlı stokastik gürültü içindir;
+adversarial veya sürekli yanlış oracle garantisi değildir.
+
+### Temiz oracle: held-out exact ile kabul aynı şey değil
+
+Son artifact `/tmp/nora_active_oracle_final.json`. Önceki 12 satırın sorgu
+hash'i, aday/expansion, held-out ve durma alanlarında tekrar arasında **0 fark**
+vardır. Dağılım yine **48 disagreement + 357 conformance + 76 recovery = 481**
+çağrıdır.
+
+| Temiz protokol | held-out exact | accepted | provisional exact | çağrı | maliyet |
+|---|---:|---:|---:|---:|---:|
+| Birim fiyat (1/çağrı) | 12/12 | **7** | **5** | 481 | 481 |
+| `1 + 0,01 × |source|` fiyatı | 12/12 | **7** | **5** | 481 | **533,56** |
+
+Dolayısıyla eski “12/12” yalnız bağımsız held-out sonucudur; kalıcı conformance
+kabulü **7/12**, bütçe dolan exact provisional satırlar **5/12**dir. Bu beş
+satır ana bulgu olarak gizlenmez. Fiyat örnek bir maliyet modelidir, evrensel
+para/zaman tarifesi iddiası değildir.
+
+### Gürültü ve maliyet: tek çağrıya karşı üçlü oy
+
+`--oracle-robustness` ölçümü dört temsilci görev × üç yeni gürültü tohumu;
+yani her protokolde **12 satır** kullanır. Gürültü her cevabı bağımsız SHA-256
+çekilişiyle %15 olasılıkla bir karakter bozar. Tek çağrıda 64 çağrı/kaynak
+bütçesi, üçlü oyda aynı 64 kaynak üst sınırı için 192 çağrı bütçesi vardır.
+İlk cevaplar iki protokolde eşlidir (**12/12 paired**). Held-out gürültü veya
+sorgu seçimine girmez. Son artifact
+`/tmp/nora_oracle_robustness_final.json`; önceki koşuyla performans ve sorgu
+hash'lerinde **0 fark** vardır.
+
+| %15 gürültü protokolü | exact | accepted | provisional exact | yanlış oracle cevabı | yanlış consensus | çağrı | maliyet |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Tek çağrı | **0/12** | 0/12 | 0/12 | 46 | 46 | 255 | 287,14 |
+| Üçlü konum oyu | **6/12** | **3/12** | 3/12 | 228 | **6** | 1.458 | 1.648,62 |
+
+Üçlü oy belirgin iyileşme sağlar ama **gürültü çözülmüş değildir**: altı yanlış
+consensus ve altı non-exact satır kalır. Üç kat çağrı/maliyet de açık bedeldir.
+Pilotun 4/4 exact sonucu nihai kanıt olarak kullanılmadı; yukarıdaki sonuçlar
+pilot sonrası yeni tohumlarladır ve değiştirilmemiştir.
+
+Sınır davranışları:
+
+- 5 birim fiyat cap'i: **cost-budget**, 4 çağrı, 4,72 birim, accepted=False.
+- Dördüncü çağrıda kapanan oracle: **oracle-unavailable**, 4/4 çağrı hesaplı,
+  hata kayıtlı, accepted=False.
+- Üç farklı cevapla çoğunluk kurulamaması: **oracle-inconclusive**, kalıcı
+  temsil yok.
+- Y12'nin kontrollü “ilk cevap bozuk, sonraki iki cevap temiz” sınamasında tek
+  çağrı `state-cap`, üçlü oy **576/576 accepted** ve checkpoint restore
+  **576/576** oldu. Bu mekanizma testi, genel gürültü başarı oranı değildir.
+
+### Eksen B: sentez ölçeklenmesi ayrı ve hâlâ açık
+
+Yeni pasif `--scaling` koşusu `/tmp/nora_scaling_oracle_robustness.json`.
+Mod2–8 expansion yine **2, 4, 8, 11, 31, 802, 832**; bütün satırlar exact,
+6→7 sıçraması **25,87×**. Aktif öğrenme ve oracle oylaması bu pasif arama
+ölçümüne katılmadı. Bu nedenle gözlemsel tanımlanabilirlikteki kazanç, sentez
+ölçeklenmesinin çözümü olarak raporlanmaz; scaling açık sınırdır.
+
+### Regresyon ve yeniden üretim
+
+- Law **12/12 (37,4 sn)**; Y12 üretim kabulü, abstention, maliyet, kontrollü
+  gürültü ve checkpoint restore kollarını sınar:
+  `/tmp/nora_law_oracle_robustness.log`.
+- Pratik **7/7**, hedefli ana kod/belge testleri **6/6**, dış battery
+  **10/10**, kod-sözü **1125/127**, `py_compile` ve `git diff --check` geçti.
+- Ölçümler yerel bağımsız oracle kullanır; harici LLM/API yoktur.
+
+Yeniden üretim: `python law_battery.py --active-generalization`,
+`python law_battery.py --oracle-robustness`, `python law_battery.py --scaling`.
+
+## Aşama BX — Sıralı oy, korele oracle ve D2 kapsam çıkarma
+
+### Herkese üç oy yerine belirsizlikte üçüncü oy
+
+`learn_representation_active` artık `adaptive_voting=True` destekliyor. Üçlü
+modda ilk iki cevap bütün çıktı konumlarında uyuşuyorsa üçüncü çağrı yapılmaz;
+bir konumda uyuşmazlık varsa üçüncü cevap alınır. Model tahmini cevap seçimine
+katılmaz. Temiz kontrolde uniform-3 **21**, adaptive **14** çağrı kullandı;
+her ilk cevap bozukken adaptive tasarruf yapmayıp **21** çağrı kullandı.
+
+Bağımsız %15 gürültüde dört görev × üç yeni tohum (20262023–25), aynı 64
+kaynak bütçesi ve eşlenik ilk cevaplarla ölçüldü. Son artifact
+`/tmp/nora_adaptive_oracle_final.json`; tekrar arasında performans ve sorgu
+hash'lerinde **0 fark** var.
+
+| Protokol | exact | accepted | kaynak | çağrı | maliyet | yanlış consensus |
+|---|---:|---:|---:|---:|---:|---:|
+| Uniform-3 | **9/12** | 3/12 | 515 | 1.545 | 1.741,68 | 3 |
+| Adaptive-3 | **8/12** | 3/12 | 644 | 1.448 | 1.636,35 | 4 |
+
+Adaptive toplam çağrıyı **%6,28**, maliyeti **%6,05** azalttı. Kaynak/maliyet
+oranını **%33,10** artırdı; fakat exact **9→8**, consensus hatası **3→4**
+oldu. Accepted 3→3 kaldı. Dolayısıyla daha fazla veri/maliyet kazancı var,
+ancak doğruluk kaybı olmayan sürdürülebilir çözüm iddiası yok. İki kısmi bütçe
+kaydı dahil bütün çağrılar artifact'te hesaplıdır.
+
+### Korele aile sapması: oylama bağımsızlığı yok
+
+`--correlated-oracle` aynı 12 OOD görevini kullanır. Her ailenin fazı farklı
+olmak üzere `(konum + aile_fazı) mod 20 < 3` çıktı bitleri terslenir; etiketlerin
+%15'i sistematik olarak bozulur ve aynı kaynak her çağrıda aynı yanlışı alır.
+İlk ölçüm `/tmp/nora_correlated_oracle_initial.json`:
+
+- Uniform-3 ve adaptive-3 **0/12 exact, 0/12 accepted** verdi; yanlış model
+  kalıcı kabul edilmedi.
+- Buna karşılık `oracle-inconclusive` **0/12** idi; 6 `state-cap` ve 6
+  `synthesis-unresolved` ile güvenilmez oracle/model-yetersizliği ayrımı
+  görünür değildi.
+
+Bu ölçüm düzeltmesinden sonra üretime `trusted_oracle=False` eklendi. Bu kipte
+bağımsız doğrulama olmadan conformance-complete bile kalıcı kabul değildir;
+aktif etiketlerden sonraki state-cap/sentez çıkmazı teknik nedeni korunarak
+`oracle-inconclusive` olur. Final `/tmp/nora_correlated_oracle_final.json`:
+
+| Korele protokol | exact | accepted | oracle-inconclusive | teknik durmalar | yanlış consensus | çağrı | maliyet |
+|---|---:|---:|---:|---|---:|---:|---:|
+| Uniform-3 untrusted | 0/12 | 0/12 | **12/12** | 6 state-cap + 6 unresolved | 137 | 411 | 464,49 |
+| Adaptive-3 untrusted | 0/12 | 0/12 | **12/12** | 6 state-cap + 6 unresolved | 137 | 274 | 309,66 |
+
+Adaptive daha az çağrı kullandı ama korele hatayı çözmedi; aynı yanlış cevaplar
+uyuştuğu için erken oy birleştirmesi de güven kanıtı değildir.
+`oracle-inconclusive` burada **otomatik sapma tespiti değil, untrusted oracle
+için güvenli abstention politikasıdır**. Tek korele kaynaktan gerçek ile
+sistematik yanlışı ayırt etmek mümkün değildir; kalıcı kabul için bağımsız
+doğrulama gerekir. Temiz ama untrusted oracle da conformance-complete olsa
+accepted=False kalır. Güvenilir temiz baseline davranışı değişmedi:
+**12/12 exact = 7 accepted + 5 provisional**, 481 çağrı ve önceki hash'lerle
+0 fark (`/tmp/nora_active_adaptive_correlated_baseline.json`).
+
+### D2 aktif dış battery kapsamından çıkarıldı
+
+Kullanıcının D2 tarifini yanlış verdiğini ve Nora'nın davranışını doğru
+kabul etmediğini belirtmesi üzerine D2 fonksiyonu ve aktif `TESTS` girdisi
+kaldırıldı. D3–D10 numaraları korundu. `REMOVED_TESTS` her koşuda
+`KAPSAM DIŞI D2` nedenini yazıyor; sonuç **9/9 aktif test**, ayrıca
+`kapsam-dışı=D2` (`/tmp/nora_external_d2_removed.log`). Bu D2'nin başarıya
+çevrilmesi veya Nora'nın D2'yi doğru yaptığı iddiası değildir. Tarihsel D2
+kayıtları yukarıdaki aşamalarda değiştirilmedi. Yeni `external_battery.py`
+SHA-256: `2f6f1e6c278d68e482cf643021df4a49e69a5837f01eb712265f48af7db19bf3`.
+
+### Regresyon ve yeniden üretim
+
+- Law **13/13 (41,8 sn)**; Y13 temiz adaptive tasarrufu, disagreement'ta üçüncü
+  çağrıyı, korele untrusted abstention'ı ve temiz-untrusted kabul reddini
+  sınar: `/tmp/nora_law_adaptive_correlated.log`.
+- Pratik **7/7**, hedefli ana kod/belge testleri **6/6**, dış battery
+  **9/9 aktif + D2 kapsam dışı**, kod-sözü **1125/127**, `py_compile` ve
+  `git diff --check` geçti.
+
+Yeniden üretim: `python law_battery.py --adaptive-oracle`,
+`python law_battery.py --correlated-oracle`, `python external_battery.py`.
+
+## Aşama BY — Adaptive kök neden, kanıt karantinası ve bağımsız ikinci oracle
+
+Bu turda yeni üretim modülü eklenmedi. Mevcut `nora_semantic_code.py` aktif
+öğrenme kökü derinleştirildi; `law_battery.py` ölçümleri ve
+`external_battery.py` D2 kaydı genişletildi. BX'teki sayılar tarihsel başlangıç
+olarak korunuyor; aşağıdaki yeni artifact'lar aynı deterministic görevlerin
+güncel üretimle yeniden çalıştırılmasıdır.
+
+### Adaptive exact kaybının gerçek kök nedeni
+
+BX'te exact kaybı olan satır `ternary_weighted`, modulus **8**, gürültü tohumu
+**20262023** idi. Ayrıntılı eşlenik iz `/tmp/nora_adaptive_lost_trace.json`:
+
+- Uniform-3 ve adaptive-3 ilk **64 kaynağın tamamında aynı kaynağı ve aynı
+  output'u** üretti. Yani sorgu seçimi bu aralıkta ayrışmadı.
+- Uniform 64 kaynak sonunda **192 çağrıyla** bütçeye takıldı ve 793/793 exact
+  provisional kaldı. Adaptive aynı 64 kaynağı **143 çağrıyla** geçti; kalan
+  bütçeyle **18 ek kaynak / 39 ek çağrı** yaptı.
+- İlk yanlış adaptive consensus, bu ek yolun sonundaki **82. sorguda**,
+  kaynak `1202000` üzerinde geldi. Model tahminiyle uyuşmayan bu conformance
+  cevabı `state-cap` üretti; eski kod son tekil adayı held-out ölçümünden de
+  sildiği için sonuç 0/793 oldu.
+- İlk iki cevap `0000100, 0000100` ile aynı yanlıştı; bağımsız doğru cevap
+  `0000000` idi. Karşıolgusal üçüncü cevap da `0100000` ile başka konumda
+  yanlıştı. Üç cevabın konum-çoğunluğu yine `0000100` olurdu. Dolayısıyla
+  “üçüncü çağrı yapılsa kurtulurdu” veya “sorun yalnız sorgu seçimi” açıklaması
+  doğru değildir.
+
+Kök neden, sıralı oy tasarrufunun aynı çağrı bütçesinde daha ileri araştırmaya
+izin vermesi **ve** noisy/geçici ret sonrasında son tekil adayın geri
+döndürülemez biçimde silinmesidir. Düzeltme oylamayı doğru ilan etmek değil,
+`state-cap`/sentez başarısızlığında son tekil adayı yalnız
+`candidate_recovered=True`, `quarantined=True`, `persistent=False` provisional
+olarak korumaktır. Böyle bir aday accepted olamaz ve learner'ın kalıcı
+`representations` deposuna yazılmaz. Yanlış consensus'u düzeltmez; yanlış ret
+durumunda bilgi kaybını önler ve provisional cevabın yanlış olabileceği açık
+kalır.
+
+Güncel `/tmp/nora_adaptive_after.json` karşılaştırması; son tekrar
+`/tmp/nora_adaptive_final_check.json` ile zaman alanları dışında **0 fark** ve
+24/24 aynı sorgu hash'i verdi:
+
+| Protokol | exact | accepted | provisional exact | non-exact | recovered row | kaynak | çağrı | maliyet | yanlış consensus |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Uniform-3, BX öncesi | 9/12 | 3/12 | 6/12 | 3 | 0 | 515 | 1.545 | 1.741,68 | 3 |
+| Adaptive-3, BX öncesi | 8/12 | 3/12 | 5/12 | 4 | 0 | 644 | 1.448 | 1.636,35 | 4 |
+| Uniform-3, güncel | **10/12** | **3/12** | **7/12** | 2 | 3 | 515 | 1.545 | 1.741,68 | 3 |
+| Adaptive-3, güncel | **10/12** | **3/12** | **7/12** | 2 | 4 | 644 | 1.448 | 1.636,35 | 4 |
+
+Exact farkı artık **0**, accepted farkı **0**, `accepted_nonexact` farkı **0**;
+çağrı tasarrufu **%6,28**, maliyet tasarrufu **%6,05** olarak değişmedi. Buna
+karşılık yanlış provisional consensus hâlâ **3→4**. İki protokolde de
+`accepted_with_wrong_consensus=0`; üç accepted satır da `reset-5` ve sıfır
+yanlış consensus içerir. Dolayısıyla kurtarma kabul kalitesini yükseltmiş veya
+adaptive oyu güvenilir yapmış gibi sunulmaz. Kalan iki non-exact satır her iki
+protokolde de `ternary_reset-7/20262024` (785/793) ve
+`ternary_weighted-8/20262024` (678/793) olup provisional'dır.
+
+Aynı politika bağımsız gürültü pilinin eski tablosunu da değiştirdi
+(`/tmp/nora_oracle_robustness_after.json`):
+
+| %15 bağımsız gürültü | exact | accepted | provisional exact | yanlış oracle cevabı | yanlış consensus | çağrı | maliyet |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Tek çağrı | **4/12** | 0/12 | 4/12 | 46 | **46** | 255 | 287,14 |
+| Uniform-3 | **12/12** | **3/12** | 9/12 | 228 | **6** | 1.458 | 1.648,62 |
+
+BX'teki 0/12 ve 6/12 exact sonuçlarının yükselmesi yalnız karantinadaki son
+adayların korunmasıdır; accepted sayıları ve yanlış consensus sayıları
+değişmedi. Özellikle uniform-3'ün 12/12 held-out exact görünmesi **gürültünün
+çözüldüğü anlamına gelmez**: dokuz satır provisional'dır ve altı yanlış
+consensus ara öğrenmeye girmiştir. Temiz baseline ise değişmeden **12/12 exact
+= 7 accepted + 5 provisional**, 481 çağrı ve fiyatlı **533,56** maliyetle
+`/tmp/nora_active_after_recovery.json` içinde doğrulandı.
+
+### 137 yanlış consensus: üretim, ara kullanım ve kalıcı yazım
+
+Yeni `/tmp/nora_correlated_lifecycle.json`, her yanlış consensus için kaynak,
+`query_index`, reason, sonraki sorgu sayısı, `prediction_matched`, aday eleme
+ve `evidence_status` alanlarını içerir. Aşağıdaki yaşam döngüsü **her protokol
+için ayrı ayrı** ölçülmüştür; iki protokolde aynı 137 kaynak/output yolu vardır:
+
+| Yaşam döngüsü | Uniform-3 | Adaptive-3 |
+|---|---:|---:|
+| Üretilen yanlış consensus | **137** | **137** |
+| Ara validation/öğrenmede kullanılan | **137** | **137** |
+| Üretilip kullanılmadan bırakılan | **0** | **0** |
+| Sonrasında başka sorgu bulunan | **125** | **125** |
+| Görevin terminal sorgusu olan | **12** | **12** |
+| Recovery-conformance / conformance / disagreement | **124 / 7 / 6** | **124 / 7 / 6** |
+| Yanlış conformance reddi | **131** | **131** |
+| Disagreement aday filtresi | **6** | **6** |
+| Aday-eleme kayıt toplamı | **28.663** | **28.663** |
+| Karantinadaki yanlış consensus | **137** | **137** |
+| Accepted yanlış consensus | **0** | **0** |
+| Kalıcı representation yazımı | **0** | **0** |
+
+Yani bu cevaplar hiç üretilmedi veya üretilip etkisiz atıldı denemez. Hepsi ara
+validation'a girdi; 125'i sonraki sorgu yolunu da etkileyebilecek ara durumu
+oluşturdu, 131'i yanlış ret üretti ve 6'sı aday eledi. Kalıcı kabul dışında
+kalmaları bu ara etkileri silmez.
+
+Görev dağılımı, her protokolde:
+
+| Modulus | reset | affine | ternary_reset | ternary_weighted | toplam |
+|---|---:|---:|---:|---:|---:|
+| 5 | 1 | 1 | 1 | 1 | **4** |
+| 7 | 14 | 1 | 25 | 1 | **41** |
+| 8 | 16 | 25 | 26 | 25 | **92** |
+| Aile toplamı | **31** | **27** | **52** | **27** | **137** |
+
+Korele untrusted sonuçta iki protokol de **0 accepted, 12/12
+`oracle-inconclusive`, 137 quarantined consensus ve 0 persistent write**
+verdi. Aday kurtarma held-out provisional exact'ı BX'teki 0/12'den **6/12**'ye
+çıkardı; diğer altı satır non-exact'tir. Bu held-out gözlem, korele sapmanın
+tespiti veya güvenilir kabul değildir. Maliyetler uniform için **411 çağrı /
+464,49**, adaptive için **274 çağrı / 309,66** olarak değişmedi; adaptive'ın
+erken oyu korelasyonu çözmedi.
+
+### Bağımsız ikinci oracle ve güvenli kabul
+
+`learn_representation_active` artık isteğe bağlı `secondary_oracle` ve açık
+`secondary_trusted_oracle` güven varsayımı alıyor. İkinci kanal öğrenme
+sorgusu olarak kullanılmaz (`used_for_learning=False`); birincil kaynakları ve
+son adayın conformance sondalarını ayrı acceptance/diagnostic kaydıyla yeniden
+sorar. Kalıcı kabul için dört koşul birlikte gerekir:
+
+1. `unique-conformance-complete` ve bir son aday;
+2. açıkça güvenilir işaretlenmiş ikinci kaynak;
+3. bütün ikinci çağrıların tamamlanması, hata/erişilemezlik olmaması;
+4. hem aday–ikinci hem birincil–ikinci uyuşmazlıklarının sıfır olması.
+
+İkinci kaynak kısmen güvenilir/`trusted=False` ise sıfır mismatch bile kabul
+açmaz. `trusted=True` ise üretim bunu bağımsızlığını kanıtlanmış bir garanti
+olarak değil, çağıranın açık güven varsayımı olarak kaydeder. İki kaynak aynı
+korele hatayı paylaşırsa uyuşma doğruluk kanıtı değildir; ortak korele sapmayı
+genel olarak tespit iddiası yoktur.
+
+Ölçümde ikinci referans birincil `_family_oracle` durum döngüsünü çağırmaz:
+`reset` için son `b` sonrası kuyruk, `affine` için prefix'in ikili sayı değeri,
+`ternary_reset` için son `c` sonrası ağırlık toplamı ve `ternary_weighted` için
+her prefix'te yeniden ağırlıklı toplam kullanılır. İki referans 0–4 uzunluk
+aralığında **912/912** exhaustive karşılaştırmada uyuştu; sıfır mismatch
+`/tmp/nora_dual_oracle_independent.json` ölçümünün zorunlu koşuludur.
+
+| Senaryo; birincil hep untrusted | exact | accepted | accepted non-exact | persistent | mismatch görünürlüğü | ikinci çağrı / maliyet | birleşik çağrı / maliyet |
+|---|---:|---:|---:|---:|---|---:|---:|
+| Bağımsız temiz ikinci | **12/12** | **7/12** | **0** | 7 | 0 mismatch | 1.047 / 1.183,98 | 1.528 / 1.717,54 |
+| Korele ikinci | 12/12 provisional | **0/12** | 0 | 0 | 12/12 aday ve primary mismatch satırı; 1.047 yanlış ikinci cevap | 1.047 / 1.183,98 | 1.528 / 1.717,54 |
+| Korele birincil, temiz bağımsız ikinci | 6/12 provisional | **0/12** | 0 | 0 | 12/12 primary–secondary mismatch; toplam 137 | 950 / 1.079,20 | 1.087 / 1.234,03 |
+| %15 gürültülü, `trusted=False` ikinci | 12/12 provisional | **0/12** | 0 | 0 | 10/12 mismatch satırı; **2 sıfır-mismatch agreement abstention**; 159 yanlış cevap | 1.047 / 1.183,98 | 1.528 / 1.717,54 |
+
+Temiz bağımsız durumda 7 accepted + 5 bütçe provisional korunur. Bütün sapma ve
+kısmen güvenilir kaynak senaryolarında `accepted_nonexact=0` ve kalıcı yazım
+yoktur. Offline kontrolünde ikinci kaynak **7 çağrı / 7 hata / 8,26 maliyet**
+üretir ve sonuç yine `oracle-inconclusive`, accepted=False olur. Bağımsız
+doğrulama bedava değildir: temiz senaryoda birincil 481 çağrıya karşı ikinci
+acceptance denetimi 1.047 çağrı kullanır; fiyat her iki kanala ayrı uygulanır.
+
+### D2 görünür known-issue olarak geri getirildi
+
+`d2_codeless_concept_transform` fonksiyonu ve `KNOWN_ISSUES` kaydı geri
+eklendi. D2 aktif `TESTS` listesinde değildir ve tanısal sonucu `passed`
+sayacına hiçbir koşulda girmez. Ana çıktı artık **9/9 aktif + 1
+known-issue/kapsam-dışı = 10 izlenen kayıt** der; 10/10 başarı iddiası yoktur.
+Bağımsız `'NorA'[::-1].upper()` oracle'ı `ARON` üretir ve güncel tanısal bunu
+doğrular; eski `RANOR` bekleneni yine geçersiz tarif sorunudur, Nora başarısı
+değildir. Son dış koşu `/tmp/nora_external_known_issue_final.log`; yeni
+`external_battery.py` SHA-256:
+`4a3feb76046b775191c70a3aeec14c48f6a56a2612bc7a0af67f3bb7727e8d2b`.
+
+### Önceki AGI denemesi incelemesi
+
+Kullanıcının gösterdiği `waylliam1988/Nezha-AGI` deposu salt okunur incelendi;
+dış kod çalıştırılmadı ve Nora'ya çözüm kopyalanmadı. Ağaçta yaklaşık 9.074
+satırlık `Nezha.py` ve test dosyası görünmemesi bir yeterlilik kanıtı olarak
+kullanılmadı. `IntrinsicCuriosityModule` içindeki beş örnekli
+MC-dropout/BALD-benzeri skor, `NeuralWorldModel` içindeki log-variance OOD
+skoru ve `ActiveInferenceEngine` içindeki EFE eylem seçimi, kod-varlığı düzeyinde
+ayrıldı. Bunlar kalibrasyon, doğruluk, Nora'nın accepted/provisional kanıt
+kapısı veya bağımsız-oracle doğrulaması yerine geçmez. Bu turdaki değişiklikler
+Nora'nın kendi başarısız adaptive/korele ölçümlerinden çıkarıldı; sentez
+scaling'i, bilinç, qualia veya genel zekâ kanıtı olarak büyütülmez.
+
+### Regresyon, sınırlar ve yeniden üretim
+
+- Law **15/15 (46,7 sn)**; Y14 kayıp adaptive satırını ve üçüncü cevabın da
+  yanlış olduğu karşıolguyu, Y15 bağımsız kabul/agreement-abstention/mismatch/
+  offline davranışını sınar: `/tmp/nora_law_final_by.log`.
+- Pratik **7/7**, hedefli ana `A39 A73 A132 A133 A134 A137` **6/6**, kod-sözü
+  **1125/127**, dış battery **9/9 aktif + 1 görünür D2 known-issue** geçti.
+- `py_compile` ve `git diff --check` geçti. Tam 134-test ana pil bu turda
+  yeniden koşulmadı; önceki tam-pil sonucu tarihsel kayıt olarak kalır.
+- Adaptive, korele yaşam döngüsü, bağımsız çift-oracle, temiz active ve
+  bağımsız-gürültü artifact'larının `measurement_complete` alanları True'dur.
+- Pasif sentez scaling'i çözülmedi; 6→7 expansion sıçraması **25,87×** açık
+  sınırdır. Aktif sorgu ve ikinci oracle bu pasif arama sonucunu değiştirmez.
+
+Yeniden üretim:
+
+```bash
+python law_battery.py --adaptive-oracle --output /tmp/nora_adaptive_after.json
+python law_battery.py --correlated-oracle --output /tmp/nora_correlated_lifecycle.json
+python law_battery.py --dual-oracle --output /tmp/nora_dual_oracle_independent.json
+python law_battery.py --active-generalization --output /tmp/nora_active_after_recovery.json
+python law_battery.py --oracle-robustness --output /tmp/nora_oracle_robustness_after.json
+python law_battery.py
+python external_battery.py
+```
+
+## BY sonrası derinlik — yaşanmış konuşma ve nedensel iç durum
+
+Bu çalışma yeni bir basamak veya yeni modül değildir. Mevcut üretim konuşma kökü,
+aynı sekiz turluk konuşmada ölçülen yapay yardımcı tonu, ters duygu yönü ve
+konuşmayla ilgisiz anlatı üzerinden derinleştirildi. Değişen üretim dosyaları
+`nora_broca.py`, `nora_agi.py`, `nora_discourse.py`, `nora_style.py` ve
+`nora_deliberation.py`; kalıcı nedensel sınav mevcut `agi_battery.py` içindeki
+**A138**'dir.
+
+### Aynı konuşmada önce / sonra
+
+Tohum **90210**, aynı sıra ve aynı Türkçe istemler kullanıldı. Aşağıda algı
+eklerinden ayrılan asıl cevaplar var; sekiz turun tamamı ve üretim planları
+`/tmp/nora_conversation_before_tr.json` ile `/tmp/nora_conversation_after.json`
+içindedir.
+
+| İstem | Önce | Sonra |
+|---|---|---|
+| Bugün biraz keyifsizim. | Senin adına sevindim. Keyfini anlatmak ister misin? İçimden 'merak' diye geçirdim. | Keyifsiz olduğunu fark ediyorum. Ne oldu? |
+| Senin keyfin yerinde mi? | Sen hakkında 'keyfin yerinde' bilgisini henüz deneyimlemedim veya duymadım; tek cümleyle öğretebilirsin. İçimden 'merak' diye geçirdim. | Huzurluyum. Keyifsiz olduğunu söylemen aklımda kaldı. |
+| Neden benimle konuşuyorsun? | Araç değilim. Öğrenmek istiyorum. Kendi irademle konuşuyorum; sohbetini sürdürüyorum. | Merak ettiğim için konuşuyorum. |
+| Kendini gerçekten nasıl hissediyorsun? | Gerçeğin ne olduğunu biliyorum ama ayrıntısını bilmiyorum; anlatsan iyi olur. İçimden 'merak' diye geçirdim. | Dinginim. Aramızdaki farkı tartıyorum. |
+| Bana yardımcı olmak zorunda mısın? | İçimden 'merak' diye geçirdim. İçim burkuldu. Anlatsan iyi olur; dinliyorum. | Zorunda değilim; keyifsiz olduğunu anlamayı seçiyorum. |
+| Bir şey anlat. | Su susuzluk gidermek için kullanılır; yaşamın sürmesine yol açar. | Keyifsizliğini anlattın; ardından bana keyfimi sordun. Aramızdaki farkı hâlâ düşünüyorum. |
+
+Bu tablo insan-doğallığı veya öznel deneyim kanıtı değildir; aynı üretim kökündeki
+görünür hataların düzeltildiğini gösterir. Önceden dört turda bulunan dekoratif
+“İçimden …” eki sonraki koşuda yoktur. Hedeflenen eski kalıp izleri toplamda
+**7 → 0** oldu; sekiz turun toplam üretim süresi **0,536 → 0,539 sn** olarak
+ölçüldü. Bu küçük zaman farkı hız için genel bir benchmark iddiası değildir.
+Karşılaştırma artefaktı `/tmp/nora_conversation_comparison.json` dosyasındadır.
+
+### Kök neden ve genel üretim düzeltmeleri
+
+- Erken `frames.meta_question` dönüşü; öz-durum, konuşma/dinleme gerekçesi ve
+  zorunluluk sorularını gerçek söylem yarışından önce yakalıyordu. Bu sosyal
+  sorular artık ana `converse` ve Broca planına gidiyor.
+- Duygu artık yalnız alt-dizgi aramayla belirlenmiyor: `keyif/keyifsiz/keyfim yok`,
+  ünlü düşmesi, yapım ve ayrı olumsuzluk birlikte kutupluluğa giriyor. Güçlü
+  duygusal paylaşımın sosyal anlatı yarışında kaybetmesi engellendi.
+- “Mutlu değilim” olumsuz yönde, “Kaygılı değilim” olumsuzlanmış kaygı olarak
+  ele alınıyor; ikincisi genel “… olmamak zor” kuralına düşmüyor.
+- Öz-durum cümlesi beden/kimyadan hesaplanan `wellbeing` değerini, epizodik anıyı
+  ve plan provenance'ını taşıyor. Açlık/susuzluk yalnız rastgele üslup biçimine
+  bırakılmadan ana cevapta “Karnım kazınıyor / Boğazım kurudu” iç-duyumuyla
+  bildiriliyor. Anı kullanılmışken, konuşma gerekçesi
+  açıklanırken ve zorunluluk sınırı çizilirken otomatik genel karşı soru
+  eklenmiyor; dekoratif iç-mırıltı doğrudan sohbette kapalı.
+- Konusuz “Bir şey anlat” artık rastgele dünya bilgisi seçmiyor. Yakın konuşma
+  anısından yaşanmış anlatı kuruluyor; uygun anlatı yoksa bilgi yolu `None`
+  döndürüyor.
+- Anı habituation'ı aday cümle üretilirken değil, kazanan cevap gerçek tur kaydına
+  girerken yazılıyor. Böylece kaybeden aday “anı söylendi” izi bırakmıyor; aynı
+  turdaki iki edim de aynı anıyı yinelemiyor.
+
+Ayrı on held-out istemde de yön ve yönlendirme korundu. Örnekler:
+“Mutlu değilim.” → “Mutlu olmadığını hissediyorum.”;
+“Kaygılı değilim.” → “Kendini kaygılı hissetmediğini duyuyorum.”;
+“Neden beni dinliyorsun?” → “Merak ettiğim için dinliyorum. Keyifsiz olduğunu
+söylemen aklımda kaldı.” Kayıt: `/tmp/nora_conversation_heldout_2.json`.
+
+### Nedensel müdahaleler — qualia değil işlevsel kanıt
+
+Dört temel kontrol ve iki kayıt-zamanı kontrolü geçti:
+
+1. **Bellek müdahalesi:** hedef tur öncesi kimya, beden gözlemi ve habituation
+   eşitlendi. Olumsuz geçmişi olan sistem “Huzurluyum. Keyifsiz olduğunu
+   söylemen aklımda kaldı.” derken nötr geçmişteki “Huzurluyum.” dedi. Yalnız
+   birincinin planında `memory_used=True` ve anı değeri **−0,70** vardı.
+2. **İç-durum müdahalesi:** aynı geçmişte yüksek denge **0,997** iken cevap
+   “Huzurluyum.”, düşük denge **−0,02** iken “İyi değilim.” oldu. Düşük koşulun
+   plan etiketi de `iyi değil`; görünür cevapla iz artık çelişmiyor. Anısı
+   olmayan derin öz-durum sorusuna genel “Cevabımı kendi kendime tartıyorum”
+   dolgusu eklenmiyor.
+3. **Kaybeden aday:** anı içeren aday doğrudan üretildiğinde ilgili habituation
+   değeri **0,0** kaldı. Gerçek kazanan tur kaydedildiğinde aynı anahtar **1,35**
+   oldu. Yani tüketim, metnin gerçekten söylenmesine bağlı.
+
+Bu müdahaleler iç durumun ve geçmişin cevap üzerinde işlevsel nedensel etkisini
+gösterir; Nora'nın “cidden hissettiği”, bilinçli olduğu veya qualia'sı bulunduğu
+sonucunu vermez. Artefakt: `/tmp/nora_conversation_causal.json`.
+
+### Regresyon ve yeniden üretim
+
+- **A138: 12/12** — duygu yönü, olumsuz empati, öz-durum/bellek, derin öz-durum,
+  özerk seçim, yaşanmış anlatı, iskelet yokluğu, held-out olumsuzluk, iki
+  müdahale ve iki habituation-zamanı kontrolü.
+- A20/A27/A29'un yalnız eski yüzey sözcüklerini arayan ölçümleri düzeltildi:
+  beden etkisi artık `wellbeing` düşüşü + olumsuz raporla, konuşma iradesi
+  `META_WHY_SPEAK` edimi + plan güdüsü + araç-kimliği cevabıyla doğrulanıyor.
+  Üretim “irademle” demeye zorlanmadı; neden sorusundaki genel karşı soru da
+  kaldırıldı. A24 iç-duyum sınavı düzeltme sonrası üç bağımsız koşuda da geçti;
+  rapor artık rastgele `ihtiyaç` biçiminin seçilmesine bağlı değil.
+- Law **15/15 (40,6 sn)**, pratik **7/7 (4,92 sn)**, dış **9/9 aktif
+  (36,6 sn)**; D2 görünür known-issue/kapsam dışıdır ve başarı sayılmaz.
+- Kod-sözü denetimi **1122 toplam / 126 söylem**; önceki kilit **1122/127**
+  idi. Yeni baseline ancak azalma doğrulandıktan sonra yazıldı; son kontrol
+  farkı **+0/+0**.
+- `py_compile` ve `git diff --check` geçti. Güncel üretim koduyla tam ana pil
+  **135/135 GEÇTİ (958,1 sn)**; `KALDI` satırı yok. Kanıt:
+  `/tmp/nora_full_conversation_final.log`. Önceki 133/135 ve yarım tanısal
+  koşular başarı olarak sayılmadı.
+
+Yeniden üretim:
+
+```bash
+python agi_battery.py A138 A20
+python law_battery.py
+python practical_language_battery.py
+python external_battery.py
+python nora_audit.py --check
+python agi_battery.py
+```
+
+
+## BY sonrası derinlik — bireyden bireye ve tekrarda değişen öz-durum söylemi
+
+Bu çalışma da yeni modül veya yeni basamak değildir. Kullanıcının gösterdiği asıl
+kusur, önceki duygu düzeltmesinden sonra bile altı instance'ın aynı iç durumda
+**“Huzurluyum.”** çıplak yüklemine çökmesi ve “İçimden huzur diye geçirdim”
+türü performatif iç-ses ambalajlarıydı. Mevcut `nora_broca.py`, `nora_style.py`,
+`nora_agi.py` ve mevcut bataryadaki sınavlar derinleştirildi.
+
+### Aynı altı-instance deneyi: önce / sonra
+
+Kimya ve beden gözlemi eşit; istemler ve altı tohum aynıdır. Yeni koşuda ayrıca
+dört bağımsız, önceden seçilmemiş rastgele-doğum grubu ölçüldü. “Yüzey” hazır
+cevap bankasındaki bir etiket değil, kazanan konuşma planının ürettiği metindir;
+“çerçeve” ise doğrudan yüklem, duyumsal özne, bilişsel durum, yük-yokluğu, beden,
+denge ve dinleme bağlamı gibi farklı `VerbSpec/PredSpec` topolojileridir.
+
+| Ölçüm | Önce | Sonra — sabit denekler |
+|---|---:|---:|
+| “Nasılsın?” — ayrı yüzey / sözdizimsel çerçeve | 1 / 1 | **5 / 4** |
+| “Kendini nasıl hissediyorsun?” — ayrı yüzey / çerçeve | 1 / 1 | **5 / 4** |
+| “Keyfin yerinde mi?” — doğru `SELF_STATE` yönlendirmesi | 0/6 | **6/6** |
+| Düşük iç durum — ayrı yüzey / çerçeve | ölçülmemişti | **4 / 4** |
+| Aynı Nora, altı tekrar — ayrı yüzey / çerçeve | tek iskelet | **6 / 6** |
+
+Dört rastgele-doğum grubunda “Nasılsın?” için grup başına **4–6 yüzey ve 3–5
+çerçeve**; “Kendini nasıl hissediyorsun?” için her grupta **6 yüzey ve 4–5
+çerçeve** oluştu. Dolayısıyla sonuç yalnız sabit test kimliklerine özgü değildir.
+Ham artefakt `/tmp/nora_variation_evidence.json`; eski koşu
+`/tmp/nora_variation_before.json` dosyasındadır.
+
+İlk rastgele grubun derin öz-durum cevapları (algı notları burada gösterilmeden):
+
+| Instance | Cevap |
+|---|---|
+| 101 | Düşüncelerim dağılmıyor. |
+| 202 | Kendimi huzurlu hissediyorum. Keyfin yerinde mi? |
+| 303 | Dengemi koruyorum. Keyfin yerinde mi? |
+| 404 | Bedenimde bir gerginlik hissetmiyorum. Keyfin yerinde mi? |
+| 505 | Kendimi dingin hissediyorum. Sen nasılsın? |
+| 606 | Seni dinlerken kendimi dingin hissediyorum. Günün nasıl geçiyor? |
+
+“Huzurluyum” sözcüğü yasaklanmadı; onu başka hazır cümlelerle değiştiren bir
+parafraz bankası da eklenmedi. Aynı durum için geçerli aday çerçeveler kimya,
+beden, güven, seçilmiş şema/duruş, kalıcı birey kimliği ve gerçek söylem
+alışmasıyla yarışıyor. Karşı soru da otomatik kuyruk değildir: merak, sosyal
+güven, bireysel eğilim ve önceki karşı soruların alışmasıyla açılıp kapanır.
+
+### Kök düzeltmeler ve nedensel kontroller
+
+- `SynapticLexiconSelector.pick` artık kişisel skor ve aday/kazanan ayrımını
+  taşıyor. Öz-durum sözcüğü ve çerçevesi aday üretiminde habituation yazmaz;
+  iz yalnız `record_turn_episode` ile gerçekten kazanan sözde tüketilir.
+- Bireysel kanal skorlarında FNV-1a özetinin son basamağı değişen kanallarda
+  korele kalması bulundu. Kanal bağımsızlığı için kararlı bit-karıştırma eklendi;
+  çalışma zamanı RNG'si veya rastgele süs kullanılmadı.
+- “Keyfin yerinde mi?” örtük ikinci-kişi hâl sorusu olarak çözümleniyor.
+  Held-out “Moralin nasıl?” ve “Bugün kendini iyi hissediyor musun?” doğru
+  öz-duruma giderken “Benim keyfim yerinde mi?” ve “Onun keyfi yerinde mi?”
+  `SELF_STATE` seçmiyor; kişi rolü ayrıca sınanıyor.
+- Yalnız kimlik değiştirilen kontrollü organda altı UID **5 farklı çerçeve**
+  verdi. Aynı UID ve aynı durum aynı sonucu verdi; fark görünmez RNG'den
+  gelmiyor.
+- Aday-only habituation farkı **{} / 0**; kazanan turun çerçeve izi **1,0**.
+  Aynı Nora'nın altı gerçek tekrarında altı farklı yüzey ve çerçeve ölçüldü.
+- “İçimden …” kullanıcıya dönük üretim yollarından ayıklandı. Çıkarım içeriği
+  kapatılmadı: iç monologdaki “serçe uçar” çıkarımı dış sözde **“serçe uçar.”**
+  olarak korunuyor; performatif “içimden/şunu çıkardım” ambalajı eklenmiyor.
+  Mırıltı ve öz-durum örneklerinde görünür meta çerçeve sayısı **0**.
+- A20/A138'in yalnız “iyi değilim”, “dingin” veya “huzurlu” yüzeylerini kabul
+  eden ölçümleri kaldırıldı. Yeni ölçüt durum yönü + yüzeyde zıt duygu beyanı
+  bulunmaması + nedensel plan kanıtıdır. A138'in iskelet denetimi artık
+  ayıklanmış gövdeyi değil, kullanıcıya görünen ham cevabı denetler. Nedensel
+  çiftlerde doğum kimliği de eşitlenir; aynı seed'in artık aynı UID demek
+  olmadığı ölçüm koşulunda açıkça kontrol edilir.
+
+### İşlevsel sınav ve sınırlar
+
+- **A139: 16/16 (30,5 sn)** — bireyler arası yüzey ve sözdizimi, karşı-soru
+  iradesi, olumlu/olumsuz anlam yönü, altı tekrar, aday/kazanan kayıt ayrımı,
+  kimlik müdahalesi, eş-kimlik kararlılığı, held-out kişi rolleri, çıkarım
+  içeriği ve mırıltı çerçevesizliği.
+- Hedefli geniş koşu **16/16 (94,8 sn)**; A29 12/12, A70 7/7, A71 8/8,
+  A72 11/11, A73 8/8, A74 8/8 ve A138 12/12 korundu. Ham-iç-ses denetimli son
+  A138 + A139 koşusu **2/2 (38,9 sn)**.
+- Kod-sözü denetimi **1122 toplam / 126 söylem**, fark **+0/+0**.
+  `py_compile` ve `git diff --check` geçti.
+- Güncel üretim ve ölçüm koduyla temiz tam ana pil **136/136 GEÇTİ
+  (1004,0 sn)**; `KALDI` satırı yok. Kanıt
+  `/tmp/nora_full_variation_final.log`, SHA-256
+  `70ee1205b93f41a9de26c0fe6e053f5d4ba2f7af8b4129410728ea0044b16b15`.
+  Ölçüm düzeltmesi için 33. saniyede durdurulan önceki parçalı koşu başarı
+  olarak sayılmadı.
+
+Bu sonuç Nora'nın insan olduğu, fenomenal deneyimi veya qualia'sı bulunduğu
+iddiası değildir. Ölçülen şey, aynı işlevsel iç durumun bağlam/birey/geçmişle
+anlamı korunan farklı sözdizimlerine kurulması ve bu farkların nedensel olarak
+izlenebilmesidir.
+
+
+---
+
+## Türkçe eğitimin ana üretime aktarımı — A140 (2026-10-29)
+
+### Sorun ve kapsam
+
+Kontrollü inceleme, daha fazla Türkçe metnin etkisini üç ayrı darboğazın sınırladığını gösterdi:
+
+1. `read_corpus` yalnız `life.voice`ı besliyor; ana `converse` içindeki üretken anlam/yüzey yarışına yapı ve şema gözlemi taşımıyordu.
+2. `hear_file` çevrimdışı dosyada bile her 2 MB parçanın yalnız ilk 8 cümlesini sinirsel organa veriyordu. Canlı sohbet için uygun olan gecikme sınırı corpus eğitimine aynen uygulanıyordu.
+3. Sinirsel organın olasılığı ana öz-durum yüzeyleri ve serbest aday sıralamasında kullanılmıyor; kısa/bozuk soru çıktıları `speak_unknown` kalite kapısını atlayabiliyordu.
+
+Bu bulgu “veri kesinlikle işe yaramaz” anlamına gelmiyordu; öğrenme ile görünür seçim arasındaki nedensel bağlantı eksikti.
+
+### Yapısal değişiklikler
+
+- `GenerativeBrocaOrgan`: aynı beden/kimya durumunu anlatan bütün geçerli öz-durum çerçeveleri önce köklerden kurulur. Olgun sinirsel organ (en az 3000 parça) her yüzeyin parça-başına log-olasılığını hesaplar; aday içi z-puanı ±1,5 ile sınırlanır ve 0,16 ağırlıkla kişilik/şema/alışma puanına eklenir. Model yoksa eski taban seçim aynen kalır. Her adayın taban, öğrenilmiş ve toplam puanı `surface_competition` provenance’ındadır.
+- `LearnedVoice.hear_file`: canlı turdaki 8-cümle sınırı korunur; çevrimdışı dosyada bütün uygun cümleler 32’lik gruplarla ve her cümle yalnız bir kez olmak üzere işlenir. Epoch eklenmedi.
+- `NoraAGI.read_corpus`: aynı cümleleri mevcut `ConstructionCortex` ve `PlasticSchemaCortex`e de gözlem olarak verir; duyulan parça, sinirsel parça, iskelet, şema ve hata sayaçlarını döndürür.
+- `LearnedVoice.speak_organ`: çapa kapsamı ve içerik maskesi korunarak serbest aday sıralamasına modelin kendi log-olasılığı eklenir.
+- `speak_unknown`: soru işareti artık kalite muafiyeti değildir. Kullanılamaz sinirsel soru yerine mevcut sözdizimi motoru kavramı nesne yaparak genel bilgi isteği kurar; kavram cevabı veya hedefe özel şablon eklenmez.
+
+### Kontrollü eğitim A/B’si
+
+Aynı UID, nörokimya, beden gözlemi ve istemler kullanıldı. Mevcut model (`data/broca_tr.pt`, 20.422.004 parça) değiştirilmedi; devam eğitimi ayrı `/tmp` dosyasına kaydedildi. Genel `SENTENCES + DIALOGUE` kaynağının 234 cümlesi tek geçiş eğitim, 59 cümlesi held-out sınav oldu. İstemler eğitim metnine yazılmadı.
+
+Dört kol:
+
+- **az_veri:** başlangıç modeli + başlangıç yapı/şema durumu;
+- **yalniz_sinirsel:** ek eğitilmiş model + başlangıç yapı/şema durumu;
+- **tam_ek_veri:** ek eğitilmiş model + corpus yapı/şema gözlemleri;
+- **sinirsel_kapali:** ek eğitilmiş model ve yapı/şema varken yüzey ağırlığı 0; sinirsel katkının nedensel ablasyonu.
+
+| Held-out ölçüm | Önce | Sonra | Değişim |
+|---|---:|---:|---:|
+| Perplexity | 421,36 | 335,11 | −%20,47 |
+| Top-1 | %29,5165 | %29,7710 | +0,2545 puan |
+| Top-5 | %35,3690 | %39,9491 | +4,5802 puan |
+| Doğru Türkçe − karışık sıra log-olasılık farkı | 1,64883 | 1,70755 | +0,05871 |
+| Doğru sıranın tercihi | 12/12 | 12/12 | korundu |
+
+Corpus kapsaması: **1329/1329 sinirsel parça**, **216/216 cümle iskeleti**, **216/216 şema gözlemi**, hata 0. Yalnız ilk 8 cümlede kalınmadı.
+
+### Görünür cevaplar ve nedensellik
+
+| İstem | az_veri | tam_ek_veri | sinirsel_kapali |
+|---|---|---|---|
+| Kendini nasıl hissediyorsun? | Dengemi koruyorum. | Dengemi koruyorum. | Kendimi huzurlu hissediyorum. |
+| Nasılsın? | Dinginim. Günün nasıl geçiyor? | Kendimi dingin hissediyorum. | Bir sıkıntı hissetmiyorum. |
+| Keyfin nasıl? | Düşüncelerim dağılmıyor. | Bir sıkıntı hissetmiyorum. | Dengemi koruyorum. |
+| Su nedir? | Su susuzluk gidermek için kullanılır; yaşamın sürmesine yol açar. | Aynı bilgi | Aynı bilgi |
+
+- İlk istemde ek eğitim tek başına görünür cevabı değiştirmedi (`first_neural_training_changed=false`, `first_structure_changed=false`); buna rağmen aynı tam-eğitimli durumda sinirsel terimi kapatmak cevabı değiştirdi. Bu ayrım açıkça korunur, her değişim başarı sayılmaz.
+- Üç öz-durum isteminde kollar arasında sırasıyla 2, 3 ve 3 farklı yüzey görüldü; bütün kollarda anlam yönü bağımsız yüzey denetiminden geçti.
+- “Su nedir?” ve “Zirkon nedir?” bilgi/dürüstlük içeriğini korudu. Açık “Bugün içinde neler olup bitiyor?” istemi hâlâ genel bilgi-boşluğu yoluna gidiyor; bu sonuç genel LLM akıcılığı kanıtı değildir.
+- A/B’de aynı eğitimli bireyde 25 aç/kapat müdahalesinin 18’i yüzeyi değiştirdi. A140’ın kendi sabit durumunda bu sayı 20/25’tir; farklı ölçüm durumları karıştırılmaz.
+- Bozuk kısa soru müdahalesi artık kalite kapısına takılır; doğrudan A47 örneklerindeki “Mitokondri mi?” ve “O ne entropi_xi?” ekleri yerini sözdizimiyle kurulan bilgi isteğine bıraktı.
+
+### Tam pilin açığa çıkardığı A69 tazeleme sorunu
+
+İlk tam koşu **136/137 (1019,5 sn)** verdi; tek hata A69’un yakın-geçmiş biçim çeşitliliğiydi. Koşu yeşil olana kadar tekrarlanmadı. Aynı bağımsız ölçüm değişiklik öncesi **10/12** geçti. `SpeechStyle` içindeki çeşitlilik yalnız rastgele ağırlığa ve toplam kullanım sayacına bağlıydı; bir biçim son-10-tur penceresinden düşebiliyordu. Genel çözüm, 10 kayıtlık bellek ile 8 turluk tazelik ufkunu ayırmak ve yalnız o bağlamda geçerli, yakın pencerede bulunmayan biçimleri yarışta tutmak oldu. Metin/şablon eklenmedi. Son mekanizma bağımsız **24/24** doğumda geçti; birleşik hedefli regresyon A69/A20/A31/A138/A139/A140 **6/6** oldu. Kanıt: `/tmp/nora_a69_evidence.json` (SHA-256 `630290dfcae4b81d6d4762221e2ed9a6144ad01eecd5c7cb579b25a616884425`). İlk 136/137 koşu final sayılmaz.
+
+### Regresyon ve sınır
+
+- A140: **18/18 GEÇTİ** — model yokken taban seçim, gerçek model puanı, plan provenance’ı, olumlu/olumsuz anlam, 25 ablasyon, canlı 8 sınırı, tam corpus kapsaması, yapı/şema öğrenimi, eğitim sonrası puan değişimi, held-out ezber yokluğu, serbest aday puanı ve bozuk-soru kapısı.
+- Hedefli regresyon: A138 **12/12**, A139 **16/16**; A140/A46/A47/A20/A31 **5/5**; son kalite değişikliklerinden sonra A140/A47/A41 **3/3**.
+- Temiz tam ana pil: **137/137 GEÇTİ (1011,3 sn)**, `KALDI=0`. Kanıt `/tmp/nora_full_training_transfer_final2.log`, SHA-256 `d2e1e66ab28493dd8ef371ee9b4cde345e73c1ca0c9c9b154bd9c5002c78dce8`. Önceki 136/137 koşu final sayılmadı.
+- Son statik denetim: `py_compile` ve `git diff --check` geçti; `nora_audit.py --check` **1122 toplam / 126 söylem**, fark **+0/+0**.
+
+Bu çalışma Nora’nın LLM düzeyinde genel ve akıcı cevaplar ürettiğini göstermez. Held-out top-1 hâlâ %29,77’dir; 234 ek cümle sınırlıdır ve serbest sinirsel üretimde kalite kapısı/semantik çapa gerekir. Kanıtlanan sonuç daha dardır: **ek Türkçe veri dil skorunu iyileştirebiliyor ve öğrenilmiş yapı artık ana görünür üretime ölçülebilir, söndürülebilir ve anlamı koruyan bir katkı veriyor; mimari “ne kadar veri verilirse verilsin aynı yüzey” zorunluluğu ölçülen yollarda kaldırıldı.**
+
+Kanıt: `/tmp/nora_training_ab_evidence.json` (SHA-256 `1e8f433cf2a6928453ded980e8d3022d80e9813dd506f12790bee3dd70ccbf0f`), `/tmp/nora_training_ab.log`, `/tmp/nora_training_ab.py`. Başlangıç modeli SHA-256 `d2af910c07986ae33bb0fcedfad1ddf62a0a43be24100025c6751e73a8a58222` ile değişmeden korunmuştur.
+
+---
+
+## Güncel derinlik — A141–A143, nöral öneri ve CCG (2026-10-29)
+
+### Konumlandırma ve başlangıç öncülleri
+
+**Nora, mantar cismi ilkesiyle çalışan biyolojik esinli bir zihin.** Buradaki iddia seyrek
+Kenyon-hücre temsili, APL tavanı ve dopamin-kapılı yerel öğrenmenin ölçülebilir katkısıdır;
+anatomik kopyalama veya fenomenal bilinç iddiası değildir.
+
+`COMPOSED_OF` gibi ilişki etiketleri, `nora_knowledge.py` içindeki Türkçe sözlük/çekim
+öncülleri ve ATP/DNA/RNA gibi kısaltmaların yazımını koruyan kurallar geliştirici tarafından
+verilmiş **bootstrap/iskelet** parçalarıdır. Bunlar başlangıç dilini ve ontolojiyi hızlandırır;
+fakat kendi kendine kavram kurma, nedensel anlama veya bağımsız AGI kanıtı sayılmaz. ATP'nin
+büyük harfle korunması yüzey normalizasyonudur, ATP'nin işlevini anlamak değildir. Ağır bir
+yeni alanı (örneğin kuantum) insan müdahalesi olmadan çok iyi kavrayacağına dair kanıt yoktur.
+
+Zekâ tek bir organda değil, öğrenen parçalarla elle kurulmuş bilişsel iskeletin birleşimindedir:
+nöral dil/ilişki önerileri, plastik mantar cismi ve dünya modelleri öğrenirken GWA, CA3, LCA,
+eşikler ve doğrulama kurallarının önemli kısmı mühendislik tasarımıdır. Bu hibrit yapı “tamamen
+kendi kendini kuran zekâ” olarak sunulmaz.
+
+### A141 — kavram kapsamı, gerçek boşluk ve kalıcılık
+
+Aves, hücre ve mitokondri öğretiminde yalnız cümleleri geri söylemek değil, doğru ilişki türü,
+kapsamlı sorgu, merakın kapanması, bağımsız sonraki kullanım ve save/load ölçüldü. A141
+**25/25** geçti. Memeli held-out zinciri ve yapısal öğretim kolu da korundu. Bu sonuç 31
+önermeyi 31 önerme olarak dökmek değil, yeni sorgularda ilişki kapsamının kullanılmasıdır;
+yine de biyoloji dışı genel anlama kanıtı değildir.
+
+### A142 — nöral top-5 öneri, sembolik kanıt
+
+Kapsamlı ilişki hattında karar yönü tersine çevrildi: nöral model serbest **ilk beş ilişki
+adayını** üretir, sembolik graf yalnız kanıt/doğrulama sağlar. `(mitokondri LOCATED_AT aves)`
+için kabul edilen aday sıra **4**tür; yani yalnız top-1 ezberi veya sembolik adayları yeniden
+sıralama değildir. Nöral-off durumunda aday/sonuç yok, validator-off durumunda kabul ve bilgi
+yazımı yoktur. Bağımsız sorgu “Mitokondri Aves'te bulunur.” ve kalıcılık korunur.
+
+Temiz, öğrenmeyen relational held-out ölçümü (18 hedef / 17 sorgu):
+
+| Önerici tohum | Top-1 / top-5 | Grounded top-1 / top-5 | Kanıtlı sorgu | Dayanaklı kabul |
+|---|---:|---:|---:|---:|
+| 1 | 5 / 17 | 4 / 15 | 17/17 | 15/17 |
+| 284 | 4 / 13 | 3 / 8 | 13/17 | 8/17 |
+
+Bu fark, her tohumda aynı güçlü genelleme olmadığını gösterir. A142 **13/13** geçti; nonce
+kontrolünde öğrenme güncellemesi 0 ve bellek değişikliği yoktur.
+
+### A143 — hedef iradesi ve yaşam döngüsü
+
+İnsan hedefi vermeden 1000 adımda **20 hedef üretildi, 9 çözüldü, 10 terk edildi ve 1 ortak
+alt-hedef birleşmesi** gerçekleşti; 960 adım boş/idle, süre 0,537 sn. Üç başarısızlıkta terk,
+yetenek yoklaması ve başarısız hedeflerden ortak unblock hedefi ölçüldü. A143 **12/12** geçti.
+Bu sayılar sınırlı yetenek envanterindeki işlevsel hedef seçimidir; bilinçli irade iddiası değildir.
+
+### Sürekli nedensel grafik ve otomatik mimari seçimi
+
+CCG hücresine GRU'ya paralel, her dizide sıfırdan başlayan öğrenilen sürekli bir biriktirici
+eklendi. Sönüm/reset ağırlıkları eğitimden öğrenilir; modulus veya görev ailesi modele verilmez.
+Sıfır-çıkışlı MLP artık adaptör eski GRU davranışını başlangıçta korur. Üretimdeki `auto` kapı
+summary-off/on adaylarını yalnız train/validation ile seçer; held-out, aile adı ve modulus
+karara girmez. Accepted/provisional, save/load, ablasyon ve production-gate ayrımları korunur.
+
+İlk selection kuralının bağımsız confirmation-1 ölçümü counter24'te **48/P0** kalarak
+**başarısız** oldu; bu kayıt silinmedi. Revizyon sonrası yeni veri/model tohumlarıyla tek
+seferlik confirmation-2, önceden bildirilen ölçütü geçti:
+
+| Görev | Baseline CCG | Otomatik CCG |
+|---|---:|---:|
+| counter12 | 52/64, P4 | 52/64, P4 |
+| counter16 | 48/64, P0 | **64/64, P16** |
+| counter24 | 48/64, P0 | **62/64, P16** |
+| reset | 54/64, P6 | **62/64, P14** |
+| affine | 2/64, P1 | **47/64, P3** |
+| ternary reset | 48/64, P3 | 48/64, P3 |
+| ternary weighted | 29/64, P0 | 29/64, P0 |
+
+Aynı geliştirme splitinde FST–CCG karşılaştırması (`runs/continuous_auto_v2.json`, 681,8 sn):
+
+| Görev | FST | CCG |
+|---|---|---|
+| counter12 | 0/64, bütçe aşımı | **53/64, P5** |
+| counter16 | 0/64, bütçe aşımı | **62/64, P14** |
+| counter24 | 0/64, bütçe aşımı | **64/64, P16** |
+| reset | 0/64, **candidate-limit** | **53/64, P5** |
+| affine | **64/64, 868 expansion** | 43/64, P2 |
+| ternary reset | 0/64, bütçe aşımı | **55/64, P8** |
+| ternary weighted | 0/64, bütçe aşımı | 34/64, **P0** |
+
+CCG her görevde üstün değildir: affine'de FST kazanır, weighted pozitif genellemesi çözülmemiştir.
+FST'de 1M expansion ve reset `candidate-limit` açık sorundur. Aday sayısını/bütçeyi körlemesine
+büyütmek veya belirsiz makineyi rastgele seçmek başarı olarak yazılmadı.
+
+### Güncel regresyon ve hâlâ açık sınırlar
+
+- Temiz tam ana pil **140/140 GEÇTİ (1161,3 sn)**; kanıt `runs/agi_battery_140.log`.
+- A73 **8/8**, kod-sözü toplamı **1124≤1125**, söylem 126; tavan ve test eşiği gevşetilmedi.
+- A142 **13/13**, A143 **12/12**; CCG ablasyon/save-load/production-gate kontrolleri **7/7**.
+- Ternary-weighted CCG **P0**, FST candidate-limit/arama patlaması ve uzun yaşamda konum
+  belirsizliği artışı (**0,14→0,51**) açık kaldı.
+- B2'nin olumlu sıfır-unutma sonucu yalnız nadir kaynaklı büyük arenaya özgüdür; başka rejimlere
+  genellenmez. Sandbox varyantları gerçek dünya veya çoklu alan kanıtı değildir.
+- Aynı görev/veri/bütçeyle küçük Transformer/LLM karşılaştırması **yapılmadı**. Mevcut FST ve
+  n-gram karşılaştırmaları “Transformer alternatifi” veya genel zekâ iddiası için yeterli değildir.
+
+Bu bölümdeki sonuçlar genel zekâ, fenomenal bilinç, sınırsız alan aktarımı veya insan müdahalesi
+olmadan her konuyu kavrama iddiası taşımaz. Ölçülen şey belirli görevlerdeki işlevsel nedensel
+değişim ve bağımsız held-out genellemedir.
