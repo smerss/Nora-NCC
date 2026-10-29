@@ -32,3 +32,4 @@ runs/continuous_*.json
 runs/relational_*.json
 runs/ccg_*.json
 runs/fst_*.json
+runs/transformer_*.json
