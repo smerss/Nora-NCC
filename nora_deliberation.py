@@ -79,7 +79,9 @@ class DeliberativeMind:
             return self._repeat(agi, raw, prev[-1], act)
 
         topic = self._topic(agi, raw) if act in ("attitude", "justify", "experience", "narrate") else ""
-        if act in ("attitude", "justify") and not topic:
+        if act in ("attitude", "justify", "narrate") and not topic:
+            # Açık 'bir şey anlat' isteğinde konu uydurulmaz; yaşanmış konuşma
+            # bağlamını bilen sohbet organı devralır.
             return None
         if act == "attitude":
             out = self._attitude(agi, topic)

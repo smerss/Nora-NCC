@@ -1,14 +1,20 @@
 {
   "toplam": 1122,
-  "soylem": 127,
+  "soylem": 126,
   "modul": {
+    "nora_abstract.py": {
+      "adet": 0
+    },
     "nora_agi.py": {
-      "adet": 182
+      "adet": 184
     },
     "nora_anlatim.py": {
       "adet": 0
     },
     "nora_apply.py": {
+      "adet": 0
+    },
+    "nora_architecture.py": {
       "adet": 0
     },
     "nora_autonomous_logic.py": {
@@ -21,9 +27,15 @@
       "adet": 0
     },
     "nora_broca.py": {
-      "adet": 26
+      "adet": 24
     },
     "nora_broca_net.py": {
+      "adet": 0
+    },
+    "nora_bus.py": {
+      "adet": 0
+    },
+    "nora_causal.py": {
       "adet": 0
     },
     "nora_chem.py": {
@@ -32,11 +44,17 @@
     "nora_code.py": {
       "adet": 8
     },
+    "nora_crossmodal.py": {
+      "adet": 0
+    },
     "nora_deliberation.py": {
       "adet": 5
     },
     "nora_discourse.py": {
-      "adet": 58
+      "adet": 57
+    },
+    "nora_drive.py": {
+      "adet": 0
     },
     "nora_ear.py": {
       "adet": 6
@@ -47,8 +65,17 @@
     "nora_entropy.py": {
       "adet": 0
     },
+    "nora_episodic.py": {
+      "adet": 0
+    },
     "nora_episteme.py": {
       "adet": 20
+    },
+    "nora_evolution.py": {
+      "adet": 0
+    },
+    "nora_forge.py": {
+      "adet": 0
     },
     "nora_frames.py": {
       "adet": 32
@@ -68,6 +95,9 @@
     "nora_lang.py": {
       "adet": 21
     },
+    "nora_laws.py": {
+      "adet": 0
+    },
     "nora_life.py": {
       "adet": 0
     },
@@ -76,6 +106,9 @@
     },
     "nora_meta.py": {
       "adet": 4
+    },
+    "nora_metacog.py": {
+      "adet": 0
     },
     "nora_mind.py": {
       "adet": 30
@@ -87,13 +120,22 @@
       "adet": 4
     },
     "nora_nervous.py": {
-      "adet": 18
+      "adet": 19
     },
     "nora_neuron.py": {
       "adet": 7
     },
+    "nora_objects.py": {
+      "adet": 0
+    },
     "nora_okul.py": {
       "adet": 45
+    },
+    "nora_planning.py": {
+      "adet": 0
+    },
+    "nora_prediction.py": {
+      "adet": 0
     },
     "nora_priors.py": {
       "adet": 0
@@ -104,14 +146,29 @@
     "nora_register.py": {
       "adet": 3
     },
+    "nora_reify.py": {
+      "adet": 0
+    },
+    "nora_schema.py": {
+      "adet": 0
+    },
     "nora_self.py": {
       "adet": 2
     },
     "nora_selfexam.py": {
       "adet": 0
     },
+    "nora_semantic_code.py": {
+      "adet": 0
+    },
+    "nora_sets.py": {
+      "adet": 0
+    },
     "nora_speculation.py": {
       "adet": 1
+    },
+    "nora_state.py": {
+      "adet": 0
     },
     "nora_stem.py": {
       "adet": 65
@@ -125,13 +182,22 @@
     "nora_style.py": {
       "adet": 4
     },
+    "nora_synth.py": {
+      "adet": 0
+    },
     "nora_think.py": {
       "adet": 19
+    },
+    "nora_translation.py": {
+      "adet": 0
     },
     "nora_turkce.py": {
       "adet": 0
     },
     "nora_voice.py": {
+      "adet": 0
+    },
+    "nora_workspace.py": {
       "adet": 0
     },
     "nora_world.py": {

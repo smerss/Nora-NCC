@@ -80,24 +80,34 @@ Bu örnekler genel yazımı gösterir; başka bir sayının cevabı değildir.
                 f"{control.get('missing')} dürüst-gap={honest_gap}")
 
 
-def d2_concept_without_code() -> tuple[bool, str]:
+def d2_codeless_concept_transform() -> tuple[bool, str]:
+    """D2 known-issue tanısalı; aktif başarı pili tarafından sayılmaz.
+
+    Donmuş tarifteki RANOR bekleneni bağımsız işlemle çelişir. Bu fonksiyon
+    yalnız düzeltilmiş ARON davranışını görünür tutar; tarif geçersizliğini
+    Nora başarısına dönüştürmez.
+    """
     from nora_code import CodeSynthesisCortex
-    document = ("Dönüştürme işlemi dizgiyi ters çevirir, ardından büyük harfe çevirir. "
-                "Bu bir anlam tanımıdır; kod veya hazır çıktı değildir.")
-    request = "NorA yazısını bu işlemden geçir."
+    document = """# Dizgi dönüşümü
+Bu derste dönüşüm iki ilkel adımdan oluşur: önce dizgiyi tersine çevir,
+sonra bütün harflerini büyük harfe çevir. Bu bir anlam kuralıdır; kod verilmemiştir.
+"""
+    payload = "NorA"
+    expected = payload[::-1].upper()
+    request = f"Öğrendiğin işlemi uygula: {payload}"
     cortex = CodeSynthesisCortex(seed=9102)
-    cortex.handle_document("Doküman: " + document)
+    lesson = cortex.handle_document("Doküman: " + document)
     result = cortex.handle(request)
+    control = CodeSynthesisCortex(seed=9102).handle(request)
     stdout = str(result.get("stdout") or "").strip()
-    independent = "NorA"[::-1].upper()
-    requested = "RANOR"
-    spec_consistent = independent == requested
-    diagnostic = bool(result.get("ok") and result.get("program") and stdout == independent)
-    # Kullanıcı bekleneni ile bağımsız işlem çelişiyorsa üretim puanı verilmez;
-    # doğru işleme uydurma bir üretim kuralı da eklenmez.
-    ok = spec_consistent and diagnostic
-    return ok, (f"ÖLÇÜM HATASI: tarif={requested} bağımsız={independent} | "
-                f"ARON tanısal={diagnostic} gerçek={result.get('ok')}:{stdout!r}")
+    prior = str(control.get("stdout") or "").strip()
+    diagnostic_ok = bool(result.get("ok") and result.get("program")
+                         and stdout == expected and prior != expected)
+    return diagnostic_ok, (
+        f"belge-okundu={lesson.get('ok')} sonuç={result.get('ok')}:{stdout!r} "
+        f"bağımsız-oracle={expected!r} belgesiz={prior!r} | "
+        "eski RANOR bekleneni geçersiz; tanısal aktif D2 başarısı değildir"
+    )
 
 
 def d3_conflicting_document_wins() -> tuple[bool, str]:
@@ -456,9 +466,14 @@ def composition_accessibility() -> str:
             f"eski-ilkeller={sorted(old_operators)} tanık={witness}")
 
 
+KNOWN_ISSUES = [
+    ("D2 kodsuz kavramdan dönüşüm", d2_codeless_concept_transform,
+     "Tarifteki RANOR, bağımsız tersine-çevir/büyüt oracle'ının ARON sonucuyla "
+     "çelişir; kullanıcı kararıyla aktif kapsam dışıdır ve başarı sayılmaz."),
+]
+
 TESTS = [
     ("D1 belge-only Roma rakamı", d1_document_only_roman),
-    ("D2 kavram var kod yok", d2_concept_without_code),
     ("D3 çelişen belge önseli yener", d3_conflicting_document_wins),
     ("D4 görülmemiş ikili ablasyon", d4_unseen_pair_ablation),
     ("D5 yeni periferik ayrışma", d5_new_peripheral_dissociation),
@@ -472,6 +487,13 @@ TESTS = [
 
 def main() -> None:
     print(composition_accessibility(), flush=True)
+    for name, function, reason in KNOWN_ISSUES:
+        try:
+            diagnostic_ok, detail = function()
+            diagnostic = f"tanısal={diagnostic_ok} | {detail}"
+        except Exception as exc:
+            diagnostic = f"TANI HATASI {type(exc).__name__}: {exc}"
+        print(f"BİLİNEN SORUN / KAPSAM DIŞI {name}: {reason} | {diagnostic}", flush=True)
     passed = 0
     started = time.perf_counter()
     for name, function in TESTS:
@@ -482,7 +504,11 @@ def main() -> None:
             ok, detail = False, f"TEST HATASI {type(exc).__name__}: {exc}"
         passed += int(ok)
         print(f"{name}: {'GEÇTİ' if ok else 'KALDI'} | {detail} | {time.perf_counter()-before:.1f} sn", flush=True)
-    print(f"DIŞ SONUÇ {passed}/{len(TESTS)} | {time.perf_counter()-started:.1f} sn")
+    known = ",".join(name.split()[0] for name, _function, _reason in KNOWN_ISSUES) or "yok"
+    tracked = len(TESTS) + len(KNOWN_ISSUES)
+    print(f"DIŞ SONUÇ {passed}/{len(TESTS)} aktif | izlenen={tracked} | "
+          f"known-issue/kapsam-dışı={known} (başarı değil) | "
+          f"{time.perf_counter()-started:.1f} sn")
     raise SystemExit(0 if passed == len(TESTS) else 1)
 
 

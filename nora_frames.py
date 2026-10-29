@@ -623,6 +623,12 @@ class ConstructionCortex:
         """Sözcük BİLİNMİYOR: anlam boşluğunu adıyla söyler, sorunun cevabının da bu yüzden
         verilemediğini açıklar ve araştırmaya/öğrenmeye yönelir. Hiçbir şey uydurulmaz."""
         target = mq.target
+        # Erken meta-soru yolu da aynı merak defterini kullanır; yalnız metinde
+        # 'merak listeme aldım' demek davranış kanıtı değildir.
+        try:
+            agi.life.note_unknown_concept(agi, target)
+        except Exception:
+            pass
         gen = self._quote_inflect(target, "GEN")
         acc = self._quote_inflect(target, "ACC")
         # 1) Dürüst boşluk: önce 'bilgim yok', sonra tam olarak neyi bilmediğim
@@ -671,6 +677,12 @@ class ConstructionCortex:
         # 3) Araştırma: kaynak açıksa gerçekten dene, yoksa merak listesine al (uydurma yok)
         learned_txt, reached = self._try_research(target, agi)
         if learned_txt:
+            try:
+                resolver = getattr(agi, "_resolve_concept_gap", None)
+                if resolver is not None:
+                    resolver(target)
+            except Exception:
+                pass
             body = f"{head}; araştırdım, artık biliyorum: {self._join_sentences(learned_txt)}"
             ask = self.rng.choice((
                 "Bunu sen de böyle mi biliyorsun?",

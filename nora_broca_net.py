@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import os
 import re
+import hashlib
 from collections import Counter
 
 import numpy as np
@@ -27,6 +28,450 @@ import torch.nn.functional as F
 from nora_voice import NF, SubwordTokenizer
 
 N_SPECIAL = 3          # PAD, BOS, EOS (sözlüğün sonuna eklenir)
+
+
+class NeuralRelationalProposer(nn.Module):
+    """Dağıtık bellekten iki dayanak seçip yapısal ilişki adayı üreten küçük ağ.
+
+    Çıktı katmanı sabit kavram sözlüğü değildir. İlişki ve nesne, o anki bellekteki
+    simgelere işaretçi skorlarıyla seçilir; böylece eğitimde görülmemiş kavram
+    adları da yeni bir sınıf eklenmeden taşınır. Grafik burada yoktur: modelin
+    kendi doğrudan gözlem belleği ve öğrenilen ağırlıkları kullanılır.
+
+    ``learn_correction`` yalnız bağımsız doğrulayıcının kabul ettiği bir düzeltmeyi
+    öğrenir. Son üretimde top-k adayları sembolik kanıt yerine geçmez.
+    """
+
+    def __init__(self, dim: int = 32, seed: int = 0, learning_rate: float = 0.01):
+        super().__init__()
+        self.dim = max(16, int(dim))
+        self.seed = int(seed)
+        torch.manual_seed(self.seed)
+        d = self.dim
+        self.symbol = nn.Linear(d, d)
+        self.encoder = nn.Sequential(nn.Linear(3 * d, 2 * d), nn.Tanh(), nn.Linear(2 * d, d), nn.Tanh())
+        self.pair_transform = nn.Sequential(
+            nn.Linear(4 * d + 8, 2 * d), nn.Tanh(), nn.Linear(2 * d, d), nn.Tanh(),
+        )
+        self.pair_score = nn.Linear(d, 1)
+        self.relation_pointer = nn.Sequential(nn.Linear(2 * d, d), nn.Tanh(), nn.Linear(d, 1))
+        self.object_pointer = nn.Sequential(nn.Linear(2 * d, d), nn.Tanh(), nn.Linear(d, 1))
+        self.opt = torch.optim.Adam(self.parameters(), lr=float(learning_rate))
+        self.memory: list[tuple[str, str, str]] = []
+        self._memory_set: set[tuple[str, str, str]] = set()
+        self._vectors: dict[str, torch.Tensor] = {}
+        self.enabled = True
+        self.corrections = 0
+        self.failures = 0
+        self.successful_proposals = 0
+        self.last_loss = 0.0
+
+    def _vector(self, symbol: str) -> torch.Tensor:
+        key = str(symbol)
+        cached = self._vectors.get(key)
+        if cached is not None:
+            return cached
+        digest = hashlib.sha256(key.encode("utf-8")).digest()
+        rng = np.random.default_rng(int.from_bytes(digest[:8], "little") + self.seed)
+        raw = rng.standard_normal(self.dim).astype(np.float32)
+        raw /= max(1e-6, float(np.linalg.norm(raw)))
+        vector = torch.from_numpy(raw)
+        self._vectors[key] = vector
+        return vector
+
+    def observe(self, subj: str, rel: str, obj: str) -> None:
+        triple = (str(subj), str(rel), str(obj))
+        if triple not in self._memory_set:
+            self._memory_set.add(triple)
+            self.memory.append(triple)
+
+    @staticmethod
+    def _cos(left: torch.Tensor, right: torch.Tensor) -> torch.Tensor:
+        return torch.nn.functional.cosine_similarity(left, right, dim=0).reshape(1)
+
+    def _encode(self, memory, query: str):
+        memory = [tuple(row) for row in memory]
+        concepts = sorted({str(query)} | {row[0] for row in memory} | {row[2] for row in memory})
+        relations = sorted({row[1] for row in memory})
+        if not memory or not relations:
+            raise ValueError("empty relational memory")
+        cindex = {symbol: i for i, symbol in enumerate(concepts)}
+        rindex = {symbol: i for i, symbol in enumerate(relations)}
+        cv = self.symbol(torch.stack([self._vector(symbol) for symbol in concepts]))
+        rv = self.symbol(torch.stack([self._vector(symbol) for symbol in relations]))
+        encoded = []
+        for subj, rel, obj in memory:
+            encoded.append(self.encoder(torch.cat([cv[cindex[subj]], rv[rindex[rel]], cv[cindex[obj]]])))
+        return memory, concepts, relations, cindex, rindex, cv, rv, torch.stack(encoded)
+
+    def _pairs(self, encoded, query: str):
+        memory, concepts, relations, cindex, rindex, cv, rv, mem = encoded
+        qv = self.symbol(self._vector(str(query)))
+        vectors, scores = [], []
+        n = len(memory)
+        for i in range(n):
+            for j in range(n):
+                if i == j:
+                    continue
+                left, right = memory[i], memory[j]
+                # Kavram eşleşmeleri dağıtık benzerlik olarak modele girer;
+                # ilişki adı için ayrı bir kural özelliği yoktur.
+                s_i, o_i = cv[cindex[left[0]]], cv[cindex[left[2]]]
+                s_j, o_j = cv[cindex[right[0]]], cv[cindex[right[2]]]
+                similarities = torch.cat([
+                    self._cos(s_i, s_j), self._cos(s_i, o_j),
+                    self._cos(o_i, s_j), self._cos(o_i, o_j),
+                    self._cos(qv, s_i), self._cos(qv, o_i),
+                    self._cos(qv, s_j), self._cos(qv, o_j),
+                ])
+                pair = self.pair_transform(torch.cat([
+                    mem[i], mem[j], mem[i] * mem[j], qv, similarities,
+                ]))
+                vectors.append(pair)
+                scores.append(self.pair_score(pair).reshape(()))
+        return (torch.stack(vectors) if vectors else torch.empty(0, self.dim),
+                torch.stack(scores) if scores else torch.empty(0), n)
+
+    @staticmethod
+    def _scoped(logits: torch.Tensor, allowed: set[int]) -> torch.Tensor:
+        mask = torch.full_like(logits, -1e9)
+        indices = sorted(int(index) for index in allowed)
+        if indices:
+            mask[indices] = logits[indices]
+        return mask
+
+    @staticmethod
+    def _pair_indices(index: int, n: int) -> tuple[int, int]:
+        # _pairs köşegenleri atlar: her satırda n-1 öğe vardır.
+        row = index // (n - 1)
+        offset = index % (n - 1)
+        col = offset if offset < row else offset + 1
+        return row, col
+
+    def learn_correction(self, memory, query: str, target, evidence_pair) -> float:
+        if not self.enabled:
+            return 0.0
+        target = tuple(target)
+        memory = [tuple(row) for row in memory]
+        if evidence_pair[0] == evidence_pair[1] or not 0 <= evidence_pair[0] < len(memory) \
+                or not 0 <= evidence_pair[1] < len(memory):
+            raise ValueError("invalid evidence pair")
+        if target[0] != str(query) or target[1] not in {row[1] for row in memory}:
+            raise ValueError("target is not pointer-decodable")
+        if target[2] not in ({str(query)} | {row[0] for row in memory} | {row[2] for row in memory}):
+            raise ValueError("target object is not in memory")
+        encoded = self._encode(memory, str(query))
+        memory, concepts, relations, cindex, rindex, cv, rv, mem = encoded
+        vectors, pair_logits, n = self._pairs(encoded, str(query))
+        first, second = evidence_pair
+        pair_index = first * (n - 1) + second - int(second > first)
+        pair_loss = torch.nn.functional.cross_entropy(
+            pair_logits.reshape(1, -1), torch.tensor([pair_index], dtype=torch.long),
+        )
+        pair_vector = vectors[pair_index]
+        rel_logits = self.relation_pointer(torch.cat([
+            pair_vector.unsqueeze(0).expand(len(relations), -1), rv,
+        ], dim=1)).reshape(-1)
+        obj_logits = self.object_pointer(torch.cat([
+            pair_vector.unsqueeze(0).expand(len(concepts), -1), cv,
+        ], dim=1)).reshape(-1)
+        rel_scope = {rindex[memory[first][1]], rindex[memory[second][1]]}
+        obj_scope = {cindex[str(query)]} | {
+            cindex[memory[index][position]] for index in (first, second) for position in (0, 2)
+        }
+        if rindex[target[1]] not in rel_scope or cindex[target[2]] not in obj_scope:
+            raise ValueError("target escapes evidence pointer scope")
+        rel_logits = self._scoped(rel_logits, rel_scope)
+        obj_logits = self._scoped(obj_logits, obj_scope)
+        rel_loss = torch.nn.functional.cross_entropy(
+            rel_logits.reshape(1, -1), torch.tensor([rindex[target[1]]], dtype=torch.long),
+        )
+        obj_loss = torch.nn.functional.cross_entropy(
+            obj_logits.reshape(1, -1), torch.tensor([cindex[target[2]]], dtype=torch.long),
+        )
+        loss = pair_loss + rel_loss + obj_loss
+        self.opt.zero_grad()
+        loss.backward()
+        nn.utils.clip_grad_norm_(self.parameters(), 1.0)
+        self.opt.step()
+        self.corrections += 1
+        self.last_loss = float(loss.detach())
+        return self.last_loss
+
+    @torch.no_grad()
+    def propose(self, query: str, *, memory=None, k: int = 5) -> list[dict]:
+        if not self.enabled:
+            return []
+        memory = self.memory if memory is None else [tuple(row) for row in memory]
+        if len(memory) < 2:
+            return []
+        encoded = self._encode(memory, str(query))
+        memory, concepts, relations, cindex, rindex, cv, rv, mem = encoded
+        vectors, pair_logits, n = self._pairs(encoded, str(query))
+        if not len(pair_logits):
+            return []
+        pair_logprob = torch.log_softmax(pair_logits, dim=0)
+        pair_order = torch.topk(pair_logprob, min(max(int(k) * 2, 6), len(pair_logits))).indices.tolist()
+        direct = set(memory)
+        candidates: dict[tuple, dict] = {}
+        for pair_index in pair_order:
+            first, second = self._pair_indices(pair_index, n)
+            pair_vector = vectors[pair_index]
+            rel_logits = self.relation_pointer(torch.cat([
+                pair_vector.unsqueeze(0).expand(len(relations), -1), rv,
+            ], dim=1)).reshape(-1)
+            obj_logits = self.object_pointer(torch.cat([
+                pair_vector.unsqueeze(0).expand(len(concepts), -1), cv,
+            ], dim=1)).reshape(-1)
+            rel_scope = {rindex[memory[first][1]], rindex[memory[second][1]]}
+            obj_scope = {cindex[str(query)]} | {
+                cindex[memory[index][position]] for index in (first, second) for position in (0, 2)
+            }
+            rel_logits = self._scoped(rel_logits, rel_scope)
+            obj_logits = self._scoped(obj_logits, obj_scope)
+            rel_lp = torch.log_softmax(rel_logits, dim=0)
+            obj_lp = torch.log_softmax(obj_logits, dim=0)
+            rel_top = torch.topk(rel_lp, min(3, len(rel_scope)))
+            obj_top = torch.topk(obj_lp, min(3, len(obj_scope)))
+            for ri, rs in zip(rel_top.indices.tolist(), rel_top.values.tolist()):
+                for oi, os in zip(obj_top.indices.tolist(), obj_top.values.tolist()):
+                    triple = (str(query), relations[ri], concepts[oi])
+                    if triple in direct:       # istenen şey hatırlama değil yeni öneri
+                        continue
+                    score = float(pair_logprob[pair_index] + rs + os)
+                    row = {"subj": triple[0], "rel": triple[1], "obj": triple[2],
+                           "score": score, "neural_pair": [memory[first], memory[second]],
+                           "neural": True}
+                    if triple not in candidates or score > candidates[triple]["score"]:
+                        candidates[triple] = row
+        ordered = sorted(candidates.values(), key=lambda row: (-row["score"], row["rel"], row["obj"]))
+        return ordered[:max(0, int(k))]
+
+    def export(self) -> dict:
+        return {
+            "kind": "neural_relational_proposer", "dim": self.dim, "seed": self.seed,
+            "weights": {key: value.detach().cpu().tolist() for key, value in self.state_dict().items()},
+            "memory": [list(row) for row in self.memory], "enabled": bool(self.enabled),
+            "corrections": self.corrections, "failures": self.failures,
+            "successful_proposals": self.successful_proposals,
+        }
+
+    def load_export(self, data: dict) -> None:
+        if not data or data.get("kind") != "neural_relational_proposer":
+            raise ValueError("invalid relational proposer")
+        weights = {key: torch.tensor(value, dtype=self.state_dict()[key].dtype)
+                   for key, value in (data.get("weights") or {}).items()}
+        self.load_state_dict(weights, strict=True)
+        self.memory = []
+        self._memory_set = set()
+        for row in data.get("memory") or ():
+            if len(row) == 3:
+                self.observe(*row)
+        self.enabled = bool(data.get("enabled", True))
+        self.corrections = int(data.get("corrections", 0) or 0)
+        self.failures = int(data.get("failures", 0) or 0)
+        self.successful_proposals = int(data.get("successful_proposals", 0) or 0)
+
+
+def bootstrap_relational_proposer(proposer: NeuralRelationalProposer, *,
+                                  examples: int = 300, seed: int = 0,
+                                  max_attempts: int | None = None) -> dict:
+    """Kavram adı vermeden, kendi başarısız önerilerinden genel aktarım öğren.
+
+    Rastgele nonce çizgeler kurulur; bağımsız sembolik doğrulayıcı geçerli iki-
+    dayanak sonuçları denetler. Doğrulayıcı biyoloji veya hedef kavram görmez.
+    Ağın top-1'i doğru sonucu kaçırırsa kanıt çifti bir düzeltme olarak öğrenilir;
+    doğruysa örnek tekrar edilip yapay epoch oluşturulmaz.
+    """
+    from nora_lang import GroundedConceptGraph
+    rng = np.random.default_rng(int(seed) + 81_773)
+    graph = GroundedConceptGraph(chem=None, seed=int(seed))
+    graph.clear_all_edges()
+    relations = ["ISA", "PART_OF", "CAUSES", "IF_THEN", "COMPOSED_OF",
+                 "LOCATED_AT", "HAS_PART", "CAN_DO"]
+    rule_counts: dict[str, int] = {}
+    attempts = failures = already = 0
+    max_attempts = int(max_attempts or max(1000, examples * 40))
+    alphabet = np.asarray(list("abcdefghijklmnpqrstuvwxyz"))
+
+    def nonce(index: int) -> str:
+        letters = "".join(rng.choice(alphabet, size=5).tolist())
+        return f"n{index}{letters}"
+
+    while proposer.corrections < int(examples) and attempts < max_attempts:
+        attempts += 1
+        nodes = [nonce(i) for i in range(4)]
+        rng.shuffle(nodes)
+        memory = []
+        for index in range(3):
+            left, right = nodes[index], nodes[index + 1]
+            if rng.random() < 0.5:
+                left, right = right, left
+            rel = str(rng.choice(relations))
+            memory.append((left, rel, right))
+        # Bazı bağlantısız/aykırı gözlemler dikkat seçimini kolay ezber olmaktan çıkarır.
+        if rng.random() < 0.7:
+            memory.append((str(rng.choice(nodes)), str(rng.choice(relations)),
+                           str(rng.choice(nodes))))
+        memory = list(dict.fromkeys(memory))
+        if len(memory) < 2:
+            continue
+        graph.clear_all_edges()
+        for subj, rel, obj in memory:
+            graph.add_edge(subj, rel, obj, source="doğuştan")
+        index_of = {triple: i for i, triple in enumerate(memory)}
+        valid = []
+        candidate_relations = sorted({row[1] for row in memory})
+        for query in nodes:
+            for rel in candidate_relations:
+                for obj in nodes:
+                    if obj == query or (query, rel, obj) in index_of:
+                        continue
+                    proof = graph.prove_candidate(query, rel, obj)
+                    if proof.get("status") != "proved" or len(proof.get("proof") or []) != 2:
+                        continue
+                    pair = []
+                    for edge in proof["proof"]:
+                        pair.append(index_of[(edge.subj, edge.rel, edge.obj)])
+                    if pair[0] == pair[1]:
+                        continue
+                    valid.append((rule_counts.get(proof["rule"], 0), rng.random(),
+                                  query, rel, obj, tuple(pair), proof["rule"]))
+        if not valid:
+            continue
+        valid.sort(key=lambda row: (row[0], row[1]))
+        _count, _tie, query, rel, obj, pair, rule = valid[0]
+        target = (query, rel, obj)
+        before = proposer.propose(query, memory=memory, k=5)
+        if before and (before[0]["subj"], before[0]["rel"], before[0]["obj"]) == target:
+            already += 1
+            proposer.successful_proposals += 1
+            rule_counts[rule] = rule_counts.get(rule, 0) + 1
+            continue
+        failures += 1
+        proposer.failures += 1
+        proposer.learn_correction(memory, query, target, pair)
+        rule_counts[rule] = rule_counts.get(rule, 0) + 1
+    return {
+        "attempts": attempts, "corrections": proposer.corrections,
+        "failed_before_correction": failures, "already_top1": already,
+        "rule_coverage": dict(rule_counts),
+        "complete": proposer.corrections >= int(examples),
+        "external_concepts": 0, "heldout_concepts_used": False,
+    }
+
+
+def measure_relational_transfer(proposer: NeuralRelationalProposer, *,
+                                graphs: int = 40, seed: int = 0) -> dict:
+    """Hiç düzeltme yapmadan yeni nonce grafiklerde top-1/top-5 aktarımı ölç.
+
+    Üçlünün rastgele üretilmesiyle, nöral dikkatin seçtiği iki dayanağın gerçek
+    kanıt çifti olması ayrılır. Ayrıca üretim sırasındaki ilk kanıtlı/yeni aday
+    ve onun dayanak eşleşmesi raporlanır. Bu fonksiyon ağırlık, bellek veya
+    ``corrections`` sayacını değiştirmez; held-out grafikler eğitime geri yazılmaz.
+    """
+    from nora_lang import GroundedConceptGraph
+    before_corrections = int(proposer.corrections)
+    before_memory = list(proposer.memory)
+    rng = np.random.default_rng(int(seed) + 181_243)
+    graph = GroundedConceptGraph(chem=None, seed=int(seed))
+    graph.clear_all_edges()
+    relations = ["ISA", "PART_OF", "CAUSES", "IF_THEN", "COMPOSED_OF",
+                 "LOCATED_AT", "HAS_PART", "CAN_DO"]
+    alphabet = np.asarray(list("abcdefghijklmnpqrstuvwxyz"))
+
+    def nonce(index: int) -> str:
+        letters = "".join(rng.choice(alphabet, size=5).tolist())
+        return f"n{index}{letters}"
+
+    stats = {"attempted_graphs": 0, "graphs": 0, "queries": 0, "targets": 0, "top1": 0,
+             "top5": 0, "grounded_top1": 0, "grounded_top5": 0,
+             "accepted_queries": 0, "grounded_accepted_queries": 0}
+    by_rule: dict[str, dict[str, int]] = {}
+    for _graph_index in range(max(0, int(graphs))):
+        stats["attempted_graphs"] += 1
+        nodes = [nonce(i) for i in range(4)]
+        rng.shuffle(nodes)
+        memory = []
+        for index in range(3):
+            left, right = nodes[index], nodes[index + 1]
+            if rng.random() < 0.5:
+                left, right = right, left
+            memory.append((left, str(rng.choice(relations)), right))
+        if rng.random() < 0.7:
+            memory.append((str(rng.choice(nodes)), str(rng.choice(relations)),
+                           str(rng.choice(nodes))))
+        memory = list(dict.fromkeys(memory))
+        graph.clear_all_edges()
+        for subj, rel, obj in memory:
+            graph.add_edge(subj, rel, obj, source="doğuştan")
+        index_of = {triple: i for i, triple in enumerate(memory)}
+        valid = []
+        for query in nodes:
+            for rel in sorted({row[1] for row in memory}):
+                for obj in nodes:
+                    if obj == query or (query, rel, obj) in index_of:
+                        continue
+                    proof = graph.prove_candidate(query, rel, obj)
+                    if proof.get("status") != "proved" or len(proof.get("proof") or []) != 2:
+                        continue
+                    pair = [index_of[(edge.subj, edge.rel, edge.obj)]
+                            for edge in proof["proof"]]
+                    if pair[0] == pair[1]:
+                        continue
+                    valid.append({
+                        "target": (query, rel, obj), "rule": proof["rule"],
+                        "proof_set": frozenset((edge.subj, edge.rel, edge.obj)
+                                               for edge in proof["proof"]),
+                    })
+        if valid:
+            stats["graphs"] += 1
+        for query in sorted({row["target"][0] for row in valid}):
+            targets = [row for row in valid if row["target"][0] == query]
+            candidates = proposer.propose(query, memory=memory, k=5)
+            stats["queries"] += 1
+            stats["targets"] += len(targets)
+            for target in targets:
+                rule = by_rule.setdefault(target["rule"], {
+                    "targets": 0, "top1": 0, "top5": 0, "grounded_top5": 0})
+                rule["targets"] += 1
+                matches = [row for row in candidates
+                           if (row["subj"], row["rel"], row["obj"]) == target["target"]]
+                if matches:
+                    stats["top5"] += 1
+                    rule["top5"] += 1
+                if candidates and (candidates[0]["subj"], candidates[0]["rel"],
+                                   candidates[0]["obj"]) == target["target"]:
+                    stats["top1"] += 1
+                    rule["top1"] += 1
+                grounded = [row for row in matches
+                            if frozenset(map(tuple, row["neural_pair"])) == target["proof_set"]]
+                if grounded:
+                    stats["grounded_top5"] += 1
+                    rule["grounded_top5"] += 1
+                if grounded and grounded[0] is candidates[0]:
+                    stats["grounded_top1"] += 1
+
+            accepted = None
+            accepted_proof_set = frozenset()
+            for row in candidates:
+                proof = graph.prove_candidate(row["subj"], row["rel"], row["obj"])
+                if proof.get("status") == "proved" and proof.get("novel"):
+                    accepted = row
+                    accepted_proof_set = frozenset(
+                        (edge.subj, edge.rel, edge.obj) for edge in proof["proof"])
+                    break
+            if accepted is not None:
+                stats["accepted_queries"] += 1
+                if frozenset(map(tuple, accepted["neural_pair"])) == accepted_proof_set:
+                    stats["grounded_accepted_queries"] += 1
+    stats["by_rule"] = by_rule
+    stats["learning_updates"] = int(proposer.corrections) - before_corrections
+    stats["memory_unchanged"] = proposer.memory == before_memory
+    stats["top5_rate"] = stats["top5"] / max(1, stats["targets"])
+    stats["grounded_top5_rate"] = stats["grounded_top5"] / max(1, stats["targets"])
+    stats["accepted_query_rate"] = stats["accepted_queries"] / max(1, stats["queries"])
+    return stats
 
 
 class BrocaNet(nn.Module):

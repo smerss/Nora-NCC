@@ -151,7 +151,7 @@ class SpeculativeCortex:
                     else:
                         cand = _r0
                 else:
-                    cand = '' 
+                    cand = ''
                 if cand and len(cand) >= 2:
                     verb, verb_idx = cand, _i
                     nouns = [n for n in nouns if not (verb.startswith(n[0]) and len(n[0]) >= 2)]

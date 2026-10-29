@@ -448,6 +448,10 @@ class NoraAGI:
         self.code_cortex = CodeSynthesisCortex(seed=seed + 61, pretrain=code_pretrain)
         self.last_epistemic: dict = {}
         self.last_code: dict = {}
+        # Nöral ilişki önerici isteğe bağlıdır; etkinleştirilmedikçe eski sembolik
+        # üretim ve A140/A141 yüzey yarışı aynen kalır.
+        self.relational_reasoner = None
+        self.last_deliberation: dict = {}
         self.last_utterance_class: dict = {}
         self._turn_mint_label: str = ""
         self.user_profiles: dict[str, dict[str, str]] = {}
@@ -472,6 +476,7 @@ class NoraAGI:
         self.pending_research: list[str] = []
         self.last_meta_question: dict | None = None
         self.last_structure: dict | None = None
+        self.last_corpus_learning: dict = {}
         # Açık kaynak isteğe bağlı: NORA_INTERNET=1 ise gerçek ağ kaynakları devreye girer.
         try:
             import os as _os
@@ -706,8 +711,57 @@ class NoraAGI:
             self.workspace = None
 
     def read_corpus(self, path: str):
-        """Nora'yı bir metinle baş başa bırakır: söz organı yalnızca bundan öğrenir (hangi dil olduğu fark etmez)."""
-        self.life.voice.hear_file(path, state_vector(self))
+        """Bir metni ses, cümle iskeleti ve söylem şeması düzeyinde öğren.
+
+        Önceki yol yalnız ``life.voice``ı besliyordu; ana cevap yarışındaki yapı
+        öğrenicileri corpusu hiç görmüyordu. Hazır cevap çıkarılmaz; her uygun
+        cümle her öğrenme kanalında bir kez işlenir (epoch yok) ve mevcut
+        yapı/şema kortekslerine gözlem olarak verilir. Dönen sayaçlar eğitimin
+        gerçekten aktığını kanıtlar.
+        """
+        voice = self.life.voice
+        organ = getattr(voice, "organ", None)
+        frames = getattr(self, "frames", None)
+        before = {
+            "heard_tokens": int(voice.heard_tokens),
+            "organ_seen": int(getattr(organ, "seen_tokens", 0) or 0),
+            "frames": int(frames.memory.learned_count) if frames is not None else 0,
+            "schemas": int(sum(self.schema_cortex.observed_human_styles.values())),
+        }
+        voice.hear_file(path, state_vector(self))
+        observed = 0
+        errors = 0
+        with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            while True:
+                chunk = f.read(2_000_000)
+                if not chunk:
+                    break
+                chunk += f.readline()
+                for sentence in re.split(r"(?<=[.!?…])\s+|\n+", chunk):
+                    words = re.findall(r"[\wçğıöşü]+", tr_lower(sentence))
+                    if not 3 <= len(words) <= 60:
+                        continue
+                    try:
+                        if getattr(self, "frames", None) is not None:
+                            self.frames.observe(sentence)
+                        self.schema_cortex.observe_human_schema(
+                            sentence, words, self.lang.morph, self.lang.graph.lexicon
+                        )
+                        observed += 1
+                    except Exception:
+                        errors += 1
+        organ = getattr(voice, "organ", None)
+        stats = {
+            "sentences": observed,
+            "heard_tokens": int(voice.heard_tokens) - before["heard_tokens"],
+            "organ_seen": int(getattr(organ, "seen_tokens", 0) or 0) - before["organ_seen"],
+            "frames": int(self.frames.memory.learned_count) - before["frames"]
+            if getattr(self, "frames", None) is not None else 0,
+            "schemas": int(sum(self.schema_cortex.observed_human_styles.values())) - before["schemas"],
+            "errors": errors,
+        }
+        self.last_corpus_learning = stats
+        return stats
 
     def attach_broca(self, path: str):
         """Sinirsel Broca artikülasyon organını bağlar (zihin karar verir, organ yalnızca dile döker)."""
@@ -759,9 +813,130 @@ class NoraAGI:
         out = self.speak_from_state(**kw)
         return out if self._voice_usable(out, kw.get("anchors")) else fallback
 
+    def _resolve_concept_gap(self, concept: str) -> bool:
+        """Doğrudan olgu öğrenilen kavramın merak/araştırma durumunu kapat.
+
+        Kullanıcının cümlesi tek başına başarı değildir: çözümleme gerçekten
+        kavramın ÖZNE olduğu geçerli bir kenar yazmış olmalıdır. Defter, iki
+        araştırma kuyruğu ve belirsizlik birlikte güncellenir; aksi hâlde Nora
+        bildiği konuyu hâlâ bilinmiyor diye araştırmaya devam eder.
+        """
+        c = tr_lower(concept or "").strip()
+        if not c:
+            return False
+        direct = [e for e in self.lang.graph._out_edges.get(c, ())
+                  if float(getattr(e, "weight", 1.0)) > 0.25 and e.rel != "PART_OF"]
+        if not direct:
+            return False
+        changed = False
+        gap = self.life.ledger.gaps.get(f"c:{c}")
+        if gap is not None and not gap.resolved:
+            gap.resolved = True
+            gap.pull = 0.0
+            changed = True
+        queues = [getattr(self.auto_net, "curiosity_queue", None),
+                  getattr(self, "pending_research", None),
+                  getattr(getattr(self, "frames", None), "pending", None)]
+        for queue in queues:
+            if not hasattr(queue, "__len__") or not hasattr(queue, "__iter__"):
+                continue
+            kept = [item for item in queue if tr_lower(str(item)).strip() != c]
+            if len(kept) == len(queue):
+                continue
+            if isinstance(queue, list):
+                queue[:] = kept
+            elif hasattr(queue, "clear") and hasattr(queue, "extend"):
+                queue.clear()
+                queue.extend(kept)
+            else:
+                continue
+            changed = True
+        node = self.auto_net.assemblies.get(c)
+        if node is not None and float(getattr(node, "uncertainty", 0.0)) > 0.25:
+            node.uncertainty = 0.20
+            changed = True
+        return changed
+
+    def _teach_sentence_and_resolve_gaps(self, raw: str, speaker: str = "insan") -> list:
+        """Bütün olgusal öğretim yollarında tek yazım/kapanış geçişi.
+
+        Structured-mint, değer öğretimi ve doğrudan tek-atış öğrenme aynı
+        kavram ağına yazar; boşluk defterinin yalnız bir kolda güncellenmesi
+        diğer kollarda öğrenilmiş konunun hâlâ araştırılmasına yol açar.
+        Kapanış yalnız ``teach_sentence`` gerçekten kenar döndürdükten sonra,
+        döndürülen her önermenin gerçek öznesi için denenir.
+        """
+        edges = self.lang.teach_sentence(raw, speaker=speaker) or []
+        reasoner = getattr(self, "relational_reasoner", None)
+        if reasoner is not None:
+            for learned_edge in edges:
+                reasoner.observe(learned_edge.subj, learned_edge.rel, learned_edge.obj)
+        for learned_edge in edges:
+            self._resolve_concept_gap(learned_edge.subj)
+        return edges
+
+    def enable_relational_reasoning(self, reasoner=None):
+        """Dağıtık önericiyi aç; mevcut doğrudan grafik kapanışını kopyalama.
+
+        Yalnız bundan sonraki gerçek öğretim olayları nöral belleğe akar. Böylece
+        sembolik grafikten toplu kapanış/cevap çalmak mümkün olmaz.
+        """
+        if reasoner is None:
+            from nora_broca_net import NeuralRelationalProposer
+            reasoner = NeuralRelationalProposer(seed=int(self.seed) + 142)
+        self.relational_reasoner = reasoner
+        return reasoner
+
+    def deliberate(self, topic: str, *, commit: bool = True) -> dict:
+        """Nöral top-5 → bağımsız grafik kanıtı → tek yeni sonuç.
+
+        Sembolik grafik aday/dikkat çifti üretmez. Nöral öneri kapalıysa veya beş
+        aday da kanıtlanamazsa hazır sembolik cevap devreye girmez.
+        """
+        reasoner = getattr(self, "relational_reasoner", None)
+        if reasoner is None:
+            result = {"status": "no-neural-proposer", "answer": "", "candidates": [],
+                      "novel": False, "committed": False}
+            self.last_deliberation = result
+            return result
+        proposals = reasoner.propose(tr_lower(topic).strip(), k=5)
+        rows = []
+        chosen = None
+        for proposal in proposals:
+            proof = self.lang.graph.prove_candidate(
+                proposal["subj"], proposal["rel"], proposal["obj"],
+            )
+            prop = Proposition(subj=self.lang.graph.surface_name(proposal["subj"]),
+                               rel=proposal["rel"],
+                               obj=self.lang.graph.surface_name(proposal["obj"]))
+            text = self.lang.broca.realize_prop(prop)
+            row = {**proposal, "text": text, "validation": proof.get("status"),
+                   "rule": proof.get("rule"), "novel": bool(proof.get("novel")),
+                   "proof": [(edge.subj, edge.rel, edge.obj)
+                             for edge in proof.get("proof") or []]}
+            rows.append(row)
+            if chosen is None and proof.get("status") == "proved" and proof.get("novel"):
+                chosen = row
+        result = {
+            "status": "accepted" if chosen is not None else "unresolved",
+            "answer": (tr_capitalize(str(chosen["text"]).strip().rstrip(".")) + ".")
+                      if chosen is not None else "",
+            "candidates": rows, "novel": chosen is not None,
+            "committed": False, "neural_candidates": len(proposals),
+        }
+        if chosen is not None and commit:
+            self.lang.graph.add_edge(
+                chosen["subj"], chosen["rel"], chosen["obj"],
+                source="sinirsel-çıkarım", weight=0.82,
+            )
+            result["committed"] = True
+        self.last_deliberation = result
+        return result
+
     def speak_unknown(self, concept: str, fallback: str = "") -> str:
         """Bilmediği şeyle karşılaşma: uydurmaz; boşluğu gerilim defterine yazar, elinde yarım iz (hipotez) varsa
         kesinliği söze yansır. Söz, öğrenilmiş söz organından çıkar."""
+        custom_fallback = bool(fallback)
         self.life.note_unknown_concept(self, concept)
         node = self.auto_net.assemblies.get(concept)
         fam = 0.0 if node is None else min(1.0, node.familiarity / 6.0)
@@ -775,11 +950,23 @@ class NoraAGI:
         out = self.speak_from_state(anchors=[concept], nov=1.0 - fam, fam=fam,
                                     conf=0.0 if trace is None else trace[0],
                                     tension=0.0 if g is None else g.tension)
-        # Artikülasyon organının sorusu yapısal maske sayesinde çapadan dışarı çıkamaz; anlam kaybolmasın
-        # diye önce bilmediğini söyler, ardından kendi merak sorusunu ekler (insan da öyle yapar).
-        if out and out.strip().endswith("?") and tr_lower(concept) in tr_lower(out):
+        # Soru işareti kalite muafiyeti değildir: kısa/bozuk 'X mi?' çıktısı da
+        # aynı kullanılabilirlik kapısından geçer. Geçerli merak sorusunda anlam
+        # kaybolmasın diye epistemik duruş önce açıkça söylenir.
+        if (out and out.strip().endswith("?") and tr_lower(concept) in tr_lower(out)
+                and self._voice_usable(out, [concept])):
             return f"{tr_capitalize(concept)} hakkında henüz bilgim yok; merak listeme aldım. {out.strip()}"
-        return out if self._voice_usable(out, [concept]) else fallback
+        if self._voice_usable(out, [concept]):
+            return out
+        if not custom_fallback:
+            # Hazır kavram cevabı değil, aynı genel sözdizimi motoruyla kurulan
+            # bilgi isteği: kavram yalnızca nesne yuvasına yerleşir.
+            query = SYN.realize_verb(VerbSpec(
+                verb_root="bil", obj=NP(concept, case="ACC"), question_yn=True,
+                tense="PRES", person="2SG",
+            ))
+            fallback = f"{fallback} {tr_capitalize(query)}?"
+        return fallback
 
     def proactive_line(self, kind: str = "", topic: str = "", tension: float = 0.0,
                        idle: float = 0.0, unanswered: int = 0) -> dict | None:
@@ -1553,7 +1740,8 @@ class NoraAGI:
                 _isq = ("?" in (text or ""))
                 _shape = self.style.decide(
                     self, is_question=_isq,
-                    has_inference=bool(getattr(self, "infer", None) and getattr(self.infer, "fresh", False)),
+                    has_inference=bool(getattr(self, "infer", None) and getattr(self.infer, "fresh", False)
+                                       and not getattr(self, "_repeat_locked", False)),
                     trust=float(self.chem.trust_of(_vid)),
                 )
                 ans = self.style.apply(ans, _shape, self, topic=getattr(self, "_last_focus", ""),
@@ -1562,7 +1750,8 @@ class NoraAGI:
             pass
         # SESİN KENDİSİNE TEPKİ: yeni bir ses ya da uzaktan gelen ses, cevabın tonunu değiştirir.
         try:
-            _note = "" if getattr(self, "_intent_locked", False) else self._perception_note()
+            _note = "" if (getattr(self, "_intent_locked", False)
+                           or getattr(self, "_repeat_locked", False)) else self._perception_note()
             if _note:
                 ans = f"{_note} {ans}"
         except Exception:
@@ -1600,7 +1789,8 @@ class NoraAGI:
                     if _speak_notice and _key_prev:
                         self._notice_spoken.add(_key_prev)
                     if not _quiet and "sessiz" not in _low and _speak_notice \
-                            and not getattr(self, "_intent_locked", False):
+                            and not (getattr(self, "_intent_locked", False)
+                                     or getattr(self, "_repeat_locked", False)):
                         _rng = getattr(self, "rng", None) or getattr(self, "random", None)
                         # Cevap zaten başka türlü söylendiyse eski cevabı ALINTILAMAK yersiz;
                         # yalnız "bunu sormuştun" farkındalığı kalır.
@@ -1715,6 +1905,7 @@ class NoraAGI:
         # gelen "bunu demin de sormuştun" süsü cevabı EZMEZ. Tekrar farkındalığı bir
         # süslemedir; ölçülmüş bir cevabın üstüne yazmak onu gasp etmektir.
         self._intent_locked = False
+        self._repeat_locked = False
         self._translation_output = False
         self._structured_output = False
         # --- TÜRKÇE EDİNİMİ: duyulan bilinmeyen fiil biçimleri, kendi çekim üreticisiyle
@@ -2085,6 +2276,18 @@ class NoraAGI:
                 _mq = self.frames.meta_question(raw)
             except Exception:
                 _mq = None
+            # Kişiye yönelen hâl/duyum sorusunda 'gerçekten' gibi bir zarf, sorunun
+            # konusu olamaz. Sözcük korteksi yalnız gerçek mention sorularını almalı.
+            if _mq is not None:
+                try:
+                    _social_mq = self.broca_organ.comprehend_discourse(
+                        raw, tr_lower(raw), self.lang.morph, self.lang.graph.lexicon
+                    )
+                    if (_social_mq.get("asks_wellbeing") or _social_mq.get("asks_obligation")
+                            or _social_mq.get("asks_why_speak")):
+                        _mq = None
+                except Exception:
+                    pass
             # TANIM sorusunda kavram ZATEN biliniyorsa söz, mevcut tanım korteksinindir;
             # sözcük korteksi yalnız 'bilmiyorum + araştırma' yolunu açar (yoksa daha zayıf
             # bir tanım metni ana hattı gölgeler: 'zürafanın uzun boynu var' kaybolurdu).
@@ -2111,6 +2314,18 @@ class NoraAGI:
                     _tgt = (getattr(_mq, "target", "") or "").strip()
                     _has_facts = bool(self.lang.graph._out_edges.get(_tgt)) if _tgt else False
                     _defer = bool(_has_facts and self.frames.known_word(_mq.target, self))
+                    # Birleşik kavramda mention çözümleyicisi yalnız ilk sözcüğü
+                    # hedefleyebilir ('Ökaryot hücre nedir?' -> 'ökaryot'). İlk
+                    # sözcükte kenar yok diye anı/alıntı yoluna dönmek, asıl kavramın
+                    # öğrenilmiş olgularını gasp eder. Ana bilgi hattının genel
+                    # toplayıcısı gerçek önerme buluyorsa cevap oraya bırakılır.
+                    if not _defer and _mq.kind == "DEFINITION" and "?" in raw:
+                        _u_mq = self.broca_organ.comprehend_discourse(
+                            raw, tr_lower(raw), self.lang.morph, self.lang.graph.lexicon
+                        )
+                        _defer = bool(self.broca_organ._gather_concept_propositions(
+                            _u_mq, self.lang.graph, self
+                        ))
                 except Exception:
                     _defer = False
             if _mq is not None and not _defer:
@@ -2320,6 +2535,29 @@ class NoraAGI:
             speech_plan=assoc.get("speech_plan"),
         )
 
+    def _concept_explanation(self, raw: str, topic: str = "") -> tuple[str, int, list[tuple[str, str, str]]]:
+        """Aynı kavram kanıtını hem tanım hem kapsamlı anlatım yolunda üret.
+
+        Dönen metin hazır cevap değildir; Broca'nın grafikten topladığı gerçek
+        önermelerin çekimidir. ``topic`` verilirse sorudaki öteki sözcükler yeni
+        konu gibi grafiği gezemez. İkinci değer kullanılan önerme sayısıdır.
+        """
+        organ = self.broca_organ
+        graph = self.lang.graph
+        u = organ.comprehend_discourse(raw, tr_lower(raw), self.lang.morph, graph.lexicon)
+        if topic:
+            u["stems"] = [topic]
+            u["phil_topic"] = ""
+        hits = organ._gather_concept_propositions(u, graph, self)
+        if not hits:
+            return "", 0, []
+        clauses, _nodes = organ._synthesize_philosophical_or_conceptual(
+            u, hits, self, schema_id="S0_YALIN", inner_intro="")
+        # Tekrar serzenişi ve algı notu bilgi kanıtını gasp etmez; ancak söz
+        # biçimi/beden sürüşü ayrı şeylerdir ve çalışmaya devam eder.
+        self._repeat_locked = True
+        return " ".join(clauses).strip(), len(hits), list(hits)
+
     def _handle_single_sentence(self, raw: str, speaker: str = "insan") -> str:
         wern = self.lang.wernicke
         broca = self.lang.broca
@@ -2327,6 +2565,14 @@ class NoraAGI:
         graph = self.lang.graph
         s_low = tr_lower(raw)
         bids: list[CorticalBid] = []
+        # Anlam çerçevesi sosyal sınıflandırmadan ÖNCE çözülür. Üçüncü şahıs
+        # biyoloji/fizik olgusu, içinde 'enerji' geçiyor diye kişisel anlatıya
+        # dönüşmemeli; kişisel hâl cümleleri zaten teach_fact üretmez.
+        try:
+            _fr_pre = wern.parse(raw)
+        except Exception:
+            _fr_pre = None
+        _world_fact_pre = bool(_fr_pre is not None and _fr_pre.kind in {"teach_fact", "teach_val"})
 
         # --- SÜTUN -1: KİŞİSEL ANLATI — karşıdaki kendi yaşantısını anlatıyorsa Nora ders vermez.
         # İnsan değil mi? Bir şey anlatan birine ansiklopedi maddesi okumayız; dinler, yansıtır, sorarız.
@@ -2336,7 +2582,7 @@ class NoraAGI:
             narration = self.discourse.narration_of(raw)
         except Exception:
             narration = None
-        if narration is not None:
+        if narration is not None and not _world_fact_pre:
             try:
                 nar_res = self.discourse.respond_narration(raw, self, narration)
                 # Yalın hâl bildirimi ('kafam çok karışık') duygudaşlık ister: hazır durum karşılığından üstün.
@@ -2364,11 +2610,6 @@ class NoraAGI:
 
         # Çerçeveyi BAŞTA bir kez çıkar: soru sözcüğü (nasıl/neden) ne istendiğini belirler ve
         # yanıt teklifleri ona göre süzülür. Aşağıda yeniden ayrıştırılmaz.
-        _fr_pre = None
-        try:
-            _fr_pre = wern.parse(raw)
-        except Exception:
-            _fr_pre = None
         _wh_pre = getattr(_fr_pre, "wh", "") if _fr_pre is not None else ""
         _wh_unans = False
         if _wh_pre in ("nasıl", "neden", "niye", "niçin") and _fr_pre is not None and _fr_pre.subj:
@@ -2576,7 +2817,8 @@ class NoraAGI:
         # --- SÜTUN 6: Wernicke Anlamsal Çerçeve (İçebakış, Aritmetik S2, İrade, 1-Atış Öğrenme ve Kavram Çıkarımı) ---
         # Emir/istek cümlesi ise çerçeve MUTLAKA ayrıştırılır: "bana bir şaka yap" gibi istekler
         # hazır bir durumsal karşılıkla geçiştirilmemeli, irade organına ulaşmalı.
-        if not bids or all(b.salience < 0.95 for b in bids) or self._looks_like_request(raw) or _wh_unans:
+        if (not bids or all(b.salience < 0.95 for b in bids) or self._looks_like_request(raw)
+                or _wh_unans or _world_fact_pre):
             fr = _fr_pre if _fr_pre is not None else wern.parse(raw)
 
             if fr.kind == "greeting":
@@ -2635,10 +2877,23 @@ class NoraAGI:
                 _macro_hit = next((m for m in self.macros if m in _raw_words), "")
                 _is_macro = fr.rel in ("yap", "uygula", "çalıştır", "başlat") and bool(
                     (fr.obj or "") in self.macros or _macro_hit)
-                if not _is_macro:
-                    bids.append(CorticalBid("prefrontal_volition", 0.992, 0.975,
-                                            self._handle_command(fr, speaker=speaker, raw=raw),
-                                            f"volition:{fr.rel}:{fr.obj}"))
+                _social_speech = bool(
+                    fr.rel in ("anlat", "söyle", "konuş", "sor") and conv_res is not None
+                )
+                if not _is_macro and not _social_speech:
+                    _deep = ""
+                    _n_deep = 0
+                    if fr.rel in {"anlat", "açıkla"} and any(k in s_low for k in (
+                            "hakkında", "her şey", "herşey", "ayrınt", "detay", "kapsamlı")):
+                        _deep, _n_deep, _deep_props = self._concept_explanation(raw)
+                    if _deep:
+                        wern.last_explanation = f"Kavram ağından {_n_deep} bağlantılı önerme sentezlendi"
+                        bids.append(CorticalBid("hippocampal_concept", 0.992, 0.975, _deep,
+                                                f"volition_concept:{fr.rel}:{_n_deep}"))
+                    else:
+                        bids.append(CorticalBid("prefrontal_volition", 0.992, 0.975,
+                                                self._handle_command(fr, speaker=speaker, raw=raw),
+                                                f"volition:{fr.rel}:{fr.obj}"))
             elif fr.kind == "teach_val":
                 arb = self.self_model.arbitrate_claim(fr.subj, fr.valence, speaker=speaker, channel=fr.sub_kind)
                 cur_sc = self.monologue.last_thought.schema_id if self.monologue.last_thought is not None else "S1_NEDEN_SONUC"
@@ -2669,7 +2924,7 @@ class NoraAGI:
                         "S2_SONUC_GEREKCE" if cur_sc == "S0_YALIN" else cur_sc,
                     )
                 else:
-                    self.lang.teach_sentence(raw, speaker=speaker)
+                    self._teach_sentence_and_resolve_gaps(raw, speaker=speaker)
                     if fr.subj in {"yiyecek", "su", "tehlike"}:
                         val_num = "+0.35" if fr.valence > 0 else "-0.35"
                         self.mind.hear(f"kural: {fr.subj} {val_num}", trust=self.chem.trust_of(speaker))
@@ -2685,7 +2940,7 @@ class NoraAGI:
                 # ve türetilmiş kurallardan (0.972) DAHA YÜKSEK ses alır: kanıt, etiketten üstündür.
                 _sal = 0.985 if arb.get("conflict") else 0.97
                 bids.append(CorticalBid("hippocampal_concept", _sal, 0.96, rep_v, f"teach_val:{fr.subj}"))
-            elif (fr.kind == "teach_fact" and conv_res is None and narration is None
+            elif (fr.kind == "teach_fact" and conv_res is None
                   and sit_res is not None and float(sit_res.get("confidence", 0.0)) >= 0.95):
                 # Sosyal nezaket kalıbı olgusal bilgi değildir ('kolay gelsin, işim var'): öğrenme yok.
                 pass
@@ -2700,62 +2955,54 @@ class NoraAGI:
                 _wrote = []
                 if fr.subj and fr.obj:
                     try:
-                        _wrote = self.lang.teach_sentence(raw, speaker=speaker) or []
+                        _wrote = self._teach_sentence_and_resolve_gaps(raw, speaker=speaker)
                     except Exception:
                         _wrote = []
-                if not _wrote:
-                    # YAZILMADIYSA "kodladım" DENMEZ: sahte öğrenme iddiası, hiç
-                    # öğrenmemekten kötüdür (sessiz yalan).
-                    raise _NoMint()
-                syn_tf = self.broca_organ.syn
-                c_tf = syn_tf.realize_verb(VerbSpec(
-                    verb_root="kodla", obj=NP("ilişki", mods=("bu",), case="ACC"),
-                    advs=("kendi başıma",), tense="PAST", person="1SG",
-                ))
-                bids.append(CorticalBid(
-                    "hippocampal_concept", 0.94, 0.93,
-                    f"{tr_capitalize(c_tf)}.",
-                    f"structured:{self._turn_mint_label}",
-                ))
-            elif fr.kind == "teach_fact" and conv_res is None and narration is None:
-                edges = self.lang.teach_sentence(raw, speaker=speaker)
+                if _wrote:
+                    syn_tf = self.broca_organ.syn
+                    c_tf = syn_tf.realize_verb(VerbSpec(
+                        verb_root="kodla", obj=NP("ilişki", mods=("bu",), case="ACC"),
+                        advs=("kendi başıma",), tense="PAST", person="1SG",
+                    ))
+                    bids.append(CorticalBid(
+                        "hippocampal_concept", 0.94, 0.93,
+                        f"{tr_capitalize(c_tf)}.",
+                        f"structured:{self._turn_mint_label}",
+                    ))
+                # Uzun/yan cümleli yapı kavram grafiğine tek özellik olarak
+                # yazılmadıysa burada ayrı bir grafik-öğrenme iddiası üretilmez.
+                # Gerçek structural ``ing_res`` için daha önce eklenen prefrontal
+                # teklif yarışta kalır; yakalanmayan özel durumla konuşma çökmez.
+            elif fr.kind == "teach_fact" and conv_res is None and (narration is None or _world_fact_pre):
+                edges = self._teach_sentence_and_resolve_gaps(raw, speaker=speaker)
                 if edges:
                     e0 = edges[0]
                     _node = self.auto_net.assemblies.get(e0.subj)
                     _fam = 0.0 if _node is None else min(1.0, _node.familiarity / 6.0)
                     self.auto_net.stimulate([e0.subj, e0.obj], valence=0.25, resolved_relations=1)
-                    if e0.subj not in self.auto_net.curiosity_queue and len(graph._out_edges.get(e0.subj, ())) < 2:
+                    _e0_gap = self.life.ledger.gaps.get(f"c:{e0.subj}")
+                    if (e0.subj not in self.auto_net.curiosity_queue
+                            and len(graph._out_edges.get(e0.subj, ())) < 2
+                            and not bool(_e0_gap is not None and _e0_gap.resolved)):
                         self.auto_net.curiosity_queue.append(e0.subj)
+                    # Kenar yazımı ve bütün ilgili boşlukların kapanışı ortak
+                    # öğretim geçişinde tamamlandı; burada yalnız davranış/iz sürülür.
                     wern.last_explanation = f"{e0.subj} ile {e0.obj} arasında {e0.rel} sinapsını epoch kullanmadan tek-atışta kurdum"
                     cur_sc = self.monologue.last_thought.schema_id if self.monologue.last_thought is not None else "S1_NEDEN_SONUC"
-                    _prop_txt = broca.realize_prop(Proposition(subj=e0.subj, rel=e0.rel, obj=e0.obj))
+                    _prop_txt = broca.realize_prop(Proposition(
+                        subj=graph.surface_name(e0.subj), rel=e0.rel, obj=graph.surface_name(e0.obj)))
                     # Cümle ortasında küçük harfle başlamasın; insan sözü büyük harfle kurulur.
                     _prop_txt = tr_capitalize(str(_prop_txt).strip().rstrip(".")) + "."
                     # Gerekçe: az önce kurulan önermenin kendisi. Çekirdek: öğrenme eylemi Broca'da çekimlenir.
                     _bind = SYN.realize_verb(VerbSpec(
                         verb_root="bağla", obj=NP("bilgi", poss=3, case="ACC"),
                         dat=NP("kavram ağı", poss=1, case="DAT"), tense="PAST", person="1SG"))
-                    # CANLI KARŞILIK: "kavram ağıma bilgisini bağladım" gibi makine öz-raporu
-                    # insan sözü değildir. Önce kendi tepkisini söyler, sonra olguyu anar.
-                    _reg = "want"
-                    try:
-                        _m = getattr(self, "register", None)
-                        _cur = float(getattr(self.chem, "da", 0.5))
-                        if _m is not None:
-                            _reg = _m.recommend(curiosity=_cur, bored=False, unknown=False)
-                    except Exception:
-                        _reg = "want"
-                    _react = None
-                    try:
-                        from nora_priors import _safe_format  # cümle veriden gelir
-                        _f2 = getattr(self, "priors", None)
-                        _react = _f2.pick("life.teach_reaction", {"register": _reg}, {},
-                                          prov=getattr(self, "provenance", None)) if _f2 else None
-                    except Exception:
-                        _react = None
-                    _rep_fb = (_react + " " + _prop_txt) if _react else _prop_txt
-                    rep_f = self.speak_or(_rep_fb, anchors=[e0.subj, e0.obj], nov=1.0 - _fam, fam=_fam,
-                                          conf=max(0.55, self._speaker_trust(speaker)))
+                    # Öğrenme onayı olguyla eşdeğer olmalıdır. Serbest söz organı
+                    # 'kalp' çapasından 'kalp sağlığına iyi gelir' gibi başka bir
+                    # iddia üretebilir; tek-atış öğrenmede bu artık kullanılmaz.
+                    # Genel 'peki nesi önemli?' sorusu da bilgi yerine geçmez.
+                    rep_f = _prop_txt
+                    self._intent_locked = True
                     bids.append(CorticalBid("hippocampal_concept", 0.94, 0.93, rep_f, f"1shot:{e0.subj}->{e0.obj}"))
             elif fr.kind == "yn_query":
                 rep_yn = None
@@ -2829,7 +3076,29 @@ class NoraAGI:
                             fr.subj = _rev.subj
                             hits = _rev_hits
                             break
-                if hits:
+                _rich_reply = ""
+                if hits and fr.rel == "ALL" and not _strict:
+                    _rich_reply, _rich_n, _rich_props = self._concept_explanation(raw, topic=fr.subj)
+                    if _rich_reply:
+                        # Basit tanımlar tekrar sorulduğunda aynı yüzeye kilitlenmez.
+                        # Çok-aşamalı zincirler ise Narrator'ın tek/çift-bağ çerçeveleriyle
+                        # kısaltılmaz; taksonomi ve parça-bütün kanıtı eksiksiz kalır.
+                        _simple_props = bool(
+                            0 < len(_rich_props) <= 2
+                            and all(tr_lower(s) == tr_lower(fr.subj) for s, _r, _o in _rich_props)
+                        )
+                        if _simple_props and getattr(self, "narrator", None) is not None:
+                            try:
+                                _rich_reply = self.narrator.render(
+                                    self, fr.subj, [(r, o) for _s, r, o in _rich_props],
+                                    _rich_reply, speaker=speaker,
+                                ) or _rich_reply
+                            except Exception:
+                                pass
+                        wern.last_explanation = f"Kavram ağında {fr.subj} için {_rich_n} bağlantılı önerme kullanıldı"
+                        bids.append(CorticalBid("hippocampal_concept", 0.95, 0.94, _rich_reply,
+                                                f"wh_deep:{fr.subj}:{_rich_n}"))
+                if hits and not _rich_reply:
                     # Sıralama anlam taşır: "X nedir?" sorusunda önce türü (ISA), sonra özelliği/parçası,
                     # en sonda nedeni gelir. Aksi hâlde "Uyku nedir?" sorusuna nedenle başlanıyordu.
                     _prio = {"ISA": 0, "HAS_PROP": 1, "HAS_PART": 2, "CAN_DO": 3, "USED_FOR": 4,
@@ -2895,7 +3164,7 @@ class NoraAGI:
                         except Exception:
                             pass
                     bids.append(CorticalBid("hippocampal_concept", 0.95, 0.94, _join_txt, f"wh:{fr.subj}"))
-                else:
+                elif not hits:
                     srec = self.self_model.somatic.get(fr.subj)
                     if srec is not None and srec.provenance in ("deneyim", "duyum"):
                         pol = "faydalı" if srec.effective_valence > 0 else "zararlı"
@@ -3676,13 +3945,7 @@ class NoraAGI:
                 tag = f"beden:{key}:{int(v * 100)}"
                 if tag not in told:
                     told.append(tag)
-                    mood = ""
-                    try:
-                        word = self.chem.intero_word_tr()
-                        mood = f", içim {word}" if word else ""
-                    except Exception:
-                        pass
-                    return f"Şu an {line}{mood}. Bunu kendim fark ediyorum; benim kendi derdim bu."
+                    return f"Şu an {line}."
         except Exception:
             pass
         # c) Kendi iç sesi (içerikli olanlardan)
@@ -3692,7 +3955,7 @@ class NoraAGI:
                 if len(body) < 16 or body in told:
                     continue
                 told.append(body)
-                return f"İçimden şu geçti: {tr_lower(body).rstrip('.')}."
+                return tr_capitalize(body.strip().rstrip(".")) + "."
         except Exception:
             pass
         return ""
@@ -7228,6 +7491,7 @@ class NoraAGI:
             "chem": self.chem.state_dict(),
             "self_model": self.self_model.state_dict(),
             "edges": [[e.subj, e.rel, e.obj, e.weight, e.source, e.speaker] for e in self.lang.graph.edges],
+            "display_names": dict(self.lang.graph.display_names),
             "fast_classes": self.fast.class_names,
             "user_profiles": self.user_profiles,
             "episodic_dialogue": self.broca_organ.episodic.state_dict(),
@@ -7260,6 +7524,8 @@ class NoraAGI:
             "num_facts": {a: dict(t) for a, t in (getattr(self, "num_facts", {}) or {}).items()},
             "reify": (self.reify.state() if getattr(self, "reify", None) is not None else {}),
             "driver": (self.driver.state() if getattr(self, "driver", None) is not None else {}),
+            "relational_reasoner": (self.relational_reasoner.export()
+                                    if getattr(self, "relational_reasoner", None) is not None else {}),
             "schema": (self.schema.state() if getattr(self, "schema", None) is not None else {}),
             "testimony": (self.testimony.state_dict() if getattr(self, "testimony", None) is not None else {}),
             "plans": {"goal": self._plan_goal, "steps": list(self.plans.get(self._plan_goal) or [])},
@@ -7324,6 +7590,7 @@ class NoraAGI:
         agi.lang.graph.clear_all_edges()
         for s, r, o, w, src, spk in meta["edges"]:
             agi.lang.graph.add_edge(s, r, o, source=src, speaker=spk, weight=float(w))
+        agi.lang.graph.display_names = {tr_lower(k).strip(): str(v) for k, v in (meta.get("display_names") or {}).items()}
         agi.user_profiles = dict(meta.get("user_profiles", {}))
         agi.broca_organ.episodic.load_state_dict(meta.get("episodic_dialogue", []))
         agi.monologue.load_state_dict(meta.get("monologue", {}))
@@ -7373,6 +7640,15 @@ class NoraAGI:
             agi._goals_done = int(meta.get("goals_done") or 0)
             if getattr(agi, "driver", None) is not None:
                 agi.driver.load_state(meta.get("driver") or {})
+            if meta.get("relational_reasoner"):
+                from nora_broca_net import NeuralRelationalProposer
+                _reasoner_data = meta.get("relational_reasoner") or {}
+                _reasoner = NeuralRelationalProposer(
+                    dim=int(_reasoner_data.get("dim", 32) or 32),
+                    seed=int(_reasoner_data.get("seed", agi.seed + 142) or 0),
+                )
+                _reasoner.load_export(_reasoner_data)
+                agi.relational_reasoner = _reasoner
             if getattr(agi, "schema", None) is not None:
                 agi.schema.load_state(meta.get("schema") or {}, agi.synth)
             # ÖZ-ÖĞRETİM DEFTERİ: kendi kendine öğrendikleri yeni oturumda da onda kalır.

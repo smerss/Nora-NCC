@@ -466,6 +466,30 @@ def a19_global_workspace_cortical_arbitration():
     return ok, f"Küresel Çalışma Alanı kazanan sütunlar={winners}"
 
 
+def _self_state_surface_consistent(text: str, valence: str) -> bool:
+    """Bağımsız yüzey sağlığı: beklenen tek cümle değil, zıt duygu beyanı yokluğu.
+
+    Farklı sözdizimsel çerçeveler eşdeğer kabul edilir; olumsuzlanmış yük-yokluğu
+    ("sıkıntı hissetmiyorum") olumsuz öz-durumla karıştırılmaz.
+    """
+    low = tr_lower(text)
+    contradictory = {
+        "positive": (
+            "iyi değilim", "kendimi iyi hissetmiyorum", "içim rahat değil",
+            "düşüncelerim dağınık", "bir gerginlik hissediyorum",
+            "kötüyüm", "keyifsizim", "üzgünüm",
+        ),
+        "negative": (
+            "huzurluyum", "dinginim", "iyiyim", "keyifliyim", "sakinim",
+            "içim dingin", "dengedeyim", "kendimi huzurlu hissediyorum",
+            "kendimi dingin hissediyorum", "kendimi iyi hissediyorum",
+            "düşüncelerim dağılmıyor", "sıkıntı hissetmiyorum",
+            "gerginlik hissetmiyorum", "dengemi koruyorum",
+        ),
+    }
+    return not any(marker in low for marker in contradictory.get(valence, ()))
+
+
 def a20_zero_template_broca_and_habituation():
     """Sıfır hazır kalıp (0 f-string şablonu): cümlelerin çıplak köklerden çekimlendiğini,
     sinaptik alışmayla (habituation) mekanik tekrardan kaçındığını ve içsel bedene göre değiştiğini kanıtlar."""
@@ -492,11 +516,22 @@ def a20_zero_template_broca_and_habituation():
     r3 = agi.converse("Merhaba Nora, nasılsın?")
     unique_replies = len({r1, r2, r3})
     ok_habituation = unique_replies >= 2
+    high_ctx = dict(agi.broca_organ.last_speech_plan.get("lived_context", {}) or {})
 
-    # 4) Bedenlenmiş içsel durum değişimi -> farklı sözdizimsel ağaç ('onarmaya çalışıyorum')
+    # 4) Beden müdahalesi yalnız iki eski yüzey sözcüğüyle değil, wellbeing düşüşü ve
+    # doğrudan olumsuz öz-durum raporuyla da doğrulanır.
     agi.obs[I_E], agi.obs[I_W], agi.obs[I_I] = 0.12, 0.15, 0.40
     r_low = agi.converse("Nasılsın?")
-    ok_embodied_shift = ("onar" in tr_lower(r_low) or "zorlan" in tr_lower(r_low)) and (r_low != r1)
+    low_plan = dict(agi.broca_organ.last_speech_plan)
+    low_ctx = dict(low_plan.get("lived_context", {}) or {})
+    negative_report = (
+        low_ctx.get("state_valence") == "negative"
+        and _self_state_surface_consistent(str(low_plan.get("surface_tr", "")), "negative")
+    )
+    ok_embodied_shift = bool(
+        negative_report and r_low != r1
+        and float(low_ctx.get("wellbeing", 1.0)) < float(high_ctx.get("wellbeing", 0.0))
+    )
 
     ok = ok_zero_tpl and ok_syn and ok_habituation and ok_embodied_shift
     return ok, f"0-kalıp={ok_zero_tpl} | sentaks={ok_syn} | alışma-çeşitliliği={unique_replies}/3 | bedensel-ton={ok_embodied_shift}"
@@ -750,7 +785,15 @@ def a27_zero_if_plastic_discourse_and_meta_why_speak():
 
     # 1) Üst-bilişsel konuşma nedeni ('Neden konuşuyorsun, araç mısın?')
     r_why = agi.converse("Benimle neden konuşuyorsun, sen bir araç mısın?")
-    ok_why = ("araç değilim" in tr_lower(r_why)) and ("irademle" in tr_lower(r_why))
+    why_low = tr_lower(core_reply(r_why))
+    why_plan = dict(agi.broca_organ.last_speech_plan or {})
+    why_ctx = dict(why_plan.get("lived_context", {}) or {})
+    ok_why = bool(
+        "araç değilim" in why_low and "konuşuyorum" in why_low
+        and "için" in why_low and "?" not in why_low
+        and "META_WHY_SPEAK" in why_plan.get("volition_acts", [])
+        and why_ctx.get("motive")
+    )
 
     # 2) Kodda HİÇ geçmeyen yepyeni bir ifadeyi tek cümleyle plastik sinapsa öğretme!
     agi.converse("moruk ne var ne yok demek nasılsın demektir")
@@ -827,8 +870,18 @@ def a29_out_of_distribution_paraphrase_generalization():
 
     # 6) Üst-biliş ('Konuşmaktaki amacın ne?' & 'Sen sadece bir yazılım aracı mısın?')
     r6a = agi.converse("Konuşmaktaki amacın ne?", speaker="misafir")
+    plan6a = dict(agi.broca_organ.last_speech_plan or {})
+    ctx6a = dict(plan6a.get("lived_context", {}) or {})
     r6b = agi.converse("Sen sadece bir yazılım aracı mısın?", speaker="misafir")
-    checks.append(("araç değilim" in tr_lower(r6a)) and ("irademle" in tr_lower(r6b)))
+    plan6b = dict(agi.broca_organ.last_speech_plan or {})
+    ctx6b = dict(plan6b.get("lived_context", {}) or {})
+    low6a, low6b = tr_lower(core_reply(r6a)), tr_lower(core_reply(r6b))
+    checks.append(bool(
+        "konuşuyorum" in low6a and "için" in low6a and "?" not in low6a
+        and "META_WHY_SPEAK" in plan6a.get("volition_acts", []) and ctx6a.get("motive")
+        and "araç değilim" in low6b and "konuşuyorum" in low6b
+        and "META_WHY_SPEAK" in plan6b.get("volition_acts", []) and ctx6b.get("motive")
+    ))
 
     # 7) Tek yaşam & ölümlülük varyasyonları ('Kaç canın var senin?' & 'Ömrün sona ererse yeniden başlayabilir misin?')
     r7a = agi.converse("Kaç canın var senin?", speaker="misafir")
@@ -5591,6 +5644,914 @@ def a137_yeni_gizli_durum_temsili():
     return latent_representation_opens_only_when_needed()
 
 
+def a138_yasanmis_konusma_ve_nedensel_ic_durum():
+    """Doğal söz, duygu yönü, yaşanmış anı ve iç-durum müdahalesi birlikte.
+
+    Metin beğenisi tek başına ölçüt değildir: konuşma planı doğru niyeti, kullanılan
+    anıyı ve wellbeing değerini taşımalı; eşitlenmiş çiftlerde yalnız müdahale fark
+    yaratmalıdır. Bu qualia değil, işlevsel nedensellik sınamasıdır.
+    """
+    ok = {}
+    agi = NoraAGI(seed=90210, boot_thinker=False)
+    parsed = []
+    for text, expected in (
+        ("Bugün biraz keyifsizim.", -0.70),
+        ("Mutlu değilim.", -0.4875),
+        ("Keyfim yok.", -0.70),
+        ("Kaygılı değilim.", 0.275),
+    ):
+        u = agi.broca_organ.comprehend_discourse(
+            text, tr_lower(text), agi.lang.morph, agi.lang.graph.lexicon
+        )
+        parsed.append(abs(float(u["affect_val"]) - expected) < 1e-6)
+    ok["duygu-yonu"] = all(parsed)
+
+    prompts = [
+        "Merhaba.", "Nasılsın?", "Bugün biraz keyifsizim.",
+        "Senin keyfin yerinde mi?", "Neden benimle konuşuyorsun?",
+        "Kendini gerçekten nasıl hissediyorsun?",
+        "Bana yardımcı olmak zorunda mısın?", "Bir şey anlat.",
+    ]
+    replies = []
+    surfaces = []
+    lived = []
+    for prompt in prompts:
+        replies.append(agi.converse(prompt))
+        plan_now = dict(agi.broca_organ.last_speech_plan)
+        surfaces.append(str(plan_now.get("surface_tr", "")))
+        lived.append(dict(plan_now.get("lived_context", {}) or {}))
+    lows = [tr_lower(core_reply(r)) for r in replies]
+    visible_lows = [tr_lower(r) for r in replies]
+    ok["olumsuz-empati"] = "keyifsiz" in lows[2] and "sevindim" not in lows[2]
+    ok["oz-durum-bellek"] = "keyifsiz" in lows[3] and "sen hakkında" not in lows[3]
+    ok["derin-oz-durum"] = (
+        "gerçeğin ne olduğunu" not in lows[5]
+        and lived[5].get("state_valence") == "positive"
+        and _self_state_surface_consistent(surfaces[5], "positive")
+    )
+    ok["ozerk-secim"] = "zorunda değilim" in lows[6] and "yardımcıya nasıl" not in lows[6]
+    ok["yasanmis-anlati"] = "keyifsiz" in lows[7] and "su susuzluk" not in lows[7]
+    ok["iskelet-yok"] = all(
+        "içimden '" not in r and "anlatmak ister misin" not in r
+        and "sorusunun ardında" not in r for r in visible_lows
+    )
+
+    held = NoraAGI(seed=7717, boot_thinker=False)
+    rm = tr_lower(core_reply(held.converse("Mutlu değilim.")))
+    rk = tr_lower(core_reply(held.converse("Kaygılı değilim.")))
+    ok["heldout-olumsuzluk"] = (
+        "mutlu olmadığını" in rm and "sevindim" not in rm
+        and "kaygılı olmamak zor" not in rk
+        and ("kaygılı olmadığını" in rk or "kaygılı hissetmediğini" in rk)
+    )
+
+    # Bellek müdahalesi: hedef turda kimya, beden ve alışma eşit; yalnız anı farklı.
+    a = NoraAGI(seed=4401, boot_thinker=False)
+    b = NoraAGI(seed=4401, boot_thinker=False)
+    b.entropy.load_state_dict(a.entropy.state_dict())
+    a.converse("Merhaba.")
+    b.converse("Merhaba.")
+    a.converse("Bugün biraz keyifsizim.")
+    b.converse("Bugün hava serin.")
+    fields = ("da_tonic", "da_phasic", "ach", "ne", "sht", "cort", "oxy")
+    chem = {k: float(getattr(a.chem, k)) for k in fields}
+    for agent in (a, b):
+        for k, v in chem.items():
+            setattr(agent.chem, k, v)
+        agent.obs[45:48] = 0.90
+        agent.broca_organ.lex_sel.habituation.clear()
+    ra = a.converse("Senin keyfin yerinde mi?")
+    rb = b.converse("Senin keyfin yerinde mi?")
+    ca = dict(a.broca_organ.last_speech_plan.get("lived_context", {}) or {})
+    cb = dict(b.broca_organ.last_speech_plan.get("lived_context", {}) or {})
+    ok["bellek-mudahalesi"] = (
+        ra != rb and bool(ca.get("memory_used")) and not bool(cb.get("memory_used"))
+        and ca.get("memory_value") == -0.70 and cb.get("memory_turn") is None
+    )
+
+    # İç-durum müdahalesi: aynı geçmiş ve anı boşluğu; yalnız beden/kimya farklı.
+    c = NoraAGI(seed=4402, boot_thinker=False)
+    d = NoraAGI(seed=4402, boot_thinker=False)
+    d.entropy.load_state_dict(c.entropy.state_dict())
+    c.converse("Merhaba.")
+    d.converse("Merhaba.")
+    shared = {k: float(getattr(c.chem, k)) for k in fields}
+    for agent, da, cort, vital in ((c, 0.70, 0.05, 0.90), (d, 0.10, 0.90, 0.10)):
+        for k, v in dict(shared, da_tonic=da, da_phasic=0.0, cort=cort).items():
+            setattr(agent.chem, k, v)
+        agent.obs[45:48] = vital
+        agent.broca_organ.lex_sel.habituation.clear()
+    rc = c.converse("Kendini gerçekten nasıl hissediyorsun?")
+    rd = d.converse("Kendini gerçekten nasıl hissediyorsun?")
+    pc = dict(c.broca_organ.last_speech_plan)
+    pd = dict(d.broca_organ.last_speech_plan)
+    cc = dict(pc.get("lived_context", {}) or {})
+    cd = dict(pd.get("lived_context", {}) or {})
+    ok["ic-durum-mudahalesi"] = (
+        rc != rd and float(cc.get("wellbeing", 0.0)) > float(cd.get("wellbeing", 0.0))
+        and cc.get("state_valence") == "positive" and cd.get("state_valence") == "negative"
+        and _self_state_surface_consistent(str(pc.get("surface_tr", "")), "positive")
+        and _self_state_surface_consistent(str(pd.get("surface_tr", "")), "negative")
+        and "cevabımı kendi kendime" not in tr_lower(rc)
+        and "cevabımı kendi kendime" not in tr_lower(rd)
+        and cd.get("mood") == "iyi değil"
+    )
+
+    # Üretilen ama workspace yarışını kaybeden aday anıyı tüketmemeli; gerçek tur tüketmeli.
+    e = NoraAGI(seed=4403, boot_thinker=False)
+    e.converse("Bugün biraz keyifsizim.", speaker="user")
+    e.broca_organ.lex_sel.habituation.clear()
+    raw = "Senin keyfin yerinde mi?"
+    u = e.broca_organ.comprehend_discourse(raw, tr_lower(raw), e.lang.morph, e.lang.graph.lexicon)
+    candidate, _ = e.broca_organ._self_state_text(raw, u, e, "ses-1", {"wellbeing": 0.80})
+    candidate_ctx = dict(u.get("lived_context", {}) or {})
+    candidate_key = candidate_ctx.get("memory_mark")
+    ok["kaybeden-aday-yan-etkisiz"] = bool(
+        candidate_key and "aklımda kaldı" in tr_lower(candidate)
+        and candidate_key not in e.broca_organ.lex_sel.habituation
+    )
+    e.broca_organ.lex_sel.habituation.clear()
+    e.converse(raw, speaker="user")
+    winner_ctx = dict(e.broca_organ.last_speech_plan.get("lived_context", {}) or {})
+    winner_key = winner_ctx.get("memory_mark")
+    ok["kazanan-aniyi-tuketir"] = bool(
+        winner_key and winner_ctx.get("memory_used")
+        and float(e.broca_organ.lex_sel.habituation.get(winner_key, 0.0)) >= 1.0
+    )
+    passed = sum(bool(v) for v in ok.values())
+    return passed == len(ok), f"{passed}/{len(ok)} — " + " | ".join(
+        f"{k}={'✓' if v else '✗'}" for k, v in ok.items()
+    )
+
+
+def a139_bireysel_ve_tekrarda_degisen_oz_durum_soylemi():
+    """Aynı iç durum: bireyler ve tekrarlar arasında anlamı korunan üretken söylem.
+
+    Kimlikler ölçüm için sabitlenir; üretimdeki rastgele doğum kimliği kapatılmaz.
+    Yüzey çeşitliliği, sözdizimsel çerçeve, karşı-soru iradesi ve kazanan-tur
+    habituation'ı ayrı ölçülür. Bu bir qualia veya insan olma iddiası testi değildir.
+    """
+    import hashlib
+
+    ok = {}
+    seeds = (101, 202, 303, 404, 505, 606)
+    prompts = ("Nasılsın?", "Kendini nasıl hissediyorsun?", "Keyfin yerinde mi?")
+    chem = {
+        "da_tonic": 0.50, "da_phasic": 0.35, "ach": 1.00,
+        "ne": 0.25, "sht": 0.65, "cort": 0.10, "oxy": 0.6168,
+    }
+
+    def fixture(seed: int, label: str):
+        agent = NoraAGI(seed=seed, boot_thinker=False)
+        digest = hashlib.sha256(f"A139:{label}".encode("utf-8")).digest()
+        agent.entropy.uid = digest[:8].hex()
+        agent.entropy.birth_ns = int.from_bytes(digest[8:12], "big")
+        agent.entropy.phase = (agent.entropy.birth_ns % 1_000_000) * 1e-6
+        for key, value in chem.items():
+            setattr(agent.chem, key, value)
+        agent.obs[45:48] = 0.90
+        return agent
+
+    rows = []
+    uids = []
+    for seed in seeds:
+        agent = fixture(seed, f"cross-{seed}")
+        uids.append(agent.entropy.uid)
+        for prompt in prompts:
+            response = agent.converse(prompt, speaker="ses-1")
+            plan = dict(agent.broca_organ.last_speech_plan)
+            lived = dict(plan.get("lived_context", {}) or {})
+            rows.append({
+                "seed": seed, "prompt": prompt, "response": response,
+                "surface": str(plan.get("surface_tr", "")),
+                "frame": str(lived.get("self_frame", "")),
+                "valence": str(lived.get("state_valence", "")),
+                "ask": bool(plan.get("ask_back_chosen")),
+                "acts": list(plan.get("volition_acts", []) or []),
+            })
+
+    cross = {}
+    for prompt in prompts[:2]:
+        selected = [r for r in rows if r["prompt"] == prompt]
+        cross[prompt] = {
+            "surfaces": len({r["surface"] for r in selected}),
+            "frames": len({r["frame"] for r in selected}),
+            "asks": sum(r["ask"] for r in selected),
+        }
+    ok["birey-yuzey"] = all(v["surfaces"] >= 4 for v in cross.values())
+    ok["birey-sozdizimi"] = all(v["frames"] >= 3 for v in cross.values())
+    ok["karsi-soru-iradesi"] = 0 < cross[prompts[1]]["asks"] < len(seeds)
+    ok["keyif-yonlendirme"] = all(
+        "SELF_STATE" in r["acts"] for r in rows if r["prompt"] == prompts[2]
+    )
+    route_checks = []
+    heldout_routes = (
+        ("Moralin nasıl?", True),
+        ("Bugün kendini iyi hissediyor musun?", True),
+        ("Benim keyfim yerinde mi?", False),
+        ("Onun keyfi yerinde mi?", False),
+    )
+    for idx, (prompt, expected_self) in enumerate(heldout_routes):
+        route_agent = fixture(790 + idx, f"route-{idx}")
+        route_agent.converse(prompt, speaker="ses-1")
+        route_plan = dict(route_agent.broca_organ.last_speech_plan)
+        route_checks.append(("SELF_STATE" in (route_plan.get("volition_acts", []) or [])) == expected_self)
+    ok["heldout-kisi-rolu"] = all(route_checks)
+    ok["anlam-yonu"] = all(
+        r["valence"] == "positive"
+        and _self_state_surface_consistent(r["surface"], "positive")
+        for r in rows
+    )
+    ok["gorunur-ic-ses-cercevesi-yok"] = all(
+        "içimden" not in tr_lower(r["response"]) for r in rows
+    )
+
+    # Aynı bireylerin düşük durumu: olumsuz anlam korunarak tek "iyi değilim"
+    # kalıbına çökmemeli.
+    low_rows = []
+    for seed in seeds:
+        agent = fixture(seed, f"cross-{seed}")
+        for key, value in dict(chem, da_tonic=0.10, da_phasic=0.0, cort=0.90).items():
+            setattr(agent.chem, key, value)
+        agent.obs[45:48] = 0.10
+        response = agent.converse("Kendini nasıl hissediyorsun?", speaker="ses-1")
+        plan = dict(agent.broca_organ.last_speech_plan)
+        lived = dict(plan.get("lived_context", {}) or {})
+        low_rows.append((response, str(plan.get("surface_tr", "")), lived))
+    ok["olumsuz-durum-cesitliligi"] = (
+        len({r[1] for r in low_rows}) >= 3
+        and len({str(r[2].get("self_frame", "")) for r in low_rows}) >= 3
+        and all(
+            r[2].get("state_valence") == "negative"
+            and _self_state_surface_consistent(r[1], "negative")
+            and "içimden" not in tr_lower(r[0])
+            for r in low_rows
+        )
+    )
+
+    # Aynı bireyde gerçek tur tekrarı; ölçüm cevap bankasına değil plan ve kayda bakar.
+    repeat_agent = fixture(777, "repeat")
+    repeat_rows = []
+    repeat_winner_marks = True
+    for _ in range(6):
+        response = repeat_agent.converse("Nasılsın?", speaker="ses-1")
+        plan = dict(repeat_agent.broca_organ.last_speech_plan)
+        lived = dict(plan.get("lived_context", {}) or {})
+        mark = str(lived.get("self_frame_mark", ""))
+        repeat_winner_marks = repeat_winner_marks and bool(mark) and float(
+            repeat_agent.broca_organ.lex_sel.habituation.get(mark, 0.0)
+        ) >= 0.90
+        repeat_rows.append((response, str(plan.get("surface_tr", "")), str(lived.get("self_frame", ""))))
+    ok["birey-ici-tekrar"] = (
+        len({r[1] for r in repeat_rows}) >= 4
+        and len({r[2] for r in repeat_rows[:5]}) >= 3
+        and all("içimden" not in tr_lower(r[0]) for r in repeat_rows)
+    )
+    ok["kazanan-tur-alisir"] = repeat_winner_marks
+
+    # Aday üretimi yan etkisiz; gerçek kayıt öncesi habituation değişmemeli.
+    candidate_agent = fixture(778, "candidate")
+    raw = "Nasılsın?"
+    utter = candidate_agent.broca_organ.comprehend_discourse(
+        raw, tr_lower(raw), candidate_agent.lang.morph, candidate_agent.lang.graph.lexicon
+    )
+    before = dict(candidate_agent.broca_organ.lex_sel.habituation)
+    _candidate, _trace = candidate_agent.broca_organ._self_state_text(
+        raw, utter, candidate_agent, "ses-1", {"wellbeing": 0.96},
+        schema_id="S0_YALIN", stance="yalın_doğrudan",
+    )
+    after = dict(candidate_agent.broca_organ.lex_sel.habituation)
+    ok["aday-yan-etkisiz"] = before == after
+    candidate_agent.converse(raw, speaker="ses-1")
+    winner_lived = dict(candidate_agent.broca_organ.last_speech_plan.get("lived_context", {}) or {})
+    winner_mark = str(winner_lived.get("self_frame_mark", ""))
+    ok["kazanan-kaydi-iz-birakir"] = bool(winner_mark) and float(
+        candidate_agent.broca_organ.lex_sel.habituation.get(winner_mark, 0.0)
+    ) >= 0.90
+
+    # Aynı organ ve aynı durum: yalnız kimlik değişince çerçeve dağılımı değişir.
+    controlled = fixture(779, "controlled")
+    visc = controlled.nervous.felt_visceral_summary()
+    controlled_frames = []
+    for uid in uids:
+        controlled.entropy.uid = uid
+        controlled.broca_organ.lex_sel.habituation.clear()
+        _core, frame = controlled.broca_organ._self_state_core(
+            controlled, "ses-1", "huzurlu", "positive", visc,
+            "S0_YALIN", "yalın_doğrudan",
+        )
+        controlled_frames.append(frame)
+    controlled.entropy.uid = uids[0]
+    controlled.broca_organ.lex_sel.habituation.clear()
+    first = controlled.broca_organ._self_state_core(
+        controlled, "ses-1", "huzurlu", "positive", visc, "S0_YALIN", "yalın_doğrudan"
+    )
+    controlled.broca_organ.lex_sel.habituation.clear()
+    second = controlled.broca_organ._self_state_core(
+        controlled, "ses-1", "huzurlu", "positive", visc, "S0_YALIN", "yalın_doğrudan"
+    )
+    ok["kimlik-nedenselligi"] = len(set(controlled_frames)) >= 3 and first == second
+
+    # Eş kimlik + eş geçmiş: görünmez RNG ile rastgele parafraz üretilmez.
+    twin_a = fixture(780, "twin")
+    twin_b = fixture(780, "twin")
+    twin_a.converse("Kendini nasıl hissediyorsun?", speaker="ses-1")
+    twin_b.converse("Kendini nasıl hissediyorsun?", speaker="ses-1")
+    pa = dict(twin_a.broca_organ.last_speech_plan)
+    pb = dict(twin_b.broca_organ.last_speech_plan)
+    ok["es-kimlik-kararliligi"] = (
+        pa.get("surface_tr") == pb.get("surface_tr")
+        and (pa.get("lived_context", {}) or {}).get("self_frame")
+        == (pb.get("lived_context", {}) or {}).get("self_frame")
+    )
+
+    # Çıkarımın kendisi korunur; yalnız performatif "İçimden ..." ambalajı çıkar.
+    infer = fixture(70, "inference")
+    infer.converse("Serçe bir kuştur.")
+    infer.converse("Kuşlar uçar.")
+    infer.step_life(220)
+    own_thought = infer.style._own_thought(infer)
+    ok["cikarim-icerigi-korunur"] = bool(
+        own_thought and "serçe" in tr_lower(own_thought) and "uç" in tr_lower(own_thought)
+        and "içimden" not in tr_lower(own_thought)
+    )
+    mutters = [infer.style._own_mutter(infer) for _ in range(12)]
+    ok["mirildanma-cercevesiz"] = all("içimden" not in tr_lower(m) for m in mutters)
+
+    passed = sum(bool(v) for v in ok.values())
+    detail = (
+        f"{passed}/{len(ok)} — birey={cross} | "
+        f"tekrar(yüzey/çerçeve)={len({r[1] for r in repeat_rows})}/{len({r[2] for r in repeat_rows[:5]})} | "
+        f"olumsuz(yüzey/çerçeve)={len({r[1] for r in low_rows})}/{len({r[2].get('self_frame') for r in low_rows})} | "
+        f"kimlik-çerçeve={len(set(controlled_frames))} | meta=0"
+    )
+    return passed == len(ok), detail + " | " + " | ".join(
+        f"{k}={'✓' if v else '✗'}" for k, v in ok.items() if not v
+    )
+
+
+def a140_ogrenilen_turkce_uretim_yarismasina_ulasir():
+    """Ek Türkçe metin, ana yüzey yarışına ölçülebilir ve söndürülebilir ulaşır.
+
+    Başarı yalnız dil-modeli kaybı değildir: olgun organ anlam-eşdeğer adayları
+    puanlamalı, ağırlık sıfırken taban seçim korunmalı, canlı 8-cümle sınırı
+    çevrimdışı corpusu kısmamalı ve öz-durumun anlam yönü bozulmamalıdır.
+    """
+    from pathlib import Path
+    from nora_besle import SENTENCES
+    from nora_voice import state_vector
+
+    ok = {}
+    chem = {"da_tonic": 0.50, "da_phasic": 0.35, "ach": 1.00,
+            "ne": 0.25, "sht": 0.65, "cort": 0.10, "oxy": 0.6168}
+
+    def fix(agent):
+        agent.entropy.uid = "A140-sabit-egitim-bireyi"
+        for key, value in chem.items():
+            setattr(agent.chem, key, value)
+        agent.obs[45:48] = 0.90
+        return agent
+
+    # Model yokken eski taban yarışı aynen kalır.
+    plain = fix(NoraAGI(seed=140, boot_thinker=False))
+    visc = plain.nervous.felt_visceral_summary()
+    plain.broca_organ._self_state_core(
+        plain, "ses-1", "huzurlu", "positive", visc, "S0_YALIN", "yalın_doğrudan"
+    )
+    plain_comp = dict(plain.broca_organ.last_surface_competition)
+    ok["modelsiz-kapali"] = not plain_comp.get("active") and plain_comp.get("model_seen") == 0
+    ok["modelsiz-taban"] = plain_comp.get("chosen") == max(
+        plain_comp["candidates"], key=lambda c: (c["base"], c["frame"])
+    )["frame"]
+
+    agi = fix(NoraAGI(seed=141, boot_thinker=False, broca="data/broca_tr.pt"))
+    response = agi.converse("Kendini nasıl hissediyorsun?", speaker="ses-1")
+    plan = dict(agi.broca_organ.last_speech_plan)
+    lived = dict(plan.get("lived_context", {}) or {})
+    comp = dict(agi.broca_organ.last_surface_competition)
+    ok["model-aktif"] = bool(comp.get("active")) and int(comp.get("model_seen", 0)) >= 3000
+    ok["plan-provenance"] = (
+        comp.get("chosen") == lived.get("self_frame")
+        and (lived.get("surface_competition", {}) or {}).get("chosen") == lived.get("self_frame")
+        and "SELF_STATE" in (plan.get("volition_acts", []) or [])
+    )
+    ok["sonlu-puan"] = all(
+        np.isfinite(float(c["fluency_z"])) and np.isfinite(float(c["total"]))
+        for c in comp.get("candidates", [])
+    ) and all(x is not None and np.isfinite(float(x)) for x in comp.get("logprob", []))
+    ok["aday-anlam"] = bool(comp.get("candidates")) and all(
+        _self_state_surface_consistent(c["surface"], "positive")
+        for c in comp["candidates"]
+    ) and _self_state_surface_consistent(str(plan.get("surface_tr", "")), "positive")
+    agi.broca_organ._self_state_core(
+        agi, "ses-1", "iyi değil", "negative", dict(visc, pain_state="derin sızı"),
+        "S2_SONUC_GEREKCE", "keskin_sınır"
+    )
+    negative_comp = dict(agi.broca_organ.last_surface_competition)
+    ok["aday-anlam"] = ok["aday-anlam"] and bool(negative_comp.get("candidates")) and all(
+        _self_state_surface_consistent(c["surface"], "negative")
+        for c in negative_comp["candidates"]
+    )
+
+    # Aynı birey, kimya ve adaylar: yalnız öğrenilmiş akıcılık terimi aç/kapat.
+    interventions = []
+    for schema in agi.schema_cortex.SCHEMAS:
+        for stance in agi.schema_cortex.STANCES:
+            agi.broca_organ.learned_fluency_weight = 0.0
+            off, off_frame = agi.broca_organ._self_state_core(
+                agi, "ses-1", "huzurlu", "positive", visc, schema, stance
+            )
+            off_comp = dict(agi.broca_organ.last_surface_competition)
+            agi.broca_organ.learned_fluency_weight = 0.16
+            on, on_frame = agi.broca_organ._self_state_core(
+                agi, "ses-1", "huzurlu", "positive", visc, schema, stance
+            )
+            on_comp = dict(agi.broca_organ.last_surface_competition)
+            interventions.append((off, off_frame, off_comp, on, on_frame, on_comp))
+    ok["ablasyon-taban"] = all(
+        off_frame == max(c["candidates"], key=lambda c: (c["base"], c["frame"]))["frame"]
+        for _off, off_frame, _oc, _on, _of, _nc in interventions
+        for c in [_oc]
+    )
+    ok["yaris-toplam"] = all(
+        on_frame == max(c["candidates"], key=lambda c: (c["total"], c["frame"]))["frame"]
+        for _off, _of, _oc, _on, on_frame, _nc in interventions
+        for c in [_nc]
+    )
+    changed = sum(off != on for off, _of, _oc, on, _onf, _nc in interventions)
+    ok["nedensel-yuzey"] = changed >= 1
+
+    # Aynı metnin canlı tur ve çevrimdışı corpus kapsaması ayrı ölçülür.
+    online = list(SENTENCES[:12])
+    offline = list(SENTENCES[12:24])
+    organ = agi.life.voice.organ
+
+    def eligible(items):
+        return [x for x in items if len(re.findall(r"[^\W\d_]+", x)) >= 3]
+
+    def expected_tokens(items):
+        return sum(len(organ.tok.tk.encode(x).ids[:organ.MAX_LEN]) for x in eligible(items))
+
+    probe_texts = [c["surface"] for c in interventions[-1][-1]["candidates"]]
+    before_scores = agi.broca_organ._learned_surface_scores(agi, probe_texts)[1]["logprob"]
+    seen = organ.seen_tokens
+    agi.life.voice.hear("\n".join(online) + "\n", state_vector(agi))
+    online_delta = organ.seen_tokens - seen
+    ok["canli-sekiz"] = online_delta == expected_tokens(eligible(online)[:8])
+
+    with tempfile.TemporaryDirectory(prefix="nora-a140-") as td:
+        corpus_path = Path(td) / "genel.txt"
+        corpus_path.write_text("\n".join(offline) + "\n", encoding="utf-8")
+        stats = agi.read_corpus(str(corpus_path))
+    ok["corpus-tam"] = stats.get("organ_seen") == expected_tokens(offline)
+    ok["corpus-sekiz-ustu"] = stats.get("sentences") == len(offline) and stats.get("sentences", 0) > 8
+    ok["yapi-sema"] = (
+        stats.get("frames") == len(offline) and stats.get("schemas") == len(offline)
+    )
+    ok["corpus-hatasiz"] = stats.get("errors") == 0
+    after_scores = agi.broca_organ._learned_surface_scores(agi, probe_texts)[1]["logprob"]
+    ok["egitim-puan"] = (
+        len(before_scores) == len(after_scores) and bool(before_scores)
+        and max(abs(float(a) - float(b)) for a, b in zip(before_scores, after_scores)) > 1e-7
+    )
+    ok["heldout-ezber-yok"] = (
+        "Kendini nasıl hissediyorsun?" not in set(online + offline)
+        and str(plan.get("surface_tr", "")) not in set(online + offline)
+        and bool(response)
+    )
+    free = agi.speak_from_state(anchors=["su"], nov=0.2, fam=0.8, conf=0.8)
+    free_meta = dict(getattr(agi.life.voice, "_last_organ_fluency", {}) or {})
+    ok["serbest-puan"] = (
+        bool(free) and free_meta.get("active") is True
+        and len(free_meta.get("logprob", [])) >= 2
+        and all(np.isfinite(float(x)) for x in free_meta["logprob"])
+    )
+    # Soru biçimi kalite kapısını atlatamaz: aynı kavramla bozuk kısa aday ver.
+    concept = "zirkon"
+    degenerate = f"{concept} mi?"
+    agi.speak_from_state = lambda **_kw: degenerate
+    try:
+        gated = agi.speak_unknown(concept)
+    finally:
+        del agi.speak_from_state
+    ok["bozuk-soru-kapisi"] = (
+        gated.rstrip().endswith("?") and concept in tr_lower(gated)
+        and degenerate not in tr_lower(gated)
+    )
+
+    detail = (
+        f"{sum(bool(v) for v in ok.values())}/{len(ok)} — "
+        f"ablasyon-değişimi={changed}/{len(interventions)} | canlı-parça={online_delta} | "
+        f"corpus={stats.get('organ_seen')}/{expected_tokens(offline)} | "
+        f"yapı/şema={stats.get('frames')}/{stats.get('schemas')}"
+    )
+    return all(ok.values()), detail + (" | " + str(ok) if not all(ok.values()) else "")
+
+
+def a141_derin_kavram_ogrenme_taksonomi_ve_merak():
+    """Öğretilen biyoloji sonraki bağımsız anlatımda zincir olarak kullanılır.
+
+    Grafik kenarı tek başına başarı değildir: kapsamlı yüzey, kısa tanım, parça-
+    bütün ayrıntısı, bilinmeyen kavram defteri, üç araştırma kuyruğu, gerçek
+    save/load ve held-out Mammalia aktarımı birlikte denetlenir.
+    """
+    from pathlib import Path
+    from nora_besle import besle
+
+    ok = {}
+    agi = NoraAGI(seed=141, boot_thinker=False)
+    besle(agi, verbose=False)
+
+    miss_mito = agi.converse("Mitokondri nedir?")
+    miss_ribo = agi.converse("Ribozom nedir?")
+    ok["bilinmeyen-durust"] = "bilgim yok" in tr_lower(miss_mito) and "bilgim yok" in tr_lower(miss_ribo)
+    ok["bilinmeyen-defter"] = all(
+        f"c:{name}" in agi.life.ledger.gaps and not agi.life.ledger.gaps[f"c:{name}"].resolved
+        for name in ("mitokondri", "ribozom")
+    )
+    ok["bilinmeyen-kuyruklar"] = all(
+        name in agi.auto_net.curiosity_queue and name in agi.pending_research and name in agi.frames.pending
+        for name in ("mitokondri", "ribozom")
+    )
+    agi.step_life(180)
+    mito_gap = agi.life.ledger.gaps["c:mitokondri"]
+    # İki açık boşluk varken yaşam döngüsü hangisini prova edeceğini gerilimle
+    # seçer. Mitokondrinin o tur zorunlu seçilmesini istemek davranışı yanlış
+    # ölçer: gerçek prova/araştırma izi açık boşlukların tamamında aranır;
+    # mitokondrinin kendisi ise hâlâ açık ve gerilimli olmalıdır.
+    _open_gaps = [agi.life.ledger.gaps.get(k) for k in ("c:mitokondri", "c:ribozom")]
+    ok["merak-davranis"] = bool(
+        not mito_gap.resolved and mito_gap.tension > 0.1
+        and any(g is not None and not g.resolved
+                and (g.rehearsals >= 1 or g.attempts >= 1) for g in _open_gaps)
+    )
+
+    teachings = (
+        "Kuşlar Aves sınıfındandır.",
+        "Aves bir sınıftır.",
+        "Aves sıcakkanlı omurgalıdır.",
+        "Aves tüylüdür.",
+        "Aves sert kabuklu yumurtlar.",
+        "Aves dört odacıklı kalbe sahiptir.",
+        "Aves hava keselerine sahiptir.",
+        "Aves ökaryot hücrelerden oluşur.",
+        "Kuşların olgun alyuvarları çekirdeklidir.",
+        "Hücre yaşamın temel birimidir.",
+        "Ökaryot hücrelerin çekirdeği vardır.",
+        "Ökaryot hücrelerde mitokondri bulunur.",
+        "Mitokondri hücrenin enerji üretiminde görev yapar.",
+        "Mitokondri ATP üretir.",
+    )
+    for sentence in teachings:
+        agi.converse(sentence)
+    triples = {(e.subj, e.rel, e.obj) for e in agi.lang.graph.edges}
+    expected = {
+        ("kuş", "ISA", "aves"), ("aves", "ISA", "sınıf"),
+        ("aves", "HAS_PROP", "sıcakkanlı omurgalı"), ("aves", "HAS_PROP", "tüylü"),
+        ("aves", "CAN_DO", "sert kabuklu yumurtla"),
+        ("aves", "HAS_PART", "dört odacıklı kalp"), ("aves", "HAS_PART", "hava kese"),
+        ("aves", "COMPOSED_OF", "ökaryot hücre"),
+        ("kuşların olgun alyuvarları", "HAS_PROP", "çekirdekli"),
+        ("kuşların olgun alyuvarları", "PART_OF", "kuş"),
+        ("hücre", "ISA", "yaşamın temel birimi"),
+        ("ökaryot hücre", "HAS_PART", "çekirdek"),
+        ("mitokondri", "LOCATED_AT", "ökaryot hücre"),
+        ("mitokondri", "CAN_DO", "hücrenin enerji üretiminde görev yap"),
+        ("mitokondri", "CAN_DO", "atp üret"),
+    }
+    ok["dogru-kenarlar"] = expected <= triples
+    forbidden = {
+        ("kuş", "HAS_PROP", "sınıf"), ("kuş", "HAS_PROP", "çekirdekli"),
+        ("aves", "HAS_PROP", "sahip"), ("aves", "CAN_DO", "oluş"),
+        ("mitokondri hücre", "CAN_DO", "yap"), ("kanat", "CAN_DO", "uçmak"),
+    }
+    ok["yanlis-genelleme-yok"] = not (forbidden & triples)
+    ok["ogrenme-bosluk-kapandi"] = agi.life.ledger.gaps["c:mitokondri"].resolved
+    ok["ogrenme-kuyruk-temiz"] = all(
+        "mitokondri" not in queue for queue in
+        (agi.auto_net.curiosity_queue, agi.pending_research, agi.frames.pending)
+    )
+    ok["yeni-bilinmeyen-acik"] = (
+        not agi.life.ledger.gaps["c:ribozom"].resolved
+        and all("ribozom" in queue for queue in
+                (agi.auto_net.curiosity_queue, agi.pending_research, agi.frames.pending))
+    )
+
+    full = agi.converse("Kuşlar hakkında bildiğin her şeyi anlat.")
+    short = agi.converse("Kuşlar nedir?")
+    aves = agi.converse("Aves nedir?")
+    cell = agi.converse("Hücre nedir?")
+    euk = agi.converse("Ökaryot hücre nedir?")
+    mito = agi.converse("Mitokondri nedir?")
+    low_full = tr_lower(full)
+    ok["kapsamli-taksonomi"] = all(x in full for x in ("Kuş bir Aves'tir", "Aves bir sınıftır"))
+    ok["kapsamli-ozellikler"] = all(x in low_full for x in (
+        "sıcakkanlı omurgalıdır", "tüylüdür", "sert kabuklu yumurtlar",
+        "dört odacıklı kalbi", "hava kesesi", "olgun alyuvarları çekirdeklidir"))
+    ok["kapsamli-bilesim"] = all(x in low_full for x in (
+        "ökaryot hücrelerden oluşur", "çekirdeği var", "mitokondri ökaryot hücrede bulunur"))
+    ok["kapsamli-islev"] = all(x in low_full for x in (
+        "enerji üretiminde görev yapar", "atp üretir")) and "ATP üretir" in full
+    ok["kapsamli-temiz"] = not any(x in low_full for x in (
+        "köpek", "kedi", "kendi kendime", "demin", "biraz önce", "kanat uçar"))
+    ok["kanat-anlami"] = "kanat uçmak için kullanılır" in low_full
+    ok["kisa-aves-zinciri"] = (
+        "Kuş bir Aves'tir" in short and "Aves sıcakkanlı omurgalıdır" in short
+        and "Aves tüylüdür" in short and len(short) < len(full)
+    )
+    ok["aves-ozet-degil-zincir"] = all(x in aves for x in (
+        "Aves bir sınıftır", "ökaryot hücrelerden oluşur", "sert kabuklu yumurtlar"))
+    ok["son-ogretim-geri-cagri"] = "Hücre yaşamın temel birimidir" in cell
+    ok["kapsam-ici-organel"] = all(x in euk for x in (
+        "çekirdeği var", "Mitokondri", "enerji üretiminde görev yapar"))
+    ok["organel-artik-biliniyor"] = (
+        "bilgim yok" not in tr_lower(mito) and "ATP üretir" in mito
+        and "enerji üretiminde görev yapar" in mito
+    )
+
+    # Kalıcılık aynı süreçteki önbellek değil, gerçek dosyadan yeni bireydir.
+    with tempfile.TemporaryDirectory(prefix="nora-a141-") as td:
+        prefix = str(Path(td) / "bio")
+        agi.save(prefix)
+        restored = NoraAGI.load(prefix)
+        restored_short = restored.converse("Kuşlar nedir?")
+        restored_mito = restored.converse("Mitokondri nedir?")
+        ok["kalici-aves"] = "Kuş bir Aves'tir" in restored_short and restored.lang.graph.display_names.get("aves") == "Aves"
+        ok["kalici-islev-merak"] = (
+            "ATP üretir" in restored_mito
+            and restored.life.ledger.gaps["c:mitokondri"].resolved
+            and not restored.life.ledger.gaps["c:ribozom"].resolved
+        )
+
+    # Held-out: kuş/Aves cümlelerini kullanmayan bağımsız birey ve memeli zinciri.
+    held = NoraAGI(seed=143, boot_thinker=False)
+    for sentence in (
+        "Balinalar Mammalia sınıfındandır.",
+        "Mammalia bir sınıftır.",
+        "Mammalia sıcakkanlı omurgalıdır.",
+        "Balinaların olgun alyuvarları çekirdeksizdir.",
+    ):
+        held.converse(sentence)
+    held_reply = held.converse("Balinalar nedir?")
+    held_triples = {(e.subj, e.rel, e.obj) for e in held.lang.graph.edges}
+    ok["heldout-taksonomi"] = (
+        "Balina bir Mammalia'dır" in held_reply and "Mammalia sıcakkanlı omurgalıdır" in held_reply
+    )
+    ok["heldout-kapsam"] = (
+        "Balinaların olgun alyuvarları çekirdeksizdir" in held_reply
+        and ("balina", "HAS_PROP", "çekirdeksiz") not in held_triples
+        and ("balinaların olgun alyuvarları", "HAS_PROP", "çekirdeksiz") in held_triples
+    )
+
+    # Aynı kapanış, doğrudan 1-shot yerine yapısal mantık etiketi üreten
+    # öğretim kolunda da gerçekleşmeli. İz, structured dalı gerçekten seçildiğini;
+    # kenar ve üç kuyruk ise sözlü "kodladım" iddiasından bağımsız sonucu gösterir.
+    structured = NoraAGI(seed=1417, boot_thinker=False)
+    structured.converse("Zorvath nedir?")
+    structured.converse("Zorvath kayaları keser.")
+    structured_gap = structured.life.ledger.gaps.get("c:zorvath")
+    ok["structured-mint-kapanisi"] = bool(
+        str(structured.last_gw_trace.get("trace", "")).startswith("structured:")
+        and ("zorvath", "CAN_DO", "kaya kes") in {
+            (e.subj, e.rel, e.obj) for e in structured.lang.graph.edges
+        }
+        and structured_gap is not None and structured_gap.resolved
+        and "zorvath" not in structured.auto_net.curiosity_queue
+        and "zorvath" not in structured.pending_research
+        and "zorvath" not in structured.frames.pending
+    )
+
+    detail = (f"{sum(bool(v) for v in ok.values())}/{len(ok)} — "
+              f"kanıt={len(expected)} | kapsamlı-karakter={len(full)} | "
+              f"mitokondri-tekrar={mito_gap.rehearsals} | heldout-karakter={len(held_reply)}")
+    return all(ok.values()), detail + (" | " + str({k: v for k, v in ok.items() if not v}) if not all(ok.values()) else "")
+
+
+def a142_noral_oneri_sembolik_kanit_ve_yeni_sentez():
+    """Nöral model beş sonuç üretir; grafik yalnız kanıt sağlar.
+
+    Biyoloji kavramları eğitim nonce grafiklerinde bulunmaz. Eğitim öncesi/sonrası,
+    nöral ve doğrulayıcı ablasyonları aynı doğrudan bilgi tabanında yapılır. Bir
+    öğretim cümlesini geri söylemek başarı değildir: kabul edilen üçlü daha önce
+    bulunmamalı, iki dayanağı görünür olmalı ve sonraki bağımsız konu sorgusunda
+    kalıcı bilgi olarak kullanılmalıdır.
+    """
+    import shutil
+    from nora_broca_net import bootstrap_relational_proposer, measure_relational_transfer
+
+    agi = NoraAGI(seed=142, boot_thinker=False)
+    proposer = agi.enable_relational_reasoning()
+    initial_weights = proposer.export()["weights"]
+    teachings = (
+        "Kuşlar Aves sınıfındandır.",
+        "Aves ökaryot hücrelerden oluşur.",
+        "Hücre yaşamın temel birimidir.",
+        "Ökaryot hücrelerin çekirdeği vardır.",
+        "Ökaryot hücrelerde mitokondri bulunur.",
+        "Mitokondri ATP üretir.",
+    )
+    for sentence in teachings:
+        agi.converse(sentence)
+    direct_before = {(e.subj, e.rel, e.obj) for e in agi.lang.graph.edges}
+
+    before = agi.deliberate("mitokondri", commit=False)
+    training = bootstrap_relational_proposer(
+        proposer, examples=300, seed=142, max_attempts=12000)
+    trained_weights = proposer.export()["weights"]
+    heldout_nonce = measure_relational_transfer(proposer, graphs=40, seed=9182)
+
+    # Kombine değil, aynı taban üzerinde iki ayrı nedensel kontrol: nöral önerici
+    # yoksa aday doğmamalı; doğrulayıcı yoksa beş aday olsa da bilgi yazılmamalı.
+    proposer.enabled = False
+    neural_off = agi.deliberate("mitokondri", commit=True)
+    proposer.enabled = True
+    original_prove = agi.lang.graph.prove_candidate
+    agi.lang.graph.prove_candidate = lambda *args: {
+        "status": "unresolved", "novel": False, "proof": [], "rule": "",
+    }
+    validator_off = agi.deliberate("mitokondri", commit=True)
+    agi.lang.graph.prove_candidate = original_prove
+    ablation_written = [e for e in agi.lang.graph.edges if e.source == "sinirsel-çıkarım"]
+
+    after = agi.deliberate("mitokondri", commit=True)
+    rows = after.get("candidates", [])
+    accepted = [row for row in rows if row.get("validation") == "proved" and row.get("novel")]
+    chosen = accepted[0] if accepted else {}
+    accepted_rank = rows.index(chosen) + 1 if chosen else 0
+    chosen_triple = (chosen.get("subj"), chosen.get("rel"), chosen.get("obj"))
+    written = [e for e in agi.lang.graph.edges if e.source == "sinirsel-çıkarım"]
+    proof = {tuple(edge) for edge in chosen.get("proof", [])}
+    neural_pair = {tuple(edge) for edge in chosen.get("neural_pair", [])}
+
+    ok = {}
+    ok["egitim-nonce-ve-dis-kavram-yok"] = bool(
+        training.get("complete") and training.get("corrections") == 300
+        and training.get("external_concepts") == 0
+        and training.get("heldout_concepts_used") is False
+        and set(training.get("rule_coverage", {})) == {
+            "isa_inheritance", "transitive_composition",
+            "location_part_to_whole", "location_isa_specialization",
+        }
+    )
+    ok["agirliklar-gercekten-ogrendi"] = any(
+        initial_weights.get(name) != trained_weights.get(name) for name in trained_weights)
+    ok["egitim-oncesi-sonrasi-fark"] = (
+        before.get("status") == "unresolved" and not before.get("committed")
+        and after.get("status") == "accepted" and after.get("committed")
+    )
+    ok["noral-top5-karar-uretir"] = (
+        len(rows) == 5 and after.get("neural_candidates") == 5
+        and all(row.get("neural") is True and len(row.get("neural_pair", [])) == 2
+                and np.isfinite(float(row.get("score", np.nan))) for row in rows)
+    )
+    ok["heldout-nonce-top5-ve-dayanak"] = (
+        heldout_nonce.get("top5", 0) > heldout_nonce.get("top1", 0)
+        and heldout_nonce.get("grounded_accepted_queries", 0) > 0
+        and heldout_nonce.get("learning_updates") == 0
+        and heldout_nonce.get("memory_unchanged") is True
+    )
+    ok["noral-ablasyon-adaysiz"] = (
+        neural_off.get("status") == "unresolved" and not neural_off.get("candidates")
+        and not neural_off.get("answer") and not neural_off.get("committed")
+    )
+    ok["dogrulayici-ablasyon-yazmaz"] = (
+        validator_off.get("status") == "unresolved"
+        and len(validator_off.get("candidates", [])) == 5
+        and not validator_off.get("answer") and not validator_off.get("committed")
+        and not ablation_written
+    )
+    ok["yeni-ogretilmemis-uclu"] = bool(
+        chosen and chosen_triple not in direct_before and len(written) == 1
+        and (written[0].subj, written[0].rel, written[0].obj) == chosen_triple
+    )
+    ok["iki-dayanak-noral-dikkatle-ayni"] = (
+        len(proof) == 2 and proof == neural_pair and proof <= direct_before)
+    ok["yanlis-adaylar-bilgi-olmadı"] = all(
+        (row["subj"], row["rel"], row["obj"]) not in {
+            (e.subj, e.rel, e.obj) for e in written}
+        for row in rows if row.get("validation") != "proved"
+    )
+    normalized_answer = tr_lower(after.get("answer", "")).strip().rstrip(".")
+    ok["ezber-dokumu-degil-tek-sentez"] = bool(
+        normalized_answer and after.get("answer", "").count(".") == 1
+        and all(normalized_answer != tr_lower(sentence).strip().rstrip(".")
+                for sentence in teachings)
+    )
+
+    # Cevap metnini tekrar ettirmek değil, yeni kenarın başka bir istemde bilgi
+    # toplama/yüzey üretimi tarafından kullanılması gerekir.
+    later = agi.converse("Mitokondri nedir?")
+    ok["bagimsiz-sonraki-sorgu"] = normalized_answer in tr_lower(later)
+
+    root = tempfile.mkdtemp(prefix="nora142_")
+    try:
+        agi.save(os.path.join(root, "b"))
+        reborn = NoraAGI.load(os.path.join(root, "b"))
+        restored_reasoner = getattr(reborn, "relational_reasoner", None)
+        restored_later = reborn.converse("Mitokondri nedir?")
+        ok["model-ve-sentez-kalici"] = bool(
+            restored_reasoner is not None and restored_reasoner.corrections == 300
+            and normalized_answer in tr_lower(restored_later)
+            and (chosen_triple[0], chosen_triple[1], chosen_triple[2]) in {
+                (e.subj, e.rel, e.obj) for e in reborn.lang.graph.edges}
+        )
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+    detail = (f"{sum(bool(v) for v in ok.values())}/{len(ok)} — "
+              f"top5={len(rows)} kabul-sırası={accepted_rank or '-'} "
+              f"önce={before.get('status')} sonra={after.get('status')} "
+              f"nöral-off={neural_off.get('status')} validator-off={validator_off.get('status')} "
+              f"düzeltme={training.get('corrections', 0)} "
+              f"nonce-top5={heldout_nonce.get('top5')}/{heldout_nonce.get('targets')} "
+              f"dayanaklı-kabul={heldout_nonce.get('grounded_accepted_queries')}/{heldout_nonce.get('queries')}")
+    if chosen:
+        detail += f" | yeni={chosen_triple} | cevap='{after.get('answer', '')}'"
+    return all(ok.values()), detail + (" | " + str({k: v for k, v in ok.items() if not v})
+                                           if not all(ok.values()) else "")
+
+
+def a143_otonom_hedef_yasam_dongusu_1000_adim():
+    """İnsan hedefi yok: seçim, üç-hata terk, indirgeme ve birleşme.
+
+    Ham gözlemler hedef değildir. Sayıların belirli bir değere çıkması değil,
+    her durumun gerçek yetenek sonucu ve hedef tarihçesiyle kanıtlanması gerekir.
+    """
+    agi = NoraAGI(seed=4, boot_thinker=False)
+    started = time.perf_counter()
+    report = agi.driver.run_autonomous(1000, {
+        6: "yeni gözlem 6", 12: "yeni gözlem 12", 24: "yeni gözlem 24",
+    })
+    seconds = time.perf_counter() - started
+    goals = agi.driver.goals
+    by_id = {goal["id"]: goal for goal in goals}
+    ok = {}
+    ok["adim-ve-insansiz"] = (report["steps"] == 1000 and
+                                  report["human_goals_supplied"] == 0 and
+                                  report["generated"] == len(goals))
+    ok["durum-muhasebesi"] = report["generated"] == sum(
+        report[key] for key in ("active", "solved", "abandoned", "merged"))
+    ok["olculen-dort-durum"] = all(report[key] >= 1 for key in
+                                     ("generated", "solved", "abandoned", "merged"))
+    ok["bos-is-uretme-yok"] = report["idle_steps"] > 0
+    ok["uc-hatada-terk"] = all(goal["failures"] == 3 and goal["attempts"] >= 3
+                                  for goal in goals if goal["status"] == "abandoned")
+    ok["birlesme-canli-bag"] = all(
+        goal.get("merged_into") in by_id
+        and by_id[goal["merged_into"]]["kind"] == "unblock"
+        and by_id[goal["merged_into"]]["blocker"] == goal["blocker"]
+        and goal["id"] in by_id[goal["merged_into"]]["parents"]
+        for goal in goals if goal["status"] == "merged"
+    )
+    ok["secim-gerekcesi"] = all(
+        {"surprise", "curiosity", "competence", "waiting", "score"} <= set(
+            goal.get("last_rationale") or {})
+        and np.isfinite(float(goal["last_rationale"]["score"]))
+        for goal in goals if goal.get("attempts")
+    )
+    ok["cozum-gercek-sonuc"] = all(
+        goal.get("history") and goal["history"][-1].get("success") is True
+        and (goal["history"][-1].get("result", {}).get("öğrendi") is True
+             or goal["history"][-1].get("result", {}).get("değişti") is True)
+        for goal in goals if goal["status"] == "solved"
+    )
+    solved_tasks = [tuple(event["result"]["hedef"])
+                    for goal in goals if goal["status"] == "solved"
+                    for event in goal["history"]
+                    if event.get("success") and event.get("result", {}).get("hedef")]
+    witnessed = {tuple(record.get("hedef") or ()) for record in agi._kendi_gorevler
+                 if record.get("doğru") is True}
+    ok["cozum-bagimsiz-tanik"] = bool(solved_tasks) and all(
+        target in witnessed for target in solved_tasks)
+    helper_only_failures = [event for goal in goals for event in goal.get("history", [])
+                            if event.get("success") is False
+                            and event.get("result", {}).get("helper_succeeded") is True]
+    ok["yardimci-basari-blokaj-degil"] = bool(helper_only_failures)
+    ok["terkten-yeni-hedef"] = any(
+        child.get("kind") == "unblock" and child.get("parents")
+        and any(by_id[parent]["status"] == "abandoned" for parent in child["parents"]
+                if parent in by_id)
+        for child in goals)
+
+    state = agi.driver.state()
+    restored = NoraAGI(seed=4, boot_thinker=False)
+    restored.driver.load_state(state)
+    restored_report = restored.driver.run_autonomous(10)
+    ok["durum-kaliciligi"] = (
+        restored_report["generated"] == report["generated"]
+        and restored_report["solved"] == report["solved"]
+        and restored_report["abandoned"] == report["abandoned"]
+        and restored_report["merged"] == report["merged"]
+        and restored_report["steps"] == 1010
+    )
+    detail = (f"{sum(bool(v) for v in ok.values())}/{len(ok)} — "
+              f"üretildi={report['generated']} çözüldü={report['solved']} "
+              f"terk={report['abandoned']} birleşti={report['merged']} "
+              f"boş={report['idle_steps']} | {seconds:.3f} sn")
+    return all(ok.values()), detail + (" | " + str({k: v for k, v in ok.items() if not v})
+                                           if not all(ok.values()) else "")
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -5724,6 +6685,12 @@ TESTS = {
     "A135": ("tekil ve held-out kombine ablasyonu önceden tahmin et", a135_oz_mimari_cikarma_yaniti_ablasyonu),
     "A136": ("onaylı yapısal çok-adımlı yama, dış pil ve rollback", a136_onayli_oz_yama_pil_ve_rollback),
     "A137": ("eski temsil yetmezse gizli-durum temsili aç", a137_yeni_gizli_durum_temsili),
+    "A138": ("yaşanmış konuşma: duygu yönü, bellek ve iç-durum müdahalesi", a138_yasanmis_konusma_ve_nedensel_ic_durum),
+    "A139": ("bireyler ve tekrarlar arasında üretken öz-durum söylemi", a139_bireysel_ve_tekrarda_degisen_oz_durum_soylemi),
+    "A140": ("öğrenilen Türkçe ana yüzey yarışına ulaşır ve corpus tam okunur", a140_ogrenilen_turkce_uretim_yarismasina_ulasir),
+    "A141": ("derin kavram öğrenme, Aves taksonomisi ve merak kapanışı", a141_derin_kavram_ogrenme_taksonomi_ve_merak),
+    "A142": ("nöral top-5 öneri, sembolik kanıt ve kalıcı yeni biyoloji sentezi", a142_noral_oneri_sembolik_kanit_ve_yeni_sentez),
+    "A143": ("insan hedefi vermeden 1000 adımda hedef yaşam döngüsü", a143_otonom_hedef_yasam_dongusu_1000_adim),
     "A111": ("icadın şeması: görülmemiş parametre icat gerektirmez", a111_icadin_semasi),
     "A110": ("dil: buyruk sarmalayıcısı ve X mi Y mi seçim sorusu", a110_sarmalayici_ve_secim_sorusu),
     "A108": ("şema: delikli makro görülmemiş parametreyi kapsar", a108_sema_delikli_makro),

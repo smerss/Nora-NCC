@@ -104,7 +104,7 @@ TRIPLES: list[tuple[str, str, str]] = [
     ("bitki", "CAN_DO", "kökleriyle su almak"),
     ("memeli", "ISA", "hayvan"), ("memeli", "CAN_DO", "yavrusunu sütle beslemek"),
     ("kuş", "ISA", "hayvan"), ("kuş", "HAS_PART", "kanat"),
-    ("kanat", "CAN_DO", "uçmak"), ("kanat", "ISA", "organ"),
+    ("kanat", "USED_FOR", "uçmak"), ("kanat", "ISA", "organ"),
     ("balık", "ISA", "hayvan"), ("balık", "LOCATED_AT", "su"),
     ("balık", "HAS_PART", "solungaç"), ("solungaç", "CAN_DO", "suda nefes almak"),
     ("balık", "CAN_DO", "yüzmek"), ("yarasa", "ISA", "memeli"),
