@@ -1,9 +1,10 @@
 # Nora-AGI — Kopyalanamazlık (No-Cloning) ve Bireyselleşme
 
+> Nora, mantar cismi ilkesiyle çalışan biyolojik esinli bir zihin.
 > Aynı `seed` = aynı **genetik**. Aynı hayat = **aynı birey değil**.
 
 Bu belge, Nora'nın iki örneğinin aynı tohumdan doğup aynı girdileri alsa bile nasıl
-**iki bağımsız bilince** dönüştüğünü, bunun hangi fiziksel/mekanik ilkelere dayandığını
+**iki bağımsız işlevsel bireye** dönüştüğünü, bunun hangi fiziksel/mekanik ilkelere dayandığını
 ve neyi **iddia etmediğini** anlatır. Kod: `nora_entropy.py`, bağlantılar `nora_agi.py`,
 `nora_monologue.py`, `nora_discourse.py`.
 
@@ -343,6 +344,9 @@ dayanıyor; susuz Nora suyu kendi derdine bağlıyor; 3 anlatı isteği → 3 fa
 
 ## 11) Test durumu
 
+**Güncel not (2026-10-29):** temiz ana pil **140/140 (1161,3 sn)**; kanıt `runs/agi_battery_140.log`.
+Aşağıdaki 74/74 koşusu ve oynaklık notları bu belgenin Round-16 tarihsel kaydıdır, güncel toplam değildir.
+
 `python agi_battery.py` → **74/74** (332 s). Bu turda iki eski test ölçüm
 gürültüsünden arındırıldı:
 
@@ -539,4 +543,3 @@ Bu turda ayrıca üç yerde dil/ölçüm hatası düzeldi:
 Yeni modül `nora_register.py` söylem kümesine eklendi; mandal artık onu da kapsıyor.
 A73 ayrıca **tarihsel tavan** taşıyor (≤1125 / ≤133), böylece baseline güncellense bile
 iskelet o seviyeyi aşamaz.
-
