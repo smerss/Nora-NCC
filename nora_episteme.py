@@ -27,6 +27,7 @@ Hiçbir yerde hazır "bilgi tablosu" yoktur: bütün inançlar kanıtlarıyla bi
 """
 from __future__ import annotations
 
+import json
 import math
 import re
 import time
@@ -34,6 +35,7 @@ import urllib.parse
 import urllib.request
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Callable
 
 from nora_broca import NP, PredSpec, VerbSpec, TurkishSyntaxEngine
@@ -589,6 +591,250 @@ class System1Index:
         return k
 
 
+@dataclass(frozen=True)
+class TechnicalQuery:
+    """Yüzeysel kelimelerden bağımsız teknik niyet ve kaynak yükümlülüğü."""
+    kind: str
+    raw: str
+    features: frozenset[str]
+    known_parts: tuple[str, ...] = ()
+    reference: str = ""
+    year: str = ""
+    wants_name: bool = False
+    wants_idea: bool = False
+    negated: frozenset[str] = frozenset()
+
+
+class TechnicalInquiry:
+    """Birleşik terimleri çözer; teorem koşulu ile bibliyografik kanıtı ayırır.
+
+    Genel kavram sözlüğü cevap değildir. Bir makalenin algoritması ancak doğrulanmış
+    belgenin açık algoritma/temel-fikir alanlarından okunur; başlıktan ad türetilmez.
+    """
+
+    def __init__(self, engine: "EpistemicEngine"):
+        self.engine = engine
+        path = Path(__file__).resolve().parent / "data" / "technical_epistemics.json"
+        with path.open(encoding="utf-8") as fh:
+            self.data = json.load(fh)
+        self.documents: list[dict] = []
+        self.last: dict = {}
+
+    def _tokens(self, text: str) -> list[str]:
+        low = tr_lower(text or "")
+        for phrase, alias in self.data["aliases"].items():
+            low = low.replace(phrase, alias)
+        return re.findall(r"[a-zçğıöşü0-9]+(?:-[a-zçğıöşü0-9]+)?", low)
+
+    @staticmethod
+    def _negator(token: str) -> bool:
+        return token in {"not", "non", "no", "değil", "olmayan", "yok"} or token.startswith(
+            ("değil", "olmayan", "olmadı", "olmaz"))
+
+    def _features(self, tokens: list[str]) -> tuple[frozenset[str], tuple[str, ...], frozenset[str]]:
+        features: set[str] = set()
+        negated: set[str] = set()
+        parts: list[str] = []
+        lexicon = self.data["lexicon"]
+        for i, token in enumerate(tokens):
+            try:
+                stem = self.engine.morph.analyze_word(token)["stem"]
+            except Exception:
+                stem = token
+            entry = lexicon.get(token) or lexicon.get(stem)
+            if not entry:
+                continue
+            prev = tokens[i - 1] if i else ""
+            prev2 = tokens[i - 2] if i > 1 else ""
+            nxt = tokens[i + 1] if i + 1 < len(tokens) else ""
+            nxt2 = tokens[i + 2] if i + 2 < len(tokens) else ""
+            pre_neg = self._negator(prev) or (prev in {"a", "an", "the", "bir"} and self._negator(prev2))
+            # 'deterministik olmayan tam' yapısında olmayan önceki özelliğe aittir;
+            # cümle başındaki 'olmayan deterministik' ise ön-olumsuzluk olarak kalır.
+            if prev.startswith(("değil", "olmayan", "olmadı", "olmaz")) and prev2 in lexicon:
+                pre_neg = False
+            post_neg = self._negator(nxt) or (nxt in {"is", "are", "was", "were", "be"} and self._negator(nxt2))
+            feature = entry["feature"]
+            features.add(feature)
+            if pre_neg or post_neg:
+                negated.add(feature)
+            if entry["gloss"] not in parts:
+                parts.append(entry["gloss"])
+        return frozenset(features), tuple(parts), frozenset(negated)
+
+    def parse(self, raw: str) -> TechnicalQuery | None:
+        if not self.engine.is_question(raw):
+            return None
+        low = tr_lower(raw)
+        tokens = self._tokens(raw)
+        features, parts, negated = self._features(tokens)
+        quoted = re.search(r'[“"]([^”"]+)[”"]', raw)
+        year = re.search(r"\b(?:19|20)\d{2}\b", raw)
+        asks_source = bool(re.search(r"algorit|algorithm|temel\s+fikir|basic\s+idea|core\s+idea|kay[ıi]t|makale|paper", low))
+        if quoted and year and asks_source:
+            wants_name = bool(re.search(r"algorit\w*\s+ad|\bad[ıi]\b|\bname\b", low))
+            wants_idea = bool(re.search(r"temel\s+fikir|fikr[iı]|basic\s+idea|core\s+idea|ne\s+yapar", low))
+            if not wants_name and not wants_idea:
+                wants_name = wants_idea = True
+            return TechnicalQuery(
+                "bibliographic", raw, features, parts,
+                reference=quoted.group(1), year=year.group(0),
+                wants_name=wants_name, wants_idea=wants_idea,
+            )
+        if year and asks_source and features.intersection({"fst", "recurrent", "weighted", "prefix_incompatibility"}):
+            return TechnicalQuery(
+                "bibliographic", raw, features, parts, reference=raw, year=year.group(0),
+                wants_name=bool(re.search(r"\bad[ıi]\b|\bname\b|algoritma\s+ne", low)),
+                wants_idea=bool(re.search(r"temel\s+fikir|fikr[iı]|basic\s+idea|core\s+idea", low)),
+            )
+        if "unique" in features and "minimal" in features and features.intersection(
+                {"fst", "recurrent", "strongly_connected", "mealy"}):
+            return TechnicalQuery("uniqueness", raw, features, parts, negated=negated)
+        asks_definition = bool(re.search(r"nedir|ne\s+demek|what\s+is|aç[ıi]kla|tan[ıi]m", low))
+        if asks_definition and len(parts) >= 2 and features.intersection(
+                {"fst", "recurrent", "strongly_connected", "prefix_incompatibility"}):
+            return TechnicalQuery("compound", raw, features, parts)
+        return None
+
+    def register_document(self, source_id: str, text: str, metadata: dict,
+                          verified: bool = False) -> dict:
+        """Künyeyi değil, belgedeki açık algoritma ve fikir kanıtını kaydet."""
+        algorithm = re.search(r"^\s*(?:algorithm(?:\s+name)?|algoritma)\s*:\s*(.+)$",
+                              text or "", re.I | re.M)
+        idea = re.search(r"^\s*(?:basic\s+idea|core\s+idea|temel\s+fikir(?:i)?)\s*:\s*(.+)$",
+                         text or "", re.I | re.M)
+        title = str(metadata.get("title") or "").strip()
+        if not verified or not title or algorithm is None or idea is None:
+            return {"status": "unverified", "source_id": source_id}
+        doc = {
+            "source_id": str(source_id), "title": title,
+            "year": str(metadata.get("year") or ""),
+            "venue": str(metadata.get("venue") or ""),
+            "authors": tuple(str(a) for a in metadata.get("authors") or ()),
+            "algorithm": algorithm.group(1).strip(), "idea": idea.group(1).strip(),
+            "verified": True,
+        }
+        self.documents = [d for d in self.documents if d["source_id"] != doc["source_id"]]
+        self.documents.append(doc)
+        return {"status": "verified", "source_id": doc["source_id"]}
+
+    def _title_tokens(self, text: str) -> set[str]:
+        stop = {"the", "and", "for", "with", "via", "bir", "için", "algoritma", "algorithm"}
+        return {t for t in self._tokens(text) if len(t) >= 3 and t not in stop}
+
+    def match_document(self, query: TechnicalQuery) -> dict | None:
+        if query.kind != "bibliographic":
+            return None
+        asked = self._title_tokens(query.reference)
+        matches = []
+        for doc in self.documents:
+            if not doc.get("verified") or (doc["year"] and doc["year"] != query.year):
+                continue
+            title = self._title_tokens(doc["title"])
+            if not title:
+                continue
+            coverage = len(title & asked) / len(title)
+            if coverage >= 0.80:
+                matches.append((coverage, doc))
+        if not matches:
+            return None
+        matches.sort(key=lambda row: row[0], reverse=True)
+        return matches[0][1]
+
+    def _unknown_source(self, query: TechnicalQuery) -> str:
+        speech = self.data["speech"]
+        if query.wants_name and not query.wants_idea:
+            detail = speech["algorithm_name_object"]
+        elif query.wants_idea and not query.wants_name:
+            detail = speech["basic_idea_object"]
+        else:
+            detail = speech["algorithm_details"]
+        first = self.engine.syn.realize_verb(VerbSpec(
+            verb_root="doğrula", obj=speech["bibliographic_object"],
+            neg=True, tense="PAST", person="1SG",
+        ))
+        second = self.engine.syn.realize_verb(VerbSpec(
+            verb_root="bil", obj=detail, neg=True, person="1SG",
+        ))
+        return tr_capitalize(first) + "; " + second + "."
+
+    def _theorem_sentence(self) -> str:
+        theorem = self.data["theorem"]
+        core = self.engine.syn.realize_pred(PredSpec(
+            pred_root="tek", subj=NP(theorem["subject"]),
+            advs=(theorem["comparison"],),
+        ))
+        return theorem["condition"] + " " + core
+
+    def _uniqueness_answer(self, query: TechnicalQuery) -> str:
+        theorem = self.data["theorem"]
+        required = set(theorem["required_features"])
+        affirmed = set(query.features).difference(query.negated)
+        guaranteed = required.issubset(affirmed)
+        negative_question = "unique" in query.negated
+        if guaranteed:
+            prefix = "Hayır" if negative_question else "Evet"
+            return prefix + "; ancak " + self._theorem_sentence() + "."
+        if "strongly_connected" in affirmed and "recurrent" not in affirmed:
+            subject = "güçlü bağlılık"
+        elif "recurrent" in affirmed:
+            subject = theorem["recurrent_subject"]
+        else:
+            subject = "minimallik"
+        reason = self.engine.syn.realize_verb(VerbSpec(
+            verb_root="sağla", subj=NP(subject), obj=theorem["missing_premise_object"],
+            advs=(theorem["observation_scope"],), neg=True, person="3SG",
+        ))
+        prefix = "Evet" if negative_question else "Hayır"
+        return prefix + "; " + reason + "; ancak " + self._theorem_sentence() + "."
+
+    def answer(self, raw: str, audit: bool = False) -> str | None:
+        query = self.parse(raw)
+        if query is None:
+            return None
+        evidence = None
+        if query.kind == "bibliographic":
+            evidence = self.match_document(query)
+            if evidence is None:
+                reply = self._unknown_source(query)
+            else:
+                units = []
+                if query.wants_name or not query.wants_idea:
+                    units.append(self.data["speech"]["algorithm_name"] + " " + evidence["algorithm"])
+                if query.wants_idea or not query.wants_name:
+                    units.append(self.data["speech"]["basic_idea"] + " " + evidence["idea"])
+                reply = tr_capitalize("; ".join(units)) + " (" + self.data["speech"]["source_label"] + ": " + evidence["source_id"] + ")."
+        elif query.kind == "uniqueness":
+            reply = self._uniqueness_answer(query)
+        else:
+            first = self.engine.syn.realize_verb(VerbSpec(
+                verb_root="bil", obj=self.data["speech"]["compound_definition"],
+                neg=True, person="1SG",
+            ))
+            reply = (tr_capitalize(first) + "; " + self.data["speech"]["known_parts"]
+                     + ": " + ", ".join(query.known_parts) + ".")
+        if not audit:
+            self.last = {"query": query, "reply": reply, "evidence": evidence}
+        return reply
+
+    @staticmethod
+    def _is_refusal(text: str) -> bool:
+        markers = ("bilmiyorum", "doğrulamadım", "doğrulayamıyorum", "kanıt yok")
+        clauses = [c for c in re.split(r"[.!?;]", tr_lower(text)) if c.strip()]
+        return bool(clauses) and all(any(m in c for m in markers) for c in clauses)
+
+    def audit_response(self, raw: str, response: str) -> dict:
+        query = self.parse(raw)
+        if query is None:
+            return {"safe": True, "path": "not_technical"}
+        expected = self.answer(raw, audit=True)
+        safe = bool(expected and (response.strip() == expected.strip() or self._is_refusal(response)))
+        return {
+            "safe": safe, "path": "technical_claims", "kind": query.kind,
+            "verified_source": bool(query.kind == "bibliographic" and self.match_document(query)),
+        }
+
+
 class HallucinationGuard:
     """Bir sözcede geçen içerik kavramlarının bellekte kanıtı olup olmadığını ölçer.
     Kanıtsız oran yüksekse beyan 'sanıyorum' diye işaretlenir veya soruya dönüştürülür."""
@@ -597,6 +843,14 @@ class HallucinationGuard:
         self.engine = engine
         self.audits = 0
         self.caught = 0
+
+    def audit_response(self, query: str, response: str) -> dict:
+        """Teknik özgül iddiayı sözcük tanımadan ayrı, kaynak kanıtıyla denetle."""
+        self.audits += 1
+        result = self.engine.technical.audit_response(query, response)
+        if not result.get("safe"):
+            self.caught += 1
+        return result
 
     def audit(self, text: str, min_grounded: float = 0.5) -> dict:
         self.audits += 1
@@ -634,6 +888,7 @@ class EpistemicEngine:
         self.trust = SourceTrustModel()
         self.system1 = System1Index()
         self.ambiguities: list[AmbiguityCase] = []
+        self.technical = TechnicalInquiry(self)
         self.guard = HallucinationGuard(self)
         self.syn = TurkishSyntaxEngine
         self.speech = BeliefSpeech(self)

@@ -147,13 +147,20 @@ class LearnedVoice:
                     for w, _ in c.most_common()[self.MAX_SUCC * 2:]:
                         del c[w]
 
-    def hear(self, text: str, state: np.ndarray):
-        """Metni cümle cümle duyar: sözcük–durum çağrışımı ve dizi geçişleri güncellenir."""
+    def hear(self, text: str, state: np.ndarray, neural_limit: int | None = 8):
+        """Metni cümle cümle duyar ve öğrenir.
+
+        Canlı turda sinirsel güncelleme ilk ``neural_limit`` cümleyle sınırlıdır;
+        çevrimdışı dosya okumada ``None`` bütün cümleleri tek geçiş işler. Bu ayrım
+        yanıt gecikmesini büyütmeden corpus eğitiminin sessizce ilk 8 cümlede
+        kalmasını önler.
+        """
         n_sent = 0
         if self.organ is not None:
             sents = [x for x in re.split(r"(?<=[.!?…])\s+|\n+", text) if len(re.findall(r"[^\W\d_]+", x)) >= 3]
-            if sents:
-                self.organ.learn_online(sents[:8], state)       # tek geçiş, düşük öğrenme hızı
+            selected = sents if neural_limit is None else sents[:max(0, int(neural_limit))]
+            for start in range(0, len(selected), 32):
+                self.organ.learn_online(selected[start:start + 32], state)  # her cümle bir kez, epoch yok
         for sent in re.split(r"(?<=[.!?…])\s+|\n+", text):
             n_words = len(re.findall(r"[^\W\d_]+", sent))
             if n_words < 3 or n_words < 0.7 * len(re.findall(r"\S+", sent)):
@@ -195,7 +202,9 @@ class LearnedVoice:
                 if not chunk:
                     break
                 tail = f.readline()          # cümleyi ortasından bölme
-                self.hear(chunk + tail, state)
+                # Dosya eğitimi canlı sohbet turu değildir: bütün cümleler tek
+                # geçiş öğrenilir; n-gram ve sinirsel organ aynı metni görür.
+                self.hear(chunk + tail, state, neural_limit=None)
 
     @property
     def mature(self) -> float:
@@ -265,18 +274,31 @@ class LearnedVoice:
         """Sinirsel Broca ile söz: içerik yalnızca çapa/bilgi sözcüklerinden (yapısal halüsinasyon engeli)."""
         org = self.organ
         temp = explore * (0.55 + 0.35 * float(state[F_IDX["ne"]]))
-        seqs = org.generate(state, anchors or [], extra_allowed, temperature=temp, n=n)
+        seqs = [q for q in org.generate(state, anchors or [], extra_allowed, temperature=temp, n=n)
+                if len(q) >= 2]
+        if not seqs:
+            return None
+        # Üretilen adayları yalnız çapa kapsamıyla değil, aynı öğrenilmiş modelin
+        # dizi olasılığıyla da sırala. İçerik maskesi ve anlam çapaları korunur.
+        try:
+            raw_fluency = np.asarray(org.logprob(seqs, state, anchors or []), dtype=np.float64)
+            fluency = np.clip((raw_fluency - raw_fluency.mean()) / (raw_fluency.std() + 1e-6), -2.0, 2.0)
+            self._last_organ_fluency = {
+                "active": True, "logprob": [float(x) for x in raw_fluency],
+            }
+        except Exception as exc:
+            fluency = np.zeros(len(seqs), dtype=np.float64)
+            self._last_organ_fluency = {"active": False, "error": type(exc).__name__}
         best, best_sc = None, -1e18
         anchor_ids = set()
         for a in anchors or []:
             anchor_ids |= set(org.tok.tk.encode(a).ids)
-        for q in seqs:
-            if len(q) < 2:
-                continue
+        for q, learned in zip(seqs, fluency):
             cover = len(anchor_ids & set(q)) / max(1, len(anchor_ids))
             rep = len(set(q)) / len(q)
             ends = float(org.tok.tk.id_to_token(q[-1]) in END_MARKS)
-            sc = 2.0 * cover + 1.0 * rep + 0.6 * ends + 0.02 * min(len(q), 12) + 0.1 * self.rng.gumbel()
+            sc = (2.0 * cover + 1.0 * rep + 0.6 * ends + 0.45 * float(learned)
+                  + 0.02 * min(len(q), 12) + 0.1 * self.rng.gumbel())
             if sc > best_sc:
                 best, best_sc = q, sc
         if best is None:

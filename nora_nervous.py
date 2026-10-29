@@ -66,9 +66,26 @@ class PeripheralNervousSystem:
         # Omurilik refleksi ve anlık acı dışavurumu
         self.pending_pain_vocalization: bool = False
         self.reflex_recoil_steps: int = 0
+        # Merkezi ajanlık kestifinden (Mind.motor_eff) ayrı, gerçek periferik
+        # efferent çıkış. Açık ablasyon dışında daima açıktır; kestif geri beslemeli
+        # hareket kilidine dönüşmez.
+        self.efferent_enabled: bool = True
         self.pain_history: deque[NociceptiveEvent] = deque(maxlen=64)
 
         self._prev_integrity: float = 1.0
+
+    def calibrate_baseline(self, *, integrity: float) -> None:
+        """Doğum/yükleme anındaki beden değerini duyusal taban yap.
+
+        Başlangıç bütünlüğü 1.0 olmak zorunda değildir. Önceki değeri gerçek
+        bedenle eşitlemeden ilk farkı 'yara' saymak, dış hasar olmadan acı ve
+        geri-çekilme üretir. Bu yordam yalnız referansı kurar; ağrıyı silmek için
+        yaşam sırasında çağrılmaz.
+        """
+        value = float(integrity)
+        if not np.isfinite(value):
+            raise ValueError("bütünlük tabanı sonlu olmalı")
+        self._prev_integrity = value
 
     def step_from_body(self, energy: float, water: float, integrity: float, touch: float,
                        hurt_delta: float, chem: NeuroChemistry, step_num: int = 0) -> dict:
@@ -214,6 +231,15 @@ class PeripheralNervousSystem:
         s["last_locus"] = self.last_pain_locus
         return s
 
+    def state_dict(self) -> dict:
+        from nora_state import capture_attrs
+        return {"version": 1, "fields": capture_attrs(self, list(self.__dict__))}
+
+    def load_state_dict(self, data: dict | None) -> None:
+        if data:
+            from nora_state import restore_attrs
+            restore_attrs(self, data.get("fields") or {}, strict=True)
+
 
 # ============================================================================
 # 2. TEKİL ÖLÜMLÜ YAŞAM & VAROLUŞSAL SON BİLİNCİ (YENİDEN DOĞUŞ YOK!)
@@ -263,6 +289,15 @@ class SingleLifeMortality:
             "near_death_memories": self.near_death_encounters,
             "existential_dread": round(self.existential_dread, 3),
         }
+
+    def state_dict(self) -> dict:
+        from nora_state import capture_attrs
+        return {"version": 1, "fields": capture_attrs(self, list(self.__dict__))}
+
+    def load_state_dict(self, data: dict | None) -> None:
+        if data:
+            from nora_state import restore_attrs
+            restore_attrs(self, data.get("fields") or {}, strict=True)
 
 
 # ============================================================================

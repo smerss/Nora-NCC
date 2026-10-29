@@ -4,3 +4,5 @@ torch
 # FlyWire konektomunu dönüştürmek için (isteğe bağlı; make_fly_reservoir.py / nora_neuron.py --stage convert):
 pandas
 pyarrow
+# ses organı (nora_voice: SubwordTokenizer) için:
+tokenizers
