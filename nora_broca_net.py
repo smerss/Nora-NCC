@@ -39,10 +39,13 @@ class NeuralRelationalProposer(nn.Module):
     kendi doğrudan gözlem belleği ve öğrenilen ağırlıkları kullanılır.
 
     ``learn_correction`` yalnız bağımsız doğrulayıcının kabul ettiği bir düzeltmeyi
-    öğrenir. Son üretimde top-k adayları sembolik kanıt yerine geçmez.
+    öğrenir. Son üretimde top-k adayları sembolik kanıt yerine geçmez. Nesne
+    işaretçisindeki beş kosinüs benzerliği kavram etiketi taşımaz; adayın query
+    ve iki dayanağın dört ucuyla eşleşmesini yeni nonce adlarına taşır.
     """
 
-    def __init__(self, dim: int = 32, seed: int = 0, learning_rate: float = 0.01):
+    def __init__(self, dim: int = 32, seed: int = 0, learning_rate: float = 0.01,
+                 object_similarity: bool = True):
         super().__init__()
         self.dim = max(16, int(dim))
         self.seed = int(seed)
@@ -56,6 +59,8 @@ class NeuralRelationalProposer(nn.Module):
         self.pair_score = nn.Linear(d, 1)
         self.relation_pointer = nn.Sequential(nn.Linear(2 * d, d), nn.Tanh(), nn.Linear(d, 1))
         self.object_pointer = nn.Sequential(nn.Linear(2 * d, d), nn.Tanh(), nn.Linear(d, 1))
+        self.object_similarity = None
+        self._configure_object_similarity(object_similarity)
         self.opt = torch.optim.Adam(self.parameters(), lr=float(learning_rate))
         self.memory: list[tuple[str, str, str]] = []
         self._memory_set: set[tuple[str, str, str]] = set()
@@ -65,6 +70,37 @@ class NeuralRelationalProposer(nn.Module):
         self.failures = 0
         self.successful_proposals = 0
         self.last_loss = 0.0
+
+    def _configure_object_similarity(self, enabled: bool) -> None:
+        """Nonce uç eşleşmelerini açık gören sıfır-artık nesne işaretçisi."""
+        if enabled:
+            self.object_similarity = nn.Sequential(
+                nn.Linear(5, self.dim), nn.Tanh(), nn.Linear(self.dim, 1),
+            )
+            nn.init.zeros_(self.object_similarity[-1].weight)
+            nn.init.zeros_(self.object_similarity[-1].bias)
+        else:
+            self.object_similarity = None
+
+    def _object_scores(self, pair_vector: torch.Tensor, query_vector: torch.Tensor,
+                       concept_vectors: torch.Tensor, *, context=None) -> torch.Tensor:
+        pair = pair_vector.unsqueeze(0).expand(len(concept_vectors), -1)
+        base = self.object_pointer(torch.cat([pair, concept_vectors], dim=1))
+        if self.object_similarity is not None:
+            if context is None:
+                raise ValueError("object similarity requires evidence context")
+            memory, cindex, first, second = context
+            references = torch.stack([
+                query_vector,
+                concept_vectors[cindex[memory[first][0]]],
+                concept_vectors[cindex[memory[first][2]]],
+                concept_vectors[cindex[memory[second][0]]],
+                concept_vectors[cindex[memory[second][2]]],
+            ])
+            similarities = F.cosine_similarity(
+                concept_vectors.unsqueeze(1), references.unsqueeze(0), dim=-1)
+            base = base + self.object_similarity(similarities)
+        return base.reshape(-1)
 
     def _vector(self, symbol: str) -> torch.Tensor:
         key = str(symbol)
@@ -172,9 +208,9 @@ class NeuralRelationalProposer(nn.Module):
         rel_logits = self.relation_pointer(torch.cat([
             pair_vector.unsqueeze(0).expand(len(relations), -1), rv,
         ], dim=1)).reshape(-1)
-        obj_logits = self.object_pointer(torch.cat([
-            pair_vector.unsqueeze(0).expand(len(concepts), -1), cv,
-        ], dim=1)).reshape(-1)
+        obj_logits = self._object_scores(
+            pair_vector, self.symbol(self._vector(str(query))), cv,
+            context=(memory, cindex, first, second))
         rel_scope = {rindex[memory[first][1]], rindex[memory[second][1]]}
         obj_scope = {cindex[str(query)]} | {
             cindex[memory[index][position]] for index in (first, second) for position in (0, 2)
@@ -199,6 +235,49 @@ class NeuralRelationalProposer(nn.Module):
         return self.last_loss
 
     @torch.no_grad()
+    def diagnose(self, memory, query: str, target, evidence_pair) -> dict:
+        """Top-1 hatasını pair/relation/object olarak davranışı değiştirmeden ölç.
+
+        Hedef ve kanıt yalnız ölçüm fonksiyonundan gelir; üretim önerisi bu
+        metodu çağırmaz. Böylece top-5 içinde görünen bir hedefin hangi nöral
+        bileşen yüzünden birinci sıraya çıkamadığı ayrılabilir.
+        """
+        target = tuple(target)
+        memory = [tuple(row) for row in memory]
+        encoded = self._encode(memory, str(query))
+        memory, concepts, relations, cindex, rindex, cv, rv, mem = encoded
+        vectors, pair_logits, n = self._pairs(encoded, str(query))
+        first, second = (int(evidence_pair[0]), int(evidence_pair[1]))
+        pair_index = first * (n - 1) + second - int(second > first)
+        pair_order = sorted(range(len(pair_logits)),
+                            key=lambda index: (-float(pair_logits[index]), index))
+        pair_rank = pair_order.index(pair_index) + 1
+        pair_vector = vectors[pair_index]
+        rel_logits = self.relation_pointer(torch.cat([
+            pair_vector.unsqueeze(0).expand(len(relations), -1), rv,
+        ], dim=1)).reshape(-1)
+        obj_logits = self._object_scores(
+            pair_vector, self.symbol(self._vector(str(query))), cv,
+            context=(memory, cindex, first, second))
+        rel_scope = {rindex[memory[first][1]], rindex[memory[second][1]]}
+        obj_scope = {cindex[str(query)]} | {
+            cindex[memory[index][position]] for index in (first, second) for position in (0, 2)
+        }
+        rel_logits = self._scoped(rel_logits, rel_scope)
+        obj_logits = self._scoped(obj_logits, obj_scope)
+        rel_order = sorted(rel_scope, key=lambda index: (-float(rel_logits[index]), index))
+        obj_order = sorted(obj_scope, key=lambda index: (-float(obj_logits[index]), index))
+        relation_rank = rel_order.index(rindex[target[1]]) + 1
+        object_rank = obj_order.index(cindex[target[2]]) + 1
+        return {
+            "pair_rank": pair_rank, "relation_rank": relation_rank,
+            "object_rank": object_rank,
+            "pair_top1": pair_rank == 1, "pair_top5": pair_rank <= 5,
+            "relation_top1": relation_rank == 1, "object_top1": object_rank == 1,
+            "all_components_top1": pair_rank == relation_rank == object_rank == 1,
+        }
+
+    @torch.no_grad()
     def propose(self, query: str, *, memory=None, k: int = 5) -> list[dict]:
         if not self.enabled:
             return []
@@ -220,9 +299,9 @@ class NeuralRelationalProposer(nn.Module):
             rel_logits = self.relation_pointer(torch.cat([
                 pair_vector.unsqueeze(0).expand(len(relations), -1), rv,
             ], dim=1)).reshape(-1)
-            obj_logits = self.object_pointer(torch.cat([
-                pair_vector.unsqueeze(0).expand(len(concepts), -1), cv,
-            ], dim=1)).reshape(-1)
+            obj_logits = self._object_scores(
+            pair_vector, self.symbol(self._vector(str(query))), cv,
+            context=(memory, cindex, first, second))
             rel_scope = {rindex[memory[first][1]], rindex[memory[second][1]]}
             obj_scope = {cindex[str(query)]} | {
                 cindex[memory[index][position]] for index in (first, second) for position in (0, 2)
@@ -250,6 +329,7 @@ class NeuralRelationalProposer(nn.Module):
     def export(self) -> dict:
         return {
             "kind": "neural_relational_proposer", "dim": self.dim, "seed": self.seed,
+            "object_similarity": self.object_similarity is not None,
             "weights": {key: value.detach().cpu().tolist() for key, value in self.state_dict().items()},
             "memory": [list(row) for row in self.memory], "enabled": bool(self.enabled),
             "corrections": self.corrections, "failures": self.failures,
@@ -259,6 +339,8 @@ class NeuralRelationalProposer(nn.Module):
     def load_export(self, data: dict) -> None:
         if not data or data.get("kind") != "neural_relational_proposer":
             raise ValueError("invalid relational proposer")
+        self._configure_object_similarity(bool(data.get("object_similarity", False)))
+        self.opt = torch.optim.Adam(self.parameters(), lr=float(self.opt.defaults["lr"]))
         weights = {key: torch.tensor(value, dtype=self.state_dict()[key].dtype)
                    for key, value in (data.get("weights") or {}).items()}
         self.load_state_dict(weights, strict=True)
@@ -386,7 +468,13 @@ def measure_relational_transfer(proposer: NeuralRelationalProposer, *,
 
     stats = {"attempted_graphs": 0, "graphs": 0, "queries": 0, "targets": 0, "top1": 0,
              "top5": 0, "grounded_top1": 0, "grounded_top5": 0,
-             "accepted_queries": 0, "grounded_accepted_queries": 0}
+             "accepted_queries": 0, "grounded_accepted_queries": 0,
+             "pair_top1": 0, "pair_top5": 0, "relation_top1": 0, "object_top1": 0,
+             "all_components_top1": 0, "pair_rank_sum": 0,
+             "relation_rank_sum": 0, "object_rank_sum": 0,
+             "query_top1_valid": 0, "query_top1_grounded": 0,
+             "query_top5_valid": 0, "query_top5_grounded": 0,
+             "multi_target_queries": 0}
     by_rule: dict[str, dict[str, int]] = {}
     for _graph_index in range(max(0, int(graphs))):
         stats["attempted_graphs"] += 1
@@ -421,6 +509,7 @@ def measure_relational_transfer(proposer: NeuralRelationalProposer, *,
                         continue
                     valid.append({
                         "target": (query, rel, obj), "rule": proof["rule"],
+                        "pair": tuple(pair),
                         "proof_set": frozenset((edge.subj, edge.rel, edge.obj)
                                                for edge in proof["proof"]),
                     })
@@ -431,10 +520,34 @@ def measure_relational_transfer(proposer: NeuralRelationalProposer, *,
             candidates = proposer.propose(query, memory=memory, k=5)
             stats["queries"] += 1
             stats["targets"] += len(targets)
+            stats["multi_target_queries"] += int(len(targets) > 1)
+
+            def valid_choice(row, target, grounded=False):
+                if (row["subj"], row["rel"], row["obj"]) != target["target"]:
+                    return False
+                return (not grounded or frozenset(map(tuple, row["neural_pair"]))
+                        == target["proof_set"])
+
+            if candidates:
+                stats["query_top1_valid"] += int(any(
+                    valid_choice(candidates[0], target) for target in targets))
+                stats["query_top1_grounded"] += int(any(
+                    valid_choice(candidates[0], target, grounded=True) for target in targets))
+            stats["query_top5_valid"] += int(any(
+                valid_choice(row, target) for row in candidates for target in targets))
+            stats["query_top5_grounded"] += int(any(
+                valid_choice(row, target, grounded=True)
+                for row in candidates for target in targets))
             for target in targets:
                 rule = by_rule.setdefault(target["rule"], {
                     "targets": 0, "top1": 0, "top5": 0, "grounded_top5": 0})
                 rule["targets"] += 1
+                diagnosis = proposer.diagnose(memory, query, target["target"], target["pair"])
+                for key in ("pair_top1", "pair_top5", "relation_top1", "object_top1",
+                            "all_components_top1"):
+                    stats[key] += int(bool(diagnosis[key]))
+                for key in ("pair_rank", "relation_rank", "object_rank"):
+                    stats[key + "_sum"] += int(diagnosis[key])
                 matches = [row for row in candidates
                            if (row["subj"], row["rel"], row["obj"]) == target["target"]]
                 if matches:
@@ -452,25 +565,33 @@ def measure_relational_transfer(proposer: NeuralRelationalProposer, *,
                 if grounded and grounded[0] is candidates[0]:
                     stats["grounded_top1"] += 1
 
-            accepted = None
-            accepted_proof_set = frozenset()
+            accepted_any = False
+            grounded_accepted_any = False
             for row in candidates:
                 proof = graph.prove_candidate(row["subj"], row["rel"], row["obj"])
                 if proof.get("status") == "proved" and proof.get("novel"):
-                    accepted = row
+                    accepted_any = True
                     accepted_proof_set = frozenset(
                         (edge.subj, edge.rel, edge.obj) for edge in proof["proof"])
-                    break
-            if accepted is not None:
-                stats["accepted_queries"] += 1
-                if frozenset(map(tuple, accepted["neural_pair"])) == accepted_proof_set:
-                    stats["grounded_accepted_queries"] += 1
+                    if frozenset(map(tuple, row["neural_pair"])) == accepted_proof_set:
+                        grounded_accepted_any = True
+            stats["accepted_queries"] += int(accepted_any)
+            stats["grounded_accepted_queries"] += int(grounded_accepted_any)
     stats["by_rule"] = by_rule
     stats["learning_updates"] = int(proposer.corrections) - before_corrections
     stats["memory_unchanged"] = proposer.memory == before_memory
     stats["top5_rate"] = stats["top5"] / max(1, stats["targets"])
     stats["grounded_top5_rate"] = stats["grounded_top5"] / max(1, stats["targets"])
     stats["accepted_query_rate"] = stats["accepted_queries"] / max(1, stats["queries"])
+    for key in ("pair_top1", "pair_top5", "relation_top1", "object_top1",
+                "all_components_top1"):
+        stats[key + "_rate"] = stats[key] / max(1, stats["targets"])
+    for key in ("pair_rank", "relation_rank", "object_rank"):
+        stats["mean_" + key] = stats[key + "_sum"] / max(1, stats["targets"])
+    for key in ("query_top1_valid", "query_top1_grounded",
+                "query_top5_valid", "query_top5_grounded"):
+        stats[key + "_rate"] = stats[key] / max(1, stats["queries"])
+    stats["mean_targets_per_query"] = stats["targets"] / max(1, stats["queries"])
     return stats
 
 
