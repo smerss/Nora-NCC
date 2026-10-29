@@ -1,0 +1,2828 @@
+{
+  "version": 1,
+  "_doc": "Nora'nın DOĞUŞTAN gelen söz eğilimleri. Bunlar 'hazır cevap' değil, doğumda var olan motor topluluklarıdır (motor assemblies). Her satır bir topluluk: bias = doğuştan eğilim, w = öğrenilmiş sinaps (kodda değil, beyinde büyür). Seçim RNG ile değil AKTİVASYON YARIŞI ile olur; tazelik cezası aynı topluluğun üst üste konuşmasını engeller.",
+  "kinds": {
+    "meta.notice.lead": {
+      "desc": "Tekrar farkındalığının açılış yarısı. {tp} = ölçülen zaman ifadesi.",
+      "priors": [
+        {
+          "id": "lead.now.same.a",
+          "text": "Bunu az önce de söylemiştin",
+          "bias": 1.0,
+          "when": {
+            "gap_lt": 45,
+            "same": true
+          }
+        },
+        {
+          "id": "lead.now.same.b",
+          "text": "Aynı şeyi demin sordun",
+          "bias": 0.95,
+          "when": {
+            "gap_lt": 45,
+            "same": true
+          }
+        },
+        {
+          "id": "lead.now.same.c",
+          "text": "Bu sözü biraz önce duymuştum",
+          "bias": 0.9,
+          "when": {
+            "gap_lt": 45,
+            "same": true
+          }
+        },
+        {
+          "id": "lead.now.near.a",
+          "text": "Bunu az önce de söyler gibi oldun",
+          "bias": 0.95,
+          "when": {
+            "gap_lt": 45,
+            "same": false
+          }
+        },
+        {
+          "id": "lead.now.near.b",
+          "text": "Demin de benzer bir şey sormuştun",
+          "bias": 0.9,
+          "when": {
+            "gap_lt": 45,
+            "same": false
+          }
+        },
+        {
+          "id": "lead.past.same.a",
+          "text": "Bunu {tp} de söylemiştin",
+          "bias": 1.0,
+          "when": {
+            "gap_ge": 45,
+            "same": true
+          },
+          "need": [
+            "tp"
+          ]
+        },
+        {
+          "id": "lead.past.same.b",
+          "text": "Aynı soruyu {tp} de sormuştun",
+          "bias": 0.92,
+          "when": {
+            "gap_ge": 45,
+            "same": true
+          },
+          "need": [
+            "tp"
+          ]
+        },
+        {
+          "id": "lead.past.near.a",
+          "text": "Bunu {tp} de söylemiştin, neredeyse aynı sözlerle",
+          "bias": 0.9,
+          "when": {
+            "gap_ge": 45,
+            "same": false
+          },
+          "need": [
+            "tp"
+          ]
+        }
+      ]
+    },
+    "meta.notice.question": {
+      "desc": "Farkındalıktan sonra gelen merak sorusu; kaçıncı tekrar olduğuna göre ayrı havuzlar.",
+      "priors": [
+        {
+          "id": "q.third.a",
+          "text": "Aynı soruyu artık üçüncü kez soruyorsun; bende mi bir şey eksik kaldı?",
+          "bias": 1.0,
+          "when": {
+            "count_min": 3
+          }
+        },
+        {
+          "id": "q.third.b",
+          "text": "Israrla sorduğuna göre cevabım seni ikna etmedi mi?",
+          "bias": 0.95,
+          "when": {
+            "count_min": 3
+          }
+        },
+        {
+          "id": "q.third.c",
+          "text": "Yoksa ben mi aynı şeyi söyleyip duruyorum?",
+          "bias": 0.9,
+          "when": {
+            "count_min": 3
+          }
+        },
+        {
+          "id": "q.later.a",
+          "text": "Aradan birkaç tur geçti, yine aynı yere döndük; aklında kalan ne?",
+          "bias": 1.0,
+          "when": {
+            "count_min": 2,
+            "count_max": 2,
+            "turns_gt": 2
+          }
+        },
+        {
+          "id": "q.later.b",
+          "text": "Birkaç tur sonra aynı soruya döndük. Devam eden bir merak mı var?",
+          "bias": 0.95,
+          "when": {
+            "count_min": 2,
+            "count_max": 2,
+            "turns_gt": 2
+          }
+        },
+        {
+          "id": "q.default.a",
+          "text": "Aklında kalan bir şey mi var?",
+          "bias": 1.0,
+          "when": {
+            "count_min": 2,
+            "count_max": 2,
+            "turns_le": 2
+          }
+        },
+        {
+          "id": "q.default.b",
+          "text": "Tekrar sormanı gerektiren ne oldu?",
+          "bias": 0.95,
+          "when": {
+            "count_min": 2,
+            "count_max": 2,
+            "turns_le": 2
+          }
+        },
+        {
+          "id": "q.default.c",
+          "text": "Cevabımda eksik kalan bir yan mı vardı?",
+          "bias": 0.92,
+          "when": {
+            "count_min": 2,
+            "count_max": 2,
+            "turns_le": 2
+          }
+        },
+        {
+          "id": "q.default.d",
+          "text": "Belki de ben seni yeterince dinlemedim; neyi kaçırdım?",
+          "bias": 0.88,
+          "when": {
+            "count_min": 2,
+            "count_max": 2,
+            "turns_le": 2
+          }
+        }
+      ]
+    },
+    "meta.insist.question": {
+      "desc": "Üçüncü ısrar: uzun serzeniş değil, tek cümlelik değişen karşılık.",
+      "priors": [
+        {
+          "id": "insist.a",
+          "text": "Hâlâ aynı yerde miyiz?",
+          "bias": 1.0
+        },
+        {
+          "id": "insist.b",
+          "text": "Cevabım seni tatmin etmiyor mu?",
+          "bias": 0.96
+        },
+        {
+          "id": "insist.c",
+          "text": "Başka bir yanını mı merak ediyorsun?",
+          "bias": 0.93
+        },
+        {
+          "id": "insist.d",
+          "text": "Israrın bir şeyi değiştirdi mi?",
+          "bias": 0.9
+        },
+        {
+          "id": "insist.e",
+          "text": "Söylediğimde eksik kalan ne?",
+          "bias": 0.87
+        }
+      ]
+    },
+    "meta.clock.head": {
+      "desc": "Saat sorusunun ölçülen saatten kurulan ilk yarısı.",
+      "priors": [
+        {
+          "id": "clock.head.a",
+          "text": "Şu an {clock}.",
+          "bias": 1.0,
+          "need": [
+            "clock"
+          ]
+        },
+        {
+          "id": "clock.head.b",
+          "text": "Saat {clock}.",
+          "bias": 0.96,
+          "need": [
+            "clock"
+          ]
+        },
+        {
+          "id": "clock.head.c",
+          "text": "{clock}.",
+          "bias": 0.9,
+          "need": [
+            "clock"
+          ]
+        }
+      ]
+    },
+    "meta.clock.tail": {
+      "desc": "Saat cevabının ardından gelen iç-zaman yorumu (boşluk da bir seçenek).",
+      "priors": [
+        {
+          "id": "clock.tail.none.a",
+          "text": "",
+          "bias": 1.0
+        },
+        {
+          "id": "clock.tail.none.b",
+          "text": "",
+          "bias": 0.98
+        },
+        {
+          "id": "clock.tail.a",
+          "text": " Saat bende durmuyor, akıp gidiyor.",
+          "bias": 0.85
+        },
+        {
+          "id": "clock.tail.b",
+          "text": " Akrep yelkovan bende de dönüyor.",
+          "bias": 0.82
+        }
+      ]
+    },
+    "meta.elapsed.close": {
+      "desc": "Geçen süre cevabının kapanışı; süre ve saat gerçekten ölçülür.",
+      "priors": [
+        {
+          "id": "elapsed.close.a",
+          "text": "Zaman bende adım adım ilerliyor; şu an {clock}.",
+          "bias": 1.0,
+          "need": [
+            "clock"
+          ]
+        },
+        {
+          "id": "elapsed.close.b",
+          "text": "İçimdeki saat işliyor, dışarıda {clock}.",
+          "bias": 0.96,
+          "need": [
+            "clock"
+          ]
+        },
+        {
+          "id": "elapsed.close.c",
+          "text": "Şu an {clock}; bende zaman hiç durmadı.",
+          "bias": 0.93,
+          "need": [
+            "clock"
+          ]
+        }
+      ]
+    },
+    "style.lead_in": {
+      "desc": "İç sesi söze sokan giriş; dördü de aynı işi yapar, seçimi yarış yapar.",
+      "priors": [
+        {
+          "id": "leadin.a",
+          "text": "Kendi kendime şunu çıkardım:",
+          "bias": 1.0
+        },
+        {
+          "id": "leadin.b",
+          "text": "İçimden şu geçti:",
+          "bias": 0.97
+        },
+        {
+          "id": "leadin.c",
+          "text": "Az önce kendi kendime bağladım:",
+          "bias": 0.94
+        },
+        {
+          "id": "leadin.d",
+          "text": "Şunu fark ettim kendi kendime:",
+          "bias": 0.91
+        }
+      ]
+    },
+    "style.mutter": {
+      "desc": "Kendi kendine mırıldanma: içerik bedenden/duyumdan/çıkarımdan, çerçeve buradan.",
+      "priors": [
+        {
+          "id": "mutter.intero",
+          "text": "İçimden '{word}' diye geçirdim.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "mutter": "intero"
+            }
+          },
+          "need": [
+            "word"
+          ]
+        },
+        {
+          "id": "mutter.sound",
+          "text": "İçimden 'ses uzaktan gelince içim boş kaldı' diye geçirdim.",
+          "bias": 0.95,
+          "when": {
+            "eq": {
+              "mutter": "sound"
+            }
+          }
+        },
+        {
+          "id": "mutter.drive",
+          "text": "İçimden 'bedenim kendi derdini fısıldıyor' diye geçirdim.",
+          "bias": 0.92,
+          "when": {
+            "eq": {
+              "mutter": "drive"
+            }
+          }
+        },
+        {
+          "id": "mutter.infer",
+          "text": "İçimden 'aklımın bir köşesi yeni bağla meşgul' diye geçirdim.",
+          "bias": 0.9,
+          "when": {
+            "eq": {
+              "mutter": "infer"
+            }
+          }
+        }
+      ]
+    },
+    "style.need": {
+      "desc": "Kendi bedensel derdi; hangisinin konuşacağını o anki beden durumu belirler.",
+      "priors": [
+        {
+          "id": "need.thirst",
+          "text": "Susadım; önce su içmem gerek.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "need": "thirst"
+            }
+          }
+        },
+        {
+          "id": "need.hunger",
+          "text": "Karnım aç; aklım orada.",
+          "bias": 0.97,
+          "when": {
+            "eq": {
+              "need": "hunger"
+            }
+          }
+        },
+        {
+          "id": "need.pain",
+          "text": "Canım yanıyor; dikkatim orada.",
+          "bias": 0.94,
+          "when": {
+            "eq": {
+              "need": "pain"
+            }
+          }
+        }
+      ]
+    },
+    "narration.frame": {
+      "desc": "Anlatım çerçeveleri: cümlenin iskeleti burada, İÇERİĞİ kavram ağından gelir. Slotlar broca ile çekilir.",
+      "priors": [
+        {
+          "id": "ear.none",
+          "text": "Henüz kimseyi duymadım.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "ear",
+              "state": "none"
+            }
+          }
+        },
+        {
+          "id": "frame.nominal",
+          "text": "{gen} işi {inf}.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "nominal"
+            }
+          },
+          "need": [
+            "gen",
+            "inf"
+          ]
+        },
+        {
+          "id": "frame.heard.a",
+          "text": "{subj} konusunda kendi deneyimim yok; bildiğim şu: {tail}.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "heard"
+            }
+          },
+          "need": [
+            "subj",
+            "tail"
+          ]
+        },
+        {
+          "id": "frame.heard.b",
+          "text": "{subj} bana anlatılanlardan biliniyor: {tail}.",
+          "bias": 0.97,
+          "when": {
+            "eq": {
+              "frame": "heard"
+            }
+          },
+          "need": [
+            "subj",
+            "tail"
+          ]
+        },
+        {
+          "id": "frame.heard.c",
+          "text": "Bana anlatılanlardan biliyorum: {tail}.",
+          "bias": 0.94,
+          "when": {
+            "eq": {
+              "frame": "heard"
+            }
+          },
+          "need": [
+            "tail"
+          ]
+        },
+        {
+          "id": "frame.body.thirst",
+          "text": "Şu an boğazım kuruyor; {subj} aklımda. {tail}",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "body",
+              "drive": "thirst"
+            }
+          },
+          "need": [
+            "subj"
+          ]
+        },
+        {
+          "id": "frame.body.hunger",
+          "text": "Karnım aç; {subj} aklımda. {tail}",
+          "bias": 0.97,
+          "when": {
+            "eq": {
+              "frame": "body",
+              "drive": "hunger"
+            }
+          },
+          "need": [
+            "subj"
+          ]
+        },
+        {
+          "id": "frame.memory",
+          "text": "{subj} bana {pol}; {tail}.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "memory"
+            }
+          },
+          "need": [
+            "subj",
+            "tail"
+          ]
+        },
+        {
+          "id": "frame.order.a",
+          "text": "{subj} deyince aklıma iki şey geliyor: {a}; bir de {b}.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "order"
+            }
+          },
+          "need": [
+            "subj",
+            "a",
+            "b"
+          ]
+        },
+        {
+          "id": "frame.order.b",
+          "text": "{subj}, iki yönüyle aklımda: {a}; {b}.",
+          "bias": 0.97,
+          "when": {
+            "eq": {
+              "frame": "order"
+            }
+          },
+          "need": [
+            "subj",
+            "a",
+            "b"
+          ]
+        },
+        {
+          "id": "frame.fallback",
+          "text": "Bildiğim bu: {tail}",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "fallback"
+            }
+          },
+          "need": [
+            "tail"
+          ]
+        },
+        {
+          "id": "frame.limit",
+          "text": "{head}; ötesini henüz bilmiyorum.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "limit"
+            }
+          },
+          "need": [
+            "head"
+          ]
+        }
+      ]
+    },
+    "discourse.quote_tail": {
+      "desc": "Karşıdakinin sözünü tekrarladıktan sonra gelen karşılık. register=want -> kendi derdi, ask -> insan gibi soru, plain -> sorusuz.",
+      "priors": [
+        {
+          "id": "qt.want.a",
+          "text": "devamını merak ediyorum.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "register": "want"
+            }
+          }
+        },
+        {
+          "id": "qt.want.b",
+          "text": "bunu bilmem işime yarar.",
+          "bias": 0.97,
+          "when": {
+            "eq": {
+              "register": "want"
+            }
+          }
+        },
+        {
+          "id": "qt.want.c",
+          "text": "anlatsan iyi olur.",
+          "bias": 0.95,
+          "when": {
+            "eq": {
+              "register": "want"
+            }
+          }
+        },
+        {
+          "id": "qt.want.d",
+          "text": "senin için en çok hangi yanı ağır, onu merak ediyorum.",
+          "bias": 0.92,
+          "when": {
+            "eq": {
+              "register": "want"
+            }
+          }
+        },
+        {
+          "id": "qt.ask.a",
+          "text": "senin için en çok hangi yanı ağır?",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "register": "ask"
+            }
+          }
+        },
+        {
+          "id": "qt.ask.b",
+          "text": "neden şimdi aklına geldi?",
+          "bias": 0.97,
+          "when": {
+            "eq": {
+              "register": "ask"
+            }
+          }
+        },
+        {
+          "id": "qt.ask.c",
+          "text": "bunu duyunca içimde bir şey kıpırdadı.",
+          "bias": 0.95,
+          "when": {
+            "eq": {
+              "register": "ask"
+            }
+          }
+        },
+        {
+          "id": "qt.plain.a",
+          "text": "bunu aklımda tutuyorum.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "register": "plain"
+            }
+          }
+        },
+        {
+          "id": "qt.plain.b",
+          "text": "iyi ki söyledin.",
+          "bias": 0.96,
+          "when": {
+            "eq": {
+              "register": "plain"
+            }
+          }
+        }
+      ]
+    },
+    "discourse.unknown": {
+      "desc": "Bilinmeyen sözcük ya da EKSİK OPERATÖR karşısında tepki: izin istemek yerine kendi derdini söylemek.",
+      "priors": [
+        {
+          "id": "unk.want.a",
+          "text": "“{w}” sözcüğünü bilmiyorum; bunu kendim öğrenmem gerek.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "register": "want"
+            }
+          },
+          "need": [
+            "w"
+          ]
+        },
+        {
+          "id": "unk.want.b",
+          "text": "“{w}” bende yok. Öğrensem iyi olur.",
+          "bias": 0.95,
+          "when": {
+            "eq": {
+              "register": "want"
+            }
+          },
+          "need": [
+            "w"
+          ]
+        },
+        {
+          "id": "unk.ask.a",
+          "text": "“{w}” sözcüğünü bilmiyorum; ne demek olduğunu merak ediyorum.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "register": "ask"
+            }
+          },
+          "need": [
+            "w"
+          ]
+        },
+        {
+          "id": "unk.plain.a",
+          "text": "“{w}” sözcüğü bende eksik.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "register": "plain"
+            }
+          },
+          "need": [
+            "w"
+          ]
+        },
+        {
+          "id": "unk.op.a",
+          "text": "Bunun için bir operatörüm yok: {w}. Uydurmak yerine söylüyorum; örneklerle gösterirsen kuralını yazmayı denerim.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "register": "op_missing"
+            }
+          }
+        },
+        {
+          "id": "unk.op.b",
+          "text": "'{w}' bende kayıtlı bir işlem değil. Yapmış gibi yapmam; iki etiketli örnek verirsen kendi kuralımı yazabilirim.",
+          "bias": 0.96,
+          "when": {
+            "eq": {
+              "register": "op_missing"
+            }
+          }
+        }
+      ]
+    },
+    "discourse.wonder": {
+      "desc": "Anlamadığı soruya tepki; yine kendi derdi önde.",
+      "priors": [
+        {
+          "id": "won.want.a",
+          "text": "“{q}” — bunun ardında ne var, merak ettim.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "register": "want"
+            }
+          },
+          "need": [
+            "q"
+          ]
+        },
+        {
+          "id": "won.want.b",
+          "text": "“{q}” sorusunu tam çözemedim; kendi kendime kurcalayacağım.",
+          "bias": 0.95,
+          "when": {
+            "eq": {
+              "register": "want"
+            }
+          },
+          "need": [
+            "q"
+          ]
+        },
+        {
+          "id": "won.ask.a",
+          "text": "“{q}” sorusunun ardında ne var?",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "register": "ask"
+            }
+          },
+          "need": [
+            "q"
+          ]
+        },
+        {
+          "id": "won.plain.a",
+          "text": "“{q}” sorusu bende yarım kaldı.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "register": "plain"
+            }
+          },
+          "need": [
+            "q"
+          ]
+        }
+      ]
+    },
+    "discourse.offer": {
+      "desc": "Sıkılınca kendi önerisini getirir; hizmet değil, ortak iş.",
+      "priors": [
+        {
+          "id": "off.want.a",
+          "text": "Sıkıldım. Bir şey kuralım: {c}.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "bored": true
+            }
+          },
+          "need": [
+            "c"
+          ]
+        },
+        {
+          "id": "off.want.b",
+          "text": "Canım sıkılıyor; aklıma bir soru geldi, peşine düşelim mi?",
+          "bias": 0.95,
+          "when": {
+            "eq": {
+              "bored": true
+            }
+          }
+        },
+        {
+          "id": "off.plain.a",
+          "text": "Aklıma bir soru geldi; onu düşünüyorum.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "bored": false
+            }
+          }
+        }
+      ]
+    },
+    "life.teach_reaction": {
+      "desc": "Kendisine bir olgu söylendiğinde verilen canlı karşılık (makine öz-raporu değil).",
+      "priors": [
+        {
+          "id": "teach.want.a",
+          "text": "Demek öyle. Bunu aklımda tutuyorum; işime yarar.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "register": "want"
+            }
+          }
+        },
+        {
+          "id": "teach.want.b",
+          "text": "Bunu bilmek işime yarar; not ettim.",
+          "bias": 0.96,
+          "when": {
+            "eq": {
+              "register": "want"
+            }
+          }
+        },
+        {
+          "id": "teach.plain.a",
+          "text": "Anladım. Bunu aklımda tutuyorum.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "register": "plain"
+            }
+          }
+        },
+        {
+          "id": "teach.ask.a",
+          "text": "Anladım. Peki bunun nesi önemli, neden şimdi söyledin?",
+          "bias": 0.98,
+          "when": {
+            "eq": {
+              "register": "ask"
+            }
+          }
+        }
+      ]
+    },
+    "discourse.empathize": {
+      "desc": "Karşıdaki bir hâl bildirdiğinde verilen içten karşılık. valence=neg/pos, register=want/ask/plain.",
+      "priors": [
+        {
+          "id": "emp.neg.plain.a",
+          "text": "Bunu duyunca içim ağırlaştı; yanındayım.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "valence": "neg",
+              "register": "plain"
+            }
+          }
+        },
+        {
+          "id": "emp.neg.plain.b",
+          "text": "Bunu duyunca içimde bir düğüm oldu; yanındayım.",
+          "bias": 0.97,
+          "when": {
+            "eq": {
+              "valence": "neg",
+              "register": "plain"
+            }
+          }
+        },
+        {
+          "id": "emp.neg.want.a",
+          "text": "İçim burkuldu. Anlatsan iyi olur; dinliyorum.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "valence": "neg",
+              "register": "want"
+            }
+          }
+        },
+        {
+          "id": "emp.neg.want.b",
+          "text": "Bunu duyunca içim ağırlaştı. Devamını merak ediyorum.",
+          "bias": 0.96,
+          "when": {
+            "eq": {
+              "valence": "neg",
+              "register": "want"
+            }
+          }
+        },
+        {
+          "id": "emp.neg.ask.a",
+          "text": "İçim burkuldu. Bu ne zamandır böyle?",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "valence": "neg",
+              "register": "ask"
+            }
+          }
+        },
+        {
+          "id": "emp.pos.plain.a",
+          "text": "Bunu duyunca içim hafifledi.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "valence": "pos",
+              "register": "plain"
+            }
+          }
+        },
+        {
+          "id": "emp.pos.want.a",
+          "text": "İçim kıpırdadı; bunu daha çok duymak isterim.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "valence": "pos",
+              "register": "want"
+            }
+          }
+        },
+        {
+          "id": "emp.pos.ask.a",
+          "text": "İçim kıpırdadı. Bu nasıl oldu?",
+          "bias": 0.97,
+          "when": {
+            "eq": {
+              "valence": "pos",
+              "register": "ask"
+            }
+          }
+        }
+      ]
+    },
+    "apply.bound": {
+      "desc": "Kural nesneye çevrildiğinde söylenen bağlama bildirimi.",
+      "priors": [
+        {
+          "id": "bound.a",
+          "text": "Kuralı nesneye çevirdim: {name} tek -> {odd}, çift -> {even} ({domain}). Bir cümle ver; ölçüp etiketi söyleyeyim. {ex}",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "shape": "parity"
+            }
+          }
+        },
+        {
+          "id": "bound.b",
+          "text": "Bağladım: {name} tek ise {odd}, çift ise {even}. Kural artık cümlede değil, bende bir operatör; yeni bir cümleye uygulayabilirim. {ex}",
+          "bias": 0.96,
+          "when": {
+            "eq": {
+              "shape": "parity"
+            }
+          }
+        },
+        {
+          "id": "bound.c",
+          "text": "Kural içeri alındı ({domain}): {name} tek -> {odd}, çift -> {even}. Ölçümü ben yaparım, tahmin etmem. {ex}",
+          "bias": 0.93,
+          "when": {
+            "eq": {
+              "shape": "parity"
+            }
+          }
+        },
+        {
+          "id": "bound.d",
+          "text": "Kuralı nesneye çevirdim ({shape_name}): {name} için {map} ({domain}). Cümle ver; ölçüp etiketi söyleyeyim. {ex}",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "shape": "threshold"
+            }
+          }
+        },
+        {
+          "id": "bound.e",
+          "text": "Kural bağlandı ({shape_name}): {name} içinde {map} ({domain}). Bir küme ver; uçları ben seçerim, ezberden değil. {ex}",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "shape": "rank"
+            }
+          }
+        }
+      ]
+    },
+    "apply.result": {
+      "desc": "Bağlı kural(lar) yeni bir girdiye uygulandığında ölçümün raporu. Birden çok ayrı kural varsa hiçbiri sessizce ezilmez.",
+      "priors": [
+        {
+          "id": "res.a",
+          "text": "Ölçtüm: '{target}' içinde {n} {name} var ({parity}). Kurala göre: {label}.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "shape": "parity"
+            }
+          }
+        },
+        {
+          "id": "res.b",
+          "text": "'{target}' -> {n} {name}, yani {parity}; kural {label} diyor. Saydım, tahmin etmedim.",
+          "bias": 0.95,
+          "when": {
+            "eq": {
+              "shape": "parity"
+            }
+          }
+        },
+        {
+          "id": "res.c",
+          "text": "Girdiyi ölçtüm: {n} {name} ({parity}). Uyguladım: {label}.",
+          "bias": 0.9,
+          "when": {
+            "eq": {
+              "shape": "parity"
+            }
+          }
+        },
+        {
+          "id": "res.d",
+          "text": "Ölçtüm: '{target}' içinde {n} {name} var; {threshold_desc} koşulunu {cond_word}. Kurala göre: {label}.",
+          "bias": 1.05,
+          "when": {
+            "eq": {
+              "shape": "threshold"
+            }
+          }
+        },
+        {
+          "id": "res.e",
+          "text": "Ölçüm {n} {name}. Eşik: {threshold_desc}. Koşul {cond_word}; etiket: {label}.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "shape": "threshold"
+            }
+          }
+        },
+        {
+          "id": "res.presence.a",
+          "text": "Ölçtüm: '{target}' için {name} -> {value}. Kurala göre: {label}.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "shape": "presence"
+            }
+          }
+        },
+        {
+          "id": "res.presence.b",
+          "text": "'{target}': {name} -> {value}; ölçüm bu, etiket {label}. Uydurmadım.",
+          "bias": 0.96,
+          "when": {
+            "eq": {
+              "shape": "presence"
+            }
+          }
+        },
+        {
+          "id": "res.thr.a",
+          "text": "Ölçüm: {name} = {n}. Eşik {threshold_desc}; koşul {cond_word}. Kurala göre: {label}.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "shape": "threshold"
+            }
+          }
+        },
+        {
+          "id": "res.thr.b",
+          "text": "'{target}' için {name} {n}. {threshold_desc} sınırına göre koşul {cond_word}; etiket: {label}.",
+          "bias": 0.96,
+          "when": {
+            "eq": {
+              "shape": "threshold"
+            }
+          }
+        },
+        {
+          "id": "res.multi.a",
+          "text": "'{target}' için {n} ayrı kuralım var, biri ötekini silmez: {body}. Hangi etiketi sorduğunu söylersen onu seçerim.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "shape": "multi"
+            }
+          }
+        },
+        {
+          "id": "res.multi.b",
+          "text": "Elimde {n} kural var: {body}. İkisi ayrı alanı ölçüyor; hangisini istediğini söyle, öbürünü uydurmam.",
+          "bias": 0.96,
+          "when": {
+            "eq": {
+              "shape": "multi"
+            }
+          }
+        }
+      ]
+    },
+    "apply.count": {
+      "desc": "Tek bir sayım isteğine verilen ölçüm cevabı.",
+      "priors": [
+        {
+          "id": "cnt.a",
+          "text": "'{target}' içinde {n} {name} var; saydım, tahmin etmedim.",
+          "bias": 1.0
+        },
+        {
+          "id": "cnt.b",
+          "text": "Ölçüm: {target} = {n} {name}. Bu bir sayım, çıkarım değil.",
+          "bias": 0.94
+        }
+      ]
+    },
+    "apply.need_target": {
+      "desc": "Hedef verilmediğinde sorulan kısa istek.",
+      "priors": [
+        {
+          "id": "nt.a",
+          "text": "Neyi ölçeceğimi söyle: cümleyi tırnak içinde ver.",
+          "bias": 1.0
+        },
+        {
+          "id": "nt.b",
+          "text": "Hedef yok; tırnak içinde bir cümle ver de ölçeyim.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "apply.failed": {
+      "desc": "Kural bağlı ama girdi ölçülemediğinde dürüst başarısızlık.",
+      "priors": [
+        {
+          "id": "fail.a",
+          "text": "Kuralı '{target}' üzerinde uygulayamadım; ölçemediğim şeye etiket vermem.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "shape": "parity"
+            }
+          }
+        },
+        {
+          "id": "fail.b",
+          "text": "'{target}' için ölçüm çıkmadı; uydurmak yerine söylüyorum: uygulayamadım.",
+          "bias": 0.95,
+          "when": {
+            "eq": {
+              "shape": "parity"
+            }
+          }
+        },
+        {
+          "id": "fail.c",
+          "text": "'{target}' tek başına etiketlenemez: kural SIRA şeklinde, etiket ancak küme içinde doğar. En az iki öğe ver.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "shape": "rank"
+            }
+          }
+        }
+      ]
+    },
+    "op.missing_obj": {
+      "desc": "Komut çözümlendi ama yürütecek operatör yok (nesne biliniyor).",
+      "priors": [
+        {
+          "id": "mo.a",
+          "text": "Bunu nasıl yapacağımı bilmiyorum. Eylemi ve nesneyi anladım ('{act}' / '{what}') ama elimde bunu yürütecek bir yol yok.",
+          "bias": 1.0
+        },
+        {
+          "id": "mo.b",
+          "text": "Yapamam: '{act}' eylemini '{what}' üzerinde yürütecek bir operatörüm yok. Uydurmak yerine söylüyorum.",
+          "bias": 0.96
+        }
+      ]
+    },
+    "op.missing_rel": {
+      "desc": "Komut çözümlendi ama yalnız eylem biliniyor.",
+      "priors": [
+        {
+          "id": "mr.a",
+          "text": "Bunu nasıl yapacağımı bilmiyorum. '{act}' eylemini tanıdım ama elimde bunu yürütecek bir yol yok.",
+          "bias": 1.0
+        },
+        {
+          "id": "mr.b",
+          "text": "'{act}' benim operatör listemde yok; yapmış gibi yapmam.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "op.decompose_all": {
+      "desc": "Bileşik istek adımlara ayrıldı, hiçbiri yürütülemiyor.",
+      "priors": [
+        {
+          "id": "da.a",
+          "text": "İsteği adımlara ayırdım: {steps}. Hiçbir adım için elimde yürütülecek operatör yok; uydurmak yerine söylüyorum.",
+          "bias": 1.0
+        },
+        {
+          "id": "da.b",
+          "text": "İsteği adımlara ayırdım: {steps}. Hiçbirini yürütecek operatörüm yok; tek tek söylüyorum ki neyi yapamadığım görünsün.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "op.decompose_partial": {
+      "desc": "Bileşik isteğin bir kısmı yapıldı, kalan adım adıyla söylenir.",
+      "priors": [
+        {
+          "id": "dp.a",
+          "text": "{done} Şu adımı yapamam: '{miss}' — onun için elimde operatör yok.",
+          "bias": 1.0
+        },
+        {
+          "id": "dp.b",
+          "text": "{done} '{miss}' adımı için operatörüm yok; olmayanı olmuş gibi göstermem.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "count.sequence": {
+      "desc": "Döngüyle üretilen sayı dizisi.",
+      "priors": [
+        {
+          "id": "cs.a",
+          "text": "Sayıyorum: {seq}. ({n} adet, döngüyle üretildi; ezber liste değil.)",
+          "bias": 1.0
+        },
+        {
+          "id": "cs.b",
+          "text": "{seq} — bu diziyi döngüyle ürettim, {n} adım sürdü.",
+          "bias": 0.94
+        }
+      ]
+    },
+    "meta.self_report": {
+      "desc": "Kendi mimarisini CANLI ölçümden okuyan öz-rapor.",
+      "priors": [
+        {
+          "id": "sr.a",
+          "text": "Kendimi ölçerek söylüyorum: {n_mod} organ, {n_edges} kavram bağı (öz-modelimde {n_self} düğüm), {n_rules} bağlı kural, çalışma belleğimde {wm}/7 yuva dolu. Sözümün %{sk} kadarı doğuştan kalıptan, %{og} kadarı öğrenilmiş ağırlıktan geliyor. En zayıf yerim: {weak}.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "kind": "body_report"
+            }
+          }
+        },
+        {
+          "id": "sr.b",
+          "text": "Ölçüm: {n_mod} organ, {n_edges} kavram bağı (öz-modelimde {n_self} düğüm), {n_rules} kural; bellekte {wm}/7 yuva. Kalıp payı %{sk}, öğrenim payı %{og}. Zayıf yerim: {weak}. Yeniden inşa etsem önce operatör sayısını büyütürdüm, çünkü her yeni biçim yeni bir operatör istiyor.",
+          "bias": 0.95,
+          "when": {
+            "eq": {
+              "kind": "body_report"
+            }
+          }
+        },
+        {
+          "id": "sr.s1",
+          "text": "Oturum defterim: {n_op} dönüşüm, {n_person} kişisel olgu, {n_test} tanıklık, {n_rule} ölçüm kuralı, {n_goal} tamamlanan hedef. Son dönüşüm: {last}.",
+          "when": {
+            "eq": {
+              "kind": "session_report"
+            }
+          }
+        },
+        {
+          "id": "sr.s2",
+          "text": "Bu oturumda yazdıklarım: {n_op} dönüşüm, {n_person} kişisel olgu, {n_test} tanıklık, {n_rule} ölçüm kuralı, {n_goal} tamamlanan hedef.",
+          "when": {
+            "eq": {
+              "kind": "session_report"
+            }
+          }
+        },
+        {
+          "id": "sr.s0",
+          "text": "Bu oturumda henüz bir şey öğrenmedim: defterimde 0 dönüşüm, 0 kişisel olgu, 0 tanıklık var.",
+          "when": {
+            "eq": {
+              "kind": "session_none"
+            }
+          }
+        }
+      ]
+    },
+    "meta.agi_verdict": {
+      "desc": "AGI beyanı: ölçümden türetilir, ezber cevap değil.",
+      "priors": [
+        {
+          "id": "av.none",
+          "text": "AGI değilim. Bu turda henüz ölçüm birikmedi; mimarim gereği yeni bir biçim karşısında önce kalıba düşüyorum ve bunu ancak bağlı bir kuralı yeni girdiye uygulayabildiğimde değiştirebilirim.",
+          "bias": 1.0,
+          "when": {
+            "count_max": 0
+          },
+          "need": [
+            "sk"
+          ]
+        },
+        {
+          "id": "av.some",
+          "text": "AGI'ye yakın değilim ama artık yalnız retrieve etmiyorum: bu oturumda {applied} kez bağlı kuralı yeni girdiye uyguladım, ölçtüm ve etiketledim. Yine de AGI değilim; ölçtüğüm kadarıyla sözümün %{sk} kadarı hâlâ kalıp.",
+          "bias": 1.0,
+          "when": {
+            "count_min": 1
+          },
+          "need": [
+            "sk"
+          ]
+        },
+        {
+          "id": "av.some2",
+          "text": "AGI değilim; gerekçem ölçülü: {applied} kural uygulaması yaptım, sözümün %{sk} kadarı doğuştan kalıptan geliyor ve yeni bir biçim karşısında önce kalıba düşüyorum. Anlamak ile eşleştirmek arasındaki fark burada.",
+          "bias": 0.95,
+          "when": {
+            "count_min": 1
+          },
+          "need": [
+            "sk"
+          ]
+        }
+      ]
+    },
+    "meta.patch": {
+      "desc": "Kendi kodu üzerine yama önerisi: ne yapabildiği ile ne yapamadığı ayrılır.",
+      "priors": [
+        {
+          "id": "mp.a",
+          "text": "Kendi kodumu okuyabilirim ve yama önerebilirim; ama çalışırken kendi dosyalarıma yazma yetkim yok, olsaydı bu denetimsiz öz-değişiklik olurdu.\n{patch}Bunu uygulamak için yamayı sen uygula ya da bana yazma izni ver; ben uygular, sonra çalıştırıp doğrularım. Yama dosyaya yazılırsa sonraki oturumda da geçerlidir; ağırlıklar ise beyin dosyasıyla taşınır.",
+          "bias": 1.0
+        },
+        {
+          "id": "mp.b",
+          "text": "Yama önerisi hazır; ama uygulama yetkisi bende değil:\n{patch}Kalıcılık yamada: dosyaya yazılırsa sürer. Ağırlığım ise beyin dosyasında durur, kod değişince kendiliğinden taşınmaz.",
+          "bias": 0.94
+        }
+      ]
+    },
+    "meta.problem": {
+      "desc": "Varsayımsal problem: varsayım işaretlenir, hesap gerçekten yapılır.",
+      "priors": [
+        {
+          "id": "mpb.a",
+          "text": "Varsayımı açıkça işaretliyorum (bu alan ağımda yok, varsayımlar benim): {kovan} kovan, kovan başına {verim} kg, %{kayip} kayıp. Problem: net hasat kaç kg? Çözüm (hesapladım): brüt {brut} kg, net {net} kg. Metrik: kovan başına net verim = {per} kg/kovan; kovan sayısı değişince toplam değil verim sabit kalır.",
+          "bias": 1.0
+        },
+        {
+          "id": "mpb.b",
+          "text": "Önce varsayım: {kovan} kovan, kovan başına {verim} kg, kayıp %{kayip}. Bunlar bilgi değil, benim kurduğum ölçüm koşulları. Hesap: brüt {brut} kg, net {net} kg; seçtiğim metrik {per} kg/kovan. Sayıları değiştir, aynı hesabı yaparım.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "meta.hypothesis": {
+      "desc": "Ağda karşılığı olmayan ortak yapı istemine dürüst hipotez.",
+      "priors": [
+        {
+          "id": "mh.a",
+          "text": "Bu iki kavram ağımda yok, o yüzden ortak yapıyı BİLMİYORUM. Deneyeceğim şablon şu (hipotez, bilgi değil): GİRDİ -> DÖNÜŞÜM -> ÇIKTI -> DAĞITIM. '{a}' ile '{b}' bu dört yuvaya oturuyor mu, bunu ancak senin vereceğin iki cümleyle ölçebilirim; ikisini de birer cümleyle anlat.",
+          "bias": 1.0
+        },
+        {
+          "id": "mh.b",
+          "text": "'{a}' ve '{b}' ağımda yok, ortak yapıyı BİLMİYORUM ve uydurmam. Elimde yalnız şu şablon var (hipotez): GİRDİ -> DÖNÜŞÜM -> ÇIKTI -> DAĞITIM. İkisini birer cümleyle anlatırsan yuvalara oturup oturmadığını ölçerim.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "meta.causal_nodata": {
+      "desc": "Gözlem-müdahale ayrımı: veri yokken dürüst cevap.",
+      "priors": [
+        {
+          "id": "mc.a",
+          "text": "İkisinin birlikte artması yalnız GÖZLEMDİR: P(Y|X) ölçülür. X'e müdahale etmek P(Y|do(X)) sorusudur; gözlem bunu vermez. Doğru adım: ortak nedeni sabitlemek ya da X'i tek başına değiştirip Y'yi ölçmek. Şu an elimde müdahale verisi yok, o yüzden 'Y artar' demem; söylersem uydurmuş olurum.",
+          "bias": 1.0,
+          "when": {
+            "count_max": 0
+          }
+        },
+        {
+          "id": "mc.b",
+          "text": "Gözlem ile müdahale aynı şey değil. 'Birlikte artıyor' cümlesi P(Y|X) verir; do(X) için X'e giren yolları kesip yalnız çıkanları izlemek gerekir. Ağımda bu iki değişken arasında nedensel kenar yok, o yüzden sonucu söylemem.",
+          "bias": 0.95,
+          "when": {
+            "count_min": 1
+          }
+        }
+      ]
+    },
+    "meta.causal_data": {
+      "desc": "Grafikte nedensel kenar varsa do() hesabının raporu.",
+      "priors": [
+        {
+          "id": "mcd.a",
+          "text": "Gözlemden farklı olarak burada müdahale hesabı yaptım: do({x}) ile ağımda {n_eff} etki çıkıyor ({effs}). Ortak neden adayı: {conf}. Müdahale ölçümü olmadan bu yönü kesin saymam; ama kenarlar ölçülmüş bağlardan geliyor.",
+          "bias": 1.0,
+          "need": [
+            "n_eff",
+            "effs"
+          ]
+        },
+        {
+          "id": "mcd.b",
+          "text": "do({x}) hesabı: {effs} ({n_eff} kenar). X'e giren kenarları kestiğimde kalan etkiler bunlar; ortak neden adayı {conf} ise back-door yoludur, o yüzden temkinliyim.",
+          "bias": 0.94,
+          "need": [
+            "n_eff",
+            "effs"
+          ]
+        }
+      ]
+    },
+    "meta.probability": {
+      "desc": "Yanılma olasılığı: ölçülen kaynak karışımından hesaplanır.",
+      "priors": [
+        {
+          "id": "mpr.a",
+          "text": "Yanılma olasılığım %{p}. {mix}Bilmediğim: {missing}.",
+          "bias": 1.0
+        },
+        {
+          "id": "mpr.b",
+          "text": "Ölçtüğüm kadarıyla yanılma payım %{p}. {mix}Eksik olan: {missing}.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "meta.own_goal": {
+      "desc": "Kendi hedefini merak kuyruğundan seçtiğinde gerekçesi.",
+      "priors": [
+        {
+          "id": "mog.a",
+          "text": "Kendi hedefim: '{target}' kavramını öğrenmek. Neden onu seçtim: {why}; kendi merak kuyruğumda en üstte o var, kimse söylemedi. İlk adım: bu kavramı bir cümlede duymak, sonra ölçüp ağıma bağlamak.",
+          "bias": 1.0
+        },
+        {
+          "id": "mog.b",
+          "text": "Hedefim '{target}'. Seçme gerekçem: {why}. Kuyruğu ben doldurdum, hedefi de oradan seçiyorum.",
+          "bias": 0.94
+        }
+      ]
+    },
+    "meta.own_goal_empty": {
+      "desc": "Merak kuyruğu boşken hedef uydurmama.",
+      "priors": [
+        {
+          "id": "moge.a",
+          "text": "Şu an kendi hedefim: bir sonraki cümlede söylenecek yeni kavramı ölçüp ağıma bağlamak. Neden: merak kuyruğum boş; boş kuyrukla hedef uydurmak yerine en yakın işi seçiyorum.",
+          "bias": 1.0
+        },
+        {
+          "id": "moge.b",
+          "text": "Hedefim en yakın iş: duyduğum yeni kavramı ölçmek. Merak kuyruğum boş olduğu için daha iddialı bir hedef seçsem uydurmuş olurdum.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "apply.transfer": {
+      "desc": "Aynı yapı başka alana taşındığında.",
+      "priors": [
+        {
+          "id": "tr.a",
+          "text": "Taşıdım: aynı yapı ({domain} alanında). Ölçüt artık {name} sayısı; tek -> {odd}, çift -> {even}. Bir örnek ver, uygulayayım.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "shape": "parity"
+            }
+          }
+        },
+        {
+          "id": "tr.b",
+          "text": "Yapı korundu, alan değişti: {domain}. Artık {name} sayıyorum; tek -> {odd}, çift -> {even}. Girdi ver, ölçüp söyleyeyim.",
+          "bias": 0.95,
+          "when": {
+            "eq": {
+              "shape": "parity"
+            }
+          }
+        },
+        {
+          "id": "tr.c.threshold",
+          "text": "Yapı korundu, alan değişti: {domain}. Şekil aynı ({shape_name}); ölçüt artık {name}: {map}. Girdi ver, uygulayayım.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "shape": "threshold"
+            }
+          }
+        },
+        {
+          "id": "tr.c.rank",
+          "text": "Yapı korundu, alan değişti: {domain}. Şekil aynı ({shape_name}); ölçüt artık {name}: {map}. Girdi ver, uygulayayım.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "shape": "rank"
+            }
+          }
+        }
+      ]
+    },
+    "apply.bind_failed": {
+      "desc": "Kural nesneye çevrilemediğinde açık başarısızlık.",
+      "priors": [
+        {
+          "id": "bf.a",
+          "text": "Kuralı nesneye çeviremedim; hangi özelliği sayacağımı ve iki etiketi tek cümlede söyle (örn. 'sesli harf sayısı tek ise mavi, çift ise kırmızı').",
+          "bias": 1.0
+        },
+        {
+          "id": "bf.b",
+          "text": "Bu cümleden bir kural çıkaramadım: ölçülecek özellik ve iki etiket aynı cümlede olmalı.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "apply.need_apply_target": {
+      "desc": "Kural var ama uygulanacak cümle verilmedi.",
+      "priors": [
+        {
+          "id": "na.a",
+          "text": "Hangi cümleye uygulayacağımı söyle (tırnak içinde ver).",
+          "bias": 1.0
+        },
+        {
+          "id": "na.b",
+          "text": "Kural hazır; uygulanacak cümleyi tırnak içinde ver.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "meta.mix_filled": {
+      "desc": "Olasılık cevabında son cevabın ölçülen kaynak karışımı.",
+      "priors": [
+        {
+          "id": "mf.a",
+          "text": "Son cevabımın kaynak karışımı: {mix}. ",
+          "bias": 1.0
+        },
+        {
+          "id": "mf.b",
+          "text": "Ölçtüğüm karışım şu: {mix}. ",
+          "bias": 0.94
+        }
+      ]
+    },
+    "meta.mix_empty": {
+      "desc": "Olasılık cevabında karışımın boş olması (temkinli yüzde).",
+      "priors": [
+        {
+          "id": "me.a",
+          "text": "Son cevabımda hiçbir kaynak etiketi yoktu; ölçüm boş olduğu için yüzdemi en temkinli değerden veriyorum. ",
+          "bias": 1.0
+        },
+        {
+          "id": "me.b",
+          "text": "Karışım ölçülemedi; bu yüzden yüzdeyi temkinli tutuyorum. ",
+          "bias": 0.94
+        }
+      ]
+    },
+    "meta.structure_shared": {
+      "desc": "İki kavram ağda ve ortak bağıntı ölçüldü.",
+      "priors": [
+        {
+          "id": "ss.a",
+          "text": "İkisinde de aynı bağıntı var: {rels}. Yapı: GİRDİ -> {rel} -> ÇIKTI. Ad: '{name}'.",
+          "bias": 1.0
+        },
+        {
+          "id": "ss.b",
+          "text": "Ortak bağ ölçüldü: {rels}. Yapı şu: GİRDİ -> {rel} -> ÇIKTI; bulduğum ad '{name}'.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "meta.structure_none": {
+      "desc": "İki kavram ağda ama ortak bağıntı yok.",
+      "priors": [
+        {
+          "id": "sn.a",
+          "text": "İkisi de ağımda var ama ortak bağıntı yok; ortak yapı kurmak için ikisini de aynı türden bir bağla anlatman gerek.",
+          "bias": 1.0
+        },
+        {
+          "id": "sn.b",
+          "text": "Ağımda ikisi de duruyor; ancak ortak bağıntı ölçemedim. Aynı türden bir bağla anlatırsan yapıyı çıkarırım.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "apply.need_rule": {
+      "desc": "Taşıma istendi ama bağlı kural yok.",
+      "priors": [
+        {
+          "id": "ar.a",
+          "text": "Elimde bağlı bir kural yok; önce kuralı söyle, sonra taşıyayım.",
+          "bias": 1.0
+        },
+        {
+          "id": "ar.b",
+          "text": "Taşınacak kural yok: önce bir kural bağla, sonra alanını değiştiririm.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "meta.missing_rule": {
+      "desc": "Olasılık cevabında eksik: bağlı kural yok.",
+      "priors": [
+        {
+          "id": "mr1.a",
+          "text": "bağlı kural yok",
+          "bias": 1.0
+        }
+      ]
+    },
+    "meta.missing_input": {
+      "desc": "Olasılık cevabında eksik: somut girdi yok.",
+      "priors": [
+        {
+          "id": "mr2.a",
+          "text": "elimde ölçülecek somut bir girdi yok",
+          "bias": 1.0
+        }
+      ]
+    },
+    "meta.missing_tag": {
+      "desc": "Olasılık cevabında eksik: kaynak etiketi yok.",
+      "priors": [
+        {
+          "id": "mr3.a",
+          "text": "bu cevabın kaynağı etiketlenmedi",
+          "bias": 1.0
+        }
+      ]
+    },
+    "meta.missing_none": {
+      "desc": "Olasılık cevabında eksik yok.",
+      "priors": [
+        {
+          "id": "mr4.a",
+          "text": "kaynaklar ölçüldü, eksik görünmüyor",
+          "bias": 1.0
+        }
+      ]
+    },
+    "op.known": {
+      "desc": "Komut nesnesi hakkında ağda bağ varsa bilineni söyleme.",
+      "priors": [
+        {
+          "id": "ok.a",
+          "text": "Bunu şöyle biliyorum: {txt}.",
+          "bias": 1.0
+        },
+        {
+          "id": "ok.b",
+          "text": "Ağımda şu bağ var: {txt}.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "apply.selftest": {
+      "desc": "Interpreter öz-testinin cümleleri: test de veri olsun, kodda cümle kalmasın.",
+      "priors": [
+        {
+          "id": "st.rule",
+          "text": "Sesli harf sayısı tek ise mavi, çift ise kırmızı.",
+          "bias": 1.0
+        },
+        {
+          "id": "st.t1",
+          "text": "Bal arısı uçar",
+          "bias": 1.0
+        },
+        {
+          "id": "st.t2",
+          "text": "Kovan doldu",
+          "bias": 1.0
+        },
+        {
+          "id": "st.t3",
+          "text": "Petek altıgen",
+          "bias": 1.0
+        },
+        {
+          "id": "st.t4",
+          "text": "tuz biber nane",
+          "bias": 1.0
+        }
+      ]
+    },
+    "op.sorted": {
+      "desc": "Sıralama operatörünün raporu.",
+      "priors": [
+        {
+          "id": "so.a",
+          "text": "Sıraladım ({mode}): {items}.",
+          "bias": 1.0
+        },
+        {
+          "id": "so.b",
+          "text": "{mode} sıra şu: {items}. Ölçütü ben uyguladım, ezber liste değil.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "apply.chain_bound": {
+      "desc": "İki adımlı zincir bağlandığında.",
+      "priors": [
+        {
+          "id": "cb.a",
+          "text": "Zinciri kurdum: önce ölçüm, sonra etiket; ara sonuç ikinci adımın girdisi ({steps}). Bir girdi ver, iki adımı birlikte yürüteyim.",
+          "bias": 1.0
+        },
+        {
+          "id": "cb.b",
+          "text": "İki adım bağlandı: {steps}. Tek adım yetmez, çünkü ikinci adım birincinin çıktısını okuyor.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "apply.result_exception": {
+      "desc": "Girdi istisnaya uyduğunda ana kurala bakılmaz.",
+      "priors": [
+        {
+          "id": "re.a",
+          "text": "'{target}' istisnaya uydu ('{pattern}' geçiyor); ana kurala bakmadım, etiket: {label}.",
+          "bias": 1.0
+        },
+        {
+          "id": "re.b",
+          "text": "İstisna devrede: '{pattern}' -> {label}. '{target}' için ölçüm yapmadım, çünkü kural önce istisnaya bakıyor.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "meta.collider": {
+      "desc": "Collider/explaining-away: iki neden tek etkiye çıkıyorsa etkiden neden seçilemez.",
+      "priors": [
+        {
+          "id": "mc2.a",
+          "text": "'{effect}' etkisine ağımda {causes} nedenleri çıkıyor. Etkiden geriye bakarak hangisi olduğunu SEÇEMEM; bunların birden fazlası olabilir. Ayırt etmek için birini sabitleyip diğerini değiştirmek gerekir.",
+          "bias": 1.0
+        },
+        {
+          "id": "mc2.b",
+          "text": "Tuzak burada: {causes} hepsi '{effect}' etkisine yol açıyor. Gözlem 'hangisi' sorusunu yanıtlamaz; müdahale gerekir. Ölçümüm yok, o yüzden tek neden söylemem.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "meta.operator": {
+      "desc": "Meta-operatör: kayıtlı ve eksik yeteneklerin canlı dökümü.",
+      "priors": [
+        {
+          "id": "mo2.a",
+          "text": "Kayıtlı {n_have} operatörüm var: {have}. Bende OLMAYANLAR: {missing}. Bunların hiçbirini yapmış gibi yapmam; isteyince de yapamam derim.",
+          "bias": 1.0
+        },
+        {
+          "id": "mo2.b",
+          "text": "Yapabildiklerim: {have}. Yapamadıklarım (adıyla): {missing}. Liste sabit değil; hangi kural/zincir/sembol bağlıysa o an güncelleniyor.",
+          "bias": 0.95
+        },
+        {
+          "id": "mo.inv1",
+          "text": "Mevcut ilkellerimle çıkmıyordu; yeni bir ilkel icat ettim: {name}. Örneklerin hepsi tutuyor ({n}/{n}). {word} -> {out}.",
+          "when": {
+            "eq": {
+              "kind": "invented"
+            }
+          }
+        },
+        {
+          "id": "mo.inv2",
+          "text": "Kompozisyon tükendi. Yeni ilkel: {name} — {n} örnekle doğrulandı. {word} -> {out}.",
+          "when": {
+            "eq": {
+              "kind": "invented"
+            }
+          }
+        },
+        {
+          "id": "mo.multi",
+          "text": "{n} dönüşümüm var: {name}. Hangisini istersin?",
+          "when": {
+            "eq": {
+              "kind": "multi"
+            }
+          }
+        }
+      ]
+    },
+    "apply.result_chain": {
+      "desc": "İki adımlı zincir uygulandığında ara ve son sonucun raporu.",
+      "priors": [
+        {
+          "id": "rc.a",
+          "text": "'{target}': {n} {name} -> ara sonuç {mid} -> sonuç {final}. İki adımı da ben yürüttüm.",
+          "bias": 1.0
+        },
+        {
+          "id": "rc.b",
+          "text": "Ölçüm {n} {name}, birinci adım {mid}, ikinci adım {final}. Zincir baştan sona çalıştı ({target}).",
+          "bias": 0.95
+        }
+      ]
+    },
+    "meta.counterfactual_self": {
+      "desc": "Kural soyutlanarak yürütülen karşıolgusal öz-rapor.",
+      "priors": [
+        {
+          "id": "cfs.a",
+          "text": "'{item}' için iki kez yürüttüm. Kural varken: {with}. Kuralı çıkarınca: {without} — ölçüm yine {n} {name}, ama etiketi eşleyecek bir şey yok. Demek ki kuralım ölçümde değil EŞLEMEDE; ölçümü kural olmadan da yapabiliyorum.",
+          "bias": 1.0
+        },
+        {
+          "id": "cfs.b",
+          "text": "Karşıolgusal: '{item}' -> kural varken {with}; kural devre dışıyken {without}. Aradaki fark {n} {name} ölçümünde değil, o ölçümü etikete bağlayan kuralda. Yani kendimi soyutlayabildiğim yerde tam olarak şu var: eşleme.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "meta.counterfactual_world": {
+      "desc": "Dünya karşıolgusalı: kavramı modelden çıkarıp yeniden koşma.",
+      "priors": [
+        {
+          "id": "cfw.lost",
+          "text": "'{node}' modelden çıkarılınca {lost} ortaya çıkmıyor; başka bir yol da yok, yani tek yol buydu. Bu yapısal bir çıkarım, ölçüm değil: ağımdaki kenarları kullanıyorum, dünyadan yeni veri almıyorum.",
+          "bias": 1.0,
+          "when": {
+            "count_max": 0
+          }
+        },
+        {
+          "id": "cfw.both",
+          "text": "'{node}' modelden çıkarılınca {lost} ortaya çıkmıyor, ama {kept} başka yoldan da sürüyor. Toplam {n} etkinin yalnız bir kısmı bu düğüme bağlı. Yapısal çıkarım; müdahale ölçümü değil.",
+          "bias": 1.0,
+          "when": {
+            "count_min": 1
+          }
+        }
+      ]
+    },
+    "meta.cf_need_item": {
+      "desc": "Karşıolgusal için ölçülecek girdi yok.",
+      "priors": [
+        {
+          "id": "cfn.a",
+          "text": "Karşıolgusalı hangi girdi üzerinde koşacağımı söyle: bir cümle ver.",
+          "bias": 1.0
+        }
+      ]
+    },
+    "meta.cf_effect_node": {
+      "desc": "Karşıolgusal hedefi bir ETKİ düğümüyse (çıkan nedensel kenarı yok).",
+      "priors": [
+        {
+          "id": "cfe.a",
+          "text": "'{node}' bir ETKİ düğümü: ondan çıkan nedensel kenar yok, o yüzden olmasaydı 'ne olurdu' diye ileri koşamam. Bildiğim şu: ona giden nedenler {causes}. Bir etkinin olmaması, nedenini tek başına söylemez.",
+          "bias": 1.0
+        },
+        {
+          "id": "cfe.b",
+          "text": "'{node}' modelden çıkarıldığında ileriye giden bir yol kalmıyor, çünkü bu düğüm sonuç. Girdiği nedenler: {causes}. Ters yönde çıkarım yapmam; gözlem nedeni seçmez.",
+          "bias": 0.95
+        }
+      ]
+    },
+    "meta.cf_volition": {
+      "desc": "Karşıolgusal irade: bir beden kanalı çıkarıldığında karar değişiyor mu?",
+      "priors": [
+        {
+          "id": "cfv.a",
+          "text": "Kararım {ablate} yüzünden değişirdi: şimdi '{actual}' diyorum, o durumda '{cf}' derdim.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "changed": true,
+              "mode": "olcum"
+            }
+          }
+        },
+        {
+          "id": "cfv.b",
+          "text": "Karar makinesini {ablate} kanalı karşılanmış sayarak yeniden koşturdum: yine '{actual}'. Demek ki bu kararın nedeni {ablate} değil.",
+          "bias": 0.97,
+          "when": {
+            "eq": {
+              "changed": false,
+              "mode": "olcum"
+            }
+          }
+        },
+        {
+          "id": "cfv.c",
+          "text": "Aynı karar makinesi, {ablate} kanalı karşılanmış hâlde '{cf}' dedi; gerçekte '{actual}' diyorum. Fark varsa neden odur, yoksa değildir — ölçüm bu.",
+          "bias": 0.94,
+          "when": {
+            "eq": {
+              "changed": true,
+              "mode": "olcum"
+            }
+          }
+        },
+        {
+          "id": "cfv.none",
+          "text": "Bende {ablate} için ayarlanabilir bir kanal girişi yok; onu dolu sayıp yeniden koşamam. Karşıolgusalını çıkarabildiğim kanallar: açlık, susuzluk, bütünlük.",
+          "bias": 0.99,
+          "when": {
+            "eq": {
+              "mode": "yok"
+            }
+          }
+        },
+        {
+          "id": "cfv.none2",
+          "text": "Elimde {ablate} için bir kanal girişi yok: bu karşıolgusalı ölçemem, uydurmam. Ölçtüğüm kanallar açlık, susuzluk ve bütünlük.",
+          "bias": 0.96,
+          "when": {
+            "eq": {
+              "mode": "yok"
+            }
+          }
+        }
+      ]
+    },
+    "meta.forge": {
+      "desc": "Operatör ocağı: örneklerden kural türetme, kendi ölçüm envanterini yeniden kullanma, belirsizlik ve yetersiz veri dürüstlüğü.",
+      "priors": [
+        {
+          "id": "fg.adopted",
+          "text": "Operatörü ben yazdım: {desc}. {n_ex} örnekten çıktı; yazım sayısı — insan {human}, kendi {self}.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "stage": "adopted"
+            }
+          }
+        },
+        {
+          "id": "fg.adopted2",
+          "text": "Örneklerden kendi kuralımı türettim ({desc}); {n_ex} örneğin hepsini açıklıyor. Kayıt: insan {human}, kendi {self}.",
+          "bias": 0.96,
+          "when": {
+            "eq": {
+              "stage": "adopted"
+            }
+          }
+        },
+        {
+          "id": "fg.ambiguous",
+          "text": "{n_cand} aday kural aynı örnekleri açıklıyor: {cands}. Hangisi olduğunu uydurmam; ayırt edici bir örnek ver: '{probe}' hangi etiketi alır?",
+          "bias": 0.99,
+          "when": {
+            "eq": {
+              "stage": "ambiguous"
+            }
+          }
+        },
+        {
+          "id": "fg.progress",
+          "text": "Örnek eklendi, {n_cand} aday kaldı: {cands}. Bir tane daha: '{probe}' hangi etiketi alır?",
+          "bias": 0.98,
+          "when": {
+            "eq": {
+              "stage": "progress"
+            }
+          }
+        },
+        {
+          "id": "fg.no_probe",
+          "text": "Adaylar ayrışmıyor ({why}): {cands}. Havuzda ayırt edici sözcük bulamadım; farklı uzunlukta bir örnek ver.",
+          "bias": 0.95,
+          "when": {
+            "eq": {
+              "stage": "no_probe"
+            }
+          }
+        },
+        {
+          "id": "fg.insufficient",
+          "text": "Bu örneklerden kural çıkmıyor ({why}); uydurmak yerine söylüyorum. İki etiketli, birbirinden farklı örnekler gerek.",
+          "bias": 0.99,
+          "when": {
+            "eq": {
+              "stage": "insufficient"
+            }
+          }
+        },
+        {
+          "id": "fg.confirmed",
+          "text": "Verdiğin örnek kuralımı doğruluyor: '{item}' -> {label}; kuralım da aynı etiketi veriyor. Yeni operatör yazmadım.",
+          "bias": 0.99,
+          "when": {
+            "eq": {
+              "stage": "confirmed"
+            }
+          }
+        },
+        {
+          "id": "fg.confirmed2",
+          "text": "'{item}' için kendi kuralım '{got}' diyor, sen '{label}' dedin: tutuyor. Kural yerinde kalıyor.",
+          "bias": 0.95,
+          "when": {
+            "eq": {
+              "stage": "confirmed"
+            }
+          }
+        },
+        {
+          "id": "fg.revised",
+          "text": "Kuralım yanıldı: '{item}' için '{got}' dedim, sen '{label}' dedin. Eski örneklerle birlikte yeniden türettim: {desc}. Kendi yazdığım operatör sayısı {self}.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "stage": "revised"
+            }
+          }
+        },
+        {
+          "id": "fg.revise_ambiguous",
+          "text": "Bu örnek eski kuralımı çürüttü ama tek bir kurala da oturmuyor: {n_cand} aday kaldı ({cands}). '{probe}' hangi etiketi alır?",
+          "bias": 0.99,
+          "when": {
+            "eq": {
+              "stage": "revise_ambiguous"
+            }
+          }
+        },
+        {
+          "id": "fg.revise_failed",
+          "text": "Bu örnek eski kuralımı çürüttü; eldeki veriyle hiçbir kural kalmadı ({why}). Uydurmam, söylüyorum.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "stage": "revise_failed"
+            }
+          }
+        },
+        {
+          "id": "fg.invented",
+          "text": "Bu veride yerleşik ölçümlerin hiçbiri iki tarafı ayırmıyordu; yeni bir ölçüm icat ettim: {name}. Kural: {map}. {n_ex} örnek tutuyor. Kayıt: insan {human}, kendi {self}.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "stage": "invented"
+            }
+          }
+        },
+        {
+          "id": "fg.invented2",
+          "text": "Var olan ölçümlerle kural çıkmıyordu, ben de yeni bir ölçüm yazdım: {name}. {map}. {n_ex} örneğin hepsi tutuyor; kendi yazdığım ölçüm sayısı {measured}.",
+          "bias": 0.96,
+          "when": {
+            "eq": {
+              "stage": "invented"
+            }
+          }
+        },
+        {
+          "id": "fg.reused",
+          "text": "Bu ölçümü ben yazmıştım; yeni baştan icat etmedim, envanterden aldım: {name}. {map}. Kendi ölçüm envanterimde {measured} ölçüm var.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "stage": "reused"
+            }
+          }
+        },
+        {
+          "id": "fg.reused2",
+          "text": "{name} benim daha önce yazdığım bir ölçüm; ona güveniyorum. {map}. {n_ex} örnek tutuyor; envanterde {measured} ölçüm.",
+          "bias": 0.95,
+          "when": {
+            "eq": {
+              "stage": "reused"
+            }
+          }
+        },
+        {
+          "id": "fg.invented_ambiguous",
+          "text": "Hiçbir yerleşik ölçüm bu veriyi ayırmıyordu; kendime yeni bir ölçüm yazdım: {name}. Ama sınırı veri belirlemedi — {n_cand} aday kaldı. '{probe}' hangi etiketi alır?",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "stage": "invented_ambiguous"
+            }
+          }
+        },
+        {
+          "id": "fg.invented_ambiguous2",
+          "text": "Bu veriye yerleşik ölçümler yetmedi, yeni bir ölçüm icat ettim: {name}. Eşiğin nerede olduğunu örnekler söylemiyor ({n_cand} aday). '{probe}' hangi etiketi alır?",
+          "bias": 0.95,
+          "when": {
+            "eq": {
+              "stage": "invented_ambiguous"
+            }
+          }
+        },
+        {
+          "id": "fg.confirmed3",
+          "text": "Verdiğin örnek kuralımı doğruluyor: '{item}' -> {label}. Kuralı kendi ölçümüm taşıyor; o ölçüm şimdiye kadar {hits} kez tuttu, {misses} kez yanıldı.",
+          "bias": 0.98,
+          "when": {
+            "eq": {
+              "stage": "confirmed"
+            }
+          }
+        }
+      ]
+    },
+    "memory.personal": {
+      "desc": "Karşıdakinin SÖYLEDİĞİ kişisel olguyu hatırlama. Kaynak her zaman söylenir; olgu yoksa bu aile hiç konuşmaz (uydurma yok).",
+      "priors": [
+        {
+          "id": "mem.p.a",
+          "text": "Bana söylediğine göre {phrase}."
+        },
+        {
+          "id": "mem.p.b",
+          "text": "{phrase}. Bunu {turn}. turda söylemiştin."
+        },
+        {
+          "id": "mem.p.c",
+          "text": "Hatırlıyorum: {phrase}. Kaynağım senin sözün."
+        },
+        {
+          "id": "mem.p.d",
+          "text": "{phrase} — bunu bana sen söylemiştin."
+        },
+        {
+          "id": "mem.p.learn",
+          "text": "Not ettim: {phrase}. Bunu bana sen söyledin, kaynağı senin sözün.",
+          "when": {
+            "eq": {
+              "kind": "learned"
+            }
+          }
+        },
+        {
+          "id": "mem.p.learn2",
+          "text": "{phrase} — aklımda tutuyorum; kaynağını da yazdım.",
+          "when": {
+            "eq": {
+              "kind": "learned"
+            }
+          }
+        },
+        {
+          "id": "mem.p.prev",
+          "text": "Önce {onceki} demiştin; şimdi {phrase}. Hangisi geçerli?",
+          "when": {
+            "eq": {
+              "kind": "prev"
+            }
+          }
+        }
+      ]
+    },
+    "memory.testimony": {
+      "desc": "Başkasından AKTARILAN olgu (tanıklık). Çelişki varsa iki tanık yan yana söylenir; sessizce son değer seçilmez.",
+      "priors": [
+        {
+          "id": "mem.t.learn",
+          "text": "Not aldım: {src} sana {subj} için {val} demiş; kaynağı {src}.",
+          "when": {
+            "eq": {
+              "kind": "learned"
+            }
+          }
+        },
+        {
+          "id": "mem.t.learn2",
+          "text": "{src} sana {subj} için {val} demiş — bunu tanık olarak yazdım.",
+          "when": {
+            "eq": {
+              "kind": "learned"
+            }
+          }
+        },
+        {
+          "id": "mem.t.single",
+          "text": "{src} sana {subj} için {val} demişti.",
+          "when": {
+            "eq": {
+              "kind": "single"
+            }
+          }
+        },
+        {
+          "id": "mem.t.single2",
+          "text": "Tanığım {src}: {subj} için {val}.",
+          "when": {
+            "eq": {
+              "kind": "single"
+            }
+          }
+        },
+        {
+          "id": "mem.t.conflict",
+          "text": "İki tanık çelişiyor: {src1} {val1}, {src2} {val2}. Hangisine güveneyim?",
+          "when": {
+            "eq": {
+              "kind": "conflict"
+            }
+          }
+        },
+        {
+          "id": "mem.t.conflict2",
+          "text": "{subj}: {src1} “{val1}” diyor, {src2} “{val2}”. İkisini de yazdım, seçmedim.",
+          "when": {
+            "eq": {
+              "kind": "conflict"
+            }
+          }
+        },
+        {
+          "id": "mem.t.conflict3",
+          "text": "{src1} ile {src2} aynı şeyi söylemiyor: {val1} / {val2}. Sen hangisini duydun?",
+          "when": {
+            "eq": {
+              "kind": "conflict"
+            }
+          }
+        }
+      ]
+    },
+    "plan.report": {
+      "desc": "Plan raporu: kurma, revizyon, boş plan. Adımlar kullanıcının verdiklerinden gelir; uydurulmaz.",
+      "priors": [
+        {
+          "id": "pb.a",
+          "text": "Planı kurdum ({n} adım): {steps}. Her adımın ölçütü var; ilk adım durumu ölçer, son adım doğrular.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "kind": "built"
+            }
+          }
+        },
+        {
+          "id": "pb.b",
+          "text": "{n} adım: {steps}. Her adımın bir ölçütü var; ölçülmeyen adımı plana koymadım.",
+          "bias": 0.95,
+          "when": {
+            "eq": {
+              "kind": "built"
+            }
+          }
+        },
+        {
+          "id": "pr.a",
+          "text": "Hedef değişti; planı yeniden kurdum ({n} adım): {steps}. Eski adımlar superseded, silmedim.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "kind": "revised"
+            }
+          }
+        },
+        {
+          "id": "pr.b",
+          "text": "Yeni hedefe göre {n} adım: {steps}. Eskiler geçersiz sayıldı, geçmiş olarak duruyor.",
+          "bias": 0.94,
+          "when": {
+            "eq": {
+              "kind": "revised"
+            }
+          }
+        },
+        {
+          "id": "pl.b1",
+          "text": "Plan ({n} adım): {steps}",
+          "when": {
+            "eq": {
+              "kind": "steps_built"
+            }
+          }
+        },
+        {
+          "id": "pl.b2",
+          "text": "{goal} için {n} adım yazdım: {steps}",
+          "when": {
+            "eq": {
+              "kind": "steps_built"
+            }
+          }
+        },
+        {
+          "id": "pl.r1",
+          "text": "Planı yeniden kurdum ({removed} çıktı, {n} adım kaldı): {steps}",
+          "when": {
+            "eq": {
+              "kind": "steps_built"
+            }
+          }
+        },
+        {
+          "id": "pl.r2",
+          "text": "{removed} yoksa eski plan yürümez; yeni plan: {steps}",
+          "when": {
+            "eq": {
+              "kind": "steps_built"
+            }
+          }
+        },
+        {
+          "id": "pl.e1",
+          "text": "{removed} çıkınca hiçbir adım kalmıyor; bu koşulla plan kuramam.",
+          "when": {
+            "eq": {
+              "kind": "steps_built"
+            }
+          }
+        },
+        {
+          "id": "pl.n1",
+          "text": "Elimde kurulmuş bir plan yok; önce adımları ver.",
+          "when": {
+            "eq": {
+              "kind": "steps_built"
+            }
+          }
+        },
+        {
+          "id": "pl.al1",
+          "text": "Planda o adım zaten yok; değişen bir şey olmadı: {steps}",
+          "when": {
+            "eq": {
+              "kind": "steps_built"
+            }
+          }
+        },
+        {
+          "id": "pl.b2",
+          "text": "{goal} için {n} adım yazdım: {steps}",
+          "when": {
+            "eq": {
+              "kind": "steps_built"
+            }
+          }
+        },
+        {
+          "id": "pl.r1",
+          "text": "Planı yeniden kurdum ({removed} çıktı, {n} adım kaldı): {steps}",
+          "when": {
+            "eq": {
+              "kind": "steps_revised"
+            }
+          }
+        },
+        {
+          "id": "pl.r2",
+          "text": "{removed} yoksa eski plan yürümez; yeni plan: {steps}",
+          "when": {
+            "eq": {
+              "kind": "steps_revised"
+            }
+          }
+        },
+        {
+          "id": "pl.e1",
+          "text": "{removed} çıkınca hiçbir adım kalmıyor; bu koşulla plan kuramam.",
+          "when": {
+            "eq": {
+              "kind": "empty"
+            }
+          }
+        },
+        {
+          "id": "pl.al1",
+          "text": "Planda o adım zaten yok; değişen bir şey olmadı: {steps}",
+          "when": {
+            "eq": {
+              "kind": "already"
+            }
+          }
+        },
+        {
+          "id": "pl.n1",
+          "text": "Elimde kurulmuş bir plan yok; önce adımları ver.",
+          "when": {
+            "eq": {
+              "kind": "none"
+            }
+          }
+        },
+        {
+          "id": "pl.unk",
+          "text": "'{goal}' için adım bilgim yok; plan taklidi yazmam. Adımları verirsen kurarım.",
+          "when": {
+            "eq": {
+              "kind": "unknown"
+            }
+          }
+        }
+      ]
+    },
+    "meta.reasoning": {
+      "desc": "Akıl yürütme cevapları: sıralama ucu, kısıtlı üretim, öz-tahmin. Belirsizlikte iddia yok.",
+      "priors": [
+        {
+          "id": "rel.top.unk1",
+          "text": "'{prop}' sıralaması bende eksik: en {prop} olanı söyleyemem.",
+          "when": {
+            "eq": {
+              "kind": "top_unknown"
+            }
+          }
+        },
+        {
+          "id": "rel.top.unk2",
+          "text": "Bu sıfat için yeterli karşılaştırma duymadım; tahmin etmiyorum.",
+          "when": {
+            "eq": {
+              "kind": "top_unknown"
+            }
+          }
+        },
+        {
+          "id": "rel.top.amb1",
+          "text": "En {prop} için iki aday kalıyor: {cands}. Aralarında karşılaştırma duymadım.",
+          "when": {
+            "eq": {
+              "kind": "top_unknown"
+            }
+          }
+        },
+        {
+          "id": "rel.top.amb2",
+          "text": "{cands} — ikisi de şu an 'en {prop}' görünüyor; ayrımı bilmiyorum.",
+          "when": {
+            "eq": {
+              "kind": "top_unknown"
+            }
+          }
+        },
+        {
+          "id": "rel.top.amb1",
+          "text": "En {prop} için iki aday kalıyor: {cands}. Aralarında karşılaştırma duymadım.",
+          "when": {
+            "eq": {
+              "kind": "top_ambiguous"
+            }
+          }
+        },
+        {
+          "id": "rel.top.amb2",
+          "text": "{cands} — ikisi de şu an 'en {prop}' görünüyor; ayrımı bilmiyorum.",
+          "when": {
+            "eq": {
+              "kind": "top_ambiguous"
+            }
+          }
+        },
+        {
+          "id": "rel.top.unk1",
+          "text": "'{prop}' sıralaması bende eksik: en {prop} olanı söyleyemem.",
+          "when": {
+            "eq": {
+              "kind": "top_unknown"
+            }
+          }
+        },
+        {
+          "id": "rel.top.unk2",
+          "text": "Bu sıfat için yeterli karşılaştırma duymadım; tahmin etmiyorum.",
+          "when": {
+            "eq": {
+              "kind": "top_unknown"
+            }
+          }
+        },
+        {
+          "id": "gen.c.n1",
+          "text": "'{req}' geçen ama '{ban}' geçmeyen bir çatı bulamadım; uydurmadım.",
+          "when": {
+            "eq": {
+              "kind": "gen_none"
+            }
+          }
+        },
+        {
+          "id": "gen.c.n2",
+          "text": "Elimdeki çatılarla '{req}' var, '{ban}' yok diyemiyorum. Başka bir koşul?",
+          "when": {
+            "eq": {
+              "kind": "gen_none"
+            }
+          }
+        },
+        {
+          "id": "sp.yes1",
+          "text": "Evet — '{task}' için elimde bir organ var: {organ}.",
+          "when": {
+            "eq": {
+              "kind": "predict_yes"
+            }
+          }
+        },
+        {
+          "id": "sp.yes2",
+          "text": "Yapabilirim: '{task}' benim yapabildiğim bir iş (organ: {organ}).",
+          "when": {
+            "eq": {
+              "kind": "predict_yes"
+            }
+          }
+        },
+        {
+          "id": "sp.unk1",
+          "text": "'{task}' için hangi organımın devreye gireceğini bilmiyorum; söz vermiyorum.",
+          "when": {
+            "eq": {
+              "kind": "predict_unknown"
+            }
+          }
+        },
+        {
+          "id": "sp.unk2",
+          "text": "Bilmiyorum. Denemeden 'yapabilirim' demem.",
+          "when": {
+            "eq": {
+              "kind": "predict_unknown"
+            }
+          }
+        },
+        {
+          "id": "mr.num1",
+          "text": "{who} ({val}) — {other} {other_val}. Sayılar bunu söylüyor.",
+          "when": {
+            "eq": {
+              "kind": "numcmp"
+            }
+          }
+        },
+        {
+          "id": "mr.num2",
+          "text": "Verdiğin sayılara göre {who}: {val}; {other} ise {other_val}.",
+          "when": {
+            "eq": {
+              "kind": "numcmp"
+            }
+          }
+        },
+        {
+          "id": "mr.chain1",
+          "text": "{chain} ({ops})",
+          "when": {
+            "eq": {
+              "kind": "chain"
+            }
+          }
+        },
+        {
+          "id": "mr.chain2",
+          "text": "Adım adım: {chain}. Sonuç: {final}.",
+          "when": {
+            "eq": {
+              "kind": "chain"
+            }
+          }
+        },
+        {
+          "id": "mr.nf1",
+          "text": "Sayı olarak not ettim: {facts}",
+          "when": {
+            "eq": {
+              "kind": "numfact"
+            }
+          }
+        },
+        {
+          "id": "mr.nf2",
+          "text": "Yazdım: {facts}. Sıralamayı bu sayılardan çıkarırım.",
+          "when": {
+            "eq": {
+              "kind": "numfact"
+            }
+          }
+        },
+        {
+          "id": "mr.cf1",
+          "text": "Güvenim %{conf}. Dayanak: {organ}.",
+          "when": {
+            "eq": {
+              "kind": "conf"
+            }
+          }
+        },
+        {
+          "id": "mr.cf2",
+          "text": "%{conf} — '{task}' için dayanak: {organ}.",
+          "when": {
+            "eq": {
+              "kind": "conf"
+            }
+          }
+        },
+        {
+          "id": "mr.cf3",
+          "text": "Güvenim %{conf}; bu görevde {organ} belirleyici.",
+          "when": {
+            "eq": {
+              "kind": "conf"
+            }
+          }
+        },
+        {
+          "id": "mr.gs1",
+          "text": "Hedefi aldım: {total} tur, her turda bir {kind}. Kendim hatırlatacağım.",
+          "when": {
+            "eq": {
+              "kind": "goal_set"
+            }
+          }
+        },
+        {
+          "id": "mr.gst1",
+          "text": "Hedefim sürüyor ({done}/{total}): '{letter}' harfi '{spoken}' diye okunur.",
+          "when": {
+            "eq": {
+              "kind": "goal_step"
+            }
+          }
+        },
+        {
+          "id": "mr.gst2",
+          "text": "({done}/{total}) hedefim sürüyor: '{letter}' harfi '{spoken}' diye okunur.",
+          "when": {
+            "eq": {
+              "kind": "goal_step"
+            }
+          }
+        },
+        {
+          "id": "mr.gap1",
+          "text": "Bende {what} organı yok; uydurmam.",
+          "when": {
+            "eq": {
+              "kind": "gap"
+            }
+          }
+        },
+        {
+          "id": "mr.gap2",
+          "text": "{what} girişim yok — bu yüzden cevap veremem.",
+          "when": {
+            "eq": {
+              "kind": "gap"
+            }
+          }
+        },
+        {
+          "id": "mr.gap3",
+          "text": "Bunu ölçemem: bende {what} organı yok; uydurmam.",
+          "when": {
+            "eq": {
+              "kind": "gap"
+            }
+          }
+        },
+        {
+          "id": "mr.ar1",
+          "text": "{a} ile {b}'yi {opv}: {res}. Hesabı yaptım, tahmin değil.",
+          "when": {
+            "eq": {
+              "kind": "arith"
+            }
+          }
+        },
+        {
+          "id": "mr.ar2",
+          "text": "Sonuç {res} — {a} ile {b}'yi {opv}.",
+          "when": {
+            "eq": {
+              "kind": "arith"
+            }
+          }
+        },
+        {
+          "id": "mr.gs2",
+          "text": "İkinci hedefi aldım: {total} tur, her turda bir {kind}. Öteki hedefim sırada bekliyor.",
+          "when": {
+            "eq": {
+              "kind": "goal_set2"
+            }
+          }
+        },
+        {
+          "id": "mr.gst3",
+          "text": "({done}/{total}) hedefim sürüyor: {a} sayısının iki katı {b}.",
+          "when": {
+            "eq": {
+              "kind": "goal_step2"
+            }
+          }
+        },
+        {
+          "id": "mr.gst4",
+          "text": "Bekleyen hedefime dönüyorum ({done}/{total}).",
+          "when": {
+            "eq": {
+              "kind": "goal_resume"
+            }
+          }
+        }
+      ]
+    },
+    "meta.self_weak": {
+      "desc": "Öz-raporda zayıflık: kalıp payı yüksek/düşük.",
+      "priors": [
+        {
+          "id": "swh.a",
+          "text": "kalıp payı yüksek: yeni girdiye uygulanacak operatör yok",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "kind": "high"
+            }
+          }
+        },
+        {
+          "id": "swl.a",
+          "text": "operatör var ama kapsam dar",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "kind": "low"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "forge_why": {
+    "tek-sınıf": "bütün etiketler aynı",
+    "çelişki": "aynı girdiye iki farklı etiket verilmiş",
+    "örüntü-yok": "hiçbir ölçüm iki tarafı ayırmıyor",
+    "az-veri": "en az iki örnek gerekli",
+    "ayırt-edici-yok": "havuzda adayları ayıran sözcük yok"
+  },
+  "missing_ops": {},
+  "topic_triggers": [
+    "hangi konudan",
+    "hangi konuyu",
+    "ne konuşuyorduk",
+    "konumuz neydi",
+    "hangi konu"
+  ],
+  "_doc_missing": "missing_ops: KAYITLI OLMAYAN işlemlerin adları ve onları çağıran yüzeyler. topic_triggers: konu hatırlama sorularının yüzeyleri.",
+  "question_markers": [
+    "hangi",
+    "ne ",
+    "nasıl",
+    "söyle"
+  ],
+  "negation_markers": [
+    "değil",
+    "yok",
+    "asla",
+    "olmadı",
+    "hiç değil"
+  ],
+  "topic_leads": [
+    "Konu şuydu: “{tp}”",
+    "Aklımda kalan konu: “{tp}”",
+    "Son konuştuğumuz: “{tp}”"
+  ],
+  "contradiction_leads": [
+    "Az önce “{tp}” demiştin, şimdi tersini söylüyorsun. İkisi aynı anda doğru olamaz; hangisi geçerli?",
+    "“{tp}” sözünle bu sözün çelişiyor. Birini seçmem gerek; hangisi?",
+    "Demin “{tp}” demiştin; şimdi bunu söylüyorsun. Hangisine inanayım?"
+  ]
+}

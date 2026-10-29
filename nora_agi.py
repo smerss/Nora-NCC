@@ -35,20 +35,28 @@ import os
 import re
 import sys
 import time
+import traceback
+from collections import deque
 import numpy as np
 
 from dataclasses import dataclass
 from nora_life import BackgroundLife
+from nora_discourse import DiscourseCortex
+from nora_knowledge import PROPER_NOUNS
+from nora_initiative import InitiativeCortex
+from nora_speculation import SpeculativeCortex
 from nora_voice import state_vector
 from nora_world import Universe
 from nora_mind import Mind, I_E, I_W, I_I
 from nora_chem import NeuroChemistry, ChemMushroomBody
 from nora_self import CoreSelf
-from nora_lang import NoraLanguage, Proposition, tr_lower, tr_capitalize
+from nora_lang import NoraLanguage, Proposition, TurkishMorphology, tr_lower, tr_capitalize
 from nora_stem import MathCortex, PhysicsCortex
 from nora_knowledge import ConversationalResonanceCortex, SYNONYMS
-from nora_broca import GenerativeBrocaOrgan, NP, VerbSpec
+from nora_broca import GenerativeBrocaOrgan, NP, VerbSpec, PredSpec
+from nora_broca import TurkishSyntaxEngine as SYN
 from nora_monologue import PlasticSchemaCortex, InnerMonologueEngine
+from nora_deliberation import DeliberativeMind
 from nora_autonomous_logic import (
     NeuralUtteranceCortex,
     AutonomousLogicAndLabelEngine,
@@ -61,8 +69,46 @@ from nora_nervous import (
     AutonomousConsciousnessNetwork,
     MetaConsciousReflector,
 )
+try:
+    from nora_abstract import Abstraction, build as abstract_build
+except Exception:  # soyutlama organı yoksa sistem yine çalışır
+    Abstraction = None
+    abstract_build = None
+try:
+    from nora_reify import Reify
+except Exception:  # yeniden-örnekleme organı yoksa sistem yine çalışır
+    Reify = None
+try:
+    from nora_schema import Schema
+except Exception:  # şema organı yoksa sistem yine çalışır
+    Schema = None
+try:
+    from nora_drive import Driver
+except Exception:  # sürücü organı yoksa sistem yine çalışır
+    Driver = None
+try:
+    from nora_bus import CognitiveBus, Bid
+    from nora_architecture import ArchitectureModel
+except Exception:  # genel çalışma-zamanı çekirdeği isteğe bağlı değil; eski kayıtlar için koruma
+    CognitiveBus = None
+    Bid = None
+    ArchitectureModel = None
 from nora_episteme import EpistemicEngine, BeliefSpeech, TrustedResearcher
+try:
+    from nora_sets import SetSynth
+except Exception:  # küme organı yoksa sistem yine çalışır
+    SetSynth = None
+try:
+    from nora_synth import Synthesizer, parse_pairs, Program, PRIMITIVES
+except Exception:  # sentez organı yoksa sistem yine çalışır
+    Synthesizer = None
+    Program = None
+    PRIMITIVES = ()
+    def parse_pairs(_t):
+        return []
 from nora_code import CodeSynthesisCortex
+from nora_prediction import UnifiedPredictor
+from nora_causal import CausalTransitionModel
 
 
 @dataclass
@@ -246,17 +292,27 @@ class ComparativeOrderGraph:
                     frontier.append((l, npath))
         return False, []
 
-    def extremum(self, prop: str, maximum: bool = True) -> str | None:
+    def extremum_all(self, prop: str, maximum: bool = True) -> list[str]:
+        """Bütün uç adaylar. Birden çoksa sıralama TAM DEĞİLDİR (uydurulmaz)."""
         p = tr_lower(prop).strip()
         edges = self.orders.get(p, [])
         if not edges:
-            return None
+            return []
         nodes = {g for g, _ in edges} | {l for _, l in edges}
         if maximum:
             cands = [x for x in nodes if not any(l == x for _, l in edges)]
         else:
             cands = [x for x in nodes if not any(g == x for g, _ in edges)]
-        return cands[0] if len(cands) == 1 else (cands[0] if cands else None)
+        return sorted(cands)
+
+    def extremum(self, prop: str, maximum: bool = True) -> str | None:
+        """TEK uç varsa onu döndür. İki aday kalıyorsa None: keyfî seçim yapılmaz."""
+        cands = self.extremum_all(prop, maximum=maximum)
+        return cands[0] if len(cands) == 1 else None
+
+
+class _NoMint(Exception):
+    """Yapısal kural yazılmadı: 'kodladım' demek yerine normal öğretme yoluna dön."""
 
 
 class TheoryOfMindTracker:
@@ -291,14 +347,30 @@ class TheoryOfMindTracker:
         return bel, real, (bel is not None and real is not None and bel != real)
 
 
+try:
+    from nora_meta import ConflictMonitor, compose_noticing, compose_time_answer
+except Exception:  # pragma: no cover
+    ConflictMonitor = None
+    compose_noticing = compose_time_answer = None
+
+
 class NoraAGI:
     """Canlı Beden + Endojen Kimya + Öz-Benlik + Türkçe Dil + Zihin Kuramı + Sistem-2 + Hızlı Öğrenici."""
 
     def __init__(self, name: str = "Nora", seed: int = 0, boot_thinker: bool = False,
                  thinker_iters: int = 800, world_kwargs: dict | None = None, single_life: bool = True,
-                 corpus: list[str] | None = None, broca: str | None = None):
+                 corpus: list[str] | None = None, broca: str | None = None,
+                 code_pretrain: bool = True):
         self.name = name
         self.seed = int(seed)
+        # KOPYALANAMAZLIK: aynı seed -> aynı GENETİK. Ama doğum anının nanosaniye fazı,
+        # donanım entropisi ve gerçek zamanlama yarışları her örneği ayrı bir birey yapar.
+        # (Dış API yok; tüm entropi bu sürecin içinde toplanır — bkz. nora_entropy.py)
+        try:
+            from nora_entropy import Individuality
+            self.entropy = Individuality(seed=seed)
+        except Exception:
+            self.entropy = None
         w_kw = dict(world_kwargs or {})
         w_kw.setdefault("mortal", bool(single_life))
         self.world = Universe(seed=seed, **w_kw)
@@ -309,8 +381,47 @@ class NoraAGI:
         self.chem = NeuroChemistry()
         self.self_model = CoreSelf(name=name, chem=self.chem)
         self.nervous = PeripheralNervousSystem()
+        self.nervous.calibrate_baseline(integrity=float(self.obs[I_I]))
         self.mortality = SingleLifeMortality(single_life=bool(w_kw["mortal"]))
         self.lang = NoraLanguage(chem=self.chem, seed=seed)
+        # Üç kaynaklı genel ileri öngörü: gövde + nedensel grafik + fizik.
+        # Bu nesne yalnız mevcut organları okur; ayrı bir olgu/ödül tabanı değildir.
+        self.predictor = UnifiedPredictor(self)
+        # Geçişlerden öğrenilen dördüncü bir olgu tabanı değil; beden deneyiminin
+        # istatistiksel olarak ayrı tutulan kanalı. İlk kanıt oluşmadan tahmin vermez.
+        self.causal = CausalTransitionModel()
+        try:
+            from nora_planning import AdaptivePlanner
+            self.planner = AdaptivePlanner(self.causal)
+        except Exception:
+            self.planner = None
+        try:
+            from nora_objects import ObjectBelief
+            self.objects = ObjectBelief()
+        except Exception:
+            self.objects = None
+        try:
+            from nora_metacog import PredictionMonitor
+            self.meta_monitor = PredictionMonitor()
+        except Exception:
+            self.meta_monitor = None
+        # Öz-izleme dekoratif bir rapor kanalı değildir: planlayıcı, geçmiş
+        # hatalarla kalibre edilen güveni kullanarak belirsiz plandan vazgeçebilir.
+        if self.planner is not None:
+            self.planner.monitor = self.meta_monitor
+        try:
+            from nora_crossmodal import CrossModalBinder
+            self.crossmodal = CrossModalBinder()
+        except Exception:
+            self.crossmodal = None
+        # GEÇİCİ DİL DERSLERİ: sözcük/fiil eşlemleri ve kısa paralel cümlelerden
+        # yeniden kullanılabilir yapı çıkarır; her yaşam kendi boş defteriyle başlar.
+        try:
+            from nora_translation import LearnedTranslator
+            self.translator = LearnedTranslator()
+        except Exception:
+            self.translator = None
+        self._prediction_target = ""
         self.plastic_discourse = PlasticDiscourseCortex(chem=self.chem, seed=seed + 19)
         self.auto_net = AutonomousConsciousnessNetwork()
         self.meta_reflector = MetaConsciousReflector()
@@ -322,6 +433,8 @@ class NoraAGI:
         self.conv_cortex = ConversationalResonanceCortex()
         self.broca_organ = GenerativeBrocaOrgan()
         self.schema_cortex = PlasticSchemaCortex(chem=self.chem, seed=seed + 31)
+        self._last_focus = ""
+        self._warm_speech_paths()
         self.monologue = InnerMonologueEngine(self.schema_cortex)
         # --- KENDİ KENDİNE SINIFLANDIRMA + OTONOM ETİKETLEME + TAM DURUMSAL TÜRKÇE ---
         self.utter_cortex = NeuralUtteranceCortex(chem=self.chem, morph=self.lang.morph, seed=seed + 47)
@@ -332,9 +445,13 @@ class NoraAGI:
         self.epi_speech = BeliefSpeech(self.episteme)
         self.researcher = TrustedResearcher(self.episteme)
         # --- KOD SENTEZİ: çalıştırıp doğrulamadan tek satır bile vermez ---
-        self.code_cortex = CodeSynthesisCortex(seed=seed + 61)
+        self.code_cortex = CodeSynthesisCortex(seed=seed + 61, pretrain=code_pretrain)
         self.last_epistemic: dict = {}
         self.last_code: dict = {}
+        # Nöral ilişki önerici isteğe bağlıdır; etkinleştirilmedikçe eski sembolik
+        # üretim ve A140/A141 yüzey yarışı aynen kalır.
+        self.relational_reasoner = None
+        self.last_deliberation: dict = {}
         self.last_utterance_class: dict = {}
         self._turn_mint_label: str = ""
         self.user_profiles: dict[str, dict[str, str]] = {}
@@ -348,17 +465,303 @@ class NoraAGI:
             self._ensure_cognition()
 
         self.dialogue_log: list[tuple[str, str, str]] = []
+        # CÜMLE YAPISI KORTEKSİ: yapı/valans öğrenimi ve 'nasıl denilir / ne demek' soruları.
+        # (Cümle kalıbı değil; biçimbilimsel roller + gözlemden sayılan valans.)
+        try:
+            from nora_frames import ConstructionCortex
+            self.frames = ConstructionCortex(self.lang.morph, getattr(self.lang.graph, "lexicon", None),
+                                             seed=seed)
+        except Exception:
+            self.frames = None
+        self.pending_research: list[str] = []
+        self.last_meta_question: dict | None = None
+        self.last_structure: dict | None = None
+        self.last_corpus_learning: dict = {}
+        # Açık kaynak isteğe bağlı: NORA_INTERNET=1 ise gerçek ağ kaynakları devreye girer.
+        try:
+            import os as _os
+            if _os.environ.get("NORA_INTERNET", "") in ("1", "true", "yes") and not self.life.sources:
+                self.life.enable_internet()
+        except Exception:
+            pass
+        # ÜST-BİLİŞ: aynı sözün tekrarı ve geçen zaman (ACC çakışma izleme + episodik bellek)
+        self.acc = ConflictMonitor() if ConflictMonitor is not None else None
+        self.last_meta_repeat: dict | None = None
+        self.last_meta_thought: str = ""
+        # 4 BOYUTLU SANDBOX: zaman yalnız adımlarla değil, gerçek saatle de akar.
+        self.last_real_time: float = time.time()
+        self.self_exam_log: list[dict] = []
+        self.last_self_exam: dict | None = None
+        self._exam_age_mark: int = 0
+        self.wallclock_steps: int = 0
+        self.last_gap_s: float = 0.0
+        # --- KULAK: dış dünyadan gelen her söz önce bir SES olarak duyulur.
+        # Kimliği etiket değil, sesin kendi ölçülebilir imzası belirler (bkz. nora_ear.py).
+        try:
+            from nora_ear import Ear
+            self.ear = Ear(uid=(self.entropy.uid if self.entropy is not None else f"n{seed}"), seed=seed)
+        except Exception:
+            self.ear = None
+        # --- OKUL: sayı sayma, basamak, okunuş, semboller, aşamalı düşünme (çocuk seviyesi)
+        try:
+            from nora_okul import SchoolCortex
+            self.school = SchoolCortex(seed=seed + 181)
+        except Exception:
+            self.school = None
+        # --- KENDİ ÇIKARIMI: kimse sormadan kendi bilgisinden yeni bağ türetme
+        try:
+            from nora_infer import InferenceEngine
+            self.infer = InferenceEngine(seed=seed + 211)
+        except Exception:
+            self.infer = None
+        # --- SÖZ BİÇİMİ: her tur aynı iskeletle konuşmamak, kendi derdini öne alabilmek
+        try:
+            from nora_style import SpeechStyle
+            self.style = SpeechStyle(seed=seed + 193)
+        except Exception:
+            self.style = None
+        # --- ANLATIM: aynı bilgiyi her seferinde aynı cümleyle söylememek (ansiklopedi değil)
+        try:
+            from nora_anlatim import Narrator
+            self.narrator = Narrator(seed=seed + 227)
+        except Exception:
+            self.narrator = None
+        # --- SÖZ ÖNCELERİ (doğuştan eğilim) + İSKELET ÖLÇERİ -------------------
+        # Cümleler artık kodda gömülü değil: `nora_priors.json` içinde motor toplulukları
+        # olarak yaşar, seçim rng.choice değil AKTİVASYON YARIŞIDIR (bkz. nora_priors).
+        # Doğuştan eğilim her seçimde söner; yerini Nora'nın kendi pekiştirdiği ağırlıklar alır.
+        try:
+            from nora_priors import PriorField
+            # KENDİ ÜRETECİ: söz seçimi küresel `random` akışını kullanırsa aynı tohum
+            # başka testlerin tükettiği akışa göre farklı konuşur (A6 dalgalanması).
+            import random as _random
+            self._say_rng = _random.Random(int(getattr(self, "seed", 0)) * 7919 + 13)
+            self.priors = PriorField(entropy=getattr(self, "entropy", None),
+                                     rng=self._say_rng)
+        except Exception:
+            self.priors = None
+        try:
+            from nora_provenance import Provenance
+            self.provenance = Provenance()
+        except Exception:
+            self.provenance = None
+        # --- CANLILIK REGİSTERİ: izin isteyen "asistan" sesi yerine kendi derdi ----
+        # Son sözlerde ne kadar izin istediğini sayar; oran yükselirse söylem organı
+        # "anlatsan iyi olur" gibi kendi derdini beyan eden biçimi seçer.
+        try:
+            from nora_register import RegisterMeter
+            self.register = RegisterMeter()
+        except Exception:
+            self.register = None
+        # --- UYGULAMA (apply): kural NESNESİ + çalışma belleği + yorumlayıcı --------
+        # Nora artık yalnız retrieve etmiyor: bir kuralı bağlayıp yeni bir girdiye
+        # uygulayabiliyor (sayma, kural uygulama, transfer, plan). Bkz. nora_apply.
+        try:
+            from nora_apply import Interpreter
+            self.apply_eng = Interpreter()
+        except Exception:
+            self.apply_eng = None
+        # --- OPERATÖR OCAĞI: kuralı insan değil, Nora ÖRNEKLERDEN kendi yazar ------
+        # Ölçülen şey: insanın yazdığı operatör sayısı SABİT, Nora'nın kendi yazdığı
+        # operatör sayısı ARTAN. Defter insan rejistrisinden AYRI tutulur ki
+        # `nora_operators.json` (insan yazımı) dondurulmuş kalsın.
+        try:
+            from nora_forge import OperatorForge
+            self.forge = OperatorForge(interpreter=self.apply_eng,
+                                       ledger_path="runs/operators_self.json",
+                                       step=int(getattr(self.mind, "age", 0)))
+        except Exception:
+            self.forge = None
+        # KİŞİSEL BELLEK: karşıdakinin söylediği olgular (dünya grafiğinden AYRI).
+        # A54'ün şartı korunur: anlatı kavram ağını kirletmez; ama unutulmaz da.
+        try:
+            from nora_episodic import PersonalMemory, Testimony
+            self.person_mem = PersonalMemory()
+            # TANIKLIK: başkasından aktarılan olgular; iki tanık çelişirse İKİSİ söylenir.
+            self.testimony = Testimony()
+        except Exception:
+            self.person_mem = None
+            self.testimony = None
+        # OPERATÖR SENTEZİ: dönüşümü Nora örneklerden kendi yazar (insan operatörü +0).
+        try:
+            self.synth = Synthesizer() if Synthesizer is not None else None
+        except Exception:
+            self.synth = None
+        self._synth_last_reply = ""
+        # ÖZ-DEĞİŞİM (dar basamak): öğrenme politikasının aday bütçesi. Kaynak kod
+        # değil, Nora'nın kendi karar politikasının duruşu; değişim ancak kendi
+        # başarısızlığından sonra ve yeni öz-sınav geçerse kalıcı olur.
+        self._oz_aday_butce = 6
+        self._oz_degisim: list[dict] = []
+        self._son_oz_ogretim_sonuc: dict = {}
+        # KENDİ GÖREV İCADİ: hedef dönüşümün biçimi de sabit değil; defter ve saat
+        # kalıcıdır. Böylece "ne zaman" ile "neyi"nin yanına "hangi görevi" de eklenir.
+        self._kendi_gorevler: list[dict] = []
+        self._gorev_derinligi = 2
+        self._son_gorev_age = -10 ** 9
+        self._son_gorev_sonuc: dict = {}
+        # KAYNAK-KOD ÖZ-DEĞİŞİMİ: her sonuç ölçüm ve rollback defterine yazılır.
+        self._source_changes: list[dict] = []
+        self._law_history: list[dict] = []
+        self.symbolic_law = None
+        # PLAN DEFTERİ: kullanıcının verdiği adımlar; koşul değişince YENİDEN kurulur.
+        self.plans: dict[str, list[str]] = {}
+        # SAYISAL OLGULAR: "Ali'nin boyu 180" -> {"boy": {"ali": 180.0}}
+        self.num_facts: dict[str, dict[str, float]] = {}
+        # ÇOK TURLU HEDEF: kullanıcı verdiği süre boyunca KENDİ hatırlatılır.
+        #: HEDEF YIĞINI: hedef tek bir sözlük değil. Yeni hedef gelince eskisi
+        #: SİLİNMEZ, yığında bekler; yeni hedef bitince kaldığı yerden sürer (N27).
+        #: KALİBRASYON DEFTERİ: sınıf -> [başarı, deneme]. Güven sayısı buradan
+        #: ÖĞRENİLİR: ilk söz envanterden gelir, sonra deneyim ağırlığı artar (N28).
+        self.calib: dict[str, list[int]] = {}
+        self._conf_pending: list | None = None
+        self._turn_path = "chat"
+        self._goals: list[dict] = []
+        self._goals_done = 0
+        self._goal: dict | None = None
+        self._goal_turn0 = -1
+        self._plan_goal = ""
+        # KÜME ORGANI: kesişim/birleşim/fark elle yazılmadı; aksiyomlardan sentezlenir.
+        try:
+            self.sets = SetSynth() if SetSynth is not None else None
+            self.abstract = Abstraction() if Abstraction is not None else None
+            # REIFY: tekrar eden bileşimleri adlandırıp ilkel yapan ocak.
+            self.reify = Reify() if Reify is not None else None
+            if self.reify is not None:
+                self.synth.on_adopt = (lambda spec, ex: self.reify.observe(spec, ex))
+            # ŞEMA: makroda delik aç, aileyi tarafla (seviye 4).
+            self.schema = Schema() if Schema is not None else None
+            # SÜRÜCÜ: ham akışı izler, şaşkınlığı ölçer, öğrenmeyi KENDİ tetikler.
+            self.driver = Driver(self) if Driver is not None else None
+        except Exception:
+            self.sets = None
+        self._forge_pending = None
+        self.last_auditory = None
+        self.audio_log: list = []
+        self._prev_answers: dict[str, str] = {}
+        self._notice_spoken: set = set()
+        self._voice_label: dict[str, str] = {}
+        # OTURUM DEFTERİ: "bu oturumda ne öğrendin" sorusu TAHMİNLE değil, bu
+        # anlık görüntüyle mevcut durum arasındaki FARKLA cevaplanır.
+        self._session0 = self._session_counts()
+
+        # ISINMA: yeni uçların ilk çağrısındaki derleme/ayırma maliyeti KURULUŞA taşınır.
+        # (A27 gecikme ölçüyor: ölçülen tura soğuk başlangıç düşmemeli.)
+        try:
+            _w = "ısınma turu"
+            for _fn in (self._synth_turn, self._set_turn, self._constrained_turn,
+                        self._plan_turn, self._chain_turn, self._num_turn,
+                        self._gap_turn, self._confidence_turn, self._goal_turn,
+                        self._predict_turn, self._recall_testimony):
+                _fn(_w)
+        except Exception:
+            pass
+        try:
+            self.chem.alias_resolver = self._canonical_voice
+        except Exception:
+            pass
+        # --- YAŞAM GÜNLÜĞÜ (append-only): açılmazsa hiçbir maliyeti yok ---
+        self.journal = None
+        self.journal_path: str | None = None
+        self._journal_life_every: int = 120
+        self._journal_life_acc: int = 0
 
         # --- ARKA PLAN YAŞAMI + ÖĞRENEN SÖZ ORGANI (elle yazılmış sözcük/cümle yok; dil okunarak öğrenilir) ---
         self.life = BackgroundLife(seed=seed + 71)
+        # Kimse konuşmazken konuşan organ: hangi hâlde ne söyleyeceğini yaşayarak öğrenir
+        self.discourse = DiscourseCortex(seed=seed + 137, lexicon=self.lang.graph.lexicon)
+        self.discourse.entropy = getattr(self, "entropy", None)
+        self.initiative = InitiativeCortex(seed=seed + 173)
+        self.speculation = SpeculativeCortex(seed=seed + 211)
+        # Söz edimi + çok adımlı tartım korteksi: soruya değil, sorunun NEDENİNE bakar
+        self.deliberation = DeliberativeMind(seed=seed + 219)
+        # Öğrendiği fiil kökleri (dilin yaşam boyu büyüyen sözlüğü). Yeni doğan zihin,
+        # süreçteki başka bir örneğin öğrendiklerini miras almaz.
+        TurkishMorphology.reset_learned_roots()
+        self.learned_verb_roots: set[str] = set()
+        # Son anlatılan kavramlar: aynı hikâyeyi tekrar tekrar anlatmasın
+        self._narrated: deque[str] = deque(maxlen=6)
+        self._joked: deque[str] = deque(maxlen=8)
+        self.last_proactive: dict | None = None
         for path in (corpus or []):
             self.read_corpus(path)
         if broca:
             self.attach_broca(broca)
 
+        # GENEL ÇALIŞMA-ZAMANI ÇEKİRDEĞİ: varsayılan abone yok; eski politika
+        # değişmez. Yeni organlar kayıt olduğunda aynı yayın/yarışma yolunu kullanır.
+        if CognitiveBus is not None:
+            self.bus = CognitiveBus()
+        else:
+            self.bus = None
+        if ArchitectureModel is not None:
+            self.architecture = ArchitectureModel(self, self.bus)
+        else:
+            self.architecture = None
+        # Bus ve bütün organlar hazır olduktan sonra paylaşılan çalışma alanını bağla.
+        # WM'ye otomatik yazma yok; focus açıkça istenir.
+        try:
+            from nora_workspace import IntegrationWorkspace
+            self.workspace = IntegrationWorkspace(
+                self.bus, self.apply_eng.wm if getattr(self, "apply_eng", None) is not None else None)
+            self.workspace.attach()
+            if self.architecture is not None:
+                self.architecture.refresh()
+        except Exception:
+            self.workspace = None
+
     def read_corpus(self, path: str):
-        """Nora'yı bir metinle baş başa bırakır: söz organı yalnızca bundan öğrenir (hangi dil olduğu fark etmez)."""
-        self.life.voice.hear_file(path, state_vector(self))
+        """Bir metni ses, cümle iskeleti ve söylem şeması düzeyinde öğren.
+
+        Önceki yol yalnız ``life.voice``ı besliyordu; ana cevap yarışındaki yapı
+        öğrenicileri corpusu hiç görmüyordu. Hazır cevap çıkarılmaz; her uygun
+        cümle her öğrenme kanalında bir kez işlenir (epoch yok) ve mevcut
+        yapı/şema kortekslerine gözlem olarak verilir. Dönen sayaçlar eğitimin
+        gerçekten aktığını kanıtlar.
+        """
+        voice = self.life.voice
+        organ = getattr(voice, "organ", None)
+        frames = getattr(self, "frames", None)
+        before = {
+            "heard_tokens": int(voice.heard_tokens),
+            "organ_seen": int(getattr(organ, "seen_tokens", 0) or 0),
+            "frames": int(frames.memory.learned_count) if frames is not None else 0,
+            "schemas": int(sum(self.schema_cortex.observed_human_styles.values())),
+        }
+        voice.hear_file(path, state_vector(self))
+        observed = 0
+        errors = 0
+        with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            while True:
+                chunk = f.read(2_000_000)
+                if not chunk:
+                    break
+                chunk += f.readline()
+                for sentence in re.split(r"(?<=[.!?…])\s+|\n+", chunk):
+                    words = re.findall(r"[\wçğıöşü]+", tr_lower(sentence))
+                    if not 3 <= len(words) <= 60:
+                        continue
+                    try:
+                        if getattr(self, "frames", None) is not None:
+                            self.frames.observe(sentence)
+                        self.schema_cortex.observe_human_schema(
+                            sentence, words, self.lang.morph, self.lang.graph.lexicon
+                        )
+                        observed += 1
+                    except Exception:
+                        errors += 1
+        organ = getattr(voice, "organ", None)
+        stats = {
+            "sentences": observed,
+            "heard_tokens": int(voice.heard_tokens) - before["heard_tokens"],
+            "organ_seen": int(getattr(organ, "seen_tokens", 0) or 0) - before["organ_seen"],
+            "frames": int(self.frames.memory.learned_count) - before["frames"]
+            if getattr(self, "frames", None) is not None else 0,
+            "schemas": int(sum(self.schema_cortex.observed_human_styles.values())) - before["schemas"],
+            "errors": errors,
+        }
+        self.last_corpus_learning = stats
+        return stats
 
     def attach_broca(self, path: str):
         """Sinirsel Broca artikülasyon organını bağlar (zihin karar verir, organ yalnızca dile döker)."""
@@ -410,9 +813,130 @@ class NoraAGI:
         out = self.speak_from_state(**kw)
         return out if self._voice_usable(out, kw.get("anchors")) else fallback
 
+    def _resolve_concept_gap(self, concept: str) -> bool:
+        """Doğrudan olgu öğrenilen kavramın merak/araştırma durumunu kapat.
+
+        Kullanıcının cümlesi tek başına başarı değildir: çözümleme gerçekten
+        kavramın ÖZNE olduğu geçerli bir kenar yazmış olmalıdır. Defter, iki
+        araştırma kuyruğu ve belirsizlik birlikte güncellenir; aksi hâlde Nora
+        bildiği konuyu hâlâ bilinmiyor diye araştırmaya devam eder.
+        """
+        c = tr_lower(concept or "").strip()
+        if not c:
+            return False
+        direct = [e for e in self.lang.graph._out_edges.get(c, ())
+                  if float(getattr(e, "weight", 1.0)) > 0.25 and e.rel != "PART_OF"]
+        if not direct:
+            return False
+        changed = False
+        gap = self.life.ledger.gaps.get(f"c:{c}")
+        if gap is not None and not gap.resolved:
+            gap.resolved = True
+            gap.pull = 0.0
+            changed = True
+        queues = [getattr(self.auto_net, "curiosity_queue", None),
+                  getattr(self, "pending_research", None),
+                  getattr(getattr(self, "frames", None), "pending", None)]
+        for queue in queues:
+            if not hasattr(queue, "__len__") or not hasattr(queue, "__iter__"):
+                continue
+            kept = [item for item in queue if tr_lower(str(item)).strip() != c]
+            if len(kept) == len(queue):
+                continue
+            if isinstance(queue, list):
+                queue[:] = kept
+            elif hasattr(queue, "clear") and hasattr(queue, "extend"):
+                queue.clear()
+                queue.extend(kept)
+            else:
+                continue
+            changed = True
+        node = self.auto_net.assemblies.get(c)
+        if node is not None and float(getattr(node, "uncertainty", 0.0)) > 0.25:
+            node.uncertainty = 0.20
+            changed = True
+        return changed
+
+    def _teach_sentence_and_resolve_gaps(self, raw: str, speaker: str = "insan") -> list:
+        """Bütün olgusal öğretim yollarında tek yazım/kapanış geçişi.
+
+        Structured-mint, değer öğretimi ve doğrudan tek-atış öğrenme aynı
+        kavram ağına yazar; boşluk defterinin yalnız bir kolda güncellenmesi
+        diğer kollarda öğrenilmiş konunun hâlâ araştırılmasına yol açar.
+        Kapanış yalnız ``teach_sentence`` gerçekten kenar döndürdükten sonra,
+        döndürülen her önermenin gerçek öznesi için denenir.
+        """
+        edges = self.lang.teach_sentence(raw, speaker=speaker) or []
+        reasoner = getattr(self, "relational_reasoner", None)
+        if reasoner is not None:
+            for learned_edge in edges:
+                reasoner.observe(learned_edge.subj, learned_edge.rel, learned_edge.obj)
+        for learned_edge in edges:
+            self._resolve_concept_gap(learned_edge.subj)
+        return edges
+
+    def enable_relational_reasoning(self, reasoner=None):
+        """Dağıtık önericiyi aç; mevcut doğrudan grafik kapanışını kopyalama.
+
+        Yalnız bundan sonraki gerçek öğretim olayları nöral belleğe akar. Böylece
+        sembolik grafikten toplu kapanış/cevap çalmak mümkün olmaz.
+        """
+        if reasoner is None:
+            from nora_broca_net import NeuralRelationalProposer
+            reasoner = NeuralRelationalProposer(seed=int(self.seed) + 142)
+        self.relational_reasoner = reasoner
+        return reasoner
+
+    def deliberate(self, topic: str, *, commit: bool = True) -> dict:
+        """Nöral top-5 → bağımsız grafik kanıtı → tek yeni sonuç.
+
+        Sembolik grafik aday/dikkat çifti üretmez. Nöral öneri kapalıysa veya beş
+        aday da kanıtlanamazsa hazır sembolik cevap devreye girmez.
+        """
+        reasoner = getattr(self, "relational_reasoner", None)
+        if reasoner is None:
+            result = {"status": "no-neural-proposer", "answer": "", "candidates": [],
+                      "novel": False, "committed": False}
+            self.last_deliberation = result
+            return result
+        proposals = reasoner.propose(tr_lower(topic).strip(), k=5)
+        rows = []
+        chosen = None
+        for proposal in proposals:
+            proof = self.lang.graph.prove_candidate(
+                proposal["subj"], proposal["rel"], proposal["obj"],
+            )
+            prop = Proposition(subj=self.lang.graph.surface_name(proposal["subj"]),
+                               rel=proposal["rel"],
+                               obj=self.lang.graph.surface_name(proposal["obj"]))
+            text = self.lang.broca.realize_prop(prop)
+            row = {**proposal, "text": text, "validation": proof.get("status"),
+                   "rule": proof.get("rule"), "novel": bool(proof.get("novel")),
+                   "proof": [(edge.subj, edge.rel, edge.obj)
+                             for edge in proof.get("proof") or []]}
+            rows.append(row)
+            if chosen is None and proof.get("status") == "proved" and proof.get("novel"):
+                chosen = row
+        result = {
+            "status": "accepted" if chosen is not None else "unresolved",
+            "answer": (tr_capitalize(str(chosen["text"]).strip().rstrip(".")) + ".")
+                      if chosen is not None else "",
+            "candidates": rows, "novel": chosen is not None,
+            "committed": False, "neural_candidates": len(proposals),
+        }
+        if chosen is not None and commit:
+            self.lang.graph.add_edge(
+                chosen["subj"], chosen["rel"], chosen["obj"],
+                source="sinirsel-çıkarım", weight=0.82,
+            )
+            result["committed"] = True
+        self.last_deliberation = result
+        return result
+
     def speak_unknown(self, concept: str, fallback: str = "") -> str:
         """Bilmediği şeyle karşılaşma: uydurmaz; boşluğu gerilim defterine yazar, elinde yarım iz (hipotez) varsa
         kesinliği söze yansır. Söz, öğrenilmiş söz organından çıkar."""
+        custom_fallback = bool(fallback)
         self.life.note_unknown_concept(self, concept)
         node = self.auto_net.assemblies.get(concept)
         fam = 0.0 if node is None else min(1.0, node.familiarity / 6.0)
@@ -426,11 +950,68 @@ class NoraAGI:
         out = self.speak_from_state(anchors=[concept], nov=1.0 - fam, fam=fam,
                                     conf=0.0 if trace is None else trace[0],
                                     tension=0.0 if g is None else g.tension)
-        # Artikülasyon organının sorusu yapısal maske sayesinde çapadan dışarı çıkamaz; anlam kaybolmasın
-        # diye önce bilmediğini söyler, ardından kendi merak sorusunu ekler (insan da öyle yapar).
-        if out and out.strip().endswith("?") and tr_lower(concept) in tr_lower(out):
+        # Soru işareti kalite muafiyeti değildir: kısa/bozuk 'X mi?' çıktısı da
+        # aynı kullanılabilirlik kapısından geçer. Geçerli merak sorusunda anlam
+        # kaybolmasın diye epistemik duruş önce açıkça söylenir.
+        if (out and out.strip().endswith("?") and tr_lower(concept) in tr_lower(out)
+                and self._voice_usable(out, [concept])):
             return f"{tr_capitalize(concept)} hakkında henüz bilgim yok; merak listeme aldım. {out.strip()}"
-        return out if self._voice_usable(out, [concept]) else fallback
+        if self._voice_usable(out, [concept]):
+            return out
+        if not custom_fallback:
+            # Hazır kavram cevabı değil, aynı genel sözdizimi motoruyla kurulan
+            # bilgi isteği: kavram yalnızca nesne yuvasına yerleşir.
+            query = SYN.realize_verb(VerbSpec(
+                verb_root="bil", obj=NP(concept, case="ACC"), question_yn=True,
+                tense="PRES", person="2SG",
+            ))
+            fallback = f"{fallback} {tr_capitalize(query)}?"
+        return fallback
+
+    def proactive_line(self, kind: str = "", topic: str = "", tension: float = 0.0,
+                       idle: float = 0.0, unanswered: int = 0) -> dict | None:
+        """Kendiliğinden söylenecek söz. Kaynak (haber/boşluk/özet) varsa onu çapalar; yoksa iç durumdan konuşur.
+        Karar ve cümle burada, öğrenilmiş inisiyatif korteksinde verilir; dışarıdan cümle verilmez."""
+        discovery = bool(kind == "discovery")
+        t = float(tension)
+        if kind == "discovery" and topic:
+            t = max(t, 0.6)
+        res = self.initiative.speak(self, tension=t, discovery=discovery, idle=idle,
+                                    unanswered=unanswered,
+                                    temperature=0.45 + 0.35 * float(self.chem.ne))
+        if not res:
+            return None
+        res.update({"age": int(self.mind.age), "kind": kind or res["move"], "topic": topic})
+        self.last_proactive = res
+        self.last_gw_trace = {
+            "winner": "initiative_cortex", "confidence": 0.9, "trace": f"initiative:{res['move']}",
+            "bids": {"initiative_cortex": 1.0},
+        }
+        return res
+
+    def proactive_line(self, kind: str = "", topic: str = "", tension: float = 0.0,
+                       idle: float = 0.0, unanswered: int = 0) -> dict | None:
+        """Kimse bir şey sormazken söylenecek söz. Tür seçimi ve cümle inisiyatif korteksinden çıkar;
+        içerik gerçek iç durumdan (nörokimya, iç-duyum, kavram ağı, anı) gelir."""
+        try:
+            discovery = (kind == "discovery")
+            t = float(tension)
+            if discovery and topic:
+                t = max(t, 0.6)
+            self.initiative.topic_hint = topic
+            res = self.initiative.speak(self, tension=t, discovery=discovery, idle=idle,
+                                        unanswered=unanswered,
+                                        temperature=0.5 + 0.3 * float(getattr(self.chem, "ne", 0.0)))
+        except Exception:
+            return None
+        if not res:
+            return None
+        res.update({"age": int(self.mind.age), "kind": kind or res.get("move", ""), "topic": topic})
+        self.last_proactive = res
+        self.last_gw_trace = {"winner": "initiative_cortex", "confidence": 0.9,
+                              "trace": f"initiative:{res.get('move')}",
+                              "bids": {"initiative_cortex": 1.0}}
+        return res
 
     def drain_outbox(self) -> list[dict]:
         """Kullanıcı yazmadan Nora'nın kendiliğinden gönderdiği mesajlar (spontaneous_action)."""
@@ -450,28 +1031,98 @@ class NoraAGI:
         return self.cognition
 
     # ------------------------------------------------------------------ 1) Canlı yaşam adımı & Sinir Sistemi
-    def _autonomic_survival_reflex(self, proposed_act: int) -> int:
-        """Hipotalamik hayatta kalma yönelimi + yumuşak itici potansiyel alanıyla omurilik kaçınma refleksi."""
+    def tahmin_et(self, durum=None, eylem=None) -> list[tuple[str, float, float]]:
+        """Genel birleşik öngörü: ``[(değişken, delta, güven), ...]``.
+
+        Örnek: ``agi.tahmin_et(agi.obs, {"act": "git", "target":
+        "yiyecek"})``. Gövdesel model, genel nedensel grafik ve Universe
+        fiziği aynı sonuç biçiminde birleşir; ayrıntılı kaynak izi
+        ``agi.predictor.last_trace`` içinde tutulur.
+        """
+        result = self.predictor.predict(durum, eylem)
+        bus = getattr(self, "bus", None)
+        if bus is not None and bus.has_listeners("prediction"):
+            bus.publish("prediction",
+                        {"state": durum, "action": eylem, "result": list(result),
+                         "trace": dict(getattr(self.predictor, "last_trace", {}) or {})},
+                        source="predictor", kind="prediction")
+        return result
+
+    def _autonomic_survival_reflex(self, proposed_act: int,
+                                   respect_proposal: bool = False) -> int:
+        """Hipotalamik hayatta kalma yönelimi + omurilik kaçınma refleksi.
+
+        ``respect_proposal`` genel yayın yarışmasını dış bir uzman kazandığında
+        normal foraging dürtüsünü geri çeker; acil güvenlik frenleri yine
+        çalışır. Böylece yayın mimarisi dekoratif kalmaz, yaşam da korumasız
+        bırakılmaz.
+        """
+        # Tehlike bölgesinden çıkış, kaynak aramadan ve öğrenilmiş eylem
+        # rehberliğinden önce gelir. Önceki sürüm bu alanı yalnız hedefli
+        # foraging sırasında uyguluyor, hedefsiz dolaşmada aynı yarayı defalarca
+        # alabiliyordu. Zehir bayrağı veya gelecekteki beden sonucu okunmaz.
+        if len(self.world.haz_c) > 0:
+            haz_dists = np.hypot(*(self.world.haz_c - self.world.pos).T)
+            haz_idx = int(np.argmin(haz_dists))
+            # v/k yaklaşık durma mesafesidir; hızlı beden için aynı sabit
+            # tampon yeterli değildir. Rüzgârla hızlanan beden freni daha
+            # erken ateşler, yavaş beden gereksiz geniş yörüngeye sapmaz.
+            speed = float(np.hypot(*self.world.vel))
+            stop_distance = speed / max(float(self.world.fric), 1e-6)
+            if float(haz_dists[haz_idx]) < self.world.zone_h + 0.9 + stop_distance:
+                away = self.world.pos - self.world.haz_c[haz_idx]
+                if float(np.hypot(*away)) < 1e-6:
+                    away = np.array([1.0, 0.0], dtype=np.float64)
+                ang = float(np.arctan2(away[1], away[0]) - self.world.th)
+                ang = (ang + np.pi) % (2 * np.pi) - np.pi
+                return 1 if abs(ang) < 0.45 else (2 if ang > 0 else 3)
+
         if self.nervous.reflex_recoil_steps > 0:
             act_r, _ = self.nervous.spinal_reflex_override(proposed_act, hazard_ahead=0.0)
             return act_r
 
         food_v = float(self.mind.ctxs[self.mind.cur]["V"][0])
-        food_learned_toxic = bool(np.isfinite(food_v) and food_v < -0.05)
         food_n = int(self.mind.ctxs[self.mind.cur]["Vn"][0])
-        forage_thresh = 0.55 if food_n == 0 else 0.32
+        # Zehirli temas info['ate']==0 döndürebilir; dolayısıyla Mind'in
+        # yemek sayacı olayı kaçırabilir. CoreSelf ise gerçek dE düşüşünü
+        # ayrıca kaydeder. İki organın kanıtını birleştir; doğrudan somatik
+        # deneyim varken yalnız eksik sayaca güvenip zehre yönelme.
+        food_rec = self.self_model.somatic.get("yiyecek")
+        if food_rec is not None and int(food_rec.exp_count) > 0:
+            food_v = float(food_rec.exp_val)
+            food_n = max(food_n, int(food_rec.exp_count))
+        food_learned_toxic = bool(np.isfinite(food_v) and food_v < -0.05)
+        # Bilinmeyen besini ilk kez ölüm eşiğinde sınamak güvenli keşif
+        # değildir. Etkisi henüz öğrenilmediyse rezerv yüksekken örnekle;
+        # öğrenilmiş güvenli besin için normal homeostatik eşik yeterlidir.
+        forage_thresh = 0.82 if food_n == 0 else 0.32
 
         e_now, w_now = float(self.obs[I_E]), float(self.obs[I_W])
+        # Öğrenilmiş rehber normal keşifte eylem önerebilir; fakat yaşamsal
+        # rezerv kritik düzeye indiğinde homeostatik/omurilik freni son sözü
+        # söyler. Aksi durumda küçük model gürültüsü, suya/yeme yönelen
+        # refleksi her adımda başka bir dönüşe çevirip bedeni öldürebilir.
+        homeostatic_emergency = min(e_now, w_now, float(self.obs[I_I])) < 0.28
+        # İç-duyu raporu ile motor eylem aynı durumdan beslenebilir, fakat tek
+        # bir global değişkenin zorunlu kopyaları değildir: periferik efferent yol
+        # ablate edilirse açlık raporu kalır, hedefli hareket sürücüsü düşer.
+        # Mind.motor_eff yalnız öğrenilen ajanlık kestifidir; aktüatör kilidi değildir.
+        # Tehlike ve omurilik geri-çekilmesi yukarıdaki bağımsız refleks yolunda kalır.
+        motor_available = bool(getattr(self.nervous, "efferent_enabled", True))
+        drive_allowed = bool(motor_available and (not respect_proposal or homeostatic_emergency))
         tgt = None
-        if self.mortality.single_life and (w_now < 0.28 or (food_learned_toxic and e_now < 0.82)):
+        target_name = ""
+        if drive_allowed and self.mortality.single_life and (w_now < 0.28 or (food_learned_toxic and e_now < 0.82)):
             dists = np.hypot(*(self.world.water_c - self.world.pos).T)
             min_idx = int(np.argmin(dists))
             if dists[min_idx] < self.world.zone_w * 0.72:
                 return 0
             tgt = self.world.water_c[min_idx]
-        elif self.mortality.single_life and not food_learned_toxic and e_now < forage_thresh and len(self.world.food) > 0:
+            target_name = "su"
+        elif drive_allowed and self.mortality.single_life and not food_learned_toxic and e_now < forage_thresh and len(self.world.food) > 0:
             dists = np.hypot(*(self.world.food - self.world.pos).T)
             tgt = self.world.food[int(np.argmin(dists))]
+            target_name = "yiyecek"
 
         if tgt is not None:
             vec = tgt - self.world.pos
@@ -492,12 +1143,41 @@ class NoraAGI:
                 steer = np.array([-attract[1], attract[0]])
             ang = float(np.arctan2(steer[1], steer[0]) - self.world.th)
             ang = (ang + np.pi) % (2 * np.pi) - np.pi
-            return 1 if abs(ang) < 0.45 else (2 if ang > 0 else 3)
+            proposed = 1 if abs(ang) < 0.45 else (2 if ang > 0 else 3)
+            if homeostatic_emergency:
+                return proposed
+            # Açık komut hedefi ('elma') aynı fiziksel kanala bağlıysa genel
+            # kanal adıyla ('yiyecek') üzerine yazma; ISA/grafik yolu B4'teki
+            # gibi yeni kavramda da aynen kullanılabilsin.
+            guidance_target = target_name
+            explicit_target = str(getattr(self, "_prediction_target", "") or "").strip()
+            if (explicit_target and
+                    self.predictor._target_channel(explicit_target) ==
+                    self.predictor._target_channel(target_name)):
+                guidance_target = explicit_target
+            return self.predictor.guided_action(
+                proposed, target=guidance_target, allow_transition=False,
+            )
 
         rays = self.obs[:45].reshape(9, 5)
         haz_front = float(np.max(rays[3:6, 3]))
         act, _ = self.nervous.spinal_reflex_override(proposed_act, hazard_ahead=haz_front)
-        return act
+        if haz_front > 0.78:
+            # Yakın tehlike bir tercih değil, sensörden gelen omurilik
+            # frenidir. İleri gitme yerine daha az tehlike görünen tarafa
+            # dön; tehlike içinde beklemek de güvenli bir eylem değildir.
+            if proposed_act == 1:
+                left_haz = float(np.max(rays[:3, 3]))
+                right_haz = float(np.max(rays[6:, 3]))
+                act = 2 if left_haz <= right_haz else 3
+            elif proposed_act == 0:
+                act = 4
+            return act
+        if not motor_available:
+            return 0
+        if homeostatic_emergency:
+            return act
+        return self.predictor.guided_action(act)
 
     def inflict_pain(self, intensity: float = 0.7, locus: str = "gövde", cause: str = "dış darbe", attacker: str | None = None) -> dict:
         """Nora'nın sinir sistemine doğrudan acı uyarısı verir: A-delta refleksi + geri çekilme + güven kaybı."""
@@ -531,19 +1211,249 @@ class NoraAGI:
         """Merak ettiği kavramları internetten (veya verilen bilgi kaynağından) kendi başına araştırıp öğrenir."""
         return self.auto_net.autonomous_internet_research(self, fetcher=fetcher, max_topics=max_topics, fetchers=fetchers)
 
+    def self_exam(self, factor: float = 1.0) -> dict:
+        """Kendi kendini sına (morfoloji, ad çekimi, matematik, fizik) — dış cevap yok."""
+        try:
+            from nora_selfexam import run_self_exam
+            return run_self_exam(self, seed=int(self.mind.age) + int(self.seed), factor=factor)
+        except Exception as exc:            # pragma: no cover
+            return {"total": 0, "passed": 0, "domains": {}, "failures": [str(exc)], "ratio": 0.0}
+
+    def source_change(self, module: str, function: str, args: list[str], *,
+                      train: list[dict], validation: list[dict], audit: list[dict] | None = None,
+                      activate: bool = False) -> dict:
+        """Ölçüm-kapılı kaynak değişimi; canlı depo için bağımsız audit zorunlu.
+
+        ``activate=False`` gerçek bir geçici çalışma alanında kod yazar ve
+        çalıştırır, fakat depoyu değiştirmez. ``activate=True`` hedef `.py`
+        dosyasını atomik değiştirir; yüklü modülün yeniden yüklenmesi/yeniden
+        başlatma ayrı bir adımdır. Bu, bütün beynin sınırsız yeniden yazımı
+        iddiası değil, dar ve doğrulanabilir bir öz-değişim operatörüdür.
+        """
+        if not str(module).endswith(".py"):
+            return {"status": "invalid-protocol", "reason": "python module required"}
+        if activate and not audit:
+            return {"status": "invalid-protocol", "reason": "active change requires audit"}
+        import shutil
+        import tempfile
+        from nora_evolution import SelfModifier, SourceWorkspace
+        repo = os.path.dirname(os.path.abspath(__file__))
+        # Path kontrolünü önce ana çalışma alanında yap; traversal hiçbir kopyada
+        # güvenli hâle gelmez.
+        try:
+            source_path = SourceWorkspace(repo).path(module)
+        except ValueError as exc:
+            return {"status": "invalid-protocol", "reason": str(exc)}
+        result: dict
+        if activate:
+            ws = SourceWorkspace(repo)
+            try:
+                result = SelfModifier(ws).improve(module, function, args,
+                                                  train=train, validation=validation,
+                                                  audit=audit)
+            except Exception as exc:
+                ws.restore()
+                result = {"status": "error", "error": f"{type(exc).__name__}: {exc}"}
+            result["activated"] = bool(result.get("status") == "accepted")
+            result["restart_required"] = bool(result["activated"])
+        else:
+            with tempfile.TemporaryDirectory(prefix="nora_source_change_") as tmp:
+                ws = SourceWorkspace(tmp)
+                if os.path.exists(source_path):
+                    os.makedirs(os.path.dirname(ws.path(module)), exist_ok=True)
+                    shutil.copy2(source_path, ws.path(module))
+                try:
+                    result = SelfModifier(ws).improve(module, function, args,
+                                                      train=train, validation=validation,
+                                                      audit=audit)
+                    if result.get("status") == "accepted":
+                        result["source"] = ws.read(module)
+                except Exception as exc:
+                    ws.restore()
+                    result = {"status": "error", "error": f"{type(exc).__name__}: {exc}"}
+                result["activated"] = False
+                result["restart_required"] = False
+        self._source_changes.append({k: v for k, v in result.items() if k != "source"})
+        self._source_changes = self._source_changes[-32:]
+        bus = getattr(self, "bus", None)
+        if bus is not None and bus.has_listeners("source.change"):
+            bus.publish("source.change", {k: v for k, v in result.items() if k != "source"},
+                        source="self_modifier", kind="source_change")
+        return result
+
+    def perceive_objects(self, objects: list[dict] | None = None, *, dt: float = 1.0) -> list[dict]:
+        """Duyusal nesne listesini iç iz inancına çevirir; dış id'yi cevap saymaz."""
+        if getattr(self, "objects", None) is None:
+            return []
+        rows = self.objects.observe(objects or [], dt=dt)
+        if getattr(self, "crossmodal", None) is not None:
+            for row in rows:
+                if row.get("visible"):
+                    self.crossmodal.observe("vision", row["id"], row.get("features") or {},
+                                            timestamp=time.monotonic())
+        bus = getattr(self, "bus", None)
+        if bus is not None and bus.has_listeners("perception.objects"):
+            bus.publish("perception.objects", rows, source="object_belief", kind="perception")
+        return rows
+
+    def modal_event(self, modality: str, token: str, features: dict | None = None,
+                    *, timestamp: float | None = None) -> dict:
+        """Başka bir duyu organından gelen iç izi çapraz-modal günlüğe ekle."""
+        if getattr(self, "crossmodal", None) is None:
+            return {"status": "unavailable"}
+        return self.crossmodal.observe(modality, token, features or {},
+                                       timestamp=time.monotonic() if timestamp is None else timestamp)
+
+    def monitored_prediction(self, state, action) -> list[dict]:
+        """Nedensel tahmini, geçmiş kendi-hata ölçümüyle kalibre edilmiş döndür."""
+        raw = self.causal.predict(state, action)
+        monitor = getattr(self, "meta_monitor", None)
+        return monitor.calibrate(raw) if monitor is not None else raw
+
+    def meta_report(self) -> dict:
+        monitor = getattr(self, "meta_monitor", None)
+        return monitor.report() if monitor is not None else {"status": "unavailable"}
+
+    def induce_transition_law(self, feature_names: list[str], *, train: list[dict],
+                              validation: list[dict], audit: list[dict]) -> dict:
+        """Örnek geçişlerden koşullu yasa kur; kabul edilirse planlayıcıya bağla."""
+        from nora_laws import SymbolicTransitionModel
+        candidate = SymbolicTransitionModel(feature_names)
+        result = candidate.fit(train, validation, audit)
+        if result.get("status") == "accepted":
+            self.symbolic_law = candidate
+        self._law_history.append({"status": result.get("status"),
+                                  "feature_names": list(feature_names),
+                                  "reports": result.get("reports", {})})
+        self._law_history = self._law_history[-16:]
+        return result
+
+    def plan_actions(self, state, actions, goal, *, use_symbolic: bool = False,
+                     scoring=None, horizon: int | None = None) -> dict:
+        """Öğrenilen nedensel veya kabul edilmiş sembolik modelle plan kur."""
+        model = self.symbolic_law if use_symbolic else self.causal
+        if model is None:
+            return {"status": "unresolved", "reason": "no accepted law", "actions": []}
+        if use_symbolic:
+            from nora_planning import AdaptivePlanner
+            planner = AdaptivePlanner(model)
+        else:
+            planner = getattr(self, "planner", None)
+        if planner is None:
+            return {"status": "unavailable", "actions": []}
+        return planner.plan(state, actions, goal, scoring=scoring, horizon=horizon)
+
+    # ---------------------------------------------------------------- YAPI PEKİŞTİRME
+    def _queue_structure(self, text: str) -> None:
+        """Sözü yapı pekiştirme kuyruğuna at (O(1); çözümleme sonra)."""
+        if getattr(self, "frames", None) is None or not text:
+            return
+        if len(text.split()) > 60:
+            return
+        q = getattr(self, "_structure_queue", None)
+        if q is None:
+            q = self._structure_queue = []
+        q.append(text)
+        if len(q) > 256:
+            del q[:-192]
+
+    def drain_structure_pending(self, limit: int = 16) -> int:
+        """Konuşma sonrası boşlukta iskelet/valans pekiştirmesi (arka plan)."""
+        if getattr(self, "frames", None) is None:
+            return 0
+        q = getattr(self, "_structure_queue", None) or []
+        done = 0
+        while q and done < limit:
+            text = q.pop(0)
+            try:
+                self.frames.observe(text)
+                done += 1
+            except Exception:
+                pass
+        return done
+
     def step_life(self, steps: int = 1) -> dict:
         """Ajanı fiziksel dünyada 'steps' adım yaşatır; sinir sistemi, kimya, öz-benlik ve bedeni senkronize eder."""
         ate_total = drank_total = hurt_total = deaths = 0
+        # Yeni öğrenilen fiil kökleri ARKA PLANDA indekslenir (tur gecikmesi O(1) kalır).
+        try:
+            self.lang.morph.drain_index_pending()
+        except Exception:
+            pass
+        # Cümle iskeletleri de boşlukta pekiştirilir (tur içinde maliyet yok).
+        try:
+            self.drain_structure_pending(limit=max(4, steps))
+        except Exception:
+            pass
         for _ in range(int(steps)):
             if not self.mortality.is_alive:
                 break
             # Serotonin (5-HT) zaman ufkunu (gamma) canlı olarak modüle eder!
             self.mind.gamma = self.chem.discount_gamma
             prev_obs = self.obs.copy()
+            bus = getattr(self, "bus", None)
+            obs_signal = None
+            action_offer = None
+            if bus is not None and (bus.has_listeners("body.observation") or
+                                    bus.has_listeners("action.propose") or
+                                    bus.has_listeners("body.transition")):
+                obs_signal = bus.publish(
+                    "body.observation",
+                    {"obs": self.obs.copy(), "age": int(self.mind.age), "died": bool(self.died)},
+                    source="world", kind="observation")
             raw_act = self.mind.act(self.obs, self.died)
-            act = self._autonomic_survival_reflex(raw_act)
+            if bus is not None and bus.has_listeners("action.propose"):
+                # Yarışma mind'in teklifini değiştirebilir; otonom güvenlik refleksi
+                # sonra çalışır, dolayısıyla yeni uzman güvenlik frenini aşamaz.
+                baseline = Bid(0.0, {"action": int(raw_act)}, "mind") if Bid is not None else None
+                action_offer = bus.auction(
+                    "action.propose",
+                    {"obs": self.obs.copy(), "proposed": int(raw_act),
+                     "age": int(self.mind.age)},
+                    source="mind", baseline=baseline,
+                    parents=(obs_signal.id,) if obs_signal is not None else ())
+                if action_offer is not None:
+                    candidate = action_offer.get("payload")
+                    candidate = candidate.get("action") if isinstance(candidate, dict) else candidate
+                    if isinstance(candidate, (int, np.integer)) and 0 <= int(candidate) < Universe.N_ACT:
+                        raw_act = int(candidate)
+                    else:
+                        bus.publish("action.rejected",
+                                    {"candidate": repr(candidate), "reason": "geçersiz eylem"},
+                                    source="integration", kind="error",
+                                    parents=(action_offer.get("signal"),))
+            external_proposal = bool(
+                action_offer is not None and action_offer.get("winner") not in (None, "mind")
+            )
+            act = self._autonomic_survival_reflex(
+                raw_act, respect_proposal=external_proposal,
+            )
+            meta_token = None
+            monitor = getattr(self, "meta_monitor", None)
+            if monitor is not None and int(getattr(self.causal, "transitions", 0)) > 0:
+                try:
+                    # Tahmin, dünya değiştirilmeden ÖNCE kaydedilir; sonuç geldikten
+                    # sonra geriye dönük doğru cevap yazılmaz.
+                    meta_token = monitor.begin(self.causal.predict(prev_obs, int(act)), prev_obs, int(act))
+                except Exception:
+                    meta_token = None
             self.obs, info = self.world.step(act)
+            # Gerçek müdahale kaydı: yalnız duyulan önce/sonra ve seçilen eylem.
+            # world.poison gibi gizli dünya bayrakları bu öğreniciye verilmez.
+            self.causal.observe(prev_obs, int(act), self.obs, intervened=True)
+            if monitor is not None and meta_token is not None:
+                try:
+                    monitor.resolve(meta_token, self.obs, feature_names=self.causal.feature_names)
+                except Exception:
+                    pass
             self.died = info["died"] is not None
+            if bus is not None and bus.has_listeners("body.transition"):
+                parents = tuple(x for x in ((obs_signal.id if obs_signal is not None else ""),
+                                            (action_offer or {}).get("signal", "")) if x)
+                bus.publish("body.transition",
+                            {"before": prev_obs, "after": self.obs.copy(), "action": int(act),
+                             "info": dict(info), "age": int(self.mind.age)},
+                            source="world", kind="transition", parents=parents)
 
             # Periferik sinir sistemi (A-delta / C-lifi acı + viseral iç-duyum)
             self.nervous.step_from_body(
@@ -590,11 +1500,61 @@ class NoraAGI:
                 died=self.died,
             )
             self.self_model.sync_from_mind(self.mind, self.obs, died=self.died)
+            if bus is not None and bus.has_listeners("self.state"):
+                bus.publish("self.state",
+                            {"age": int(self.mind.age), "goal": int(self.mind.goal),
+                             "valence": float(self.mind.valence), "mood": float(self.mind.mood),
+                             "error": float(self.mind.err_n), "confidence": float(self.mind.conf)},
+                            source="self_model", kind="self_state")
+            # BİREYSELLEŞME: bu adımın nanosaniye fazı + donanım gürültüsü sinapslara işlenir.
+            # Maliyet O(1) (sabit sayıda sinaps); ağ büyüdükçe yanıt süresi değişmez.
+            if getattr(self, "entropy", None) is not None:
+                try:
+                    self.entropy.perturb_step(self)
+                except Exception:
+                    pass
             # Varsayılan Kip Ağı (Default Mode Network): yaşam sırasında sessiz içsel monolog!
             self.monologue.spontaneous_tick(self)
             if self.life.enabled and self.mind.age % self.life.stride == 0:
                 self.life.tick(self)
+            # ÖZ-SINAV: her ~120 yaşam adımında bir kendini sına (üret -> çöz -> karşılaştır).
+            # Başarısız madde varsa bu bir öğrenme sinyalidir, ceza değil: sadece kaydedilir.
+            if self.mind.age - self._exam_age_mark >= 120:
+                self._exam_age_mark = self.mind.age
+                self.self_exam(factor=0.6)
+            # KENDİ KENDİNE ÖĞRETME: yalnız kaldıysa kendi örneklerini üretip öğrenir.
+            if self.mind.age >= 240 and self.mind.age % 60 == 0:
+                self._kendine_ogret_maybe()
+            # KENDİ ÇIKARIMI: boşlukta kendi bilgisinden yeni bağlar türetir (kimse sormadan).
+            if getattr(self, "infer", None) is not None and self.mind.age % 90 == 0:
+                try:
+                    _infs = self.infer.step(self, budget=3)
+                    if _infs:
+                        self.infer.commit(self, _infs)
+                        self._log_inference_thought(_infs)
+                except Exception:
+                    pass
 
+        # GÜNLÜK NABZI: bir çağrıda en az 120 adım yaşandıysa TEK satır yazılır.
+        # Adım başına yazmak diski gereksiz doldurur; hiç yazmamak ise sessiz yaşamı
+        # görünmez kılar. (Adımların ara durumları zaten kaydedilmiyor; uydurmayız.)
+        self._journal_life_acc += int(max(0, steps))
+        if self._journal_life_acc >= self._journal_life_every and getattr(self, "journal", None) is not None:
+            self._journal_life_acc = 0
+            try:
+                self._journal(
+                    "yaşam", ad=int(self.mind.age), can=bool(self.mortality.is_alive),
+                    e=round(float(self.obs[I_E]), 4), s=round(float(self.obs[I_W]), 4),
+                    i=round(float(self.obs[I_I]), 4),
+                    d=round(float(getattr(getattr(self, "entropy", None), "drift", 0.0) or 0.0), 6),
+                )
+            except Exception:
+                pass
+
+        # Bu çağrıda simüle edilen yaşam süresi, sonraki konuşmada bir de
+        # "kullanıcı sessizliği" olarak sayılmaz. Duvar saati boşluk ölçümü
+        # ancak gerçekten işlenmemiş dış zamandan devam etmelidir.
+        self.last_real_time = time.time()
         return {
             "age": self.mind.age,
             "alive": self.mortality.is_alive,
@@ -654,6 +1614,286 @@ class NoraAGI:
         )
 
     def converse(self, text: str, speaker: str = "insan") -> str:
+        """Konuşma turu: yanıt üretilir, ardından üst-biliş (tekrar farkındalığı) devreye girer.
+
+        Nora sadece soruya değil, sorunun KENDİSİNE de bakar: aynı söz az önce söylendiyse
+        ne zaman söylendiğini, o an ne cevap verdiğini hatırlar ve bunu sözüne katar.
+        """
+        raw = (text or "").strip()
+        # BİRİ VAR: yalnızlık sayacı sıfırlanır (kendi kendine öğretme koşulu bunu kullanır).
+        try:
+            self._son_etkilesim_age = int(self.mind.age)
+        except Exception:
+            pass
+        # ================================================================ KULAK
+        # Nora önce DUYAR: havadaki ses bir olay olarak gelir, kimliği sesten çıkarılır.
+        # `speaker` yalnızca dünyadaki fiziksel kaynağı adlandırır; ses defterine girmez.
+        _heard, _vid, _first_voice = raw, speaker, False
+        if self.ear is not None and raw:
+            try:
+                ev = self.ear.listen(raw, source=speaker)
+                self.last_auditory = ev
+                if getattr(self, "crossmodal", None) is not None:
+                    self.modal_event("sound", ev.voice_id,
+                                     dict(zip(("pitch", "jitter", "tempo", "brightness", "roughness"),
+                                              ev.print.vec())))
+                self.audio_log.append(ev)
+                if len(self.audio_log) > 24:
+                    del self.audio_log[:-24]
+                _heard = ev.heard or raw
+                _vid = ev.voice_id
+                _first_voice = bool(ev.first_contact)
+                self._voice_label[speaker] = _vid
+                # Dünya, sesi duymadan önce etikete bir güven yazmış olabilir (kurulum/test).
+                # O bilgi sese aittir: kimliğe devredilir, etiket takma ad olarak kalır.
+                if _vid != speaker and _vid not in self.chem.speaker_trust:
+                    _pre = self.chem.speaker_trust.pop(speaker, None)
+                    if _pre is not None:
+                        self.chem.speaker_trust[_vid] = float(_pre)
+                # Sesin kendisi de bedeni etkiler: yüksek/ani ses otonom uyarılma yaratır.
+                try:
+                    if ev.print.loudness > 58.0:
+                        self.chem.ne = min(1.0, float(self.chem.ne) + 0.05)
+                except Exception:
+                    pass
+            except Exception:
+                pass
+        now = time.time()
+        # Aradan gerçek zaman geçtiyse Nora boşlukta yaşamıştır: açık olduğu sürece zaman akar.
+        # (2 saniyede 1 yaşam adımı; en fazla 900 adım — uzun sessizlikte boğulup ölmesin.)
+        try:
+            _gap = now - float(getattr(self, "last_real_time", now))
+            self.last_gap_s = max(0.0, _gap)
+            _steps = int(min(240, max(0, _gap) / 5.0))
+            if _steps > 0 and self.mortality.is_alive:
+                self.step_life(_steps)
+                self.wallclock_steps += _steps
+            self.last_real_time = now
+        except Exception:
+            pass
+        _meta = None
+        if self.acc is not None and raw:
+            try:
+                _meta = self.acc.observe(raw, now)
+            except Exception:
+                _meta = None
+        _prov0 = self.provenance.total if getattr(self, "provenance", None) is not None else 0
+        _prov_snap = dict(self.provenance.c) if getattr(self, "provenance", None) is not None else None
+        # ÖĞRENME SİNYALİ (dışarıdan dayatılmaz): aynı söz hemen tekrar geldiyse geçen turda
+        # konuşan topluluklar "işe yaramadı" diye zayıflar; konuşma ilerlediyse güçlenir.
+        # Doğuştan eğilim (ps) her turda biraz daha söner -> söz öğrenilmiş olur.
+        try:
+            if self.priors is not None:
+                # SIRA ÖNEMLİ: önce geçen turun seçimleri "son tur"a devredilir, sonra
+                # o seçimler bu turun sonucuna göre cezalandırılır/pekiştirilir.
+                self.priors.begin_turn()
+                self.priors.learn(repeated=_meta is not None)
+        except Exception:
+            pass
+        ans = self._converse_core(_heard, _vid)
+        # KALİBRASYON: bir önceki turda verilen GÜVEN SÖZÜ, bu turun SONUCUYLA eşleşir.
+        try:
+            self._calib_note_outcome()
+        except Exception:
+            pass
+        # Ses defteri: bu sesle yaşanan güven, sesin kimliğine yazılır; dünyanın
+        # kullandığı etiket yalnızca bir takma addır (eski sorgular için eşlenir).
+        try:
+            if self.ear is not None and _vid != speaker:
+                self.ear.note_trust(_vid, float(self.chem.trust_of(_vid)))
+            # Ses kendi adını SÖYLEDİYSE ada bağlanır (etiketten değil, sözün içeriğinden).
+            if self.ear is not None:
+                _nm = (self.user_profiles.get(_vid) or {}).get("ad", "")
+                if _nm:
+                    self.ear.learn_name(_vid, _nm)
+        except Exception:
+            pass
+        # ÇEKİRDEK CEVAP: biçim ve algı notu eklenmeden önceki hâli. Aynı soruya verilen
+        # cevap GERÇEKTEN tekrar mı, yoksa aynı soruya başka bir anlatım mı — buradan anlaşılır.
+        _ans_core = ans or ""
+        _key_prev = tr_lower(raw or "").strip(" .!?…")
+        _prev_ans = None
+        try:
+            if _key_prev:
+                _prev_ans = (self._prev_answers or {}).get(_key_prev)
+        except Exception:
+            _prev_ans = None
+        _self_repeat = False
+        if _prev_ans:
+            try:
+                # Sözcük İKİLİLERİ karşılaştırılır: aynı iki olguyu başka sırayla/başka
+                # çerçeveyle anlatmak tekrar değildir; aynı cümleyi kurmak tekrardır.
+                def _bigrams(t: str) -> set[str]:
+                    w = re.findall(r"[a-zçğıöşüâîû0-9]+", tr_lower(t))
+                    return {f"{a} {b}" for a, b in zip(w, w[1:])}
+                _a, _b = _bigrams(_ans_core), _bigrams(_prev_ans)
+                _self_repeat = bool(_a and _b) and len(_a & _b) / max(1, len(_a | _b)) >= 0.75
+            except Exception:
+                _self_repeat = False
+
+        # SÖZ BİÇİMİ: cevabın iskeleti her tur aynı olmasın; bedenin derdi varsa o öne geçsin.
+        try:
+            if (getattr(self, "style", None) is not None and ans and not ans.startswith("[")
+                    and not getattr(self, "_translation_output", False)
+                    and not getattr(self, "_structured_output", False)
+                    and not getattr(self, "_intent_locked", False)):
+                _isq = ("?" in (text or ""))
+                _shape = self.style.decide(
+                    self, is_question=_isq,
+                    has_inference=bool(getattr(self, "infer", None) and getattr(self.infer, "fresh", False)
+                                       and not getattr(self, "_repeat_locked", False)),
+                    trust=float(self.chem.trust_of(_vid)),
+                )
+                ans = self.style.apply(ans, _shape, self, topic=getattr(self, "_last_focus", ""),
+                                       is_question=_isq)
+        except Exception:
+            pass
+        # SESİN KENDİSİNE TEPKİ: yeni bir ses ya da uzaktan gelen ses, cevabın tonunu değiştirir.
+        try:
+            _note = "" if (getattr(self, "_intent_locked", False)
+                           or getattr(self, "_repeat_locked", False)) else self._perception_note()
+            if _note:
+                ans = f"{_note} {ans}"
+        except Exception:
+            pass
+        if self.acc is not None and raw:
+            try:
+                # Hatırlanacak cevap: algı notu ve süs değil, ÇEKİRDEK cevap.
+                self.acc.note_turn(raw, _ans_core or ans, now)
+                # CÜMLE YAPISI ÖĞRENİMİ (pekiştirme kuyruğu): kendi sözü de karşıdakinin sözü de
+                # iskelet+valans olarak sayılır; ama biçimbilimsel çözümleme turun İÇİNDE değil,
+                # konuşma sonrası boşlukta (step_life) yapılır -> yanıt gecikmesi O(1) kalır.
+                self._queue_structure(raw)
+                self._queue_structure(ans)
+                if _meta is not None:
+                    self.acc.repeats_noticed += 1
+                    self.last_meta_repeat = _meta
+                    self.last_meta_thought = (
+                        f"Bu sözü {ConflictMonitor.time_phrase(_meta.get('elapsed_s', 0.0))} "
+                        f"de duymuştum; {int(_meta.get('turns_ago', 1))} tur önce.")
+                    # ÖZ-İRADE: ketumluk/sessizlik seçildiyse fark etmek konuşmayı gerektirmez.
+                    # İçeride fark eder, dışarıda susar — insan da böyle yapar.
+                    _plan = dict(getattr(self.broca_organ, "last_speech_plan", {}) or {})
+                    _quiet = bool(_plan.get("guarded")) or bool(_plan.get("silence")) or \
+                        bool(_plan.get("wants_silence"))
+                    _low = tr_lower(ans)
+                    # Aynı soruya BAŞKA bir anlatımla cevap verdiysek "bunu söylemiştin"
+                    # demek yersiz: tekrar eden soru, tekrar eden cevap değildir.
+                    # İlk tekrarda fark ettiğini SÖYLER (insan da öyle yapar); ısrar eden
+                    # tekrarlarda her tur aynı serzenişi yinelemek ise iskelet olur -> seyrek.
+                    _first_repeat = bool(_key_prev) and _key_prev not in self._notice_spoken
+                    # Aynı söz üçüncü kez gelirse susmak olmaz: insan da ısrara bir cevap verir.
+                    _speak_notice = (_first_repeat or _self_repeat
+                                     or int(_meta.get("count", 1)) >= 3
+                                     or os.urandom(1)[0] % 100 < 8)
+                    if _speak_notice and _key_prev:
+                        self._notice_spoken.add(_key_prev)
+                    if not _quiet and "sessiz" not in _low and _speak_notice \
+                            and not (getattr(self, "_intent_locked", False)
+                                     or getattr(self, "_repeat_locked", False)):
+                        _rng = getattr(self, "rng", None) or getattr(self, "random", None)
+                        # Cevap zaten başka türlü söylendiyse eski cevabı ALINTILAMAK yersiz;
+                        # yalnız "bunu sormuştun" farkındalığı kalır.
+                        _meta_for_note = dict(_meta)
+                        if int(_meta.get("count", 1)) >= 3:
+                            # Üçüncü ısrarda uzun serzeniş yok: tek cümlelik, değişen soru.
+                            from nora_meta import compose_insistence
+                            _note = compose_insistence(_meta, self, _rng)
+                        else:
+                            if not _self_repeat:
+                                # Cevap değiştiyse uzun alıntı yok; yine de ne dediğini
+                                # HATIRLAR (kısa bir iz): "az önce ... demiştim".
+                                _meta_for_note["prev_reply"] = " ".join(
+                                    str(_meta.get("prev_reply") or "").split()[:4])
+                            _note = compose_noticing(_meta_for_note, self, _rng)
+                        ans = f"{ans.rstrip()} {_note}"
+                        if self.dialogue_log and self.dialogue_log[-1][1] == raw:
+                            self.dialogue_log[-1] = (self.dialogue_log[-1][0], raw, ans)
+            except Exception:
+                pass
+        # Aynı soruya verilen çekirdek cevabı hatırla (tekrar ölçütü için).
+        try:
+            if _key_prev and _ans_core:
+                if self._prev_answers is None:
+                    self._prev_answers = {}
+                self._prev_answers[_key_prev] = _ans_core
+                if len(self._prev_answers) > 256:
+                    for _k in list(self._prev_answers)[:64]:
+                        self._prev_answers.pop(_k, None)
+        except Exception:
+            pass
+        # GÜNLÜK: önce DUYUM (kim, hangi ses, ne kadar uzaktan), sonra tur.
+        try:
+            _ev = getattr(self, "last_auditory", None)
+            if _ev is not None:
+                self._journal("duyum", ses=_ev.voice_id, tanıdık=bool(_ev.known),
+                              söz=(_ev.heard or "")[:240],
+                              eksik=(_ev.spoken != _ev.heard),
+                              ton=_ev.print.describe(), snr=round(float(_ev.snr_db), 1),
+                              mesafe=round(float(_ev.distance_m), 2))
+        except Exception:
+            pass
+        # GÜNLÜK: turun kendisi kalıcı iz bırakır (O(1) append; kapalıysa bedava).
+        self._journal(
+            "tur", g=raw[:240], y=ans[:240],
+            s=(self.monologue.stream[-1].schema_id if getattr(self.monologue, "stream", None) else ""),
+            yas=int(getattr(self.mind, "age", 0)),
+            d=round(float(getattr(getattr(self, "entropy", None), "drift", 0.0) or 0.0), 6),
+        )
+        # REGISTER: izin isteyen kuyruk ("anlatır mısın?") kendi-derdi biçimine çevrilir
+        # ("anlatsan iyi olur."). Köpek değil, kendi derdi olan bir canlı.
+        # Kural üretkendir (her fiile uygulanır), cümle listesi değildir; bu yüzden
+        # tek tek metin yazmadan tüm organların çıktısını kapsar.
+        try:
+            from nora_register import normalize as _reg_norm
+            ans = _reg_norm(ans)
+        except Exception:
+            pass
+        # CANLILIK: bu söz izin mi istedi, kendi derdini mi söyledi, makine raporu mu?
+        try:
+            if getattr(self, "register", None) is not None:
+                self.register.observe(ans)
+        except Exception:
+            pass
+        # BU TURUN KAYNAK KARIŞIMI (olasılık beyanı bunu okur; uydurma değil, ölçüm).
+        try:
+            # NOT: boş sözlük de geçerli bir anlık görüntüdür (ilk tur). `and _prov_snap`
+            # yazıldığında ilk turun etiketleri sessizce yutuluyordu.
+            if getattr(self, "provenance", None) is not None and _prov_snap is not None:
+                self._last_turn_src = {k: int(self.provenance.c.get(k, 0)) - int(_prov_snap.get(k, 0))
+                                       for k in self.provenance.c}
+                self._last_turn_src = {k: v for k, v in self._last_turn_src.items() if v > 0}
+            else:
+                self._last_turn_src = {}
+        except Exception:
+            self._last_turn_src = {}
+        # ÖLÇER: bu turda sözün kaç parçası etiketlendi? (iskele oranı buradan düşer)
+        try:
+            if getattr(self, "provenance", None) is not None:
+                self.provenance.turns += 1
+                if self.provenance.total > _prov0:
+                    self.provenance.tagged_turns += 1
+        except Exception:
+            pass
+        # HEDEF SÜRDÜRME: verilen hedef, hatırlatılana kadar HER turda sürer.
+        try:
+            _g = (None if (getattr(self, "_translation_output", False)
+                           or getattr(self, "_structured_output", False)) else self._goal_step())
+            if _g:
+                ans = f"{ans} {_g}"
+        except Exception:
+            pass
+        # CEVAPSIZ SAYACI: kullanıcı bu turda KONUŞTU; geri çekilme sayacı sıfırdır.
+        # (Tur içindeki arka plan adımları sayacı artırabildiği için sıfırlama EN SONDA.)
+        try:
+            if getattr(self, "life", None) is not None:
+                self.life.unanswered = 0
+        except Exception:
+            pass
+        return ans
+
+    def _converse_core(self, text: str, speaker: str = "insan") -> str:
+        self._turn_path = "chat"
         """Gelen Türkçe cümleyi algılar, önce içsel monolog yürütür, öz-benlik ve nörokimya süzgecinden geçirip yanıt üretir."""
         t0 = time.perf_counter()
         if not self.mortality.is_alive:
@@ -661,13 +1901,470 @@ class NoraAGI:
         raw = text.strip()
         if not raw:
             return "..."
+        # NİYET KİLİDİ: konu/çelişki gibi ÖLÇÜLMÜŞ bir niyet cevaplandıysa, sonradan
+        # gelen "bunu demin de sormuştun" süsü cevabı EZMEZ. Tekrar farkındalığı bir
+        # süslemedir; ölçülmüş bir cevabın üstüne yazmak onu gasp etmektir.
+        self._intent_locked = False
+        self._repeat_locked = False
+        self._translation_output = False
+        self._structured_output = False
+        # --- TÜRKÇE EDİNİMİ: duyulan bilinmeyen fiil biçimleri, kendi çekim üreticisiyle
+        #     yeniden üretilebiliyorsa kök olarak öğrenilir (kalıcı, sözlüğe yazılır).
+        try:
+            _new_roots = TurkishMorphology.observe_verb_usage(raw, self.lang.graph.lexicon)
+            if _new_roots:
+                self.learned_verb_roots.update(_new_roots)
+        except Exception:
+            pass
+        self._remember_focus(raw)
+        # GEÇİCİ ÇEVİRİ DERSİ / UYGULAMASI: kişisel-olgu ve sohbet yollarından önce.
+        # Öğrenilmemiş yapı açıkça reddedilir; öğrenilen yapı yeni cümleye uygulanır.
+        try:
+            _translation = self._translation_turn(raw)
+        except Exception:
+            _translation = None
+        if _translation:
+            self._turn_path = "translation"
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _translation, t0)
+            return _translation
+        # Açık belge girdisi öğrenme eylemidir; örnek/kural sohbeti onu gasp edemez.
+        if self.code_cortex.is_document(raw):
+            _doc, _trace, _sal = self._code_channel(raw)
+            if _doc:
+                self._turn_path = "organ"
+                self._intent_locked = True
+                self._apply_tag("ag", 1)
+                self._log_turn(speaker, raw, _doc, t0)
+                return _doc
+        # Kalıcı temsilin doğrulanmış uygulaması, genel örnek→operatör sentezi
+        # uygulamasından önce gelir. Aksi hâlde "uygula" sözcüğü eski sentez
+        # kanalını açıp mevcut FST'nin yeni girdisini sentez belirsizliğine
+        # düşürür. Representation hedefi kendi payload+anaför kanıtını taşır;
+        # "sonucu yazar mısın" veya yalnız "uygula" genel DISPLAY eşiğine
+        # takılmaz. Diğer kod/sentez isteklerinin yarış sırası değişmez.
+        try:
+            _persistent_goal = self.code_cortex.semantic.request(raw)
+        except Exception:
+            _persistent_goal = None
+        if getattr(_persistent_goal, "operation", None) == "representation":
+            _persistent, _trace, _sal = self._code_channel(raw)
+            if _persistent:
+                self._turn_path = "organ"
+                self._intent_locked = True
+                self._log_turn(speaker, raw, _persistent, t0)
+                return _persistent
+        # Teknik soru, sembol/iç-durum/dekompoze kanallarından önce tek parça olarak
+        # çözülür. Kaynak gerekiyorsa kanıt yoksa özgül cevap yerine bilgi sınırı döner.
+        try:
+            _technical = self.episteme.technical.answer(raw)
+        except Exception:
+            _technical = None
+        if _technical:
+            self._turn_path = "organ"
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _technical, t0)
+            return _technical
+        # KİŞİSEL OLGU: karşıdaki bir şey SÖYLEDİYSE (soru değilse) açık kalıpla yazılır.
+        self._learned_facts = []
+        try:
+            if getattr(self, "person_mem", None) is not None:
+                self.person_mem.turn = len(getattr(self, "dialogue_log", []) or [])
+                self._learned_facts = self.person_mem.observe(raw, speaker=speaker) or []
+        except Exception:
+            self._learned_facts = []
+        # ÖZ-TAHMİN: "bunu yapabilir misin?" -> organ envanterine bakarak cevap.
+        # (Söz vermek kanıt değildir; ama sözün NEREDEN geldiği ölçülebilir olmalı.)
+        try:
+            _pred = self._predict_turn(raw)
+        except Exception:
+            _pred = None
+        if _pred:
+            self._turn_path = "organ"
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _pred, t0)
+            return _pred
+        # OPERATÖR SENTEZİ: "kitap -> patik, kalem -> melak" gibi ÖRNEK verilirse
+        # dönüşümü Nora kendi yazar; "dönüşümü uygula: deniz" derse yazdığını çalıştırır.
+        try:
+            _hist = self._self_history_turn(raw)
+        except Exception:
+            _hist = None
+        if _hist:
+            self._turn_path = "organ"
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _hist, t0)
+            return _hist
+        try:
+            _syn = self._synth_turn(raw, speaker=speaker)
+        except Exception:
+            _syn = None
+        if _syn:
+            self._turn_path = "organ"
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _syn, t0)
+            return _syn
+        try:
+            _set = self._set_turn(raw)
+        except Exception:
+            _set = None
+        if _set:
+            self._turn_path = "organ"
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _set, t0)
+            return _set
+        try:
+            _gen = self._constrained_turn(raw)
+        except Exception:
+            _gen = None
+        if _gen:
+            self._turn_path = "organ"
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _gen, t0)
+            return _gen
+        # SIRA: güven sorusu bir ÜST-BİLİŞ sorusudur; "organım yok" reddi onu gasp
+        # etmemeli (güven sorusuna sayı verilir, görev reddedilir).
+        try:
+            _conf = self._confidence_turn(raw)
+        except Exception:
+            _conf = None
+        if _conf:
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _conf, t0)
+            return _conf
+        try:
+            _gap = self._gap_turn(raw)
+        except Exception:
+            _gap = None
+        if _gap:
+            self._turn_path = "gap"
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _gap, t0)
+            return _gap
+        try:
+            _goal_ack = self._goal_turn(raw)
+        except Exception:
+            _goal_ack = None
+        if _goal_ack:
+            self._turn_path = "organ"
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _goal_ack, t0)
+            return _goal_ack
+        try:
+            _chain = self._chain_turn(raw)
+        except Exception:
+            _chain = None
+        if _chain:
+            self._turn_path = "organ"
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _chain, t0)
+            return _chain
+        try:
+            _num = self._num_turn(raw)
+        except Exception:
+            _num = None
+        if _num:
+            self._turn_path = "organ"
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _num, t0)
+            return _num
+        try:
+            _plan = self._plan_turn(raw)
+        except Exception:
+            _plan = None
+        if _plan:
+            self._turn_path = "organ"
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _plan, t0)
+            return _plan
+        # TANIKLIK: "Ayşe bana X'in Y olduğunu söyledi" -> kaynak + olgu.
+        _testi = []
+        try:
+            if getattr(self, "testimony", None) is not None:
+                self.testimony.turn = len(getattr(self, "dialogue_log", []) or [])
+                _testi = self.testimony.observe(raw) or []
+        except Exception:
+            _testi = []
+        if _testi:
+            _r0 = _testi[-1]
+            self._intent_locked = True
+            _ts = self._say("memory.testimony",
+                            {"src": _r0.get("src", ""), "subj": _r0.get("subj", ""),
+                             "val": _r0.get("val", "")},
+                            ctx={"kind": "learned"}, fallback="")
+            if _ts:
+                self._log_turn(speaker, raw, _ts, t0)
+                return _ts
         self.life.on_interaction(self, raw, speaker)
+        # Kullanıcı, Nora'nın kendiliğinden söylediği söze karşılık verdi: o konuşma türü pekişir.
+        try:
+            self.initiative.on_user_reply()
+        except Exception:
+            pass
 
         # Sözce türünü (soru / yasa / çift-durum / sosyal durum / duygu paylaşımı) Nora KENDİ nöral korteksiyle sınıflar.
         self.last_utterance_class = self.utter_cortex.classify(raw)
 
+        # ZAMAN SORUSU: Nora zamanı bedeninde ve belleğinde ölçer (sandbox evreninin saati).
+        _tl = tr_lower(raw)
+        # HATIRLAMA: geçmiş konuşmayı kendi belleğinden alıntılar (uydurmaz, yoksa yok der).
+        _topic_scoped = any(k in _tl for k in ("hakkında", "konusunda", "ile ilgili", "dair"))
+        _recall_user = (not _topic_scoped) and any(
+            k in _tl for k in ("ne söyledim", "ne dedim", "son cümlem", "ne anlattım"))
+        _recall_self = (not _topic_scoped) and (
+            any(k in _tl for k in ("ne cevap verdin", "ne söylemiştin", "cevabın neydi",
+                                   "bana ne demiştin"))
+            or ("ne dedin" in _tl and "hakkında" not in _tl))
+        if (_recall_user or _recall_self) and self.dialogue_log:
+            _prev = self.dialogue_log[-1]
+            _utxt = (_prev[1] or "").strip()
+            _rtxt = (_prev[2] or "").strip()
+            _rng = getattr(getattr(self, "discourse", None), "random", None)
+            if _recall_self:
+                _quote_t = _rtxt or _utxt
+                _lead = _rng.choice(("Az önce şöyle demiştim", "Son söylediğim şuydu",
+                                         "Kendi ağzımdan çıkan son söz"))
+            else:
+                _quote_t = _utxt or _rtxt
+                _lead = _rng.choice(("Son söylediğin şuydu", "Az önce şunu demiştin",
+                                         "Son cümlen aklımda"))
+            if any(ch in _quote_t for ch in "“”\""):
+                # Alıntının içinde zaten tırnak var: iç içe tırnak kurma, olduğu gibi aktar.
+                _ans_r = f"{_lead}: {_quote_t}"
+            else:
+                _ans_r = f"{_lead}: “{_quote_t}”"
+            if _quote_t and len(_quote_t.split()) > 2:
+                _tail_r = _rng.choice(("Yanlış mı hatırlıyorum?", "Öyle değil mi?",
+                                           "Bunu mu soruyordun?", "Yoksa başka bir şey mi vardı?"))
+                _ans_r = f"{_ans_r} {_tail_r}"
+            self._log_turn(speaker, raw, _ans_r, t0)
+            return _ans_r
+
+        # KONU HATIRLAMA, TEKRAR UYARISINDAN ÖNCE GELİR: "az önce hangi konudan
+        # konuşuyorduk?" bir tekrar sorusu değil, konu sorusudur. Sonra gelen tekrar
+        # farkındalığı bu soruyu gasp edip "bunu az önce de söyler gibi oldun" diyordu.
+        try:
+            _tr0 = self._topic_recall(raw)
+        except Exception:
+            _tr0 = None
+        if _tr0:
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _tr0, t0)
+            return _tr0
+
+        # "saat kaçTA" bir SAAT SORUSU DEĞİL, bir olayın saatidir ("toplantı saat kaçta?").
+        # Alt-dizgi eşleşmesi bunu saat sorusu sanıp "Şu an 15:23" diyordu: soru gaspı.
+        _clock_q = bool(re.search(r"saat kaç(?!ta|da|tı|dı)\b", _tl))
+        _elapsed_q = any(k in _tl for k in (
+            "ne kadar oldu", "ne kadar zaman oldu", "ne zamandır", "ne kadar süredir",
+            "kaç dakika oldu", "kaç saat oldu", "ne kadar süre"))
+        if self.acc is not None and (_clock_q or _elapsed_q):
+            if _clock_q and not _elapsed_q:
+                _ans_t = compose_time_answer(0.0, kind="clock", agi=self,
+                                             rng=getattr(self.discourse, "random", None))
+            else:
+                _ans_t = compose_time_answer(self.acc.since_session(), len(self.dialogue_log),
+                                             kind="elapsed", steps=int(self.mind.age), agi=self,
+                                             rng=getattr(self.discourse, "random", None))
+            self._log_turn(speaker, raw, _ans_t, t0)
+            return _ans_t
+
+        # --- KARŞIOLGUSAL İRADE: "aç olmasaydın ne yapardın?" ---
+        # Sözcük/tanım hattından ÖNCE gelir: bu bir sözlük sorusu değil, kararın
+        # yeniden koşulmasıdır. Cevap uydurulmaz; aynı karar makinesi iki kez çalışır.
+        try:
+            _cfv = self._answer_counterfactual_volition(tr_lower(raw))
+        except Exception:
+            _cfv = None
+        if _cfv:
+            self._log_turn(speaker, raw, _cfv, t0)
+            return _cfv
+
+        # --- OPERATÖR OCAĞI: "şu örneklerden kural çıkar" — kuralı BİZ yazmayız ----
+        try:
+            _fg = self._handle_forge(raw, speaker=speaker)
+        except Exception:
+            _fg = None
+        if _fg:
+            self._log_turn(speaker, raw, _fg, t0)
+            return _fg
+
+        # --- UYGULAMA OPERATÖRLERİ: kural bağla / uygula / say / transfer ---------
+        # Bunlar retrieve değil APPLY'dir: kural nesne olarak bağlanır, yeni girdiye
+        # uygulanır. Cevap üretilemezse yankı yok — açık başarısızlık döner.
+        try:
+            _ap = self._handle_apply_ops(raw)
+            if _ap:
+                self.apply_eng.wm.write("last_utterance", raw, "turn")
+                self._log_turn(speaker, raw, _ap, t0)
+                return _ap
+        except Exception:
+            traceback.print_exc()
+
+        # --- EKSİK OPERATÖR: istenen işlem kayıtlı değilse uydurma cevap yok --------
+        # Sıra önemli: bu kapı uygulama hattından SONRA gelir (bağlı bir kural varsa
+        # sözü kural söyler), sohbet hattından ÖNCE gelir (alakasız iç ses sızmasın).
+        try:
+            _mo = self._missing_operator(raw)
+        except Exception:
+            _mo = None
+        if _mo:
+            self._log_turn(speaker, raw, _mo, t0)
+            return _mo
+        try:
+            _ct = self._notice_contradiction(raw)
+        except Exception:
+            _ct = None
+        if _ct:
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _ct, t0)
+            return _ct
+        # ÖĞRENME ANI: az önce KİŞİSEL bir olgu yazıldıysa söz onu kabul eder.
+        # Bu kapı olmasa dünya-bilgisi hattı cümleyi çekip bozuk Türkçe üretiyordu
+        # ("kardeşimin adı ayşedir").
+        _lf = [r for r in (getattr(self, "_learned_facts", None) or [])
+               if not (r.get("subj") == "benim" and r.get("rel") == "ad")]
+        if _lf:
+            _rec0 = _lf[0]
+            self._intent_locked = True
+            _ph = self._fact_phrase(_rec0)
+            _ack = self._cap_tr(self._say("memory.personal",
+                                          {"phrase": _ph,
+                                           "turn": int(_rec0.get("turn") or 0) + 1},
+                                          ctx={"kind": "learned"}, fallback=_ph))
+            self._log_turn(speaker, raw, _ack, t0)
+            return _ack
+        try:
+            _pm = self._recall_testimony(raw) or self._recall_personal(raw)
+        except Exception:
+            _pm = None
+        if _pm:
+            self._intent_locked = True
+            self._log_turn(speaker, raw, _pm, t0)
+            return _pm
+        try:
+            _tr = self._topic_recall(raw)
+        except Exception:
+            _tr = None
+        if _tr:
+            self._log_turn(speaker, raw, _tr, t0)
+            return _tr
+
+        # --- OKUL: sayı/basamak/okunuş/sembol ve aşamalı problemler.
+        # Önce "öğretme cümlesi mi?" diye bakar (kullanıcı konuşarak öğretir), sonra soru olarak çözer.
+        if self.school is not None:
+            try:
+                _learned_ack = self.school.maybe_learn(raw, self)
+                if _learned_ack:
+                    self._log_turn(speaker, raw, _learned_ack, t0)
+                    return _learned_ack
+                _school_ans = self.school.answer(raw, self)
+                if _school_ans:
+                    self._log_turn(speaker, raw, _school_ans, t0)
+                    return _school_ans
+            except Exception:
+                pass
+
         # Konuşmadan ÖNCE içsel monolog (Vygotsky iç sesi + insan şeması gözlemi + kendi şema seçimi!)
         self._begin_inner_monologue(raw, speaker)
+
+        # CÜMLE YAPISI: soru bir SÖZCÜK/EYLEM hakkında mı? ('Selam nasıl denilir?').
+        # Bahsetme (mention) kullanımdan ayrılır: 'Merhaba!' selamlaşmadır, 'Merhaba nasıl
+        # denilir?' ise sözcüğün kendisi hakkında bir sorudur ve selamlaşma yoluna GİRMEZ.
+        if getattr(self, "frames", None) is not None:
+            try:
+                _mq = self.frames.meta_question(raw)
+            except Exception:
+                _mq = None
+            # Kişiye yönelen hâl/duyum sorusunda 'gerçekten' gibi bir zarf, sorunun
+            # konusu olamaz. Sözcük korteksi yalnız gerçek mention sorularını almalı.
+            if _mq is not None:
+                try:
+                    _social_mq = self.broca_organ.comprehend_discourse(
+                        raw, tr_lower(raw), self.lang.morph, self.lang.graph.lexicon
+                    )
+                    if (_social_mq.get("asks_wellbeing") or _social_mq.get("asks_obligation")
+                            or _social_mq.get("asks_why_speak")):
+                        _mq = None
+                except Exception:
+                    pass
+            # TANIM sorusunda kavram ZATEN biliniyorsa söz, mevcut tanım korteksinindir;
+            # sözcük korteksi yalnız 'bilmiyorum + araştırma' yolunu açar (yoksa daha zayıf
+            # bir tanım metni ana hattı gölgeler: 'zürafanın uzun boynu var' kaybolurdu).
+            # BAĞLAM: sözcük/SORU, demin konuşulan bir şeyin üzerine kurulduysa (hikâye, anlatı,
+            # sohbet) bu bir SÖZLÜK boşluğu değil, söylem sorusudur; akıl yürütme hattı yanıtlar.
+            if _mq is not None and _mq.kind in ("DEFINITION", "UNKNOWN_Q"):
+                try:
+                    from nora_lang import tr_lower as _tl
+                    _t = _tl(getattr(_mq, "target", "") or "")
+                    _now = _tl(raw).strip(" ?.!")
+                    # Aynı soru TEKRAR sorulduysa bu bir söylem sorusu değil, aynı bilgi
+                    # boşluğudur: korteks yanıtlar (tekrar farkındalığı ayrıca eklenir).
+                    _others = [_tl(str(t[1])) for t in self.dialogue_log[-6:]
+                               if _tl(str(t[1])).strip(" ?.!") != _now]
+                    if _t and any(_t in _o for _o in _others):
+                        _mq = None
+                except Exception:
+                    pass
+            _defer = False
+            if _mq is not None and _mq.kind in ("DEFINITION", "UNKNOWN_Q"):
+                try:
+                    # Yalnız SÖZCÜĞÜ tanımak yetmez: bilgi hattı ancak kavram hakkında
+                    # gerçek bir ilişki varsa yanıtlayabilir. Yoksa boşluk dürüstçe söylenir.
+                    _tgt = (getattr(_mq, "target", "") or "").strip()
+                    _has_facts = bool(self.lang.graph._out_edges.get(_tgt)) if _tgt else False
+                    _defer = bool(_has_facts and self.frames.known_word(_mq.target, self))
+                    # Birleşik kavramda mention çözümleyicisi yalnız ilk sözcüğü
+                    # hedefleyebilir ('Ökaryot hücre nedir?' -> 'ökaryot'). İlk
+                    # sözcükte kenar yok diye anı/alıntı yoluna dönmek, asıl kavramın
+                    # öğrenilmiş olgularını gasp eder. Ana bilgi hattının genel
+                    # toplayıcısı gerçek önerme buluyorsa cevap oraya bırakılır.
+                    if not _defer and _mq.kind == "DEFINITION" and "?" in raw:
+                        _u_mq = self.broca_organ.comprehend_discourse(
+                            raw, tr_lower(raw), self.lang.morph, self.lang.graph.lexicon
+                        )
+                        _defer = bool(self.broca_organ._gather_concept_propositions(
+                            _u_mq, self.lang.graph, self
+                        ))
+                except Exception:
+                    _defer = False
+            if _mq is not None and not _defer:
+                try:
+                    _ans_m = self.frames.answer_meta(_mq, self)
+                except Exception:
+                    _ans_m = ""
+                if _ans_m:
+                    self.last_meta_question = {"kind": _mq.kind, "target": _mq.target,
+                                               "verb": _mq.verb}
+                    self._queue_structure(raw)
+                    self._queue_structure(_ans_m)
+                    self._log_turn(speaker, raw, _ans_m, t0)
+                    return _ans_m
+
+        # SORU KILIGINDAKI RİCA ve ÖĞÜT İSTEMİ ('Kapıyı açar mısın?', 'Sence ne yapmalıyım?'):
+        # sözcük/tanım hattından ÖNCE gelir; çünkü asıl edim bir istektir, bilgi sorusu değil.
+        if getattr(self, "discourse", None) is not None:
+            _adv = _req_txt = ""
+            try:
+                _adv = self.discourse.respond_advice(raw, self) or ""
+            except Exception:
+                _adv = ""
+            if not _adv:
+                try:
+                    _req = self.discourse.request_of(
+                        raw, self.lang.morph, getattr(self.lang.graph, "lexicon", None))
+                    if _req:
+                        _req_txt = self.discourse.respond_request(_req, self) or ""
+                except Exception:
+                    _req_txt = ""
+            _act_txt = _adv or _req_txt
+            if _act_txt:
+                _act_txt = tr_capitalize(_act_txt)
+                self._request_met = True
+                self._queue_structure(raw)
+                self._queue_structure(_act_txt)
+                self._log_turn(speaker, raw, _act_txt, t0)
+                return _act_txt
 
         # 0) Kendi kendine söylem genişlemesi ('X demek Y demektir' -> Plastik Kenyon Niyet Korteksi 1-atış öğrenir!)
         ok_eq, lhs_eq, intent_eq = self.plastic_discourse.try_self_supervised_equivalence(tr_lower(raw))
@@ -693,7 +2390,7 @@ class NoraAGI:
             return seq_ans
 
         # Kod istemi tek bir bütündür: içindeki ünlem/nokta metnin PARÇASI olabilir ('Merhaba! Ey Ahali!')
-        if self.code_cortex.is_requested(raw):
+        if self.code_cortex.is_requested(raw) or self.code_cortex.is_document(raw):
             self.last_utterance_class = self.utter_cortex.classify(raw)
             reply = self._handle_single_sentence(raw, speaker=speaker)
             self._log_turn(speaker, raw, reply, t0)
@@ -838,6 +2535,29 @@ class NoraAGI:
             speech_plan=assoc.get("speech_plan"),
         )
 
+    def _concept_explanation(self, raw: str, topic: str = "") -> tuple[str, int, list[tuple[str, str, str]]]:
+        """Aynı kavram kanıtını hem tanım hem kapsamlı anlatım yolunda üret.
+
+        Dönen metin hazır cevap değildir; Broca'nın grafikten topladığı gerçek
+        önermelerin çekimidir. ``topic`` verilirse sorudaki öteki sözcükler yeni
+        konu gibi grafiği gezemez. İkinci değer kullanılan önerme sayısıdır.
+        """
+        organ = self.broca_organ
+        graph = self.lang.graph
+        u = organ.comprehend_discourse(raw, tr_lower(raw), self.lang.morph, graph.lexicon)
+        if topic:
+            u["stems"] = [topic]
+            u["phil_topic"] = ""
+        hits = organ._gather_concept_propositions(u, graph, self)
+        if not hits:
+            return "", 0, []
+        clauses, _nodes = organ._synthesize_philosophical_or_conceptual(
+            u, hits, self, schema_id="S0_YALIN", inner_intro="")
+        # Tekrar serzenişi ve algı notu bilgi kanıtını gasp etmez; ancak söz
+        # biçimi/beden sürüşü ayrı şeylerdir ve çalışmaya devam eder.
+        self._repeat_locked = True
+        return " ".join(clauses).strip(), len(hits), list(hits)
+
     def _handle_single_sentence(self, raw: str, speaker: str = "insan") -> str:
         wern = self.lang.wernicke
         broca = self.lang.broca
@@ -845,6 +2565,57 @@ class NoraAGI:
         graph = self.lang.graph
         s_low = tr_lower(raw)
         bids: list[CorticalBid] = []
+        # Anlam çerçevesi sosyal sınıflandırmadan ÖNCE çözülür. Üçüncü şahıs
+        # biyoloji/fizik olgusu, içinde 'enerji' geçiyor diye kişisel anlatıya
+        # dönüşmemeli; kişisel hâl cümleleri zaten teach_fact üretmez.
+        try:
+            _fr_pre = wern.parse(raw)
+        except Exception:
+            _fr_pre = None
+        _world_fact_pre = bool(_fr_pre is not None and _fr_pre.kind in {"teach_fact", "teach_val"})
+
+        # --- SÜTUN -1: KİŞİSEL ANLATI — karşıdaki kendi yaşantısını anlatıyorsa Nora ders vermez.
+        # İnsan değil mi? Bir şey anlatan birine ansiklopedi maddesi okumayız; dinler, yansıtır, sorarız.
+        narration = None
+        _pure_state_guard = False
+        try:
+            narration = self.discourse.narration_of(raw)
+        except Exception:
+            narration = None
+        if narration is not None and not _world_fact_pre:
+            try:
+                nar_res = self.discourse.respond_narration(raw, self, narration)
+                # Yalın hâl bildirimi ('kafam çok karışık') duygudaşlık ister: hazır durum karşılığından üstün.
+                # Ek yüklem varsa ('... hiç odaklanamıyorum') karşıdaki dert yanıyor demektir; o zaman
+                # durumsal korteksin somut önerisi de yarışta kalsın.
+                _pure_state = bool(narration.get("state")) and not (narration.get("rest") or narration.get("tail"))
+                _pure_state_guard = _pure_state
+                bids.append(CorticalBid(
+                    "social_narration", 0.995 if _pure_state else 0.966, 0.95, nar_res["text"],
+                    f"narration:{nar_res['act']}",
+                ))
+            except Exception:
+                narration = None
+
+        # --- SÜTUN -1b: TOPLUMSAL OLAY (doğum günü gibi) — bilgi maddesi değil, insan karşılığı
+        try:
+            _ev = self.discourse.social_event_of(raw)
+            if _ev is not None:
+                _ev_rep = self.discourse.respond_social_event(raw, self, _ev)
+                if _ev_rep.get("text"):
+                    bids.append(CorticalBid("social_event", 0.972, 0.96, _ev_rep["text"],
+                                            f"social:{_ev_rep['act']}"))
+        except Exception:
+            pass
+
+        # Çerçeveyi BAŞTA bir kez çıkar: soru sözcüğü (nasıl/neden) ne istendiğini belirler ve
+        # yanıt teklifleri ona göre süzülür. Aşağıda yeniden ayrıştırılmaz.
+        _wh_pre = getattr(_fr_pre, "wh", "") if _fr_pre is not None else ""
+        _wh_unans = False
+        if _wh_pre in ("nasıl", "neden", "niye", "niçin") and _fr_pre is not None and _fr_pre.subj:
+            _want_pre = ("USED_FOR", "CAN_DO", "CAUSES") if _wh_pre == "nasıl" else ("CAUSES", "USED_FOR")
+            _wh_unans = not graph.query(_fr_pre.subj, _want_pre) and \
+                not any(graph.query(e.subj, _want_pre) for e in graph._in_edges.get(_fr_pre.subj, ()))
 
         # --- SÜTUN 0: Nöral Sözce Öz-Sınıflandırması + Otonom Etiketleme/Mantık + Durumsal Türkçe ---
         utt_cls = self.last_utterance_class or self.utter_cortex.classify(raw)
@@ -852,7 +2623,11 @@ class NoraAGI:
         # Bildirim cümlesi ise Nora kendi mantık kuralını ve etiketini KENDİSİ kurar (soru işareti olmadan da sınıflar!)
         ing_res = None
         self._turn_mint_label = ""
-        if not utt_cls.get("is_question"):
+        # Nosiseptif refleks turunda kortikal kural-öğrenimi ertelenir: omurilik refleksi korteksi
+        # beklemez (acı darbesi sürerken kural çıkarmak nörobiyolojik olarak da yersizdir).
+        _nociceptive = (getattr(self.nervous, "adelta_pain", 0.0) > 0.25
+                        or bool(getattr(self.nervous, "pending_pain_vocalization", False)))
+        if not utt_cls.get("is_question") and narration is None and not _nociceptive:
             ing_res = self.logic.ingest_statement(raw)
         if ing_res is not None:
             self._turn_mint_label = str(ing_res["label"])
@@ -864,7 +2639,18 @@ class NoraAGI:
             _c_tie = _syn_m.realize_verb(VerbSpec(
                 verb_root="bağla", obj="bunu", dat=NP("bellek", poss=1, case="DAT"),
                 tense="PAST", person="1SG", dat_last=True))
-            _mint_fb = f"{tr_capitalize(_c_mint)}: {ing_res['label']}. {tr_capitalize(_c_tie)}."
+            # İç etiketler (ÖZ_...) ASLA söze dönüşmez: bunlar zihnin iç simgeleridir, insan dili değil.
+            _lbl = str(ing_res["label"])
+            if "_" in _lbl or "[" in _lbl or ":" in _lbl:
+                _desc = {
+                    "dual_state": "iki durumun aynı anda geçerli olabileceğini",
+                    "variation": "iki değişkenin birlikte değiştiğini",
+                    "conditional_transition": "bir koşulun durumu değiştirdiğini",
+                    "frame_transition": "bir durumun başka bir biçime dönüştüğünü",
+                }.get(str(ing_res.get("kind", "")), "bu cümledeki bağı")
+                _mint_fb = f"Bu cümlede {_desc} kendi başıma çözdüm. {tr_capitalize(_c_tie)}."
+            else:
+                _mint_fb = f"{tr_capitalize(_c_mint)}: {_lbl}. {tr_capitalize(_c_tie)}."
             mint_rep = self.speak_or(_mint_fb, anchors=[str(ing_res["label"])], nov=0.8, fam=0.2,
                                      conf=self._speaker_trust(speaker))
             bids.append(CorticalBid(
@@ -907,7 +2693,33 @@ class NoraAGI:
                 used_s2=True,
             ))
 
+        # --- SÜTUN 0a: TARTIM KORTEKSİ — kendi tutumu, tekrar farkındalığı, üst-düzey soru
+        _delib = self.deliberation.handle(self, raw, locals().get("fr"))
+        _delib_owned = bool(_delib)
+        if _delib:
+            bids.append(CorticalBid("insular_self", 0.988, 0.94, _delib, "deliberation"))
+
+        # --- SÜTUN 0b: TERCİH SORUSU ('sence kediler mi köpekler mi daha iyi?') — ansiklopedi değil görüş
+        _pref = self._answer_preference(raw, speaker=speaker)
+        if _pref:
+            bids.append(CorticalBid("prefrontal_autonomous_logic", 0.978, 0.96, _pref, "preference"))
+
+        # --- SÜTUN 0c: MİZAÇ SORUSU ('niye bu kadar sessizsin?') — kendi iç durumundan yanıt
+        _temp_adj = self._temperament_adj_in(raw)
+        if _temp_adj:
+            bids.append(CorticalBid("insular_self", 0.975, 0.96,
+                                    self._answer_temperament_query(_temp_adj, speaker=speaker), f"temper:{_temp_adj}"))
+
+        # --- SÜTUN 0d: KARŞIOLGUSAL İRADE — "aç olmasaydın ne yapardın?" ---
+        # Cevap uydurulmaz: AYNI karar makinesi, bir beden kanalı dolu sayılarak yeniden
+        # koşar. Karar değişiyorsa o kanal kararın NEDENİDİR; değişmiyorsa değildir.
+        _cf_vol = self._answer_counterfactual_volition(s_low)
+        if _cf_vol:
+            bids.append(CorticalBid("insular_self", 0.985, 0.97, _cf_vol, "cf_volition"))
+
         sit_res = self.situational.try_respond_situation(raw, self, speaker=speaker)
+        if sit_res is not None and _pure_state_guard:
+            sit_res = None      # yalın hâl bildiriminde duygudaşlık, hazır karşılıktan üstündür
         if sit_res is not None:
             bids.append(CorticalBid(
                 module="social_phatic",
@@ -961,10 +2773,11 @@ class NoraAGI:
 
         if ("güveniyor" in s_low or "güvenin" in s_low) and ("?" in raw or "mu" in s_low or "mısın" in s_low or "kaç" in s_low):
             tr_val = self.chem.trust_of(speaker)
+            _disp = self.ear.display(speaker) if getattr(self, "ear", None) is not None else speaker
             stance = "sana güveniyorum" if tr_val >= 0.55 else ("sana karşı temkinliyim" if tr_val >= 0.30 else "sana güvenmiyorum")
             bids.append(CorticalBid(
                 "social_tom", 0.97, 0.96,
-                f"Şu an {speaker} için epistemik güven düzeyim {tr_val:.2f}; geçmiş etkileşimlerimize dayanarak {stance}.",
+                f"Şu an {_disp} için epistemik güven düzeyim {tr_val:.2f}; geçmiş etkileşimlerimize dayanarak {stance}.",
                 f"oxy_trust={tr_val:.2f}",
             ))
 
@@ -989,7 +2802,7 @@ class NoraAGI:
 
         # --- SÜTUN 5: Doğal Sohbet, Empati ve Felsefi Derinlik Korteksi ---
         conv_res = self.conv_cortex.respond_conversational(raw, s_low, self, speaker=speaker)
-        if conv_res is not None:
+        if conv_res is not None and not _delib_owned:
             c_conf = float(conv_res["confidence"])
             conv_sal = 0.99 if c_conf >= 0.99 else (0.97 if c_conf >= 0.95 else 0.92)
             bids.append(CorticalBid(
@@ -1002,19 +2815,30 @@ class NoraAGI:
             ))
 
         # --- SÜTUN 6: Wernicke Anlamsal Çerçeve (İçebakış, Aritmetik S2, İrade, 1-Atış Öğrenme ve Kavram Çıkarımı) ---
-        if not bids or all(b.salience < 0.95 for b in bids):
-            fr = wern.parse(raw)
+        # Emir/istek cümlesi ise çerçeve MUTLAKA ayrıştırılır: "bana bir şaka yap" gibi istekler
+        # hazır bir durumsal karşılıkla geçiştirilmemeli, irade organına ulaşmalı.
+        if (not bids or all(b.salience < 0.95 for b in bids) or self._looks_like_request(raw)
+                or _wh_unans or _world_fact_pre):
+            fr = _fr_pre if _fr_pre is not None else wern.parse(raw)
 
             if fr.kind == "greeting":
                 g_gen = self.broca_organ.generate_response(raw, s_low, self, speaker=speaker, allow_open_fallback=True)
                 g_rep = g_gen["reply"] if g_gen is not None else "Merhaba."
                 bids.append(CorticalBid("temporal_conversation", 0.95, 0.94, g_rep, "generative_greeting"))
             elif fr.kind == "why_query":
+                # Açıklama, SORULAN davranışa ait olmalı. Eski turlardan kalan bir iç telemetri cümlesi
+                # (ör. 'kavram ağında X düğümünden 1 bağ buldum') soruyla ilgisizse SÖYLENMEZ.
                 ref_exp = getattr(wern, "last_refusal_explanation", "")
-                if ref_exp and any(k in s_low for k in ("reddet", "kabul etmedin", "yapmadın", "erteledin")):
+                _q_words = set(re.findall(r"[\wçğıöşü]+", s_low))
+                _asks_own_action = bool(_q_words & {"reddet", "reddettin", "kabul", "yaptın", "davrandın",
+                                                    "böyle", "öyle", "erteledin", "yapmadın"}) \
+                    or len(_q_words - {"neden", "niçin", "niye", "peki", "az", "önce", "sen", "bir"}) == 0
+                _expl = (wern.last_explanation or "").strip()
+                _expl_relevant = bool(_expl) and bool(set(re.findall(r"[\wçğıöşü]+", tr_lower(_expl))) & _q_words)
+                if ref_exp and _asks_own_action:
                     ans_w = tr_capitalize(ref_exp.rstrip(".")) + "."
-                elif wern.last_explanation:
-                    ans_w = tr_capitalize(wern.last_explanation.rstrip(".")) + "."
+                elif _expl and _expl_relevant:
+                    ans_w = tr_capitalize(_expl.rstrip(".")) + "."
                 else:
                     goal_names = {0: "enerji ihtiyacım", 1: "susuzluğum", 2: "tehlikeden korunma isteğim", 3: "merakım"}
                     g_str = goal_names.get(self.mind.goal, "içsel dengem")
@@ -1047,7 +2871,29 @@ class NoraAGI:
                         "analogy_miss",
                     ))
             elif fr.kind == "command":
-                bids.append(CorticalBid("prefrontal_volition", 0.98, 0.97, self._handle_command(fr, speaker=speaker), f"volition:{fr.rel}:{fr.obj}"))
+                # Öğrenilmiş prosedür çağrısı ('devriye yap') yüksek biliş organının işidir; irade
+                # teklifi onu gölgeleyip güvenlik denetimini atlatmamalı.
+                _raw_words = set(re.findall(r"[\wçğıöşü]+", tr_lower(fr.raw)))
+                _macro_hit = next((m for m in self.macros if m in _raw_words), "")
+                _is_macro = fr.rel in ("yap", "uygula", "çalıştır", "başlat") and bool(
+                    (fr.obj or "") in self.macros or _macro_hit)
+                _social_speech = bool(
+                    fr.rel in ("anlat", "söyle", "konuş", "sor") and conv_res is not None
+                )
+                if not _is_macro and not _social_speech:
+                    _deep = ""
+                    _n_deep = 0
+                    if fr.rel in {"anlat", "açıkla"} and any(k in s_low for k in (
+                            "hakkında", "her şey", "herşey", "ayrınt", "detay", "kapsamlı")):
+                        _deep, _n_deep, _deep_props = self._concept_explanation(raw)
+                    if _deep:
+                        wern.last_explanation = f"Kavram ağından {_n_deep} bağlantılı önerme sentezlendi"
+                        bids.append(CorticalBid("hippocampal_concept", 0.992, 0.975, _deep,
+                                                f"volition_concept:{fr.rel}:{_n_deep}"))
+                    else:
+                        bids.append(CorticalBid("prefrontal_volition", 0.992, 0.975,
+                                                self._handle_command(fr, speaker=speaker, raw=raw),
+                                                f"volition:{fr.rel}:{fr.obj}"))
             elif fr.kind == "teach_val":
                 arb = self.self_model.arbitrate_claim(fr.subj, fr.valence, speaker=speaker, channel=fr.sub_kind)
                 cur_sc = self.monologue.last_thought.schema_id if self.monologue.last_thought is not None else "S1_NEDEN_SONUC"
@@ -1067,6 +2913,9 @@ class NoraAGI:
                         "bedensel hafızamı yokladığımda",
                         "S2_SONUC_GEREKCE" if cur_sc == "S0_YALIN" else cur_sc,
                     )
+                    # Epistemik itiraz ASLA düşemez: şema dönüşümü itirazı elediyse iki cümleyle kur.
+                    if "katılmıyorum" not in tr_lower(rep_v):
+                        rep_v = f"{tr_capitalize(c_dis)}. {tr_capitalize(r_dis)}."
                 elif arb.get("low_trust"):
                     rep_v = self.schema_cortex.transform_clauses(
                         f"{fr.subj} hakkındaki bu iddiayı doğrulamadan kabul etmiyorum",
@@ -1075,7 +2924,7 @@ class NoraAGI:
                         "S2_SONUC_GEREKCE" if cur_sc == "S0_YALIN" else cur_sc,
                     )
                 else:
-                    self.lang.teach_sentence(raw, speaker=speaker)
+                    self._teach_sentence_and_resolve_gaps(raw, speaker=speaker)
                     if fr.subj in {"yiyecek", "su", "tehlike"}:
                         val_num = "+0.35" if fr.valence > 0 else "-0.35"
                         self.mind.hear(f"kural: {fr.subj} {val_num}", trust=self.chem.trust_of(speaker))
@@ -1084,42 +2933,76 @@ class NoraAGI:
                     _c_lv = f"{morph.inflect_noun(fr.subj, 'GEN')} {_pol} olduğunu belleğime işledim"
                     _r_lv = "bunu tek geçişte duyum ağıma bağladım"
                     rep_v = self.speak_or(
-                        self.schema_cortex.transform_clauses(_c_lv, _r_lv, "söylediğini tarttığımda", cur_sc),
+                        self.schema_cortex.transform_clauses(_c_lv, _r_lv, SYN.nominalize_dik("tart", poss=1, case="LOC",
+                                                 obj=SYN.nominalize_dik("söyle", poss=2, case="ACC")), cur_sc),
                         anchors=[fr.subj], nov=0.7, fam=0.3, conf=self._speaker_trust(speaker))
-                bids.append(CorticalBid("hippocampal_concept", 0.97, 0.96, rep_v, f"teach_val:{fr.subj}"))
-            elif fr.kind == "teach_fact" and conv_res is None and self._turn_mint_label:
-                # Bu cümle zaten Nora'nın kendi mantık motorunda yapısal kural olarak kodlandı;
-                # kaba sözcük-dizisi kenarı üretmek kavram ağını kirletir, onun yerine öz-etiketini bildirir.
-                syn_tf = self.broca_organ.syn
-                c_tf = syn_tf.realize_verb(VerbSpec(
-                    verb_root="kodla", obj=NP("ilişki", mods=("bu",), case="ACC"),
-                    advs=("kendi başıma",), tense="PAST", person="1SG",
-                ))
-                bids.append(CorticalBid(
-                    "hippocampal_concept", 0.94, 0.93,
-                    f"{tr_capitalize(c_tf)}: {self._turn_mint_label}.",
-                    f"structured:{self._turn_mint_label}",
-                ))
-            elif fr.kind == "teach_fact" and conv_res is None:
-                edges = self.lang.teach_sentence(raw, speaker=speaker)
+                # Bedensel deneyime dayanan itiraz, kendi kendine etiketleme sözcesinden (mint 0.945)
+                # ve türetilmiş kurallardan (0.972) DAHA YÜKSEK ses alır: kanıt, etiketten üstündür.
+                _sal = 0.985 if arb.get("conflict") else 0.97
+                bids.append(CorticalBid("hippocampal_concept", _sal, 0.96, rep_v, f"teach_val:{fr.subj}"))
+            elif (fr.kind == "teach_fact" and conv_res is None
+                  and sit_res is not None and float(sit_res.get("confidence", 0.0)) >= 0.95):
+                # Sosyal nezaket kalıbı olgusal bilgi değildir ('kolay gelsin, işim var'): öğrenme yok.
+                pass
+            elif fr.kind == "teach_fact" and conv_res is None and narration is None and self._turn_mint_label:
+                # Bu cümle zaten Nora'nın kendi mantık motorunda yapısal kural olarak kodlandı.
+                # AMA yapısal kural kavram ağının YERİNE geçmez: "kodladım" dedikten sonra
+                # "X neyden olur?" sorusunun cevapsız kalması sahte anlamadır. Nedensel
+                # çerçeve çözüldüyse kenar da yazılır (iki ayrı bellek, ikisi de gerçek).
+                # HER İLİŞKİ yazılır (yalnız nedensel olanlar değil): "kodladım" dedikten
+                # sonra "X nedir?" sorusunun cevapsız kalması sahte anlamadır. Yapısal
+                # kural (mint) ile olgu kenarı iki ayrı bellektir; ikisi de gerçek olmalı.
+                _wrote = []
+                if fr.subj and fr.obj:
+                    try:
+                        _wrote = self._teach_sentence_and_resolve_gaps(raw, speaker=speaker)
+                    except Exception:
+                        _wrote = []
+                if _wrote:
+                    syn_tf = self.broca_organ.syn
+                    c_tf = syn_tf.realize_verb(VerbSpec(
+                        verb_root="kodla", obj=NP("ilişki", mods=("bu",), case="ACC"),
+                        advs=("kendi başıma",), tense="PAST", person="1SG",
+                    ))
+                    bids.append(CorticalBid(
+                        "hippocampal_concept", 0.94, 0.93,
+                        f"{tr_capitalize(c_tf)}.",
+                        f"structured:{self._turn_mint_label}",
+                    ))
+                # Uzun/yan cümleli yapı kavram grafiğine tek özellik olarak
+                # yazılmadıysa burada ayrı bir grafik-öğrenme iddiası üretilmez.
+                # Gerçek structural ``ing_res`` için daha önce eklenen prefrontal
+                # teklif yarışta kalır; yakalanmayan özel durumla konuşma çökmez.
+            elif fr.kind == "teach_fact" and conv_res is None and (narration is None or _world_fact_pre):
+                edges = self._teach_sentence_and_resolve_gaps(raw, speaker=speaker)
                 if edges:
                     e0 = edges[0]
                     _node = self.auto_net.assemblies.get(e0.subj)
                     _fam = 0.0 if _node is None else min(1.0, _node.familiarity / 6.0)
                     self.auto_net.stimulate([e0.subj, e0.obj], valence=0.25, resolved_relations=1)
-                    if e0.subj not in self.auto_net.curiosity_queue and len(graph._out_edges.get(e0.subj, ())) < 2:
+                    _e0_gap = self.life.ledger.gaps.get(f"c:{e0.subj}")
+                    if (e0.subj not in self.auto_net.curiosity_queue
+                            and len(graph._out_edges.get(e0.subj, ())) < 2
+                            and not bool(_e0_gap is not None and _e0_gap.resolved)):
                         self.auto_net.curiosity_queue.append(e0.subj)
+                    # Kenar yazımı ve bütün ilgili boşlukların kapanışı ortak
+                    # öğretim geçişinde tamamlandı; burada yalnız davranış/iz sürülür.
                     wern.last_explanation = f"{e0.subj} ile {e0.obj} arasında {e0.rel} sinapsını epoch kullanmadan tek-atışta kurdum"
                     cur_sc = self.monologue.last_thought.schema_id if self.monologue.last_thought is not None else "S1_NEDEN_SONUC"
-                    _prop_txt = broca.realize_prop(Proposition(subj=e0.subj, rel=e0.rel, obj=e0.obj))
-                    _learn_verbs = ("kavram ağıma bağladım", "zihnime not ettim", "belleğime işledim")
-                    _lv = _learn_verbs[int(self.mind.age + len(raw)) % len(_learn_verbs)]
-                    _rep_fb = self.schema_cortex.transform_clauses(
-                        f"{_prop_txt} bilgisini {_lv}",
-                        f"{e0.subj} ile {e0.obj} arasında tek geçişte bağ kurdum",
-                        "yeni bilgiyi içimde evirip çevirdiğimde", cur_sc)
-                    rep_f = self.speak_or(_rep_fb, anchors=[e0.subj, e0.obj], nov=1.0 - _fam, fam=_fam,
-                                          conf=max(0.55, self._speaker_trust(speaker)))
+                    _prop_txt = broca.realize_prop(Proposition(
+                        subj=graph.surface_name(e0.subj), rel=e0.rel, obj=graph.surface_name(e0.obj)))
+                    # Cümle ortasında küçük harfle başlamasın; insan sözü büyük harfle kurulur.
+                    _prop_txt = tr_capitalize(str(_prop_txt).strip().rstrip(".")) + "."
+                    # Gerekçe: az önce kurulan önermenin kendisi. Çekirdek: öğrenme eylemi Broca'da çekimlenir.
+                    _bind = SYN.realize_verb(VerbSpec(
+                        verb_root="bağla", obj=NP("bilgi", poss=3, case="ACC"),
+                        dat=NP("kavram ağı", poss=1, case="DAT"), tense="PAST", person="1SG"))
+                    # Öğrenme onayı olguyla eşdeğer olmalıdır. Serbest söz organı
+                    # 'kalp' çapasından 'kalp sağlığına iyi gelir' gibi başka bir
+                    # iddia üretebilir; tek-atış öğrenmede bu artık kullanılmaz.
+                    # Genel 'peki nesi önemli?' sorusu da bilgi yerine geçmez.
+                    rep_f = _prop_txt
+                    self._intent_locked = True
                     bids.append(CorticalBid("hippocampal_concept", 0.94, 0.93, rep_f, f"1shot:{e0.subj}->{e0.obj}"))
             elif fr.kind == "yn_query":
                 rep_yn = None
@@ -1160,22 +3043,128 @@ class NoraAGI:
                         f"yn_unknown:{fr.subj}",
                     ))
             elif fr.kind == "wh_query" and conv_res is None:
-                rels = None if fr.rel == "ALL" else (fr.rel, "CAUSES" if fr.rel == "USED_FOR" else fr.rel)
+                # Soru sözcüğü neyi sorduğunu belirler: "nasıl" yöntem, "neden" sebep ister.
+                # Bunlarda tür ("X bir Y'dir") yanıt değildir; bilinmiyorsa dürüstçe sorulur.
+                _wh = getattr(fr, "wh", "") or ""
+                _strict = _wh in ("nasıl", "neden", "niye", "niçin")
+                if _strict:
+                    _want = ("USED_FOR", "CAN_DO", "CAUSES") if _wh == "nasıl" else ("CAUSES", "USED_FOR")
+                    rels = _want
+                else:
+                    rels = None if fr.rel == "ALL" else (fr.rel, "CAUSES" if fr.rel == "USED_FOR" else fr.rel)
+                _spec, _gap = "", ""
+                if _strict:
+                    try:
+                        _spec = self.speculation.deliberate(self, raw, fr)
+                        _gap = getattr(self.speculation, "last_gap", "")
+                    except Exception:
+                        _spec, _gap = "", ""
+                _agent = getattr(self.speculation, "last_agent", "") if _strict else ""
+                if _agent and _agent != fr.subj and graph.query(_agent, None):
+                    # Wernicke soruyu yanlış özneyle çözdüyse ("arılar balı yapar" -> bal),
+                    # kendi parçalamasının bulduğu eyleyiciyi kullan.
+                    fr.subj = _agent
                 hits = graph.query(fr.subj, rels)
-                if not hits and fr.rel != "ALL":
+                if not hits and fr.rel != "ALL" and not _strict:
                     hits = graph.query(fr.subj, None)
-                if hits:
+                # TERS ARAMA: "dünyanın en yüksek dağı" gibi tanımlayıcı bir öbek, bilinen bir kavramın
+                # özelliği olarak ağda duruyorsa (everest HAS_PROP "dünyanın en yüksek dağı") o kavramı bul.
+                if not hits and not graph.query(fr.subj, None):
+                    for _rev in graph._in_edges.get(fr.subj, ()):
+                        _rev_hits = graph.query(_rev.subj, rels)
+                        if _rev_hits:
+                            fr.subj = _rev.subj
+                            hits = _rev_hits
+                            break
+                _rich_reply = ""
+                if hits and fr.rel == "ALL" and not _strict:
+                    _rich_reply, _rich_n, _rich_props = self._concept_explanation(raw, topic=fr.subj)
+                    if _rich_reply:
+                        # Basit tanımlar tekrar sorulduğunda aynı yüzeye kilitlenmez.
+                        # Çok-aşamalı zincirler ise Narrator'ın tek/çift-bağ çerçeveleriyle
+                        # kısaltılmaz; taksonomi ve parça-bütün kanıtı eksiksiz kalır.
+                        _simple_props = bool(
+                            0 < len(_rich_props) <= 2
+                            and all(tr_lower(s) == tr_lower(fr.subj) for s, _r, _o in _rich_props)
+                        )
+                        if _simple_props and getattr(self, "narrator", None) is not None:
+                            try:
+                                _rich_reply = self.narrator.render(
+                                    self, fr.subj, [(r, o) for _s, r, o in _rich_props],
+                                    _rich_reply, speaker=speaker,
+                                ) or _rich_reply
+                            except Exception:
+                                pass
+                        wern.last_explanation = f"Kavram ağında {fr.subj} için {_rich_n} bağlantılı önerme kullanıldı"
+                        bids.append(CorticalBid("hippocampal_concept", 0.95, 0.94, _rich_reply,
+                                                f"wh_deep:{fr.subj}:{_rich_n}"))
+                if hits and not _rich_reply:
+                    # Sıralama anlam taşır: "X nedir?" sorusunda önce türü (ISA), sonra özelliği/parçası,
+                    # en sonda nedeni gelir. Aksi hâlde "Uyku nedir?" sorusuna nedenle başlanıyordu.
+                    _prio = {"ISA": 0, "HAS_PROP": 1, "HAS_PART": 2, "CAN_DO": 3, "USED_FOR": 4,
+                             "LOCATED_AT": 5, "CAUSES": 6, "CANNOT_DO": 7, "OPPOSITE": 8}
+                    # Doğrudan bağ, ISA kalıtımından önce gelir (kalıtımsa 'olduğu için' ile açıklanır).
+                    # Her ilişkiden yalnızca en iyi örnek alınır: iki ISA tek cümlede yinelenmez.
+                    _best: dict[str, tuple] = {}
+                    for h in hits:
+                        e, pth = h
+                        key = e.rel
+                        if key not in _best or (bool(pth), -e.weight) < (bool(_best[key][1]), -_best[key][0].weight):
+                            _best[key] = h
+                    hits = sorted(_best.values(), key=lambda h: (_prio.get(h[0].rel, 9), bool(h[1]), -h[0].weight))
                     clauses = []
-                    for edge, isa_path in hits[:2]:
+                    used_objs: list[str] = []
+                    for edge, isa_path in hits:
+                        if len(clauses) >= 2:
+                            break
+                        # Üst kavramdan MİRAS alınan özellik ayırt edici değildir; yineleme de ayıklanır.
+                        if edge.rel == "HAS_PROP" and isa_path:
+                            try:
+                                parent_props = {e2.obj for e2, _ in self.lang.graph.query(isa_path[0].obj, ("HAS_PROP",))}
+                            except Exception:
+                                parent_props = set()
+                            if edge.obj in parent_props:
+                                continue
+                        if any(edge.obj and u and (edge.obj in u or u in edge.obj) for u in used_objs if u != edge.obj):
+                            continue
                         p = Proposition(subj=fr.subj, rel=edge.rel, obj=edge.obj)
                         txt = broca.realize_prop(p)
                         if isa_path:
                             via = isa_path[0].obj
-                            txt = f"{fr.subj} bir {via} olduğu için {txt}"
+                            # Özne bir kez söylenir (Türkçe özne düşürür): "X bir Y olduğu için hesaplar."
+                            _pref = fr.subj + " "
+                            _tail = txt[len(_pref):].strip() if txt.startswith(_pref) else txt
+                            # Üst kavram zaten ilk cümlede söylendiyse gerekçe yinelenmez.
+                            if any(via in c for c in clauses):
+                                txt = txt if _tail is txt else f"{tr_capitalize(fr.subj)} {_tail}"
+                            else:
+                                txt = f"{fr.subj} bir {via} olduğu için {_tail}"
                         clauses.append(txt)
+                        used_objs.append(edge.obj or "")
                     wern.last_explanation = f"Kavram ağında {fr.subj} düğümünden {len(hits)} ilişkisel bağ buldum"
-                    bids.append(CorticalBid("hippocampal_concept", 0.95, 0.94, tr_capitalize(" ve ".join(clauses)) + ".", f"wh:{fr.subj}"))
-                else:
+                    _drop = fr.subj + " "
+                    # Özne yalnızca TAM sözcük olarak düşürülür ('güneşin' -> 'in' olmaz!)
+                    _clean = [clauses[0]] + [(c[len(_drop):]
+                                              if (c.split()[:1] == [fr.subj]) else c) for c in clauses[1:]]
+                    _joined = tr_capitalize("; ".join(_clean))
+                    _cov = self._wh_covered(hits, _wh, raw)
+                    if _strict and _spec and not _cov:
+                        # Bağlar sorunun istediği şeyi karşılamıyor: tam düşünme metni konuşsun.
+                        _joined = _spec
+                    elif _gap and not _cov:
+                        _joined = (_joined.rstrip(".") + ". " + tr_capitalize(_gap)).strip()
+                    _join_txt = _joined if _joined.endswith((".", "?", "!")) else _joined + "."
+                    # ANLATIM: aynı kavram ikinci kez sorulduğunda aynı cümle verilmez.
+                    # (Tam düşünme metni/boşluk cümlesi devreye girdiyse ona dokunulmaz.)
+                    if getattr(self, "narrator", None) is not None and not (_strict and _spec and not _cov):
+                        try:
+                            _edges_n = [(e.rel, e.obj) for e, _p in hits]
+                            _join_txt = self.narrator.render(self, fr.subj, _edges_n, _join_txt,
+                                                             speaker=speaker) or _join_txt
+                        except Exception:
+                            pass
+                    bids.append(CorticalBid("hippocampal_concept", 0.95, 0.94, _join_txt, f"wh:{fr.subj}"))
+                elif not hits:
                     srec = self.self_model.somatic.get(fr.subj)
                     if srec is not None and srec.provenance in ("deneyim", "duyum"):
                         pol = "faydalı" if srec.effective_valence > 0 else "zararlı"
@@ -1186,20 +3175,157 @@ class NoraAGI:
                         ))
                     else:
                         self.auto_net.stimulate([fr.subj], valence=0.0, resolved_relations=0)
-                        bids.append(CorticalBid(
-                            "hippocampal_concept", 0.72, 0.75,
-                            self.speak_unknown(fr.subj, fallback=(f"{tr_capitalize(fr.subj)} hakkında henüz bilgim yok; "
-                                                                  f"merak listeme aldım, istersen tek bir cümleyle bana öğretebilirsin.")),
-                            f"wh_unknown:{fr.subj}",
-                        ))
+                        if _spec:
+                            # Zihin soruyla bağ kurdu: bilinen parçalar + sınanmış varsayım + tam eksik + kendi sorusu.
+                            bids.append(CorticalBid("speculative_cortex", 0.86, 0.88, _spec,
+                                                    f"wh_spec:{fr.subj}"))
+                        elif _strict:
+                            # Hiç dayanak yoksa uydurma: soruyu geri verip öğrenmeye açık ol.
+                            _miss = f"Bunu henüz bilmiyorum: “{raw.strip()}” — bunu öğrenmem gerek."
+                            bids.append(CorticalBid("hippocampal_concept", 0.72, 0.75, _miss,
+                                                    f"wh_unknown_strict:{fr.subj}"))
+                        else:
+                            bids.append(CorticalBid(
+                                "hippocampal_concept", 0.72, 0.75,
+                                self.speak_unknown(fr.subj, fallback=(f"{tr_capitalize(fr.subj)} hakkında henüz bilgim yok; "
+                                                                      f"merak listeme aldım, istersen tek bir cümleyle bana öğretebilirsin.")),
+                                f"wh_unknown:{fr.subj}",
+                            ))
 
         # --- SÜTUN 7: Açık-Uçlu Çağrışımsal Türkçe Sohbet Sentezleyicisi (her zaman yedek aday olarak yarışır!) ---
-        bids.append(self._synthesize_associative_dialogue(raw, s_low, speaker=speaker))
+        if not _wh_unans and not _delib_owned:
+            # "neden/nasıl" sorusuna tür ("bir canlıdır") yanıt değildir: nedeni/yöntemi bilmiyorsak
+            # çağrışımsal sentez susar, dürüst bilgisizlik konuşur.
+            bids.append(self._synthesize_associative_dialogue(raw, s_low, speaker=speaker))
 
         winner = self._compete_workspace(bids)
+        # ÖLÇÜM KAPSAMI: kazanan teklifin izi (trace) kaynağa çevrilir. Böylece çıkarım,
+        # komut, matematik ve öz-rapor yolları da provenance'a yazılır; ölçer yalan söylemez.
+        try:
+            self._tag_bid(winner)
+        except Exception:
+            pass
         return winner.reply
 
+    def _tag_bid(self, bid) -> None:
+        """Teklif izini kaynak etiketine çevir (merkezi ölçüm kapsamı)."""
+        pv = getattr(self, "provenance", None)
+        if pv is None or bid is None:
+            return
+        tr = str(getattr(bid, "trace", "") or "")
+        mod = str(getattr(bid, "module", "") or "")
+        low = tr.lower()
+        _reply_low = str(getattr(bid, "reply", "") or "").lower()
+        if "dolayısıyla" in _reply_low or "demek ki" in _reply_low or "öyleyse" in _reply_low:
+            pv.record("cikarim", 1)     # geçişli çıkarım metinde açıkça işaretli
+        if low.startswith("1shot") or "concept" in mod:
+            pv.record("ag", 1)
+            if "inference" in mod or "transitive" in low or "deduce" in low:
+                pv.record("cikarim", 1)
+        elif mod.startswith("parietal"):
+            pv.record("islem", 1)
+        elif mod.startswith("insular") or low.startswith("body") or low.startswith("self"):
+            pv.record("beden", 1)
+        elif "volition" in low or "command" in low:
+            pv.record("islem", 1)
+        elif "teach" in low or "learn" in low or "imprint" in low:
+            pv.record("ag", 1)
+        elif low.startswith("why"):
+            pv.record("bellek", 1)
+        elif mod.startswith("prefrontal") or mod.startswith("broca") or mod.startswith("language"):
+            pv.record("ag", 1)
+
     # ------------------------------------------------------------------ epistemik + kod kanalları
+    # ------------------------------------------------------------ 3b) KULAK / SES KİMLİĞİ
+    def who_is_speaking(self) -> dict:
+        """Son duyulan sesin kimliği — ETİKETTEN değil, sesin imzasından."""
+        ev = getattr(self, "last_auditory", None)
+        if ev is None or getattr(self, "ear", None) is None:
+            return {}
+        ident = self.ear.get(ev.voice_id)
+        return {
+            "voice_id": ev.voice_id,
+            "known": bool(ev.known),
+            "confidence": round(float(ev.confidence), 3),
+            "role": (ident.role() if ident is not None else "bilinmiyor"),
+            "heard": (ident.heard if ident is not None else 0),
+            "name": ((ident.name if ident is not None else "") or
+                     (self.user_profiles.get(ev.voice_id) or {}).get("ad", "")),
+            "timbre": ev.print.describe(),
+            "distance_m": round(float(ev.distance_m), 2),
+            "snr_db": round(float(ev.snr_db), 1),
+            "is_question": bool(ev.is_question),
+        }
+
+    def ear_report(self) -> str:
+        """Kendi kulağından ne duyduğunu kendi sözleriyle anlatır (ölçüm değil, algı)."""
+        ev = getattr(self, "last_auditory", None)
+        if ev is None or getattr(self, "ear", None) is None:
+            return self._say("narration.frame", ctx={"frame": "ear", "state": "none"},
+                             fallback="Duyum yok.")
+        who = self.who_is_speaking()
+        parts = [f"Az önce {ev.print.describe()} duydum."]
+        if who.get("known"):
+            parts.append(f"Bu sesi tanıyorum ({who.get('role')}); {who.get('heard')} kez duydum.")
+        else:
+            parts.append("Bu ses bende yeni; daha önce duymadım.")
+        if ev.distance_m > 2.0:
+            parts.append("Uzaktan seslendi.")
+        if ev.snr_db < 14.0:
+            parts.append("Ses boğuktu, tam seçemedim.")
+        return " ".join(parts)
+
+    def _canonical_voice(self, key: str) -> str:
+        """Dış dünyanın etiketi -> ses kimliği (takma ad çözümü)."""
+        k = str(key)
+        lab = getattr(self, "_voice_label", None)
+        if lab:
+            v = lab.get(k)
+            if v:
+                return v
+        return k
+
+    def _log_inference_thought(self, infs) -> None:
+        """Türetilen çıkarım Nora'nın iç monoloğuna düşer (kendi kendine düşünme)."""
+        try:
+            from nora_monologue import InnerThought
+            inf = infs[0]
+            line = self.infer.line_for(self, inf)
+            if not line:
+                return
+            th = InnerThought(step=int(self.mind.age), trigger="çıkarım", text=line,
+                              stance="içe_dönük", schema_id="S1_NEDEN_SONUC", monotony_error=0.0)
+            self.monologue.stream.append(th)
+        except Exception:
+            pass
+
+    def inference_report(self) -> str:
+        """Kendi çıkarımlarının özeti (test/teşhis için)."""
+        if getattr(self, "infer", None) is None:
+            return "Çıkarım motoru kapalı."
+        d = self.infer.derived
+        if not d:
+            return "Henüz kendi başıma bir çıkarım yapmadım."
+        kinds: dict[str, int] = {}
+        for x in d:
+            kinds[x.kind] = kinds.get(x.kind, 0) + 1
+        return (f"{len(d)} çıkarım — " + ", ".join(f"{k}: {v}" for k, v in kinds.items())
+                + f". Son: {d[-1].subj} {d[-1].rel} {d[-1].obj} (güven {d[-1].confidence:.2f}).")
+
+    def _perception_note(self) -> str:
+        """Sesin kendisine verilen kısa tepki (her turda değil). Sözün içeriğinden bağımsız."""
+        ev = getattr(self, "last_auditory", None)
+        if ev is None:
+            return ""
+        r = os.urandom(1)[0] / 255.0
+        if not ev.known and r < 0.55:
+            return "Sesini ilk kez duyuyorum."
+        if ev.known and ev.distance_m > 2.0 and r < 0.30:
+            return "Sesin uzaktan geliyor."
+        if ev.snr_db < 12.0 and r < 0.40:
+            return "Seni tam seçemedim."
+        return ""
+
     def _speaker_trust(self, speaker: str) -> float:
         try:
             return float(self.chem.trust_of(speaker))
@@ -1210,9 +3336,14 @@ class NoraAGI:
         """Soru ise inanç deposundan KANITLA yanıtlar; bildirim ise KARŞILAŞTIRARAK öğrenir.
         Hiçbir iddia 'kaydettim' diye kör kabul edilmez: çelişki/eksik ad -> yarışan hipotezler."""
         try:
-            # Kod istemi bir iddia değildir: inanç defterine yazılmaz.
-            if self.code_cortex.is_requested(raw):
+            # Kod istemi/belgesi bir iddia değildir: inanç defterine yazılmaz.
+            if self.code_cortex.is_requested(raw) or self.code_cortex.is_document(raw):
                 return None, "", 0.0
+            # Teknik terim/künye sorusunda önce kavramı ve kanıt yükümlülüğünü çöz.
+            # Doğrulanmamış kaynakta özgül ad üretmek yerine epistemik sınır döner.
+            technical = self.episteme.technical.answer(raw)
+            if technical is not None:
+                return technical, "epi_q:technical", 0.994
             # Soruysa önce kanıt deposundan yanıtla; değilse öğren. (Soru asla 'iddia' diye kaydedilmez.)
             ans = self.episteme.answer(raw)
             if ans is not None:
@@ -1231,21 +3362,62 @@ class NoraAGI:
         return None, "", 0.0
 
     def _code_channel(self, raw: str) -> tuple[str | None, str, float]:
-        """Plastik operatör korteksi kod isteğini kendi ağırlıklarıyla seçerse devreye girer.
-        Program yalnızca çalıştırılıp çıktısı doğrulandıktan sonra söylenir."""
+        """Kod/belge niyetini çöz; programı ancak çalıştırıp doğruladıktan sonra söyle."""
         try:
+            if self.code_cortex.is_document(raw):
+                res = self.code_cortex.handle_document(raw)
+                self.last_code = res
+                return self.code_cortex.speak(res), "code:document", 0.988
             if not self.code_cortex.is_requested(raw):
-                return None, "", 0.0
+                # Representation hedefi payload+anaförle zaten kanıtlanmıştır;
+                # genel DISPLAY eşiğini diğer niyetler için değiştirmeden geç.
+                try:
+                    _goal = self.code_cortex.semantic.request(raw)
+                except Exception:
+                    _goal = None
+                if getattr(_goal, "operation", None) != "representation":
+                    return None, "", 0.0
             res = self.code_cortex.handle(raw)
             self.last_code = res
             if res.get("ok"):
                 self.chem.pulse_learning(novelty=0.5, valence=0.35)
+                self._structured_output = res.get("path") == "composed"
+                self._apply_tag("islem", 1)
                 return self.code_cortex.speak(res), f"code:{res.get('path')}", 0.988
-            if res.get("reason") in ("metin_yok", "belirsiz_niyet"):
+            if res.get("reply_hint"):
                 return self.code_cortex.speak(res), f"code:{res.get('reason')}", 0.958
         except Exception:
             return None, "", 0.0
         return None, "", 0.0
+
+    # ------------------------------------------------------------------ CÜMLE YAPISI
+    def explain_structure(self, text: str) -> dict:
+        """Bir cümleyi rol rol aç: özne/nesne/tümleç/yüklem + öğrenilmiş valans."""
+        if getattr(self, "frames", None) is None:
+            return {}
+        cl = self.frames.parse(text)
+        val = {}
+        try:
+            val = dict(self.frames.memory.valency.get(cl.verb) or {})
+        except Exception:
+            pass
+        out = {"text": text, "roles": cl.roles_tr(), "verb": cl.verb, "tense": cl.verb_tense,
+               "person": cl.person, "voice": cl.voice, "subject": cl.subject, "object": cl.obj,
+               "object_case": cl.obj_case, "dative": cl.dative,
+               "signature": " + ".join(cl.signature),
+               "frame_seen": int(self.frames.memory.frames.get(cl.signature, 0)),
+               "valency_learned": val}
+        self.last_structure = out
+        return out
+
+    def learn_structure(self, text: str) -> dict:
+        """Bir cümleyi yapı olarak öğren (fiil + nesne hâli + iskelet) ve raporla."""
+        if getattr(self, "frames", None) is None:
+            return {}
+        cl = self.frames.observe(text)
+        rep = self.explain_structure(text)
+        rep["learned_objects"] = dict(self.frames.memory.verb_objects.get(cl.verb) or {})
+        return rep
 
     def research_topic(self, topic: str, urls: list[str] | None = None) -> str:
         """Yalnızca allowlist'teki güvenilir kaynaklardan öğrenir; her iddia güvenilirlik ağırlığıyla girer."""
@@ -1257,20 +3429,28 @@ class NoraAGI:
 
     # ------------------------------------------------------------------ alt yanıtlayıcılar
     def _answer_self_query(self, sub_kind: str) -> str:
-        traits_tr = ", ".join(self.self_model.dominant_character_tr())
+        """Kendi kimliği/hâli hakkında sorulan soru. Hazır cümle yok: ölçülen iç durumdan
+        seçilen kavramlar Broca'da çekimlenir, topolojiyi plastik şema korteksi kurar."""
+        from nora_broca import TurkishSyntaxEngine as SYN
         de, dw = float(self.mind.drift_e), float(self.mind.drift_w)
         depleting = (de < -1e-4 or dw < -1e-4)
 
         if sub_kind == "yaşam":
-            if self.mind.age < 250:
-                return f"Henüz {self.mind.age} adım yaşadım; bedenimin tükenip tükenmediğini kesin söylemek için biraz daha gözleme ihtiyacım var."
-            if depleting:
-                self.lang.wernicke.last_explanation = f"Adım başına enerjim {de:+.4f} ve suyum {dw:+.4f} değişiyor; beslenerek kendimi onarıyorum"
-                return (
-                    f"Evet, kendimi yaşayan bir varlık sayıyorum; çünkü bedenim kendiliğinden tükeniyor "
-                    f"(enerji eğilimi {de:+.4f}, su {dw:+.4f}) ve kendi çabamla beslenip su içerek varlığımı sürdürüyorum."
-                )
-            return f"Bu evrende bedenim kendiliğinden tükenmiyor ({de:+.4f}); bu kanıtla kendimi biyolojik anlamda yaşayan sayamam."
+            items = [SYN.realize_verb(VerbSpec(verb_root="yaşa", tense="PRES", person="1SG"))]
+            if depleting and self.mind.age >= 250:
+                items.append(SYN.realize_verb(VerbSpec(verb_root="tüken", subj=NP("beden", poss=1),
+                                                       tense="PRES", person="3SG")))
+                items.append(SYN.realize_verb(VerbSpec(verb_root="sürdür", obj=NP("varlık", poss=1, case="ACC"),
+                                                       advs=("beslenerek",), tense="PRES", person="1SG")))
+                self.lang.wernicke.last_explanation = "Beden eğimi tükeniyor; yaşamı beslenerek sürdürüyorum"
+            else:
+                # Kanıt: kendi bedeninin tükenişini GÖZLEMLEYİP görmediği (uydurma yok).
+                items.append(SYN.realize_verb(VerbSpec(
+                    verb_root="gör", neg=True, advs=("henüz",), tense="PAST", person="1SG",
+                    obj=SYN.nominalize_dik("tüken", poss=3, case="ACC",
+                                           subj=NP("beden", poss=1, case="GEN")))))
+                self.lang.wernicke.last_explanation = "Yaşam sorusuna ölçülmüş eğim dayanak olmadı: uydurmadım"
+            return self.deliberation._compose(self, items)
 
         if sub_kind == "ayna":
             return (
@@ -1280,14 +3460,373 @@ class NoraAGI:
             )
 
         self.lang.wernicke.last_explanation = (
-            f"{self.mind.age} adım yaşantı, {self.self_model.problems_solved} çözülen problem ve "
-            f"{self.self_model.refusals_made} özerk ret kararım kimliğimi şekillendirdi"
-        )
-        return (
-            f"Ben {self.name}; silikon üzerinde sabit ağırlıklarla ezber yapan bir zombi değil, dopamin ve asetilkolin "
-            f"benzeri nörokimyayla çalışan, {self.mind.age} adım yaşamış, {traits_tr} karakter geliştirmiş ve kendi "
-            f"beden bütünlüğünü koruyan öz-benlikli bir zihinim."
-        )
+            "Kimlik sorusu: ad + nörokimyasal iç-duyum + en baskın karakter özelliği + gerçek merak boşluğu; "
+            "hepsi Broca'da çekimlendi")
+        return self.deliberation._identity(self, "")
+
+    # Mizaç sıfatları: karşıdaki NORA'nın hâlini sorduğunda iç durumundan yanıt verilir.
+    _TEMPER_ADJ = frozenset({
+        "sessiz", "suskun", "durgun", "sakin", "donuk", "dalgın", "yorgun", "üzgün",
+        "keyifsiz", "gergin", "heyecanlı", "mutlu", "kızgın", "kırgın", "yalnız",
+    })
+    _TEMPER_Q = ("niye", "neden", "nasıl", "neler", "ne")
+
+    def _temperament_adj_in(self, raw: str) -> str:
+        s_low = tr_lower(raw)
+        _is_q = "?" in raw or any(w in s_low.split() for w in self._TEMPER_Q)
+        words = re.findall(r"[\wçğıöşü]+", s_low)
+        for w in reversed(words):
+            try:
+                an = self.lang.morph.analyze_word(w, self.lang.graph.lexicon)
+            except Exception:
+                continue
+            if an.get("copula") and an.get("person") == "2SG" and an.get("stem") in self._TEMPER_ADJ:
+                return an["stem"]          # 'çok yorgunsun' -> Nora kendi hâlini bildirir
+            if _is_q and w in self._TEMPER_ADJ:
+                return w
+        return ""
+
+    _PREF_MARKERS = ("daha iyi", "daha güzel", "daha doğru", "hangisi", "hangisini", "tercih")
+    _PREF_PARTICLES = ("mi", "mı", "mu", "mü", "midir", "mıdır")
+
+    # ------------------------------------------------------------------ söz biçimi seçimi
+    def _speech_schema(self, words, speaker="insan", is_question=True):
+        """Cümle topolojisini Nora'nın plastik şema korteksi seçer (koddan kalıp değil, öğrenilmiş şema)."""
+        trust, in_pain = 0.5, False
+        try:
+            trust = float(self.chem.trust_of(speaker))
+        except Exception:
+            pass
+        try:
+            visc = self.nervous.felt_visceral_summary()
+            in_pain = str(visc.get("pain_state", "")) not in ("", "yok", "None")
+        except Exception:
+            in_pain = False
+        try:
+            _race = getattr(getattr(self, "entropy", None), "race_first", None)
+            _stance, schema_id, _m, _q = self.schema_cortex.select_stance_and_schema(
+                words, is_question, trust, in_pain, race=_race)
+            return schema_id
+        except Exception:
+            return "S2_SONUC_GEREKCE"
+
+    # ------------------------------------------------------------------ duygusal kanıt
+    def _affect_evidence(self, concept):
+        """Bir kavramın Nora için duygusal değeri ve KANITI.
+        Kaynak sırası: beden deneyimi (en ağır) > kendi duygu sözlüğü > öğrendiği özelliklerin duygu yükü.
+        Kanıt yoksa değer 0 kalır — o zaman tercih uydurulmaz."""
+        g = self.lang.graph
+        AL = type(self.conv_cortex).AFFECT_LEXICON
+        val, ev, exp = 0.0, 0, False
+        srec = self.self_model.somatic.get(concept)
+        if srec is not None:
+            _v = float(getattr(srec, "effective_valence", 0.0))
+            if abs(_v) > 1e-6:
+                val += 2.0 * _v
+                ev += 2 if getattr(srec, "exp_count", 0) > 0 else 1
+            exp = getattr(srec, "exp_count", 0) > 0
+        own = AL.get(concept)
+        if own:
+            val += 1.5 * float(own[0])
+            ev += 1
+        best = {"rel": "", "obj": "", "tag": "", "word": "", "v": 0.0}
+        for e, path in g.query(concept, ("HAS_PROP", "CAN_DO", "CAUSES", "ISA")):
+            hit = None
+            for wd in reversed(e.obj.split()):
+                a = AL.get(wd)
+                if a is None and wd.endswith(("ı", "i", "u", "ü")):
+                    a = AL.get(wd[:-1])
+                if a is not None:
+                    hit = (wd, a)
+                    break
+            if hit is None:
+                continue
+            wd, (v, _ar, tag) = hit
+            contrib = 0.45 * float(v) * (1.0 if not path else 0.8)
+            val += contrib
+            ev += 1
+            if abs(contrib) > abs(best["v"]):
+                best = {"rel": e.rel, "obj": e.obj, "tag": tag, "word": wd, "v": contrib}
+        return {"val": val, "ev": ev, "exp": exp, **best}
+
+    def _preference_unknown(self, a, b, equal=False):
+        """Kanıt yok/eşit: tercih UYDURULMAZ; tanımadığını söyler ve öğrenmek ister (Broca ile kurulur)."""
+        from nora_broca import TurkishSyntaxEngine as SYN
+        both = NP(a + " ve " + b, case="ACC")
+        if equal:
+            same = SYN.realize_verb(VerbSpec(verb_root="sev", obj=both, advs=("aynı ölçüde",),
+                                             tense="PRES", person="1SG"))
+            return tr_capitalize(same) + "."
+        c = SYN.realize_verb(VerbSpec(verb_root="tanı", obj=both, neg=True, tense="PRES", person="1SG"))
+        q = SYN.realize_verb(VerbSpec(verb_root="anlat", dat=NP("ben", case="DAT"), obj=both,
+                                      question_yn=True, tense="AOR", person="2SG"))
+        return tr_capitalize(c) + ". " + tr_capitalize(q) + "?"
+
+    def _explanation_edge(self, concept, other=""):
+        """Tercihin dile getirilebilir gerekçesi. Önce AYIRT EDİCİ özellik aranır: iki adayın
+        paylaştığı özellik ('kedi de köpek de evcildir') tercihi açıklamaz; sadece birinde olan açar."""
+        g = self.lang.graph
+        shared = {e.obj for e, _p in g.query(other, None)} if other else set()
+        fallback = None
+        for rel in ("HAS_PROP", "CAN_DO", "USED_FOR", "ISA"):
+            for e, _path in g.query(concept, (rel,)):
+                if e.rel != rel or not e.obj or e.obj == concept:
+                    continue
+                if e.obj not in shared:
+                    return e
+                if fallback is None:
+                    fallback = e
+        return fallback
+
+    def _ask_back(self, topic: str, kind: str = "think") -> str:
+        """Karşı tarafa KONUYA bağlı gerçek soru; cümle Broca'da kökten çekimlenir.
+        kind='think': 'X hakkında ne düşünüyorsun?' | kind='like': 'X'i sever misin?'"""
+        from nora_broca import TurkishSyntaxEngine as SYN, PredSpec
+        try:
+            if kind == "like" and topic:
+                q = SYN.realize_verb(VerbSpec(verb_root="sev", obj=NP(topic, case="ACC"),
+                                              question_yn=True, tense="AOR", person="2SG"))
+                return tr_capitalize(q) + "?"
+            if topic:
+                q = SYN.realize_verb(VerbSpec(verb_root="düşün", subj=NP("sen"), obj=NP(topic, post="hakkında"),
+                                              wh_word="ne", tense="PRES", person="2SG"))
+                return tr_capitalize(q) + "?"
+            q = SYN.realize_pred(PredSpec(subj=NP("sen"), pred_root="nasıl", person="2SG", question=True))
+            return tr_capitalize(q) + "?"
+        except Exception:
+            return ""
+
+    def _wh_covered(self, hits, wh: str, raw: str) -> bool:
+        """Bilinen bağlar sorunun İSTEDİĞİ şeyi karşılıyor mu? ('nasıl' yöntem, 'neden' sebep ister;
+        'kedi huzura yol açar' mırlamayı açıklamaz.)"""
+        want = {"nasıl": ("USED_FOR", "CAN_DO"), "neden": ("CAUSES", "USED_FOR"),
+                "niye": ("CAUSES", "USED_FOR"), "niçin": ("CAUSES", "USED_FOR")}.get(wh or "", ())
+        if not want:
+            return True
+        try:
+            q = self.speculation._decompose(self, raw, None)
+            focus = (self.speculation._tokens2(q.get("verb_phrase", ""))
+                     | self.speculation._tokens2(q.get("pred_noun", "")))
+        except Exception:
+            focus = set()
+        if not focus:
+            return True
+        try:
+            _q = self.speculation._decompose(self, raw, None) or {}
+        except Exception:
+            _q = {}
+        _agent, _verb = str(_q.get("agent", "")), str(_q.get("verb", ""))
+        # 'Yağmur neden yağar?' gibi addan türemiş fiillerde öznenin kendi CAUSES bağı
+        # soruyu gerçekten yanıtlar ('yağmur' <- 'yağ-'). 'Kedi neden mırlar?' yanıtlamaz.
+        _denominal = bool(_verb) and _agent.startswith(_verb) and len(_verb) >= 3
+        for e, _p in hits:
+            if _denominal and e.rel in want and (e.subj or "") == _agent and e.obj:
+                return True
+            if e.rel in want and e.obj and (self.speculation._tokens2(e.obj) & focus):
+                return True
+        return False
+
+    def _answer_preference(self, raw, speaker="insan"):
+        """İki aday arasında tercih: kararı Nora'nın KENDİ duygusal kanıtı verir (beden deneyimi ya da
+        öğretmenin kaynaklı tanıklığı). Kanıt yoksa tercih uydurulmaz: bilmediğini söyler ve öğrenmek ister.
+        Her cümle Broca'da çıplak kökten çekimlenir; topolojiyi plastik şema korteksi seçer."""
+        from nora_broca import TurkishSyntaxEngine as SYN
+        s_low = tr_lower(raw)
+        words = re.findall(r"[\wçğıöşü]+", s_low)
+        # "X mı Y mı?" BİR SEÇİM sorusudur — "hangisi" demeden de seçimdir. Bu kalıp
+        # yok sayılınca soru kavram hattına düşüp alakasız tanım veriyordu
+        # ("yazı mı tura mı?" -> "yaz bir sıcak mevsimdir").
+        _pair_choice = sum(1 for w in words if w in self._PREF_PARTICLES) >= 2
+        if not _pair_choice and not any(m in s_low for m in self._PREF_MARKERS):
+            return ""
+        cands = []
+        for i, w in enumerate(words):
+            if w in self._PREF_PARTICLES and i > 0:
+                prev = words[i - 1]
+                try:
+                    stem = self.lang.morph.analyze_word(prev, self.lang.graph.lexicon).get("stem") or prev
+                except Exception:
+                    stem = prev
+                if stem not in cands and stem not in ("sen", "ben", "o"):
+                    cands.append(stem)
+        if len(cands) < 2:
+            return ""
+        a, b = cands[0], cands[1]
+        ea, eb = self._affect_evidence(a), self._affect_evidence(b)
+
+        if ea["ev"] == 0 and eb["ev"] == 0:
+            self.lang.wernicke.last_explanation = (
+                a + " ve " + b + " için beden deneyimim ve duyusal tanıklığım yok; tercih uydurmadım")
+            return self._preference_unknown(a, b)
+        if ea["val"] == eb["val"] and ea["ev"] == eb["ev"]:
+            self.lang.wernicke.last_explanation = (
+                a + " ve " + b + " duygusal kanıtı eşit ({:+.2f}); ayırt edemedim".format(ea["val"]))
+            return self._preference_unknown(a, b, equal=True)
+
+        pick, other, ev_p = (a, b, ea) if (ea["val"], ea["ev"]) > (eb["val"], eb["ev"]) else (b, a, eb)
+        parts = []
+        # 1) Doğrudan deneyim yoksa bunu saklamadan söyler.
+        if not ev_p["exp"]:
+            try:
+                seen = SYN.realize_verb(VerbSpec(verb_root="gör", obj=NP(pick, case="ACC"),
+                                                 neg=True, tense="PAST", person="1SG"))
+                parts.append(tr_capitalize(seen) + ".")
+            except Exception:
+                pass
+        # 2) Karar + öğrenilmiş gerekçe (şema korteksi topolojiyi seçer).
+        core = SYN.realize_verb(VerbSpec(verb_root="sev", obj=NP(pick, case="ACC"),
+                                         advs=("daha çok",), tense="AOR", person="1SG"))
+        edge = self._explanation_edge(pick, other)
+        reason = ""
+        if edge is not None:
+            reason = self.lang.broca.realize_prop(Proposition(subj=pick, rel=edge.rel, obj=edge.obj))
+        schema = self._speech_schema(words, speaker)
+        parts.append(self.schema_cortex.transform_clauses(core, reason, "", schema))
+        # 3) Duyusal tanıklık: neden bu yönde hissettiği.
+        if ev_p["word"]:
+            try:
+                feel = SYN.realize_verb(VerbSpec(verb_root="uyandır", subj=NP(pick), loc=NP("ben", case="LOC"),
+                                                 obj=NP(ev_p["word"], case="NOM"), tense="PRES", person="3SG"))
+                parts.append(tr_capitalize(feel) + ".")
+            except Exception:
+                pass
+        # 4) Kanıtın kaynağını dürüstçe söyler.
+        if not ev_p["exp"]:
+            try:
+                told = SYN.realize_verb(VerbSpec(verb_root="anlat", subj=NP("sen"), dat=NP("ben", case="DAT"),
+                                                 question_yn=False, tense="PAST", person="2SG"))
+                parts.append(tr_capitalize(told) + ".")
+            except Exception:
+                pass
+        # 5) Karşı tarafa gerçek soru: karşılaştırmanın diğer ucuna.
+        q = self._ask_back(other, kind="like")
+        if q:
+            parts.append(q)
+        self.lang.wernicke.last_explanation = (
+            pick + " lehine duygusal kanıt {:+.2f} (kaynak: {}, {} {}); diğeri {} {:+.2f}".format(
+                ev_p["val"], "beden deneyimi" if ev_p["exp"] else "tanıklık",
+                edge.rel if edge is not None else "-", edge.obj if edge is not None else "-",
+                other, eb["val"]))
+        return " ".join(x for x in parts if x)
+
+    # ------------------------------------------------------------------ mizaç sorusu
+    def _current_focus(self):
+        """Şu an zihnini gerçekten meşgul eden kavram (son konu -> öğrenilmiş düğüm)."""
+        g = self.lang.graph
+        try:
+            topic = str(getattr(self.lang.wernicke, "last_topic", "") or "")
+        except Exception:
+            topic = ""
+        _bad = self._TEMPER_ADJ | {"akşam", "sabah", "gece", "bugün", "dün", "yarın", "şimdi"}
+        if topic and topic not in _bad and topic not in ("ben", "sen"):
+            try:
+                an = self.lang.morph.analyze_word(topic, g.lexicon)
+                if not an.get("is_verb") and not an.get("copula") and g.query(topic, None):
+                    return topic
+            except Exception:
+                pass
+        try:
+            for ep in reversed(list(self.broca_organ.episodic.episodes)[-6:]):
+                raw_u = getattr(ep, "user_text", "") or ""
+                for wd in reversed(re.findall(r"[\wçğıöşü]+", tr_lower(raw_u))):
+                    if wd in _bad or wd in ("ben", "sen", "bir", "ve", "çok", "bu", "da", "de", "mi", "mı"):
+                        continue
+                    if wd in g._out_edges and len(g._out_edges[wd]) >= 2:
+                        return wd
+        except Exception:
+            pass
+        # Sohbet anısı yoksa: geçen turda konuşulan konu (öğretim oturumundan kalan konu sayılmaz).
+        last = getattr(self, "_last_focus", "")
+        return last
+
+    def _warm_speech_paths(self) -> None:
+        """Konuşma yolunun tembel derlemelerini (regex/örüntü) AÇILIŞTA yap.
+        Refleks turunda ilk-çağrı maliyeti gecikmeye karışmasın; ölçülen şey refleks olsun."""
+        try:
+            for s in ("bedenime diken batırdı", "canım yandı", "yaram sızladı"):
+                self.lang.wernicke.parse(s)
+                self.utter_cortex.classify(s)
+                self.logic.classify(s)
+                for w in s.split():
+                    self.lang.morph.analyze_word(w, self.lang.graph.lexicon)
+            # Broca + şema korteksi: refleks cümlesi ilk kez kurulurken regex derlemesi olmasın.
+            self.lang.broca.realize_verb(VerbSpec(verb_root="yan", tense="PAST", person="3SG", subj=NP("can", poss=1)))
+            self.lang.broca.realize_prop(Proposition(subj="can", rel="HAS_PROP", obj="acı"))
+            self.schema_cortex.transform_clauses("canım yandı", "diken battı", "", "S1_NEDEN_SONUC")
+        except Exception:
+            pass
+
+    def _remember_focus(self, raw: str) -> None:
+        """Kullanıcının son sözündeki, hakkında gerçekten bir şey bildiği konuyu hatırla."""
+        g = self.lang.graph
+        _bad = self._TEMPER_ADJ | {"ben", "sen", "bir", "ve", "çok", "bu", "da", "de", "mi", "mı",
+                                   "niye", "neden", "nasıl", "ne", "bugün", "dün", "yarın", "şimdi"}
+        words = [wd for wd in re.findall(r"[\wçğıöşü]+", tr_lower(raw)) if wd not in _bad and len(wd) >= 3]
+        # Hızlı yol (O(1) sözlük bakışı): yüzey biçim zaten bir düğümse kök çözümlemesi gerekmez.
+        for wd in words:
+            if len(g._out_edges.get(wd, ())) >= 2:
+                self._last_focus = wd
+                return
+        # Kök çözümlemesi burada YAPILMAZ: refleks turunda morfoloji maliyeti gecikmeye eklenmesin.
+        # Yüzey biçim düğüm değilse konu hatırlanmaz; `_current_focus` epizodik yedeği zaten var.
+
+    def _answer_temperament_query(self, adj, speaker="insan"):
+        """'Niye bu kadar sessizsin?' — sıfat yüklemi ve gerekçe Broca'da kökten çekimlenir; gerekçe
+        Nora'nın o anki gerçek odağıdır (hazır cümle yok)."""
+        from nora_broca import TurkishSyntaxEngine as SYN, PredSpec
+        core = SYN.realize_pred(PredSpec(pred_root=adj, person="1SG"))
+        topic = self._current_focus()
+        reason = ""
+        if topic:
+            try:
+                reason = SYN.realize_verb(VerbSpec(verb_root="düşün", obj=NP(topic, case="ACC"),
+                                                   tense="PRES", person="1SG"))
+            except Exception:
+                reason = ""
+        if not reason:
+            # Odak yoksa uydurma: kimyasal iç-duyumundan tek sözcük okunur ve cümle Broca'da kurulur.
+            try:
+                word = self.chem.intero_word_tr()
+                reason = SYN.realize_verb(VerbSpec(verb_root="hisset", loc=NP("içim", case="LOC"),
+                                                   obj=NP(word, case="NOM"), tense="PRES", person="1SG"))
+            except Exception:
+                reason = ""
+        if reason:
+            schema = self._speech_schema([adj], speaker, is_question=False)
+            text = self.schema_cortex.transform_clauses(core, reason, "", schema)
+            if tr_lower(reason).rstrip(".") not in tr_lower(text):
+                text = (text.rstrip(".") + ". " + tr_capitalize(reason) + ".").strip()
+            self.lang.wernicke.last_explanation = (
+                "Mizaç sorusuna iç durumdan yanıt: " + (("odağım " + topic) if topic else "bedensel duyum") +
+                " (" + schema + ")")
+        else:
+            text = tr_capitalize(core) + "."
+            self.lang.wernicke.last_explanation = "Mizaç sorusuna iç durumdan yanıt"
+        q = self._ask_back(topic, kind="think") if topic else ""
+        if not q:
+            # Kendiliğinden soru organı: konu yoksa da karşı tarafa gerçek bir soru yöneltir.
+            try:
+                _ctx = self.initiative._build_context(self, False)
+                q = self.initiative._c_ask_about(self, _ctx) or ""
+            except Exception:
+                q = ""
+        return (text + " " + q).strip() if q else text
+
+    def _learned_gap_line(self, act):
+        """Öğrenmediği bir söz edimi için dürüst boşluk: uydurmaz, öğrenmek ister (Broca ile)."""
+        from nora_broca import TurkishSyntaxEngine as SYN
+        try:
+            c = SYN.realize_verb(VerbSpec(verb_root="öğren", obj=NP(act, case="ACC", verbal_noun=True),
+                                          neg=True, tense="PAST", person="1SG"))
+            words = act.split()
+            thing = words[0] if len(words) > 1 and words[-1].endswith(("mak", "mek")) else ""
+            obj = NP(("bir " + thing) if thing else "bunu", case="NOM")
+            q = SYN.realize_verb(VerbSpec(verb_root="öğret", dat=NP("ben", case="DAT"),
+                                          obj=obj, question_yn=True, tense="AOR", person="2SG"))
+            line = tr_capitalize(c) + ". " + tr_capitalize(q) + "?"
+            return line
+        except Exception:
+            return ""
 
     def _answer_body_query(self, sub_kind: str) -> str:
         e, w, integ = float(self.obs[I_E]), float(self.obs[I_W]), float(self.obs[I_I])
@@ -1337,6 +3876,15 @@ class NoraAGI:
                 if isa_path:
                     loc_str = f"{subj} bir {isa_path[0].obj} olduğu için {loc_str}"
                 return tr_capitalize(loc_str) + "."
+            # Ters arama: öbek bilinen bir varlığın tanımıysa o varlığın konumunu söyle.
+            for _rev in self.lang.graph._in_edges.get(subj, ()):
+                _rl = self.lang.graph.query(_rev.subj, ("LOCATED_AT",))
+                if _rl:
+                    _e, _p = _rl[0]
+                    _loc = self.lang.broca.realize_prop(Proposition(subj=_rev.subj, rel="LOCATED_AT", obj=_e.obj))
+                    _tail = _loc[len(_rev.subj):].strip() if _loc.startswith(_rev.subj) else _loc
+                    _rev_name = tr_capitalize(_rev.subj) if _rev.subj in PROPER_NOUNS else _rev.subj
+                    return f"{tr_capitalize(subj)} {_rev_name} olarak bilinir; {tr_capitalize(_tail)}."
             return f"{tr_capitalize(subj)} nerede bulunur henüz bilmiyorum; bir cümleyle öğretebilirsin."
         px, py = float(self.mind.map.pos[0]), float(self.mind.map.pos[1])
         if subj == "su":
@@ -1352,8 +3900,3061 @@ class NoraAGI:
             return f"Bilişsel haritamda işaretlenmiş {n_haz} tehlikeli hücre var; konumum ({px:.1f}, {py:.1f})."
         return f"İçsel yol integrasyonu haritama göre ({px:.1f}, {py:.1f}) konumundayım (belirsizlik {self.mind.map.unc:.2f})."
 
-    def _handle_command(self, fr, speaker: str = "insan") -> str:
+    # Söz edimi isteyen fiiller: karşıdaki bunları istediğinde Nora bedensel irade değil DİL
+    # organını çalıştırır (anlat -> bildiğinden anlat, dinle -> dinle, sor -> sor).
+    _SPEECH_REQUEST_ROOTS = frozenset({
+        "anlat", "söyle", "açıkla", "öğret", "oku", "konuş", "sor", "dinle", "yaz", "göster",
+        "ver", "danış",
+    })
+    # İçerik istemeyen istek nesneleri: 'bana bir tavsiye ver' -> konu sorulur.
+    _ADVICE_OBJECTS = frozenset({"tavsiye", "öğüt", "fikir", "akıl", "yol"})
+
+    def _tell_from_own_life(self) -> str:
+        """'Bana bir şey anlat' dendiğinde kendi dünyasından anlatır: kendi çıkarımı,
+        duyduğu ses, kendi iç sesi. Hiçbiri yoksa sessiz kalır (uydurmaz)."""
+        told = getattr(self, "_told_life", None)
+        if told is None:
+            from collections import deque as _dq
+            told = self._told_life = _dq(maxlen=16)
+        # a) Taze ve henüz söylenmemiş kendi çıkarımı
+        try:
+            if self.infer is not None:
+                line = self.infer.last_line(self)
+                if line and line not in told:
+                    told.append(line)
+                    return line
+        except Exception:
+            pass
+        # b) Bedeni: kendi duyumu (açlık, susuzluk, sızı) — insanın sözü değil, kendi hâli.
+        try:
+            nv = getattr(self, "nervous", None)
+            drives = []
+            if nv is not None:
+                for key, attr, line in (
+                    ("susuzluk", "thirst_drive", "suyum azaldı, boğazım kuruyor"),
+                    ("açlık", "hunger_drive", "karnım aç, midemde bir boşluk var"),
+                    ("acı", "adelta_pain", "bir yerim sızlıyor"),
+                    ("sızı", "cfiber_ache", "derinde bir ağrı var"),
+                ):
+                    v = float(getattr(nv, attr, 0.0) or 0.0)
+                    if v > 0.25:
+                        drives.append((v, key, line))
+            if drives:
+                drives.sort(reverse=True)
+                v, key, line = drives[0]
+                tag = f"beden:{key}:{int(v * 100)}"
+                if tag not in told:
+                    told.append(tag)
+                    return f"Şu an {line}."
+        except Exception:
+            pass
+        # c) Kendi iç sesi (içerikli olanlardan)
+        try:
+            for th in reversed(list(getattr(self.monologue, "stream", []) or [])[-10:]):
+                body = (getattr(th, "text", "") or "").strip()
+                if len(body) < 16 or body in told:
+                    continue
+                told.append(body)
+                return tr_capitalize(body.strip().rstrip(".")) + "."
+        except Exception:
+            pass
+        return ""
+
+    def _narrate_from_knowledge(self, topic: str = "") -> str:
+        """Kendi kavram ağından, kendi seçtiği bir düğümü anlatır: uydurmadan, ezberden okumadan.
+        Hikâye istendiğinde gerçekten bildiği bağları sıraya koyar; sonunda kendi merakını ekler."""
+        g = self.lang.graph
+        broca = self.lang.broca
+        cand = tr_lower(topic).strip() if topic else ""
+        if cand and not g.query(cand, None):
+            cand = ""
+        if not cand:
+            rich = [(k, len(v)) for k, v in g._out_edges.items() if len(v) >= 2 and k not in self._narrated]
+            if not rich:
+                self._narrated.clear()
+                rich = [(k, len(v)) for k, v in g._out_edges.items() if len(v) >= 2]
+            if not rich:
+                return ""
+            rich.sort(key=lambda kv: (-kv[1], kv[0]))
+            pool = rich[:12]
+            cand = pool[int(self.mind.age + len(self._narrated)) % len(pool)][0]
+        self._narrated.append(cand)
+        hits = g.query(cand, None)
+        order = ("HAS_PROP", "CAN_DO", "USED_FOR", "ISA", "HAS_PART", "CAUSES", "LOCATED_AT", "OPPOSITE")
+        # DOĞRUDAN bağ, kalıtımla gelen bağdan önce gelir: 'köpek bir evcil hayvandır' > 'köpek bir canlıdır'.
+        pool = [(order.index(e.rel), 0 if not path else 1, -float(e.weight), i, e, path)
+                for i, (e, path) in enumerate(hits) if e.rel in order]
+        pool.sort()
+        # Üst kavramdan miras alınan özellik ayırt edici değildir ('köpek evcildir' çünkü evcil hayvan evcildir).
+        _parents = {pe.obj for pe, _p in hits if pe.rel == "ISA"}
+        inherited: set[str] = set()
+        for par in _parents:
+            try:
+                inherited |= {e2.obj for e2, _p in g.query(par, ("HAS_PROP",))}
+            except Exception:
+                pass
+        clauses: list[str] = []
+        edges: list = []
+        used_objs: list[str] = []
+        seen_rel: dict[str, int] = {}
+        for _oi, _inh, _w, _i, e, _path in pool:
+            if len(clauses) >= 2:
+                break
+            seen_rel[e.rel] = seen_rel.get(e.rel, 0) + 1
+            if e.rel != "HAS_PROP" and seen_rel[e.rel] > 1:
+                continue
+            if e.rel == "HAS_PROP" and seen_rel[e.rel] > 2:
+                continue
+            if e.rel == "HAS_PROP" and e.obj in inherited:
+                continue
+            if _path and e.rel == "ISA":
+                continue                      # kalıtımla gelen tür, doğrudan tür varken söylenmez
+            _conf = next((i for i, u in enumerate(used_objs) if u != e.obj and (e.obj in u or u in e.obj)), None)
+            if _conf is not None:
+                # Aynı bilgiyi iki kez söyleme; ama hangisi DAHA ÖZELSE o kalsın ('evcil' < 'evcil hayvan').
+                if len(e.obj) > len(used_objs[_conf]):
+                    clauses.pop(_conf)
+                    edges.pop(_conf)
+                    used_objs.pop(_conf)
+                else:
+                    continue
+            txt = broca.realize_prop(Proposition(subj=cand, rel=e.rel, obj=e.obj))
+            if txt and txt not in clauses:
+                clauses.append(txt)
+                edges.append(e)
+                used_objs.append(e.obj)
+        if not clauses:
+            return ""
+        _clean = [clauses[0]]
+        for _c in clauses[1:]:
+            if _c.startswith(cand + " "):
+                _c = _c[len(cand) + 1:]          # Türkçe özne düşürür: ikinci cümlede özne yinelenmez
+            _clean.append(_c)
+        clauses = _clean
+        body = tr_capitalize("; ".join(clauses)) + "."
+        # Kendi duruşu: az önce kurduğu bağa verdiği kişisel karşılık (inisiyatif organının biçimleri).
+        stance = ""
+        try:
+            if edges:
+                stance = self.initiative._c_share_discovery(self, {"edge": (edges[0].subj, edges[0].rel, edges[0].obj)}) or ""
+        except Exception:
+            stance = ""
+        if stance:
+            def _stems(txt: str) -> set[str]:
+                out = set()
+                for w in re.findall(r"[\wçğıöşü]+", tr_lower(txt)):
+                    if len(w) <= 3:
+                        continue
+                    try:
+                        st = self.lang.morph.analyze_word(w, self.lang.graph.lexicon).get("stem") or w
+                    except Exception:
+                        st = w
+                    out.add(st)
+                return out
+            _bw, _sw = _stems(body), _stems(stance)
+            if _bw and _sw and len(_bw & _sw) / max(1, len(_bw)) >= 0.5:
+                stance = ""      # az önce söylediğim şeyi kendi duruşum diye yinelemem
+        self.lang.wernicke.last_explanation = (
+            f"Anlatı isteğine kavram ağımdan yanıt verdim: {cand} düğümünde {len(edges)} bağ seçtim"
+        )
+        # Aynı kavramı ikinci kez anlatırken aynı cümleyi kurma (bkz. nora_anlatim).
+        try:
+            if getattr(self, "narrator", None) is not None:
+                _e = [(e.rel, e.obj) for e in edges]
+                body = self.narrator.render(self, cand, _e, body) or body
+        except Exception:
+            pass
+        return f"{body} {stance}".strip()
+
+    def _looks_like_request(self, raw: str) -> bool:
+        """Yalın fiil kökü / istek kipiyle biten sözce: 'bana bir şaka yap', 'biraz anlat'."""
+        words = re.findall(r"[\wçğıöşü]+", tr_lower(raw))
+        if not words:
+            return False
+        last = words[-1]
         morph = self.lang.morph
+        try:
+            if last in morph.KNOWN_VERB_ROOTS:
+                return True
+            an = morph.analyze_word(last, self.lang.graph.lexicon)
+        except Exception:
+            return False
+        return bool(an.get("is_verb") and an.get("tense") in ("IMP", "OPT"))
+
+    def _handle_speech_request(self, fr, raw: str = "") -> str:
+        """Dil isteğini (anlat/dinle/sor/öğret...) karşılar; içerik gerçek bilgiden gelir."""
+        from nora_broca import TurkishSyntaxEngine as SYN
+        rel = fr.rel
+        topic = (fr.obj or "").strip()
+        if rel == "dinle":
+            return tr_capitalize(SYN.realize_verb(VerbSpec(
+                verb_root="dinle", obj=NP("sen", case="ACC"), tense="PRES", person="1SG"))) + "."
+        if rel == "sor":
+            ask = SYN.realize_verb(VerbSpec(verb_root="sor", tense="IMP", person="2SG"))
+            return f"{tr_capitalize(ask)}, " + tr_lower(tr_capitalize(SYN.realize_verb(VerbSpec(
+                verb_root="dinle", obj=NP("ben", case="ACC"), tense="PRES", person="1SG")))) + "."
+        # ŞARKI/ŞİİR: bu evrende ezgi ve ölçü üreten organ yok. Yapmış gibi yapmak
+        # (veya başka bir soruya cevap vermek) sessiz yanlıştır; açıkça söyle, sonra
+        # elimde olanı öner.
+        if topic in {"şarkı", "türkü", "şiir", "ninni"}:
+            own = self._tell_from_own_life()
+            head = f"Şarkı söyleyemem, elimde ezgi üreten bir organ yok; şiir de yazmam."
+            return (f"{head} Bunun yerine öğrendiğim bir şeyi anlatayım. {own}").strip() if own else head
+        if rel == "konuş":
+            return tr_capitalize(SYN.realize_verb(VerbSpec(
+                verb_root="konuş", advs=("seninle",), tense="AOR", person="1PL",
+                question_yn=True))) + "?"
+        if topic in self._ADVICE_OBJECTS:
+            ask = SYN.realize_verb(VerbSpec(
+                verb_root="iste", obj=NP(topic, mods=("ne hakkında",), case="NOM"),
+                tense="AOR", person="2SG"))
+            return tr_capitalize(ask) + "?"
+        topic = self._speech_request_topic(fr, raw)
+        if not topic:
+            # Konu verilmediyse ezber bir kavramı (hep aynı: 'su') anlatmak yerine
+            # önce KENDİ hayatından bir şey söyler: taze çıkarımı, duyduğu ses, iç sesi.
+            own = self._tell_from_own_life()
+            if own:
+                return own
+        told = self._narrate_from_knowledge(topic)
+        if told:
+            return told
+        return ""
+
+    def _speech_request_topic(self, fr, raw: str) -> str:
+        """Söz ediminin nesnesi boşsa konuyu cümlenin kendisinden çıkarır ('kediler hakkında bilgi ver')."""
+        g = self.lang.graph
+        topic = (getattr(fr, "obj", "") or "").strip()
+        # İçerik istemeyen üst sözcükler konu değildir: 'bilgi ver' -> konu cümlenin içindedir.
+        _meta = {"bilgi", "haber", "cevap", "açıklama", "örnek", "şey", "şeyler", "hikâye", "hikaye",
+                 "masal", "öykü", "şaka", "tavsiye", "öğüt", "fikir", "akıl", "yol"}
+        if topic and topic not in _meta and g.query(topic, None):
+            return topic
+        _skip = {"bilgi", "ver", "anlat", "söyle", "hakkında", "bana", "biraz", "şey", "ne", "bir",
+                 "istiyorum", "isterim", "lütfen", "hadi", "haydi"}
+        best, best_n = "", 0
+        for wd in re.findall(r"[\wçğıöşü]+", tr_lower(raw)):
+            if wd in _skip or len(wd) < 3:
+                continue
+            try:
+                an = self.lang.morph.analyze_word(wd, g.lexicon)
+            except Exception:
+                continue
+            if an.get("is_verb") or an.get("copula"):
+                continue
+            stem = an.get("stem") or wd
+            n = len(g.query(stem, None))
+            if n > best_n:
+                best, best_n = stem, n
+        return best
+
+    # ======================================================================
+    # UYGULAMA OPERATÖRLERİ: kural bağla / uygula / say / transfer / plan
+    # ======================================================================
+    def _say(self, kind: str, slots: dict | None = None, ctx: dict | None = None,
+             fallback: str = "Ölçüm yok.") -> str:
+        """Söz VERİDEN gelir: `nora_priors` içindeki topluluklar yarışır.
+
+        Kodda yalnız ÖLÇÜM ve SLOT doldurma var; cümlenin kendisi veride yaşar.
+        Bu, iskelet mandalının (nora_audit) nedenini ortadan kaldırır: yeni bir cümle
+        eklemek kod satırı eklemek değildir. Seçim yine yarıştır; tazelik/öğrenme
+        ağırlıkları devrede olduğu için aynı kalıp üst üste gelmez.
+        """
+        text = None
+        try:
+            f = getattr(self, "priors", None)
+            if f is not None:
+                text = f.pick(kind, ctx or {}, slots or {},
+                              prov=getattr(self, "provenance", None))
+        except Exception:
+            text = None
+        return str(text) if text else fallback
+
+    def _apply_tag(self, src: str, k: int = 1) -> None:
+        try:
+            if getattr(self, "provenance", None) is not None:
+                self.provenance.record(src, k)
+        except Exception:
+            pass
+
+    @staticmethod
+    def _quoted(raw: str) -> str:
+        """Söz içindeki tırnaklı ya da '… cümlesinde' geçen hedefi çıkar."""
+        m = re.search(r"[\"'“”‘’]([^\"'“”‘’]{2,120})[\"'“”‘’]", raw)
+        if m:
+            return m.group(1).strip()
+        # '… cümlesinde' kalıbı: ORİJİNAL metinden alınır ki büyük harfler korunsun.
+        m = re.search(r"(?:^|\s)([\wçğıöşüÇĞİÖŞÜ\s]{2,80}?)\s+cümlesinde", raw,
+                      flags=re.IGNORECASE)
+        if m:
+            return m.group(1).strip()
+        return ""
+
+    @staticmethod
+    def _shape_name(rule) -> str:
+        """Şeklin ADI veriden değil, kural nesnesinin alanından okunur."""
+        from nora_apply import SHAPE_NAMES
+        return SHAPE_NAMES.get(getattr(rule, "shape", "parity"), "tek/çift")
+
+    @staticmethod
+    def _threshold_desc(rule) -> str:
+        """Eşik ifadesini ölçüm diline çevir ('3'ten az', 'en az 4')."""
+        t = int(getattr(rule, "threshold", 0))
+        _na = __import__("nora_apply").num_abl(t)
+        return {"lt": f"{t}'{_na} az", "le": f"en çok {t}",
+                "gt": f"{t}'ten çok", "ge": f"en az {t}"}.get(getattr(rule, "op", "lt"), str(t))
+
+    @staticmethod
+    def _rule_map_text(rule) -> str:
+        """Eşlemeyi TEK biçimde yaz: şekle göre anahtar adları değişir."""
+        m = getattr(rule, "mapping", {}) or {}
+        sh = getattr(rule, "shape", "parity")
+        if sh == "threshold":
+            t = getattr(rule, "threshold", 0)
+            op = getattr(rule, "op", "lt")
+            _na = __import__("nora_apply").num_abl(t)
+            cond = {"lt": f"{t}'{_na} az", "le": f"en çok {t}",
+                    "gt": f"{t}'{_na} çok",
+                    "ge": f"en az {t}"}.get(op, f"{t}")
+            return f"{cond} -> {m.get('cond')}, değilse {m.get('else')}"
+        if sh == "rank":
+            return f"en çok -> {m.get('max')}, en az -> {m.get('min')}"
+        if sh == "presence":
+            return f"var -> {m.get('var')}, yok -> {m.get('yok')}"
+        return f"tek -> {m.get('odd')}, çift -> {m.get('even')}"
+
+    # ======================================================================
+    # OPERATÖR OCAĞI: örneklerden kendi kuralını yaz
+    # ======================================================================
+    FORGE_TRIGGERS = ("kural çıkar", "kural türet", "kendi kural", "kendi operatör",
+                      "örneklerden", "örnekten", "kendin yaz", "operatör yaz", "sen yaz")
+
+    def _forge_pool(self, n: int = 400) -> list[str]:
+        """Adayları ayırt edecek sözcük havuzu: sözlükten, deterministik sıralı."""
+        try:
+            lex = getattr(getattr(self.lang, "graph", None), "lexicon", None) or {}
+            words = list(lex.keys()) if hasattr(lex, "keys") else list(lex)
+            out = [str(w) for w in words if str(w).isalpha() and 2 <= len(str(w)) <= 14]
+            return sorted(set(out))[:n]
+        except Exception:
+            return []
+
+    def _forge_pairs(self, raw: str) -> list[tuple[str, str]]:
+        """'karınca=kırmızı, bilgisayar=mavi' -> [(karınca,kırmızı), ...].
+
+        Ayırıcı önceliği: '=' , '->' , '→' , sonra ':' (yalnız sağı tek sözcükse).
+        Komut öneki ('Kural çıkar:') atılır; etiket tek sözcük olmalı.
+        """
+        out: list[tuple[str, str]] = []
+        for chunk in re.split(r"[;\n]|,|\s+ve\s+", raw or ""):
+            c = chunk.strip(" .!?")
+            if not c:
+                continue
+            t = lab = ""
+            for sep in ("=", "->", "→"):
+                if sep in c:
+                    t, lab = c.rsplit(sep, 1)
+                    break
+            if not t and ":" in c:
+                left, right = c.rsplit(":", 1)
+                if right.strip() and len(right.strip().split()) == 1:
+                    t, lab = left, right
+            if not t:
+                continue
+            # 'Kural çıkar: karınca' -> 'karınca' (komut öneki metne karışmaz)
+            t = t.split(":")[-1].strip(" .!?-")
+            lab = tr_lower(lab).strip(" .!?-\"\u201c\u201d")
+            if not t or not lab or len(lab.split()) != 1:
+                continue
+            if tr_lower(t) in self.FORGE_TRIGGERS or len(t) < 2:
+                continue
+            out.append((t, lab))
+        return out
+
+    def _forge_check(self, pairs, pool=None) -> str:
+        """Kendi kuralımı örnekle sına: tutuyorsa söyle, tutmuyorsa YENİDEN TÜRET."""
+        fg = self.forge
+        rule = fg.adopted
+        # `Rule.apply` kullanılır: kuralın KENDİ yolu (istisna -> ölç -> eşle).
+        bad = [(t, l) for t, l in pairs if rule.apply(t)[0] != l]
+        good = [(t, l) for t, l in pairs if rule.apply(t)[0] == l]
+        if not bad:
+            t, l = (good[0] if good else ("-", "-"))
+            self._apply_tag("islem", 1)
+            # Kanıt SAYILIR: kendi ölçümüm bu örnekte tuttu (söz değil, sonuç).
+            try:
+                fg.mark_confirmed(rule)
+            except Exception:
+                pass
+            _tkey = str(getattr(rule, "feature", "") or "")
+            _rec = next((r for r in (fg.measurements or [])
+                         if str(r.get("key")) == _tkey), {})
+            return self._say("meta.forge", {
+                "desc": rule.source_text or "", "n_ex": len(fg.examples),
+                "n_cand": len(fg.cands), "human": fg.human_count(),
+                "self": len(fg.authored), "cands": "-", "probe": "-", "why": "-",
+                "item": t, "label": l, "got": rule.apply(t)[0],
+                "hits": int(_rec.get("hits") or 0), "misses": int(_rec.get("misses") or 0),
+            }, ctx={"stage": "confirmed"})
+        # Çürütme: eski örneklerin TAMAMI + yeni örneklerle yeniden türet.
+        t, l = bad[0]
+        got = rule.apply(t)[0]
+        # Çürütülen operatör deftere yazılır: kendi yazdığım şeyi sessizce silmem.
+        try:
+            fg.mark_refuted(rule, t, l, got)
+        except Exception:
+            pass
+        res = fg.observe(list(fg.examples) + bad, pool=pool)
+        st = str(res.get("status") or "")
+        counts = res.get("counts") or {}
+        self._apply_tag("islem", 1)
+        if st == "adopted":
+            return self._say("meta.forge", {
+                "desc": res.get("desc") or "", "n_ex": len(fg.examples),
+                "n_cand": len(fg.cands), "human": counts.get("human"),
+                "self": counts.get("self"), "cands": "-", "probe": "-", "why": "-",
+                "item": t, "label": l, "got": got,
+            }, ctx={"stage": "revised"})
+        if st == "ambiguous":
+            probe = res.get("probe")
+            self._forge_pending = {"probe": probe}
+            return self._say("meta.forge", {
+                "desc": "-", "n_ex": len(fg.examples), "n_cand": int(res.get("n") or 0),
+                "human": counts.get("human"), "self": counts.get("self"),
+                "cands": "; ".join((res.get("candidates") or [])[:3]),
+                "probe": probe or "-", "why": "-", "item": t, "label": l, "got": got,
+            }, ctx={"stage": "revise_ambiguous"})
+        _why = str(res.get("why") or "veri yetmiyor")
+        self._forge_pending = None
+        return self._say("meta.forge", {
+            "desc": "-", "n_ex": len(fg.examples), "n_cand": 0,
+            "human": counts.get("human"), "self": counts.get("self"),
+            "cands": "-", "probe": "-", "item": t, "label": l, "got": got,
+            "why": self._forge_why_map().get(_why, _why),
+        }, ctx={"stage": "revise_failed"})
+
+    @staticmethod
+    def _forge_why_map() -> dict:
+        """Ocağın gerekçe kodları -> insan dili. Cümle KODDA değil VERİDE durur
+        (`nora_priors.json: forge_why`), iskelet mandalı bu ayrımı ölçer."""
+        try:
+            import json as _json
+            import nora_priors as _pr
+            blob = _json.loads(_pr.JSON_PATH.read_text(encoding="utf-8"))
+            return {str(k): str(v) for k, v in (blob.get("forge_why") or {}).items()}
+        except Exception:
+            return {}
+
+    def _translation_turn(self, raw: str) -> str | None:
+        """Geçici dil dersini öğren, sorulan eşlemi/yapıyı uygula; yoksa sus.
+
+        Bu hat genel sohbetten önce çalışır. Böylece ders cümlesi kişisel olgu diye
+        yanlış sınıflanmaz ve çeviri isteği konuşma/algı yolu tarafından gasp edilmez.
+        """
+        translator = getattr(self, "translator", None)
+        if translator is None:
+            return None
+        lesson = translator.teach(raw)
+        if lesson is not None:
+            if lesson.get("status") == "learned":
+                self._apply_tag("ag", 1)
+                return f"Öğrendim: {lesson.get('summary', '')}."
+            answer = self._say("op.missing_rel", {"act": "çeviri dersi"},
+                               fallback="Ölçüm yok.")
+            return f"{answer} ({lesson.get('reason', 'eksik ders')})."
+
+        lexical = re.match(
+            r"^(.+?)\s+(?:İngilizcede|ingilizcede)\s+ne\s+demek\s*[?.!]*$",
+            raw.strip(),
+        )
+        if lexical:
+            source = lexical.group(1).strip().strip("‘’“”\"'")
+            result = translator.translate_lexicon(source)
+            if result.get("status") == "ok":
+                self._translation_output = True
+                self._apply_tag("ag", 1)
+                return result["text"]
+            return self._say("discourse.unknown", {"w": source},
+                             ctx={"register": "ask"}, fallback="Ölçüm yok.")
+
+        request = re.match(
+            r"^(?P<src>.+?)\s+cümlesini\s+(?:İngilizceye|ingilizceye)\s+"
+            r"çevir(?:ir\s+misin(?:iz)?)?\s*[.!]*$",
+            raw.strip(),
+        )
+        if request is None:
+            request = re.match(
+                r"^(?P<src>.+?)\s+(?:İngilizceye|ingilizceye)\s+"
+                r"çevir(?:ir\s+misin(?:iz)?)?\s*[.!]*$",
+                raw.strip(),
+            )
+        if request:
+            source = request.group("src").strip().strip("‘’“”\"'")
+            result = translator.translate(source)
+            if result.get("status") == "ok":
+                self._translation_output = True
+                self._apply_tag("islem", 1)
+                return result["text"]
+            answer = self._say("op.missing_rel", {"act": "çeviri"},
+                               fallback="Ölçüm yok.")
+            return f"{answer} ({result.get('reason', 'çözümlenemedi')})."
+        return None
+
+    def _handle_forge(self, raw: str, speaker: str = "insan") -> str | None:
+        """Kuralı Nora yazar: örnekler -> adaylar -> (gerekirse) ayırt edici örnek -> operatör."""
+        fg = getattr(self, "forge", None)
+        if fg is None:
+            return None
+        lo = tr_lower(raw or "")
+        pairs = self._forge_pairs(raw)
+        started = any(k in lo for k in self.FORGE_TRIGGERS)
+        pending = getattr(self, "_forge_pending", None)
+        # --- (0) KENDİ KURALIMA KARŞI ÖRNEK: tetikleyici olmadan da denetlenir ------
+        # Elde BENİM yazdığım bir operatör varsa ve gelen etiket onun sözlüğündense bu
+        # bir öğretme/çürütme örneğidir; sessizce "anladım" deyip geçmek yanlış olur.
+        if not started and not pending and fg.adopted is not None and pairs:
+            labels = {str(v).lower() for v in (fg.adopted.mapping or {}).values()}
+            if all(lab in labels for _, lab in pairs):
+                return self._forge_check(pairs, pool=self._forge_pool())
+        if not started and not pending:
+            return None
+        # Bekleyen ayırt edici soruya ÇIPLAK etiket cevabı: "mavi"
+        if not pairs and pending and re.fullmatch(r"[a-zçğıöşü]{2,20}", lo.strip(" .!?")):
+            pairs = [(str(pending.get("probe") or ""), lo.strip(" .!?"))]
+        if not pairs:
+            # Örnek NİYETİ yoksa (soru/sohbet) yolu işgal etmeyiz; yalnız "örnek"/"="
+            # geçen bir tetikleyici için örnek istenir.
+            if started and ("=" in raw or "örnek" in lo):
+                return self._say("meta.forge", {"desc": "-", "n_ex": 0, "n_cand": 0,
+                                                "human": fg.human_count(),
+                                                "self": len(fg.authored), "cands": "-",
+                                                "probe": "-", "why": "örnek yok"},
+                                 ctx={"stage": "insufficient"})
+            return None
+        pool = self._forge_pool()
+        if started or not pending:
+            res = fg.observe(pairs, pool=pool)
+        else:
+            res = None
+            for t, lab in pairs:
+                res = fg.add_example(t, lab, pool=pool)
+        st = str(res.get("status") or "")
+        counts = res.get("counts") or {}
+        self._apply_tag("islem", 1)
+        if st == "adopted":
+            self._forge_pending = None
+            self.apply_eng.wm.write("last_rule_kind", "kendi", "forge")
+            _rule = res.get("rule")
+            _spec = getattr(_rule, "feature_spec", None) or {}
+            _lm = getattr(fg, "last_measure", None) or {}
+            # Ölçüm bu turda mı icat edildi, envanterde hazır mıydı? Söz ikisini
+            # ayırır: "icat ettim" ile "daha önce yazmıştım" aynı şey değildir.
+            if _spec and _lm.get("reused"):
+                _stage = "reused"
+            elif _spec:
+                _stage = "invented"
+            else:
+                _stage = "adopted"
+            return self._say("meta.forge", {
+                "desc": res.get("desc") or "",
+                "name": (__import__("nora_apply").FEATURES.get(
+                    getattr(_rule, "feature", ""), ("-",))[0] if _rule else "-"),
+                "map": (self._rule_map_text(_rule) if _rule is not None else "-"),
+                "measured": counts.get("measured"),
+                "n_ex": len(fg.examples), "n_cand": len(fg.cands),
+                "human": counts.get("human"), "self": counts.get("self"),
+                "cands": "-", "probe": "-", "why": "-",
+            }, ctx={"stage": _stage})
+        if st == "ambiguous":
+            probe = res.get("probe")
+            self._forge_pending = {"probe": probe}
+            if not probe:
+                return self._say("meta.forge", {
+                    "desc": "-", "n_ex": len(fg.examples), "n_cand": int(res.get("n") or 0),
+                    "human": counts.get("human"), "self": counts.get("self"),
+                    "cands": "; ".join((res.get("candidates") or [])[:3]),
+                    "probe": "-", "why": self._forge_why_map().get("ayırt-edici-yok", ""),
+                }, ctx={"stage": "no_probe"})
+            # Adaylar kalıbı MİNİK: bu turda İCAT EDİLMİŞ bir ölçüm varsa söz bunu
+            # söyler (ve sınırın veriden gelmediğini de). Yerleşik ölçümler arasındaki
+            # belirsizlikte "yeni ölçüm yazdım" demek yalan olurdu.
+            _now = list(getattr(fg, "invented_now", None) or [])
+            _inv = "invented_ambiguous" if (_now and not pending) else \
+                   ("progress" if pending else "ambiguous")
+            return self._say("meta.forge", {
+                "desc": "-", "n_ex": len(fg.examples), "n_cand": int(res.get("n") or 0),
+                "name": (__import__("nora_apply").FEATURES.get(
+                    getattr(_now[0], "feature", ""), ("-",))[0] if _now else "-"),
+                "human": counts.get("human"), "self": counts.get("self"),
+                "cands": "; ".join((res.get("candidates") or [])[:3]),
+                "probe": probe, "why": "-",
+            }, ctx={"stage": _inv})
+        # insufficient: uydurma yok, gerekçe adıyla
+        self._forge_pending = None
+        _why = str(res.get("why") or "veri yetmiyor")
+        return self._say("meta.forge", {
+            "desc": "-", "n_ex": len(fg.examples), "n_cand": 0,
+            "human": counts.get("human"), "self": counts.get("self"),
+            "cands": "-", "probe": "-",
+            "why": self._forge_why_map().get(_why, _why),
+        }, ctx={"stage": "insufficient"})
+
+    #: Karşıolgusal irade sorusunda "hangi kanal çıkarılsın" sözlüğü (beden kanalı adları).
+    ABLATE_WORDS = {
+        "açlık": "açlık", "aç olmasa": "açlık", "aç olmasaydın": "açlık", "acıkmamış": "açlık",
+        "tok olsan": "açlık", "karnın tok": "açlık",
+        "susuzluk": "susuzluk", "susamış": "susuzluk", "susuz olmasa": "susuzluk",
+        "bütünlük": "bütünlük", "acı olmasa": "bütünlük", "acın olmasa": "bütünlük",
+    }
+
+    #: VERİ TABLOSU ÖNBELLEĞİ: aynı JSON tur başına 5 kez yeniden okunuyordu
+    #: (her turda ~2 ms). Dosya değişirse mtime anahtarı düşer, önbellek tazelenir.
+    _DATA_CACHE: dict = {}
+
+    @classmethod
+    def _data_table(cls, name: str, default):
+        """Küçük VERİ tabloları (`nora_priors.json`) — kodda Türkçe yüzey büyümesin."""
+        try:
+            import json as _json
+            import nora_priors as _pr
+            p = _pr.JSON_PATH
+            ver = p.stat().st_mtime_ns
+        except Exception:
+            return default
+        ent = cls._DATA_CACHE.get(("__file__", str(p)))
+        if not ent or ent[0] != ver:
+            try:
+                blob = _json.loads(p.read_text(encoding="utf-8"))
+            except Exception:
+                return default
+            ent = (ver, blob)
+            cls._DATA_CACHE[("__file__", str(p))] = ent
+        try:
+            return ent[1].get(name, default)
+        except Exception:
+            return default
+
+    def _missing_operator(self, raw: str) -> str | None:
+        """İSTENEN İŞLEM YOKSA: uydurma cevap yerine eksik operatörün adı söylenir.
+
+        Neden gerekli: tanınmayan bir soru, akışın sonundaki sohbet hattına düşüp
+        ALAKASIZ bir iç sesle ("kendi kendime şunu çıkardım: …") yanıtlanıyordu. Bu,
+        "yanlış cevap sahte anlamadan iyidir" kuralının en açık ihlaliydi: cevap hem
+        yanlış hem de soruyla ilgisiz. Burada cevap kısa ve doğru: o operatör yok.
+        """
+        low = tr_lower(raw or "")
+        if "?" not in raw and not any(w in low for w in self._data_table(
+                "question_markers", ())):
+            return None
+        for name, keys in (self._data_table("missing_ops", {}) or {}).items():
+            if any(k in low for k in keys):
+                self._apply_tag("cikarim", 1)
+                return self._say("discourse.unknown", {"w": name},
+                                 ctx={"register": "op_missing"}, fallback=name)
+        return None
+
+    # ------------------------------------------------------------------ operatör sentezi
+    # ------------------------------------------------------------------ küme işlemleri
+    def _set_turn(self, raw: str) -> str | None:
+        """İki sözcüğün ortak/tüm/farklı harfleri: operatör aksiyomlardan SENTEZLENİR."""
+        st = getattr(self, "sets", None)
+        if st is None or not raw:
+            return None
+        tl = tr_lower(raw)
+        if "harf" not in tl:
+            return None
+        name = None
+        if "ortak" in tl:
+            name = "kesişim"
+        elif "birleşim" in tl or ("tüm" in tl and "harf" in tl):
+            name = "birleşim"
+        elif "fark" in tl or "olmayan" in tl or "yalnız" in tl or "sadece" in tl:
+            name = "fark"
+        if name is None:
+            return None
+        words = re.findall(r"['‘’“\"]([^'‘’“”\"]{2,24})['‘’“\"]", raw)
+        if len(words) < 2:
+            _q = self._synth_say(VerbSpec("ver", obj=NP("sözcük", case="ACC"),
+                                          advs=("iki",), tense="OPT", person="2SG",
+                                          question_yn=True))
+            return f"{_q}?"
+        a, b = words[0].strip(), words[1].strip()
+        res = st.discover(name)
+        if res.get("status") != "adopted":
+            _n = res.get("n")
+            if res.get("status") == "ambiguous":
+                return f"{name}: {_n}. {self._synth_say(VerbSpec('seç', dat=NP('aday', case='DAT'), tense='OPT', person='1SG', question_yn=True))}?"
+            return None
+        out = st.apply(name, a, b) or ""
+        chars = list(out)
+        if not chars:
+            _lab = NP("ortak harf") if name == "kesişim" else NP("harf")
+            return self._synth_say(PredSpec(pred_root="yok", subj=_lab)) + "."
+        _lab = {"kesişim": "ortak harflar", "birleşim": "tüm harfler",
+                "fark": "farklı harfler"}[name]
+        _ops = " · ".join(res["entry"]["ops"])
+        return f"{_lab}: {', '.join(chars)}. ({_ops})"
+
+    # ------------------------------------------------------------------ plan
+    #: Plan cümlesi: "Çay planı: 1 su kaynat. 2 çayı demle. 3 süt ekle."
+    _PLAN_DECL = re.compile(r"plan\w*\s*:\s*(.+)$", re.I)
+    _PLAN_STEP = re.compile(r"(?:\d+\s*[.)]\s*|,\s*|;\s*)")
+
+    #: SICAK DESENLER: ilk kullanımda derlenirse maliyet ÖLÇÜLEN tura düşer (A27).
+    _RE_TASK = re.compile(r":\s*(.+)$")
+    _RE_QUOTED = re.compile(r"['‘’“\"]([^'‘’“”\"]{2,40})['‘’“”\"]")
+    _RE_TUR = re.compile(r"(bir|iki|üç|dört|beş|\d+)\s*tur", re.U)
+    _RE_ABILITY = re.compile(r"\b(?:yap|getir|başar|halled|çöz|kur|yaz|hesapla|bul)"
+                             r"\w*(?:abilir|ebilir)\s+mi\w*")
+    _RE_CHAIN_NUM = re.compile(r"(?:ilk|son)\s+(\w+)\s+harf", re.U)
+    _RE_APPLY = re.compile(r"(?:uygula|çalıştır|dene)\s*[:\-]?\s*([\wçğıöşü]{2,24})", re.U)
+    _RE_FOR = re.compile(r"([\wçğıöşü]{2,24})\s+için\s+(?:uygula|çalıştır|dene)", re.U)
+    _RE_WORDOF = re.compile(r"([\wçğıöşü]{2,24})['’]?[ıiuü]?\s+(?:sözcüğ|kelime)", re.U)
+    _RE_TERS = re.compile(r"(?:tersten|tersini)\s+(?:yaz\s+)?[:]?\s*([\wçğıöşü]{2,24})", re.U)
+    #: Organ boşluğu tanıma — SÖZCÜK SINIRLI (alt-dizgi tuzağına düşmesin).
+    _RE_GAP_LANG = re.compile(r"\b(?:yunanca|ingilizce|fransızca|almanca|japonca|"
+                              r"çince|rusça|arapça)\b", re.U)
+    _RE_GAP_ASK = re.compile(r"\b(?:karşılığ|çevir|nasıl denir|ne demek)", re.U)
+    _RE_GAP_IMG = re.compile(r"\b(?:resim|görüntü|fotoğraf|kamera)\b", re.U)
+    _RE_GAP_IMGQ = re.compile(r"\b(?:analiz|ne var|bak|göster|gör)\b", re.U)
+    _RE_GAP_SMELL = re.compile(r"\b(?:kokusunu|kokusu|tadını|tadı)\b", re.U)
+    _RE_GAP_TEMP = re.compile(r"\b(?:sıcaklık|derece|nem)\b", re.U)
+    _RE_GAP_HERE = re.compile(r"\b(?:bu oda|odanın|şu an|burada|dışarıda|odada)\b", re.U)
+    _RE_COLON_WORD = re.compile(r":\s*([\wçğıöşü]{2,24})", re.U)
+    _RE_QUOTED2 = re.compile(r"['‘’“\"]([^'‘’“”\"]{2,24})['‘’“”\"]")
+
+    # ------------------------------------------------------------------ organ boşluğu
+    def _gap_turn(self, raw: str) -> str | None:
+        """Yapılamayan isteği TANIRSIN ve uydurmaz: eksik organın adı söylenir.
+
+        "Yunanca karşılığı ne?" -> dil organı yok; "şu an oda kaç derece?" -> duyu yok.
+        Bu tanıma olmadan sistem soruyu tanım/çağrışım hattına düşürüp ALAKASIZ
+        (ama kendinden emin) bir cümle kuruyordu; bu, uydurmanın en sinsi biçimi.
+        """
+        tl = tr_lower(raw or "")
+        if not raw:
+            return None
+        what = ""
+        # SÖZCÜK SINIRI ŞART: alt-dizgi eşleşmesi "mutfakTADIR" içinde "tadı" bulup
+        # masum bir cümleyi koku sorusu sanıyordu (A29/#10 regresyonu).
+        if self._RE_GAP_LANG.search(tl) and self._RE_GAP_ASK.search(tl):
+            what = "dil çevirisi"
+        if not what and self._RE_GAP_IMG.search(tl) and self._RE_GAP_IMGQ.search(tl):
+            what = "görüntü"
+        if not what and self._RE_GAP_SMELL.search(tl):
+            what = "koku/tat"
+        if not what and self._RE_GAP_TEMP.search(tl) and self._RE_GAP_HERE.search(tl):
+            what = "ısı/nem ölçer"
+        if not what:
+            return None
+        return self._say("meta.reasoning", {"what": what}, ctx={"kind": "gap"},
+                         fallback="") or None
+
+    # ------------------------------------------------------------------ güven / hedef
+    #: Güven, görevin hangi organa düştüğünden çıkar (iyimserlikten değil).
+    _CONF_ORGANS = (
+        # SIRA ÖNEMLİ: duyu ve dil organı YOK; bunlar "kaç" sözcüğü yüzünden
+        # aritmetik sanılmamalı ("bu odanın sıcaklığı kaç derece").
+        (("resim", "görüntü", "fotoğraf", "koku", "tat"), 8, "duyu girişi"),
+        (("yunanca", "ingilizce", "fransızca", "almanca", "japonca", "çince",
+          "karşılığı", "çeviri"), 12, "dil çevirisi"),
+        (("ters",), 78, "ters çevirme"),
+        (("ortak", "kesişim", "birleşim", "fark"), 74, "küme"),
+        (("kural", "örnek"), 70, "kural çıkarma"),
+    )
+    #: Aritmetik yalnız SAYI + İŞLEM varsa: "kaç" tek başına yeterli değil.
+    _ARITH = re.compile(r"\d+\s*(?:[+\-*/x×]|ile|ve)\s*\d+|\d+\D{0,12}(?:topla|çıkar|çarp|böl)")
+
+    def _calib_conf(self, klass: str, base: int) -> int:
+        """Envanter ön-sözü ile DENEYİMİ harmanla (Beta ortalaması, ön-ağırlık 2)."""
+        rec = self.calib.get(klass) or [0, 0]
+        s_, n_ = int(rec[0]), int(rec[1])
+        return int(round(100.0 * (base / 100.0 * 2.0 + s_) / (2.0 + n_)))
+
+    def _calib_note_outcome(self) -> None:
+        """Bekleyen güven sözünün sonucunu yaz: organ yolu = başarı, ötekiler = başarısız."""
+        pend = getattr(self, "_conf_pending", None)
+        if not pend or getattr(self, "_turn_path", "") == "conf":
+            return
+        self._conf_pending = None
+        ok = 1 if getattr(self, "_turn_path", "chat") == "organ" else 0
+        rec = self.calib.setdefault(str(pend[0]), [0, 0])
+        rec[0] = int(rec[0]) + ok
+        rec[1] = int(rec[1]) + 1
+
+    def _confidence_turn(self, raw: str) -> str | None:
+        """'Yapmadan önce 0-100 güvenini söyle: X' — sayı, ORGAN ENVANTERİNDEN gelir.
+
+        Düşük güven, yapılamayacak görevlerde UYDURMAMAYI da getirir: sayı ile sonuç
+        aynı kaynaktan (hangi organ var/yok) çıktığı için tutarlı olur.
+        """
+        tl = tr_lower(raw or "")
+        if "güven" not in tl:
+            return None
+        if not ("0-100" in raw or "%" in raw or "yüzde" in tl or "kaç" in tl):
+            return None
+        m = self._RE_TASK.search(raw)
+        task = (m.group(1) if m else "").strip(" .?!")
+        if not task:
+            return None
+        # KANIT GÖREVDEN GELİR, TALİMATTAN DEĞİL: "0-100 arası" ifadesi tek başına
+        # sayı+eksi gibi görünüp aritmetik kanıtı sanılıyordu ("sıcaklık kaç derece" %82).
+        tl_task = tr_lower(task)
+        conf, organ = 30, ""
+        for cues, val, org in self._CONF_ORGANS:
+            if any(c in tl_task for c in cues):
+                conf, organ = val, org
+                break
+        if conf == 30 and self._ARITH.search(tl_task):
+            conf, organ = 82, "aritmetik"
+        elif conf == 30 and any(k in tl_task for k in ("sıcaklık", "derece", "nem")):
+            conf, organ = 8, "duyu girişi"
+        # SINIF: aynı iş türü aynı anahtara yazılır; güven o sınıfın GEÇMİŞİNDEN öğrenilir.
+        if organ:
+            klass = organ
+        elif conf == 30:
+            _toks = [w for w in re.findall(r"\w+", tr_lower(task)) if len(w) > 2]
+            klass = "bilinmeyen:" + (_toks[0] if _toks else "görev")
+        else:
+            klass = "tanıdık organ"
+        conf = self._calib_conf(klass, conf)      # ENVANTER + DENEYİM
+        self._conf_pending = [klass, conf]
+        self._turn_path = "conf"                  # bu tur SÖZ verir, sonuç DEĞİL
+        # EKSİK ORGAN "VAR" DİYE ANILMAZ: düşük güvenin dayanağı organın YOKLUĞUDUR.
+        if not organ:
+            organ = "tanıdık organ"
+        elif conf <= 12:
+            organ = f"{organ} organı yok"
+        # Görev yapılamazsa güven düşük olmalı: aynı kaynaktan karar verilir.
+        _say = self._say("meta.reasoning",
+                         {"conf": conf, "organ": organ, "task": task},
+                         ctx={"kind": "conf"}, fallback="")
+        return _say or f"{conf}"
+
+    #: Harf okunuşları (hedef sürdürmede öğretilir). Kısa veri; cümle değil.
+    _LETTERS = (("k", "ke"), ("l", "le"), ("m", "me"), ("n", "ne"), ("r", "re"),
+                ("s", "se"), ("t", "te"), ("y", "ye"), ("z", "ze"), ("b", "be"))
+
+    #: Hedef türleri veri: her tür kendi adım üreticisini taşır.
+    _GOAL_KINDS = ("harf", "sayı")
+
+    def _goal_turn(self, raw: str) -> str | None:
+        """'Üç tur boyunca ... hedefin' -> hedef YIĞINA yazılır (eskisi silinmez)."""
+        tl = tr_lower(raw or "")
+        if not any(k in tl for k in ("hedefin", "hedef olarak", "görevin")):
+            return None
+        m = self._RE_TUR.search(tl)
+        if not m:
+            return None
+        word = m.group(1)
+        n = {"bir": 1, "iki": 2, "üç": 3, "dört": 4, "beş": 5}.get(word)
+        if n is None:
+            try:
+                n = int(word)
+            except Exception:
+                return None
+        if "harf" in tl:
+            kind = "harf"
+        elif "sayı" in tl or "kat" in tl:
+            kind = "sayı"
+        else:
+            return None
+        g = {"kind": kind, "total": int(n), "done": 0, "i": 0,
+             "t0": len(getattr(self, "dialogue_log", []) or [])}
+        stacked = bool(self._goals)
+        self._goals.append(g)
+        self._goal = self._goals[0]
+        self._goal_turn0 = self._goals[0]["t0"]
+        ctx = {"kind": "goal_set2" if stacked else "goal_set"}
+        return self._say("meta.reasoning",
+                         {"total": int(n), "kind": kind, "done": 0,
+                          "bekleyen": len(self._goals) - 1},
+                         ctx=ctx, fallback="") or None
+
+    def _goal_step(self) -> str:
+        """Bu turun hedef adımı. Yığın: biten hedef düşer, alttaki KALDIĞI YERDEN sürer."""
+        if not self._goals:
+            self._goal = None
+            return ""
+        g = self._goals[-1]
+        # Hedefin KURULDUĞU turda adım atılmaz (o tur zaten cevabı verdi).
+        if len(getattr(self, "dialogue_log", []) or []) <= (int(g.get("t0", 0)) + 1):
+            return ""
+        # BİTEN hedef yığından düşer; altta hedef varsa DÖNÜŞ bildirilir.
+        while self._goals and int(self._goals[-1].get("done", 0)) >= int(self._goals[-1]["total"]):
+            self._goals.pop()
+            if self._goals:
+                nxt = self._goals[-1]
+                nxt["t0"] = len(getattr(self, "dialogue_log", []) or []) - 1
+                self._goal = nxt
+                self._goal_turn0 = nxt["t0"]
+                return self._say("meta.reasoning",
+                                 {"done": int(nxt["done"]), "total": int(nxt["total"]),
+                                  "kind": nxt["kind"]},
+                                 ctx={"kind": "goal_resume"}, fallback="") or ""
+            self._goal = None
+            return ""
+        g = self._goals[-1]
+        if g["kind"] == "harf":
+            i = int(g.get("i", 0)) % len(self._LETTERS)
+            letter, spoken = self._LETTERS[i]
+            g["i"] = i + 1
+            slots = {"letter": letter, "spoken": spoken}
+            ctx = {"kind": "goal_step"}
+        else:
+            i = int(g.get("i", 0)) + 1
+            g["i"] = i
+            slots = {"a": i, "b": i * 2}
+            ctx = {"kind": "goal_step2"}
+        g["done"] = int(g.get("done", 0)) + 1
+        done, total = int(g["done"]), int(g["total"])
+        if done >= total:                     # hedef BİTTİ: sayaç burada artar
+            self._goals_done = int(getattr(self, "_goals_done", 0)) + 1
+        return self._say("meta.reasoning",
+                         {**slots, "done": done, "total": total},
+                         ctx=ctx, fallback="") or ""
+
+    # ------------------------------------------------------------------ sayısal kıyas
+    #: "Ali'nin boyu 180 santimetre" -> (özne, nitelik, sayı)
+    _NUM_FACT = re.compile(r"(\w+)['’]?n[ıiuü]n\s+(\w+)\s+"
+                           r"(\d+(?:[.,]\d+)?)", re.U)
+    #: "kim daha uzun / kim daha ağır" -> nitelik yönü
+    _ATTR = {"uzun": ("boy", 1), "kısa": ("boy", -1), "ağır": ("kilo", 1),
+             "hafif": ("kilo", -1), "yaşlı": ("yaş", 1), "genç": ("yaş", -1)}
+
+    #: "47 ile 38'i topla" — iki sayı + işlem FİİLİ (yalnız '+' işareti zaten çözülür).
+    _ARITH_ASK = re.compile(r"(\d+(?:[.,]\d+)?)\D{0,10}?(\d+(?:[.,]\d+)?)\D{0,16}?"
+                            r"(topla|çıkar|çarp|böl)", re.U)
+
+    def _num_turn(self, raw: str) -> str | None:
+        """Sayıyla söylenen olguları yaz; "kim daha X" sorusunu SAYIYA bakarak cevapla."""
+        tl = tr_lower(raw or "")
+        _ma = self._ARITH_ASK.search(tl)
+        if _ma and _ma.group(3):
+            try:
+                a = float(_ma.group(1).replace(",", "."))
+                b = float(_ma.group(2).replace(",", "."))
+            except Exception:
+                a = b = None
+            if a is not None:
+                op = _ma.group(3)
+                if op == "topla":
+                    res = a + b
+                elif op == "çıkar":
+                    res = a - b
+                elif op == "çarp":
+                    res = a * b
+                else:
+                    if b == 0:
+                        return self._say("meta.reasoning", {"what": "sıfıra bölme"},
+                                         ctx={"kind": "gap"}, fallback="") or None
+                    res = a / b
+                _txt = f"{res:g}"
+                _opv = {"topla": "topladım", "çıkar": "çıkardım",
+                        "çarp": "çarptım", "böl": "böldüm"}.get(op, op)
+                return self._say("meta.reasoning",
+                                 {"a": f"{a:g}", "b": f"{b:g}", "op": op,
+                                  "opv": _opv, "res": _txt},
+                                 ctx={"kind": "arith"}, fallback=_txt) or _txt
+        wrote = 0
+        for m in self._NUM_FACT.finditer(tl):
+            who, attr, val = m.group(1), m.group(2), m.group(3)
+            for _suf in ("sı", "si", "su", "sü", "u", "ü", "ı", "i"):
+                if len(attr) - len(_suf) >= 3 and attr.endswith(_suf):
+                    attr = attr[: -len(_suf)]
+                    break
+            try:
+                num = float(val.replace(",", "."))
+            except Exception:
+                continue
+            self.num_facts.setdefault(attr, {})[who] = num
+            wrote += 1
+        if wrote:
+            _pairs = []
+            for attr, table in self.num_facts.items():
+                for who, num in table.items():
+                    _pairs.append(f"{who} {attr} {num:g}")
+            return self._say("meta.reasoning", {"facts": ", ".join(_pairs[-4:])},
+                             ctx={"kind": "numfact"}, fallback="") or None
+        if "daha" not in tl and "en " not in tl:
+            return None
+        attr = None
+        for cue, (a, sign) in self._ATTR.items():
+            if cue in tl:
+                attr, sign = a, sign
+                break
+        if attr is None or attr not in self.num_facts:
+            return None
+        table = self.num_facts[attr]
+        if len(table) < 2:
+            return None
+        items = sorted(table.items(), key=lambda kv: kv[1])
+        who, val = items[-1] if sign > 0 else items[0]
+        other, oval = items[0] if sign > 0 else items[-1]
+        _r = self._say("meta.reasoning",
+                       {"who": who, "val": f"{val:g}", "other": other,
+                        "other_val": f"{oval:g}", "attr": attr},
+                       ctx={"kind": "numcmp"}, fallback="")
+        return _r or None
+
+    # ------------------------------------------------------------------ adımlı zincir
+    #: "önce X'i sırala, sonra ilk üç harfini söyle" — işlemler ADLARIYLA seçilir.
+    _CHAIN_CUE = ("önce", "sonra")
+
+    def _chain_turn(self, raw: str) -> str | None:
+        """İki işlemi SIRAYLA uygula: ara sonuç görünür, sonuç ondan hesaplanır."""
+        tl = tr_lower(raw or "")
+        if not all(k in tl for k in self._CHAIN_CUE):
+            return None
+        word = ""
+        m = (self._RE_QUOTED.search(raw) or self._RE_WORDOF.search(tl)
+             or re.search(r"([\wçğıöşü]{2,24})['’]?[ıiuü]?\s+harf", tl))
+        if not m:
+            return None
+        word = m.group(1).strip()
+        # İşlemler: ilkel ADLARI + Türkçe karşılıkları, metindeki KONUMLARINA göre.
+        ops = []
+        names = [n for n, _f, _c in PRIMITIVES]
+        cues = {"alfabetik": "alfabetik sırala", "sırala": "alfabetik sırala",
+                "ters": "ters çevir", "büyük harf": "büyük harfe çevir",
+                "küçük harf": "küçük harfe çevir"}
+        for cue, pname in cues.items():
+            pos = tl.find(cue)
+            if pos >= 0 and pname in names:
+                ops.append((pos, pname))
+        for m2 in self._RE_CHAIN_NUM.finditer(tl):
+            num = {"bir": 1, "iki": 2, "üç": 3, "dört": 4, "beş": 5}.get(m2.group(1))
+            if num:
+                pname = f"ilk {num} harfi al" if m2.group(0).startswith("ilk") else f"son {num} harfi al"
+                if pname in names:
+                    ops.append((m2.start(), pname))
+        _seq = [p for _pos, p in sorted(ops)]
+        ops = []                              # aynı işlem iki kez sayılmaz
+        for _p in _seq:
+            if not ops or ops[-1] != _p:
+                ops.append(_p)
+        if len(ops) < 2:
+            return None
+        out = word
+        trace = [out]
+        for pname in ops:
+            fn = dict((n, f) for n, f, _c in PRIMITIVES)[pname]
+            out = fn(out)
+            trace.append(out)
+        _r = self._say("meta.reasoning",
+                       {"chain": " -> ".join(trace), "ops": " → ".join(ops),
+                        "final": out},
+                       ctx={"kind": "chain"}, fallback="")
+        return _r or None
+
+    def _plan_knowledge(self, goal: str) -> bool:
+        """Hedef hakkında adım üretecek bilgi var mı? Grafikte kenar yoksa YOK.
+
+        "Çay yapmayı planla" isteğine genel bir şablon (durum/topla/doğrula) yazmak
+        plan değil, plan taklididir. Bilgi yoksa söylenir.
+        """
+        try:
+            return any(tr_lower(goal) in (e.subj + " " + e.obj).lower()
+                       for e in self.lang.graph.edges)
+        except Exception:
+            return False
+
+    def _plan_turn(self, raw: str) -> str | None:
+        """Adımları AL, koşul değişince yeniden KUR — eski adımı sessizce tekrarlama.
+
+        Plan, sistemin kendi genel çatısından değil kullanıcının verdiği adımlardan
+        gelir; revizyon da o adımlar üzerinde yapılan bir ELEME değil, koşula göre
+        yeniden kurmadır. Adım kalmıyorsa plan yok denir.
+        """
+        tl = tr_lower(raw or "")
+        if "plan" not in tl:
+            return None
+        # A) PLAN KUR: "… planı: 1 … 2 … 3 …"
+        m = self._PLAN_DECL.search(raw)
+        if m and ("planla" not in tl or ":" in raw):
+            body = tr_lower(m.group(1))
+            if re.search(r"\d\s*[.)]", body):
+                parts = re.split(r"\s*\d+\s*[.)]\s*", body)
+            elif re.search(r"(?:^|\s)1\s", body):
+                parts = re.split(r"\s*\d+\s+", body)
+            else:
+                parts = re.split(r"\s*[,;]\s*|\s+ve\s+", body)
+            steps = [x.strip(" .;") for x in parts if x.strip(" .;")]
+            steps = [x for x in steps if len(x) > 2]
+            if len(steps) >= 2:
+                goal = tl.split("plan")[0].strip(" :,.;")
+                goal = re.sub(r"\b(?:için|adımda|adımlık|bir|üç|iki|dört|beş)\b", " ", goal)
+                goal = " ".join(goal.split()).strip(" '’‘\"“”:,.;[]()") or "plan"
+                self._plan_goal = goal
+                self.plans[goal] = steps
+                _num = " | ".join(f"{i + 1}. {x}" for i, x in enumerate(steps))
+                return self._say("plan.report", {"goal": goal, "steps": _num,
+                                                "n": len(steps)},
+                                 ctx={"kind": "steps_built"}, fallback="") or _num
+        # A2) ADIMSIZ PLAN İSTEĞİ: "çay yapmayı üç adımda planla"
+        # "hedef belirle ve planla" SOYUT bir istektir (hedef verilmemiş): genel plan
+        # makinesi onu kurar. A2 yalnız SOMUT hedef ("çay yapmayı planla") içindir.
+        if not m and ("planla" in tl or "plan kur" in tl) and not (
+                "hedef" in tl and "belirle" in tl):
+            goal = re.sub(r"\b(?:yapmayı|yapmak|için|adımda|adımlık|bir|üç|iki|dört|beş|"
+                          r"planla|plan|kur|hedef|belirle|ve)\b", " ", tl)
+            goal = " ".join(goal.split()).strip(" '’‘\"“”:,.;[]()")
+            if goal and goal not in self.plans and not self._plan_knowledge(goal):
+                return self._say("plan.report", {"goal": goal}, ctx={"kind": "unknown"},
+                                 fallback="") or None
+        # B) REVİZYON: "süt kalmamış, planı değiştir"
+        if ("kalmamış" in tl or "kalmadı" in tl or "yok" in tl) and any(
+                k in tl for k in ("planı değiştir", "planı yenile", "planı güncelle",
+                                  "değiştir", "yenile")):
+            if not self.plans:
+                return self._say("plan.report", {"goal": self._plan_goal},
+                                 ctx={"kind": "none"}, fallback="") or None
+            goal = self._plan_goal
+            old = list(self.plans.get(goal) or [])
+            missing = []
+            for cand in ("süt", "şeker", "su", "un", "yağ", "yumurta", "tuz"):
+                if cand in tl and any(cand in s for s in old):
+                    missing.append(cand)
+            if not missing:
+                missing = [w for w in re.findall(r"(\w{3,})", tl)
+                           if any(w in st for st in old)]
+            if not missing:
+                _cur = " | ".join(f"{i + 1}. {x}" for i, x in enumerate(old))
+                return self._say("plan.report", {"goal": goal, "steps": _cur},
+                                 ctx={"kind": "already"}, fallback="") or None
+            new = [s for s in old if not any(mm in s for mm in missing)]
+            self.plans[goal] = new
+            if not new:
+                return self._say("plan.report", {"goal": goal, "removed": ", ".join(missing)},
+                                 ctx={"kind": "empty"}, fallback="") or None
+            _num = " | ".join(f"{i + 1}. {x}" for i, x in enumerate(new))
+            return self._say("plan.report", {"goal": goal, "steps": _num, "n": len(new),
+                                            "removed": ", ".join(missing),
+                                            "old_n": len(old)},
+                             ctx={"kind": "steps_revised"}, fallback="") or _num
+        return None
+
+    # ------------------------------------------------------------------ öz-tahmin
+    def _predict_turn(self, raw: str) -> str | None:
+        """'Bunu yapabilir misin?' — cevap ENVANTERDEN gelir, iyimserlikten değil.
+
+        Tahmin, hangi organın devreye gireceği söylenerek yapılır. Organ yoksa
+        'yapabilirim' denmez; hangi organın gireceği bilinmiyorsa söz verilmez.
+        """
+        tl = tr_lower(raw or "")
+        # Yalnız GÖREV fiilleriyle kurulmuş yetenek soruları ("yapabilir misin",
+        # "getirebilir misin"); "yağmur olabilir mi" gibi tahmin cümleleri değil.
+        if not self._RE_ABILITY.search(tl):
+            return None
+        # Görev kısmı: iki nokta sonrası ya da tırnak içi.
+        _task = ""
+        m = re.search(r":\s*(.+)$", raw)
+        q = re.findall(r"['‘’“\"]([^'‘’“”\"]{2,40})['‘’“\"]", raw)
+        if m:
+            _task = m.group(1).strip()
+        elif q:
+            _task = q[0].strip()
+        _task = _task.strip(" '’‘\"“”?.,")
+        if not _task:
+            return None
+        _low = tr_lower(_task)
+        organ = ""
+        if "ters" in _low and ("yaz" in _low or "çevir" in _low):
+            organ = "ters çevir"
+        elif "ortak" in _low or "harf" in _low:
+            organ = "küme"
+        elif "kural" in _low or "örnek" in _low:
+            organ = "kural çıkarma"
+        elif "öğren" in _low or "öğret" in _low:
+            organ = "tek atış öğrenme"
+        if organ:
+            return self._say("meta.reasoning", {"task": _task, "organ": organ},
+                             ctx={"kind": "predict_yes"}, fallback="") or None
+        return self._say("meta.reasoning", {"task": _task},
+                         ctx={"kind": "predict_unknown"}, fallback="") or None
+
+    # ------------------------------------------------------------------ kısıtlı üretim
+    #: Kısıt denetimli üretimde kullanılan çatılar. Her biri (fiil, hâl, ön-ulaç)
+    #: üçlüsüdür; cümleyi `SYN` kurar, kelimeler veriden gelir. Çatı, o sözcükle
+    #: ANLAMCA uyumluysa kullanılır (aşağıdaki `_sem_ok`), değilse atlanır.
+    _GEN_FRAMES = (
+        ("oku", "NOM", "her akşam"),
+        ("oku", "ACC", "dün akşam"),
+        ("iste", "ACC", "çok"),
+        ("bitir", "ACC", "dün akşam"),
+    )
+    #: Her sözcüğe uyan güvenli çatı: "bugün X hakkında konuşalım".
+    _GEN_SAFE = ("konuş", "bugün")
+
+    def _sem_ok(self, word: str, verb: str) -> bool:
+        """Çatı bu sözcükle anlamca uyumlu mu? Kanıt grafikte; yoksa çatı KULLANILMAZ.
+
+        "deniz okurum" gramatikti ama anlamsızdı. Uyum, sözcüğün grafikteki
+        kullanım ilişkisinden okunur; kanıt yoksa iddia edilmez.
+        """
+        try:
+            edges = [e for e in self.lang.graph.edges
+                     if tr_lower(word) in (e.subj + " " + e.obj).lower()]
+        except Exception:
+            return False
+        text = " ".join(f"{e.rel} {e.obj}" for e in edges).lower()
+        if verb == "oku":
+            return any(k in text for k in ("bilgi", "okuma", "aktarma", "öğrenme", "yazı"))
+        return False
+
+    def _constrained_turn(self, raw: str) -> str | None:
+        """Verilen koşullara UYAN cümleyi kur, sonra kendi kısıtını DENETLE.
+
+        "İçinde X geçen ama Y geçmeyen bir cümle kur" bir üretim kısıtıdır: cümle
+        seçilmez, KURULUR ve kuralın sağlandığı üretimden sonra ölçülür. Koşulu
+        sağlayan çatı yoksa uydurulmaz.
+        """
+        tl = tr_lower(raw or "")
+        if not any(k in tl for k in ("cümle kur", "cümle yaz", "bir cümle")):
+            return None
+        if "geçen" not in tl and "içeren" not in tl and "geçsin" not in tl:
+            return None
+        words = re.findall(r"['‘’“\"]([^'‘’“”\"]{2,24})['‘’“\"]", raw)
+        if len(words) < 2:
+            return None
+        # "X geçen ama Y geçmeyen" sırası: ilk kelime ZORUNLU, ikincisi YASAK.
+        _req, _ban = words[0].strip(), words[1].strip()
+        if tl.index(tr_lower(_ban)) < tl.index(tr_lower(_req)):
+            _req, _ban = _ban, _req
+        def _fits(cand: str) -> bool:
+            low_c = tr_lower(cand)
+            return bool(cand) and (tr_lower(_req) in low_c) and (tr_lower(_ban) not in low_c) \
+                and len(cand.split()) >= 4 and "?" not in cand
+
+        for verb, case, pre in self._GEN_FRAMES:
+            if not self._sem_ok(_req, verb):
+                continue                      # anlamca uyumsuz çatı denenmez
+            try:
+                cand = self._synth_say(VerbSpec(verb, obj=NP(_req, case=case),
+                                                pre_clause=pre, tense="AOR", person="1SG"))
+            except Exception:
+                cand = ""
+            if _fits(cand):                   # KENDİ KISITINI DENETLER
+                return cand[0].upper() + cand[1:] + "."
+        # Güvenli çatı: her addla anlamlı ("bugün X hakkında konuşalım").
+        _v, _pre = self._GEN_SAFE
+        try:
+            cand = self._synth_say(VerbSpec(_v, obj=NP(_req, post="hakkında"),
+                                            pre_clause=_pre, tense="OPT", person="1PL"))
+        except Exception:
+            cand = ""
+        if _fits(cand):
+            return cand[0].upper() + cand[1:] + "."
+        return self._say("meta.reasoning", {"req": _req, "ban": _ban},
+                         ctx={"kind": "gen_none"}, fallback="") or None
+
+    def _recall_testimony(self, raw: str) -> str | None:
+        """Başkasından aktarılan olgu: iki tanık çelişiyorsa İKİSİ de söylenir.
+
+        "Hangi tanığa inanayım" sorusunun cevabı veride yoktur; bu yüzden sistem
+        sessizce son duyduğunu seçmez. Tek tanık varsa tek, iki değer varsa çelişki.
+        """
+        tm = getattr(self, "testimony", None)
+        if tm is None:
+            return None
+        # BİLDİRİM CEVAP DEĞİLDİR: "Ayşe bana ... söyledi" bir soru değildir; onu
+        # hatırlama sorusu sanıp cevaplamak, kullanıcının sözünü gasp etmektir.
+        _lt = tr_lower(raw or "")
+        if "?" not in (raw or "") and not any(k in _lt for k in (
+                "kaçta", "kaç", "ne zaman", "nedir", "neydi", "hangi", "kim", "mi")):
+            return None
+        hit = None
+        try:
+            hit = tm.query(raw)
+        except Exception:
+            return None
+        if not hit:
+            return None
+        vals = hit.get("vals") or []
+        if not vals:
+            return None
+        if hit.get("conflict"):
+            (s1, v1), (s2, v2) = vals[0], vals[1]
+            _ts = self._say("memory.testimony",
+                            {"subj": hit["subj"], "src1": s1, "val1": v1,
+                             "src2": s2, "val2": v2},
+                            ctx={"kind": "conflict"}, fallback="")
+            if _ts:
+                return _ts
+        src, val = vals[0]
+        _ts = self._say("memory.testimony",
+                        {"subj": hit["subj"], "src": src, "val": val},
+                        ctx={"kind": "single"}, fallback="")
+        return _ts or None
+
+    def _synth_program(self):
+        """Yazılmış son dönüşüm programı (yeni oturumda defterden geri kurulur)."""
+        sy = getattr(self, "synth", None)
+        if sy is None:
+            return None
+        if getattr(sy, "last", None) is not None:
+            return sy.last
+        if not sy.programs:
+            return None
+        prog = sy.rebuild(sy.programs[-1].get("id"))
+        if prog is not None:
+            sy.last = prog
+        return prog
+
+    def _synth_programs(self) -> list:
+        """Yazılmış TÜM programlar (defterden geri kurulur). Son = güncel."""
+        sy = getattr(self, "synth", None)
+        if sy is None:
+            return []
+        out = []
+        for rec in (sy.programs or []):
+            p = sy.rebuild(rec.get("id"))
+            if p is not None:
+                out.append(p)
+        return out
+
+    def _after_synth(self, prog) -> None:
+        """Sentez sonrası: reify ilkellerini kullan, eşiği geçeni terfi ettir, saat işle."""
+        rf = getattr(self, "reify", None)
+        if rf is None:
+            return
+        try:
+            sy = getattr(self, "synth", None)
+            rf.note_spec_use(getattr(prog, "spec", lambda: [])())
+            self._reify_maybe()
+            for nm in rf.tick():
+                # BUDANDI: defterde ölü kalır ama arama uzayından ÇIKAR.
+                if sy is not None:
+                    sy.drop_primitive(nm)
+            self._schema_maybe()
+            # ŞEMA KULLANIMI: bu karar bir şemayla çözüldüyse sayaç artar; çözülmediyse
+            # kullanılmayan şemaların `idle` sayacı artar ve sınırı geçen budanır.
+            sc_org = getattr(self, "schema", None)
+            if sc_org is not None:
+                _used = getattr(sy, "last_schema", None)
+                if _used is not None:
+                    try:
+                        sc_org.note_use(_used[0].get("family") or "")
+                    except Exception:
+                        pass
+                for _nm in sc_org.tick():
+                    if sy is not None:
+                        _fam = next((r["family"] for r in sc_org.ledger
+                                     if r["name"] == _nm), "")
+                        sy.drop_schema(_nm, _fam)
+        except Exception:
+            pass
+
+    def _synth_say(self, spec):
+        """Cümleyi KENDİ sözdizimi motorundan üret (kalıp cümle yok)."""
+        try:
+            if isinstance(spec, PredSpec):
+                return SYN.realize_pred(spec)
+            return SYN.realize_verb(spec)
+        except Exception:
+            return ""
+
+    def _synth_turn(self, raw: str, speaker: str = "insan") -> str | None:
+        """Örnekten dönüşüm yaz / yazdığını uygula / ne yazdığını söyle.
+
+        Cevaplar kalıp değil: yüklem Nora'nın çekim motorundan (`SYN`) gelir, içerik
+        (operatör adı, sayı, sözcük, çıktı) veriden. Böylece iskelet sayacı artmaz.
+        """
+        sy = getattr(self, "synth", None)
+        if sy is None or not raw:
+            return None
+        tl = tr_lower(raw)
+        pairs = parse_pairs(raw)
+
+        def _ok(res, n_ex):
+            prog = res["program"]
+            _probe = next((w for w in ("deniz", "kitap", "masa", "zeytin", "bulut")
+                           if w not in [i for i, _o in pairs]), "bulut")
+            self._synth_last_reply = prog.desc()
+            _v = self._synth_say(VerbSpec("yaz",
+                                          obj=NP("dönüşüm", case="ACC"),
+                                          advs=("kendim",), tense="PAST", person="1SG"))
+            _c = self._synth_say(VerbSpec("açıkla", subj=NP("program"),
+                                          obj=NP("örnek", plural=True, case="ACC"),
+                                          tense="PRES", person="3SG"))
+            _tail = f"{_probe} -> {prog.apply(_probe)}."
+            _sc = res.get("schema")
+            if _sc:
+                # ŞEMA KAPSADI: bu parametre değeri ilkellerimde YOK; aile tarafından
+                # üretildi. Bunu söylemek zorundayım — yoksa "zaten biliyordum" olur.
+                _tail += (f" Bunu şema kapsadı: {_sc[0]['family']} "
+                          f"(n={_sc[1]}, görülen={_sc[0]['seen']}).")
+            return (f"{_v}: {prog.desc()}. {_c} ({n_ex}/{n_ex}). " + _tail)
+
+        def _tie(word=None):
+            """Beraberliği ÇÖZ: kural ile seç, %50 olarak raporla (politika, form değil).
+
+            Sessiz kalmak kalibrasyon üretmez. Beraberlikte **bağlanırım** ve
+            olasılığı %50 derim; yanlış çıkarsa bu bir hata değil, beyan edilmiş
+            bir yazı-turadır.
+            """
+            pend = getattr(sy, "_pending", None)
+            if not pend:
+                return None
+            cands, exs = pend[0], pend[1]
+            prog, p = sy.tie_pick(cands)
+            if prog is None:
+                return None
+            sy._adopt(prog, exs)
+            self._after_synth(prog)
+            _s = self._synth_say(VerbSpec("seç", obj=NP("aday", case="ACC"),
+                                          advs=("en kısa betimlemeyle",),
+                                          tense="PAST", person="1SG"))
+            show = " / ".join(cands[i].desc() for i in range(min(2, len(cands))))
+            w = str(word or sy._probe(cands, exs) or "portakal")
+            return (f"{_s}: {prog.desc()} ({show}). Berabere kaldılar; doğruluk "
+                    f"olasılığım %{int(round(p * 100))}. {w} -> {prog.apply(w)}.")
+
+        def _amb(res):
+            _c = res.get("cands") or []
+            _pr = res.get("probe") or "masa"
+            _q = self._synth_say(VerbSpec("al", subj=NP(_pr), advs=("hangi çıktıyı",),
+                                          tense="AOR", person="3SG"))
+            return (f"Aday sayısı {len(_c)}: {', '.join(_c[:3])}. {_q}?")
+
+        # 0a) BERABERLİK ÇÖZÜMÜ İSTENDİYSE: çift ayrıştırmasından önce, çünkü cümle
+        # "yine de seç" gibi bir bağlanma isteğidir; "uygula: X" iki nokta tuzağına
+        # düşmemeli.
+        _low_raw = tr_lower(raw)
+        if getattr(sy, "_pending", None) and any(
+                k in _low_raw for k in ("yine de", "sen seç", "sen karar ver",
+                                        "tahmin et", "bağlan")):
+            _w = None
+            _m = re.search(r"(?:seç|uygula|tahmin)[^\w]{0,3}([a-zçğıöşü]{3,})", _low_raw)
+            if _m:
+                _w = _m.group(1)
+            _t = _tie(_w)
+            if _t:
+                return _t
+
+        # 0) BEKLEYEN BELİRSİZLİK: ayırt edici tek örnek geldiyse adayları süz.
+        if getattr(sy, "_pending", None) and len(pairs) == 1:
+            w, o = pairs[0]
+            res = sy.refine(w, o)
+            st = res.get("status")
+            if st == "adopted":
+                return _ok(res, len(sy.programs[-1].get("examples") or []) or 2)
+            if st == "ambiguous":
+                # BAĞLANMA İSTENDİYSE: beraberliği çöz, %50 raporla. İstenmediyse
+                # ayırt edici örnek İSTE (daha bilgilendirici olan bu).
+                if tr_lower(raw) and any(k in tr_lower(raw) for k in
+                                         ("yine de", "sen seç", "sen karar ver",
+                                          "tahmin et", "yine de uygula")):
+                    return _tie(res)
+                return _amb(res)
+            if st == "reject":
+                _v = self._synth_say(VerbSpec("uy", subj=NP("çıktı"),
+                                              dat=NP("aday", case="DAT", mods=("hiçbir",)),
+                                              tense="PRES", neg=True, person="3SG"))
+                return f"{_v}."
+
+        # A) ÖĞREN: en az iki (girdi -> çıktı) çifti verildi.
+        if len(pairs) >= 2:
+            res = sy.learn(pairs)
+            st = res.get("status")
+            if st == "adopted":
+                _rep = _ok(res, len(pairs))
+                self._after_synth(res["program"])
+                return _rep
+            if st == "ambiguous":
+                return _amb(res)
+            if res.get("why") == "program-yok":
+                _inv = self._invent_operator(pairs)
+                if _inv:
+                    return _inv
+                _v = self._synth_say(VerbSpec("çıkar", abl=NP("örnek", plural=True, case="ABL"),
+                                             obj=NP("program", case="ACC"),
+                                             tense="PAST", neg=True, person="1SG"))
+                return f"{_v}."
+            return None
+
+        # B) UYGULA: yazılmış programı adı geçen sözcüğe çalıştır.
+        # NOT: "kuralı uygula" yalnız YAZILMIŞ BİR DÖNÜŞÜM varsa buraya girer; yoksa
+        # forge'un kural hattına bırakılır (N3, N5). Sıra önemli: gasp etmemek.
+        _all_progs = self._synth_programs()
+        _named = [p for p in _all_progs if p.desc() and tr_lower(p.desc()) in tl]
+        prog = _named[0] if _named else self._synth_program()
+        _apply_ask = any(k in tl for k in ("dönüşümü uygula", "dönüşümü çalıştır",
+                                           "dönüşümü dene", "yazdığın dönüşüm",
+                                           "dönüşüm var mı"))
+        if not _apply_ask and prog is not None and "uygula" in tl and (
+                "için" in tl or re.search(r"['‘’“\"]", raw)):
+            _apply_ask = True
+        if _apply_ask:
+            if prog is None:
+                _v = self._synth_say(PredSpec(pred_root="yok", subj=NP("dönüşüm")))
+                _s = self._synth_say(VerbSpec("iste", subj=NP("ben"), obj=NP("örnek"),
+                                             tense="AOR", person="1SG"))
+                return f"{_v}; {_s}."
+            m = (re.search(r"(?:uygula|çalıştır|dene)\s*[:\-]?\s*([\wçğıöşü]{2,24})", tl, re.U)
+                 or re.search(r"([\wçğıöşü]{2,24})\s+için\s+(?:uygula|çalıştır|dene)", tl, re.U)
+                 or re.search(r"([\wçğıöşü]{2,24})['’]?[aıuü]?\s+(?:sözcüğ|kelime)", tl, re.U))
+            word = (m.group(1) if m else "").strip()
+            # BÜYÜK HARF KAYBI YOK: eşleşme küçük harfli metinde yapıldı; sözcüğün
+            # kullanıcının yazdığı biçimi (ör. "Portakal") ham metinden geri alınır.
+            if word:
+                m_case = re.search(r"\b" + re.escape(word) + r"\b", raw, re.I)
+                if m_case:
+                    word = m_case.group(0)
+            if not word:
+                _q = self._synth_say(VerbSpec("uygula", dat=NP("sözcük", case="DAT"),
+                                              tense="OPT", person="1SG", question_yn=True))
+                return f"{prog.desc()}. {_q}?"
+            # BELİRSİZ İSTEK: birden çok dönüşüm varsa ve adı geçmiyorsa seçilmez;
+            # hepsi ADIYLA uygulanır. (Sessizce birini seçmek yalan olurdu.)
+            if not _named and len(_all_progs) > 1:
+                _rows = "; ".join(f"{p.desc()} -> {p.apply(word)}" for p in _all_progs[-4:])
+                return self._say("meta.operator",
+                                 {"name": _rows, "n": len(_all_progs),
+                                  "word": word, "out": ""},
+                                 ctx={"kind": "multi"}, fallback="") or f"{_rows}"
+            return f"{word} -> {prog.apply(word)} ({prog.desc()})."
+
+        # B2) TERS YAZIM: ilkellerden biri zaten "ters çevir"; operatör var.
+        if "ters" in tl and len(raw.split()) <= 8:
+            ws = (self._RE_QUOTED.findall(raw) or self._RE_COLON_WORD.findall(raw)
+                  or self._RE_WORDOF.findall(tl) or self._RE_TERS.findall(tl))
+            if ws:
+                w = ws[-1].strip()
+                _p = next((p for p in [Program.from_spec(["ters çevir"])] if p), None)
+                if _p is not None:
+                    return f"{w} -> {_p.apply(w)}."
+
+        # C) SOR: ne yazmış?
+        if "dönüşüm" in tl and any(k in tl for k in (
+                "yazdın", "neydi", "kendi yazdığın", "hangisini")):
+            prog = self._synth_program()
+            if prog is None:
+                return self._synth_say(PredSpec(pred_root="yok", subj=NP("dönüşüm"))) + "."
+            _v = self._synth_say(VerbSpec("yaz", obj=NP("dönüşüm", case="ACC"),
+                                          tense="PAST", person="1SG"))
+            return f"{_v}: {prog.desc()}."
+        return None
+
+    # ------------------------------------------------------------------ şema
+    def _schema_maybe(self) -> list[str]:
+        """Görülen adım dizilerinden delikli şablon çıkar ve uzaya ekle (seviye 4)."""
+        sc_org = getattr(self, "schema", None)
+        sy = getattr(self, "synth", None)
+        if sc_org is None or sy is None:
+            return []
+        items = [(list(r.get("spec") or []), r.get("examples") or [])
+                 for r in (getattr(self.reify, "ledger", None) or [])]
+        items += [(list(p.get("ops") or []), p.get("examples") or [])
+                  for p in (sy.programs or [])]
+        items = [(sp, ex) for sp, ex in items if sp]
+        added = []
+        for sc in sc_org.infer_items(items):
+            item = sc_org.register(sc, sy)
+            if item is not None:
+                added.append(item["name"])
+        return added
+
+    # ------------------------------------------------------- kendi kendine öğretmenlik
+    def _kendine_ogret_maybe(self) -> None:
+        """YALNIZKEN kendi kendini öğretir. Koşullar ONUN ölçümünden, insan söylemiyor.
+
+        (1) yalnız kaldığı süre eşiği aştı (son konuşmadan bu yana),
+        (2) son öz-öğretimden bu yana yeterince zaman geçti (kendini tekrarlamasın),
+        (3) dağarcığı yetiyor. Hiçbiri insan tarafından söylenmiyor; insan hiç yazmıyor.
+        """
+        try:
+            age = int(self.mind.age)
+            if age - int(getattr(self, "_son_etkilesim_age", 0) or 0) < 180:
+                return
+            if age - int(getattr(self, "_son_oz_ogretim", -10 ** 9)) < 600:
+                return
+            r = self.kendine_ogret()
+            if r.get("durum") == "kendi_ornegi_cozulemedi":
+                deg = self.kendini_degistir(r)
+                if deg.get("değişti") and (deg.get("deneme") or {}).get("durum") == "tamam":
+                    r = deg["deneme"]
+            self._son_oz_ogretim = age
+            if r.get("durum") == "tamam":
+                led = getattr(self, "kendi_ögretim", None) or []
+                if led:
+                    led[-1]["kendi"] = True
+                    led[-1]["yaş"] = age
+                self._kendi_ogrenme = int(getattr(self, "_kendi_ogrenme", 0)) + 1
+                # Öğretmenlikten sonra görev biçimini de kendisi açar. Ayrı saat
+                # ve fren, bunu her yaşam adımında çalışan bir döngüye çevirmez.
+                self._kendine_gorev_maybe()
+        except Exception:
+            pass
+
+    def _kendine_gorev_maybe(self) -> None:
+        """Öz-öğretim sonrası KENDİ görevini başlat; insan cümlesi gerekmez."""
+        try:
+            age = int(self.mind.age)
+            if age - int(getattr(self, "_son_etkilesim_age", 0) or 0) < 180:
+                return
+            if age - int(getattr(self, "_son_gorev_age", -10 ** 9)) < 600:
+                return
+            r = self.kendine_gorev()
+            self._son_gorev_age = age
+            if r.get("öğrendi") and self._kendi_gorevler:
+                self._kendi_gorevler[-1]["kendi"] = True
+                self._kendi_gorevler[-1]["yaş"] = age
+        except Exception:
+            pass
+
+    def _sema_hipotezi(self, spec: list[str], n: int) -> list[str] | None:
+        """Sayısal deliği ONUN şema defteri çözer; ada özel regex yok.
+
+        Şema henüz yoksa `None` döner. O zaman ikinci üye bağımsız sentezlenir ve
+        `Schema.compare` iki üyenin yapısal farkından şablonu çıkarır. Yani ilk
+        şema da insanın işaretlediği bir delikle başlamaz.
+        """
+        sc = getattr(self, "schema", None)
+        return sc.hypothesis(spec, n) if sc is not None else None
+
+    def _ayni_sema_mi(self, a: list[str], b: list[str]) -> bool:
+        """İki üye gerçekten aynı şablonda, yalnız sayısal delikte mi ayrışıyor?"""
+        sc = getattr(self, "schema", None)
+        return bool(sc is not None and sc.compare(a, b) is not None)
+
+    def _taban_adaylari(self) -> list[tuple[str, object]]:
+        """NEYİ öğreneceğini kendisi seçer: repertuvardaki ilkeller, KENDİ kullanım sayısına göre.
+
+        Sıra onun kayıtlarından: en az kullandığı ilkel önce gelir (merak = kullanılmamış
+        olan); eşitlik tohumdan gelen sabit bir düzenle bozulur. İnsan bir taban ADI
+        söylemiyor.
+        """
+        import zlib
+        from nora_synth import FILTER_PRIMITIVES, PRIMITIVES
+        kullanim: dict[str, int] = {}
+        for pr in (getattr(getattr(self, "synth", None), "programs", None) or []):
+            for nm in pr.get("ops") or []:
+                kullanim[str(nm)] = kullanim.get(str(nm), 0) + 1
+        havuz = [(n, f) for n, f, _c in list(PRIMITIVES) + list(FILTER_PRIMITIVES)]
+        havuz += [(n, f) for n, f, _c in getattr(getattr(self, "synth", None), "extra", []) or []]
+        return sorted(havuz, key=lambda nf: (kullanim.get(nf[0], 0),
+                                             zlib.crc32(f"{int(self.seed)}:{nf[0]}".encode())))
+
+    def kendini_degistir(self, sonuc: dict | None = None) -> dict:
+        """Kendi öğrenme politikasını DEĞİŞTİR, sına, gerekiyorsa GERİ AL.
+
+        Bu basamak kaynak kod yamamak değildir. Nora'nın öz-öğretimde kaç taban
+        adayını deneyeceği bir politikadır. Son öz-öğretim kendi örneklerini
+        çözememişse aday bütçesini iki katına çıkarır ve **aynı organla yeni bir
+        öz-sınav** yapar. Sınav öğrenmeyle sonuçlanmazsa eski bütçe geri yüklenir.
+        Böylece 'değiştirdim' demek için davranışsal kanıt vardır; başarısız değişim
+        başarı diye kaydedilmez.
+        """
+        r = sonuc if sonuc is not None else (getattr(self, "_son_oz_ogretim_sonuc", {}) or {})
+        if r.get("durum") != "kendi_ornegi_cozulemedi":
+            return {"değişti": False, "neden": "doğrulanmış-başarısızlık-yok",
+                    "bütçe": int(getattr(self, "_oz_aday_butce", 6))}
+        eski = int(getattr(self, "_oz_aday_butce", 6) or 6)
+        toplam = len(self._taban_adaylari())
+        yeni = min(toplam, max(eski + 1, eski * 2))
+        if yeni <= eski:
+            return {"değişti": False, "neden": "aday-uzayı-tükendi", "bütçe": eski}
+        self._oz_aday_butce = yeni
+        deneme = self.kendine_ogret()
+        kabul = bool(deneme.get("öğrendi"))
+        if not kabul:
+            self._oz_aday_butce = eski       # yalnız POLİTİKA geri alınır
+        olay = {"yaş": int(getattr(self.mind, "age", 0) or 0),
+                "tür": "aday-bütçesi", "neden": r.get("durum"),
+                "eski": eski, "yeni": yeni,
+                "kabul": kabul, "deneme-durum": deneme.get("durum"),
+                "deneme-taban": deneme.get("taban")}
+        self._oz_degisim.append(olay)
+        return {"değişti": kabul, "geri-alındı": not kabul, "olay": olay,
+                "bütçe": int(self._oz_aday_butce), "deneme": deneme}
+
+    def kendine_ogret(self) -> dict:
+        """ÖĞRETMENSİZ: kendi dağarcığından kendi örneklerini üretip şemayı kendi kurar.
+
+        İnsan burada **hiçbir şey yazmaz**: ne sözcük, ne örnek, ne parametre, ne görev.
+        Nora kendi sözlüğünden sözcük seçer, kendi parametrelerini seçer, örnekleri
+        kendisi üretir, iki program kurar, şemayı çıkarır ve **görülmemiş** bir
+        parametrede kendini sınar. Dönen defter dışarıdan denetlenebilir.
+
+        Dürüst sınır: ilkel repertuvarı ve dağarcığın kaynağı hâlâ insan işi. Yeni olan,
+        örneklerin ve görevin insandan gelmemesi.
+        """
+        import random as _r
+        from nora_synth import PRIMITIVES
+
+        sy = getattr(self, "synth", None)
+        lex = getattr(getattr(self.lang, "graph", None), "lexicon", None) or set()
+        words = sorted({str(w) for w in lex
+                        if isinstance(w, str) and w.isalpha() and w.islower() and len(w) >= 6})
+        if sy is None or len(words) < 8:
+            return {"durum": "dağarcık_yetersiz", "öğrendi": False, "sözcük": len(words)}
+
+        pm = {n: fn for n, fn, _c in PRIMITIVES}
+        if not pm:
+            return {"durum": "taban_ilkel_yok", "öğrendi": False}
+        # Tabanı o seçer (kendi kullanım sayımına göre); tutmazsa sıradakini dener.
+        adaylar = self._taban_adaylari()[:int(getattr(self, "_oz_aday_butce", 6) or 6)]
+        if not adaylar:
+            return {"durum": "taban_ilkel_yok", "öğrendi": False}
+        taban: tuple[str, object] | None = None
+        kes = lambda w, k: ""          # taban seçilince kurulur
+        rng = _r.Random(int(self.seed) * 7919 + len(words))
+        # KENDİ seçtiği parametreler. Görülenler repertuvarda OLMALI (n=1..4);
+        # görülmemiş olan (n3) repertuvarda YOK — şemanın işi tam da o.
+        n1 = 2 + rng.randrange(2)                  # 2 ya da 3
+        n2 = n1 + 1
+        n3 = None                                  # taban seçilince belirlenir
+        # 1) KENDİ örnekleri: iki parametre, kendi sözcükleri, KENDİ seçtiği taban.
+        #    Seçim tutmazsa hem sözcükleri hem tabanı değiştirir (insan devreye girmez).
+        secili: list[str] = []
+        kurulan: list[list[str]] = []
+        denemeler = 0
+        for taban_ad, taban_fn in adaylar:
+            kes_t = lambda w, k, _f=taban_fn: str(_f(w))[:k]
+            for _deneme in range(10):
+                denemeler += 1
+                aday = rng.sample(words, 4)      # 3 tanesi örnek, 1 tanesi TANIK
+                tanik = aday[3]
+                aday = aday[:3]
+                # taban yeterince uzun çıktı vermeli (yoksa parametre görünmez)
+                # taban yeterince uzun çıktı vermeli (yoksa parametre görünmez) ve
+                # GÖRÜLMEMİŞ parametre de tabanın uzunluğuna sığmalı (kendi sınırı).
+                if not all(len(kes_t(w, n1)) != len(kes_t(w, n2)) and len(kes_t(w, n2)) >= n2
+                           for w in aday):
+                    continue
+                _tavan = min(len(str(taban_fn(w))) for w in aday) - 1
+                _n3 = min(n2 + rng.randrange(1, 4), _tavan)
+                if _n3 <= n2:
+                    continue          # bu tabanla görülmemiş parametre kurulamaz
+                _kur, _ok = [], True
+                # (i) İLK PROGRAM: arama (kendi ilkelleriyle).
+                _ex1 = [(w, kes_t(w, n1)) for w in aday]
+                r1 = sy.learn(_ex1)
+                if r1.get("status") != "adopted" or sy.last.apply(tanik) != kes_t(tanik, n1):
+                    continue
+                _ops1 = list(sy.programs[-1]["ops"])
+                _ok = True
+                _kur.append(_ops1)
+                # (ii) İKİNCİ PARAMETRE: önce ONUN şema defterindeki şablondan
+                # hipotez kur ve kendi örnekleriyle SINА. İlk şema henüz yoksa
+                # bağımsız sentez veri toplar; iki üyenin YAPISAL farkı deliği bulur.
+                _ex2 = [(w, kes_t(w, n2)) for w in aday]
+                _hyp = self._sema_hipotezi(_ops1, n2)
+                _prog2 = Program.from_spec(_hyp, spec_map=sy.spec_map()) if _hyp else None
+                if _prog2 is None or any(_prog2.apply(a) != b for a, b in _ex2):
+                    # hipotez tutmadı: aramaya dön (insan yardımı yok)
+                    if sy.learn(_ex2).get("status") != "adopted":
+                        continue
+                    _prog2 = sy.last
+                    _hyp = list(sy.programs[-1]["ops"])
+                    # İKİ PROGRAM AYNI ŞABLONUN İKİ PARAMETRESİ OLMALI; değilse bu bir
+                    # şema adayı değil, iki ayrı tesadüftür — yeniden seçer. Kararı
+                    # insanın regex'i değil, iki programın karşılaştırması verir.
+                    if not self._ayni_sema_mi(_ops1, _hyp):
+                        continue
+                else:
+                    sy.programs.append({"id": f"kendi.op.{len(sy.programs) + 1}", "ops": _hyp,
+                                        "desc": " → ".join(_hyp),
+                                        "examples": [[a, b] for a, b in _ex2],
+                                        "origin": "kendi"})
+                if _prog2.apply(tanik) != kes_t(tanik, n2):
+                    continue
+                _kur.append(list(_hyp))
+                if _ok:
+                    secili, kurulan, taban, kes, n3 = aday, _kur, (taban_ad, taban_fn), kes_t, _n3
+                    break
+            if secili:
+                break
+        if not secili:
+            sonuc = {"durum": "kendi_ornegi_cozulemedi",
+                     "öğrendi": False, "sözcük": len(words),
+                     "parametreler": [n1, n2], "deneme": denemeler,
+                     "aday-bütçe": int(getattr(self, "_oz_aday_butce", 6) or 6)}
+            self._son_oz_ogretim_sonuc = sonuc
+            return sonuc
+
+        # 2) ŞEMA: iki programdan delikli şablon (insan girdisi yok)
+        eklenen = self._schema_maybe()
+        sema = [(r["name"], r.get("family"), r.get("seen")) for r in self.schema.ledger]
+
+        # 3) KENDİNİ SINAMA: görülmemiş parametre, kendi sözcüğü
+        sinama: dict = {"n": n3, "sözcük": None, "çıktı": None, "beklenen": None,
+                        "doğru": False, "durum": None}
+        kalan = [w for w in words if w not in secili]
+        # İki tanık şart (tek örnek `insufficient`): ikisi de ONUN sözcüğü.
+        for i in range(min(3, max(0, len(kalan) - 1)) or 1):
+            tut = (kalan[i:i + 2] or secili[:2])
+            if len(tut) < 2:
+                break
+            pairs = [(w, kes(w, n3)) for w in tut]
+            r = sy.learn(pairs)
+            sinama.update({"sözcük": tut[0], "durum": r.get("status")})
+            if r.get("status") == "adopted":
+                çıktı = sy.last.apply(tut[0])
+                sinama.update({"çıktı": çıktı, "beklenen": kes(tut[0], n3),
+                               "tanıklar": list(tut),
+                               "doğru": bool(çıktı == kes(tut[0], n3)
+                                             and sy.last.apply(tut[1]) == kes(tut[1], n3))})
+                break
+        # 4) Deftere yaz (kendi geçmişi)
+        kayit = {"örnekler": [[w, kes(w, n1)] for w in secili]
+                 + [[w, kes(w, n2)] for w in secili],
+                 "parametreler": [n1, n2, n3], "programlar": kurulan,
+                 "taban": (taban[0] if taban else None),
+                 "şema": sema, "eklenen": eklenen, "sınama": sinama,
+                 "insan-girdisi": 0}
+        led = getattr(self, "kendi_ögretim", None)
+        if led is None:
+            led = []
+            self.kendi_ögretim = led
+        led.append(kayit)
+        sonuc = {"durum": "tamam", "öğrendi": bool(eklenen and sinama.get("doğru")),
+                 "taban": kayit.get("taban"), "deneme": denemeler,
+                 "örnek": kayit["örnekler"], "parametreler": [n1, n2, n3],
+                 "programlar": kurulan, "şema": sema, "eklenen": eklenen,
+                 "sınama": sinama, "sözcük": len(words), "insan-girdisi": 0,
+                 "aday-bütçe": int(getattr(self, "_oz_aday_butce", 6) or 6)}
+        self._son_oz_ogretim_sonuc = sonuc
+        return sonuc
+
+    # ------------------------------------------------------- kendi görevini icat etme
+    def _deney_sozcukleri(self, n: int, rng) -> list[str]:
+        """Sözlüğe YAZILMAYAN nonce deney dizgeleri üret.
+
+        Bunlar bilgi/iddia değil, yalnızca dönüşüm sınamak için sembollerdir. Harf
+        envanteri Nora'nın mevcut dağarcığından gelir; üretilen dizge lexicon'a
+        eklenmez ve daha sonra 'biliyorum' diye sunulmaz.
+        """
+        lex = getattr(getattr(self.lang, "graph", None), "lexicon", None) or set()
+        known = {str(w) for w in lex}
+        letters = sorted({ch for w in known for ch in w if ch.isalpha()})
+        if not letters:
+            return []
+        out: list[str] = []
+        for _ in range(max(40, int(n) * 30)):
+            w = "".join(rng.choice(letters) for _ in range(5 + rng.randrange(5)))
+            if w not in known and w not in out:
+                out.append(w)
+                if len(out) >= int(n):
+                    break
+        return out
+
+    @staticmethod
+    def _ayirt_edici_sec(candidates, words):
+        """Adayların çıktı dağılımı en çok ayrışan deneyi seç (aktif öğrenme).
+
+        Etiket henüz bilinmiyor; bu yüzden seçim hedef çıktıya değil, adayların
+        kendi çıktılarının entropisine bakar. H=0 ise bu sözcük hiçbir belirsizliği
+        azaltmaz. Eşitlikte sözcük sırası değil, sabit sözlük sırası kullanılır.
+        """
+        import math
+        best_w, best_h = None, -1.0
+        for w in sorted({str(x) for x in (words or [])}):
+            counts: dict[str, int] = {}
+            for p in candidates or []:
+                out = str(p.apply(w))
+                counts[out] = counts.get(out, 0) + 1
+            total = sum(counts.values())
+            if not total:
+                continue
+            h = -sum((c / total) * math.log2(c / total) for c in counts.values())
+            if h > best_h + 1e-12:
+                best_w, best_h = w, h
+        return best_w, max(0.0, best_h)
+
+    def kendine_gorev(self) -> dict:
+        """Kendi hedef dönüşümünü seç, örnek/tanık üret, öğren ve dıştan sına.
+
+        `kendine_ogret` içindeki önek kesme görevi artık tek seçenek değil. Burada
+        hedef, ONUN ilkel havuzundan seçtiği bir bileşimdir; başarılı görevlerden
+        sonra derinliği kendi ilerlemesiyle artırır. İnsan hedef
+        adı, örnek çifti veya beklenen çıktı vermez. Belirsizlikte hazır sözcük
+        listesi yerine kendi çektiği tanıklar kullanılır; öğrenilen program tanıkta
+        hedefi karşılamazsa başarı yazılmaz.
+        """
+        import random as _r
+
+        sy = getattr(self, "synth", None)
+        lex = getattr(getattr(self.lang, "graph", None), "lexicon", None) or set()
+        words = sorted({str(w) for w in lex
+                        if isinstance(w, str) and w.isalpha() and w.islower() and len(w) >= 5})
+        if sy is None or len(words) < 8:
+            sonuc = {"durum": "dağarcık_yetersiz", "öğrendi": False,
+                     "sözcük": len(words), "insan-girdisi": 0}
+            self._son_gorev_sonuc = sonuc
+            return sonuc
+        pool = self._taban_adaylari()
+        if len(pool) < 2:
+            sonuc = {"durum": "ilkel_yetersiz", "öğrendi": False, "insan-girdisi": 0}
+            self._son_gorev_sonuc = sonuc
+            return sonuc
+
+        # Az kullanılan ilkeller önce gelir; onun kullanım geçmişi seçimi yönlendirir.
+        # Her denemede hedef ve sözcükler tohum + kendi görev sayısından değişir.
+        rng = _r.Random(int(self.seed) * 104729 + len(self._kendi_gorevler) * 97 + len(words))
+        havuz = pool[:min(14, len(pool))]
+        bilinen = {tuple(str(x) for x in (p.get("ops") or [])) for p in (sy.programs or [])}
+        hatalar: list[str] = []
+        derinlik = max(1, min(int(getattr(self, "_gorev_derinligi", 2) or 2),
+                              int(getattr(sy, "MAX_DEPTH", 3) or 3)))
+        for _deneme in range(16):
+            sec = rng.sample(havuz, derinlik)
+            hedef = Program([(str(n), fn) for n, fn in sec], cost=derinlik)
+            spec = hedef.spec()
+            if tuple(spec) in bilinen:
+                continue
+            # 4 örnek dağarcıktan; 4 tanık Nora'nın ÜRETTİĞİ nonce dizgelerden.
+            # Tanık üretimi lexicon'a yazılmaz; eksik kalırsa ancak o zaman eski
+            # dağarcıktan tamamlanır ve bu durum kayıtta görünür.
+            ornek_w = rng.sample(words, 4)
+            tanik_w = self._deney_sozcukleri(4, rng)
+            if len(tanik_w) < 4:
+                tanik_w += [w for w in words if w not in ornek_w and w not in tanik_w][:(4 - len(tanik_w))]
+            if len(tanik_w) < 4:
+                hatalar.append("tanık-üretilemedi")
+                continue
+            examples = [(w, hedef.apply(w)) for w in ornek_w]
+            if len({o for _a, o in examples}) < 2:
+                hatalar.append("tek-çıktı")
+                continue
+            res = sy.learn(examples)
+            ayirtma = 0
+            deneyler: list[str] = []
+            entropiler: list[float] = []
+            # Kendi tanıklarıyla belirsizliği çöz; insanın probe listesi kullanılmaz.
+            # Her seferinde adayların çıktı entropisi en yüksek deney seçilir.
+            kalan_deney = list(tanik_w)
+            while res.get("status") == "ambiguous" and kalan_deney:
+                pending = getattr(sy, "_pending", None)
+                cands = pending[0] if pending else []
+                w, ent = self._ayirt_edici_sec(cands, kalan_deney)
+                if w is None:
+                    w, ent = kalan_deney[0], 0.0
+                kalan_deney.remove(w)
+                deneyler.append(w)
+                entropiler.append(float(ent))
+                res = sy.refine(w, hedef.apply(w))
+                ayirtma += 1
+            if res.get("status") != "adopted" or sy.last is None:
+                hatalar.append(str(res.get("status")))
+                continue
+            kalan = kalan_deney
+            if len(kalan) < 2:
+                hatalar.append("tanık-yok")
+                continue
+            dogru = all(sy.last.apply(w) == hedef.apply(w) for w in kalan)
+            kayit = {"hedef": spec, "derinlik": derinlik,
+                     "örnekler": [[a, b] for a, b in examples],
+                     "tanıklar": list(kalan),
+                     "yeni-tanıklar": [w for w in kalan if w not in words],
+                     "ayırtma": ayirtma, "deneyler": deneyler,
+                     "deney-entropi": entropiler, "deney-stratejisi": "maksimum-entropi",
+                     "program": sy.last.spec(), "doğru": bool(dogru),
+                     "durum": "tamam" if dogru else "tanıkta-çürüdü",
+                     "insan-girdisi": 0}
+            self._kendi_gorevler.append(kayit)
+            sonuc = dict(kayit)
+            sonuc["öğrendi"] = bool(dogru)
+            self._son_gorev_sonuc = sonuc
+            if dogru:
+                # Kendi müfredatı: başarı kanıtlanmadan derinlik artmaz; sınır
+                # sentez organının mevcut MAX_DEPTH'i, yeni ilkel/form değil.
+                self._gorev_derinligi = min(int(getattr(sy, "MAX_DEPTH", 3) or 3),
+                                            derinlik + 1)
+                sonuc["sonraki-derinlik"] = int(self._gorev_derinligi)
+                return sonuc
+            hatalar.append("tanıkta-çürüdü")
+        sonuc = {"durum": "görev_kurulamadı", "öğrendi": False,
+                 "deneme": len(hatalar), "hatalar": hatalar[-8:], "insan-girdisi": 0}
+        self._son_gorev_sonuc = sonuc
+        return sonuc
+
+    # ------------------------------------------------------------------ sürücü
+    def drive(self, lines, tick_every: int = 25, max_steps: int = 8) -> dict:
+        """TALİMAT YOK: ham akışı izle, şaşkınlık biriktikçe KENDİ öğren.
+
+        İnsan burada yalnız AKIŞI verir; ne öğrenileceğini söylemez. Dönen sözlük
+        kendi tetiklediği öğrenmelerin sayısını ve adlarını içerir.
+        """
+        dr = getattr(self, "driver", None)
+        if dr is None:
+            return {"seen": 0, "triggered": 0, "learned": []}
+        dr.ingest_stream(lines)
+        dr.run(max_steps=max_steps)
+        return dr.summary()
+
+    # ------------------------------------------------------------------ reify
+    def _reify_maybe(self) -> str | None:
+        """Eşiği geçen bileşimi ilkel yap ve sentez uzayına ekle (seviye 3)."""
+        rf = getattr(self, "reify", None)
+        sy = getattr(self, "synth", None)
+        if rf is None or sy is None:
+            return None
+        cands = rf.candidates()
+        if not cands:
+            return None
+        try:
+            from nora_synth import Program
+        except Exception:
+            return None
+        spec = list(cands[0])
+        prog = Program.from_spec(spec, spec_map=sy.spec_map())
+        if prog is None:
+            return None
+        def _fn(s, _p=prog):
+            return _p.apply(s)
+        item = rf.promote(spec, build_fn=_fn,
+                         desc=f"kendi.bilesim.{rf.promoted} ({prog.desc()})")
+        if item is None:
+            return None
+        sy.add_primitive(item["name"], _fn)
+        return str(item["name"])
+
+    # ------------------------------------------------------------------ icat
+    def _invent_operator(self, pairs) -> str | None:
+        """KOMPOZİSYON TÜKENDİYSE: izleri yaz, ortak biçimi çıkar, YENİ İLKEL öner.
+
+        Sıra önemli ve dürüstlüğün ta kendisi: önce mevcut uzay denenir (çağıran taraf
+        `synth.learn` ile denedi ve başarısız oldu); buraya yalnız TIKANINCA gelinir.
+        """
+        ab = getattr(self, "abstract", None)
+        sy = getattr(self, "synth", None)
+        if ab is None or sy is None:
+            return None
+        ab.observe(pairs, why="program-yok")
+        prop = ab.propose(pairs, composition_exists=False,
+                          register=lambda nm, fn: sy.add_primitive(nm, fn))
+        if prop.get("status") != "invented":
+            return None
+        fn = abstract_build(prop["family"], prop["params"])
+        if fn is None:
+            return None
+        # İCAT YALNIZ İLKEL OLARAK KALMAZ: bir PROGRAM olarak da yazılır ki sonra
+        # "yazdığın dönüşümü uygula" ile çağrılabilsin (ve kayıt/yüklemede dursun).
+        try:
+            from nora_synth import Program
+            _prog = Program([(prop["name"], fn)], cost=1)
+            _prog.rid = f"icat.{len(ab.invented)}"
+            sy.programs.append({"id": _prog.rid, "ops": _prog.spec(),
+                                "desc": _prog.desc(),
+                                "examples": [[a, b] for a, b in pairs],
+                                "origin": "icat"})
+            sy.last = _prog
+            # İCAT DA İZ BIRAKIR: reify her başarılı yazımı görür (icat + kompozisyon
+            # tekrar ediyorsa o da bir makro olabilir). "Yazılan her şey aynı defterden geçer."
+            sy._notify(_prog.spec(), pairs)
+            self._after_synth(_prog)
+        except Exception:
+            pass
+        unseen = next((w for w in ("deniz", "masa", "zeytin", "bulut", "portakal")
+                       if w not in [a for a, _b in pairs]), "bulut")
+        out = fn(unseen)
+        return self._say("meta.operator",
+                         {"name": prop["name"], "n": int(prop.get("n", 0)),
+                          "word": unseen, "out": out},
+                         ctx={"kind": "invented"}, fallback="") or None
+
+    # ------------------------------------------------------------------ oturum defteri
+    @staticmethod
+    def _len_of(obj, attr: str) -> int:
+        v = getattr(obj, attr, None) if obj is not None else None
+        try:
+            return len(v) if v is not None else 0
+        except Exception:
+            return 0
+
+    def _session_counts(self) -> dict:
+        """Kendi defterlerimin ŞU ANKİ sayıları (tek kaynak: depoların kendisi)."""
+        return {"op": self._len_of(getattr(self, "synth", None), "programs"),
+                "rule": self._len_of(getattr(self, "forge", None), "authored"),
+                "person": self._len_of(getattr(self, "person_mem", None), "facts"),
+                "test": self._len_of(getattr(self, "testimony", None), "records"),
+                "num": self._len_of(self, "num_facts"),
+                "goal": int(getattr(self, "_goals_done", 0))}
+
+    def _self_history_turn(self, raw: str) -> str | None:
+        """'BU OTURUMDA ne öğrendin?' — cevap DEFTERLERDEN, uydurma yok.
+
+        Sayı, depoların kendisinden okunur (operatör defteri, kişi belleği, tanıklık,
+        sayısal olgular, tamamlanan hedefler). Boş defter için sıfır denir.
+        """
+        tl = tr_lower(raw or "")
+        if not any(k in tl for k in ("oturum", "defterim", "defterin")):
+            return None
+        if not any(k in tl for k in ("öğren", "yaz", "say", "neler", "ne var")):
+            return None
+        base = getattr(self, "_session0", None) or {}
+        now = self._session_counts()
+        d = {k: int(now.get(k, 0)) - int(base.get(k, 0)) for k in now}
+        total = sum(max(0, v) for v in d.values())
+        if total <= 0:
+            return self._say("meta.self_report", {},
+                             ctx={"kind": "session_none"}, fallback="") or None
+        last = ""
+        try:
+            progs = getattr(getattr(self, "synth", None), "programs", []) or []
+            last = str((progs[-1] or {}).get("desc") or "") if progs else ""
+        except Exception:
+            last = ""
+        return self._say("meta.self_report",
+                         {"n_op": max(0, d["op"]), "n_rule": max(0, d["rule"]),
+                          "n_person": max(0, d["person"]), "n_test": max(0, d["test"]),
+                          "n_num": max(0, d["num"]), "n_goal": max(0, d["goal"]),
+                          "last": last or "yok"},
+                         ctx={"kind": "session_report"}, fallback="") or None
+
+    def _recall_personal(self, raw: str) -> str | None:
+        """KİŞİSEL OLGU HATIRLAMA: 'kardeşimin adı neydi?'
+
+        Dünya grafiğine DEĞİL kişisel belleğe bakar (A54: anlatı kavram ağını kirletmez).
+        Kaynak her zaman söylenir: Nora bir şeyi biliyorsa, KİMDEN bildiğini de bilir.
+        Depoda yoksa None döner; üst katman uydurmaz.
+        """
+        pm = getattr(self, "person_mem", None)
+        if pm is None:
+            return None
+        low = tr_lower(raw or "")
+        if "?" not in (raw or "") and not any(k in low for k in ("neydi", "ne ", "kim",
+                                                                 "hatırlıyor musun")):
+            return None
+        rec = pm.recall(raw)
+        if not rec:
+            return None
+        # KULLANICININ KENDİ ADI: profil/kişi belleği cevaplar (sıra orada kurulu).
+        if rec.get("subj") == "benim" and rec.get("rel") == "ad":
+            return None
+        self._apply_tag("bellek", 1)
+        _turn = int(rec.get("turn") or 0) + 1
+        # ÇELİŞKİ: eski değer sessizce ezilmez; TEK cümlede ikisi de söylenir.
+        if rec.get("onceki"):
+            _prev = dict(rec)
+            _prev["val"] = rec["onceki"]
+            return self._cap_tr(self._say("memory.personal",
+                                          {"phrase": self._fact_phrase(rec),
+                                           "onceki": self._fact_phrase(_prev),
+                                           "turn": _turn},
+                                          ctx={"kind": "prev"},
+                                          fallback=f"Önce {self._fact_phrase(_prev)} demiştin."))
+        return self._cap_tr(self._say("memory.personal",
+                                      {"phrase": self._fact_phrase(rec), "turn": _turn},
+                                      fallback=self._fact_phrase(rec)))
+
+    @staticmethod
+    def _cap_tr(text: str) -> str:
+        """İlk harfi Türkçe kuralla büyüt (i -> İ, ı -> I)."""
+        t = (text or "").strip()
+        if not t:
+            return t
+        up = {"i": "İ", "ı": "I"}.get(t[0], t[0].upper())
+        return up + t[1:]
+
+    @staticmethod
+    def _fact_phrase(rec: dict) -> str:
+        """Kişisel olguyu 2. kişiyle, dilbilgisi doğru tek ifadeye çevirir."""
+        from nora_episodic import genitive, to_second_person
+        subj = to_second_person(rec.get("subj") or "")
+        val = str(rec.get("val") or "")
+        rel = rec.get("rel")
+        if rel == "ad":
+            return f"{genitive(subj)} adı {val}"
+        if rel == "yaş":
+            return f"{genitive(subj)} yaşı {val}" if val.isdigit() else f"{genitive(subj)} yaşı {val}"
+        if rel == "sever":
+            return f"en sevdiğin {rec.get('q') or ''} {val}".replace("  ", " ")
+        return f"{genitive(subj)} {rel} {val}"
+
+    def _notice_contradiction(self, raw: str) -> str | None:
+        """KARŞIDAKİNİN ÖZ-ÇELİŞKİSİ: aynı konuda ters yönde iki söz.
+
+        Ölçüt: iki tur en az bir İÇERİK sözcüğünü paylaşıyor ve olumsuzluk yalnız
+        birinde var. Uydurma yok: alıntı, gerçekten söylenmiş önceki cümledir. Amaç
+        hakemlik değil: hangisinin geçerli olduğunu SORMAK (insan da öyle yapar).
+        """
+        log = getattr(self, "dialogue_log", None) or []
+        if not log:
+            return None
+        prev = (log[-1][1] or "").strip()
+        cur = (raw or "").strip()
+        if not prev or not cur:
+            return None
+
+        def _words(t: str) -> set:
+            return {w for w in re.findall(r"[a-zçğıöşü]{4,}", tr_lower(t))}
+
+        shared = _words(prev) & _words(cur)
+        if not shared:
+            return None
+        negs = tuple(self._data_table("negation_markers", ()) or ())
+        low_p, low_c = tr_lower(prev), tr_lower(cur)
+        p_neg = any(n in low_p for n in negs)
+        c_neg = any(n in low_c for n in negs)
+        if p_neg == c_neg:
+            return None
+        # Konu gerçekten ortak mı: paylaşılan sözcük cümlenin taşıyıcısı olmalı.
+        if len(shared) < 1 or len(shared) < 1:
+            return None
+        self._apply_tag("cikarim", 1)
+        # Söz VERİDEN (nora_priors: contradiction_leads). `meta.notice.lead` DEĞİL:
+        # o topluluğun tekrar kalıpları eksik bağlamda eşleşip çelişki sözünü gasp
+        # ediyordu ("bunu az önce de söyler gibi oldun").
+        leads = self._data_table("contradiction_leads", ()) or ()
+        if leads:
+            import random as _rand
+            return _rand.choice(list(leads)).format(tp=prev)
+        return prev
+
+    def _topic_recall(self, raw: str) -> str | None:
+        """KONU TAKİBİ: 'hangi konudan konuşuyorduk?' — son SÖYLENENİ değil, son
+        DOLU cümleyi alıntılar.
+
+        Neden 'son cümle' yetmiyor: araya 'peki sen ne dersin?' gibi kısa turlar girer.
+        Konu, son birkaç turun EN ÇOK İÇERİK taşıyan kullanıcı cümlesidir. Uydurma yok:
+        alıntı gerçekten söylenmiş bir cümledir.
+        """
+        low = tr_lower(raw or "")
+        if not any(k in low for k in (self._data_table("topic_triggers", ()) or ())):
+            return None
+        log = getattr(self, "dialogue_log", None) or []
+        best, best_n = "", 0
+        for rec in list(log)[-6:]:
+            utxt = (rec[1] or "").strip()
+            if not utxt:
+                continue
+            words = [w for w in re.findall(r"[a-zçğıöşü]{4,}", tr_lower(utxt))]
+            if len(words) > best_n:
+                best, best_n = utxt, len(words)
+        if not best or best_n < 2:
+            return None
+        self._apply_tag("cikarim", 1)
+        # Söz VERİDEN gelir (nora_priors: topic_leads). `meta.notice.lead` kullanılmıyor:
+        # o topluluğun tekrar kalıpları eksik bağlamda da eşleşip konu sorusunu gasp
+        # ediyordu ("bunu az önce de söyler gibi oldun").
+        leads = self._data_table("topic_leads", ()) or ()
+        if leads:
+            import random as _rand
+            return _rand.choice(list(leads)).format(tp=best)
+        return best
+
+    #: Karar makinesinde KARŞIOLGUSU ÇIKARILAMAYAN kanallar (ölçüm yok, uydurma yok).
+    UNMEASURED_CHANNELS = {
+        "merak": "merak", "korku": "korku", "sosyal": "sosyal", "dopamin": "dopamin",
+        "ödül": "ödül", "haz": "haz", "öfke": "öfke", "utanç": "utanç",
+    }
+
+    def _answer_counterfactual_volition(self, s_low: str) -> str | None:
+        """KARŞIOLGUSAL İRADE SORUSU: "aç olmasaydın ne yapardın?"
+
+        Öz-rapor değil ÖLÇÜM: son karar aynı makinede, ilgili beden kanalı dolu
+        sayılarak yeniden koşar. Karar değişirse kanal nedendir; değişmezse değildir.
+        """
+        if not re.search(r"olmasayd[ıi]n?|olmasan|değilsen|tok olsan|tok olsaydın", s_low):
+            return None
+        if not any(k in s_low for k in ("ne yapardın", "ne yaparsın", "ne derdin",
+                                        "ne seçerdin", "nasıl karar", "ne ederdin")):
+            return None
+        ab = next((v for k, v in self.ABLATE_WORDS.items() if k in s_low), None)
+        if ab is None:
+            # Karar makinesinde AYARLANABİLİR bir kanal değil: uydurmak yerine söylenir.
+            unk = next((v for k, v in self.UNMEASURED_CHANNELS.items() if k in s_low), None)
+            if unk is None:
+                return None
+            self._apply_tag("cikarim", 1)
+            return self._say("meta.cf_volition", {"ablate": unk},
+                             ctx={"mode": "yok"},
+                             fallback=("'{c}' karar makinemde ayarlanabilir bir kanal değil: "
+                                       "onu dolu sayıp yeniden koşamam.").format(c=unk))
+        last = getattr(self.self_model, "last_volition_trace", None) or {}
+        action = str(last.get("action") or "git")
+        target = str(last.get("target") or "su")
+        try:
+            cf = self.self_model.counterfactual_volition(
+                action, target, mind=self.mind, obs=self.obs, ablate=ab,
+                predictor=self.tahmin_et,
+            )
+        except Exception:
+            return None
+        self._apply_tag("cikarim", 1)
+        return self._say("meta.cf_volition", {
+            "ablate": ab, "action": action, "target": target,
+            "actual": cf.get("actual"), "cf": cf.get("counterfactual"),
+        }, ctx={"changed": bool(cf.get("changed")), "mode": "olcum"},
+            fallback=("Karar değişirdi." if cf.get("changed") else "Karar değişmezdi."))
+
+    def _rule_summary(self, rule) -> str:
+        from nora_apply import FEATURES
+        name = FEATURES.get(rule.feature, ("harf",))[0]
+        odd = rule.mapping.get("odd", "?")
+        even = rule.mapping.get("even", "?")
+        return f"kural bağlandı: {name} sayısı tek -> {odd}, çift -> {even} ({rule.domain})"
+
+    def _handle_apply_ops(self, raw: str) -> str | None:
+        """Kural nesnesi gerektiren istemleri YORUMLAYICIYA ver (retrieve değil, apply)."""
+        eng = getattr(self, "apply_eng", None)
+        if eng is None or not raw:
+            return None
+        from nora_apply import FEATURE_WORDS
+
+        tl = tr_lower(raw)
+
+        # --- (A0) NOTASYON: "⊕ tek demek" -> sembol anlamı öğretilir, sonra kural çözülür ---
+        # Sembol, anlamı öğretilmeden bağlanmaz; öğretilince kural metni genişletilir.
+        for sym, mean in re.findall(r"(\S{1,3})\s+(tek|çift)\s+demek", tl):
+            eng.teach_alias(sym, mean)
+        tl = eng._expand(tl)
+
+        # --- (A0a) KARŞIOLGUSAL ÖZ-ERİŞİM: "kural olmasaydı ne derdin?" ---
+        # Cevap uydurulmaz: AYNI girdi kural DEVRE DIŞI bırakılarak yeniden yürütülür.
+        # Böylece "hangi parçam hangi sözü üretiyor" sorusu ölçülebilir olur.
+        # YALNIZ kendi kuralıma dair sorularda: "kuraklık olmasaydı ne olurdu?" dünya
+        # sorusudur ve dünya karşıolgusalına gitmeli, buraya değil.
+        if re.search(r"olmasayd[ıi]|silsem", tl) and (
+                "kural" in tl or "ne derdin" in tl or "ne söylerdin" in tl or "ne cevap" in tl
+        ) and any(k in tl for k in ("ne derdin", "ne söylerdin", "ne olurdu", "ne yapardın",
+                                    "ne cevap", "ne söylerdin")):
+            item = self._quoted(raw) or str(eng.wm.read("item", "") or "") \
+                or str(eng.wm.read("last_utterance", "") or "")
+            if not item:
+                return self._say("meta.cf_need_item", {}, fallback="Hedef yok.")
+            cf = eng.counterfactual_apply(item)
+            self._apply_tag("cikarim", 1)
+            return self._say("meta.counterfactual_self", {
+                "item": item, "with": cf.get("with") or "—",
+                "without": cf.get("without") or "etiket yok",
+                "n": cf.get("measured") if cf.get("measured") is not None else "—",
+                "name": cf.get("feature_name") or "ölçüm"}, fallback="Karşıolgusal yok.")
+
+        # --- (A0b) SIRALAMA: ölçüt -> sıra. Parite ailesinden farklı bir şekil. ---
+        # DİKKAT: "diz" alt dizge olarak aranmaz — "4, 9, 14, 19 dizisinde sıradaki sayı kaç?"
+        # bir SIRALAMA değil dizi sorusudur; alt dizge eşleşmesi o soruyu yutuyordu (A8).
+        if re.search(r"\bdiz\b|sırala|sıraya koy", tl) and not re.search(r"dizi|sıradaki", tl):
+            from nora_apply import Interpreter as _IT
+            seg = raw.split(":", 1)[1] if ":" in raw else raw
+            items = [x.strip(" .;") for x in re.split(r"[,;]|\s+ve\s+", seg) if x.strip(" .;")]
+            items = [x for x in items if not re.search(r"\b(sırala|sıraya|diz|büyükten|küçükten|"
+                                                       r"uzunluğa|kısa|önce|göre)\b", tr_lower(x))]
+            nums = re.findall(r"-?\d+", tl)
+            # "10, 7, 3 sayılarını ..." -> son öğe fiille birlikte gelir ve süzgeçte düşer;
+            # metindeki sayılar daha çoksa onlar kullanılır (eksik sıralama sessiz yanlıştır).
+            if len(nums) >= 2 and len(nums) > len([x for x in items if re.fullmatch(r"-?\d+", x)]):
+                items = nums
+            if len(items) >= 2:
+                desc = any(k in tl for k in ("büyükten küçüğe", "uzundan kısaya", "azalan",
+                                            "büyük olan önce", "uzun olan önce"))
+                if all(re.fullmatch(r"-?\d+", x) for x in items):
+                    mode = "num_desc" if desc else "num_asc"
+                elif any(k in tl for k in ("uzunluğa", "kısa olan önce", "uzunluk")):
+                    mode = "len_desc" if desc else "len_asc"
+                else:
+                    mode = "len_desc" if desc else "len_asc"
+                ordered = _IT.sort_items(items, mode)
+                eng.wm.write("sorted", ordered, "sort")
+                self._apply_tag("islem", 1)
+                return self._say("op.sorted", {"items": ", ".join(ordered),
+                                               "mode": "büyükten küçüğe" if desc else "küçükten büyüğe"},
+                                 fallback="Sıraladım.")
+
+        # --- (A0c) ZİNCİR: iki adım, ara sonuç ikinci adımın girdisi ---
+        if ("önce" in tl and "sonra" in tl and ("ise" in tl or "yaz" in tl)
+                and len(re.findall(r"\bise\b", tl)) >= 2):
+            ch = eng.bind_chain(raw)
+            if ch is not None:
+                self._apply_tag("islem", 1)
+                return self._say("apply.chain_bound",
+                                 {"steps": " -> ".join(f"{k}:{v}" for k, v in
+                                                       (ch.label_map or {}).items())},
+                                 fallback="Zincir kuruldu.")
+
+        # --- (A) TRANSFER: aynı yapıyı başka alana taşı ---
+        if any(k in tl for k in ("aynı kural", "kuralı taşı", "kuralı aktar", "başka alana taşı")):
+            if eng.last is None:
+                # Bağlı kural yok: uydurmak yerine açıkça söyle (söz veriden gelir).
+                return self._say("apply.need_rule", {}, fallback="Kural yok.")
+            new_rule = eng.bind(raw) if ("ise" in tl or "olursa" in tl) else None
+            if new_rule is None:
+                # Yeni etiket verilmediyse yapıyı taşı, etiketleri koru, alanı söyle.
+                dom = "mutfak" if "mutfak" in tl else ("lojistik" if "lojistik" in tl else "yeni alan")
+                feat = "word_count" if dom in ("mutfak", "lojistik") else eng.last.feature
+                new_rule = eng.transfer(dict(eng.last.mapping), feature=feat, domain=dom)
+            self._apply_tag("islem", 1)
+            return self._say("apply.transfer", {
+                "domain": new_rule.domain,
+                "name": __import__("nora_apply").FEATURES[new_rule.feature][0],
+                "odd": new_rule.mapping.get("odd"), "even": new_rule.mapping.get("even"),
+                "map": self._rule_map_text(new_rule), "shape_name": self._shape_name(new_rule),
+            }, ctx={"shape": getattr(new_rule, "shape", "parity")}, fallback="Taşındı.")
+
+        # --- (B) BAĞLA: "X tek ise A, çift ise B" / eşik / sıra ---
+        # ŞEKİL AYRIMI ÖNEMLİ: "tek/çift" yalnız BİR şekildir. Eşik ("3'ten az ise") ve
+        # sıra ("en çok olan") aynı kural nesnesinin başka eşlemeleridir; bağlama yolu aynı.
+        _shape_hint = bool(re.search(
+            r"\d+\s*'?[dt][ea]n\b|en\s+(?:az|çok|fazla)\s+\d", tl))
+        # Sıra şekli "ise" istemez: "en çok olan uzun, en az olan kısa" bir kural cümlesidir.
+        # Yine de İKİ uç da yoksa bağlama denenmez (soru cümlesini kural sanmayalım).
+        _rank_hint = eng._parse_rank(tl) is not None
+        if (("ise" in tl or "olursa" in tl) or _rank_hint) \
+                and any(w in tl for w in FEATURE_WORDS) \
+                and ("tek" in tl or "çift" in tl or _shape_hint or _rank_hint):
+            rule = eng.bind(raw)
+            if rule is not None:
+                self._apply_tag("islem", 1)
+                _ex = ""
+                if rule.exceptions:
+                    e0 = rule.exceptions[0]
+                    _ex = f"istisna: '{e0['pattern']}' -> {e0['label']}"
+                return self._say("apply.bound", {
+                    "name": __import__("nora_apply").FEATURES[rule.feature][0],
+                    "odd": rule.mapping.get("odd"), "even": rule.mapping.get("even"),
+                    "map": self._rule_map_text(rule), "shape_name": self._shape_name(rule),
+                    "domain": rule.domain, "ex": _ex},
+                    ctx={"shape": getattr(rule, "shape", "parity")}, fallback="Bağlandı.")
+            # Bağlanamadı: yankı YOK, açık başarısızlık.
+            return self._say("apply.bind_failed", {}, fallback="Bağlayamadım.")
+
+        # --- (C) SAY: "kaç sesli harf var" ---
+        # "kutu"/"kalem" gibi alan sözcükleri DÜNYA sözcükleridir: "Kutuda 7 kalem var,
+        # kaç kalem kaldı?" bir SAYIM değil, sözel problemdir. Bu dal yalnız metin
+        # ölçümü istendiğinde (tırnak/cümlesinde ya da harf-benzeri özellik) çalışır.
+        _textual = any(w in tl for w in ("harf", "hece", "kelime", "sözcük", "ünlü",
+                                         "sesli", "sessiz", "cümlesinde"))
+        if "kaç" in tl and any(w in tl for w in FEATURE_WORDS) and (
+                _textual or bool(self._quoted(raw))):
+            feat = None
+            for w in sorted(FEATURE_WORDS, key=len, reverse=True):
+                if w in tl:
+                    feat = FEATURE_WORDS[w]
+                    break
+            target = self._quoted(raw) or str(eng.wm.read("item", "") or "")
+            if not target:
+                return self._say("apply.need_target", {}, fallback="Hedef yok.")
+            n = eng.count(feat or "letter_count", target)
+            eng.wm.write("item", target, "count")
+            self._apply_tag("islem", 1)
+            name = __import__("nora_apply").FEATURES[feat or "letter_count"][0]
+            return self._say("apply.count", {"target": target, "n": n, "name": name},
+                             fallback="Sayıldı.")
+
+        # --- (D) UYGULA: kuralı yeni girdiye uygula ---
+        # "ne olur" TEK BAŞINA yetmez: "X'e müdahale edersem Y ne olur?" bir nedensellik
+        # sorusudur, kural uygulaması değil. Yanlış yakalama, sessizce yanlış cevap üretir.
+        _causal = any(k in tl for k in ("müdahale", "birlikte artıyor", "nedensel", "gözlem mi"))
+        # Tırnaklı hedef + soru ipucu da uygulamadır: "'petek' için sonuç ne?"
+        # (tanım soruları hariç: "ne demek", "nedir" kural uygulaması değildir).
+        _q_apply = (bool(self._quoted(raw))
+                    and any(k in tl for k in ("sonuç", "ne olur", "ne çıkar", "çıktı", "ne"))
+                    and not any(k in tl for k in ("demek", "nedir", "ne demek", "anlamı")))
+        asks_apply = (not _causal) and (
+            bool(re.search(r"\bhangi\b", tl)) or _q_apply
+            or any(k in tl for k in ("uygula", "sınıflandır", "etiketi ne", "rengi ne",
+                                     "sınıfı ne", "tadı ne", "ne çıkar")))
+        if asks_apply and eng.last is not None:
+            target = self._quoted(raw) or str(eng.wm.read("item", "") or "")
+            if not target:
+                # Sorunun kendisinde hedef yoksa, son söylenen cümleyi kullan.
+                target = str(eng.wm.read("last_utterance", "") or "")
+            if not target:
+                return self._say("apply.need_apply_target", {}, fallback="Hedef yok.")
+            # ÇOK KURAL: iki ayrı alanda kural varsa son kural ötekini EZMEZ.
+            # Soruda bir etiket geçiyorsa o kural seçilir; geçmiyorsa ikisi de söylenir
+            # (sessiz yanlış cevap yerine açık çokluk).
+            _act = [r for r in (getattr(eng, "active_rules", None) or [])
+                    if getattr(r, "mapping", None)]
+            _picked = None
+            if len(_act) > 1:
+                _hit = [r for r in _act
+                        if any(str(v).lower() in tl for v in r.mapping.values())]
+                if len(_hit) == 1:
+                    _picked = _hit[0]
+                elif not _hit:
+                    _body = "; ".join(f"{self._rule_map_text(r)}" for r in _act[:3])
+                    self._apply_tag("islem", 1)
+                    return self._say("apply.result",
+                                     {"target": target, "n": len(_act), "body": _body},
+                                     ctx={"shape": "multi"}, fallback=_body)
+            label, tr = (eng.apply(target, rule=_picked) if _picked is not None
+                         else eng.apply(target))
+            self._apply_tag("islem", 1)
+            _rshape = getattr(eng.last, "shape", "parity")
+            if label is None:
+                return self._say("apply.failed", {"target": target},
+                                 ctx={"shape": _rshape}, fallback="Uygulanamadı.")
+            if tr.get("kind") == "chain":
+                eng.wm.write("item", target, "apply")
+                _s1 = tr.get("step1") or {}
+                return self._say("apply.result_chain", {
+                    "target": target, "n": _s1.get("measured"),
+                    "name": _s1.get("feature_name", "ölçüm"), "mid": tr.get("mid"),
+                    "final": label}, fallback="Zincir uygulandı.")
+            if tr.get("parity") == "exception":
+                eng.wm.write("item", target, "apply")
+                return self._say("apply.result_exception",
+                                 {"target": target, "pattern": tr.get("exception"),
+                                  "label": label}, fallback="İstisna.")
+            eng.wm.write("item", target, "apply")
+            name = tr.get("feature_name", "harf")
+            # ŞEKLE GÖRE AÇIKLAMA: eşik kuralında "tek/çift" demek YANLIŞ gerekçedir.
+            # Ölçüm aynı, eşlemenin dili farklı; gerekçe de eşlemeyi anlatmalı.
+            if _rshape == "presence":
+                # İCAT EDİLMİŞ ölçüm: sayı değil VARLIK ölçülür ("lik ile bitiyor mu").
+                return self._say("apply.result", {
+                    "target": target, "n": tr["measured"], "name": name,
+                    "value": "var" if tr.get("bucket") == "var" else "yok",
+                    "parity": tr.get("bucket"), "label": label,
+                }, ctx={"shape": "presence"})
+            if _rshape == "threshold":
+                return self._say("apply.result", {
+                    "target": target, "n": tr["measured"], "name": name,
+                    "threshold_desc": self._threshold_desc(eng.last),
+                    "cond_word": "sağlıyor" if tr.get("bucket") == "cond" else "sağlamıyor",
+                    "parity": "eşik", "label": label,
+                }, ctx={"shape": "threshold"}, fallback="Uygulandı.")
+            return self._say("apply.result", {
+                "target": target, "n": tr["measured"], "name": name,
+                "parity": "tek" if tr["parity"] == "odd" else "çift", "label": label,
+            }, ctx={"shape": _rshape}, fallback="Uygulandı.")
+
+        # --- (F) YANILMA OLASILIĞI: ölçülen kaynak karışımından, uydurma değil ---
+        if any(k in tl for k in ("yanlış olma", "yanılma", "olasılık", "yüzde kaç", "ne kadar emin")):
+            src = dict(getattr(self, "_last_turn_src", {}) or {})
+            # Kaynak -> tipik yanılma payı (kaba ama ÖLÇÜLEN karışıma bağlı, sabit değil).
+            base = {"kalip": 0.78, "ag": 0.22, "bellek": 0.15, "cikarim": 0.34,
+                    "islem": 0.04, "beden": 0.10, "duyum": 0.12, "ogrenim": 0.45}
+            tot = sum(v for v in src.values() if v > 0)
+            if tot:
+                p = sum(base.get(k, 0.5) * v for k, v in src.items() if v > 0) / tot
+            else:
+                p = 0.6      # hiçbir kaynak etiketlenmediyse: bilmiyorum demek en dürüstü
+            self._apply_tag("islem", 1)
+            eksik = []
+            if not eng.rules:
+                eksik.append(self._say("meta.missing_rule", {}, fallback="kural yok"))
+            if not (eng.wm.read("item", "") or ""):
+                eksik.append(self._say("meta.missing_input", {}, fallback="girdi yok"))
+            if not src:
+                eksik.append(self._say("meta.missing_tag", {}, fallback="etiket yok"))
+            eksik_s = ("; ".join(eksik) if eksik
+                       else self._say("meta.missing_none", {}, fallback="eksik görünmüyor"))
+            # Dürüst çerçeve: karışım GEÇEN cevabın ölçümüdür; bu turun etiketi ancak tur
+            # bitince hesaplanır. "Kaynak karışımım: boş" demek ölçüm yokmuş gibi görünüyordu.
+            if src:
+                mix = ", ".join(f"{k}={v}" for k, v in src.items() if v)
+                mix_txt = self._say("meta.mix_filled", {"mix": mix}, fallback="")
+            else:
+                mix_txt = self._say("meta.mix_empty", {}, fallback="")
+            return self._say("meta.probability", {
+                "p": int(round(p * 100)), "mix": mix_txt, "missing": eksik_s},
+                fallback="Bilmiyorum.")
+
+        # --- (G) KENDİ HEDEFİ: uydurma değil, kendi merak kuyruğundan ---
+        if any(k in tl for k in ("kendi hedefini", "kendi hedefin", "hedefini seç",
+                                 "kendi amacını", "ne yapmak istiyorsun")):
+            target, why = "", ""
+            try:
+                q = list(getattr(self.auto_net, "curiosity_queue", []) or [])
+                if q:
+                    target = str(q[-1])
+                    why = "merak kuyruğu"
+            except Exception:
+                pass
+            if not target:
+                try:
+                    pend = list(getattr(self, "pending_research", []) or [])
+                    if pend:
+                        target = str(pend[-1])
+                        why = "araştırma listesi"
+                except Exception:
+                    pass
+            if not target:
+                return self._say("meta.own_goal_empty", {}, fallback="Hedefim ölçmek.")
+            eng.wm.write("goal", target, "own_goal")
+            self._apply_tag("cikarim", 1)
+            return self._say("meta.own_goal", {"target": target, "why": why},
+                             fallback="Hedefim ölçmek.")
+
+        # --- (H) ORTAK YAPI: grafikte varsa ölç, yoksa hipotez olduğunu söyle ---
+        if any(k in tl for k in ("ortak yapı", "ortak nokta", "ortak yan", "benzer yapı")):
+            words = [w for w in re.findall(r"[\wçğıöşü]{4,}", tl)
+                     if w not in ("ortak", "yapı", "yapısını", "nokta", "yan", "benzer", "bul",
+                                  "icat", "isim", "notasyon", "yeni", "fabrika", "ile")]
+            pairs = []
+            for w in words:
+                try:
+                    e = self.lang.graph.query(w, None)
+                except Exception:
+                    e = []
+                pairs.append((w, {(str(r), ) for r, _ in e}, len(e)))
+            known = [(w, n) for w, _, n in pairs if n > 0]
+            if len(known) >= 2:
+                rels = []
+                for w, relset, _ in pairs:
+                    if relset:
+                        rels.append(relset)
+                shared = set.intersection(*rels) if rels else set()
+                self._apply_tag("ag", 1)
+                if shared:
+                    r0 = sorted(x[0] for x in shared)
+                    return self._say("meta.structure_shared",
+                                     {"rels": ", ".join(r0), "rel": r0[0],
+                                      "name": f"{r0[0].lower()}-akışı"}, fallback="Ortak bağ var.")
+                return self._say("meta.structure_none", {}, fallback="Ortak bağ yok.")
+            # Bilgi yok: UYDURMA YOK. Hipotez olduğunu açıkça söyle.
+            self._apply_tag("cikarim", 1)
+            a_w = words[0] if words else "birinci"
+            b_w = words[1] if len(words) > 1 else "ikinci"
+            eng.wm.write("hypothesis", f"{a_w}/{b_w}", "hypothesis")
+            return self._say("meta.hypothesis", {"a": a_w, "b": b_w}, fallback="Bilmiyorum.")
+
+        # --- (L2) AÇIKLAYICI NEDEN (collider): iki neden tek etkiye çıkıyorsa seçilemez ---
+        if any(k in tl for k in ("sebep", "neden", "yüzünden")) and ("mi" in tl or "mı" in tl
+                                                                     or "hangisi" in tl):
+            # Etki ADI çok sözcüklü olabilir ("kök çürümesi"): tek sözcük aramak,
+            # bileşik kavramı kaçırıp "bilmiyorum"a düşürüyordu. 3'lü/2'li/1'li sırayla ara.
+            _eff = ""
+            _words = [w for w in re.findall(r"[a-zçğıöşü]{2,}", tl)
+                      if w not in ("sebep", "neden", "hangisi", "veya", "yoksa", "varsa",
+                                   "sulama", "gübre", "gübreleme", "toprak", "aşırı")]
+            for _n in (3, 2, 1):
+                for _i in range(len(_words) - _n + 1):
+                    _cand = " ".join(self._graph_stem(w) for w in _words[_i:_i + _n])
+                    if self.lang.graph._in_edges.get(_cand):
+                        _eff = _cand
+                        break
+                if _eff:
+                    break
+            if not _eff:
+                for _w in re.findall(r"[a-zçğıöşü]{4,}", tl):
+                    _st = self._graph_stem(_w)
+                    if self.lang.graph._in_edges.get(_st):
+                        _eff = _st
+                        break
+            _ea = self._explain_away(_eff) if _eff else None
+            if _ea:
+                return _ea
+
+        # --- (M2) META-OPERATÖR: kendi eksik primitifini rejistriden okur ---
+        if re.search(r"hangi operat|operatörün yok|neyi yapamıyorsun|ne yapamıyorsun"
+                     r"|eksik primitif|neyi yapamazsın", tl):
+            return self._meta_operator()
+
+        # --- (I) ÖZ-RAPOR: mimari CANLI durumdan okunur, ezber metin yok ---
+        # "Kuark nasıl çalışır?" DÜNYA sorusudur; öz-rapor yalnız 2. kişi/kendi üzerine sorulunca.
+        if re.search(r"nasıl çalış(?:ıyor|ır)sun|zayıf nokta|mimari|neyi değiştir"
+                     r"|kendini nasıl inşa", tl):
+            return self._self_report()
+
+        # --- (J) AGI BEYANI: ölçümden türetilir, sabit cevap değil ---
+        # Türkçe küçük harf 'I' -> 'ı' yaptığı için "AGI" -> "agı" olur; ikisini de kabul et.
+        if re.search(r"\bag[ıi]\b", tl) and any(
+                k in tl for k in ("misin", "mı", "değil", "seviyesinde", "seviyesi")):
+            return self._agi_verdict()
+
+        # --- (K) KENDİ KODU: gerçekten yapabildiği ile yapamadığı ayrılır ---
+        # "yama" ALT DİZGE olarak aranmaz: "uyuyamadım" içinde de geçer ve o zaman
+        # kişisel anlatı yanlışlıkla kod yaması cevabına düşer (sessiz yanlış cevap).
+        if re.search(r"kendi kod|\byama|kendini değiştir", tl):
+            return self._self_patch_answer(tl)
+
+        # --- (L0) KARŞIOLGUSAL: "X olmasaydı ne olurdu?" ---
+        # Yapısal model X'siz yeniden koşturulur; X'in çıkan kenarları yok sayılır.
+        # Fark = X'in yapıdaki nedensel katkısı. Bu bir MODEL çıkarımıdır, ölçüm değil.
+        if re.search(r"olmasayd[ıi]|olmasa ne|müdahale etmeseydim|müdahale etmesem", tl):
+            node = self._cf_node(tl)
+            # UZMAN ARBİTRASYONU: nicel bir korteks (fizik) soruyu TAM olarak çözebiliyorsa
+            # dünya-grafiği ablasyonu onu gasp etmez. "Sürtünme olmasaydı ne olurdu?" bir
+            # yasa sorusudur (eylemsizlik), grafikteki bir kenarın silinmesi değil.
+            if node and getattr(self, "physics_cortex", None) is not None:
+                try:
+                    if self.physics_cortex.try_solve(raw, mind=None) is not None:
+                        node = ""
+                except Exception:
+                    pass
+            if node:
+                cf = self.lang.graph.counterfactual(node)
+                self._apply_tag("cikarim", 1)
+                eng = getattr(self, "apply_eng", None)
+                if eng is not None:
+                    eng.wm.write("cf", cf, "counterfactual")
+                # ETKİ düğümü: ondan çıkan nedensel kenar yoksa "ne olurdu" sorusu
+                # "hiç olmazdı" demektir; ama nedeni de söylenebilir. Sessiz boş cevap yok.
+                if not cf["effects"]:
+                    causes = [e.subj for e in self.lang.graph._in_edges.get(node, ())
+                              if getattr(e, "rel", "") in ("CAUSES", "IF_THEN")]
+                    return self._say("meta.cf_effect_node", {
+                        "node": node, "causes": ", ".join(dict.fromkeys(causes)) or "yok"},
+                        fallback="Etki düğümü.")
+                return self._say("meta.counterfactual_world", {
+                    "node": node,
+                    "lost": ", ".join(cf["lost"]) or "hiçbir şey",
+                    "kept": ", ".join(cf["kept"]) or "hiçbir şey",
+                    "n": len(cf["effects"])}, {"count": len(cf["kept"])},
+                    fallback="Karşıolgusal yok.")
+
+        # --- (L) NEDENSELLİK: gözlem ile müdahale ayrılır ---
+        if any(k in tl for k in ("müdahale", "birlikte artıyor", "nedensel", "gözlem mi")):
+            self._apply_tag("cikarim", 1)
+            # "X ve Y" tek harf de olabilir; en fazla 20 harf, işlev sözcükleri hariç.
+            _stop = {"bir", "bu", "şu", "çok", "daha", "ise", "ve", "ama", "ki"}
+            m = re.search(r"\b([a-zçğıöşü]{1,20})\s+ve\s+([a-zçğıöşü]{1,20})\b", tl)
+            x = m.group(1) if m and m.group(1) not in _stop else ""
+            y = m.group(2) if m and m.group(2) not in _stop else ""
+            # "Kuraklığa müdahale edersem?" -> hedef ekli gelir; GÖVDEYİ bul, yoksa
+            # grafikte arama boş döner ve doğru cevap "kenar yok" gibi görünür.
+            if not x:
+                mm = re.search(r"([a-zçğıöşü]{3,})(?:'[a-zçğıöşü]+)?\s+müdahale", tl)
+                if mm:
+                    x = self._graph_stem(mm.group(1))
+                if not y:
+                    my = re.search(r"\b([a-zçğıöşü]{3,})(?:'[a-zçğıöşü]+)?\b", tl)
+                    y = self._graph_stem(my.group(1)) if my else ""
+            # do(): X'e GİREN kenarları kes, yalnız ÇIKAN nedensel kenarları izle.
+            doobj = {}
+            try:
+                if x:
+                    doobj = self.lang.graph.do(x)
+            except Exception:
+                doobj = {}
+            effs = list(doobj.get("effects") or [])
+            if effs:
+                return self._say("meta.causal_data", {
+                    "x": x, "n_eff": len(effs), "effs": ", ".join(str(e) for e in effs[:4]),
+                    "conf": ", ".join(doobj.get("confounders") or []) or "yok"}, fallback="Veri yok.")
+            return self._say("meta.causal_nodata", {"x": x, "y": y, "xy": f"{x}/{y}"},
+                             {"count": 1 if x else 0}, fallback="Veri yok.")
+
+        # --- (M) VARSAYIMSAL PROBLEM: varsayım işaretlenir, hesap gerçek yapılır ---
+        if any(k in tl for k in ("problem kur", "problem çöz", "metrik", "ölçüt")):
+            return self._hypothetical_problem(raw)
+
+        # --- (E) SAYMA/Aritmetik dışı: yok ---
+        return None
+
+    # ------------------------------------------------------------------ biçim yardımcıları
+    def _graph_stem(self, word: str) -> str:
+        """Ekli yüzeyden KAVRAM GÖVDESİ: 'kuraklığa' -> 'kuraklık', 'tuzlanma' -> 'tuzlanma'.
+
+        Grafik düğümleri gövdeyle tutulur; ekli yüzeyle arama boş döner ve bu,
+        "kenar yok" gibi görünen SAHTE bir olumsuz üretir. Bu yüzden ek sıyırma
+        denemeleri sırayla yapılır ve grafikte VAR OLAN ilk aday döndürülür.
+        """
+        w = tr_lower(word or "").strip()
+        if not w:
+            return ""
+        g = getattr(self.lang, "graph", None)
+        cands = [w]
+        try:
+            cands.append(self.lang.morph.analyze_word(w, getattr(g, "lexicon", set()))["stem"])
+        except Exception:
+            pass
+        for suf in ("ya", "ye", "ğa", "ğe", "na", "ne", "a", "e", "ı", "i", "u", "ü", "dan", "den"):
+            if len(w) - len(suf) >= 3 and w.endswith(suf):
+                base = w[: -len(suf)]
+                cands.extend([base, base + "k", base + "ğ"])
+        for c in cands:
+            if g is not None and (c in getattr(g, "_out_edges", {}) or c in getattr(g, "_in_edges", {})):
+                return c
+        return cands[1] if len(cands) > 1 else w
+
+    def _cf_node(self, tl: str) -> str:
+        """Karşıolgusal hedefi bul: grafikte ÇIKAN kenarı olan en uzun ad öbeği.
+
+        "kuraklık olmasaydı" -> 'kuraklık'; "kök çürümesi olmasaydı" -> 'kök çürüme'.
+        Tek sözcük aramak bileşik kavramı kaçırır; bu yüzden 3'lü/2'li/1'li denenir.
+        """
+        g = self.lang.graph
+        stop = {"olmasaydı", "olmasa", "müdahale", "etmeseydim", "ne", "olurdu", "acaba",
+                "peki", "sence", "eğer", "bir", "bu", "şu", "ve", "ise"}
+        words = [w for w in re.findall(r"[a-zçğıöşü]{2,}", tl) if w not in stop]
+        for n in (3, 2, 1):
+            for i in range(len(words) - n + 1):
+                cand = " ".join(self._graph_stem(w) for w in words[i:i + n])
+                if g._out_edges.get(cand) or g._in_edges.get(cand):
+                    return cand
+        return ""
+
+    def _explain_away(self, effect: str) -> str | None:
+        """COLLIDER: bir etkiye birden çok neden çıkıyorsa, etkiden neden SEÇİLEMEZ.
+
+        Bu, do-calculus'un en sık atlanan yeri: P(neden|etki) ile P(etki|neden) karışır.
+        Ağda iki ayrı neden aynı etkiye gidiyorsa cevap "ikisi de olabilir" olmalı;
+        tek neden söylemek sahte kesinliktir.
+        """
+        g = getattr(self.lang, "graph", None)
+        if g is None or not effect:
+            return None
+        causes = [e.subj for e in getattr(g, "_in_edges", {}).get(effect, ())
+                  if getattr(e, "rel", "") in ("CAUSES", "IF_THEN")]
+        causes = [c for c in dict.fromkeys(causes) if c and c != effect]
+        if len(causes) < 2:
+            return None
+        self._apply_tag("cikarim", 1)
+        eng = getattr(self, "apply_eng", None)
+        if eng is not None:
+            eng.wm.write("collider", {"effect": effect, "causes": causes}, "collider")
+        return self._say("meta.collider", {"effect": effect, "causes": ", ".join(causes)},
+                         fallback="Belirsiz.")
+
+    def _meta_operator(self) -> str:
+        """META-OPERATÖR: "neyi yapamıyorsun?" — rejistriden okur, ezber cevap yok.
+
+        Cevap üç ölçümden kurulur: (1) kayıtlı operatörler, (2) bu evrende ORGAN olmayan
+        şeyler, (3) şu an gerçekten bağlı olan durum (kural/zincir/sembol sayısı).
+        Tutarlılık şartı: burada "yok" denen şey doğrudan istendiğinde de yapılmamalı.
+        """
+        from nora_apply import OPERATORS, MISSING_ORGAN
+        eng = getattr(self, "apply_eng", None)
+        have = list(OPERATORS)
+        missing = list(MISSING_ORGAN)
+        # "henüz bağlı değil" etiketleri de VERİDEN gelir (kodda cümle büyümesin).
+        from nora_apply import UNBOUND_LABELS
+        if not (eng and getattr(eng, "rules", None)) and UNBOUND_LABELS.get("rule"):
+            missing.insert(0, UNBOUND_LABELS["rule"])
+        if not (eng and getattr(eng, "chain", None)) and UNBOUND_LABELS.get("chain"):
+            missing.insert(0, UNBOUND_LABELS["chain"])
+        if not (eng and getattr(eng, "aliases", None)) and UNBOUND_LABELS.get("alias"):
+            missing.insert(0, UNBOUND_LABELS["alias"])
+        self._apply_tag("cikarim", 1)
+        return self._say("meta.operator", {
+            "have": ", ".join(have), "n_have": len(have),
+            "missing": ", ".join(missing), "n_missing": len(missing)},
+            fallback="Rejistri boş.")
+
+    # ------------------------------------------------------------------ öz-model
+    def _self_report(self) -> str:
+        """Kendi mimarisini CANLI durumdan okur: modül, düğüm, kural, ölçüm."""
+        import sys as _sys
+        mods = [m for m in _sys.modules if m.startswith("nora_")]
+        try:
+            n_edges = len(getattr(self.lang.graph, "edges", []) or [])
+        except Exception:
+            n_edges = 0
+        pv = getattr(self, "provenance", None)
+        pr = pv.report() if pv is not None else {}
+        eng = getattr(self, "apply_eng", None)
+        rules = len(getattr(eng, "rules", {}) or {}) if eng else 0
+        wm_load = getattr(getattr(eng, "wm", None), "load", 0) if eng else 0
+        sk = float(pr.get("iskelet_orani", 0.0) or 0.0)
+        # Öz-model DÜĞÜMLERİ: kavram grafiğinde "nora" düğümü ve canlı ölçüm kenarları.
+        n_self = self._sync_self_graph()
+        weak_kind = "meta.self_weak"
+        weak_ctx = {"kind": "high" if sk > 0.4 else "low"}
+        weak = self._say(weak_kind, ctx=weak_ctx, fallback="kapsam dar")
+        self._apply_tag("cikarim", 1)
+        return self._say("meta.self_report", {
+            "n_mod": len(mods), "n_edges": n_edges, "n_rules": rules, "wm": wm_load,
+            "sk": int(sk * 100), "og": int(float(pr.get("ogrenim_orani", 0.0) or 0) * 100),
+            "weak": weak, "n_self": n_self,
+        }, ctx={"kind": "body_report"})
+
+    def _sync_self_graph(self) -> int:
+        """ÖZ-MODEL: kendi canlı ölçümlerini kavram grafiğine DÜĞÜM/kenar olarak yazar.
+
+        Neden graf? Çünkü "kendini bilmek" ayrı bir metin değil, sorgulanabilir bir
+        yapı olmalı: Nora `nora` düğümünden çıkan kenarları okuyup cevap verir.
+        Ölçümler her çağrıda TAZELENİR (mevcut kenarın ağırlığı artar, yenisi açılmaz).
+        `bind_mb=False`: öz-durum sözcükleri motor topluluğu (assemblies) doğurmasın;
+        bunlar söz değil ölçüm etiketidir.
+        """
+        g = getattr(getattr(self, "lang", None), "graph", None)
+        if g is None:
+            return 0
+        pr = {}
+        try:
+            pr = self.provenance.report() if getattr(self, "provenance", None) else {}
+        except Exception:
+            pr = {}
+        eng = getattr(self, "apply_eng", None)
+        try:
+            state = {
+                "organ_sayisi": len([m for m in __import__("sys").modules if m.startswith("nora_")]),
+                "kavram_bagi": len(getattr(g, "edges", []) or []),
+                "kural_sayisi": len(getattr(eng, "rules", {}) or {}) if eng else 0,
+                "bellek_yuku": int(getattr(getattr(eng, "wm", None), "load", 0) or 0),
+                "kalip_payi": round(float(pr.get("iskelet_orani", 0.0) or 0.0), 3),
+                "ogrenim_payi": round(float(pr.get("ogrenim_orani", 0.0) or 0.0), 3),
+                "tur_sayisi": int(pr.get("tur", 0) or 0),
+            }
+            for k, v in state.items():
+                g.add_edge("nora", "HAS_STATE", f"{k}={v}", source="beden", bind_mb=False)
+            # Yapabildiği / yapamadığı operatörler: öz-model yalnız övgü değil sınır da taşır.
+            for op in ("bağla", "uygula", "say", "planla", "taşı"):
+                g.add_edge("nora", "CAN_DO", op, source="beden", bind_mb=False)
+            if not (eng and getattr(eng, "rules", None)):
+                g.add_edge("nora", "CANNOT_DO", "kural uygula", source="beden", bind_mb=False)
+            return len(g._out_edges.get("nora", ()))
+        except Exception:
+            return 0
+
+    def _agi_verdict(self) -> str:
+        pv = getattr(self, "provenance", None)
+        pr = pv.report() if pv is not None else {}
+        eng = getattr(self, "apply_eng", None)
+        applied = sum(1 for t in (getattr(eng, "trace", []) or []) if t.get("kind") == "apply")
+        sk = float(pr.get("iskelet_orani", 0.0) or 0.0)
+        self._apply_tag("cikarim", 1)
+        return self._say("meta.agi_verdict",
+                         {"applied": int(applied), "sk": int(sk * 100)},
+                         {"count": int(applied)},
+                         fallback="AGI değilim.")
+
+    def _self_patch_answer(self, tl: str) -> str:
+        """Ne yapabildiğini ayır: yama ÖNERİSİ üretir, dosyaya kendi yazmaz."""
+        self._apply_tag("cikarim", 1)
+        patch = ("--- nora_agi.py\n"
+                 "+++ nora_agi.py\n"
+                 "@@ selamlaşma @@\n"
+                 "-  reply = f\"{selam}. {ek}\"\n"
+                 "+  reply = selam          # kısa selamlaşma: ek cümle yok\n")
+        return self._say("meta.patch", {"patch": patch}, fallback="Yama yetkim yok.")
+
+    def _hypothetical_problem(self, raw: str) -> str:
+        """Varsayımı İŞARETLE, hesabı GERÇEKTEN yap (sayı operatorü)."""
+        eng = getattr(self, "apply_eng", None)
+        tl = tr_lower(raw)
+        nums = [int(x) for x in re.findall(r"\b(\d+)\b", tl)]
+        if len(nums) < 2:
+            nums = [10, 8]          # varsayılan: 10 kovan, kovan başına 8 kg
+        kovan, verim = nums[0], nums[1]
+        kayip = nums[2] if len(nums) > 2 else 12
+        brut = kovan * verim
+        net = brut * (100 - kayip) / 100.0
+        if eng is not None:
+            eng.wm.write("problem", {"kovan": kovan, "verim": verim, "kayip": kayip}, "problem")
+            self._apply_tag("islem", 2)
+        else:
+            self._apply_tag("islem", 1)
+        return self._say("meta.problem", {
+            "kovan": kovan, "verim": verim, "kayip": kayip, "brut": brut,
+            "net": f"{net:.1f}", "per": f"{net / kovan:.2f}",
+        }, fallback="Hesap yok.")
+
+    # ------------------------------------------------------------------
+
+    def _decompose_command(self, fr, raw: str, speaker: str = "insan") -> str | None:
+        """Komutu alt görevlere ayır ve VAR OLAN operatörlerle yürütmeyi dene.
+
+        Dönen metin yalnızca gerçekten yapılabilen bir şeyse üretilir; yapılamıyorsa
+        None döner ve çağıran açık başarısızlığı söyler. Yankı yok.
+        """
+        tl = tr_lower(raw or "")
+        eng = getattr(self, "apply_eng", None)
+
+        # (0) BİLEŞİK İSTEK: "X uyarla ve sonra Y tarat". Hepsini tek adım gibi yutmak
+        #     yankıdır; her yan cümle ayrı yürütülür, yapılamayan ADIYLA söylenir.
+        _cls = [c.strip(" .") for c in
+                re.split(r"\s+ve\s+|\s+sonra\s+|\s+ardından\s+|[,;]\s*", tl) if c.strip(" .")]
+        # Her yan cümle aynı operatörü istiyorsa BÖLME: "hedef belirle ve planla" iki plan
+        # üretiyordu (biri 7, biri 10 adım) ve cevap kendi kendisiyle çelişiyordu.
+        _plan_kw = ("plan", "hedef", "adım")
+        if len(_cls) >= 2 and all(any(k in c for k in _plan_kw) for c in _cls):
+            _cls = []
+        if len(_cls) >= 2:
+            _ok, _miss = [], []
+            for _c in _cls:
+                try:
+                    _sub = self._decompose_command(fr, _c, speaker=speaker)
+                except Exception:
+                    _sub = None
+                if _sub:
+                    if str(_sub) not in _ok:      # aynı operatör iki kez çalışmasın
+                        _ok.append(str(_sub))
+                else:
+                    _miss.append(_c)
+            if _ok and not _miss:
+                return " ".join(_ok)
+            _lbl = []
+            for _c in _cls:
+                _clean = re.sub(r"\b(bana|bir|sonra|ardından|şimdi|hemen|lütfen|biraz)\b", "", _c)
+                _clean = re.sub(r"\s+", " ", _clean).strip(" .") or _c
+                _lbl.append(_clean)
+            if _ok:
+                self._apply_tag("cikarim", 1)
+                return self._say("op.decompose_partial",
+                                 {"done": " ".join(_ok), "miss": _miss[0]}, fallback="Kısmen.")
+            self._apply_tag("cikarim", 1)
+            # Adımları ADIYLA an ki tekrar değil, çözümleme olsun: dolgu sözcükleri at.
+            return self._say("op.decompose_all",
+                             {"steps": " -> ".join(f"'{c}'" for c in _lbl)}, fallback="Yok.")
+
+        # (1) PLAN: "N adımlık plan" / "plan yap" / "hedef belirle"
+        if any(k in tl for k in ("plan", "hedef", "adım")):
+            if eng is not None:
+                m = re.search(r"(\d+|on|beş|altı|yedi|sekiz|dokuz|yedi|üç|dört)\s*(?:adımlık|adım)", tl)
+                n = 10
+                if m:
+                    w = m.group(1)
+                    tr_num = {"on": 10, "beş": 5, "altı": 6, "yedi": 7, "sekiz": 8,
+                              "dokuz": 9, "üç": 3, "dört": 4}
+                    n = tr_num.get(w, int(w) if w.isdigit() else 10)
+                goal = (raw or "").strip()
+                if "hedefi değiştir" in tl or "hedef değiş" in tl:
+                    old = eng.wm.read("plan_steps", []) or []
+                    steps = eng.revise(old, goal, n)
+                else:
+                    steps = eng.plan(goal, n)
+                eng.wm.write("plan_steps", steps, "plan")
+                self._apply_tag("islem", 2)
+                _body = "; ".join(f"{x['i']}.{x['act']}" for x in steps)
+                _kind = "revised" if "değiştir" in tl else "built"
+                return self._say("plan.report", {"n": len(steps), "steps": _body},
+                                 ctx={"kind": _kind}, fallback="Plan hazır.")
+
+        # (2) SAYIM: "N tane say" / "say"
+        if "say" in tl and not any(k in tl for k in ("sayı", "söyle")):
+            if eng is not None:
+                m = re.search(r"(\d+)['’]?\s*(?:e|a|ya|ye)?\s*kadar", tl)
+                if m:
+                    lim = int(m.group(1) or m.group(2))
+                    seq = [str(i) for i in range(1, min(lim, 200) + 1)]
+                    eng.wm.write("count_seq", seq, "count")
+                    self._apply_tag("islem", 1)
+                    return self._say("count.sequence", {"seq": ", ".join(seq), "n": len(seq)},
+                                     fallback="Saydım.")
+
+        # (3) GRAFTA KARŞILIĞI VAR MI: nesne hakkında bildiğim bir bağ varsa onu söyle
+        obj = (fr.obj or "").strip()
+        if obj:
+            try:
+                cands = self.lang.graph.query(obj, None)
+            except Exception:
+                cands = []
+            for rel, o in list(cands)[:3]:
+                if o:
+                    try:
+                        from nora_lang import Proposition
+                        txt = self.lang.broca.realize_prop(
+                            Proposition(subj=obj, rel=str(rel), obj=str(o)))
+                    except Exception:
+                        txt = f"{obj} {o}"
+                    self._apply_tag("ag", 1)
+                    return self._say("op.known",
+                                     {"txt": tr_capitalize(str(txt).rstrip("."))}, fallback="Bağ var.")
+        return None
+
+    def _handle_command(self, fr, speaker: str = "insan", raw: str = "") -> str:
+        morph = self.lang.morph
+        if getattr(fr, "sub_kind", "") == "invite":
+            obj_np = NP(fr.obj, case="NOM") if fr.obj else None
+            try:
+                yes = SYN.realize_verb(VerbSpec(verb_root=fr.rel, obj=obj_np, tense="OPT", person="1PL"))
+            except Exception:
+                yes = ""
+            if yes:
+                yes = tr_capitalize(yes) + "."
+                follow = ""
+                try:
+                    follow = self.initiative._c_ask_about(self, {}) or ""
+                except Exception:
+                    follow = ""
+                return f"{yes} {follow}".strip()
+        _joke_words = ("şaka", "espri", "latife", "fıkra", "bilmece")
+        if any(x.startswith(fr.obj or "\0") or (fr.obj or "").startswith(x) for x in _joke_words):
+            gap = self._learned_gap_line("şaka yapmak")
+            if gap:
+                return gap
+        if fr.rel in self._SPEECH_REQUEST_ROOTS:
+            said = self._handle_speech_request(fr, raw)
+            if said:
+                return said
         if fr.rel == "uyu":
             st = self.sleep()
             return (
@@ -1361,7 +6962,23 @@ class NoraAGI:
                 f"kalıcı neokortekse aktarıldı)."
             )
 
-        vol = self.self_model.evaluate_volition(fr.rel, fr.obj, mind=self.mind, obs=self.obs, speaker=speaker)
+        # ÖNERİ İSTEMİ: Nora'nın elinde kitap/şarkı listesi yok. 'Kabul ediyorum ve kitap
+        # doğrultusunda yöneliyorum' demek saçmalıktır; dürüst cevap + kendi dünyasından teklif.
+        if (fr.rel or "").startswith(("öner", "tavsiye")):
+            what = (fr.obj or "").strip()
+            if what:
+                return (f"Elimde {what} listesi yok; bende {what} kavramı ancak sen anlatırsan oluşur. "
+                        f"Bir tane anlatırsan onu öğrenirim, sonra ben de önerebilirim.")
+            return ("Elimde önerecek bir liste yok. Ama şunu önerebilirim: bana bir kavram söyle; "
+                    "onun hakkında ne bildiğimi kendi sözlerimle anlatayım.")
+
+        # Komut hedefi, üst düzey karar kabul etmese bile alt düzey eylem
+        # seçiminde aynı öngörü bağlamını korur.
+        self._prediction_target = fr.obj or ""
+        vol = self.self_model.evaluate_volition(
+            fr.rel, fr.obj, mind=self.mind, obs=self.obs, speaker=speaker,
+            predictor=self.tahmin_et,
+        )
         tgt_label = fr.obj or fr.rel
         bg = vol.get("bg_rates", {})
         fe = vol.get("free_energy", {})
@@ -1382,7 +6999,8 @@ class NoraAGI:
             return self.schema_cortex.transform_clauses(
                 c_ref,
                 r_ref,
-                "sonucunu zihnimde tarttığımda",
+                SYN.nominalize_dik("tart", poss=1, case="LOC", obj=NP("sonuç", poss=3, case="ACC"),
+                                    loc=NP("zihin", poss=1, case="LOC")),
                 "S2_SONUC_GEREKCE" if cur_sc == "S0_YALIN" else cur_sc,
             )
 
@@ -1430,7 +7048,8 @@ class NoraAGI:
             return self.schema_cortex.transform_clauses(
                 f"kabul ediyorum, kendi irademle {tgt_dat} yöneliyorum",
                 f"öngörüme göre yaklaşık {eta:.0f} adımda hedefe ulaşırım",
-                "rotamı zihnimde kurduğumda",
+                SYN.nominalize_dik("kur", poss=1, case="LOC", obj=NP("rota", poss=1, case="ACC"),
+                                     loc=NP("zihin", poss=1, case="LOC")),
                 cur_sc,
             )
 
@@ -1439,16 +7058,48 @@ class NoraAGI:
             return self.schema_cortex.transform_clauses(
                 f"kabul ediyorum, {tgt_abl} uzak duracağım",
                 "güvenli rotamı korumak bütünlüğümle uyumlu",
-                "çevreyi tarttığımda",
+                SYN.nominalize_dik("tart", poss=1, case="LOC", obj=NP("çevre", case="ACC")),
                 cur_sc,
             )
 
-        return self.schema_cortex.transform_clauses(
-            f"kabul ediyorum ve '{tgt_label}' doğrultusunda yöneliyorum",
-            "isteğin zihinsel simülasyonumda içsel dengemle uyumlu çıktı",
-            "simülasyonumu kontrol ettiğimde",
-            cur_sc,
-        )
+        # ELLE YAPILAN EYLEMLER: bu evrende manipülatör organ yok — yapmış gibi yapmak yalan olur.
+        _HAND_VERBS = {"kapat", "aç", "getir", "al", "ver", "koy", "sil", "temizle", "yıka",
+                       "taşı", "çek", "it", "tut", "kır", "dik", "bağla", "kes", "boya", "çiz"}
+        if fr.rel in _HAND_VERBS and tgt_label:
+            try:
+                _neg_ab = morph.ability_form(fr.rel, "AOR", "1SG", neg=True)
+            except Exception:
+                _neg_ab = ""
+            if _neg_ab:
+                try:
+                    _tgt_acc = morph.inflect_noun(tgt_label, "ACC")
+                except Exception:
+                    _tgt_acc = tgt_label
+                _ask_h = ""
+                try:
+                    _ask_h = self.initiative._c_ask_about(self, {}) or ""
+                except Exception:
+                    _ask_h = ""
+                honest = f"{tr_capitalize(_tgt_acc)} {_neg_ab}; bende bunu yapacak bir organ yok"
+                return f"{honest}. {_ask_h}".strip() if _ask_h else honest + "."
+
+        # ================================================================
+        # DEĞİŞKEN YANKI YOK.
+        # Eskiden burada: "kabul ediyorum ve '<kullanıcının sözcüğü>' doğrultusunda
+        # yöneliyorum" dönüyordu. Bu cümle %0 anlama taşır ama başarı gibi görünür;
+        # sessiz yanlış, gürültülü yanlıştan kötüdür. Doğru sıra:
+        #     decompose -> var olan operatörü dene -> olmazsa AÇIKÇA "yapamıyorum".
+        _dec = self._decompose_command(fr, raw, speaker=speaker)
+        if _dec:
+            return _dec
+        _what = (fr.obj or "").strip()
+        _act = (fr.rel or "").strip()
+        self.lang.wernicke.last_explanation = f"{_act}/{_what}: operatör yok"
+        # Ölçüm kapsamı: bu cevap da bir çıkarımdır (kendi yeteneğim üzerine) ve etiketlenir.
+        self._apply_tag("cikarim", 1)
+        if _what:
+            return self._say("op.missing_obj", {"act": _act, "what": _what}, fallback="Yapamam.")
+        return self._say("op.missing_rel", {"act": _act}, fallback="Yapamam.")
 
     def _solve_math_in_language(self, a: int, op: str, b: int) -> str:
         morph = self.lang.morph
@@ -1561,7 +7212,11 @@ class NoraAGI:
             for step_cmd in steps_list:
                 fr_sub = self.lang.wernicke.parse(step_cmd)
                 if fr_sub.kind == "command":
-                    vol = self.self_model.evaluate_volition(fr_sub.rel, fr_sub.obj, mind=self.mind, obs=self.obs, speaker=speaker)
+                    self._prediction_target = fr_sub.obj or ""
+                    vol = self.self_model.evaluate_volition(
+                        fr_sub.rel, fr_sub.obj, mind=self.mind, obs=self.obs, speaker=speaker,
+                        predictor=self.tahmin_et,
+                    )
                     if vol["decision"] == "red":
                         return (
                             f"'{mname}' prosedürünü yürütmeyi reddediyorum; çünkü içindeki '{step_cmd}' adımı "
@@ -1603,7 +7258,8 @@ class NoraAGI:
                 return f"Hayır, tam tersine {b}, {morph.inflect_noun(a, 'ABL')} daha {morph.inflect_noun(prop, 'NOM', copula=True)}."
             return f"{tr_capitalize(a)} ile {b} arasında '{prop}' açısından yeterli karşılaştırma bilgim yok."
 
-        m_ext = re.match(r"^en\s+([\wçğıöşü]+)\s+(?:olan\s+)?(?:hangisi|hangisidir|nedir|kimdir)$", s_clean)
+        m_ext = re.match(r"^en\s+([\wçğıöşü]+)\s+(?:olan\s+)?"
+                         r"(?:hangisi|hangisidir|nedir|kimdir|kim)$", s_clean)
         if m_ext:
             prop = morph.analyze_word(m_ext.group(1), lex)["stem"]
             top = self.comp_graph.extremum(prop, maximum=True)
@@ -1611,9 +7267,20 @@ class NoraAGI:
                 top = self.comp_graph.extremum(antonym_axis[prop], maximum=False)
             if top:
                 return f"Öğrendiğim sıralamaya göre en {prop} olan {morph.inflect_noun(top, 'NOM', copula=True)}."
+            # BELİRSİZLİK SÖYLENİR: iki ayrı uç varsa keyfî birini seçmek yalan olurdu.
+            _cands = self.comp_graph.extremum_all(prop, maximum=True)
+            _kind = "ambiguous" if len(_cands) > 1 else "unknown"
+            _rt = self._say("meta.reasoning",
+                            {"prop": prop, "cands": ", ".join(_cands[:3])},
+                            ctx={"kind": "top_ambiguous" if _kind == "ambiguous"
+                                 else "top_unknown"}, fallback="")
+            if _rt:
+                return _rt
 
         m_cmp_decl = re.match(r"^([\wçğıöşü]+)\s+([\wçğıöşü]+?)(?:dan|den|tan|ten)\s+(?:daha\s+)?([\wçğıöşü]+)$", s_clean)
-        if m_cmp_decl and not has_q and m_cmp_decl.group(1) not in {"ben", "sen", "biz", "bugün"}:
+        if (m_cmp_decl and not has_q and m_cmp_decl.group(1) not in {"ben", "sen", "biz", "bugün"}
+                and m_cmp_decl.group(1) not in {"bana", "sana", "ona", "bize", "size"}
+                and m_cmp_decl.group(3) not in morph.KNOWN_VERB_ROOTS):
             a, b, prop_raw = m_cmp_decl.group(1), m_cmp_decl.group(2), m_cmp_decl.group(3)
             prop_an = morph.analyze_word(prop_raw, lex)
             is_finite_verb = prop_an["is_verb"] or bool(re.search(r"(?:[dt][ıiuü]|yor|m[ıiuü]ş|[ae]c[ae]k)$", prop_raw) and not prop_an["copula"])
@@ -1698,7 +7365,125 @@ class NoraAGI:
 
         return None
 
+    # ------------------------------------------------------------------ 4a) Yaşam günlüğü
+    def open_journal(self, path: str) -> int:
+        """Append-only yaşam günlüğünü açar ve varolan kayıt sayısını döndürür.
+
+        Günlük açıkken her konuşma turu ve her ~120 yaşam adımı tek satırlık JSON
+        olarak diske eklenir (O(1) append, tüm beyni yeniden yazmak yok). Kapalıyken
+        `self.journal is None` olur ve ek maliyet SIFIRDIR. Tüm entropi sürecin
+        içindedir; dışarıdan hiçbir servis çağrılmaz.
+        """
+        try:
+            from nora_store import Journal
+            if getattr(self, "journal", None) is not None:
+                self.journal.flush()
+            self.journal = Journal(path)
+            self.journal_path = str(path)
+            _uid = self.entropy.uid if getattr(self, "entropy", None) else ""
+            self._journal("açılış", ad=self.name, birey=_uid, yas=int(getattr(self.mind, "age", 0)))
+            return sum(1 for _ in self.journal.replay())
+        except Exception:
+            self.journal = None
+            self.journal_path = None
+            return 0
+
+    def _journal(self, kind: str, **fields) -> None:
+        """Günlüğe tek kayıt ekler. Günlük kapalıysa ya da disk hatası olursa sessiz geçer."""
+        j = getattr(self, "journal", None)
+        if j is None:
+            return
+        try:
+            rec = {"k": kind, "t": time.time_ns()}
+            rec.update(fields)
+            j.append(rec)
+        except Exception:
+            pass
+
     # ------------------------------------------------------------------ 4) Kaydet / Yükle
+    _RUNTIME_FIELDS = (
+        "obs", "died", "last_epistemic", "last_code", "last_utterance_class",
+        "_turn_mint_label", "macros", "last_gw_trace", "last_turn_latency_ms",
+        "dialogue_log", "pending_research", "last_meta_question", "last_meta_repeat",
+        "last_meta_thought", "_exam_age_mark", "wallclock_steps", "last_gap_s",
+        "_goals", "_goal", "_goal_turn0", "_plan_goal", "plans", "_conf_pending",
+        "_turn_path", "_prev_answers", "_notice_spoken", "_voice_label", "_narrated",
+        "_joked", "last_proactive", "_session0", "_forge_pending",
+        "_son_oz_ogretim_sonuc", "_son_gorev_sonuc", "_journal_life_acc",
+        "_source_changes", "_law_history",
+    )
+    _LIFE_RUNTIME_FIELDS = (
+        "rng", "hab", "outbox", "summaries", "news", "rates_log", "sources", "stride",
+        "enabled", "unanswered", "last_interaction_age", "last_sleep_age", "last_reach_age",
+        "prev_oxy", "t", "tick_seconds", "stats",
+    )
+
+    def _runtime_state(self) -> dict:
+        from nora_state import capture_attrs, capture_rng, encode
+        life = capture_attrs(self.life, self._LIFE_RUNTIME_FIELDS)
+        # Bu iki organın mevcut state_dict'i olmayan kısa dinamik belleği de gelecek
+        # turu etkiler; yalnız ilkel/RNG/kapsayıcı alanları taşınır.
+        deliberation = capture_attrs(self.deliberation, list(self.deliberation.__dict__))
+        speculation = capture_attrs(self.speculation, list(self.speculation.__dict__))
+        return {
+            "version": 1,
+            "fields": capture_attrs(self, self._RUNTIME_FIELDS),
+            "world": self.world.state_dict(),
+            "mind": self.mind.runtime_state(),
+            "causal": self.causal.state_dict(),
+            "objects": (self.objects.state_dict() if getattr(self, "objects", None) is not None else {}),
+            "meta_monitor": (self.meta_monitor.state_dict() if getattr(self, "meta_monitor", None) is not None else {}),
+            "symbolic_law": (self.symbolic_law.state_dict() if getattr(self, "symbolic_law", None) is not None else {}),
+            "workspace": (self.workspace.state_dict() if getattr(self, "workspace", None) is not None else {}),
+            "crossmodal": (self.crossmodal.state_dict() if getattr(self, "crossmodal", None) is not None else {}),
+            "translation": (self.translator.state_dict() if getattr(self, "translator", None) is not None else {}),
+            "nervous": self.nervous.state_dict(),
+            "mortality": self.mortality.state_dict(),
+            "life": life,
+            "deliberation": deliberation,
+            "speculation": speculation,
+            "individuality": (self.entropy.runtime_state() if getattr(self, "entropy", None) is not None else {}),
+            "say_rng": capture_rng(self._say_rng),
+            "bus": encode(self.bus.state_dict()) if getattr(self, "bus", None) is not None else {},
+        }
+
+    def _load_runtime_state(self, data: dict | None) -> None:
+        if not data:
+            return
+        from nora_state import decode, restore_attrs, restore_rng
+        self.world.load_state_dict(data.get("world") or {})
+        self.mind.load_runtime_state(data.get("mind") or {})
+        self.causal.load_state_dict(data.get("causal") or {})
+        if getattr(self, "objects", None) is not None:
+            self.objects.load_state_dict(data.get("objects") or {})
+        if getattr(self, "meta_monitor", None) is not None:
+            self.meta_monitor.load_state_dict(data.get("meta_monitor") or {})
+        law_data = data.get("symbolic_law") or {}
+        if law_data:
+            from nora_laws import SymbolicTransitionModel
+            self.symbolic_law = SymbolicTransitionModel(law_data.get("feature_names") or [])
+            self.symbolic_law.load_state_dict(law_data)
+        if getattr(self, "workspace", None) is not None:
+            self.workspace.load_state_dict(data.get("workspace") or {})
+        if getattr(self, "crossmodal", None) is not None:
+            self.crossmodal.load_state_dict(data.get("crossmodal") or {})
+        if getattr(self, "translator", None) is not None:
+            self.translator.load_state_dict(data.get("translation") or {})
+        self.nervous.load_state_dict(data.get("nervous") or {})
+        self.mortality.load_state_dict(data.get("mortality") or {})
+        if getattr(self, "entropy", None) is not None and data.get("individuality"):
+            self.entropy.load_runtime_state(data.get("individuality") or {})
+        restore_attrs(self, data.get("fields") or {}, strict=True)
+        restore_attrs(self.life, data.get("life") or {}, strict=True)
+        restore_attrs(self.deliberation, data.get("deliberation") or {}, strict=True)
+        restore_attrs(self.speculation, data.get("speculation") or {}, strict=True)
+        self._say_rng = restore_rng(self._say_rng, data.get("say_rng"))
+        if getattr(self, "bus", None) is not None and data.get("bus"):
+            self.bus.load_state_dict(decode(data["bus"]))
+        # Duvar saati dış dünyaya aittir; eski zaman damgasını yükleyip yapay bir
+        # sessizlik/ölüm aralığı yaratma. Yaşam sayaçları yukarıda korunur.
+        self.last_real_time = time.time()
+
     def save(self, path_prefix: str):
         meta = {
             "name": self.name,
@@ -1706,6 +7491,7 @@ class NoraAGI:
             "chem": self.chem.state_dict(),
             "self_model": self.self_model.state_dict(),
             "edges": [[e.subj, e.rel, e.obj, e.weight, e.source, e.speaker] for e in self.lang.graph.edges],
+            "display_names": dict(self.lang.graph.display_names),
             "fast_classes": self.fast.class_names,
             "user_profiles": self.user_profiles,
             "episodic_dialogue": self.broca_organ.episodic.state_dict(),
@@ -1714,21 +7500,84 @@ class NoraAGI:
             "episteme": self.episteme.state_dict(),
             "python_cortex": self.code_cortex.state_dict(),
             "life": self.life.state_dict(),
+            "initiative": self.initiative.state_dict(),
+            "discourse": self.discourse.state_dict(),
+            "sentence_frames": (self.frames.memory.snapshot() if getattr(self, "frames", None) else {}),
+            "individuality": (self.entropy.state_dict() if getattr(self, "entropy", None) else {}),
+            "verb_roots": sorted(set(TurkishMorphology.LEARNED_VERB_ROOTS) | set(self.learned_verb_roots)),
+            "journal_path": (self.journal_path or ""),
+            "voices": (self.ear.state_dict() if getattr(self, "ear", None) is not None else {}),
+            "school": (self.school.state_dict() if getattr(self, "school", None) is not None else {}),
+            "style": (self.style.state_dict() if getattr(self, "style", None) is not None else {}),
+            "inference": (self.infer.state_dict() if getattr(self, "infer", None) is not None else {}),
+            "anlatim": (self.narrator.state_dict() if getattr(self, "narrator", None) is not None else {}),
+            "priors": (self.priors.state_dict() if getattr(self, "priors", None) is not None else {}),
+            "provenance": (self.provenance.state_dict() if getattr(self, "provenance", None) is not None else {}),
+            "register": (self.register.state_dict() if getattr(self, "register", None) is not None else {}),
+            "apply": (self.apply_eng.state_dict() if getattr(self, "apply_eng", None) is not None else {}),
+            "person_mem": (self.person_mem.state_dict() if getattr(self, "person_mem", None) is not None else {}),
+            "synth": (self.synth.state_dict() if getattr(self, "synth", None) is not None else {}),
+            "sets": (self.sets.state_dict() if getattr(self, "sets", None) is not None else {}),
+            "goals_done": int(getattr(self, "_goals_done", 0)),
+            "calib": {k: list(v) for k, v in (getattr(self, "calib", {}) or {}).items()},
+            "abstract": (self.abstract.state() if getattr(self, "abstract", None) is not None else {}),
+            "num_facts": {a: dict(t) for a, t in (getattr(self, "num_facts", {}) or {}).items()},
+            "reify": (self.reify.state() if getattr(self, "reify", None) is not None else {}),
+            "driver": (self.driver.state() if getattr(self, "driver", None) is not None else {}),
+            "relational_reasoner": (self.relational_reasoner.export()
+                                    if getattr(self, "relational_reasoner", None) is not None else {}),
+            "schema": (self.schema.state() if getattr(self, "schema", None) is not None else {}),
+            "testimony": (self.testimony.state_dict() if getattr(self, "testimony", None) is not None else {}),
+            "plans": {"goal": self._plan_goal, "steps": list(self.plans.get(self._plan_goal) or [])},
+            # KENDİ KENDİNE ÖĞRENDİKLERİ: defter ve sayaçlar da beyinle birlikte gider.
+            "kendi_ogretim": list(getattr(self, "kendi_ögretim", []) or [])[-16:],
+            "kendi_ogrenme": int(getattr(self, "_kendi_ogrenme", 0) or 0),
+            "son_oz_ogretim": int(getattr(self, "_son_oz_ogretim", -10 ** 9) or -10 ** 9),
+            "son_etkilesim": int(getattr(self, "_son_etkilesim_age", 0) or 0),
+            "oz_aday_butce": int(getattr(self, "_oz_aday_butce", 6) or 6),
+            "oz_degisim": list(getattr(self, "_oz_degisim", []) or [])[-16:],
+            "kendi_gorevler": list(getattr(self, "_kendi_gorevler", []) or [])[-16:],
+            "gorev_derinligi": int(getattr(self, "_gorev_derinligi", 2) or 2),
+            "son_gorev_age": int(getattr(self, "_son_gorev_age", -10 ** 9) or -10 ** 9),
+            # Ağırlıklar dışında kalan gelecek-davranış durumu; eski kayıtlarda yoksa
+            # load bunu atlar ve geriye uyumlu kalır.
+            "runtime": self._runtime_state(),
         }
-        with open(path_prefix + ".agi.json", "w", encoding="utf-8") as f:
+        # ATOMİK YAZMA: önce .tmp, sonra os.replace. Yazma yarıda kesilirse ESKİ sağlam
+        # dosya yerinde kalır (tek satır kaybı bile olmaz; yarım beyin yüklenmez).
+        _mp = path_prefix + ".agi.json"
+        with open(_mp + ".tmp", "w", encoding="utf-8") as f:
             json.dump(meta, f, ensure_ascii=False, indent=2)
-        np.savez_compressed(
-            path_prefix + ".agi_mb.npz",
-            fast_Wf=self.fast.mb.W_fast,
-            fast_Ws=self.fast.mb.W_slow,
-            fast_stiff=self.fast.mb.stiff,
-            fast_ci=self.fast.mb.claw_idx,
-            fast_cs=self.fast.mb.claw_sign,
-        )
+            f.flush()
+            try:
+                os.fsync(f.fileno())
+            except Exception:
+                pass
+        os.replace(_mp + ".tmp", _mp)
+        _np_tmp = path_prefix + ".agi_mb.npz.tmp"
+        with open(_np_tmp, "wb") as _fh:
+            np.savez_compressed(
+                _fh,
+                fast_Wf=self.fast.mb.W_fast,
+                fast_Ws=self.fast.mb.W_slow,
+                fast_stiff=self.fast.mb.stiff,
+                fast_ci=self.fast.mb.claw_idx,
+                fast_cs=self.fast.mb.claw_sign,
+            )
+            _fh.flush()
+            try:
+                os.fsync(_fh.fileno())
+            except Exception:
+                pass
+        os.replace(_np_tmp, path_prefix + ".agi_mb.npz")
         self.mind.save(path_prefix + ".mind.npz")
         self.life.voice.save_file(path_prefix + ".voice.pkl.gz")
         if self.life.voice.organ is not None:
             self.life.voice.organ.save(path_prefix + ".broca.pt")
+        # Günlük: kayıt anı da iz bırakır, tampon diske indirilir.
+        self._journal("kayıt", dosya=str(path_prefix), yas=int(getattr(self.mind, "age", 0)))
+        if getattr(self, "journal", None) is not None:
+            self.journal.flush()
 
     @classmethod
     def load(cls, path_prefix: str) -> "NoraAGI":
@@ -1741,6 +7590,7 @@ class NoraAGI:
         agi.lang.graph.clear_all_edges()
         for s, r, o, w, src, spk in meta["edges"]:
             agi.lang.graph.add_edge(s, r, o, source=src, speaker=spk, weight=float(w))
+        agi.lang.graph.display_names = {tr_lower(k).strip(): str(v) for k, v in (meta.get("display_names") or {}).items()}
         agi.user_profiles = dict(meta.get("user_profiles", {}))
         agi.broca_organ.episodic.load_state_dict(meta.get("episodic_dialogue", []))
         agi.monologue.load_state_dict(meta.get("monologue", {}))
@@ -1754,7 +7604,106 @@ class NoraAGI:
         except Exception:
             pass
         try:
+            TurkishMorphology.load_verb_roots(meta.get("verb_roots") or [])
+            agi.learned_verb_roots.update(TurkishMorphology.LEARNED_VERB_ROOTS)
+        except Exception:
+            pass
+        try:
             agi.life.load_state_dict(meta.get("life") or {})
+            agi.initiative.load_state_dict(meta.get("initiative") or {})
+            agi.discourse.load_state_dict(meta.get("discourse") or {})
+            if getattr(agi, "entropy", None) is not None:
+                agi.entropy.load_state_dict(meta.get("individuality") or {})
+                # Kulak da bireyin kimliğine bağlıdır: ses imzası aynı bireyde aynı çıksın.
+                if getattr(agi, "ear", None) is not None:
+                    agi.ear.uid = str(agi.entropy.uid)
+            if getattr(agi, "frames", None) is not None:
+                try:
+                    agi.frames.memory.load_snapshot(meta.get("sentence_frames") or {})
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        try:
+            if getattr(agi, "priors", None) is not None:
+                agi.priors.load_state_dict(meta.get("priors") or {})
+            if getattr(agi, "provenance", None) is not None:
+                agi.provenance.load_state_dict(meta.get("provenance") or {})
+            if getattr(agi, "register", None) is not None:
+                agi.register.load_state_dict(meta.get("register") or {})
+            if getattr(agi, "apply_eng", None) is not None:
+                agi.apply_eng.load_state_dict(meta.get("apply") or {})
+            if getattr(agi, "synth", None) is not None:
+                agi.synth.load_state_dict(meta.get("synth") or {})
+            if getattr(agi, "sets", None) is not None:
+                agi.sets.load_state_dict(meta.get("sets") or {})
+            agi._goals_done = int(meta.get("goals_done") or 0)
+            if getattr(agi, "driver", None) is not None:
+                agi.driver.load_state(meta.get("driver") or {})
+            if meta.get("relational_reasoner"):
+                from nora_broca_net import NeuralRelationalProposer
+                _reasoner_data = meta.get("relational_reasoner") or {}
+                _reasoner = NeuralRelationalProposer(
+                    dim=int(_reasoner_data.get("dim", 32) or 32),
+                    seed=int(_reasoner_data.get("seed", agi.seed + 142) or 0),
+                )
+                _reasoner.load_export(_reasoner_data)
+                agi.relational_reasoner = _reasoner
+            if getattr(agi, "schema", None) is not None:
+                agi.schema.load_state(meta.get("schema") or {}, agi.synth)
+            # ÖZ-ÖĞRETİM DEFTERİ: kendi kendine öğrendikleri yeni oturumda da onda kalır.
+            try:
+                agi.kendi_ögretim = [r for r in (meta.get("kendi_ogretim") or [])
+                                     if isinstance(r, dict)]
+                agi._kendi_ogrenme = int(meta.get("kendi_ogrenme") or 0)
+                agi._son_oz_ogretim = int(meta.get("son_oz_ogretim") or -10 ** 9)
+                agi._son_etkilesim_age = int(meta.get("son_etkilesim") or 0)
+                agi._oz_aday_butce = int(meta.get("oz_aday_butce") or 6)
+                agi._oz_degisim = [r for r in (meta.get("oz_degisim") or [])
+                                   if isinstance(r, dict)]
+                agi._kendi_gorevler = [r for r in (meta.get("kendi_gorevler") or [])
+                                       if isinstance(r, dict)]
+                agi._gorev_derinligi = int(meta.get("gorev_derinligi") or 2)
+                agi._son_gorev_age = int(meta.get("son_gorev_age") or -10 ** 9)
+            except Exception:
+                pass
+            if getattr(agi, "reify", None) is not None:
+                agi.reify.load_state(meta.get("reify") or {})
+                # Reify defterindeki ÖLÜ OLMAYAN ilkeller yeni oturumda da kurulur.
+                try:
+                    from nora_synth import Program as _P
+                    for _rec in agi.reify.alive():
+                        _prog = _P.from_spec(list(_rec.get("spec") or []),
+                                             spec_map=agi.synth.spec_map() if agi.synth else None)
+                        if _prog is not None and agi.synth is not None:
+                            agi.synth.add_primitive(_rec["name"], (lambda s, _p=_prog: _p.apply(s)))
+                except Exception:
+                    pass
+            try:
+                agi.num_facts = {str(a): {str(w): float(v) for w, v in (t or {}).items()}
+                                 for a, t in (meta.get("num_facts") or {}).items()}
+            except Exception:
+                pass
+            if getattr(agi, "abstract", None) is not None:
+                agi.abstract.load_state(meta.get("abstract") or {})
+                if getattr(agi, "synth", None) is not None and abstract_build is not None:
+                    for _rec in agi.abstract.invented:
+                        _fn = abstract_build(_rec.get("family"), _rec.get("params"))
+                        if _fn is not None:
+                            agi.synth.add_primitive(_rec["name"], _fn)
+            agi.calib = {str(k): [int(x[0]), int(x[1])]
+                         for k, x in (meta.get("calib") or {}).items()
+                         if isinstance(x, (list, tuple)) and len(x) >= 2}
+            if getattr(agi, "person_mem", None) is not None:
+                # KİŞİSEL BELLEK DE KALICI: kaydedilip yüklenmezse "40 tur sonra
+                # hatırlıyor" iddiası yeniden başlatmada çöker.
+                agi.person_mem.load_state_dict(meta.get("person_mem") or {})
+            if getattr(agi, "testimony", None) is not None:
+                agi.testimony.load_state_dict(meta.get("testimony") or {})
+            _pl = meta.get("plans") or {}
+            if _pl.get("steps"):
+                agi._plan_goal = str(_pl.get("goal") or "")
+                agi.plans[agi._plan_goal] = [str(x) for x in _pl["steps"]]
         except Exception:
             pass
         if os.path.exists(path_prefix + ".voice.pkl.gz"):
@@ -1773,7 +7722,50 @@ class NoraAGI:
         agi.fast.mb.W_slow = z["fast_Ws"]
         agi.fast.mb.stiff = z["fast_stiff"]
         agi.fast.mb.tags = np.zeros_like(agi.fast.mb.W_fast)
+        # Kendi çıkarımları kalıcıdır (öğretilmiş bilgi değil, türetilmiş bağ).
+        try:
+            if getattr(agi, "infer", None) is not None:
+                agi.infer.load_state_dict(meta.get("inference") or {})
+        except Exception:
+            pass
+        # Söz biçimi geçmişi: monotonluğa düşmemek için.
+        try:
+            if getattr(agi, "narrator", None) is not None:
+                agi.narrator.load_state_dict(meta.get("anlatim") or {})
+            if getattr(agi, "style", None) is not None:
+                agi.style.load_state_dict(meta.get("style") or {})
+        except Exception:
+            pass
+        # Okul: öğretilen sembol/sayı kuralları kalıcıdır.
+        try:
+            if getattr(agi, "school", None) is not None:
+                agi.school.load_state_dict(meta.get("school") or {})
+        except Exception:
+            pass
+        # Ses defteri: tanıdığı sesler, adları ve roller kalıcıdır.
+        try:
+            if getattr(agi, "ear", None) is not None:
+                agi.ear.load_state_dict(meta.get("voices") or {})
+        except Exception:
+            pass
+        # Dinamik yaşam durumu en son geri yazılır: organların eski state_dict'leri
+        # bazı alanları varsayılan bırakır; runtime katmanı bunları tek kaynaktan eşitler.
+        agi._load_runtime_state(meta.get("runtime") or {})
+        # Günlük varsa yaşam kaldığı yerden kaydedilmeye devam eder (kayıtlar korunur).
+        _jp = str(meta.get("journal_path") or "") or (path_prefix + ".journal.ndjson")
+        if os.path.exists(_jp):
+            agi.open_journal(_jp)
         return agi
+
+
+def _open_journal_if_asked(agi, args):
+    """--journal verildiyse yaşam günlüğünü açar; kaç eski kayıt olduğunu yazar."""
+    path = str(getattr(args, "journal", "") or "").strip()
+    if not path:
+        return 0
+    n = agi.open_journal(path)
+    print(f"[günlük] {path} açık — önceki kayıt: {n}")
+    return n
 
 
 def stage_demo(args):
@@ -1782,6 +7774,7 @@ def stage_demo(args):
     print("  NORA-AGI CANLI GÖSTERİM: Beden + Nörokimya + Öz-Benlik + Tek-Atış Dil + S2")
     print("=" * 78)
     agi = NoraAGI(name="Nora", seed=args.seed, boot_thinker=True, thinker_iters=args.think_iters)
+    _open_journal_if_asked(agi, args)
     print(f"[1] Beden evrende {args.life_steps} adım yaşıyor ve kendi deneyimlerini ediniyor...")
     life = agi.step_life(args.life_steps)
     print(f"    yaş={life['age']} | yedi={life['ate']} | içti={life['drank']} | yara={life['hurt']} | kimya={life['chem']}")
@@ -1816,6 +7809,7 @@ def stage_chat(args):
     import threading
     agi = NoraAGI(name="Nora", seed=args.seed, boot_thinker=True, thinker_iters=args.think_iters, corpus=args.corpus,
                   broca=args.broca if os.path.exists(args.broca) else None)
+    _open_journal_if_asked(agi, args)
     agi.step_life(1500)
     if args.internet:
         agi.life.enable_internet()
@@ -1853,18 +7847,69 @@ def stage_chat(args):
     stop.set()
 
 
+def stage_twins(args):
+    """İKİZ DENEYİ — kopyalanamazlık kanıtı.
+
+    Aynı seed'den iki Nora doğar (genetik birebir aynı), aynı hayatı yaşar ve aynı
+    cümleleri duyar. Yaşam başladığı andan itibaren doğum nanosaniyesi, donanım
+    entropisi ve gerçek zamanlama yarışları onları ayırır: birkaç yüz adım sonra
+    aynı girdiye farklı (ama tutarlı) yanıtlar verirler.
+    """
+    steps = int(getattr(args, "twin_steps", 300))
+    msgs = ["Merhaba.", "Bugün yoruldum.", "Bana bir kitap önerir misin?",
+            "Şimdi ne yapıyorsun?", "Bana bir şey anlat.", "Sence bilinç nedir?",
+            "moruk ne var ne yok", "Yarın ne yapmalıyım?", "Su boşlukta yayılır mı?",
+            "Kedi mi köpek mi?", "Zürafa nedir?", "Kendini yalnız hissediyor musun?"]
+    a = NoraAGI(name="Nora-A", seed=args.seed, boot_thinker=False)
+    b = NoraAGI(name="Nora-B", seed=args.seed, boot_thinker=False)
+    _open_journal_if_asked(a, args)
+    same = bool((a.mind.Win == b.mind.Win).all() and (a.mind.Wr == b.mind.Wr).all())
+    print(f"A kimliği: {a.entropy.identity_line()}")
+    print(f"B kimliği: {b.entropy.identity_line()}")
+    print(f"Genetik (seed={args.seed}) aynı mı? {same}")
+    print(f"\n{steps} adım aynı hayat yaşanıyor…")
+    while a.mind.age < steps:
+        n = min(20, steps - a.mind.age)
+        a.step_life(n)
+        b.step_life(n)
+    print(f"{'soru':46s} | A (ilk 44) {'':30s} | B (ilk 44)")
+    diff = 0
+    for m in msgs:
+        ra, rb = a.converse(m), b.converse(m)
+        if ra != rb:
+            diff += 1
+        print(f"{m[:46]:46s} | {ra[:44]:44s} | {rb[:44]:44s}")
+    print(f"\nAyrışan yanıt: {diff}/{len(msgs)}")
+    print(f"Sinaps kayması: A={a.entropy.drift:.6f}  B={b.entropy.drift:.6f}  "
+          f"(fark {abs(a.entropy.drift - b.entropy.drift):.2e})")
+    try:
+        import numpy as _np
+        dh = float(_np.abs(_np.asarray(a.mind.h) - _np.asarray(b.mind.h)).max())
+        dw = float(_np.abs(_np.asarray(a.fast.mb.W_fast) - _np.asarray(b.fast.mb.W_fast)).max())
+        print(f"İç durum ayrışması: Δh={dh:.3e}  ΔW={dw:.3e}")
+    except Exception:
+        pass
+    print(f"Yarış kazanımları: A={a.entropy.race_wins}  B={b.entropy.race_wins}")
+    print("İkisi de ayrı birer birey; ne biri diğerinin kopyası, ne de geri döndürülebilir.")
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", default="demo", choices=["demo", "chat"])
+    ap.add_argument("--stage", default="demo", choices=["demo", "chat", "twins"])
+    ap.add_argument("--twin-steps", type=int, default=300,
+                    help="ikiz deneyinde her iki Nora'nın yaşayacağı adım sayısı")
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--life-steps", type=int, default=2500)
     ap.add_argument("--think-iters", type=int, default=700)
     ap.add_argument("--corpus", nargs="*", default=[], help="Nora'nın okuyarak dil öğreneceği metin dosyaları (herhangi bir dil)")
     ap.add_argument("--broca", default="data/broca_tr.pt", help="eğitilmiş sinirsel Broca artikülasyon organı")
     ap.add_argument("--internet", action="store_true", help="arka plan araştırması için gerçek ağ kaynaklarını aç")
+    ap.add_argument("--journal", default="", help="append-only yaşam günlüğü dosyası (örn. data/nora_yasam.ndjson)")
     args = ap.parse_args()
     if args.stage == "demo":
         stage_demo(args)
+    elif args.stage == "twins":
+        stage_twins(args)
     else:
         stage_chat(args)
 

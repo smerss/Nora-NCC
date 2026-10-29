@@ -41,6 +41,10 @@ class SomaticRecord:
     prior_val: float = 0.0        # evrimsel/doğuştan gelen zayıf somatik önsel (deneyimle ezilir!)
     vec3: list[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])  # [dE, dW, dI] tahmini etki
     last_step: int = 0
+    # Aynı yaşam olayı hem Mind'in V izinde hem de doğrudan somatik kayıtta
+    # görünür. Bu sayımlar iki kanalı birbirinin üzerine yazmak yerine uzlaştırır.
+    direct_count: int = 0
+    mind_count: int = 0
 
     @property
     def precision_exp(self) -> float:
@@ -230,6 +234,7 @@ class CoreSelf:
         obs_v3 = self._channel_unit_vec(channel, v)
         rec.vec3 = [float((1.0 - alpha) * rec.vec3[i] + alpha * obs_v3[i]) for i in range(3)]
         rec.exp_count += 1
+        rec.direct_count += 1
         rec.channel = channel
         rec.last_step = st
 
@@ -264,12 +269,21 @@ class CoreSelf:
                         self.somatic[cname] = SomaticRecord(
                             concept=cname, exp_val=scaled, exp_count=cnt,
                             channel=ch, vec3=v3, last_step=self.lived_steps,
+                            mind_count=cnt,
                         )
                     else:
-                        rec.exp_val = scaled
+                        # Doğrudan beden olayları bu döngüde zaten
+                        # observe_bodily_event ile yazıldı. Mind'in daha küçük
+                        # ölçekli V ortalamasını üzerine dökmek hem olayın
+                        # büyüklüğünü hem de sonraki gerçek deneyimleri siler.
+                        # Yalnız henüz doğrudan kanıtı olmayan eski/gözlemsel
+                        # kayıtlar Mind özetini yeni bilgi olarak alabilir.
+                        if rec.direct_count <= 0:
+                            rec.exp_val = scaled
+                            rec.channel = ch
+                            rec.vec3 = v3
                         rec.exp_count = max(rec.exp_count, cnt)
-                        rec.channel = ch
-                        rec.vec3 = v3
+                        rec.mind_count = max(rec.mind_count, cnt)
 
         err_n = float(getattr(mind, "err_n", 0.5))
         skill = float(np.clip(1.0 - err_n, 0.0, 1.0))
@@ -341,7 +355,8 @@ class CoreSelf:
         }
 
     # ------------------------------------------------------------------ AKTİF ÇIKARIMLI ZİHİNSEL İRADE
-    def _estimate_action_transition(self, act: str, tgt: str, mind=None) -> tuple[np.ndarray, float, float]:
+    def _estimate_action_transition(self, act: str, tgt: str, mind=None,
+                                    obs=None, predictor=None) -> tuple[np.ndarray, float, float]:
         """(eylem, hedef) çiftinin bedensel [dE, dW, dI] etkisini, beklenen değerini ve
         epistemik belirsizliğini (sigma^2) ÖĞRENİLMİŞ zihin durumundan hesaplar."""
         rec = self.somatic.get(tgt) if tgt else None
@@ -396,6 +411,30 @@ class CoreSelf:
                 valence = v_scaled
                 epist_var = 0.12
 
+        # Birleşik öngörü bağlıysa aynı (durum, eylem) arayüzünden gelen
+        # gövde/grafik/fizik sonucunu mevcut homeostatik başlangıcın üzerine
+        # yaz. Yalnız öngörülmeyen kanallar eski başlangıçta kalır; böylece
+        # grafik bir etkiyi anlatırken diğer beden kanalları uydurulmaz.
+        if predictor is not None:
+            try:
+                external = predictor(obs, {"act": act, "target": tgt})
+                ext_conf = []
+                for name, delta, confidence in external:
+                    idx = {"enerji": 0, "su": 1, "bütünlük": 2}.get(str(name))
+                    if idx is None:
+                        continue
+                    delta_h[idx] = float(np.clip(delta, -1.0, 1.0))
+                    ext_conf.append(float(np.clip(confidence, 0.0, 1.0)))
+                if ext_conf:
+                    valence = float(np.clip(np.sum(delta_h), -1.0, 1.0))
+                    # Güven arttıkça epistemik varyans azalır; duyum, doğrudan
+                    # deneyim kadar kesinmiş gibi sıfıra indirilmez.
+                    epist_var = min(epist_var, 0.06 + 0.62 * (1.0 - max(ext_conf)))
+            except Exception:
+                # Öngörü organı yoksa/bozuksa eski, açıkça belirsiz model
+                # geçerli kalır; karar yolu burada sessizce bilgi uydurmaz.
+                pass
+
         # Uzaklaşma / kaçınma kipi etki yönünü tersine çevirir (tehlikeden kaçmak koruyucudur!)
         if act in {"uzak_dur", "kaç", "sakın", "korun"}:
             if valence < 0:
@@ -406,7 +445,9 @@ class CoreSelf:
         return delta_h, float(valence), float(epist_var)
 
     def evaluate_volition(self, action_kind: str, target: str = "", mind=None,
-                          obs: np.ndarray | None = None, speaker: str = "insan") -> dict:
+                          obs: np.ndarray | None = None, speaker: str = "insan",
+                          ablate: str | None = None, record: bool = True,
+                          predictor=None) -> dict:
         """Zihinsel İleri Simülasyon (Expected Free Energy) + Bazal Ganglion Nöral Yarışıyla
         özerk irade kararı verir. Hiçbir sabit 'if enerji < 0.18' bot eşiği kullanmaz."""
         tgt = target.strip().lower()
@@ -418,6 +459,15 @@ class CoreSelf:
             h0 = np.clip(np.array([float(obs[45]), float(obs[46]), float(obs[47])], dtype=np.float64), 0.01, 1.0)
         else:
             h0 = np.array([0.78, 0.78, 0.95], dtype=np.float64)
+        # KARŞIOLGUSAL BEDEN: bir kanal dolu sayılır ("aç olmasaydım"). Karar aynı
+        # makineyle yeniden koşar; karar değişiyorsa o kanal kararın NEDENİDİR.
+        ablated_ch = None
+        if ablate:
+            ablated_ch = {"açlık": 0, "enerji": 0, "susuzluk": 1, "su": 1,
+                          "bütünlük": 2, "acı": 2}.get(str(ablate).strip().lower())
+            if ablated_ch is not None:
+                h0 = h0.copy()
+                h0[ablated_ch] = 1.0
 
         # 2) Bedenin KENDİ ölçtüğü metabolik tükenme hızı (Mind.drift_e, Mind.drift_w)
         de = float(getattr(mind, "drift_e", -0.0022)) if mind is not None else -0.0022
@@ -429,7 +479,9 @@ class CoreSelf:
         gamma = float(self.chem.discount_gamma)
 
         # 4) Önerilen eylemin tahmini geçiş vektörü ve epistemik belirsizliği
-        delta_act, pred_val, epist_var = self._estimate_action_transition(act, tgt, mind=mind)
+        delta_act, pred_val, epist_var = self._estimate_action_transition(
+            act, tgt, mind=mind, obs=obs, predictor=predictor,
+        )
 
         # Öz-bakım (homeostatik onarım) politikasının en acil kanalı doldurma vektörü
         deficit = 1.0 - h0
@@ -485,8 +537,16 @@ class CoreSelf:
         g_wait, _ = simulate_policy(lambda t, h: np.zeros(3, dtype=np.float64))
         g_care, _ = simulate_policy(lambda t, h: care_step_vec)
         homeo_gain = max(0.0, g_wait - g_care)
-        # Eğer istenen eylem zaten acil kanalı iyileştiriyorsa (ör. açken 'yiyeceğe git'), erteleme gereksizdir!
-        helps_urgent = float(delta_act[urgent_ch]) > 0.08
+        # Eğer istenen eylem zaten acil kanalı iyileştiriyorsa (ör. açken
+        # 'yiyeceğe git'), erteleme gereksizdir. Suyun küçük enerji yan etkisi
+        # ise açlığı gideren ana hedef değildir: hedefin somatik kanalı ile
+        # acil kanal eşleşmedikçe çapraz etki bu kapıyı açmaz.
+        target_rec = self.somatic.get(tgt) if tgt else None
+        channel_name = str(getattr(target_rec, "channel", "") or "")
+        target_ch = {"enerji": 0, "su": 1, "bütünlük": 2}.get(channel_name)
+        if target_ch is None:
+            target_ch = {"ye": 0, "iç": 1}.get(act)
+        helps_urgent = bool(target_ch == urgent_ch and float(delta_act[urgent_ch]) > 0.08)
 
         G = np.zeros(4, dtype=np.float64)
         G[0] = g_comply + harm_projection + distrust_risk - coop_val
@@ -508,6 +568,18 @@ class CoreSelf:
         decision = BasalGangliaVolitionNet.POPULATIONS[win_idx]
 
         # Nörokimyasal geri-bildirim (kararın kendisi de beynin kimyasını etkiler!)
+        # `record=False` karşıolgusal koşu içindir: aynı kararı iki kez yaşamamak için
+        # yan etkiler (kimya, sayaç, son-karar) YAZILMAZ.
+        if not record:
+            return {
+                "decision": decision, "reason": "karsiolgusal", "ablate": ablate,
+                "ablated_channel": ablated_ch,
+                "free_energy": {k: round(float(G[i]), 3)
+                                for i, k in enumerate(BasalGangliaVolitionNet.POPULATIONS)},
+                "confidence": round(float(np.sort(bg_rates)[-1] - np.sort(bg_rates)[-2]), 3),
+                "need_level": round(float(h0[urgent_ch]), 2),
+                "target": tgt or act,
+            }
         if decision == "red":
             self.refusals_made += 1
             self.chem.update_social(speaker, -0.55)
@@ -543,8 +615,36 @@ class CoreSelf:
                 "defer_end": [round(float(x), 3) for x in h_defer],
             },
         }
+        trace["ablate"] = ablate
+        trace["ablated_channel"] = ablated_ch
+        trace["action"] = act
         self.last_volition_trace = trace
         return trace
+
+    def counterfactual_volition(self, action_kind: str, target: str = "", mind=None,
+                                obs: np.ndarray | None = None, speaker: str = "insan",
+                                ablate: str = "açlık", predictor=None) -> dict:
+        """KARŞIOLGUSAL İRADE: "aç olmasaydım ne yapardın?"
+
+        Aynı karar makinesi iki kez koşar: (1) gerçek bedenle (yan etkiler yazılır),
+        (2) bir kanal dolu sayılarak (yan etki yazılmaz). Fark, o kanalın kararın
+        NEDENİ olup olmadığını söyler — öz-rapor değil, ölçüm.
+        """
+        actual = self.evaluate_volition(action_kind, target, mind=mind, obs=obs,
+                                        speaker=speaker, record=False, predictor=predictor)
+        cf = self.evaluate_volition(action_kind, target, mind=mind, obs=obs,
+                                    speaker=speaker, ablate=ablate, record=False, predictor=predictor)
+        return {
+            "ablate": ablate,
+            "actual": actual.get("decision"),
+            "counterfactual": cf.get("decision"),
+            "changed": actual.get("decision") != cf.get("decision"),
+            "actual_reason": actual.get("reason"),
+            "cf_reason": cf.get("reason"),
+            "free_energy_actual": actual.get("free_energy"),
+            "free_energy_cf": cf.get("free_energy"),
+            "target": actual.get("target"),
+        }
 
     def record_cognitive_success(self, used_system2: bool = False):
         self.problems_solved += 1
@@ -602,7 +702,8 @@ class CoreSelf:
             "traits": dict(self.traits),
             "somatic": {
                 k: [r.exp_val, r.exp_count, r.channel, r.hearsay_val, r.hearsay_count,
-                    r.hearsay_speaker, r.prior_val, r.vec3, r.last_step]
+                    r.hearsay_speaker, r.prior_val, r.vec3, r.last_step,
+                    r.direct_count, r.mind_count]
                 for k, r in self.somatic.items()
             },
         }
@@ -622,12 +723,14 @@ class CoreSelf:
                     concept=str(k), exp_val=float(row[0]), exp_count=int(row[1]), channel=str(row[2]),
                     hearsay_val=float(row[3]), hearsay_count=int(row[4]), hearsay_speaker=str(row[5]),
                     prior_val=float(row[6]), vec3=[float(x) for x in row[7]], last_step=int(row[8]),
+                    direct_count=int(row[9]) if len(row) >= 11 else int(row[1]),
+                    mind_count=int(row[10]) if len(row) >= 11 else int(row[1]),
                 )
             else:
                 self.somatic[str(k)] = SomaticRecord(
                     concept=str(k), exp_val=float(row[0]), exp_count=int(row[1]), channel=str(row[2]),
                     hearsay_val=float(row[3]), hearsay_count=int(row[4]), hearsay_speaker=str(row[5]),
-                    last_step=int(row[6]),
+                    last_step=int(row[6]), direct_count=int(row[1]), mind_count=int(row[1]),
                 )
 
 

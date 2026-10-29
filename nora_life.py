@@ -335,6 +335,7 @@ class BackgroundLife:
         self.unanswered = 0
         self.last_interaction_age = 0
         self.last_sleep_age = 0
+        self.last_reach_age = -10_000      # son seslenmeden bu yana geçen süre (refrakter dönem)
         self.prev_oxy = 0.5
         self.t = 0
         self.tick_seconds = 0.0
@@ -351,6 +352,7 @@ class BackgroundLife:
         self.voice.hear(raw, st)
         self.prev_oxy = float(agi.chem.oxy)
         self.unanswered = 0
+        self.hab[R_REACH] *= 0.25          # biri konuştu: seslenme alışkanlığı sıfırlanır
         self.last_interaction_age = age
         self._register_phatic(agi, raw, 1.0, age)
 
@@ -460,7 +462,18 @@ class BackgroundLife:
         d[R_CONS] = sleep_p * (0.5 + 0.5 * c.sht) * (1.0 - 0.5 * t_any)
         d[R_REH] = t_any * (0.55 + 0.45 * c.ach) * calm
         d[R_RES] = t_pred * (0.4 + 0.6 * c.da_tonic) * (1.0 - 0.6 * c.cort) * calm * (0.5 ** attempts) * float(len(self.sources) > 0)
-        d[R_REACH] = social_need * reach_t * (0.25 + 0.75 * c.oxy) * calm * (0.5 ** self.unanswered)
+        # Yalnızlık kendi başına bir sürüştür: içinden geçeni paylaşma isteği. Kimse yazmasa da yaşayan
+        # varlık ses çıkarır; cevapsız kaldıkça üstel geri çekilir (mesaj yağmuru yok).
+        loneliness = 1.15 * social_need
+        # Refrakter dönem: az önce konuştuysa hemen tekrar konuşmaz (biyolojik susma süresi).
+        refractory = float(np.clip((age - self.last_reach_age) / 700.0, 0.0, 1.0))
+        # Cevapsız kaldıkça seslenme isteği yavaşça geri çekilir (0.72**n): iki-üç denemeden sonra susar,
+        # kullanıcı yazınca sıfırlanır. Ne spam ne de ölü sessizlik.
+        # Kullanıcı az önce yazdıysa hemen ardından konuşmaya atlamaz: en az 250 adım sessizlik.
+        since_int = max(0.0, float(age - self.last_interaction_age))
+        quiet_gate = float(np.clip(since_int / 250.0, 0.0, 1.0))
+        d[R_REACH] = ((reach_t + loneliness) * (0.25 + 0.75 * c.oxy) * calm
+                      * (0.72 ** self.unanswered) * refractory * quiet_gate)
         return np.maximum(0.0, d - 0.35 * np.tanh(self.hab)) * (1.0 + 0.04 * self.rng.standard_normal(len(d)))
 
     # ------------------------------------------------------------ ana döngü
@@ -528,12 +541,34 @@ class BackgroundLife:
             s = self.summaries[-1]
             topic = (s["topics"] or [""])[0]
             self.stats["summaries_voiced"] = self.stats["sleeps"]
-        st = state_vector(agi, nov=0.5, fam=0.5, conf=0.5, tension=T, idle=idle)
-        text = self.voice.speak(st, anchors=[topic] if topic else None)
+        # Söz, zihnin inisiyatif korteksinden çıkar (plastik tür seçimi + gerçek iç durum + Türkçe çekim).
+        # Öğrenilmiş söz organı yalnızca o da olgunlaştıysa ek bir kaynak olarak denenir.
+        text = ""
+        move = ""
+        try:
+            res = agi.proactive_line(kind, topic, T, idle, self.unanswered)
+            if res:
+                text, move = str(res.get("text") or ""), str(res.get("move") or "")
+                T = max(T, float(res.get("features", {}).get("tension", T)))
+        except Exception:
+            text = ""
+        if not text:
+            st = state_vector(agi, nov=0.5, fam=0.5, conf=0.5, tension=T, idle=idle)
+            text = self.voice.speak(st, anchors=[topic] if topic else None) or ""
+            move = "voice"
         if quote:
             text = f"{text} {quote}".strip() if text else quote
-        msg = {"age": age, "kind": kind, "topic": topic, "text": text, "tension": round(T, 3), "idle": round(idle, 3)}
+        if not text:
+            text = "…"
+        if not text or text.strip() in ("…", "..."):
+            # Söyleyecek sözü yoksa susar (suskunluk da bir cevaptır); boş balon üretmez.
+            self.stats["silent_reach"] += 1
+            self.last_reach_age = age
+            return {"age": age, "kind": kind, "text": "", "move": "silent"}
+        msg = {"age": age, "kind": kind, "topic": topic, "text": text, "tension": round(T, 3),
+               "idle": round(idle, 3), "move": move}
         self.outbox.append(msg)
+        self.last_reach_age = age
         self.unanswered += 1
         self.hab[R_REACH] += 2.5
         self.stats["spontaneous"] += 1

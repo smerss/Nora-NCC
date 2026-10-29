@@ -20,3 +20,15 @@ runs/nora_egitim*
 runs/ses_*
 runs/bozuk/
 runs/tok.json
+
+# yerel deneme betikleri
+_probe*.py
+_t*.py
+_patch*.py
+runs/operators_self.json
+
+# Yerel ölçüm kanıtları (yeniden üretilebilir)
+runs/continuous_*.json
+runs/relational_*.json
+runs/ccg_*.json
+runs/fst_*.json

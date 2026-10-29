@@ -76,12 +76,160 @@ VOWEL_DROP_STEMS: dict[str, str] = {
     "beniz": "benz",
     "geniz": "genz",
     "uyku": "uyku",  # uyu-k -> referans
+    # Beden ve gündelik yaşam (ikinci hecedeki dar ünlü düşer: boyun -> boynu)
+    "boyun": "boyn", "burun": "burn", "ağız": "ağz", "göğüs": "göğs", "omuz": "omz",
+    "karın": "karn", "akıl": "akl", "beyin": "beyn", "oğul": "oğl", "koyun": "koyn",
+    "gönül": "gönl", "asıl": "asl", "kavuş": "kavş",
 }
 
 REVERSE_VOWEL_DROP: dict[str, str] = {v: k for k, v in VOWEL_DROP_STEMS.items() if v != k}
 
 # Orta-İleri Türkçe Temel Fiil Kökleri Dağarcığı (Günlük yaşam + iletişim + bilim + soyut muhakeme)
+# Kişinin kendi hâlini bildiren sıfatlar (1. kişi koşacıyla: 'yorgunum', 'yalnızım', 'mutluyum').
+# Bunlar bir OLGU değil, o anki yaşantıdır; Nora bunlara bilgi maddesiyle değil, duygudaşlıkla karşılık verir.
+# Özel adlar: Türkçede kesme işaretiyle çekimlenir ve büyük harfle yazılır
+# ("Himalaya'da", "Antalya'da", "Mars'ta").
+PROPER_NOUNS: set[str] = {
+    "himalaya", "everest", "antalya", "istanbul", "ankara", "izmir", "bursa", "adana", "konya",
+    "türkiye", "ankara", "mars", "jüpiter", "satürn", "venüs", "merih", "güneş", "ay",
+    "avrupa", "asya", "afrika", "amerika", "akdeniz", "karadeniz", "ege", "nora", "atlas",
+    "nil", "amazon", "sahra", "kafkas", "toros", "alpler", "pasifik", "atlantik",
+}
+
+STATE_ADJECTIVES: set[str] = {
+    "yorgun", "yalnız", "mutlu", "üzgün", "kötü", "iyi", "aç", "tok", "susuz", "korkmuş",
+    "heyecanlı", "sıkılmış", "sıkıntılı", "dingin", "huzurlu", "huzursuz", "gergin", "rahat",
+    "mutsuz", "umutsuz", "umutlu", "kaygılı", "endişeli", "sinirli", "kızgın", "kırgın",
+    "yaşlı", "genç", "hasta", "sağlıklı", "uykulu", "uykusuz", "dalgın", "şaşkın", "meraklı",
+    "bozuk", "karışık", "sıkkın", "dargın", "keyifsiz", "dolu", "tuhaf", "bitkin", "mutsuz",
+    "hevesli", "isteksiz", "kırılgan", "duygusal", "sakin", "yorgun", "kırık", "dağınık",
+}
+
+COMMON_ADJECTIVES: set[str] = {
+    # Sıfatlar ad çekimi alır, koşaçla çekilir: 'güzeldi', 'soğuktu', 'hastaydı'.
+    "güzel", "kötü", "iyi", "fena", "büyük", "küçük", "uzun", "kısa", "geniş", "dar",
+    "yüksek", "alçak", "derin", "sığ", "sıcak", "soğuk", "ılık", "serin", "kuru", "ıslak",
+    "temiz", "kirli", "yeni", "eski", "genç", "yaşlı", "hızlı", "yavaş", "kolay", "zor",
+    "ağır", "hafif", "sert", "yumuşak", "sessiz", "gürültülü", "aydınlık", "karanlık",
+    "açık", "kapalı", "dolu", "boş", "kalabalık", "tenha", "zengin", "fakir", "ucuz", "pahalı",
+    "tatlı", "tuzlu", "ekşi", "acı", "lezzetli", "taze", "bayat", "güçlü", "zayıf", "sağlam",
+    "kırık", "bozuk", "çalışkan", "tembel", "akıllı", "aptal", "dikkatli", "dikkatsiz",
+    "cesur", "korkak", "sabırlı", "sabırsız", "dürüst", "yalancı", "kibar", "kaba",
+    "güler yüzlü", "asık suratlı", "meraklı", "ilgisiz", "sakin", "telaşlı", "düzenli",
+    "dağınık", "hazır", "meşgul", "yorgun", "dinç", "uykulu", "aç", "tok", "susuz",
+    "üzgün", "sevinçli", "mutlu", "mutsuz", "kızgın", "sakin", "endişeli", "rahat",
+    "gerekli", "gereksiz", "önemli", "önemsiz", "doğru", "yanlış", "gerçek", "sahte",
+    "aynı", "farklı", "benzer", "tek", "çok", "az", "bol", "nadir", "sık", "yakın", "uzak",
+    "erken", "geç", "hazır", "hazırlıklı", "şanslı", "şanssız", "haklı", "haksız",
+    # RENKLER: Türkçede renk adları sıfattır ve ad çekimi almaz. Bu liste olmadan
+    # 'kara' -> 'kar'+DAT (kar yağışına) diye çözülüyor, 'kara delik' terimi kayboluyordu.
+    "kara", "siyah", "beyaz", "ak", "kırmızı", "mavi", "yeşil", "sarı", "mor", "turuncu",
+    "pembe", "gri", "kahverengi", "lacivert", "turkuaz", "bordo",
+}
+
+COMMON_NOUNS: set[str] = {
+    # Gündelik Türkçenin çekirdek AD hazinesi: iyelik/hâl çözümlemesi sözlükle doğrulanabilsin
+    # ('kardeşim' -> 'kardeş', 'evimize' -> 'ev'). Kalıp değil, sözcük bilgisi.
+    # Akrabalık
+    "anne", "baba", "kardeş", "abla", "ağabey", "abi", "dede", "nine", "büyükanne", "büyükbaba",
+    "oğul", "kız", "çocuk", "bebek", "eş", "karı", "koca", "torun", "amca", "hala", "dayı", "teyze",
+    "yeğen", "kuzen", "gelin", "damat", "aile", "akraba", "arkadaş", "dost", "komşu", "misafir",
+    # Beden
+    "baş", "kafa", "saç", "yüz", "alın", "göz", "kaş", "kirpik", "kulak", "burun", "ağız", "dudak",
+    "diş", "dil", "çene", "boyun", "omuz", "kol", "el", "parmak", "tırnak", "göğüs", "sırt", "karın",
+    "mide", "kalp", "yürek", "ciğer", "böbrek", "kan", "damar", "deri", "ten", "kemik", "kas", "bacak",
+    "diz", "ayak", "topuk", "beyin", "sinir", "hücre", "nefes", "ses",
+    # Ev ve eşya
+    "ev", "oda", "salon", "mutfak", "banyo", "tuvalet", "bahçe", "balkon", "kapı", "pencere", "duvar",
+    "tavan", "yer", "tavan", "masa", "sandalye", "koltuk", "yatak", "yorgan", "yastık", "perde", "halı",
+    "dolap", "çekmece", "raf", "lamba", "ampul", "anahtar", "kilit", "tabak", "bardak", "çatal", "kaşık",
+    "bıçak", "tencere", "tava", "buzdolabı", "fırın", "ocak", "çaydanlık", "sürahi", "havlu", "sabun",
+    "diş fırçası", "tarak", "ayna", "telefon", "bilgisayar", "televizyon", "radyo", "saat", "takvim",
+    "kitap", "defter", "kalem", "silgi", "çanta", "kâğıt", "makas", "yapıştırıcı", "para", "cüzdan",
+    "giysi", "elbise", "gömlek", "pantolon", "etek", "ceket", "mont", "ayakkabı", "çorap", "şapka",
+    "atkı", "eldiven", "gözlük", "yüzük", "kolye", "bilezik",
+    # Yiyecek/içecek
+    "su", "çay", "kahve", "süt", "meyve suyu", "ekmek", "peynir", "zeytin", "yumurta", "tereyağı",
+    "bal", "reçel", "şeker", "tuz", "un", "pirinç", "makarna", "bulgur", "çorba", "salata", "yemek",
+    "et", "tavuk", "balık", "sebze", "meyve", "elma", "armut", "muz", "portakal", "limon", "üzüm",
+    "karpuz", "kavun", "çilek", "kiraz", "şeftali", "domates", "salatalık", "biber", "patlıcan",
+    "patates", "soğan", "sarımsak", "havuç", "ıspanak", "fasulye", "nohut", "mercimek", "ceviz",
+    "fındık", "badem", "kek", "börek", "poğaça", "simit", "dondurma", "çikolata", "tatlı",
+    # Hayvan/doğa
+    "kedi", "köpek", "kuş", "balık", "at", "eşek", "inek", "koyun", "keçi", "tavuk", "horoz", "ördek",
+    "kaz", "arı", "kelebek", "karınca", "örümcek", "yılan", "kurbağa", "kaplumbağa", "aslan", "kaplan",
+    "ayı", "kurt", "tilki", "tavşan", "fare", "sincap", "ağaç", "orman", "çiçek", "gül", "papatya",
+    "çimen", "yaprak", "dal", "kök", "tohum", "toprak", "taş", "kaya", "dağ", "tepe", "vadi", "ova",
+    "tarla", "bahçe", "deniz", "göl", "nehir", "dere", "ırmak", "yağmur", "kar", "rüzgâr", "fırtına",
+    "güneş", "ay", "yıldız", "gökyüzü", "bulut", "hava", "ateş", "duman", "kül", "kum", "çamur",
+    # Yer/kurum/ulaşım
+    "şehir", "köy", "kasaba", "sokak", "cadde", "mahalle", "meydan", "park", "okul", "sınıf",
+    "üniversite", "hastane", "eczane", "market", "dükkân", "mağaza", "kafe", "restoran", "otel",
+    "sinema", "tiyatro", "müze", "kütüphane", "cami", "kilise", "havalimanı", "istasyon", "durak",
+    "iskele", "liman", "yol", "köprü", "tünel", "araba", "otobüs", "tren", "uçak", "gemi", "bisiklet",
+    "motor", "taksi", "asansör", "merdiven",
+    # Zaman/soyut
+    "gün", "gece", "sabah", "öğle", "akşam", "hafta", "ay", "yıl", "mevsim", "ilkbahar", "yaz",
+    "sonbahar", "kış", "dün", "bugün", "yarın", "şimdi", "zaman", "saat", "dakika", "saniye",
+    "hayat", "yaşam", "ölüm", "doğum", "yaş", "isim", "ad", "söz", "kelime", "cümle", "dil", "hikâye",
+    "masal", "şarkı", "müzik", "resim", "film", "oyun", "iş", "meslek", "para", "soru", "cevap",
+    "fikir", "düşünce", "duygu", "sevinç", "üzüntü", "korku", "öfke", "merak", "umut", "sevgi",
+    "saygı", "güven", "yalan", "gerçek", "hayal", "rüya", "anı", "hatıra", "plan", "hedef", "yol",
+    "sorun", "çözüm", "neden", "sonuç", "başlangıç", "son", "orta", "yan", "iç", "dış", "üst", "alt",
+    "ön", "arka", "sağ", "sol", "güç", "enerji", "hareket", "durum", "olay", "haber", "mektup",
+    "gazete", "dergi", "sayfa", "satır", "sayı", "renk", "biçim", "boyut", "ağırlık", "sıcaklık",
+    "hız", "mesafe", "yer", "gök", "dünya", "evren", "doğa", "insan", "toplum", "kültür", "tarih",
+}
+
+# SÖZ EDİMLERİ: bir sözcüğün hangi toplumsal işi gördüğü (sözlük bilgisi, cümle kalıbı değil).
+WORD_CLASSES: dict[str, str] = {
+    "merhaba": "selamlaşma", "selam": "selamlaşma", "günaydın": "selamlaşma",
+    "iyi akşamlar": "selamlaşma", "iyi geceler": "selamlaşma", "hoş geldin": "selamlaşma",
+    "hoşça kal": "veda", "görüşürüz": "veda", "güle güle": "veda", "elveda": "veda",
+    "teşekkür": "teşekkür", "sağ ol": "teşekkür", "eyvallah": "teşekkür", "rica": "rica",
+    "özür": "özür", "pardon": "özür", "affedersin": "özür",
+    "lütfen": "nezaket", "buyur": "nezaket", "efendim": "nezaket",
+    "evet": "onay", "hayır": "ret", "tamam": "onay", "olur": "onay", "peki": "onay",
+    "bravo": "takdir", "aferin": "takdir", "geçmiş olsun": "teselli", "üzgünüm": "teselli",
+    "kutlarım": "kutlama", "tebrikler": "kutlama", "hayırlı olsun": "kutlama",
+    "nasılsın": "hâl hatır", "naber": "hâl hatır", "iyi misin": "hâl hatır",
+}
+
+# Sınıfın tipik SÖYLENME KOŞULU (anlam bilgisi): 'selamlaşma' karşılaşınca olur.
+WORD_CLASS_CONTEXT: dict[str, str] = {
+    "selamlaşma": "karşılaşınca",
+    "veda": "ayrılırken",
+    "teşekkür": "bir iyilik gördükten sonra",
+    "rica": "bir istekten önce ya da sonra",
+    "özür": "bir hata yapıldığında",
+    "nezaket": "bir istek kurarken",
+    "onay": "bir öneri kabul edilirken",
+    "ret": "bir öneri reddedilirken",
+    "takdir": "bir başarı görüldüğünde",
+    "teselli": "bir sıkıntı duyulduğunda",
+    "kutlama": "güzel bir haber alındığında",
+    "hâl hatır": "bir yakınla karşılaşınca",
+}
+
+# SÖZ EDİMİ FİİLLERİ: söylemekle yapılan eylemler (eylem sınıfı, cümle değil).
+SPEECH_ACT_VERBS: set[str] = {
+    "teşekkür et", "özür dile", "rica et", "söz ver", "vedalaş", "selamla", "selam ver",
+    "kutla", "tebrik et", "söyle", "anlat", "sor", "cevapla", "seslen", "adlandır",
+    "haykır", "fısılda", "bağır", "yalvar", "davet et",
+}
+
 CORE_TURKISH_VERBS: set[str] = {
+    # Gündelik anlatı (konuşma dilinin en sık fiilleri)
+    "izle", "seyret", "başla", "bitir", "oku", "yaz", "dinle", "hazırla", "temizle", "gez",
+    "ziyaret", "karşılaş", "tanış", "uğraş", "eğlen", "kaybet", "kazan", "anlat", "söyle", "sor",
+    "cevapla", "dene", "tamamla", "sürdür", "böl", "birleştir", "say", "ölç", "tart", "kokla",
+    "tat", "dokun", "nefes", "uyan", "giy", "çıkar", "yıka", "pişir", "kaynat", "kes", "doğra",
+    "temizlen", "otur", "kalk", "yürü", "koş", "yüz", "uç", "dinlen", "çalış", "oyna", "gül",
+    "ağla", "bağır", "fısılda", "düşle", "özle", "sevin", "üzül", "şaşır", "kız", "utan",
+    "geçir", "harca", "biriktir", "dene", "çöz", "tamamla", "ertel", "vazgeç", "sürdür", "topla",
+    "hisset", "kaygılan", "heyecanlan", "rahatla", "sıkıl", "usan", "umut et", "yalnızlaş",
+    "daral", "bozul", "karış", "şaşır", "sevin", "üzül", "sinirlen", "kırıl",
+
     # Hareket ve eylem
     "git", "gel", "ye", "iç", "dur", "bekle", "kaç", "gir", "çık", "bak", "gör", "duy", "dinle",
     "uç", "yüz", "koş", "yürü", "atla", "düş", "kalk", "otur", "yat", "uyu", "uyan", "dön", "geç",
@@ -103,10 +251,26 @@ CORE_TURKISH_VERBS: set[str] = {
     "ısıt", "ısın", "soğut", "soğu", "eri", "don", "kayna", "buharlaş", "yoğunlaş", "çözün", "yan",
     "parla", "ışılda", "yansıt", "yansı", "soğur", "ilet", "yayıl", "dağıl", "odakla", "böl", "bölün",
     "birleş", "ayrış", "çök", "çökert", "boz", "bozul", "dengele", "etkile", "tetikle", "üret", "tüket",
+    "yumurtla", "döllen", "emzir", "davran", "çoğal",
     "başla", "bit", "bitir", "sür", "sürdür", "kazan", "kaybet", "çalış", "dinlen", "yorul", "iyileş",
     "belirle", "bul", "bulun", "sağla", "uygula", "engelle", "aktar", "sakla", "barındır", "sergile", "göster",
     "diren", "tanı", "kaynaklan", "yükselt", "tetikle", "yönet", "besle", "sınırla", "genişlet", "yoğunlaş",
     "sentezle", "parçala", "harca", "depola", "sıçra", "yayımla", "doğrula", "çürüt", "yorumla",
+
+    # Gündelik beden, ev ve toplum eylemleri (çocuk dilinin ilk fiilleri)
+    "kal", "vur", "küs", "sar", "sarıl", "tırmala", "zıpla", "hopla", "mırıldan", "homurdan", "haykır",
+    "fırlat", "kovala", "saklan", "boğul", "yıkan", "tara", "sil", "süpür", "dök", "saç", "salla",
+    "kaldır", "indir", "bindir", "ısır", "kaşı", "öp", "em", "yoğur", "kızart", "haşla", "karıştır",
+    "çırp", "süz", "ez", "çiğne", "yut", "tükür", "hapşır", "öksür", "esne", "çömel", "devril", "süzül",
+    "sallan", "kay", "emekle", "uzan", "eğil", "doğrul", "bükül", "gerin", "tutun", "kap", "kucakla",
+    "okşa", "gülümse", "kızar", "çağır", "uyut", "emzir", "büyüt", "yetiştir", "öde", "borçlan", "satın",
+    "sat", "kirala", "ödünç", "dile", "dua", "karar", "özlem", "anımsa", "çekiştir", "dürt", "tekmele",
+    "yumrukla", "sık", "gevşet", "bağır", "inle", "ağla", "sızla", "titri", "terle", "kana", "uyukla",
+    # Sık kullanılan düzensiz/yardımcı kökler ('de-' -> diyor, 'ye-' -> yiyor)
+    "de", "koy", "san", "doy", "duy", "kay",
+    # Hayvan sesleri ve doğa olayları
+    "öt", "havla", "miyavla", "mele", "kişne", "anır", "böğür", "gıdakla", "ötüş", "uğulda", "şimşekle",
+    "gürle", "patla", "fokurda", "damla", "karla", "yağmurla", "es",
 }
 
 # Ünsüz yumuşamasına GİRMEYEN çok heceli / alıntı veya Türkçe kökler
@@ -117,7 +281,8 @@ NO_SOFTEN_EXTENDED: set[str] = {
     "etiket", "işaret", "suret", "şahsiyet", "hüviyet", "kudret", "devlet", "servet", "kıyamet", "alamet",
     "robot", "pilot", "uzay", "evrak", "ittifak", "hakikat", "adalet", "cesaret", "nezaket", "felaket", "hareket",
     "bereket", "memleket", "şirket", "dikkat", "şefkat", "sohbet", "gurbet", "hasret", "ücret", "nöbet",
-    "saat", "kanat", "sanat", "iftar", "sabah", "silah", "sabır",
+    "saat", "sanat", "iftar", "sabah", "silah", "sabır",
+    "bisiklet", "ceket",
 }
 
 # Eş anlamlılar ve zıt anlamlılar sözlüğü

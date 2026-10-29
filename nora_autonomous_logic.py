@@ -31,6 +31,7 @@ import re
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 import numpy as np
+import numpy.ma as _np_ma  # ilk sınıflamada tembel import maliyeti olmasın
 
 from nora_chem import NeuroChemistry, ChemMushroomBody
 from nora_lang import TurkishMorphology, tr_lower, tr_capitalize
@@ -737,6 +738,13 @@ class AutonomousLogicAndLabelEngine:
                     res_state = words[-1]
 
                 cframe = "->".join(frame_parts)
+                if v_root in ("ol", "et", "yap"):
+                    # Hafif fiil: "X ... olur" çerçevesi tek başına İLİŞKİ taşımaz.
+                    # Buradan kural çıkarmak "ÖZ_BAĞ:ol[NOM->ACC]" gibi içi boş etiket
+                    # üretiyor; sonra "neden olur?" sorusuna "X olur" diye cevap veriyordu.
+                    # İlişki zaten olgu yolunda (teach_fact) kurulur: burada mint ETME.
+                    self._update_emergent_clusters(stems)
+                    return None
                 lbl = f"ÖZ_BAĞ:{v_root}[{cframe}]"
                 trule = StateTransitionRule(
                     trigger_phrase=trig_phrase,

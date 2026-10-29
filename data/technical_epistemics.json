@@ -1,0 +1,60 @@
+{
+  "aliases": {
+    "finite state": "finite-state",
+    "sonlu durum": "sonlu-durum",
+    "strongly connected": "strongly-connected",
+    "güçlü bağlı": "güçlü-bağlı",
+    "prefix incompatibility": "prefix-incompatibility",
+    "önek uyumsuzluk": "önek-uyumsuzluk"
+  },
+  "lexicon": {
+    "fst": {"feature": "fst", "gloss": "sonlu-durum transdüseri"},
+    "finite-state": {"feature": "fst", "gloss": "sonlu-durum"},
+    "sonlu-durum": {"feature": "fst", "gloss": "finite-state"},
+    "transducer": {"feature": "fst", "gloss": "transdüser"},
+    "transdüser": {"feature": "fst", "gloss": "transducer"},
+    "minimal": {"feature": "minimal", "gloss": "en küçük"},
+    "minimallik": {"feature": "minimal", "gloss": "en küçük olma"},
+    "recurrent": {"feature": "recurrent", "gloss": "yinelemeli"},
+    "strongly-connected": {"feature": "strongly_connected", "gloss": "güçlü bağlı"},
+    "güçlü-bağlı": {"feature": "strongly_connected", "gloss": "strongly connected"},
+    "deterministic": {"feature": "deterministic", "gloss": "deterministik"},
+    "deterministik": {"feature": "deterministic", "gloss": "deterministic"},
+    "complete": {"feature": "complete", "gloss": "tam"},
+    "tam": {"feature": "complete", "gloss": "complete"},
+    "mealy": {"feature": "mealy", "gloss": "Mealy makinesi"},
+    "unique": {"feature": "unique", "gloss": "tek"},
+    "tek": {"feature": "unique", "gloss": "unique"},
+    "tekil": {"feature": "unique", "gloss": "unique"},
+    "benzersiz": {"feature": "unique", "gloss": "unique"},
+    "teklik": {"feature": "unique", "gloss": "uniqueness"},
+    "isomorphism": {"feature": "isomorphism", "gloss": "izomorfizma"},
+    "izomorfizma": {"feature": "isomorphism", "gloss": "isomorphism"},
+    "weighted": {"feature": "weighted", "gloss": "ağırlıklı"},
+    "ağırlıklı": {"feature": "weighted", "gloss": "weighted"},
+    "prefix-incompatibility": {"feature": "prefix_incompatibility", "gloss": "önek uyumsuzluğu"},
+    "önek-uyumsuzluk": {"feature": "prefix_incompatibility", "gloss": "prefix incompatibility"},
+    "graph": {"feature": "graph", "gloss": "çizge"},
+    "çizge": {"feature": "graph", "gloss": "graph"}
+  },
+  "theorem": {
+    "required_features": ["deterministic", "complete", "mealy"],
+    "condition": "aynı tam davranışı veren deterministik, tam ve sabit başlangıçlı Mealy makinelerinde",
+    "observation_scope": "sonlu gözlemlerde",
+    "subject": "minimal form",
+    "comparison": "izomorfizmeye kadar",
+    "recurrent_subject": "recurrentlik",
+    "missing_premise_object": "genel teklik garantisi"
+  },
+  "speech": {
+    "bibliographic_object": "bibliyografik kaydı",
+    "algorithm_name": "algoritmanın adı",
+    "basic_idea": "temel fikri",
+    "algorithm_name_object": "algoritmanın adını",
+    "basic_idea_object": "temel fikrini",
+    "algorithm_details": "algoritmanın adını ve temel fikrini",
+    "compound_definition": "birleşik terimin kanıtlı tanımını",
+    "known_parts": "çözebildiğim parçalar",
+    "source_label": "doğrulanmış kaynak"
+  }
+}

@@ -107,6 +107,21 @@ class Universe:
         self.e = self.w = self.i = 0.8
         self.lives += 1
 
+    # ---- tam çalışma-zamanı snapshot'ı
+    def state_dict(self) -> dict:
+        """Yalnız ağırlıkları değil, gelecek fiziği etkileyen bütün alanları taşı."""
+        from nora_state import capture_attrs, capture_rng
+        names = [k for k in self.__dict__ if k != "rng"]
+        return {"version": 1, "fields": capture_attrs(self, names),
+                "rng": capture_rng(self.rng)}
+
+    def load_state_dict(self, data: dict | None) -> None:
+        if not data:
+            return
+        from nora_state import restore_attrs, restore_rng
+        restore_attrs(self, data.get("fields") or {}, strict=True)
+        self.rng = restore_rng(getattr(self, "rng", None), data.get("rng"))
+
     # ---- gün/gece
     def light(self):
         return 0.5 + 0.5 * np.cos(2 * np.pi * self.t / self.day_len)
@@ -153,6 +168,26 @@ class Universe:
     def grant(self, gain):
         """Bilmece ödülü: çözülen terminalin enerjisi."""
         self.e = min(1.0, self.e + gain)
+
+    def predict_transition(self, a):
+        """Salt-okunur bir fizik önizlemesi döndür; gerçek evreni ilerletme.
+
+        ``deepcopy`` üzerindeki adım, ajanın henüz yaşamadığı bir geleceği
+        deneyim belleğine veya gerçek metabolizmaya yazmaz. Dönen ``info``
+        fiziksel olayları içerebilir; üst katman bunlardan yalnız ajanın
+        meşru biçimde bilebileceği mekanik/geometrik büyüklükleri seçmelidir.
+        """
+        import copy
+
+        sim = copy.deepcopy(self)
+        next_obs, info = sim.step(int(a))
+        return {
+            "obs": next_obs,
+            "info": info,
+            "position": sim.pos.copy(),
+            "velocity": sim.vel.copy(),
+            "time": int(sim.t),
+        }
 
     # ---- fizik
     def step(self, a):
