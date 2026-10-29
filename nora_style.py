@@ -135,9 +135,10 @@ class SpeechStyle:
             add("cevap+düşünce", 40)
         # 4) Soru sorma: yalnızca merak yüksek ve üst üste soru sorulmadıysa.
         if allow_q and is_question and da > 0.52 and sht > 0.35:
-            add("cevap+soru", 34)
-        # 5) Kendi kendine mırıldanma: iç ses canlıysa.
-        if sht > 0.45 and cort < 0.55:
+            add("cevap+soru", 12)
+        # 5) İç konuşma, karşıdakine cevap verirken dekoratif bir mırıltı değildir.
+        # Doğrudan sohbette içeride kalır; yalnız Nora kendi kendineyken dışa dökülebilir.
+        if (not direct) and sht > 0.45 and cort < 0.55:
             add("kendine", 22)
         # 6) Kısa kesme: yalnızca anlatı/anlatım turlarında.
         if not is_question:
@@ -152,6 +153,22 @@ class SpeechStyle:
         if not pool:
             # Yasaklı biçimden başka seçenek yoksa yalın cevap değil, en yakın farklı biçim.
             pool = [(sh, w) for sh, w in options if sh != "cevap"] or options
+        # Çeşitlilik yalnız rastgele yuvarlamaya bırakılmaz: doğrudan sohbette
+        # son söylem penceresinde üç biçim görünmüyorsa, pencerede OLMAYAN
+        # geçerli biçimler yarışta kalır. Toplam sayaçta yıllar önce kullanılmış
+        # bir biçim yakın-geçmiş çeşitliliği sayılmaz. Metin eklenmez; yalnız
+        # mevcut iç-durum/bağlam seçenekleri gerçek söylem geçmişine bağlanır.
+        recent_history = list(self.history)
+        if len(recent_history) >= self.history.maxlen:
+            # On kayıtlık bellek ile tazelik ufku aynı değildir. En eski iki
+            # kayıt kısa tazeleme payıdır; bir biçim yalnız orada kaldıysa
+            # yakın-geçmiş çeşitliliği için yeniden yarışabilir.
+            recent_history = recent_history[max(1, self.history.maxlen // 5):]
+        recent_shapes = set(recent_history)
+        if direct and self.turn >= 3 and len(recent_shapes) < 3:
+            unseen = [(sh, w) for sh, w in pool if sh not in recent_shapes]
+            if unseen:
+                pool = unseen
         total = sum(w for _, w in pool) or 1
         # Bireysellik: seçim donanım entropisinden de beslenir (aynı seed aynı kararı vermez).
         roll = (int.from_bytes(os.urandom(4), "big") / 2 ** 32) * total
@@ -255,7 +272,7 @@ class SpeechStyle:
                 self._tag(agi, "beden")
                 text = f"{need} {text}"
 
-        if shape == "cevap+soru":
+        if shape == "cevap+soru" and "?" not in text:
             q = self._topic_question(agi, topic)
             if q:
                 self._tag(agi, "ag")
@@ -296,11 +313,8 @@ class SpeechStyle:
                     # Çıkarım motoru cümleyi kendi başlangıcıyla verir; üstüne bir de
                     # "şunu fark ettim" eklenirse "şunu fark ettim: kendi kendime şunu
                     # çıkardım:" gibi çift başlangıç olur.
-                    _lead = self._lead_in(agi)
                     line = self._strip_lead(line)
-                    if _lead and line.startswith(_lead):
-                        return line
-                    return f"{_lead} {line}".strip()
+                    return line.strip()
             tw = {w for w in re.split(r"[^a-zçğıöşüâîû]+", tr_lower(f"{text} {topic}")) if len(w) >= 4}
             if not tw:
                 return ""
@@ -312,14 +326,13 @@ class SpeechStyle:
                     continue
                 if not (tw & {w for w in re.split(r"[^a-zçğıöşüâîû]+", body) if len(w) >= 4}):
                     continue
-                self._said.append(body)
-                lead = self._lead_in(agi)
-                # MONOLOG SATIRI zaten süslü olabilir (kendi girişiyle akışa yazılmış):
-                # başına bir giriş daha eklemek "kendi kendime ... kendi kendime ..." yapar.
+                # Düşüncenin kendisi söylenir; "içimden ..." diye ikinci bir
+                # sahne çerçevesi eklenmez.
                 body = self._strip_lead(body.strip())
-                if lead and body.startswith(lead):
-                    return body
-                return f"{lead} {body.rstrip('.')}.".strip()
+                if not body:
+                    continue
+                self._said.append(body)
+                return body.rstrip(".") + "."
         except Exception:
             pass
         return ""
@@ -392,6 +405,13 @@ class SpeechStyle:
         txt = self._pick(agi, "style.mutter", {"mutter": states}, {"word": word})
         if not txt:
             return ""
+        meta = re.match(r"^İçimden '([^']+)' diye geçirdim\.$", txt.strip())
+        if meta:
+            content = meta.group(1).strip()
+            # Tek bir duygu etiketini söylemek düşünce değildir; sessiz kalır.
+            if content == word and len(content.split()) <= 2:
+                return ""
+            txt = tr_capitalize(content)
         self._said.append(txt)
         return txt
 

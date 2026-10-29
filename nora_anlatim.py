@@ -164,7 +164,11 @@ class Narrator:
             return self._remember(key, core_text)
 
         first_time = self.count[key] == 0
-        if first_time and not force and core_text and not self._already_said(key, core_text):
+        # Önceki anlatımdan sonra grafiğe yeni bir bağ geldiyse eski çeşitlilik
+        # uğruna o bilgi saklanmaz: güncel çekirdek bir kez eksiksiz söylenir.
+        has_untold_edge = any(self._edge_score(key, rel, obj) == 0 for rel, obj in e)
+        if ((first_time or has_untold_edge) and not force and core_text
+                and not self._already_said(key, core_text)):
             for rel, obj in e:
                 self._use_edge(key, rel, obj)
             _tag(agi, "core", len(e))

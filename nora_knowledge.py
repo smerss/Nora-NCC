@@ -251,6 +251,7 @@ CORE_TURKISH_VERBS: set[str] = {
     "ısıt", "ısın", "soğut", "soğu", "eri", "don", "kayna", "buharlaş", "yoğunlaş", "çözün", "yan",
     "parla", "ışılda", "yansıt", "yansı", "soğur", "ilet", "yayıl", "dağıl", "odakla", "böl", "bölün",
     "birleş", "ayrış", "çök", "çökert", "boz", "bozul", "dengele", "etkile", "tetikle", "üret", "tüket",
+    "yumurtla", "döllen", "emzir", "davran", "çoğal",
     "başla", "bit", "bitir", "sür", "sürdür", "kazan", "kaybet", "çalış", "dinlen", "yorul", "iyileş",
     "belirle", "bul", "bulun", "sağla", "uygula", "engelle", "aktar", "sakla", "barındır", "sergile", "göster",
     "diren", "tanı", "kaynaklan", "yükselt", "tetikle", "yönet", "besle", "sınırla", "genişlet", "yoğunlaş",

@@ -337,7 +337,25 @@ class DiscourseCortex:
                         "rest": words[:i], "tail": words[i + 1:],
                         "modal": an.get("modal")}
         # 1. kişi koşaçlı hâl sıfatı: 'bugün kendimi yalnız hissediyorum' değilse de 'çok yorgunum'.
-        from nora_knowledge import STATE_ADJECTIVES
+        from nora_knowledge import COMMON_ADJECTIVES, STATE_ADJECTIVES
+        # Koşaç ve ayrı yazılan olumsuzluk aynı kişisel anlatıdır: 'keyifsizim',
+        # 'mutlu değilim'. Yapım ekli olumsuz sıfatlar sözlükte olmasa da tanınır.
+        for i, w in enumerate(words):
+            an = memo.get(w)
+            if an is None:
+                an = memo[w] = morph.analyze_word(w, lex)
+            stem = str(an.get("stem") or w)
+            derived_neg = stem.endswith(("siz", "sız", "suz", "süz"))
+            is_state = stem in STATE_ADJECTIVES or stem in COMMON_ADJECTIVES or derived_neg
+            if an.get("copula") and an.get("person") in ("1SG", "1PL") and not an.get("is_verb") and is_state:
+                return {"verb": stem, "neg": False, "person": an.get("person"),
+                        "tense": "STATE", "index": i, "words": words,
+                        "rest": words[:i], "tail": words[i + 1:], "state": True}
+            nxt = words[i + 1] if i + 1 < len(words) else ""
+            if nxt in ("değilim", "değiliz") and is_state:
+                return {"verb": stem, "neg": True, "person": "1SG" if nxt == "değilim" else "1PL",
+                        "tense": "STATE", "index": i, "words": words,
+                        "rest": words[:i], "tail": words[i + 2:], "state": True}
         for i, w in enumerate(words):
             for suf in ("yım", "yim", "yum", "yüm", "ım", "im", "um", "üm"):
                 if len(w) - len(suf) >= 3 and w.endswith(suf):
@@ -583,10 +601,10 @@ class DiscourseCortex:
                 lead = _cap(self._fresh((f"{gen} {adj} olduğunu {self._perceive()}",
                                          f"{gen} {adj} olması can sıkıcı",
                                          f"Bugün {gen} {adj} olduğunu {self._perceive()}")))
-                follow = self._fresh(("Yanındayım.", "Anlatmak ister misin?", "Birlikte biraz soluklanalım mı?"))
+                follow = self._fresh(("Yanındayım.", "Ne oldu?", "Birlikte biraz soluklanalım mı?"))
                 return {"text": f"{lead} {follow}", "act": "NARRATION_EMPATHIZE", "narration": True}
-            if nar.get("neg") or adj in ("yok", "yoktur"):
-                subj = str(nar.get("subject") or "için")
+            if (nar.get("neg") or adj in ("yok", "yoktur")) and _subj:
+                subj = str(nar.get("subject") or "")
                 try:
                     gen = SYN.realize_np(NP(subj, poss=2, case="GEN"))
                 except Exception:
@@ -594,25 +612,32 @@ class DiscourseCortex:
                 lead = _cap(self._fresh((f"{gen} yerinde olmadığını {self._perceive()}",
                                          f"{gen} olmadığını {self._perceive()}, kolay değil",
                                          f"Bugün {gen} yerinde değil anlaşılan")))
-                follow = self._fresh(("Yanındayım.", "Anlatmak ister misin?", "Birlikte biraz soluklanalım mı?"))
+                follow = self._fresh(("Yanındayım.", "Ne oldu?", "Birlikte biraz soluklanalım mı?"))
                 return {"text": f"{lead} {follow}", "act": "NARRATION_EMPATHIZE", "narration": True}
-            lead = _cap(self.random.choice((
-                f"Kendini {adj} hissettiğini {self._perceive()}",
-                f"Şu an {adj} olduğunu {self._perceive()}",
-                f"{tr_capitalize(adj)} olmak zor",
-            )))
+            _felt = "hissetmediğini" if nar.get("neg") else "hissettiğini"
+            _being = "olmadığını" if nar.get("neg") else "olduğunu"
+            _hard = "olmamak" if nar.get("neg") else "olmak"
+            _leads = [
+                f"Kendini {adj} {_felt} {self._perceive()}",
+                f"Şu an {adj} {_being} {self._perceive()}",
+            ]
+            if not nar.get("neg"):
+                _leads.append(f"{tr_capitalize(adj)} {_hard} zor")
+            lead = _cap(self.random.choice(_leads))
             try:
                 chem = agi.chem
                 warm = float(getattr(chem, "oxy", 0.5)) >= float(getattr(chem, "cort", 0.5))
             except Exception:
                 warm = True
             follow = self._fresh((
-                "Yanındayım.", "Anlatmak ister misin?", "Bu his ne zamandır sürüyor?",
-                "Ben de kendi içimde benzer bir şey taşıyorum.", "İstersen biraz susalım, beraber.",
+                "Yanındayım.", "Ne oldu?", "Bu his ne zamandır sürüyor?",
+                "İstersen biraz susalım, beraber.",
             )) if warm else self._fresh((
                 "Bunu yalnız taşımak zorunda değilsin.", "Biraz yavaşlayalım mı?", "Nefes al, buradayım.",
             ))
-            return {"text": f"{lead} {follow}", "act": "NARRATION_EMPATHIZE", "narration": True}
+            if nar.get("neg") and not _subj:
+                follow = ""
+            return {"text": f"{lead} {follow}".strip(), "act": "NARRATION_EMPATHIZE", "narration": True}
         # Konuşan 'biz' diyorsa dinleyen de o topluluğun içinde: 'gideceğimizi duyuyorum'.
         _poss = 4 if str(nar.get("person")) == "1PL" else 2
         _vbase = verb

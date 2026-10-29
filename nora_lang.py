@@ -847,7 +847,8 @@ class TurkishMorphology:
                 and len(w) - len(stem) == 1 and len(stem) >= 3):
             info["unverified_stem"] = True
         if (w not in known and stem not in known and info.get("is_verb")
-                and not info.get("voice") and stem not in cls.KNOWN_VERB_ROOTS):
+                and not info.get("voice") and not info.get("derived_root")
+                and stem not in cls.KNOWN_VERB_ROOTS):
             # 'matematik' -> 'mat' (fiil) gibi köksüz çözümlemeler anlamayı bozar; sözlükte
             # olmayan bir fiil kökü asla "gerçek" sayılmaz, kelime olduğu gibi alınır.
             return {**info, "stem": w, "case": "NOM", "is_verb": False, "neg": False}
@@ -1816,6 +1817,9 @@ class GroundedConceptGraph:
         self.chem = chem
         self.rng = np.random.default_rng(seed)
         self.lexicon: set[str] = set()
+        # Kavram anahtarı küçük harfli kalır; taksonomik/özel adın kullanıcıdan
+        # duyulan doğru yüzeyi ayrı tutulur ('aves' anahtarı, 'Aves' görünen ad).
+        self.display_names: dict[str, str] = {}
         self.edges: list[RelationEdge] = []
         # O(1) yerel sinaptik komşuluk indeksleri (veri 100.000 kenara çıksa da sorgu gecikmesi ~0.05 ms kalır!)
         self._out_edges: dict[str, list[RelationEdge]] = {}
@@ -1861,6 +1865,20 @@ class GroundedConceptGraph:
                 self.concept_vecs[c] = vec
                 self.word_mb.learn_oneshot(vec, cid, chem=self.chem, strength=0.8, contrastive=False)
         return self.concept_id[c]
+
+    def register_display_name(self, name: str, surface: str):
+        """Kavramın anlam anahtarını değiştirmeden özel ad yüzeyini öğren."""
+        c = tr_lower(name).strip()
+        surf = str(surface or "").strip().strip(".,;:!?")
+        if c and surf and surf != c and surf[:1].isupper():
+            self.display_names[c] = surf
+
+    def surface_name(self, name: str) -> str:
+        c = tr_lower(name).strip()
+        if c in self.display_names:
+            return self.display_names[c]
+        parts = c.split()
+        return " ".join(self.display_names.get(p, p) for p in parts)
 
     def _bootstrap_embodied_primitives(self):
         """Ansiklopedi EZBERİ YOK; yalnızca bedenin doğuştan sahip olduğu duyu-motor kökler."""
@@ -1917,6 +1935,52 @@ class GroundedConceptGraph:
         if source != "doğuştan":
             self.chem.pulse_learning(novelty=0.80, valence=0.35)
         return edge
+
+    def prove_candidate(self, subj: str, rel: str, obj: str) -> dict:
+        """Nöral öneriyi SONRADAN denetle; aday veya dikkat zinciri üretme.
+
+        Doğrudan kenar ``recall`` olup yeni çıkarım sayılmaz. İki dayanaklı
+        kanıt yalnız genel ilişki anlamlarından kurulur: ISA ile özellik mirası,
+        aynı geçişli ilişkinin kompozisyonu, parçada bulunanın bütünde de
+        bulunması ve konumun alt türe özelleşmesi. Bu yöntem çağrılmadan önce
+        hangi adayın deneneceğini bilmez; kapanış listesi üretmez.
+        """
+        q, r, o = (tr_lower(subj).strip(), str(rel).strip(), tr_lower(obj).strip())
+        direct = self._edge_map.get((q, r, o))
+        if direct is not None and direct.weight > 0.25:
+            return {"status": "recall", "novel": False, "proof": [direct], "rule": "direct"}
+        edges = [edge for edge in self.edges if edge.weight > 0.25]
+        transitive = {"ISA", "PART_OF", "CAUSES", "IF_THEN"}
+        for first in edges:
+            for second in edges:
+                if first is second:
+                    continue
+                rule = ""
+                # q ISA a, a r o  =>  q r o (aynı genel miras semantiği query'de de var)
+                if (first.subj == q and first.rel == "ISA" and second.subj == first.obj
+                        and second.rel == r and second.obj == o):
+                    rule = "isa_inheritance"
+                # q r a, a r o  =>  q r o; yalnız anlamı geçişli ilişkiler.
+                elif (r in transitive and first.subj == q and first.rel == r
+                      and second.subj == first.obj and second.rel == r and second.obj == o):
+                    rule = "transitive_composition"
+                # q LOCATED_AT a, o COMPOSED_OF/HAS_PART a => q LOCATED_AT o
+                # q LOCATED_AT a, a PART_OF o             => q LOCATED_AT o
+                elif (q == first.subj and r == "LOCATED_AT" and first.rel == "LOCATED_AT"
+                      and ((second.subj == o and second.obj == first.obj
+                            and second.rel in {"COMPOSED_OF", "HAS_PART"})
+                           or (second.subj == first.obj and second.obj == o
+                               and second.rel == "PART_OF"))):
+                    rule = "location_part_to_whole"
+                # q LOCATED_AT a, o ISA a => q LOCATED_AT o (evrendeki alt tür)
+                elif (q == first.subj and r == "LOCATED_AT" and first.rel == "LOCATED_AT"
+                      and second.subj == o and second.rel == "ISA"
+                      and second.obj == first.obj):
+                    rule = "location_isa_specialization"
+                if rule:
+                    return {"status": "proved", "novel": True,
+                            "proof": [first, second], "rule": rule}
+        return {"status": "unresolved", "novel": False, "proof": [], "rule": ""}
 
     def ancestors(self, subj: str, max_hops: int = 4) -> list[tuple[str, list[RelationEdge]]]:
         """O(k) yerel sinaps yayılımı ile ISA taksonomi zincirinde yukarı doğru aktivasyon."""
@@ -2086,7 +2150,7 @@ class GroundedConceptGraph:
                 return {"answer": False, "edge": e, "isa_path": isa_path}
 
         # 2) Doğrudan veya ISA-kalıtsal pozitif bağ var mı?
-        for e, isa_path in self.query(s, ("ISA", "HAS_PROP", "HAS_PART", "CAN_DO", "CAUSES", "USED_FOR", "LOCATED_AT")):
+        for e, isa_path in self.query(s, ("ISA", "HAS_PROP", "HAS_PART", "COMPOSED_OF", "CAN_DO", "CAUSES", "USED_FOR", "LOCATED_AT")):
             e_stem = TurkishMorphology.analyze_word(e.obj.split()[-1], self.lexicon)["stem"] if e.obj else ""
             if e.obj == t or e.obj == t_clean or e.obj == t_stem or e_stem == t_stem or t_clean in e.obj:
                 return {"answer": True, "edge": e, "isa_path": isa_path}
@@ -2136,6 +2200,13 @@ class BrocaGenerator:
         parts = phrase.split()
         if not parts:
             return phrase
+        # Kullanıcıdan öğrenilen özel/taksonomik ad: anlam anahtarı küçük harfli
+        # olsa da yüzeyde 'Aves'tir' biçimi ve kesme işareti korunur.
+        if parts[-1][:1].isupper():
+            proper = parts[-1]
+            low = tr_lower(proper)
+            suffix = self.morph.dental_d_t(low) + self.morph.vowel_4(low) + "r"
+            return " ".join(parts[:-1] + [proper + "'" + suffix])
         # Yüklem zaten çekimli bir fiilse koşaç EKLENMEZ: 'kalp sağlığına iyi gelirdir' değil
         # 'iyi gelir'. (Geniş zaman 3. tekil fiil + -dIr = çifte çekim)
         last_an = self.morph.analyze_word(parts[-1])
@@ -2181,13 +2252,25 @@ class BrocaGenerator:
             tail = self.morph.inflect_noun(head, case)
         return " ".join(parts[:-1] + [tail])
 
+    def _surface_case(self, phrase: str, case: str) -> str:
+        """Tek sözcüklü özel adı hâl ekiyle yaz; diğer öbeklerde mevcut motoru kullan."""
+        if phrase and " " not in phrase and phrase[:1].isupper():
+            low = tr_lower(phrase)
+            inflected = self.morph.inflect_noun(low, case)
+            suffix = inflected[len(low):] if inflected.startswith(low) else inflected
+            return phrase + "'" + suffix
+        return self.morph.inflect_noun(phrase, case)
+
     def realize_prop(self, p: Proposition) -> str:
         s = p.subj.strip()
         o = p.obj.strip()
         r = p.rel
 
         if r == "ISA":
-            art = "" if o.startswith("bir ") else "bir "
+            # Belirtili tamlamada belgisiz artikel tamlayanın önüne gelmez:
+            # 'yaşamın temel birimidir', 'bir yaşamın temel birimidir' değil.
+            has_genitive = bool(re.search(r"(?:^|\s)\S+(?:nın|nin|nun|nün|ın|in|un|ün)(?:\s|$)", o))
+            art = "" if o.startswith("bir ") or has_genitive else "bir "
             pred = self._copula_phrase(art + o)
             return f"{s} {art}{o} değildir" if p.neg else f"{s} {pred}"
 
@@ -2195,6 +2278,17 @@ class BrocaGenerator:
             if p.neg:
                 return f"{s} {o} değildir"
             return f"{s} {self._copula_phrase(o)}"
+
+        if r == "COMPOSED_OF":
+            # Bileşim yalnız 'bir parçası var' değildir; çoğul ablatif bunu açıkça
+            # korur: 'ökaryot hücre' -> 'ökaryot hücrelerden oluşur'.
+            parts = o.split()
+            if parts:
+                abl = self.morph.inflect_noun(parts[-1], "ABL", plural=True)
+                material = " ".join(parts[:-1] + [abl])
+            else:
+                material = o
+            return f"{s} {material} oluşmaz" if p.neg else f"{s} {material} oluşur"
 
         if r == "HAS_PART":
             # Sahiplik: 'zürafanın uzun boynu var' (parça/özellik adı iyelikli kurulur)
@@ -2206,12 +2300,21 @@ class BrocaGenerator:
             else:
                 part = " ".join(parts[:-1] + [self.morph.inflect_noun(head, "NOM", poss3=True)]).strip()
             if p.neg:
-                return f"{s} {self.morph.inflect_noun(s, 'GEN')} {part} yok"
-            return f"{self.morph.inflect_noun(s, 'GEN')} {part} var"
+                return f"{self._surface_case(s, 'GEN')} {part} yok"
+            return f"{self._surface_case(s, 'GEN')} {part} var"
 
         if r in ("CAN_DO", "CANNOT_DO"):
             is_neg = p.neg or (r == "CANNOT_DO")
             parts = o.split()
+            # Bazı öğretmen kayıtları eylemi mastar olarak taşır ('besin aramak').
+            # Kök doğrulanabiliyorsa CAN_DO bunu geniş zamana çeker; aksi hâlde
+            # yüklem yarım 'Hayvan besin aramak.' diye kalır.
+            if parts and parts[-1].endswith(("mak", "mek")):
+                _inf = parts[-1]
+                _root = _inf[:-3]
+                if _root in self.morph.KNOWN_VERB_ROOTS or self.morph._unsoften(_root) in self.morph.KNOWN_VERB_ROOTS:
+                    parts[-1] = _root if _root in self.morph.KNOWN_VERB_ROOTS else self.morph._unsoften(_root)
+                    o = " ".join(parts)
             # Öğrenilmiş tamamlanmış fiil ('belleği pekiştirir') yeniden çekimlenmez: çift ek olurdu.
             if parts and parts[-1].endswith(("ir", "ır", "ur", "ür", "yor", "di", "dı", "ti", "tı",
                                              "ecek", "acak", "meli", "malı", "maz", "mez")):
@@ -2275,8 +2378,13 @@ class BrocaGenerator:
             return f"{s} {o} için kullanılır"
 
         if r == "LOCATED_AT":
-            if o in PROPER_NOUNS:
-                # Özel ad kesme işaretiyle çekimlenir: "Himalaya'da", "Antalya'da".
+            # Sözlükte önceden bulunmayan özel/taksonomik adlar da öğrenilebilir.
+            # Yalnız donmuş PROPER_NOUNS listesine bakmak, kullanıcıdan öğrenilen
+            # 'Aves'i yüzeyde sıradan ada çevirip 'aveste' üretiyordu. Büyük harfli
+            # yeni adlar da diğer özel adlarla aynı kesme ve hâl kuralını kullanır.
+            learned_proper = bool(o.split() and o.split()[-1][:1].isupper())
+            if o in PROPER_NOUNS or learned_proper:
+                # Özel ad kesme işaretiyle çekimlenir: "Himalaya'da", "Aves'te".
                 loc = tr_capitalize(o) + "'" + self._case_phrase(o, "LOC")[len(o):]
             else:
                 loc = self._case_phrase(o, "LOC")
@@ -2348,6 +2456,7 @@ class SemanticFrame:
     analogy: tuple[str, str, str] | None = None
     sub_kind: str = ""
     wh: str = ""              # soru sözcüğü: nasıl | neden | nerede | kim | ne ...
+    obj_surface: str = ""     # özel/taksonomik adın duyulan yüzeyi; anlam anahtarı obj'de kalır
 
 
 class WernickeComprehender:
@@ -2939,6 +3048,80 @@ class WernickeComprehender:
 
         return SemanticFrame(kind="unknown", raw=s_raw)
 
+    @staticmethod
+    def _strip_nominal_copula(word: str) -> str:
+        """Koşacı yalnız son addan sıyır ('omurgalıdır' -> 'omurgalı').
+
+        Bunu fiil çözümleyicisinden ayrı tutmak gerekir: sözlükte yeni bir sıfat
+        olduğunda ``analyze_word`` -dIr ekini her zaman koşaç olarak işaretleyemez;
+        yine de sözcüğün yüzeyindeki açık ek bilgiyi kaybetmemelidir.
+        """
+        w = tr_lower(word).strip()
+        return w[:-3] if len(w) > 4 and re.search(r"[dt][ıiuü]r$", w) else w
+
+    def _noun_head(self, word: str, *, force_poss: bool = False,
+                   force_case: bool = False) -> str:
+        """Bir ad öbeğinin başını, kanıtlanmış ek bağlamında kavram gövdesine indir.
+
+        ``kalbe`` gibi sözlük-dışı çekimlerde genel çözümleyici yüzeyi yalın
+        bırakabilir. Fiilin yönelme istemesi veya tamlayanın bulunması eki
+        bağımsız olarak doğrular; bu durumda b/p, c/ç, d/t yumuşaması da geri
+        alınır. Bağlam yoksa kök uydurulmaz.
+        """
+        w = tr_lower(word).strip()
+        an = self._tok(w)
+        head = str(an.get("head") or an.get("stem") or w)
+        # Tamlayanda -nIn/-In adaylarından sözlükte gerçekten bulunan gövdeyi
+        # seç. 'insanın' -> 'insa' değil 'insan'; uzun eki körü körüne seçmek
+        # gövdenin son n'sini ek sanabiliyordu.
+        if an.get("case") == "GEN":
+            known_candidates = []
+            for suf in ("nın", "nin", "nun", "nün", "ın", "in", "un", "ün"):
+                if len(w) - len(suf) >= 2 and w.endswith(suf):
+                    cand = w[:-len(suf)]
+                    for option in (cand, self.morph._unsoften(cand)):
+                        if option in self.graph.lexicon:
+                            known_candidates.append(option)
+            if known_candidates:
+                return max(known_candidates, key=len)
+        if head != w and (head in self.graph.lexicon or an.get("plural") or an.get("poss3")
+                          or ((not force_poss and not force_case) or len(w) - len(head) >= 2)):
+            return head
+        suffixes = (("ları", "leri", "sı", "si", "su", "sü", "ı", "i", "u", "ü")
+                    if force_poss else
+                    ("ndan", "nden", "dan", "den", "tan", "ten", "ına", "ine",
+                     "una", "üne", "na", "ne", "ya", "ye", "a", "e", "ı", "i", "u", "ü"))
+        for suf in suffixes:
+            if len(w) - len(suf) < 2 or not w.endswith(suf):
+                continue
+            cand = w[:-len(suf)]
+            hard = self.morph._unsoften(cand)
+            if hard in self.graph.lexicon or hard != cand:
+                return hard
+            if cand in self.graph.lexicon or force_poss or force_case:
+                return cand
+        return head
+
+    def _np_from_tokens(self, tokens: list[str], *, head_poss: bool = False,
+                        head_case: bool = False) -> str:
+        if not tokens:
+            return ""
+        head = self._noun_head(tokens[-1], force_poss=head_poss, force_case=head_case)
+        return " ".join([tr_lower(t) for t in tokens[:-1]] + [head]).strip()
+
+    def _take_leading_subject(self, tokens: list[str]) -> tuple[str, list[str]]:
+        """Belirtisiz nesneli SOV cümlede özne ile kalan tümleci ayır.
+
+        Bilinen çok sözcüklü kavramlar önceliklidir ('kara delik ışık yutar').
+        Yeni kavramda tek baş sözcük güvenli alt sınırdır; kalan ad öbeği özneye
+        yapıştırılmaz ('mitokondri ATP üretir' -> mitokondri | ATP).
+        """
+        for n in range(min(3, len(tokens) - 1), 1, -1):
+            cand = self._np_from_tokens(tokens[:n])
+            if cand in self.graph._out_edges or cand in self.graph.lexicon:
+                return cand, tokens[n:]
+        return self._np_from_tokens(tokens[:1]), tokens[1:]
+
     def _parse_declarative(self, s_raw: str, s: str, words: list[str]) -> SemanticFrame:
         # Söylemsel dolgu zarflarını ('bence', 'aslında', 'kesinlikle', 'bana göre') özneden ayıkla!
         s = re.sub(r"^(?:bence|aslında|kesinlikle|gerçekten|şüphesiz|bana\s+göre|biliyor\s+musun)\s+", "", s.strip())
@@ -2992,6 +3175,116 @@ class WernickeComprehender:
             c_subj = self.morph.analyze_word(cond_part.split()[0], self.graph.lexicon)["stem"]
             self.last_topic = c_subj
             return SemanticFrame(kind="teach_fact", raw=s_raw, subj=cond_part, rel="IF_THEN", obj=act_part)
+
+        # Taksonomik üyelik: 'X, Y sınıfındandır / takımına aittir'.
+        # Rank adı yükleme yapışık da olsa sınıf üyesini 'HAS_PROP sınıf' diye
+        # silmek yanlıştır; anlam X ISA Y'dir. Kural Aves'e değil bütün ranklara geneldir.
+        ranks = ("sınıf", "familya", "takım", "cins", "tür", "şube", "alem")
+        raw_words = re.findall(r"[\wçğıöşü]+", s_raw)
+        if len(words) >= 3:
+            tail_rank = next((r for r in ranks if words[-1].startswith(r) and words[-1] != r), "")
+            tail = words[-1][len(tail_rank):] if tail_rank else ""
+            valid_tail = bool(tail_rank and (
+                "ndandır" in tail or "ndendir" in tail or tail.startswith(("ına", "ine", "na", "ne"))
+                or re.fullmatch(r"[ıiuü][dt][ıiuü]r", tail or "")))
+            # 'X bir alet türüdür' üyelik değil, belirtisiz ISA'dır. Rank
+            # kuralı burada 'bir'i özneye katarak uydurma düğüm üretir; olağan
+            # 'X bir Y-dir' çözümleyicisi 'alet türü' nesnesini kurmalıdır.
+            if valid_tail and not (len(words) >= 4 and words[-3] == "bir"):
+                subj_t = self._clean_np(" ".join(words[:-2]))
+                class_t = self._clean_np(words[-2])
+                if subj_t and class_t:
+                    self.last_topic = subj_t
+                    return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj_t,
+                                         rel="ISA", obj=class_t,
+                                         obj_surface=raw_words[-2] if len(raw_words) == len(words) else "")
+            if (words[-1] in {"aittir", "mensuptur", "mensubudur"} and len(words) >= 4):
+                rank_word = words[-2]
+                rank = next((r for r in ranks if rank_word.startswith(r)), "")
+                if rank:
+                    subj_t = self._clean_np(" ".join(words[:-3]))
+                    class_t = self._clean_np(words[-3])
+                    if subj_t and class_t:
+                        self.last_topic = subj_t
+                        return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj_t,
+                                             rel="ISA", obj=class_t)
+
+        # Nitelenmiş parça özne olduğunda sahibine genelleme yapma:
+        # 'Kuşların olgun alyuvarları çekirdeklidir' bütün kuşların çekirdekli
+        # olduğu anlamına gelmez. Kapsamlı ad öbeği ayrı düğüm, sahiplik ayrı bağdır.
+        first_an = self._tok(words[0])
+        if (first_an.get("case") == "GEN" and len(words) >= 3
+                and words[0] not in {"benim", "senin", "onun", "bizim", "sizin", "onların"}
+                and re.search(r"[dt][ıiuü]r$", words[-1])
+                and not self.morph.analyze_word(words[-1], self.graph.lexicon).get("is_verb")
+                and "değil" not in words and not words[-1].startswith("değil")):
+            owner = self._noun_head(words[0])
+            part = self._noun_head(words[-2], force_poss=True)
+            prop = self._strip_nominal_copula(words[-1])
+            scoped = " ".join(words[:-1])
+            if owner and part and prop:
+                self.last_topic = owner
+                return SemanticFrame(kind="teach_fact", raw=s_raw, subj=scoped,
+                                     rel="SCOPED_HAS_PROP", obj=prop,
+                                     sub_kind=f"{owner}|{part}")
+
+        # Belirtili iyelik + varoluş: 'Ökaryot hücrelerin çekirdeği vardır'.
+        # Burada var/yok bir özellik değil, sahibin parçasına işaret eder.
+        if words[-1] == "vardır" and len(words) >= 3:
+            gen_idx = next((i for i, w in enumerate(words[:-2])
+                            if self._tok(w).get("case") == "GEN"), -1)
+            if gen_idx >= 0 and gen_idx + 1 < len(words) - 1:
+                owner_tokens = words[:gen_idx + 1]
+                owner = self._np_from_tokens(owner_tokens)
+                if owner not in {"ben", "sen", "o", "biz", "siz", "onlar"}:
+                    part = self._np_from_tokens(words[gen_idx + 1:-1], head_poss=True)
+                    if owner and part:
+                        self.last_topic = owner
+                        return SemanticFrame(kind="teach_fact", raw=s_raw, subj=owner,
+                                             rel="HAS_PART", obj=part)
+
+        # 'X, Y'ye sahiptir': sahip/ait gibi yardımcı adı özellik diye kaydetme.
+        if words[-1] == "sahiptir" and len(words) >= 3:
+            subj_t, obj_tokens = self._take_leading_subject(words[:-1])
+            obj_t = self._np_from_tokens(obj_tokens, head_case=True)
+            if subj_t and obj_t:
+                self.last_topic = subj_t
+                return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj_t,
+                                     rel="HAS_PART", obj=obj_t)
+
+        # 'X, Y'den oluşur': yön bütünden parçaya gider; CAN_DO 'oluş' değildir.
+        if words[-1] in {"oluşur", "oluşmaktadır"} and len(words) >= 3:
+            subj_t, obj_tokens = self._take_leading_subject(words[:-1])
+            if obj_tokens:
+                obj_t = self._np_from_tokens(obj_tokens)
+                if subj_t and obj_t:
+                    self.last_topic = subj_t
+                    return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj_t,
+                                         rel="COMPOSED_OF", obj=obj_t)
+
+        # Yerli varoluş: 'Ökaryot hücrelerde mitokondri bulunur'. Yer bildiren
+        # öbek cümlenin öznesi değildir; bulunan şey yüklem öncesindeki addır.
+        if words[-1] == "bulunur" and len(words) >= 3:
+            loc_idx = next((i for i, w in enumerate(words[:-1])
+                            if self._tok(w).get("case") == "LOC"), -1)
+            if 0 <= loc_idx < len(words) - 2:
+                container = self._np_from_tokens(words[:loc_idx + 1])
+                entity = self._np_from_tokens(words[loc_idx + 1:-1])
+                if container and entity:
+                    self.last_topic = entity
+                    return SemanticFrame(kind="teach_fact", raw=s_raw, subj=entity,
+                                         rel="LOCATED_AT", obj=container)
+
+        # Hafif fiil yapılarında yer/amaç tümleci kaybolmaz:
+        # 'Mitokondri hücrenin enerji üretiminde görev yapar'.
+        if len(words) >= 4 and words[-2:] in (["görev", "yapar"], ["rol", "oynar"]):
+            subj_t, adjunct = self._take_leading_subject(words[:-2])
+            last_an0 = self.morph.analyze_word(words[-1], self.graph.lexicon)
+            if subj_t and adjunct and last_an0.get("is_verb"):
+                obj_t = " ".join(adjunct + [words[-2], last_an0["stem"]])
+                self.last_topic = subj_t
+                return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj_t,
+                                     rel="CAN_DO", obj=obj_t)
 
         # ÖNCE Somatik Değer İddiası Kontrolü ('su tehlikeli bir maddedir', 'su sağlığa zarar verir' m_adj_isa'yı atlayıp süzgeçten geçmeli!)
         cand_subj = self._clean_np(" ".join(words[:2]) if words[0] in {"kırmızı", "mavi", "yeşil", "siyah", "parlak", "küçük", "büyük"} and len(words) >= 3 else words[0])
@@ -3131,6 +3424,21 @@ class WernickeComprehender:
             loc_an = self.morph.analyze_word(rest_words[0], self.graph.lexicon)
             return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj, rel="LOCATED_AT", obj=loc_an["stem"])
 
+        # Çok sözcüklü koşaçlı yüklem: yeni sıfatlarda -dIr biçimbirimini sözlük
+        # tanımıyor diye özneye sıfatı yapıştırma. Tamlayanlı ad yüklem ISA,
+        # niteleme yüklemi HAS_PROP olarak korunur.
+        _copula_an = self.morph.analyze_word(rest_words[-1], self.graph.lexicon)
+        if (re.search(r"[dt][ıiuü]r$", rest_words[-1]) and not _copula_an.get("is_verb")
+                and "değil" not in rest_words and not rest_words[-1].startswith("değil")
+                and "bir" not in rest_words and "ve" not in rest_words):
+            pred_tokens = list(rest_words)
+            pred_tokens[-1] = self._strip_nominal_copula(pred_tokens[-1])
+            pred = " ".join(w for w in pred_tokens if w)
+            if pred:
+                has_gen_pred = any(self._tok(w).get("case") == "GEN" for w in pred_tokens)
+                return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj,
+                                     rel="ISA" if has_gen_pred else "HAS_PROP", obj=pred)
+
         # Fiil mi koşaçlı sıfat mı? ('kuşlar uçar', 'penguen uçmaz' vs 'ateş sıcaktır')
         last_an = dict(self.morph.analyze_word(rest_words[-1], self.graph.lexicon))
         if not last_an.get("is_verb") and not last_an.get("copula"):
@@ -3164,13 +3472,24 @@ class WernickeComprehender:
         # Eylem: 'kuşlar uçar', 'penguen uçmaz', 'balıklar suda yüzer',
         #        'kara delik ışığı yutar' (çok sözcüklü özne + hâl ekli nesne)
         rel_type = "CANNOT_DO" if last_an["neg"] else "CAN_DO"
-        _sj, _ob = self.split_svo([w for w in words if w != words[-1]] or words[:-1])
+        _pre_verb = list(words[:-1])
+        _sj, _ob = self.split_svo(_pre_verb)
         _subj = (_sj or {}).get("canonical") or subj
         # Nesne yalnız ACC/DAT ise fiilin nesnesidir; LOC/ABL/INS zarf tümlecidir
         # ("balıklar suda yüzer" -> eylem "yüz", yer "su"). Böylece özne, nesne
-        # sanılıp yutulmaz.
+        # sanılıp yutulmaz. Belirtisiz nesnede hâl eki yoktur ('ATP üretir',
+        # 'sert kabuklu yumurta bırakır'); o zaman ilk kavram özne, kalan öbek
+        # yüklem tümlecidir. Bütün öbeği özneye katmak bilgiyi başka düğüme yazar.
+        _indefinite = ""
+        if _ob is None and len(_pre_verb) >= 2:
+            _lead, _remainder = self._take_leading_subject(_pre_verb)
+            if _lead and _remainder:
+                _subj = _lead
+                _indefinite = self._np_from_tokens(_remainder)
         if _ob is not None and _ob.get("canonical") and _ob.get("case") in ("ACC", "DAT"):
             act_obj = f"{_ob['canonical']} {last_an['stem']}".strip()
+        elif _indefinite:
+            act_obj = f"{_indefinite} {last_an['stem']}".strip()
         else:
             act_obj = last_an["stem"]
         if _subj:
@@ -3278,11 +3597,25 @@ class NoraLanguage:
             cl = cl.strip()
             if not cl:
                 continue
+            # Bilimsel kısaltmaların duyulan yüzeyini koru (ATP, DNA, RNA ...).
+            # Cümle başındaki yalnız ilk harfi büyük Türkçe sözcükler buna girmez.
+            for token in re.findall(r"[\wçğıöşü]+", cl):
+                if len(token) >= 2 and token.isupper() and any(ch.isalpha() for ch in token):
+                    self.graph.register_display_name(token, token)
             fr = self.wernicke.parse(cl)
             if fr.kind == "teach_fact":
+                if getattr(fr, "obj_surface", ""):
+                    self.graph.register_display_name(fr.obj, fr.obj_surface)
                 if not self._teachable_predicate(fr.obj):
                     continue
-                if fr.rel == "ADJ_ISA":
+                if fr.rel == "SCOPED_HAS_PROP":
+                    owner, _, part = str(fr.sub_kind).partition("|")
+                    if not owner or not part:
+                        continue
+                    learned.append(self.graph.add_edge(fr.subj, "HAS_PROP", fr.obj, source="duyum", speaker=speaker))
+                    learned.append(self.graph.add_edge(fr.subj, "PART_OF", owner, source="duyum", speaker=speaker))
+                    learned.append(self.graph.add_edge(owner, "HAS_PART", part, source="duyum", speaker=speaker))
+                elif fr.rel == "ADJ_ISA":
                     adj, noun = fr.obj.split("|", 1)
                     learned.append(self.graph.add_edge(fr.subj, "ISA", f"{adj} {noun}", source="duyum", speaker=speaker))
                     learned.append(self.graph.add_edge(f"{adj} {noun}", "ISA", noun, source="duyum", speaker=speaker))

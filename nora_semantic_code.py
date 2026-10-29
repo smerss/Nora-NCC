@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import ast
 import base64
+import collections
 import copy
 from dataclasses import dataclass, field
 import html
@@ -20,6 +21,7 @@ import math
 from pathlib import Path
 import random
 import re
+import time
 from typing import Any
 import urllib.request
 
@@ -743,6 +745,494 @@ class _FiniteObservationEvidence:
         return result
 
 
+def _active_run_finite(candidate, source: str) -> str | None:
+    """İç aday tablosunu veya kanonik FST temsilini bağımsız yürüt."""
+    if isinstance(candidate, dict) and "transitions" in candidate:
+        table = {(int(state), symbol): (int(target), output)
+                 for state, symbol, target, output in candidate["transitions"]}
+    else:
+        table = candidate
+    state = 0
+    output = []
+    for symbol in source:
+        transition = table.get((state, symbol))
+        if transition is None:
+            return None
+        state, emitted = transition
+        output.append(emitted)
+    return "".join(output)
+
+
+def _active_table_representation(table, alphabet) -> dict:
+    states = 1 + max([state for state, _symbol in table]
+                     + [target for target, _output in table.values()])
+    return {
+        "kind": "finite_state_transducer", "states": states,
+        "alphabet": list(alphabet), "initial": 0,
+        "transitions": [[state, symbol, target, output]
+                        for (state, symbol), (target, output) in sorted(table.items())],
+    }
+
+
+def _active_conformance_probes(candidate, alphabet: str, lengths,
+                               max_states: int) -> list[str]:
+    """Durum kapsama + W + ek-durum orta parçalarından sonda üret."""
+    if isinstance(candidate, dict) and "transitions" in candidate:
+        table = {(int(state), symbol): (int(target), output)
+                 for state, symbol, target, output in candidate["transitions"]}
+    else:
+        table = candidate
+    states = sorted({state for state, _symbol in table}
+                    | {target for target, _output in table.values()})
+    cover = {0: ""}
+    queue = collections.deque([0])
+    while queue:
+        state = queue.popleft()
+        for symbol in alphabet:
+            target = table[(state, symbol)][0]
+            if target not in cover:
+                cover[target] = cover[state] + symbol
+                queue.append(target)
+    characterization = {""}
+    for left, right in itertools.combinations(states, 2):
+        queue = collections.deque([((left, right), "")])
+        seen = {(left, right)}
+        suffix = None
+        while queue and suffix is None:
+            (a_state, b_state), path = queue.popleft()
+            for symbol in alphabet:
+                next_a, output_a = table[(a_state, symbol)]
+                next_b, output_b = table[(b_state, symbol)]
+                if output_a != output_b:
+                    suffix = path + symbol
+                    break
+                pair = (next_a, next_b)
+                if pair not in seen:
+                    seen.add(pair)
+                    queue.append((pair, path + symbol))
+        if suffix is None:
+            raise ValueError("non-minimal-candidate")
+        characterization.add(suffix)
+    extra = max(0, int(max_states) - len(states))
+    middles = ["".join(row) for width in range(extra + 2)
+               for row in itertools.product(alphabet, repeat=width)]
+    probes = {}
+    allowed = sorted(set(map(int, lengths)))
+    for state in states:
+        for middle in middles:
+            for suffix in characterization:
+                base = cover[state] + middle + suffix
+                target_lengths = [length for length in allowed if length >= len(base)]
+                if not target_lengths:
+                    continue
+                target_length = target_lengths[0]
+                source = base + alphabet[0] * (target_length - len(base))
+                row = (len(middle), len(suffix), len(base), base, source)
+                previous = probes.get(source)
+                if previous is None or row[:4] > previous[:4]:
+                    probes[source] = row
+    ordered = sorted(probes.values(), key=lambda row: (-row[0], -row[1], -row[2], row[3]))
+    return [row[4] for row in ordered]
+
+
+class ContinuousCausalGraph:
+    """Geleceği görmeyen, dağıtık gizli durumlu küçük bir sinirsel transdüser.
+
+    FST'nin sonlu ayrık durumları yerine sürekli bir ``h_t`` vektörü vardır.
+    ``h_t = GRU(x_t, h_{t-1})`` ve ``y_t`` yalnız ``h_t``den okunur; dolayısıyla
+    çıktı gelecekteki girdilere erişemez. Model train ile gradyan öğrenir,
+    validation yalnız erken durdurma/kabul içindir, held-out bu sınıfa hiç
+    verilmez. Validation tam değilse temsil ``provisional`` olarak işaretlenir.
+
+    Bu sınıf FST'nin başka adı değildir ve "daha iyi" olduğu varsayılmaz. Örnek
+    sayısı, gradyan adımı, parametre, süre ve held-out sonuçları ayrı raporlanır.
+    """
+
+    KIND = "continuous_causal_graph"
+
+    def __init__(self, *, hidden: int = 48, seed: int = 0,
+                 learning_rate: float = 0.01, max_epochs: int = 240,
+                 batch_size: int = 32, patience: int = 60,
+                 class_balance: bool = True, prefix_augmentation: int = 0,
+                 prefix_warmup_epochs: int = 0,
+                 checkpoint_selection: str = "train_first",
+                 causal_summary: bool = False):
+        self.hidden = max(8, int(hidden))
+        self.seed = int(seed)
+        self.learning_rate = float(learning_rate)
+        self.max_epochs = max(1, int(max_epochs))
+        self.batch_size = max(1, int(batch_size))
+        self.patience = max(1, int(patience))
+        self.class_balance = bool(class_balance)
+        self.prefix_augmentation = max(0, int(prefix_augmentation))
+        self.prefix_warmup_epochs = max(0, int(prefix_warmup_epochs))
+        if checkpoint_selection not in {"train_first", "validation_macro"}:
+            raise ValueError("unknown checkpoint selection")
+        self.checkpoint_selection = str(checkpoint_selection)
+        self.causal_summary = bool(causal_summary)
+        self.model = None
+        self.input_symbols: list[str] = []
+        self.output_symbols: list[str] = []
+        self.report: dict[str, Any] = {}
+
+    @staticmethod
+    def _rows(examples) -> list[tuple[str, str]]:
+        rows = CompositionalCodeLearner._relation_examples(examples)
+        if not rows or any(not source for source, _expected in rows):
+            raise ValueError("nonempty equal-length string pairs required")
+        return rows
+
+    @staticmethod
+    def _prefix_rows(rows, per_row: int) -> list[tuple[str, str]]:
+        """Train çiftlerinden, çıktı sınıfı geçişlerini kapsayan ek önekler.
+
+        Nedensel transdüserde bir çiftin her öneği de geçerli bir çifttir. Yeni
+        etiket oracle'dan veya validation/held-out'tan alınmaz; ``expected``'in
+        ilgili öneği kullanılır. Sınıf değişimleri nadir olayın görüldüğü yerleri
+        de örneklemeye sokar; tamamen düz çıktılarda eşit aralıklı önekler seçilir.
+        """
+        count = max(0, int(per_row))
+        if count == 0:
+            return list(rows)
+        augmented = list(rows)
+        seen = set(rows)
+        for source, expected in rows:
+            length = len(source)
+            if length <= 1:
+                continue
+            transitions = [index + 1 for index in range(1, length)
+                           if expected[index] != expected[index - 1]]
+            fractions = [max(1, (length * part) // (count + 1))
+                         for part in range(1, count + 1)]
+            candidates = sorted({size for size in transitions + fractions
+                                 if 0 < size < length})
+            if len(candidates) > count:
+                # İlk/son geçişi de kaybetmeden, geçiş ekseninde eşit seyretme.
+                indices = (list(range(count)) if count == 1 else
+                           [round(i * (len(candidates) - 1) / (count - 1))
+                            for i in range(count)])
+                candidates = [candidates[index] for index in sorted(set(indices))]
+            for size in candidates:
+                row = (source[:size], expected[:size])
+                if row not in seen:
+                    seen.add(row)
+                    augmented.append(row)
+        return augmented
+
+    @staticmethod
+    def _batch(model, rows, input_id, output_id, class_weights=None):
+        import torch
+        lengths = [len(source) for source, _expected in rows]
+        width = max(lengths)
+        xs = torch.zeros((len(rows), width), dtype=torch.long)
+        ys = torch.zeros((len(rows), width), dtype=torch.long)
+        mask = torch.zeros((len(rows), width), dtype=torch.bool)
+        for row, (source, expected) in enumerate(rows):
+            length = len(source)
+            xs[row, :length] = torch.tensor([input_id[s] for s in source])
+            ys[row, :length] = torch.tensor([output_id[s] for s in expected])
+            mask[row, :length] = True
+        logits = model(xs)                       # (B,L,O); padded girdiler maskede yok
+        loss = torch.nn.functional.cross_entropy(
+            logits[mask], ys[mask], reduction="mean", weight=class_weights,
+        )
+        return loss, logits, ys, mask
+
+    def fit(self, train, validation) -> dict:
+        import torch
+        import numpy as np
+        train_rows = self._rows(train)
+        validation_rows = self._rows(validation)
+        fit_rows = self._prefix_rows(train_rows, self.prefix_augmentation)
+        self.input_symbols = sorted({s for source, _ in train_rows for s in source})
+        self.output_symbols = sorted({s for _source, out in train_rows for s in out})
+        if any(s not in self.input_symbols for source, _ in validation_rows for s in source):
+            raise ValueError("validation-alphabet")
+        if any(s not in self.output_symbols for _source, out in validation_rows for s in out):
+            raise ValueError("validation-output-alphabet")
+        torch.manual_seed(self.seed)
+        np.random.seed(self.seed % (2 ** 32 - 1))
+        embedding = max(8, self.hidden // 2)
+        # Sequential yerine açık hücre: sıfır başlangıç durumu her bağımsız
+        # dizide yeniden kurulur; örnekler arasında gizli bilgi sızıntısı yoktur.
+        class CausalCell(torch.nn.Module):
+            def __init__(self, n_in, n_out, d, h, summary=False):
+                super().__init__()
+                self.embed = torch.nn.Embedding(n_in, d)
+                self.gru = torch.nn.GRU(d, h, num_layers=1, batch_first=True)
+                self.readout = torch.nn.Linear(h, n_out)
+                self.with_summary = bool(summary)
+                if self.with_summary:
+                    self.summary_input = torch.nn.Linear(d, h)
+                    self.summary_reset = torch.nn.Linear(d, h)
+                    self.summary_decay = torch.nn.Parameter(torch.zeros(h))
+                    # Başlangıçta nötr reset; hangi girdinin durumu sıfırladığı
+                    # veya sönümü değiştirdiği yalnız gradyanla öğrenilir.
+                    torch.nn.init.zeros_(self.summary_reset.weight)
+                    torch.nn.init.zeros_(self.summary_reset.bias)
+                    # Eski GRU+readout başlangıcı aynen korunur. Sıfır adaptör
+                    # başlangıçta hiçbir tahmini değiştirmez; faydasız özet yolu
+                    # diğer ailelerin çalışan çözümünü bozmak zorunda kalmaz.
+                    self.summary_readout = torch.nn.Sequential(
+                        torch.nn.Linear(2 * h, h), torch.nn.SiLU(),
+                        torch.nn.Linear(h, n_out),
+                    )
+                    torch.nn.init.zeros_(self.summary_readout[-1].weight)
+                    torch.nn.init.zeros_(self.summary_readout[-1].bias)
+
+            def forward(self, xs):
+                embedded = self.embed(xs)
+                recurrent = self.gru(embedded)[0]
+                if not self.with_summary:
+                    return self.readout(recurrent)
+                # Doygun tanh durumuna paralel, modulusü bilmeyen sürekli lineer
+                # biriktirici. decay=2*sigmoid(...) sıfır-reset, bir-sayım ve
+                # iki-affine rejimlerini aynı genel hücrede erişilebilir kılar.
+                state = embedded.new_zeros((embedded.shape[0], self.gru.hidden_size))
+                summaries = []
+                for index in range(embedded.shape[1]):
+                    current = embedded[:, index]
+                    decay = 2.0 * torch.sigmoid(
+                        self.summary_decay + self.summary_reset(current))
+                    state = decay * state + self.summary_input(current)
+                    summaries.append(state)
+                summary = torch.stack(summaries, dim=1)
+                joined = torch.cat((recurrent, summary), dim=-1)
+                return self.readout(recurrent) + self.summary_readout(joined)
+
+        model = CausalCell(len(self.input_symbols), len(self.output_symbols),
+                           embedding, self.hidden, self.causal_summary)
+        self.model = model
+        input_id = {s: i for i, s in enumerate(self.input_symbols)}
+        output_id = {s: i for i, s in enumerate(self.output_symbols)}
+        optimizer = torch.optim.Adam(model.parameters(), lr=self.learning_rate)
+        # Tokenları çok dengesiz olan akışlarda (ör. seyrek 1, bol 0) ağırlıksız
+        # kayıp hep-negatif çöküşü ödüllendirir. Sınıf adları veya görev kuralı
+        # bilinmez; ağırlıklar yalnız train tokenlarının frekansından çıkar.
+        # Warmup+ince ayarda asıl amaç özgün train dağılımıdır; warmup boyunca
+        # bile sınıf ağırlıkları kısa öneklerin dağılımına kaydırılmaz.
+        weight_rows = train_rows if self.prefix_warmup_epochs else fit_rows
+        class_counts = torch.zeros(len(self.output_symbols), dtype=torch.float64)
+        for _source, expected in weight_rows:
+            for symbol in expected:
+                class_counts[output_id[symbol]] += 1
+        class_weights = torch.zeros_like(class_counts, dtype=torch.float32)
+        present = class_counts > 0
+        class_weights[present] = (
+            class_counts[present].sum() /
+            (present.sum() * class_counts[present])
+        ).to(torch.float32)
+        if not self.class_balance:
+            class_weights.fill_(1.0)
+        rng = np.random.default_rng(self.seed + 71_039)
+        best_score = (-1, -1, -float("inf"), -float("inf"),
+                      -float("inf"), -float("inf"))
+        best_weights = None
+        best_epoch = 0
+        stale = 0
+        gradient_steps = 0
+        started = time.perf_counter()
+        example_presentations = 0
+        model.train()
+        for epoch in range(1, self.max_epochs + 1):
+            warmup = (self.prefix_augmentation > 0 and
+                      (self.prefix_warmup_epochs == 0 or
+                       epoch <= self.prefix_warmup_epochs))
+            epoch_rows = fit_rows if warmup else train_rows
+            example_presentations += len(epoch_rows)
+            order = rng.permutation(len(epoch_rows))
+            for start in range(0, len(order), self.batch_size):
+                rows = [epoch_rows[int(i)] for i in order[start:start + self.batch_size]]
+                optimizer.zero_grad()
+                loss, _logits, _ys, _mask = self._batch(
+                    model, rows, input_id, output_id, class_weights=class_weights)
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                optimizer.step()
+                gradient_steps += 1
+            if epoch == 1 or epoch % 5 == 0 or epoch == self.max_epochs:
+                metrics = self.evaluate(validation_rows)
+                training_metrics = self.evaluate(train_rows)
+                if self.checkpoint_selection == "validation_macro":
+                    # Ezberlenmiş train exact'i, validation'daki pozitif sınıfın
+                    # tamamen kaybolmasını gizlemesin. Kabul kapısı ayrıdır ve
+                    # aşağıda hâlâ iki kümenin de exact olmasını ister.
+                    score = (int(metrics["exact"]),
+                             float(metrics["macro_token_accuracy"]),
+                             int(training_metrics["exact"]),
+                             float(training_metrics["macro_token_accuracy"]),
+                             float(metrics["token_accuracy"]),
+                             float(training_metrics["token_accuracy"]))
+                else:
+                    score = (int(metrics["exact"]), int(training_metrics["exact"]),
+                             float(metrics["macro_token_accuracy"]),
+                             float(training_metrics["macro_token_accuracy"]),
+                             float(metrics["token_accuracy"]),
+                             float(training_metrics["token_accuracy"]))
+                if score > best_score:
+                    best_score = score
+                    best_weights = copy.deepcopy(model.state_dict())
+                    best_epoch = epoch
+                    stale = 0
+                else:
+                    stale += 5
+                if (metrics["exact"] and training_metrics["exact"]) or stale >= self.patience:
+                    break
+        if best_weights is not None:
+            model.load_state_dict(best_weights)
+        validation_metrics = self.evaluate(validation_rows)
+        train_metrics = self.evaluate(train_rows)
+        self.report = {
+            "kind": self.KIND,
+            "status": "accepted" if validation_metrics["exact"] and train_metrics["exact"] else "provisional",
+            "class_balance": self.class_balance,
+            "checkpoint_selection": self.checkpoint_selection,
+            "causal_summary": self.causal_summary,
+            "hidden": self.hidden, "parameters": sum(p.numel() for p in model.parameters()),
+            "train_examples": len(train_rows), "validation_examples": len(validation_rows),
+            "optimization_examples": len(fit_rows),
+            "prefix_augmentation": self.prefix_augmentation,
+            "prefix_augmented_examples": len(fit_rows) - len(train_rows),
+            "prefix_warmup_epochs": self.prefix_warmup_epochs,
+            "epochs": epoch, "best_epoch": best_epoch, "gradient_steps": gradient_steps,
+            "example_presentations": example_presentations,
+            "seconds": time.perf_counter() - started,
+            "train_token_accuracy": train_metrics["token_accuracy"],
+            "train_macro_token_accuracy": train_metrics["macro_token_accuracy"],
+            "train_exact_sequences": train_metrics["exact_sequences"],
+            "validation_token_accuracy": validation_metrics["token_accuracy"],
+            "validation_macro_token_accuracy": validation_metrics["macro_token_accuracy"],
+            "validation_exact_sequences": validation_metrics["exact_sequences"],
+            "class_weights": {symbol: float(class_weights[index])
+                              for index, symbol in enumerate(self.output_symbols)},
+            "validation_exact": validation_metrics["exact"],
+            "heldout_passed_to_learner": False,
+        }
+        return dict(self.report)
+
+    def evaluate(self, examples) -> dict:
+        """Decorator gerektirmeden inference_mode ile bağımsız metrikler."""
+        if self.model is None:
+            raise RuntimeError("continuous model is not fitted")
+        import torch
+        rows = self._rows(examples)
+        input_id = {s: i for i, s in enumerate(self.input_symbols)}
+        output_id = {s: i for i, s in enumerate(self.output_symbols)}
+        correct_tokens = total_tokens = exact_sequences = 0
+        class_correct = [0 for _symbol in self.output_symbols]
+        class_total = [0 for _symbol in self.output_symbols]
+        losses = []
+        with torch.inference_mode():
+            self.model.eval()
+            for start in range(0, len(rows), self.batch_size):
+                chunk = rows[start:start + self.batch_size]
+                loss, logits, ys, mask = self._batch(self.model, chunk, input_id, output_id)
+                predicted = logits.argmax(-1)
+                correct_tokens += int(((predicted == ys) & mask).sum())
+                total_tokens += int(mask.sum())
+                exact_sequences += sum(int(bool((predicted[i] == ys[i])[mask[i]].all()))
+                                       for i in range(len(chunk)))
+                for class_index in range(len(self.output_symbols)):
+                    selected = mask & (ys == class_index)
+                    class_total[class_index] += int(selected.sum())
+                    class_correct[class_index] += int(((predicted == ys) & selected).sum())
+                losses.append(float(loss))
+        class_accuracy = {symbol: class_correct[index] / class_total[index]
+                          for index, symbol in enumerate(self.output_symbols)
+                          if class_total[index] > 0}
+        return {
+            "token_accuracy": correct_tokens / max(1, total_tokens),
+            "macro_token_accuracy": (sum(class_accuracy.values()) /
+                                      max(1, len(class_accuracy))),
+            "class_token_accuracy": class_accuracy,
+            "exact_sequences": exact_sequences, "total_sequences": len(rows),
+            "exact": exact_sequences == len(rows), "loss": sum(losses) / max(1, len(losses)),
+        }
+
+    def apply(self, source: str) -> str | None:
+        if self.model is None:
+            return None
+        import torch
+        input_id = {s: i for i, s in enumerate(self.input_symbols)}
+        if any(symbol not in input_id for symbol in str(source)):
+            return None
+        ids = torch.tensor([[input_id[s] for s in str(source)]], dtype=torch.long)
+        with torch.inference_mode():
+            self.model.eval()
+            output = self.model(ids).argmax(-1)[0].tolist()
+        return "".join(self.output_symbols[i] for i in output)
+
+    def state_dict(self) -> dict:
+        if self.model is None:
+            raise RuntimeError("continuous model is not fitted")
+        return {
+            "kind": self.KIND, "hidden": self.hidden, "seed": self.seed,
+            "causal_summary": self.causal_summary,
+            "input_symbols": list(self.input_symbols),
+            "output_symbols": list(self.output_symbols),
+            "weights": {key: value.detach().cpu().tolist()
+                        for key, value in self.model.state_dict().items()},
+            "evidence": copy.deepcopy(self.report),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "ContinuousCausalGraph":
+        import torch
+        evidence = dict(data.get("evidence") or {})
+        out = cls(hidden=int(data.get("hidden", 48)), seed=int(data.get("seed", 0)),
+                  causal_summary=bool(data.get("causal_summary", False)))
+        out.input_symbols = [str(s) for s in data.get("input_symbols") or ()]
+        out.output_symbols = [str(s) for s in data.get("output_symbols") or ()]
+        if not out.input_symbols or not out.output_symbols:
+            raise ValueError("invalid continuous representation")
+        # Fit'in içindeki küçük hücreyle aynı mimariyi kur; eğitim çalıştırılmaz.
+        embedding = max(8, out.hidden // 2)
+        class CausalCell(torch.nn.Module):
+            def __init__(self, n_in, n_out, d, h, summary=False):
+                super().__init__()
+                self.embed = torch.nn.Embedding(n_in, d)
+                self.gru = torch.nn.GRU(d, h, num_layers=1, batch_first=True)
+                self.readout = torch.nn.Linear(h, n_out)
+                self.with_summary = bool(summary)
+                if self.with_summary:
+                    self.summary_input = torch.nn.Linear(d, h)
+                    self.summary_reset = torch.nn.Linear(d, h)
+                    self.summary_decay = torch.nn.Parameter(torch.zeros(h))
+                    torch.nn.init.zeros_(self.summary_reset.weight)
+                    torch.nn.init.zeros_(self.summary_reset.bias)
+                    self.summary_readout = torch.nn.Sequential(
+                        torch.nn.Linear(2 * h, h), torch.nn.SiLU(),
+                        torch.nn.Linear(h, n_out),
+                    )
+                    torch.nn.init.zeros_(self.summary_readout[-1].weight)
+                    torch.nn.init.zeros_(self.summary_readout[-1].bias)
+
+            def forward(self, xs):
+                embedded = self.embed(xs)
+                recurrent = self.gru(embedded)[0]
+                if not self.with_summary:
+                    return self.readout(recurrent)
+                state = embedded.new_zeros((embedded.shape[0], self.gru.hidden_size))
+                summaries = []
+                for index in range(embedded.shape[1]):
+                    current = embedded[:, index]
+                    decay = 2.0 * torch.sigmoid(
+                        self.summary_decay + self.summary_reset(current))
+                    state = decay * state + self.summary_input(current)
+                    summaries.append(state)
+                summary = torch.stack(summaries, dim=1)
+                joined = torch.cat((recurrent, summary), dim=-1)
+                return self.readout(recurrent) + self.summary_readout(joined)
+
+        out.model = CausalCell(len(out.input_symbols), len(out.output_symbols),
+                               embedding, out.hidden, out.causal_summary)
+        weights = {key: torch.tensor(value, dtype=out.model.state_dict()[key].dtype)
+                   for key, value in (data.get("weights") or {}).items()}
+        out.model.load_state_dict(weights, strict=True)
+        out.report = evidence
+        return out
+
+
 class CompositionalCodeLearner:
     """Learn general Python operators and compose them from semantic constraints."""
 
@@ -755,6 +1245,9 @@ class CompositionalCodeLearner:
         # küçük programların taşınabilir temsilleridir.
         self.stream_operators: dict[str, dict[str, Any]] = {}
         self.representations: dict[str, dict[str, Any]] = {}
+        # Canlı model önbelleği kalıcı kanıt değildir; save/load sonrası aynı
+        # ağırlıklardan yeniden kurulur ve roundtrip ile denetlenir.
+        self._continuous_models: dict[str, ContinuousCausalGraph] = {}
         self.value_decoders: dict[str, dict[str, Any]] = {}
         self.string_transforms: dict[str, dict[str, Any]] = {}
         self.cumulative_rules: dict[str, int] = {}
@@ -1512,10 +2005,16 @@ class CompositionalCodeLearner:
                 branch[key] = (next_state, emitted)
                 stack.append((index, position + 1, next_state, branch,
                               used + int(next_state == used)))
-        capped = len(solutions) >= limit or (expansions >= max_expansions and bool(stack))
+        candidate_capped = len(solutions) >= limit
+        expansion_capped = expansions >= max_expansions and bool(stack)
         stats = {
             "expansions": expansions, "peak_stack": peak_stack,
-            "budget_exceeded": capped, "candidate_limit": int(limit),
+            # 512 aday bulmak ile arama bütçesini tüketmek aynı olay değildir.
+            # Eski ortak 'capped' bayrağı ör. 2575 expansion'ı yanlışlıkla
+            # budget-exceeded diye raporluyordu.
+            "budget_exceeded": expansion_capped,
+            "candidate_limit_reached": candidate_capped,
+            "candidate_limit": int(limit),
             "expansion_limit": int(max_expansions),
         }
         return solutions, stats
@@ -1752,9 +2251,13 @@ class CompositionalCodeLearner:
             total_expansions += int(stats["expansions"])
             peak_stack = max(peak_stack, int(stats["peak_stack"]))
             common = {"kind": "finite_state_transducer", "states": states,
-                      "expansions": total_expansions, "peak_stack": peak_stack}
+                      "expansions": total_expansions, "peak_stack": peak_stack,
+                      "candidate_limit_reached": bool(stats.get("candidate_limit_reached")),
+                      "candidate_limit": int(stats.get("candidate_limit", 0))}
             if stats["budget_exceeded"]:
                 return {"status": "budget-exceeded", **common}
+            if stats.get("candidate_limit_reached"):
+                return {"status": "candidate-limit", "candidates": len(candidates), **common}
             # Aramada kullanılan validation ayrıca yürütülür; tablo kurma hatası
             # veya kısıt atlaması bu bağımsız kontrolde başarıya dönüşemez.
             validated = [candidate for candidate in candidates
@@ -1785,12 +2288,629 @@ class CompositionalCodeLearner:
         return {"status": "unresolved", "kind": "finite_state_transducer",
                 "expansions": total_expansions, "peak_stack": peak_stack}
 
-    def apply_representation(self, name: str, source: str) -> str | None:
+    def learn_representation_active(
+            self, train, validation, pool, oracle, *, alphabet: str,
+            lengths, max_states: int = 3, min_states: int = 1,
+            budget: int = 64, cost_budget: float | None = None,
+            query_cost=1.0, repetitions: int = 1,
+            adaptive_voting: bool = False, trusted_oracle: bool = True,
+            secondary_oracle=None, secondary_trusted_oracle: bool = False,
+            candidate_sample: int = 32, recovery_batch: int = 24,
+            max_expansions: int = 100000) -> dict:
+        """Sorgu seçerek FST öğren; maliyet ve kanıt düzeyini ayrı raporla.
+
+        ``oracle`` yalnız seçilen kaynağı görür. ``budget`` gerçek oracle
+        çağrılarını, ``cost_budget`` ise çağrı maliyetlerinin toplamını sınırlar.
+        ``query_cost(source, attempt)`` veya sabit maliyet kullanılabilir.
+        ``repetitions`` tek sayıdır; cevaplar modelden bağımsız olarak konum
+        bazlı çoğunlukla birleştirilir. ``adaptive_voting`` açıkken gerekli oy
+        sayısına daha önce ulaşılırsa kalan çağrılar yapılmaz; üçlü oyda iki
+        cevabın bütün konumları uyuşuyorsa üçüncü çağrıdan kaçınılır.
+        ``trusted_oracle=False`` bağımsız doğrulaması olmayan etiketleri kalıcı
+        kabul için yeterli saymaz; teknik durma ``technical_stop`` alanında
+        korunarak ``oracle-inconclusive`` döner. ``secondary_oracle`` verilirse
+        birincil sorgu kaynaklarını ve son adayın conformance sondalarını ayrı
+        bir acceptance/diagnostic kaydıyla yeniden sorar. Kalıcı kabul için
+        ikinci kaynağın açıkça ``secondary_trusted_oracle=True`` olması, bütün
+        kontrollerin tamamlanması ve sıfır mismatch gerekir; kısmen güvenilir
+        kaynakta agreement tek başına yeterli değildir. İki kaynağın ortak
+        korele yanlışını ayırt edebildiği iddia edilmez. Yalnız güvenilir ve
+        conformance-complete aday kalıcı temsil olur. Bütçe/maliyet/oracle
+        durmalarında dönen diğer adaylar
+        ``provisional``dır ve ``self.representations`` içine yazılmaz.
+        """
+        if not callable(oracle):
+            return {"status": "invalid-protocol", "accepted": False,
+                    "reason": "oracle-not-callable"}
+        if secondary_oracle is not None and not callable(secondary_oracle):
+            return {"status": "invalid-protocol", "accepted": False,
+                    "reason": "secondary-oracle-not-callable"}
+        if secondary_trusted_oracle and secondary_oracle is None:
+            return {"status": "invalid-protocol", "accepted": False,
+                    "reason": "trusted-secondary-missing"}
+        lengths = list(lengths)
+        if (int(budget) < 0 or int(repetitions) < 1
+                or int(repetitions) % 2 == 0 or int(candidate_sample) < 2
+                or int(recovery_batch) < 0 or not lengths
+                or (adaptive_voting and int(repetitions) < 3)):
+            return {"status": "invalid-protocol", "accepted": False,
+                    "reason": "active-budget-or-repetition"}
+        if cost_budget is not None and float(cost_budget) < 0:
+            return {"status": "invalid-protocol", "accepted": False,
+                    "reason": "cost-budget"}
+        train, validation, pool = list(train), list(validation), list(pool)
+        used = set()
+        queries, syntheses, filters = [], [], []
+        selected = candidates = None
+        last_unique_candidate = None
+        last_key = None
+        verification_queue = []
+        minimum_states = max(1, int(min_states))
+        recovery_reference = None
+        recovery_attempted = set()
+        oracle_calls = 0
+        total_cost = 0.0
+        oracle_seconds = 0.0
+        secondary_queries = []
+        secondary_oracle_calls = 0
+        secondary_total_cost = 0.0
+        secondary_oracle_seconds = 0.0
+        secondary_check_ran = False
+        secondary_mismatches = 0
+        secondary_primary_mismatches = 0
+        secondary_errors = 0
+        train_rows = len(train)
+
+        def report(stop: str) -> dict:
+            nonlocal selected
+            technical_stop = stop
+            recovered_candidate = False
+            if (selected is None and last_unique_candidate is not None and
+                    (technical_stop == "state-cap" or technical_stop.startswith("synthesis-"))):
+                # Geçici etiket reddi veya yeni sentez başarısızlığı son tekil
+                # adayın held-out değerini yok etmez. Adayı kabul etme; reddin
+                # kendisi de güvenilmez olabileceğinden yalnız provisional geri ver.
+                selected = copy.deepcopy(last_unique_candidate)
+                recovered_candidate = True
+            if secondary_oracle is not None and not secondary_check_ran and (queries or selected):
+                run_secondary_check()
+            secondary_finished = bool(
+                secondary_check_ran and secondary_oracle_calls > 0 and not secondary_errors
+            )
+            if secondary_oracle is not None:
+                accepted = bool(
+                    secondary_trusted_oracle and secondary_finished
+                    and not secondary_mismatches and not secondary_primary_mismatches
+                    and selected is not None
+                    and technical_stop == "unique-conformance-complete"
+                )
+            else:
+                accepted = (trusted_oracle and technical_stop == "unique-conformance-complete"
+                            and selected is not None)
+            if ((not trusted_oracle and not accepted and (
+                    stop == "unique-conformance-complete" or (oracle_calls and (
+                        stop in {"state-cap", "no-candidates", "verification-reduced",
+                                 "no-pool-disagreement"} or stop.startswith("synthesis-")))))
+                    or (secondary_oracle is not None and not accepted
+                        and technical_stop == "unique-conformance-complete")):
+                # Tek taraflı güvenilmez etiketle veya başarısız bağımsız
+                # acceptance kontrolüyle model sınırı kalıcı kanıt sayılmaz.
+                stop = "oracle-inconclusive"
+            representation = copy.deepcopy(selected) if selected is not None else None
+            if representation is not None and not accepted:
+                representation["evidence"] = {
+                    **(representation.get("evidence") or {}),
+                    "quarantine": technical_stop, "persistent": False,
+                    "accepted_conformance": False,
+                }
+            for query in queries:
+                query["evidence_status"] = "accepted" if accepted else "quarantined"
+            for query in secondary_queries:
+                query["evidence_status"] = "accepted" if accepted else "quarantined"
+            out = {
+                "status": "invented" if accepted else "unresolved",
+                "stop": stop, "technical_stop": technical_stop,
+                "accepted": accepted, "trusted_oracle": bool(trusted_oracle),
+                "secondary_trusted_oracle": bool(secondary_trusted_oracle),
+                "secondary_check_ran": bool(secondary_check_ran),
+                "secondary_complete": secondary_finished,
+                "secondary_mismatches": int(secondary_mismatches),
+                "secondary_primary_mismatches": int(secondary_primary_mismatches),
+                "secondary_errors": int(secondary_errors),
+                "secondary_queries": secondary_queries,
+                "secondary_query_count": len(secondary_queries),
+                "secondary_oracle_calls": secondary_oracle_calls,
+                "secondary_total_cost": secondary_total_cost,
+                "secondary_oracle_seconds": secondary_oracle_seconds,
+                "combined_oracle_calls": oracle_calls + secondary_oracle_calls,
+                "combined_total_cost": total_cost + secondary_total_cost,
+                "provisional": selected is not None and not accepted,
+                "representation": representation,
+                "quarantined": not accepted,
+                "quarantined_queries": 0 if accepted else len(queries),
+                "quarantined_secondary_queries": 0 if accepted else len(secondary_queries),
+                "persistent_writes": int(accepted),
+                "candidate_recovered": recovered_candidate,
+                "queries": queries, "syntheses": syntheses, "filters": filters,
+                "train_rows": train_rows, "validation_rows": len(validation),
+                "conformance_probe_count": len(verification_queue),
+                "query_count": len(queries), "oracle_calls": oracle_calls,
+                "total_cost": total_cost, "oracle_seconds": oracle_seconds,
+                "cost_budget": cost_budget, "repetitions": int(repetitions),
+                "adaptive_voting": bool(adaptive_voting),
+            }
+            if accepted:
+                canonical = copy.deepcopy(selected)
+                canonical["evidence"] = {
+                    **(canonical.get("evidence") or {}),
+                    "active_conformance": "complete-within-state-cap",
+                    "active_queries": len(queries), "oracle_calls": oracle_calls,
+                    "oracle_cost": total_cost, "repetitions": int(repetitions),
+                    "adaptive_voting": bool(adaptive_voting),
+                    "secondary_acceptance": bool(secondary_oracle is not None),
+                    "secondary_oracle_calls": secondary_oracle_calls,
+                    "secondary_mismatches": secondary_mismatches,
+                    "secondary_primary_mismatches": secondary_primary_mismatches,
+                }
+                serial = 1 + max(
+                    [int(name[4:]) for name in self.representations
+                     if name.startswith("repr") and name[4:].isdigit()] or [0],
+                )
+                name = f"repr{serial}"
+                self.representations[name] = canonical
+                out["id"] = name
+                out["representation"] = copy.deepcopy(canonical)
+            return out
+
+        def ask(source: str, reason: str, **metadata):
+            """Tek kaynak için çağrıları ve bağımsız çoğunluğu hesapla."""
+            nonlocal oracle_calls, total_cost, oracle_seconds
+            responses, errors, costs, timings = [], [], [], []
+            stop = None
+            consensus = None
+            agreement = 0.0
+
+            def resolve(required_votes: int) -> bool:
+                nonlocal consensus, agreement
+                emitted = []
+                minimum_votes = len(responses)
+                for position in range(len(source)):
+                    counts = collections.Counter(response[position] for response in responses)
+                    character, votes = max(counts.items(), key=lambda row: row[1])
+                    if votes < required_votes:
+                        return False
+                    emitted.append(character)
+                    minimum_votes = min(minimum_votes, votes)
+                consensus = "".join(emitted)
+                agreement = minimum_votes / len(responses)
+                return True
+
+            for attempt in range(int(repetitions)):
+                if oracle_calls >= int(budget):
+                    stop = "budget"
+                    break
+                try:
+                    price = (float(query_cost(source, attempt)) if callable(query_cost)
+                             else float(query_cost))
+                except Exception:
+                    stop = "invalid-cost"
+                    break
+                if not math.isfinite(price) or price < 0:
+                    stop = "invalid-cost"
+                    break
+                if (cost_budget is not None
+                        and total_cost + price > float(cost_budget) + 1e-12):
+                    stop = "cost-budget"
+                    break
+                started = time.perf_counter()
+                oracle_calls += 1
+                total_cost += price
+                costs.append(price)
+                try:
+                    answer = oracle(source)
+                except Exception as exc:
+                    errors.append(type(exc).__name__)
+                    timings.append(time.perf_counter() - started)
+                    oracle_seconds += timings[-1]
+                    stop = "oracle-unavailable"
+                    break
+                timings.append(time.perf_counter() - started)
+                oracle_seconds += timings[-1]
+                if not isinstance(answer, str):
+                    errors.append("non-string-response")
+                    stop = "oracle-unavailable"
+                    break
+                if len(answer) != len(source):
+                    responses.append(answer)
+                    errors.append("response-length")
+                    stop = "oracle-invalid"
+                    break
+                responses.append(answer)
+                required = int(repetitions) // 2 + 1
+                if adaptive_voting and len(responses) >= required and resolve(required):
+                    break
+            if stop is None and consensus is None:
+                majority = int(repetitions) // 2 + 1
+                if not resolve(majority):
+                    stop = "oracle-inconclusive"
+            if costs or responses or errors:
+                queries.append({
+                    "source": source, "output": consensus, "reason": reason,
+                    "responses": responses, "errors": errors,
+                    "calls": len(costs), "call_costs": costs, "cost": sum(costs),
+                    "call_ms": [1000 * value for value in timings],
+                    "response_status": stop or "answered",
+                    "adaptive_voting": bool(adaptive_voting),
+                    "used_for_learning": False,
+                    "consensus_agreement": agreement, **metadata,
+                })
+            if stop is not None:
+                return None, stop
+            used.add(source)
+            return consensus, None
+
+        def run_secondary_check() -> None:
+            """Bağımsız kaynağı öğrenmeye değil, son kanıt denetimine bağla."""
+            nonlocal secondary_check_ran, secondary_oracle_calls
+            nonlocal secondary_total_cost, secondary_oracle_seconds
+            nonlocal secondary_mismatches, secondary_primary_mismatches, secondary_errors
+            secondary_check_ran = True
+            primary_outputs = {
+                query["source"]: query.get("output") for query in queries
+                if query.get("output") is not None
+            }
+            sources = set(primary_outputs)
+            if selected is not None:
+                sources.update(verification_queue)
+            for source in sorted(sources):
+                primary_output = primary_outputs.get(source)
+                try:
+                    expected = (_active_run_finite(selected, source)
+                                if selected is not None else primary_output)
+                except Exception:
+                    expected = primary_output
+                if expected is None:
+                    continue
+                error = None
+                answer = None
+                price = 0.0
+                attempted = False
+                try:
+                    price = (float(query_cost(source, 0)) if callable(query_cost)
+                             else float(query_cost))
+                    if not math.isfinite(price) or price < 0:
+                        error = "invalid-cost"
+                except Exception:
+                    error = "invalid-cost"
+                if (error is None and cost_budget is not None and
+                        total_cost + secondary_total_cost + price > float(cost_budget) + 1e-12):
+                    error = "cost-budget"
+                started = time.perf_counter()
+                if error is None:
+                    attempted = True
+                    secondary_oracle_calls += 1
+                    secondary_total_cost += price
+                    try:
+                        answer = secondary_oracle(source)
+                        if not isinstance(answer, str) or len(answer) != len(source):
+                            error = "response-length"
+                    except Exception as exc:
+                        error = f"{type(exc).__name__}: {exc}"
+                    secondary_oracle_seconds += time.perf_counter() - started
+                matched = bool(error is None and answer == expected)
+                primary_matched = bool(
+                    error is None and primary_output is not None and answer == primary_output
+                )
+                if error is not None:
+                    secondary_errors += 1
+                elif not matched:
+                    secondary_mismatches += 1
+                if error is None and primary_output is not None and not primary_matched:
+                    secondary_primary_mismatches += 1
+                secondary_queries.append({
+                    "source": source, "output": answer, "prediction": expected,
+                    "primary_output": primary_output, "prediction_matched": matched,
+                    "primary_matched": primary_matched,
+                    "reason": "independent-acceptance", "used_for_learning": False,
+                    "calls": int(attempted), "cost": price if attempted else 0.0,
+                    "errors": [error] if error else [],
+                    "response_status": error or "answered",
+                })
+                if error == "cost-budget":
+                    break
+
+        stop = "budget"
+        while True:
+            if candidates is None:
+                # Aday sentezleri geçicidir; yalnız son conformance-complete
+                # temsil report() tarafından kalıcı learner'a aktarılır.
+                learner = copy.deepcopy(self)
+                learner.representations = {}
+                synthesis = learner.invent_representation(
+                    train, validation, min_states=minimum_states, max_states=max_states,
+                    max_expansions=max_expansions,
+                    return_candidates=True, allow_dfs_fallback=False,
+                )
+                tables = synthesis.pop("candidate_tables", None)
+                representations = synthesis.pop("candidate_representations", None)
+                syntheses.append(synthesis)
+                if synthesis.get("status") == "invented":
+                    selected = learner.representations[synthesis["id"]]
+                    candidates = [selected]
+                elif synthesis.get("status") == "ambiguous":
+                    selected = None
+                    candidates = tables if tables is not None else (representations or [])
+                else:
+                    status = str(synthesis.get("status"))
+                    recovery_key = None
+                    reference = None
+                    if recovery_reference is not None:
+                        reference = (recovery_reference if "transitions" in recovery_reference
+                                     else _active_table_representation(recovery_reference, alphabet))
+                        recovery_key = (minimum_states, json.dumps(
+                            reference["transitions"], sort_keys=True,
+                        ))
+                    if (status in {"budget-exceeded", "unresolved"} and minimum_states > 1
+                            and recovery_key is not None
+                            and recovery_key not in recovery_attempted
+                            and oracle_calls < int(budget)):
+                        recovery_attempted.add(recovery_key)
+                        probes = _active_conformance_probes(
+                            reference, alphabet, lengths, max_states,
+                        )
+                        extra = [source for source in probes if source not in used]
+                        extra = extra[:int(recovery_batch)]
+                        if extra:
+                            for source in extra:
+                                if oracle_calls >= int(budget):
+                                    break
+                                prediction = _active_run_finite(reference, source)
+                                query_index = len(queries)
+                                expected, query_stop = ask(
+                                    source, "recovery-conformance", candidates_before=0,
+                                    prediction=prediction, prediction_matched=None,
+                                )
+                                if len(queries) > query_index:
+                                    queries[-1]["prediction_matched"] = (
+                                        prediction == expected if expected is not None else None
+                                    )
+                                if query_stop:
+                                    return report(query_stop)
+                                used.add(source)
+                                if queries and queries[-1]["source"] == source:
+                                    queries[-1]["used_for_learning"] = True
+                                validation.append((source, expected))
+                            candidates = selected = None
+                            continue
+                    stop = "synthesis-" + status
+                    break
+                if not candidates:
+                    stop = "no-candidates"
+                    break
+            if candidates:
+                recovery_reference = candidates[0]
+            if len(candidates) == 1:
+                if "transitions" not in candidates[0]:
+                    selected = _active_table_representation(candidates[0], alphabet)
+                    candidates = [selected]
+                else:
+                    selected = candidates[0]
+                last_unique_candidate = copy.deepcopy(selected)
+                key = json.dumps(selected.get("transitions", []), sort_keys=True)
+                if key != last_key:
+                    verification_queue = _active_conformance_probes(
+                        selected, alphabet, lengths, max_states,
+                    )
+                    last_key = key
+            else:
+                selected = last_key = None
+                verification_queue = []
+            verification_mismatch = False
+            while len(candidates) == 1 and oracle_calls < int(budget):
+                unused = [source for source in verification_queue if source not in used]
+                if not unused:
+                    return report("unique-conformance-complete")
+                source = unused[0]
+                prediction = _active_run_finite(selected, source)
+                query_index = len(queries)
+                expected, query_stop = ask(
+                    source, "conformance", candidates_before=1, prediction=prediction,
+                    prediction_matched=None,
+                )
+                if len(queries) > query_index:
+                    queries[-1]["prediction_matched"] = (
+                        prediction == expected if expected is not None else None
+                    )
+                if query_stop:
+                    return report(query_stop)
+                used.add(source)
+                if queries and queries[-1]["source"] == source:
+                    queries[-1]["used_for_learning"] = True
+                validation.append((source, expected))
+                if prediction != expected:
+                    verification_mismatch = True
+                    break
+            if verification_mismatch:
+                minimum_states = max(minimum_states, int(selected["states"]) + 1)
+                candidates = selected = None
+                if minimum_states > int(max_states):
+                    stop = "state-cap"
+                    break
+                if oracle_calls >= int(budget):
+                    stop = "budget"
+                    break
+                continue
+            if len(candidates) == 1:
+                stop = "budget" if oracle_calls >= int(budget) else "verification-reduced"
+                break
+            if oracle_calls >= int(budget):
+                stop = "budget"
+                break
+            unused = [source for source in pool if source not in used]
+            if not unused:
+                stop = "pool-exhausted"
+                break
+            count = min(int(candidate_sample), len(candidates))
+            indices = {0, len(candidates) - 1}
+            if count > 2:
+                indices.update((i * (len(candidates) - 1)) // (count - 1)
+                               for i in range(count))
+            sample = [candidates[index] for index in sorted(indices)]
+            best = None
+            for length in lengths:
+                tier = [source for source in unused if len(source) == int(length)]
+                for source in tier:
+                    outputs = [_active_run_finite(candidate, source) for candidate in sample]
+                    counts = collections.Counter(outputs)
+                    distinct = len(counts)
+                    if distinct <= 1:
+                        continue
+                    entropy = -sum((number / len(outputs)) * math.log(number / len(outputs))
+                                   for number in counts.values())
+                    score = (distinct, entropy)
+                    if best is None or score > best[0]:
+                        best = (score, source, distinct, entropy)
+                if best is not None:
+                    break
+            if best is None:
+                stop = "no-pool-disagreement"
+                break
+            _score, source, distinct, entropy = best
+            before = len(candidates)
+            expected, query_stop = ask(
+                source, "disagreement", candidates_before=before,
+                sample_distinct_outputs=distinct, sample_entropy=entropy,
+                prediction=None, prediction_matched=None,
+            )
+            if query_stop:
+                return report(query_stop)
+            candidates = [candidate for candidate in candidates
+                          if _active_run_finite(candidate, source) == expected]
+            filters.append({"before": before, "after": len(candidates), "expansions": 0})
+            queries[-1]["candidates_after"] = len(candidates)
+            used.add(source)
+            if queries and queries[-1]["source"] == source:
+                queries[-1]["used_for_learning"] = True
+            validation.append((source, expected))
+            if not candidates:
+                minimum_states = max(minimum_states, int(synthesis.get("states", max_states)) + 1)
+                candidates = None
+                if minimum_states > int(max_states):
+                    stop = "state-cap"
+                    break
+        return report(stop)
+
+    def invent_continuous_representation(
+            self, train, validation, *, hidden: int = 48, seed: int = 0,
+            learning_rate: float = 0.01, max_epochs: int = 240,
+            batch_size: int = 32, patience: int = 60,
+            class_balance: bool = True, prefix_augmentation: int = 0,
+            prefix_warmup_epochs: int = 0,
+            checkpoint_selection: str = "train_first",
+            causal_summary: bool | str = "auto") -> dict:
+        """FST'den bağımsız sürekli nedensel-grafik adayını aynı veriyle öğren.
+
+        Dönen ``provisional`` kimlik yalnız araştırma/held-out ölçümünde
+        ``allow_provisional=True`` ile çalıştırılabilir. Normal üretim çağrısı
+        kabul edilmemiş modeli çalıştırmaz; bu ayrım FST'nin exhaustive kanıtıyla
+        sinirsel validation skorunu birbirine karıştırmaz. ``auto`` iki mimariyi
+        yalnız train/validation kanıtıyla seçer; held-out bu karara katılmaz.
+        """
+        if isinstance(causal_summary, str) and causal_summary != "auto":
+            raise ValueError("unknown causal summary mode")
+
+        def fit_candidate(with_summary: bool):
+            candidate = ContinuousCausalGraph(
+                hidden=hidden, seed=seed, learning_rate=learning_rate,
+                max_epochs=max_epochs, batch_size=batch_size, patience=patience,
+                class_balance=class_balance, prefix_augmentation=prefix_augmentation,
+                prefix_warmup_epochs=prefix_warmup_epochs,
+                checkpoint_selection=checkpoint_selection,
+                causal_summary=with_summary,
+            )
+            candidate_report = candidate.fit(train, validation)
+            return candidate, candidate_report
+
+        if causal_summary == "auto":
+            baseline, baseline_report = fit_candidate(False)
+            summary, summary_report = fit_candidate(True)
+            # Held-out burada yoktur. Önce özgün validation'daki tam dizi
+            # sayısı; eşitlikte yalnız bir tokenlik gürültüyü aşan token ve
+            # makro kazanç. Kanıt yoksa küçük baseline kalır; aile/modulus yok.
+            summary_exact = summary_report["validation_exact_sequences"]
+            baseline_exact = baseline_report["validation_exact_sequences"]
+            validation_tokens = sum(len(str(expected)) for _source, expected in validation)
+            token_gain = (summary_report["validation_token_accuracy"] -
+                          baseline_report["validation_token_accuracy"])
+            token_correct_gain = (
+                round(summary_report["validation_token_accuracy"] * validation_tokens) -
+                round(baseline_report["validation_token_accuracy"] * validation_tokens))
+            macro_gain = (summary_report["validation_macro_token_accuracy"] -
+                          baseline_report["validation_macro_token_accuracy"])
+            use_summary = (summary_exact > baseline_exact or
+                           (summary_exact == baseline_exact and
+                            token_correct_gain > 1 and macro_gain > 0.0))
+            model, report = ((summary, dict(summary_report)) if use_summary
+                             else (baseline, dict(baseline_report)))
+            report["selected_gradient_steps"] = report["gradient_steps"]
+            report["selected_example_presentations"] = report["example_presentations"]
+            report["selected_seconds"] = report["seconds"]
+            report["gradient_steps"] = (baseline_report["gradient_steps"] +
+                                        summary_report["gradient_steps"])
+            report["example_presentations"] = (
+                baseline_report["example_presentations"] +
+                summary_report["example_presentations"])
+            report["seconds"] = baseline_report["seconds"] + summary_report["seconds"]
+            report["candidate_selection"] = {
+                "rule": "validation_exact_or_multi_token_macro_else_baseline",
+                "selected_causal_summary": bool(use_summary),
+                "validation_tokens": validation_tokens,
+                "validation_token_gain": token_gain,
+                "validation_token_correct_gain": token_correct_gain,
+                "validation_macro_gain": macro_gain,
+                "heldout_used": False,
+                "candidates": {
+                    "baseline": copy.deepcopy(baseline_report),
+                    "causal_summary": copy.deepcopy(summary_report),
+                },
+            }
+            model.report = copy.deepcopy(report)
+        else:
+            model, report = fit_candidate(bool(causal_summary))
+        serial = 1 + max(
+            [int(name[4:]) for name in self.representations if name.startswith("repr")
+             and name[4:].isdigit()] or [0],
+        )
+        name = f"repr{serial}"
+        representation = model.state_dict()
+        representation["acceptance"] = "accepted" if report["status"] == "accepted" else "provisional"
+        self.representations[name] = representation
+        self._continuous_models[name] = model
+        accepted = representation["acceptance"] == "accepted"
+        return {
+            **report, "status": "invented" if accepted else "provisional",
+            "id": name, "kind": ContinuousCausalGraph.KIND,
+            "acceptance": representation["acceptance"],
+        }
+
+    def apply_representation(self, name: str, source: str, *,
+                             allow_provisional: bool = False) -> str | None:
         representation = self.representations.get(str(name))
         if not representation:
             return None
+        if representation.get("acceptance") == "provisional" and not allow_provisional:
+            return None
         if representation.get("kind") == "finite_state_transducer":
             return self._run_finite(representation, str(source))
+        if representation.get("kind") == ContinuousCausalGraph.KIND:
+            model = self._continuous_models.get(str(name))
+            if model is None:
+                try:
+                    model = ContinuousCausalGraph.from_dict(representation)
+                except (ValueError, KeyError, RuntimeError, TypeError):
+                    return None
+                self._continuous_models[str(name)] = model
+            return model.apply(str(source))
         return None
 
     # -------------------------------------------------------------- planning
@@ -2138,8 +3258,11 @@ class CompositionalCodeLearner:
         }
         self.representations = copy.deepcopy({
             str(key): value for key, value in (data.get("representations") or {}).items()
-            if isinstance(value, dict) and value.get("kind") == "finite_state_transducer"
+            if isinstance(value, dict) and value.get("kind") in {
+                "finite_state_transducer", ContinuousCausalGraph.KIND,
+            }
         })
+        self._continuous_models = {}
         self.value_decoders = {}
         for key, value in (data.get("value_decoders") or {}).items():
             if not isinstance(value, dict) or value.get("rule") != "subtractive_sum":
@@ -2184,4 +3307,4 @@ class CompositionalCodeLearner:
         self.last_failure = copy.deepcopy(failure) if isinstance(failure, dict) else None
 
 
-__all__ = ["CompositionalCodeLearner", "SemanticGoal", "TransformationGoal", "ProgramPlan"]
+__all__ = ["CompositionalCodeLearner", "ContinuousCausalGraph", "SemanticGoal", "TransformationGoal", "ProgramPlan"]

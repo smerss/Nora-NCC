@@ -330,6 +330,28 @@ def _family_oracle(source: str, modulus: int, family: str) -> str:
     return "".join(output)
 
 
+def _independent_family_oracle(source: str, modulus: int, family: str) -> str:
+    """İkinci kanal için durum döngüsünü paylaşmayan prefix-aritmetik referansı."""
+    output = []
+    for end in range(1, len(source) + 1):
+        prefix = source[:end]
+        if family == "counter":
+            state = sum(int(symbol) for symbol in prefix) % modulus
+        elif family == "reset":
+            state = len(prefix.rsplit("b", 1)[-1]) % modulus
+        elif family == "affine":
+            state = int(prefix, 2) % modulus
+        elif family == "ternary_reset":
+            tail = prefix.rsplit("c", 1)[-1]
+            state = sum({"a": 1, "b": 2}[symbol] for symbol in tail) % modulus
+        elif family == "ternary_weighted":
+            state = sum(int(symbol) + 1 for symbol in prefix) % modulus
+        else:
+            raise ValueError("unknown_family")
+        output.append(str(int(state == modulus - 1)))
+    return "".join(output)
+
+
 def _family_task(modulus: int, family: str, seed: int = MISSION_SEED) -> dict:
     """Dondurulmuş binary ve bounded-ternary veri protokolü."""
     if family == "counter":
@@ -401,17 +423,6 @@ def _run_finite_candidate(candidate, source: str) -> str | None:
     return "".join(output)
 
 
-def _table_representation(table, alphabet) -> dict:
-    states = 1 + max([state for state, _symbol in table]
-                     + [target for target, _output in table.values()])
-    return {
-        "kind": "finite_state_transducer", "states": states,
-        "alphabet": list(alphabet), "initial": 0,
-        "transitions": [[state, symbol, target, output]
-                        for (state, symbol), (target, output) in sorted(table.items())],
-    }
-
-
 def _active_query_domain(family: str, modulus: int, alphabet: str,
                          pool_size: int = ACTIVE_POOL_SIZE):
     """Bütün orijinal splitlerden uzunluğuyla ayrışan etiketsiz sorgu alanı."""
@@ -434,260 +445,33 @@ def _active_query_domain(family: str, modulus: int, alphabet: str,
     return sorted(pool), lengths
 
 
-def _conformance_probes(candidate, alphabet: str, lengths, max_states: int) -> list[str]:
-    """Adaydan türetilen W-method ve ek-durum conformance sondaları.
-
-    ``k=max_states-learned_states`` için durum kapsama yolları ile W ekleri
-    arasına 0..k+1 genişliğinde orta parçalar konur. Uzunluk doldurma sondanın
-    ayırt edici önekini değiştirmez ve girdiyi güvenli aktif alana taşır.
-    """
-    if isinstance(candidate, dict) and "transitions" in candidate:
-        table = {(int(state), symbol): (int(target), output)
-                 for state, symbol, target, output in candidate["transitions"]}
-    else:
-        table = candidate
-    states = sorted({state for state, _symbol in table}
-                    | {target for target, _output in table.values()})
-    cover = {0: ""}
-    queue = collections.deque([0])
-    while queue:
-        state = queue.popleft()
-        for symbol in alphabet:
-            target = table[(state, symbol)][0]
-            if target not in cover:
-                cover[target] = cover[state] + symbol
-                queue.append(target)
-    characterization = {""}
-    for left, right in itertools.combinations(states, 2):
-        queue = collections.deque([((left, right), "")])
-        seen = {(left, right)}
-        suffix = None
-        while queue and suffix is None:
-            (a_state, b_state), path = queue.popleft()
-            for symbol in alphabet:
-                next_a, output_a = table[(a_state, symbol)]
-                next_b, output_b = table[(b_state, symbol)]
-                if output_a != output_b:
-                    suffix = path + symbol
-                    break
-                pair = (next_a, next_b)
-                if pair not in seen:
-                    seen.add(pair)
-                    queue.append((pair, path + symbol))
-        if suffix is None:
-            raise ValueError("non-minimal-candidate")
-        characterization.add(suffix)
-    extra = max(0, int(max_states) - len(states))
-    middles = ["".join(row) for width in range(extra + 2)
-               for row in itertools.product(alphabet, repeat=width)]
-    probes = {}
-    allowed = sorted(set(map(int, lengths)))
-    for state in states:
-        for middle in middles:
-            for suffix in characterization:
-                base = cover[state] + middle + suffix
-                target_lengths = [length for length in allowed if length >= len(base)]
-                if not target_lengths:
-                    continue
-                target_length = target_lengths[0]
-                source = base + alphabet[0] * (target_length - len(base))
-                row = (len(middle), len(suffix), len(base), base, source)
-                previous = probes.get(source)
-                if previous is None or row[:4] > previous[:4]:
-                    probes[source] = row
-    ordered = sorted(probes.values(), key=lambda row: (-row[0], -row[1], -row[2], row[3]))
-    return [row[4] for row in ordered]
-
-
 def _active_representation(train, validation, pool, oracle, *, max_states: int,
-                           alphabet: str, lengths, budget: int = ACTIVE_QUERY_BUDGET):
-    """Aday ayrımı + conformance + bağımsız oracle ile aktif FST öğrenimi.
-
-    Bu fonksiyona held-out hiç verilmez. Oracle yalnız seçilen girdi için
-    çağrılır; disagreement cevapları mevcut exhaustive küme üzerinde sıfır
-    expansion'lı filtre uygular. Minimal küme boşalırsa durum alt sınırı artar.
-    """
-    train, validation = list(train), list(validation)
-    used = set()
-    queries, syntheses, filters = [], [], []
-    selected = candidates = None
-    last_key = None
-    verification_queue = []
-    minimum_states = 1
-    recovery_reference = None
-    recovery_attempted = set()
-    stop = "budget"
-    while True:
-        if candidates is None:
-            learner = _prior_learner()
-            result = learner.invent_representation(
-                train, validation, min_states=minimum_states, max_states=max_states,
-                return_candidates=True, allow_dfs_fallback=False,
-            )
-            tables = result.pop("candidate_tables", None)
-            representations = result.pop("candidate_representations", None)
-            syntheses.append(result)
-            if result.get("status") == "invented":
-                selected = learner.representations[result["id"]]
-                candidates = [selected]
-            elif result.get("status") == "ambiguous":
-                selected = None
-                candidates = tables if tables is not None else (representations or [])
-            else:
-                status = str(result.get("status"))
-                recovery_key = None
-                reference = None
-                if recovery_reference is not None:
-                    reference = (recovery_reference if "transitions" in recovery_reference
-                                 else _table_representation(recovery_reference, alphabet))
-                    recovery_key = (minimum_states, json.dumps(
-                        reference["transitions"], sort_keys=True,
-                    ))
-                if (status in {"budget-exceeded", "unresolved"} and minimum_states > 1
-                        and recovery_key is not None and recovery_key not in recovery_attempted
-                        and len(queries) < int(budget)):
-                    recovery_attempted.add(recovery_key)
-                    probes = _conformance_probes(reference, alphabet, lengths, max_states)
-                    extra = [source for source in probes if source not in used]
-                    extra = extra[:ACTIVE_RECOVERY_QUERIES]
-                    if extra:
-                        for source in extra:
-                            if len(queries) >= int(budget):
-                                break
-                            prediction = _run_finite_candidate(reference, source)
-                            expected = oracle(source)
-                            queries.append({
-                                "source": source, "output": expected,
-                                "reason": "recovery-conformance", "candidates_before": 0,
-                                "prediction": prediction,
-                                "prediction_matched": prediction == expected,
-                            })
-                            used.add(source)
-                            validation.append((source, expected))
-                        candidates = selected = None
-                        continue
-                stop = "synthesis-" + status
-                break
-            if not candidates:
-                stop = "no-candidates"
-                break
-        if candidates:
-            recovery_reference = candidates[0]
-        if len(candidates) == 1:
-            if "transitions" not in candidates[0]:
-                selected = _table_representation(candidates[0], alphabet)
-                candidates = [selected]
-            else:
-                selected = candidates[0]
-            key = json.dumps(selected.get("transitions", []), sort_keys=True)
-            if key != last_key:
-                verification_queue = _conformance_probes(
-                    selected, alphabet, lengths, max_states,
-                )
-                last_key = key
-        else:
-            selected = last_key = None
-            verification_queue = []
-        verification_mismatch = False
-        while len(candidates) == 1 and len(queries) < int(budget):
-            unused = [source for source in verification_queue if source not in used]
-            if not unused:
-                stop = "unique-conformance-complete"
-                return selected, {
-                    "stop": stop, "queries": queries, "syntheses": syntheses,
-                    "filters": filters, "train_rows": len(train),
-                    "validation_rows": len(validation),
-                    "conformance_probe_count": len(verification_queue),
-                }
-            source = unused[0]
-            prediction = _run_finite_candidate(selected, source)
-            expected = oracle(source)
-            queries.append({
-                "source": source, "output": expected, "reason": "conformance",
-                "candidates_before": 1, "prediction": prediction,
-                "prediction_matched": prediction == expected,
-            })
-            used.add(source)
-            validation.append((source, expected))
-            if prediction != expected:
-                verification_mismatch = True
-                break
-        if verification_mismatch:
-            minimum_states = max(minimum_states, int(selected["states"]) + 1)
-            candidates = selected = None
-            if minimum_states > int(max_states):
-                stop = "state-cap"
-                break
-            if len(queries) >= int(budget):
-                stop = "budget"
-                break
-            continue
-        if len(candidates) == 1:
-            stop = "budget" if len(queries) >= int(budget) else "verification-reduced"
-            break
-        if len(queries) >= int(budget):
-            stop = "budget"
-            break
-        unused = [source for source in pool if source not in used]
-        if not unused:
-            stop = "pool-exhausted"
-            break
-        count = min(ACTIVE_CANDIDATE_SAMPLE, len(candidates))
-        indices = {0, len(candidates) - 1}
-        if count > 2:
-            indices.update((i * (len(candidates) - 1)) // (count - 1)
-                           for i in range(count))
-        sample = [candidates[index] for index in sorted(indices)]
-        best = None
-        # En kısa güvenli katmanda ayrım varken daha uzun katmana çıkma.
-        for length in lengths:
-            tier = [source for source in unused if len(source) == int(length)]
-            for source in tier:
-                outputs = [_run_finite_candidate(candidate, source) for candidate in sample]
-                counts = collections.Counter(outputs)
-                distinct = len(counts)
-                if distinct <= 1:
-                    continue
-                entropy = -sum((number / len(outputs)) * math.log(number / len(outputs))
-                               for number in counts.values())
-                score = (distinct, entropy)
-                if best is None or score > best[0]:
-                    best = (score, source, distinct, entropy)
-            if best is not None:
-                break
-        if best is None:
-            stop = "no-pool-disagreement"
-            break
-        _score, source, distinct, entropy = best
-        expected = oracle(source)
-        before = len(candidates)
-        candidates = [candidate for candidate in candidates
-                      if _run_finite_candidate(candidate, source) == expected]
-        filters.append({"before": before, "after": len(candidates), "expansions": 0})
-        queries.append({
-            "source": source, "output": expected, "reason": "disagreement",
-            "candidates_before": before, "candidates_after": len(candidates),
-            "sample_distinct_outputs": distinct, "sample_entropy": entropy,
-            "prediction": None, "prediction_matched": None,
-        })
-        used.add(source)
-        validation.append((source, expected))
-        if not candidates:
-            minimum_states = max(minimum_states, int(result.get("states", max_states)) + 1)
-            candidates = None
-            if minimum_states > int(max_states):
-                stop = "state-cap"
-                break
-    return selected, {
-        "stop": stop, "queries": queries, "syntheses": syntheses,
-        "filters": filters, "train_rows": len(train),
-        "validation_rows": len(validation),
-        "conformance_probe_count": len(verification_queue),
-    }
+                           alphabet: str, lengths, budget: int = ACTIVE_QUERY_BUDGET,
+                           cost_budget: float | None = None, query_cost=1.0,
+                           repetitions: int = 1, adaptive_voting: bool = False,
+                           trusted_oracle: bool = True, secondary_oracle=None,
+                           secondary_trusted_oracle: bool = False):
+    """Üretim learner'ının aktif protokolünü battery tuple'ına uyarla."""
+    learner = _prior_learner()
+    detail = learner.learn_representation_active(
+        train, validation, pool, oracle, max_states=max_states,
+        alphabet=alphabet, lengths=lengths, budget=budget,
+        cost_budget=cost_budget, query_cost=query_cost,
+        repetitions=repetitions, adaptive_voting=adaptive_voting,
+        trusted_oracle=trusted_oracle, secondary_oracle=secondary_oracle,
+        secondary_trusted_oracle=secondary_trusted_oracle,
+        candidate_sample=ACTIVE_CANDIDATE_SAMPLE, recovery_batch=ACTIVE_RECOVERY_QUERIES,
+        max_expansions=SEARCH_EXPANSION_LIMIT,
+    )
+    return detail.get("representation"), detail
 
 
 def _active_measure(family: str, modulus: int,
-                    budget: int = ACTIVE_QUERY_BUDGET) -> dict:
+                    budget: int = ACTIVE_QUERY_BUDGET, *,
+                    cost_budget: float | None = None, query_cost=1.0,
+                    repetitions: int = 1, adaptive_voting: bool = False,
+                    trusted_oracle: bool = True, oracle=None,
+                    secondary_oracle=None, secondary_trusted_oracle: bool = False) -> dict:
     task = _family_task(modulus, family)
     alphabet = "".join(sorted({symbol for source, _expected in
                                task["train"] + task["validation"] for symbol in source}))
@@ -699,26 +483,62 @@ def _active_measure(family: str, modulus: int,
     started = time.perf_counter()
     selected, detail = _active_representation(
         task["train"], task["validation"], pool,
-        lambda source: _family_oracle(source, modulus, family),
+        oracle or (lambda source: _family_oracle(source, modulus, family)),
         max_states=modulus, alphabet=alphabet, lengths=lengths, budget=budget,
+        cost_budget=cost_budget, query_cost=query_cost, repetitions=repetitions,
+        adaptive_voting=adaptive_voting, trusted_oracle=trusted_oracle,
+        secondary_oracle=secondary_oracle,
+        secondary_trusted_oracle=secondary_trusted_oracle,
     )
     # Bu noktadan önce held-out, sorgu seçicinin fonksiyon kapsamına hiç girmez.
     correct = (sum(_run_finite_candidate(selected, source) == expected
                    for source, expected in task["heldout"])
                if selected is not None else 0)
     queries = detail["queries"]
-    if (any(query["source"] in original_sources for query in queries)
-            or any(len(query["source"]) not in lengths for query in queries)
+    secondary_queries = detail.get("secondary_queries", [])
+    if (any(query["source"] in original_sources for query in queries + secondary_queries)
+            or any(len(query["source"]) not in lengths for query in queries + secondary_queries)
             or len({query["source"] for query in queries}) != len(queries)):
         raise AssertionError("active_query_protocol_violation")
     total = len(task["heldout"])
     reason_counts = collections.Counter(query["reason"] for query in queries)
     return {
         "family": family, "modulus": int(modulus), "status": detail["stop"],
+        "technical_status": detail.get("technical_stop", detail["stop"]),
+        "trusted_oracle": bool(detail.get("trusted_oracle", trusted_oracle)),
+        "secondary_trusted_oracle": bool(detail.get("secondary_trusted_oracle",
+                                                    secondary_trusted_oracle)),
+        "accepted": bool(detail.get("accepted")),
+        "provisional": bool(detail.get("provisional")),
+        "quarantined": bool(detail.get("quarantined")),
+        "quarantined_queries": int(detail.get("quarantined_queries", 0)),
+        "persistent_writes": int(detail.get("persistent_writes", 0)),
+        "candidate_recovered": bool(detail.get("candidate_recovered")),
+        "secondary_check_ran": bool(detail.get("secondary_check_ran")),
+        "secondary_complete": bool(detail.get("secondary_complete")),
+        "secondary_mismatches": int(detail.get("secondary_mismatches", 0)),
+        "secondary_primary_mismatches": int(detail.get("secondary_primary_mismatches", 0)),
+        "secondary_errors": int(detail.get("secondary_errors", 0)),
+        "secondary_query_count": int(detail.get("secondary_query_count", 0)),
+        "secondary_oracle_calls": int(detail.get("secondary_oracle_calls", 0)),
+        "secondary_total_cost": float(detail.get("secondary_total_cost", 0.0)),
+        "combined_oracle_calls": int(detail.get("combined_oracle_calls",
+                                                detail.get("oracle_calls", 0))),
+        "combined_total_cost": float(detail.get("combined_total_cost",
+                                                detail.get("total_cost", 0.0))),
+        "secondary_queries": secondary_queries,
+        "conformance_complete": detail["stop"] == "unique-conformance-complete",
         "resolved": selected is not None, "correct": correct, "total": total,
         "accuracy": correct / total, "exact": correct == total,
+        "exact_but_unverified": correct == total and not bool(detail.get("accepted")),
         "seconds": time.perf_counter() - started,
-        "query_count": len(queries), "oracle_calls": len(queries),
+        "query_count": len(queries),
+        "oracle_calls": int(detail.get("oracle_calls", len(queries))),
+        "accounted_oracle_calls": sum(int(query.get("calls", 1)) for query in queries),
+        "total_cost": float(detail.get("total_cost", len(queries))),
+        "oracle_seconds": float(detail.get("oracle_seconds", 0.0)),
+        "cost_budget": cost_budget, "repetitions": int(repetitions),
+        "adaptive_voting": bool(adaptive_voting),
         "disagreement_queries": reason_counts["disagreement"],
         "conformance_queries": reason_counts["conformance"],
         "recovery_queries": reason_counts["recovery-conformance"],
@@ -761,22 +581,43 @@ def active_representation_generalization() -> dict:
             "query_selection": "tiered max-distinct/entropy disagreement; W-method extra-state conformance",
             "heldout_passed_to_active_learner": False,
             "heldout_used_for_query_selection": False,
+            "acceptance": "only unique-conformance-complete is persistent/accepted",
+            "provisional_rule": "budget/cost/oracle stops may be scored held-out but are not accepted",
+            "query_cost": "one cost unit per oracle call in this perfect-oracle baseline",
+            "axes": {
+                "observational_identifiability": "active disagreement/conformance queries",
+                "synthesis_scaling": "separate --scaling measurement; active learning does not claim to solve it",
+                "oracle_robustness": "separate --oracle-robustness measurement; perfect baseline says nothing about noise",
+            },
             "baseline_comparison": "run representation_generalization separately; frozen rows are not rewritten",
         },
         "rows": rows,
         "findings": {
             "exact_rows": sum(row["exact"] for row in rows), "total_rows": len(rows),
+            "accepted_rows": sum(row["accepted"] for row in rows),
+            "provisional_exact_rows": sum(row["exact_but_unverified"] for row in rows),
+            "conformance_complete_rows": sum(row["conformance_complete"] for row in rows),
+            "budget_exhausted_rows": [
+                f"{row['family']}-{row['modulus']}:{row['status']}" for row in rows
+                if row["status"] in {"budget", "cost-budget"}
+            ],
             "nonexact": [f"{row['family']}-{row['modulus']}:{row['status']}"
                          for row in rows if not row["exact"]],
             "total_queries": sum(row["query_count"] for row in rows),
+            "total_oracle_calls": sum(row["oracle_calls"] for row in rows),
+            "total_cost": sum(row["total_cost"] for row in rows),
             "total_disagreement_queries": sum(row["disagreement_queries"] for row in rows),
             "total_conformance_queries": sum(row["conformance_queries"] for row in rows),
             "total_recovery_queries": sum(row["recovery_queries"] for row in rows),
             "all_oracle_calls_accounted": all(
-                row["oracle_calls"] == row["query_count"] for row in rows
+                row["oracle_calls"] == row["accounted_oracle_calls"] for row in rows
             ),
+            "primary_limit": "held-out exact is not conformance proof; budget/cost stops remain provisional",
         },
         "measurement_complete": complete,
+        "not_claimed": ["conformance_complete_on_budget_rows",
+                        "noise_or_cost_robustness_from_this_perfect_baseline",
+                        "synthesis_scaling_solved"],
     }
 
 
@@ -792,6 +633,945 @@ def active_query_protocol_audit() -> tuple[bool, str]:
               f"weighted8={weighted['correct']}/{weighted['total']} q={weighted['query_count']} "
               f"weighted_conformance_reject={any(q['prediction_matched'] is False for q in weighted['queries'])}")
     return ok, detail
+
+
+def _active_query_price(source: str, attempt: int) -> float:
+    """Açık örnek fiyat: çağrı başına 1 + her kaynak karakteri için 0,01."""
+    return 1.0 + 0.01 * len(source)
+
+
+def _noisy_family_oracle(family: str, modulus: int, seed: int, rate: float = 0.15,
+                         base_oracle=None):
+    """Bağımsız hash gürültüsü; ilk attempt iki protokolde de aynı kalır."""
+    attempts, stats = {}, {"calls": 0, "corrupted": 0}
+    reference = base_oracle or (lambda source: _family_oracle(source, modulus, family))
+
+    def ask(source: str) -> str:
+        attempt = attempts.get(source, 0)
+        attempts[source] = attempt + 1
+        truth = reference(source)
+        stats["calls"] += 1
+        digest = hashlib.sha256(
+            f"{int(seed)}|{family}|{int(modulus)}|{source}|{attempt}".encode("utf-8")
+        ).digest()
+        draw = int.from_bytes(digest[:8], "big") / 2**64
+        if draw >= float(rate):
+            return truth
+        position = int.from_bytes(digest[8:16], "big") % len(source)
+        stats["corrupted"] += 1
+        replacement = "1" if truth[position] == "0" else "0"
+        return truth[:position] + replacement + truth[position + 1:]
+
+    return ask, stats
+
+
+def _correlated_family_oracle(family: str, modulus: int, period: int = 20,
+                              width: int = 3, base_oracle=None):
+    """Aileye bağlı konum sapması; aynı kaynakta her çağrı aynı yanlışı verir."""
+    phase = sum(map(ord, family)) % int(period)
+    stats = {"calls": 0, "corrupted_calls": 0, "corrupted_labels": 0}
+    reference = base_oracle or (lambda source: _family_oracle(source, modulus, family))
+
+    def ask(source: str) -> str:
+        truth = reference(source)
+        emitted = []
+        flipped = 0
+        for position, character in enumerate(truth):
+            corrupt = (position + phase) % int(period) < int(width)
+            if corrupt:
+                flipped += 1
+                character = "1" if character == "0" else "0"
+            emitted.append(character)
+        stats["calls"] += 1
+        stats["corrupted_calls"] += int(bool(flipped))
+        stats["corrupted_labels"] += flipped
+        return "".join(emitted)
+
+    return ask, stats
+
+
+def correlated_oracle_robustness() -> dict:
+    """Aynı 12 OOD görevinde tekrarlar arasında tam korele aile sapması."""
+    rows = []
+    for modulus in (5, 7, 8):
+        for family in ("reset", "affine", "ternary_reset", "ternary_weighted"):
+            for protocol, adaptive in (("vote3", False), ("adaptive3", True)):
+                oracle, noise = _correlated_family_oracle(family, modulus)
+                row = _active_measure(
+                    family, modulus, 3 * ACTIVE_QUERY_BUDGET,
+                    repetitions=3, adaptive_voting=adaptive, trusted_oracle=False,
+                    oracle=oracle, query_cost=_active_query_price,
+                )
+                wrong_answers = sum(
+                    response != _family_oracle(query["source"], modulus, family)
+                    for query in row["queries"] for response in query.get("responses", [])
+                )
+                consensus_errors = sum(
+                    query.get("output") is not None
+                    and query["output"] != _family_oracle(query["source"], modulus, family)
+                    for query in row["queries"]
+                )
+                used_consensus_errors = sum(
+                    query.get("output") is not None
+                    and query["output"] != _family_oracle(query["source"], modulus, family)
+                    and query.get("used_for_learning", False)
+                    for query in row["queries"]
+                )
+                error_records = []
+                for query_index, query in enumerate(row["queries"]):
+                    if (query.get("output") is None
+                            or query["output"] == _family_oracle(
+                                query["source"], modulus, family)):
+                        continue
+                    before = query.get("candidates_before")
+                    after = query.get("candidates_after")
+                    error_records.append({
+                        "source": query["source"], "query_index": query_index,
+                        "reason": query["reason"],
+                        "used_for_learning": bool(query.get("used_for_learning")),
+                        "later_queries": len(row["queries"]) - query_index - 1,
+                        "prediction_matched": query.get("prediction_matched"),
+                        "candidates_before": before, "candidates_after": after,
+                        "candidate_eliminations": (
+                            int(before) - int(after)
+                            if before is not None and after is not None else 0
+                        ),
+                        "evidence_status": query.get("evidence_status"),
+                    })
+                repeated_same = all(
+                    len(set(query.get("responses") or [])) <= 1 for query in row["queries"]
+                )
+                rows.append({
+                    "family": family, "modulus": modulus, "protocol": protocol,
+                    "status": row["status"], "technical_status": row["technical_status"],
+                    "accepted": row["accepted"],
+                    "provisional": row["provisional"], "exact": row["exact"],
+                    "correct": row["correct"], "total": row["total"],
+                    "query_sources": row["query_count"], "oracle_calls": row["oracle_calls"],
+                    "total_cost": row["total_cost"], "seconds": row["seconds"],
+                    "wrong_oracle_answers": wrong_answers,
+                    "reported_corrupted_calls": noise["corrupted_calls"],
+                    "corrupted_labels": noise["corrupted_labels"],
+                    "consensus_errors": consensus_errors,
+                    "consensus_error_records": error_records,
+                    "used_consensus_errors": used_consensus_errors,
+                    "unused_consensus_errors": consensus_errors - used_consensus_errors,
+                    "quarantined_consensus_errors": (
+                        consensus_errors if not row["accepted"] else 0
+                    ),
+                    "accepted_consensus_errors": consensus_errors if row["accepted"] else 0,
+                    "persistent_writes": row["persistent_writes"],
+                    "candidate_recovered": row["candidate_recovered"],
+                    "all_repetitions_identical": repeated_same,
+                    "oracle_inconclusive": row["status"] == "oracle-inconclusive",
+                    "active_queries_sha256": row["active_queries_sha256"],
+                })
+    summaries = {}
+    for protocol in ("vote3", "adaptive3"):
+        group = [row for row in rows if row["protocol"] == protocol]
+        summaries[protocol] = {
+            "rows": len(group), "exact_rows": sum(row["exact"] for row in group),
+            "accepted_rows": sum(row["accepted"] for row in group),
+            "accepted_nonexact_rows": sum(row["accepted"] and not row["exact"] for row in group),
+            "oracle_inconclusive_rows": sum(row["oracle_inconclusive"] for row in group),
+            "wrong_oracle_answers": sum(row["wrong_oracle_answers"] for row in group),
+            "consensus_errors": sum(row["consensus_errors"] for row in group),
+            "used_consensus_errors": sum(row["used_consensus_errors"] for row in group),
+            "unused_consensus_errors": sum(row["unused_consensus_errors"] for row in group),
+            "quarantined_consensus_errors": sum(
+                row["quarantined_consensus_errors"] for row in group
+            ),
+            "accepted_consensus_errors": sum(row["accepted_consensus_errors"] for row in group),
+            "persistent_writes": sum(row["persistent_writes"] for row in group),
+            "recovered_candidate_rows": sum(row["candidate_recovered"] for row in group),
+            "consensus_error_reasons": dict(collections.Counter(
+                record["reason"] for row in group for record in row["consensus_error_records"]
+            )),
+            "consensus_errors_with_later_queries": sum(
+                record["later_queries"] > 0 for row in group
+                for record in row["consensus_error_records"]
+            ),
+            "terminal_consensus_errors": sum(
+                record["later_queries"] == 0 for row in group
+                for record in row["consensus_error_records"]
+            ),
+            "consensus_conformance_rejections": sum(
+                record["prediction_matched"] is False for row in group
+                for record in row["consensus_error_records"]
+            ),
+            "consensus_conformance_confirmations": sum(
+                record["prediction_matched"] is True for row in group
+                for record in row["consensus_error_records"]
+            ),
+            "consensus_disagreement_filters": sum(
+                record["reason"] == "disagreement" for row in group
+                for record in row["consensus_error_records"]
+            ),
+            "consensus_candidate_eliminations": sum(
+                record["candidate_eliminations"] for row in group
+                for record in row["consensus_error_records"]
+            ),
+            "quarantined_error_records": sum(
+                record["evidence_status"] == "quarantined" for row in group
+                for record in row["consensus_error_records"]
+            ),
+            "consensus_errors_by_family": {
+                family: sum(row["consensus_errors"] for row in group if row["family"] == family)
+                for family in sorted({row["family"] for row in group})
+            },
+            "consensus_errors_by_modulus": {
+                str(modulus): sum(row["consensus_errors"] for row in group
+                                  if row["modulus"] == modulus)
+                for modulus in sorted({row["modulus"] for row in group})
+            },
+            "consensus_error_tasks": [
+                {"family": row["family"], "modulus": row["modulus"],
+                 "count": row["consensus_errors"], "accepted": row["accepted"]}
+                for row in group if row["consensus_errors"]
+            ],
+            "query_sources": sum(row["query_sources"] for row in group),
+            "oracle_calls": sum(row["oracle_calls"] for row in group),
+            "total_cost": sum(row["total_cost"] for row in group),
+            "stop_counts": dict(collections.Counter(row["status"] for row in group)),
+            "technical_stop_counts": dict(collections.Counter(
+                row["technical_status"] for row in group
+            )),
+        }
+    complete = bool(
+        len(rows) == 24 and all(row["all_repetitions_identical"] for row in rows)
+        and all(row["wrong_oracle_answers"] == row["reported_corrupted_calls"] for row in rows)
+        and all(row["used_consensus_errors"] + row["unused_consensus_errors"]
+                == row["consensus_errors"] for row in rows)
+        and all(row["accepted_consensus_errors"] + row["quarantined_consensus_errors"]
+                == row["consensus_errors"] for row in rows)
+        and all(len(row["consensus_error_records"]) == row["consensus_errors"]
+                for row in rows)
+    )
+    return {
+        "protocol": {
+            "tasks": "the same 12 OOD tasks as active-generalization",
+            "bias": "family-specific phase; positions (position+phase)%20<3 flipped 0<->1",
+            "rate": "3/20 = 15% systematic output-position bias",
+            "correlation": "same source receives the same wrong answer on every repetition",
+            "vote3": "always three calls per source",
+            "adaptive3": "two calls when they agree everywhere, third only on disagreement",
+            "oracle_trust": "untrusted: no persistent acceptance without independent evidence",
+            "diagnosis": "technical stop preserved; unresolved/state-cap after active labels becomes oracle-inconclusive",
+            "price": "1 + 0.01 * len(source) per call",
+            "heldout_used_for_learning": False,
+        },
+        "rows": rows, "findings": summaries, "measurement_complete": complete,
+        "not_claimed": ["correlated_noise_detection_without_independent_evidence",
+                        "voting_removes_systematic_bias", "accepted_equals_true_under_bad_oracle"],
+    }
+
+
+def adaptive_oracle_cost_comparison() -> dict:
+    """Bağımsız gürültüde uniform-3 ile sıralı adaptive-3 maliyet karşılaştırması."""
+    seeds = [20262023, 20262024, 20262025]
+    tasks = [("reset", 5), ("affine", 8),
+             ("ternary_reset", 7), ("ternary_weighted", 8)]
+    rows = []
+    for family, modulus in tasks:
+        for seed in seeds:
+            for protocol, adaptive in (("vote3", False), ("adaptive3", True)):
+                oracle, noise = _noisy_family_oracle(family, modulus, seed)
+                row = _active_measure(
+                    family, modulus, 3 * ACTIVE_QUERY_BUDGET,
+                    repetitions=3, adaptive_voting=adaptive, trusted_oracle=True,
+                    oracle=oracle, query_cost=_active_query_price,
+                )
+                wrong_answers = sum(
+                    response != _family_oracle(query["source"], modulus, family)
+                    for query in row["queries"] for response in query.get("responses", [])
+                )
+                consensus_errors = sum(
+                    query.get("output") is not None
+                    and query["output"] != _family_oracle(query["source"], modulus, family)
+                    for query in row["queries"]
+                )
+                used_consensus_errors = sum(
+                    query.get("output") is not None
+                    and query["output"] != _family_oracle(query["source"], modulus, family)
+                    and query.get("used_for_learning", False)
+                    for query in row["queries"]
+                )
+                call_histogram = collections.Counter(
+                    int(query.get("calls", 1)) for query in row["queries"]
+                )
+                rows.append({
+                    "family": family, "modulus": modulus, "seed": seed,
+                    "protocol": protocol, "status": row["status"],
+                    "accepted": row["accepted"], "exact": row["exact"],
+                    "accepted_nonexact": row["accepted"] and not row["exact"],
+                    "candidate_recovered": row["candidate_recovered"],
+                    "persistent_writes": row["persistent_writes"],
+                    "correct": row["correct"], "total": row["total"],
+                    "query_sources": row["query_count"], "oracle_calls": row["oracle_calls"],
+                    "total_cost": row["total_cost"], "seconds": row["seconds"],
+                    "wrong_oracle_answers": wrong_answers,
+                    "reported_corrupted_calls": noise["corrupted"],
+                    "consensus_errors": consensus_errors,
+                    "used_consensus_errors": used_consensus_errors,
+                    "unused_consensus_errors": consensus_errors - used_consensus_errors,
+                    "accepted_consensus_errors": consensus_errors if row["accepted"] else 0,
+                    "quarantined_consensus_errors": (
+                        consensus_errors if not row["accepted"] else 0
+                    ),
+                    "accepted_with_wrong_consensus": row["accepted"] and consensus_errors > 0,
+                    "two_call_queries": call_histogram[2],
+                    "three_call_queries": call_histogram[3],
+                    "first_source": row["queries"][0]["source"] if row["queries"] else "",
+                    "first_response": (row["queries"][0].get("responses") or [""])[0]
+                    if row["queries"] else "",
+                    "active_queries_sha256": row["active_queries_sha256"],
+                })
+    summaries = {}
+    for protocol in ("vote3", "adaptive3"):
+        group = [row for row in rows if row["protocol"] == protocol]
+        summaries[protocol] = {
+            "rows": len(group), "exact_rows": sum(row["exact"] for row in group),
+            "accepted_rows": sum(row["accepted"] for row in group),
+            "accepted_nonexact_rows": sum(row["accepted_nonexact"] for row in group),
+            "accepted_with_wrong_consensus_rows": sum(
+                row["accepted_with_wrong_consensus"] for row in group
+            ),
+            "recovered_candidate_rows": sum(row["candidate_recovered"] for row in group),
+            "persistent_writes": sum(row["persistent_writes"] for row in group),
+            "query_sources": sum(row["query_sources"] for row in group),
+            "oracle_calls": sum(row["oracle_calls"] for row in group),
+            "total_cost": sum(row["total_cost"] for row in group),
+            "wrong_oracle_answers": sum(row["wrong_oracle_answers"] for row in group),
+            "consensus_errors": sum(row["consensus_errors"] for row in group),
+            "used_consensus_errors": sum(row["used_consensus_errors"] for row in group),
+            "unused_consensus_errors": sum(row["unused_consensus_errors"] for row in group),
+            "accepted_consensus_errors": sum(row["accepted_consensus_errors"] for row in group),
+            "quarantined_consensus_errors": sum(
+                row["quarantined_consensus_errors"] for row in group
+            ),
+            "two_call_queries": sum(row["two_call_queries"] for row in group),
+            "three_call_queries": sum(row["three_call_queries"] for row in group),
+            "stop_counts": dict(collections.Counter(row["status"] for row in group)),
+        }
+    uniform, adaptive = summaries["vote3"], summaries["adaptive3"]
+    comparison = {
+        "call_savings_fraction": 1 - adaptive["oracle_calls"] / max(1, uniform["oracle_calls"]),
+        "cost_savings_fraction": 1 - adaptive["total_cost"] / max(1e-12, uniform["total_cost"]),
+        "exact_delta": adaptive["exact_rows"] - uniform["exact_rows"],
+        "accepted_delta": adaptive["accepted_rows"] - uniform["accepted_rows"],
+        "accepted_nonexact_delta": (adaptive["accepted_nonexact_rows"]
+                                    - uniform["accepted_nonexact_rows"]),
+        "accepted_wrong_consensus_delta": (
+            adaptive["accepted_with_wrong_consensus_rows"]
+            - uniform["accepted_with_wrong_consensus_rows"]
+        ),
+        "consensus_error_delta": adaptive["consensus_errors"] - uniform["consensus_errors"],
+    }
+    paired = 0
+    for family, modulus in tasks:
+        for seed in seeds:
+            pair = [row for row in rows if row["family"] == family
+                    and row["modulus"] == modulus and row["seed"] == seed]
+            paired += int(len(pair) == 2 and pair[0]["first_source"]
+                          and pair[0]["first_source"] == pair[1]["first_source"]
+                          and pair[0]["first_response"] == pair[1]["first_response"])
+    complete = bool(
+        len(rows) == 24 and paired == len(tasks) * len(seeds)
+        and all(row["wrong_oracle_answers"] == row["reported_corrupted_calls"] for row in rows)
+        and all(row["two_call_queries"] == 0 for row in rows if row["protocol"] == "vote3")
+        and all(row["three_call_queries"] == row["query_sources"] for row in rows
+                if row["protocol"] == "vote3")
+        and all(row["used_consensus_errors"] + row["unused_consensus_errors"]
+                == row["consensus_errors"] for row in rows)
+        and all(row["accepted_consensus_errors"] + row["quarantined_consensus_errors"]
+                == row["consensus_errors"] for row in rows)
+    )
+    return {
+        "protocol": {
+            "noise": "independent SHA-256 one-character answer corruption, rate 0.15",
+            "fresh_noise_seeds": seeds, "source_budget_per_task": ACTIVE_QUERY_BUDGET,
+            "vote3": "exactly three calls per source",
+            "adaptive3": "two calls if unanimous at every position; otherwise a third call",
+            "trusted_oracle": True,
+            "price": "1 + 0.01 * len(source) per call",
+            "paired_first_answers": paired,
+            "scope": "cost/accuracy comparison, not correlated-bias robustness",
+        },
+        "rows": rows, "findings": summaries, "comparison": comparison,
+        "measurement_complete": complete,
+        "not_claimed": ["adaptive_voting_detects_correlated_bias",
+                        "cost_saving_without_accuracy_tradeoff", "untrusted_oracle_acceptance"],
+    }
+
+
+def dual_oracle_acceptance() -> dict:
+    """Bağımsız ikinci oracle ile kabul, uyuşmazlık ve güvenli abstention."""
+    tasks = [(family, modulus) for modulus in (5, 7, 8)
+             for family in ("reset", "affine", "ternary_reset", "ternary_weighted")]
+    scenarios = ("independent_clean", "secondary_correlated",
+                 "primary_correlated", "partially_reliable_untrusted")
+    reference_checks = 0
+    reference_mismatches = []
+    for family, modulus in tasks:
+        alphabet = {"reset": "ab", "affine": "01", "ternary_reset": "abc",
+                    "ternary_weighted": "012"}[family]
+        for length in range(5):
+            for source in _symbol_strings(alphabet, length):
+                reference_checks += 1
+                if (_family_oracle(source, modulus, family)
+                        != _independent_family_oracle(source, modulus, family)):
+                    reference_mismatches.append((family, modulus, source))
+    rows = []
+    for family, modulus in tasks:
+        for scenario in scenarios:
+            primary_clean = lambda source, f=family, m=modulus: _family_oracle(source, m, f)
+            independent = lambda source, f=family, m=modulus: _independent_family_oracle(source, m, f)
+            primary = primary_clean
+            secondary = independent
+            secondary_trusted = scenario != "partially_reliable_untrusted"
+            noise = None
+            if scenario == "secondary_correlated":
+                secondary, _stats = _correlated_family_oracle(
+                    family, modulus, base_oracle=independent,
+                )
+            elif scenario == "primary_correlated":
+                primary, _stats = _correlated_family_oracle(family, modulus)
+            elif scenario == "partially_reliable_untrusted":
+                seed = 20263000 + 100 * modulus + sum(map(ord, family))
+                secondary, noise = _noisy_family_oracle(
+                    family, modulus, seed, base_oracle=independent,
+                )
+            row = _active_measure(
+                family, modulus, trusted_oracle=False, oracle=primary,
+                secondary_oracle=secondary, secondary_trusted_oracle=secondary_trusted,
+                query_cost=_active_query_price,
+            )
+            wrong_secondary_answers = sum(
+                query.get("output") is not None
+                and query["output"] != _family_oracle(query["source"], modulus, family)
+                for query in row["secondary_queries"]
+            )
+            rows.append({
+                "family": family, "modulus": modulus, "scenario": scenario,
+                "status": row["status"], "technical_status": row["technical_status"],
+                "accepted": row["accepted"], "provisional": row["provisional"],
+                "exact": row["exact"], "correct": row["correct"], "total": row["total"],
+                "persistent_writes": row["persistent_writes"],
+                "candidate_recovered": row["candidate_recovered"],
+                "secondary_trusted": row["secondary_trusted_oracle"],
+                "secondary_check_ran": row["secondary_check_ran"],
+                "secondary_complete": row["secondary_complete"],
+                "secondary_mismatches": row["secondary_mismatches"],
+                "secondary_primary_mismatches": row["secondary_primary_mismatches"],
+                "secondary_errors": row["secondary_errors"],
+                "secondary_queries": row["secondary_query_count"],
+                "secondary_calls": row["secondary_oracle_calls"],
+                "secondary_cost": row["secondary_total_cost"],
+                "combined_calls": row["combined_oracle_calls"],
+                "combined_cost": row["combined_total_cost"],
+                "wrong_secondary_answers": wrong_secondary_answers,
+                "reported_corrupted_secondary_calls": (
+                    noise["corrupted"] if noise is not None else 0
+                ),
+                "accounted_secondary_calls": sum(
+                    int(query.get("calls", 0)) for query in row["secondary_queries"]
+                ),
+                "secondary_learning_uses": sum(
+                    bool(query.get("used_for_learning")) for query in row["secondary_queries"]
+                ),
+                "secondary_evidence_statuses": sorted({
+                    query.get("evidence_status") for query in row["secondary_queries"]
+                }),
+                "active_queries_sha256": row["active_queries_sha256"],
+            })
+
+    def unavailable(_source):
+        raise RuntimeError("secondary-offline")
+
+    offline = _active_measure(
+        "reset", 5, trusted_oracle=False,
+        oracle=lambda source: _family_oracle(source, 5, "reset"),
+        secondary_oracle=unavailable, secondary_trusted_oracle=True,
+        query_cost=_active_query_price,
+    )
+    summaries = {}
+    for scenario in scenarios:
+        group = [row for row in rows if row["scenario"] == scenario]
+        summaries[scenario] = {
+            "rows": len(group), "exact_rows": sum(row["exact"] for row in group),
+            "accepted_rows": sum(row["accepted"] for row in group),
+            "accepted_nonexact_rows": sum(
+                row["accepted"] and not row["exact"] for row in group
+            ),
+            "persistent_writes": sum(row["persistent_writes"] for row in group),
+            "oracle_inconclusive_rows": sum(
+                row["status"] == "oracle-inconclusive" for row in group
+            ),
+            "secondary_checked_rows": sum(row["secondary_check_ran"] for row in group),
+            "candidate_mismatch_rows": sum(row["secondary_mismatches"] > 0 for row in group),
+            "primary_secondary_mismatch_rows": sum(
+                row["secondary_primary_mismatches"] > 0 for row in group
+            ),
+            "secondary_mismatches": sum(row["secondary_mismatches"] for row in group),
+            "secondary_primary_mismatches": sum(
+                row["secondary_primary_mismatches"] for row in group
+            ),
+            "untrusted_agreement_abstentions": sum(
+                not row["secondary_trusted"] and not row["accepted"]
+                and not row["secondary_mismatches"]
+                and not row["secondary_primary_mismatches"] for row in group
+            ),
+            "wrong_secondary_answers": sum(row["wrong_secondary_answers"] for row in group),
+            "secondary_calls": sum(row["secondary_calls"] for row in group),
+            "secondary_cost": sum(row["secondary_cost"] for row in group),
+            "combined_calls": sum(row["combined_calls"] for row in group),
+            "combined_cost": sum(row["combined_cost"] for row in group),
+            "stop_counts": dict(collections.Counter(row["status"] for row in group)),
+        }
+    clean = summaries["independent_clean"]
+    complete = bool(
+        reference_checks > 0 and not reference_mismatches
+        and len(rows) == len(tasks) * len(scenarios)
+        and clean["exact_rows"] == len(tasks) and clean["accepted_rows"] > 0
+        and clean["accepted_nonexact_rows"] == 0
+        and all(summaries[name]["accepted_rows"] == 0 for name in scenarios[1:])
+        and summaries["secondary_correlated"]["candidate_mismatch_rows"] > 0
+        and summaries["primary_correlated"]["primary_secondary_mismatch_rows"] > 0
+        and all(row["persistent_writes"] == int(row["accepted"]) for row in rows)
+        and all(row["secondary_calls"] == row["accounted_secondary_calls"] for row in rows)
+        and all(row["secondary_learning_uses"] == 0 for row in rows)
+        and all(row["wrong_secondary_answers"] == row["reported_corrupted_secondary_calls"]
+                for row in rows if row["scenario"] == "partially_reliable_untrusted")
+        and not offline["accepted"] and offline["persistent_writes"] == 0
+        and offline["secondary_errors"] > 0
+        and offline["status"] == "oracle-inconclusive"
+    )
+    return {
+        "protocol": {
+            "tasks": "the same 12 OOD tasks as active-generalization",
+            "primary_trust": "untrusted in every scenario",
+            "acceptance": "unique conformance + trusted secondary + zero candidate/primary mismatch + no secondary error",
+            "partially_reliable": "independent 15% noise; secondary_trusted=False, so agreement never accepts",
+            "price": "1 + 0.01 * len(source), charged separately to primary and secondary",
+            "secondary_learning_uses": 0,
+            "secondary_implementation": "separate prefix-arithmetic reference; primary state-loop is not called",
+            "heldout_used_for_learning_or_acceptance": False,
+        },
+        "reference_cross_check": {
+            "checks": reference_checks, "mismatches": reference_mismatches,
+            "domain": "all family-alphabet strings of lengths 0 through 4 for moduli 5,7,8",
+        },
+        "rows": rows, "findings": summaries,
+        "unavailable_control": {
+            "status": offline["status"], "accepted": offline["accepted"],
+            "secondary_errors": offline["secondary_errors"],
+            "secondary_calls": offline["secondary_oracle_calls"],
+            "secondary_cost": offline["secondary_total_cost"],
+            "persistent_writes": offline["persistent_writes"],
+        },
+        "measurement_complete": complete,
+        "not_claimed": [
+            "shared_correlated_bias_detection", "agreement_implies_truth",
+            "free_independent_validation", "probabilistic_noise_is_a_proof",
+        ],
+    }
+
+
+def active_oracle_robustness() -> dict:
+    """Maliyet, gürültü ve oracle-yok ölçümü; hiçbiri held-out seçimine girmez."""
+    # Bu tohumlar pilot koşusundan farklıdır; noise×repetition karşılaştırması
+    # yeni gürültü örneklerinde yapılır. İlk attempt ortak hash sayesinde eşlidir.
+    seeds = [20262020, 20262021, 20262022]
+    tasks = [("reset", 5), ("affine", 8),
+             ("ternary_reset", 7), ("ternary_weighted", 8)]
+    rows = []
+    for family, modulus in tasks:
+        for seed in seeds:
+            for protocol, repetitions, call_budget in (
+                ("single", 1, ACTIVE_QUERY_BUDGET),
+                ("vote3", 3, 3 * ACTIVE_QUERY_BUDGET),
+            ):
+                oracle, noise = _noisy_family_oracle(family, modulus, seed)
+                row = _active_measure(
+                    family, modulus, call_budget, repetitions=repetitions,
+                    oracle=oracle, query_cost=_active_query_price,
+                )
+                wrong_answers = sum(
+                    response != _family_oracle(query["source"], modulus, family)
+                    for query in row["queries"] for response in query.get("responses", [])
+                )
+                consensus_errors = sum(
+                    query.get("output") is not None
+                    and query["output"] != _family_oracle(query["source"], modulus, family)
+                    for query in row["queries"]
+                )
+                rows.append({
+                    "family": family, "modulus": modulus, "seed": seed,
+                    "protocol": protocol, "status": row["status"],
+                    "accepted": row["accepted"], "provisional": row["provisional"],
+                    "exact": row["exact"], "correct": row["correct"], "total": row["total"],
+                    "query_sources": row["query_count"], "oracle_calls": row["oracle_calls"],
+                    "total_cost": row["total_cost"], "seconds": row["seconds"],
+                    "wrong_oracle_answers": wrong_answers,
+                    "reported_corrupted_calls": noise["corrupted"],
+                    "consensus_errors": consensus_errors,
+                    "active_queries_sha256": row["active_queries_sha256"],
+                    "first_source": row["queries"][0]["source"] if row["queries"] else "",
+                    "first_response": (row["queries"][0].get("responses") or [""])[0]
+                    if row["queries"] else "",
+                })
+
+    summaries = {}
+    for protocol in ("single", "vote3"):
+        group = [row for row in rows if row["protocol"] == protocol]
+        summaries[protocol] = {
+            "rows": len(group), "exact_rows": sum(row["exact"] for row in group),
+            "accepted_rows": sum(row["accepted"] for row in group),
+            "provisional_exact_rows": sum(row["exact"] and not row["accepted"] for row in group),
+            "oracle_calls": sum(row["oracle_calls"] for row in group),
+            "query_sources": sum(row["query_sources"] for row in group),
+            "total_cost": sum(row["total_cost"] for row in group),
+            "wrong_oracle_answers": sum(row["wrong_oracle_answers"] for row in group),
+            "consensus_errors": sum(row["consensus_errors"] for row in group),
+            "stop_counts": dict(collections.Counter(row["status"] for row in group)),
+        }
+    paired = 0
+    for family, modulus in tasks:
+        for seed in seeds:
+            single = next(row for row in rows if row["family"] == family
+                          and row["modulus"] == modulus and row["seed"] == seed
+                          and row["protocol"] == "single")
+            vote = next(row for row in rows if row["family"] == family
+                        and row["modulus"] == modulus and row["seed"] == seed
+                        and row["protocol"] == "vote3")
+            paired += int(bool(single["first_source"])
+                          and single["first_source"] == vote["first_source"]
+                          and single["first_response"] == vote["first_response"])
+
+    priced_rows = [
+        _active_measure(family, modulus, query_cost=_active_query_price)
+        for modulus in (5, 7, 8)
+        for family in ("reset", "affine", "ternary_reset", "ternary_weighted")
+    ]
+    priced = {
+        "rows": len(priced_rows), "exact_rows": sum(row["exact"] for row in priced_rows),
+        "accepted_rows": sum(row["accepted"] for row in priced_rows),
+        "provisional_exact_rows": sum(row["exact_but_unverified"] for row in priced_rows),
+        "oracle_calls": sum(row["oracle_calls"] for row in priced_rows),
+        "total_cost": sum(row["total_cost"] for row in priced_rows),
+        "price_rule": "1 + 0.01 * len(source) per call",
+        "row_costs": [{"family": row["family"], "modulus": row["modulus"],
+                       "calls": row["oracle_calls"], "cost": row["total_cost"],
+                       "accepted": row["accepted"], "exact": row["exact"]}
+                      for row in priced_rows],
+    }
+
+    # Fiyat üst sınırı ve oracle kesintisi başarı değil, açık durma davranışıdır.
+    capped = _active_measure(
+        "reset", 5, cost_budget=5.0, query_cost=_active_query_price,
+    )
+    unavailable_calls = {"count": 0}
+
+    def unavailable(source):
+        unavailable_calls["count"] += 1
+        if unavailable_calls["count"] > 3:
+            raise RuntimeError("oracle-offline")
+        return _family_oracle(source, 5, "reset")
+
+    unavailable_row = _active_measure("reset", 5, oracle=unavailable)
+    controls = {
+        "cost_cap": {"status": capped["status"], "accepted": capped["accepted"],
+                     "cost": capped["total_cost"], "calls": capped["oracle_calls"],
+                     "budget": 5.0, "within_budget": capped["total_cost"] <= 5.0},
+        "unavailable": {"status": unavailable_row["status"],
+                        "accepted": unavailable_row["accepted"],
+                        "calls": unavailable_row["oracle_calls"],
+                        "external_calls": unavailable_calls["count"],
+                        "error_recorded": any(query.get("errors") for query in unavailable_row["queries"])},
+    }
+    complete = bool(
+        len(rows) == len(tasks) * len(seeds) * 2 and paired == len(tasks) * len(seeds)
+        and all(row["wrong_oracle_answers"] == row["reported_corrupted_calls"] for row in rows)
+        and capped["status"] == "cost-budget" and not capped["accepted"]
+        and capped["total_cost"] <= 5.0
+        and unavailable_row["status"] == "oracle-unavailable"
+        and not unavailable_row["accepted"]
+        and unavailable_row["oracle_calls"] == unavailable_calls["count"] == 4
+        and controls["unavailable"]["error_recorded"]
+        and priced["oracle_calls"] == sum(row["query_count"] for row in priced_rows)
+    )
+    return {
+        "protocol": {
+            "noise": "independent SHA-256 draws; each corrupted answer flips one output character",
+            "noise_rate": 0.15, "fresh_noise_seeds": seeds,
+            "source_budget_per_task": ACTIVE_QUERY_BUDGET,
+            "single_call_budget": ACTIVE_QUERY_BUDGET,
+            "vote3_call_budget": 3 * ACTIVE_QUERY_BUDGET,
+            "vote_rule": "per-position majority; model prediction never chooses the answer",
+            "price": "1 + 0.01 * len(source) per oracle call",
+            "acceptance": "only unique-conformance-complete",
+            "heldout_used_for_queries_or_noise": False,
+            "scope": "stochastic one-character answer noise; not adversarial/oracle-free identifiability",
+        },
+        "noise_rows": rows, "noise_findings": summaries,
+        "paired_first_answers": paired, "priced_clean": priced, "controls": controls,
+        "measurement_complete": complete,
+        "not_claimed": ["adversarial_noise_robustness", "free_oracle",
+                        "all_budget_stops_are_accepted", "synthesis_scaling_solved"],
+    }
+
+
+def active_oracle_boundary_audit() -> tuple[bool, str]:
+    """Üretimde kabul/abstention, kalıcılık ve kontrollü gürültü sınırı."""
+    task = _family_task(5, "reset")
+    alphabet = "ab"
+    pool, lengths = _active_query_domain("reset", 5, alphabet)
+
+    def run(learner, oracle, **kwargs):
+        return learner.learn_representation_active(
+            task["train"], task["validation"], pool, oracle,
+            max_states=5, alphabet=alphabet, lengths=lengths,
+            candidate_sample=ACTIVE_CANDIDATE_SAMPLE,
+            recovery_batch=ACTIVE_RECOVERY_QUERIES,
+            max_expansions=SEARCH_EXPANSION_LIMIT, **kwargs,
+        )
+
+    clean_learner = _prior_learner()
+    clean = run(clean_learner, lambda source: _family_oracle(source, 5, "reset"))
+    clean_name = str(clean.get("id") or "")
+    clean_correct = sum(
+        clean_learner.apply_representation(clean_name, source) == expected
+        for source, expected in task["heldout"]
+    ) if clean_name else 0
+    restored_clean = _prior_learner()
+    restored_clean.load_state_dict(json.loads(json.dumps(clean_learner.state_dict())))
+    restored_correct = sum(
+        restored_clean.apply_representation(clean_name, source) == expected
+        for source, expected in task["heldout"]
+    ) if clean_name else 0
+    clean_ok = (clean["accepted"] and clean["stop"] == "unique-conformance-complete"
+                and clean_correct == len(task["heldout"])
+                and restored_correct == len(task["heldout"])
+                and bool(clean_learner.representations))
+
+    capped_learner = _prior_learner()
+    capped = run(capped_learner, lambda source: _family_oracle(source, 5, "reset"),
+                 cost_budget=5.0, query_cost=_active_query_price)
+    capped_ok = (capped["stop"] == "cost-budget" and not capped["accepted"]
+                 and capped["total_cost"] <= 5.0 and not capped_learner.representations)
+
+    attempts = {"count": 0}
+
+    def offline(source):
+        attempts["count"] += 1
+        if attempts["count"] > 3:
+            raise RuntimeError("oracle-offline")
+        return _family_oracle(source, 5, "reset")
+
+    offline_learner = _prior_learner()
+    offline_result = run(offline_learner, offline)
+    offline_ok = (offline_result["stop"] == "oracle-unavailable"
+                  and not offline_result["accepted"] and not offline_learner.representations
+                  and offline_result["oracle_calls"] == attempts["count"] == 4)
+
+    # Her kaynağın ilk cevabı bozuk, sonraki iki bağımsız cevabı temizdir.
+    # Böylece tek çağrı ile üçlü oylama aynı kontrollü gürültüde karşılaştırılır.
+    def first_bad_oracle():
+        seen = {}
+
+        def ask(source):
+            attempt = seen.get(source, 0)
+            seen[source] = attempt + 1
+            truth = _family_oracle(source, 5, "reset")
+            if attempt:
+                return truth
+            position = 0
+            return ("1" if truth[position] == "0" else "0") + truth[1:]
+
+        return ask
+
+    single_learner = _prior_learner()
+    single = run(single_learner, first_bad_oracle())
+    vote_learner = _prior_learner()
+    vote = run(vote_learner, first_bad_oracle(), repetitions=3,
+               budget=3 * ACTIVE_QUERY_BUDGET)
+    vote_name = str(vote.get("id") or "")
+    vote_correct = sum(
+        vote_learner.apply_representation(vote_name, source) == expected
+        for source, expected in task["heldout"]
+    ) if vote_name else 0
+    vote_ok = (not single["accepted"] and vote["accepted"]
+               and vote["oracle_calls"] == 3 * vote["query_count"]
+               and vote_correct == len(task["heldout"])
+               and all(query["consensus_agreement"] >= 2 / 3 for query in vote["queries"]))
+
+    inconclusive_learner = _prior_learner()
+    answers = iter(("0", "1", "2"))
+
+    def inconclusive(source):
+        try:
+            character = next(answers)
+        except StopIteration:
+            character = "0"
+        return character * len(source)
+
+    inconclusive_result = run(inconclusive_learner, inconclusive, repetitions=3)
+    inconclusive_ok = (inconclusive_result["stop"] == "oracle-inconclusive"
+                       and not inconclusive_result["accepted"]
+                       and not inconclusive_learner.representations)
+    ok = all((clean_ok, capped_ok, offline_ok, vote_ok, inconclusive_ok))
+    detail = (f"clean={clean_correct}/{len(task['heldout'])}:{clean['stop']} "
+              f"restore={restored_correct}/{len(task['heldout'])} "
+              f"cap={capped['stop']}:{capped['total_cost']:.2f} "
+              f"offline={offline_result['stop']}:{offline_result['oracle_calls']} "
+              f"single={single['stop']} vote3={vote_correct}/{len(task['heldout'])}:{vote['stop']} "
+              f"no-majority={inconclusive_result['stop']}")
+    return ok, detail
+
+
+def adaptive_oracle_boundary_audit() -> tuple[bool, str]:
+    """Sıralı oy maliyeti ve güvenilmez korele oracle abstention regresyonu."""
+    task = _family_task(5, "reset")
+    alphabet = "ab"
+    pool, lengths = _active_query_domain("reset", 5, alphabet)
+
+    def run(learner, oracle, **kwargs):
+        return learner.learn_representation_active(
+            task["train"], task["validation"], pool, oracle,
+            max_states=5, alphabet=alphabet, lengths=lengths,
+            candidate_sample=ACTIVE_CANDIDATE_SAMPLE,
+            recovery_batch=ACTIVE_RECOVERY_QUERIES,
+            max_expansions=SEARCH_EXPANSION_LIMIT, **kwargs,
+        )
+
+    clean_oracle = lambda source: _family_oracle(source, 5, "reset")
+    uniform_learner = _prior_learner()
+    uniform = run(uniform_learner, clean_oracle, repetitions=3,
+                  budget=3 * ACTIVE_QUERY_BUDGET)
+    adaptive_learner = _prior_learner()
+    adaptive = run(adaptive_learner, clean_oracle, repetitions=3,
+                   adaptive_voting=True, budget=3 * ACTIVE_QUERY_BUDGET)
+    clean_ok = (uniform["accepted"] and adaptive["accepted"]
+                and uniform["oracle_calls"] == 3 * uniform["query_count"]
+                and adaptive["oracle_calls"] == 2 * adaptive["query_count"]
+                and adaptive["oracle_calls"] < uniform["oracle_calls"]
+                and all(query["consensus_agreement"] == 1.0 for query in adaptive["queries"]))
+
+    seen = {}
+
+    def first_bad(source):
+        attempt = seen.get(source, 0)
+        seen[source] = attempt + 1
+        truth = _family_oracle(source, 5, "reset")
+        if attempt:
+            return truth
+        return ("1" if truth[0] == "0" else "0") + truth[1:]
+
+    disagreement_learner = _prior_learner()
+    disagreement = run(disagreement_learner, first_bad, repetitions=3,
+                       adaptive_voting=True, budget=3 * ACTIVE_QUERY_BUDGET)
+    disagreement_ok = (disagreement["accepted"]
+                       and disagreement["oracle_calls"] == 3 * disagreement["query_count"]
+                       and all(query["calls"] == 3 for query in disagreement["queries"]))
+
+    correlated_learner = _prior_learner()
+    correlated_oracle, _noise = _correlated_family_oracle("reset", 5)
+    correlated = run(correlated_learner, correlated_oracle, repetitions=3,
+                     adaptive_voting=True, trusted_oracle=False,
+                     budget=3 * ACTIVE_QUERY_BUDGET)
+    correlated_ok = (correlated["stop"] == "oracle-inconclusive"
+                     and correlated["technical_stop"] == "state-cap"
+                     and not correlated["accepted"] and not correlated_learner.representations
+                     and correlated["oracle_calls"] == 2)
+
+    untrusted_learner = _prior_learner()
+    untrusted = run(untrusted_learner, clean_oracle, repetitions=3,
+                    adaptive_voting=True, trusted_oracle=False,
+                    budget=3 * ACTIVE_QUERY_BUDGET)
+    untrusted_ok = (untrusted["stop"] == "oracle-inconclusive"
+                    and untrusted["technical_stop"] == "unique-conformance-complete"
+                    and not untrusted["accepted"] and not untrusted_learner.representations)
+    ok = all((clean_ok, disagreement_ok, correlated_ok, untrusted_ok))
+    detail = (f"clean-uniform={uniform['oracle_calls']} adaptive={adaptive['oracle_calls']} "
+              f"disagreement={disagreement['oracle_calls']} "
+              f"correlated={correlated['stop']}:{correlated['technical_stop']} "
+              f"clean-untrusted={untrusted['stop']}:{untrusted['technical_stop']}")
+    return ok, detail
+
+
+def adaptive_candidate_recovery_audit() -> tuple[bool, str]:
+    """Kayıp adaptive satırında yanlış ret, adayın held-out değerini silmemeli."""
+    oracle, _noise = _noisy_family_oracle("ternary_weighted", 8, 20262023)
+    row = _active_measure(
+        "ternary_weighted", 8, 3 * ACTIVE_QUERY_BUDGET,
+        repetitions=3, adaptive_voting=True, trusted_oracle=True,
+        oracle=oracle, query_cost=_active_query_price,
+    )
+    wrong = [query for query in row["queries"]
+             if query.get("output") is not None
+             and query["output"] != _family_oracle(query["source"], 8, "ternary_weighted")]
+    third_oracle, _third_noise = _noisy_family_oracle("ternary_weighted", 8, 20262023)
+    third_responses = []
+    if wrong:
+        third_responses = [third_oracle(wrong[-1]["source"]) for _ in range(3)]
+    third_also_wrong = bool(third_responses) and all(
+        response != _family_oracle(wrong[-1]["source"], 8, "ternary_weighted")
+        for response in third_responses
+    )
+    ok = bool(
+        row["exact"] and row["correct"] == row["total"]
+        and row["technical_status"] == "state-cap" and row["candidate_recovered"]
+        and not row["accepted"] and row["quarantined"]
+        and row["persistent_writes"] == 0 and wrong
+        and all(query["used_for_learning"] for query in wrong)
+        and all(query["evidence_status"] == "quarantined" for query in wrong)
+        and third_also_wrong
+    )
+    return ok, (f"exact={row['correct']}/{row['total']} stop={row['status']} "
+                f"recovered={row['candidate_recovered']} accepted={row['accepted']} "
+                f"wrong-consensus={len(wrong)} third-also-wrong={third_also_wrong}")
+
+
+def dual_oracle_boundary_audit() -> tuple[bool, str]:
+    """Bağımsız acceptance; agreement veya erişilebilirlik tek başına kanıt değil."""
+    clean = lambda source: _family_oracle(source, 5, "reset")
+    independent = lambda source: _independent_family_oracle(source, 5, "reset")
+    biased, _noise = _correlated_family_oracle("reset", 5, base_oracle=independent)
+    accepted = _active_measure(
+        "reset", 5, trusted_oracle=False, oracle=clean,
+        secondary_oracle=independent, secondary_trusted_oracle=True,
+    )
+    untrusted = _active_measure(
+        "reset", 5, trusted_oracle=False, oracle=clean,
+        secondary_oracle=independent, secondary_trusted_oracle=False,
+    )
+    mismatch = _active_measure(
+        "reset", 5, trusted_oracle=False, oracle=clean,
+        secondary_oracle=biased, secondary_trusted_oracle=True,
+    )
+
+    def offline(_source):
+        raise RuntimeError("secondary-offline")
+
+    unavailable = _active_measure(
+        "reset", 5, trusted_oracle=False, oracle=clean,
+        secondary_oracle=offline, secondary_trusted_oracle=True,
+    )
+    rows = (accepted, untrusted, mismatch, unavailable)
+    ok = bool(
+        accepted["accepted"] and accepted["exact"] and accepted["persistent_writes"] == 1
+        and not untrusted["accepted"] and untrusted["secondary_mismatches"] == 0
+        and untrusted["status"] == "oracle-inconclusive"
+        and not mismatch["accepted"] and mismatch["secondary_mismatches"] > 0
+        and mismatch["status"] == "oracle-inconclusive"
+        and not unavailable["accepted"] and unavailable["secondary_errors"] > 0
+        and unavailable["status"] == "oracle-inconclusive"
+        and all(not query["used_for_learning"] for row in rows
+                for query in row["secondary_queries"])
+    )
+    return ok, (f"clean={accepted['accepted']} untrusted-agreement={untrusted['status']} "
+                f"mismatch={mismatch['status']}:{mismatch['secondary_mismatches']} "
+                f"offline={unavailable['status']}:{unavailable['secondary_errors']}")
 
 
 def _scan_old_repertoire(train, validation) -> dict:
@@ -1578,6 +2358,329 @@ def technical_epistemic_boundary() -> tuple[bool, str]:
     return passed == len(checks), detail
 
 
+def _bounded_family_task(family: str, modulus: int, *, train_n: int = 64,
+                         validation_n: int = 16, heldout_n: int = 64,
+                         seed: int = MISSION_SEED) -> dict:
+    """Büyük modlarda exhaustive evreni şişirmeden ayrı ve yeniden üretilebilir split.
+
+    Beklenenler iki bağımsız oracle'ın uzlaşısıyla hesaplanır. Kaynaklar ve
+    uzunluk aralıkları train, validation ve held-out'ta ayrıdır; pozitif-olay
+    katmanı çoğunluk tabanının sahte başarısını önler. Hiçbir kaynak/çıktı çifti
+    öğrenici dışında modele hazır tablo olarak verilmez.
+    """
+    if family in {"counter", "affine"}:
+        alphabet = "01"
+    elif family == "reset":
+        alphabet = "ab"
+    elif family == "ternary_reset":
+        alphabet = "abc"
+    elif family == "ternary_weighted":
+        alphabet = "012"
+    else:
+        raise ValueError("unknown_family")
+    rng = random.Random(seed + 1009 * modulus + sum(map(ord, family)))
+    used: set[str] = set()
+
+    def make(length: int, positive: bool) -> str:
+        """Bir sınıfı yok sayan çoğunluk modelinin geçemeyeceği diziler üret.
+
+        Özellikle binary counter'da mod-1 olayına rastgele ulaşma olasılığı mod
+        büyüdükçe üstel olarak azalır. Önceki düzgün-rastgele örneklemde mod24
+        bütün splitleri yalnız '0' çıkarıyor, bir-durumlu hep-sıfır FST'si 64/64
+        görünüyordu. Burada yalnız ÖRNEK SEÇİMİ katmanlaşır; etiket yine bağımsız
+        oracle'dan hesaplanır ve modele pozitiflik bilgisi ayrıca verilmez.
+        """
+        for _attempt in range(50000):
+            length = max(1, int(length))
+            if positive and family in {"counter", "reset"}:
+                # Eşik civarında pozitif olayları erişilebilir kılan karışım;
+                # hedef çıktı dizisi veya çözüm tablosu üretilmez.
+                hot = "1" if family == "counter" else "a"
+                cold = "0" if family == "counter" else "b"
+                source = "".join(hot if rng.random() < 0.9 else cold
+                                 for _ in range(length))
+            elif positive and family == "ternary_reset":
+                source = "".join(rng.choices(alphabet, weights=(0.65, 0.25, 0.10),
+                                             k=length))
+            else:
+                source = "".join(rng.choice(alphabet) for _ in range(length))
+            if source in used:
+                continue
+            expected = _family_oracle(source, modulus, family)
+            if ("1" in expected) != bool(positive):
+                continue
+            # İki ayrı algoritma aynı etiketi vermiyorsa veri üretimi durur;
+            # tutarsız split hangi modelin lehine olursa olsun kullanılmaz.
+            if expected != _independent_family_oracle(source, modulus, family):
+                raise AssertionError("family oracle disagreement")
+            used.add(source)
+            return source
+        raise RuntimeError(f"stratified-source-exhausted:{family}:mod{modulus}:{positive}")
+
+    def sources(count: int, lengths: tuple[int, ...]) -> list[str]:
+        out = []
+        count = int(count)
+        positive_quota = max(1, count // 4)
+        stride = max(1, count // positive_quota)
+        positive_seen = negative_seen = 0
+        for index in range(count):
+            positive = index % stride == 0
+            # Pozitif ve negatif sınıflar AYNI uzunluk havuzunu kendi içlerinde
+            # dengeli dolaşır. Böylece model 'uzunsa pozitif' kısayolunu kullanamaz.
+            # Kısa counter/reset dizilerinde yalnız birkaç pozitif kaynak olduğu
+            # için havuz mod+2'den başlar; split aralıkları yine ayrışır.
+            class_index = positive_seen if positive else negative_seen
+            length = lengths[class_index % len(lengths)]
+            if positive:
+                positive_seen += 1
+            else:
+                negative_seen += 1
+            # Yaklaşık dörtte bir pozitif-olay içeren dizi; kalanlar tamamen
+            # negatif. İki sınıfın ayrı held-out doğruluğu aşağıda ölçülür.
+            out.append(make(length, positive=positive))
+        return out
+
+    train_sources = sources(train_n, tuple(range(modulus + 2, modulus + 6)))
+    validation_sources = sources(validation_n, tuple(range(modulus + 6, modulus + 10)))
+    heldout_sources = sources(heldout_n, tuple(range(modulus + 10, modulus + 18)))
+    pairs = lambda rows: [(source, _family_oracle(source, modulus, family))
+                          for source in rows]
+    task = {
+        "family": family, "modulus": int(modulus),
+        "train": pairs(train_sources), "validation": pairs(validation_sources),
+        "heldout": pairs(heldout_sources),
+    }
+    assert not ({s for s, _ in task["train"]} & {s for s, _ in task["heldout"]})
+    assert not ({s for s, _ in task["validation"]} & {s for s, _ in task["heldout"]})
+    for split in ("train", "validation", "heldout"):
+        labels = [expected for _source, expected in task[split]]
+        assert any("1" in expected for expected in labels), f"positive-free:{split}"
+        assert any("1" not in expected for expected in labels), f"negative-free:{split}"
+    return task
+
+
+def _heldout_prediction_metrics(predictions, heldout) -> dict:
+    """Toplam doğruluğun içinde kaybolan pozitif/negatif sınıfları ayır."""
+    rows = list(zip(predictions, heldout))
+    positive = [(prediction == expected) for prediction, (_source, expected) in rows
+                if "1" in expected]
+    negative = [(prediction == expected) for prediction, (_source, expected) in rows
+                if "1" not in expected]
+    p_correct, n_correct = sum(positive), sum(negative)
+    p_total, n_total = len(positive), len(negative)
+    return {
+        "positive_correct": p_correct, "positive_total": p_total,
+        "negative_correct": n_correct, "negative_total": n_total,
+        "positive_accuracy": p_correct / max(1, p_total),
+        "negative_accuracy": n_correct / max(1, n_total),
+        "balanced_accuracy": 0.5 * (p_correct / max(1, p_total) +
+                                     n_correct / max(1, n_total)),
+        # Bu satır modelin skoru değil, aynı splitteki hep-negatif tabanın
+        # kaç dizi tutturacağını gösteren ölçüm hijyenidir.
+        "majority_baseline_correct": max(p_total, n_total),
+    }
+
+
+def _continuous_measured_attempt(task: dict, *, hidden: int = 64,
+                                 max_epochs: int = 240, seed: int = 0,
+                                 class_balance: bool = True,
+                                 prefix_augmentation: int = 0,
+                                 prefix_warmup_epochs: int = 0,
+                                 checkpoint_selection: str = "train_first",
+                                 causal_summary: bool | str = False) -> tuple[dict, object]:
+    from nora_semantic_code import CompositionalCodeLearner
+    learner = CompositionalCodeLearner()
+    started = time.perf_counter()
+    result = learner.invent_continuous_representation(
+        task["train"], task["validation"], hidden=hidden, seed=seed,
+        max_epochs=max_epochs, batch_size=16, patience=60,
+        class_balance=class_balance, prefix_augmentation=prefix_augmentation,
+        prefix_warmup_epochs=prefix_warmup_epochs,
+        checkpoint_selection=checkpoint_selection,
+        causal_summary=causal_summary,
+    )
+    seconds = time.perf_counter() - started
+    name = str(result.get("id") or "")
+    predictions = [learner.apply_representation(name, source, allow_provisional=True)
+                   for source, _expected in task["heldout"]]
+    correct = sum(prediction == expected for prediction, (_source, expected)
+                  in zip(predictions, task["heldout"]))
+    total = len(task["heldout"])
+
+    # Ağırlıklar çıkarıldığında sonuç kaybolmalı; save/load aynı tahminleri geri
+    # getirmeli. Provisional model normal üretim kapısından geçemez.
+    saved = learner.state_dict()
+    ablated = None
+    if name:
+        learner.representations[name]["weights"] = {}
+        learner._continuous_models.clear()
+        ablated = learner.apply_representation(
+            name, task["heldout"][0][0], allow_provisional=True,
+        )
+    learner.load_state_dict(saved)
+    restored = [learner.apply_representation(name, source, allow_provisional=True)
+                for source, _expected in task["heldout"]]
+    production_gate = learner.apply_representation(name, task["heldout"][0][0])
+    gate_ok = ((result.get("acceptance") == "accepted" and production_gate == predictions[0])
+               or (result.get("acceptance") == "provisional" and production_gate is None))
+    row = {
+        **{key: value for key, value in result.items() if key not in {"seconds"}},
+        "family": task["family"], "modulus": task["modulus"],
+        "seconds": seconds, "correct": correct, "total": total,
+        "accuracy": correct / max(1, total), "exact": correct == total,
+        "states": result.get("hidden", 0),
+        "transitions": "continuous",
+        "candidates": "distributed-next-symbol-distribution",
+        "search_expansions": result.get("gradient_steps", 0),
+        "selected_search_expansions": result.get(
+            "selected_gradient_steps", result.get("gradient_steps", 0)),
+        "budget": int(max_epochs),
+        "budget_unit": "epochs",
+        "ablation_passed": bool(name) and ablated is None,
+        "roundtrip_exact_predictions": restored == predictions,
+        "production_gate_passed": gate_ok,
+        "train_sha256": _rows_hash(task["train"]),
+        "validation_sha256": _rows_hash(task["validation"]),
+        "heldout_sha256": _rows_hash(task["heldout"]),
+        **_heldout_prediction_metrics(predictions, task["heldout"]),
+    }
+    return row, learner
+
+
+def _fst_measured_attempt(task: dict, expansion_limit: int) -> dict:
+    learner = _prior_learner()
+    started = time.perf_counter()
+    result = learner.invent_representation(
+        task["train"], task["validation"], max_states=task["modulus"],
+        max_expansions=expansion_limit,
+    )
+    seconds = time.perf_counter() - started
+    name = str(result.get("id") or "")
+    predictions = [learner.apply_representation(name, source) if name else None
+                   for source, _expected in task["heldout"]]
+    correct = sum(prediction == expected for prediction, (_source, expected)
+                  in zip(predictions, task["heldout"]))
+    total = len(task["heldout"])
+    return {
+        **{key: value for key, value in result.items() if key not in {"candidate_representations"}},
+        "family": task["family"], "modulus": task["modulus"],
+        "seconds": seconds, "correct": correct, "total": total,
+        "accuracy": correct / max(1, total), "exact": bool(name) and correct == total,
+        "transitions": (len(learner.representations[name].get("transitions", []))
+                        if name else 0),
+        "budget": int(expansion_limit), "budget_unit": "search_expansions",
+        "train_sha256": _rows_hash(task["train"]),
+        "validation_sha256": _rows_hash(task["validation"]),
+        "heldout_sha256": _rows_hash(task["heldout"]),
+        **_heldout_prediction_metrics(predictions, task["heldout"]),
+    }
+
+
+def continuous_representation_comparison(*, moduli=(12, 16, 24), train_n: int = 64,
+                                         heldout_n: int = 64,
+                                         expansion_limit: int = 1_000_000,
+                                         max_epochs: int = 240,
+                                         class_balance: bool = True,
+                                         prefix_augmentation: int = 0,
+                                         prefix_warmup_epochs: int = 0,
+                                         checkpoint_selection: str = "train_first",
+                                         causal_summary: bool | str = "auto") -> dict:
+    """FST ve sürekli nedensel grafik: aynı OOD verisi, ayrı kaynak birimleri.
+
+    ``measurement_complete`` yalnız bütün satırların gerçekten koştuğunu söyler;
+    iki modelin de exact olması veya birinin üstün çıkması için eşik gevşetilmez.
+    """
+    specs = [("counter", int(modulus)) for modulus in moduli]
+    # Mod12'de aynı görev biçimi dışındaki dört aile de ortak OOD sınavına girer.
+    specs.extend((family, 12) for family in
+                 ("reset", "affine", "ternary_reset", "ternary_weighted"))
+    rows = []
+    for index, (family, modulus) in enumerate(specs):
+        task = _bounded_family_task(family, modulus, train_n=train_n,
+                                    heldout_n=heldout_n)
+        fst = _fst_measured_attempt(task, expansion_limit)
+        continuous, _learner = _continuous_measured_attempt(
+            task, max_epochs=max_epochs, seed=MISSION_SEED + index,
+            class_balance=class_balance, prefix_augmentation=prefix_augmentation,
+            prefix_warmup_epochs=prefix_warmup_epochs,
+            checkpoint_selection=checkpoint_selection, causal_summary=causal_summary,
+        )
+        rows.append({"family": family, "modulus": modulus,
+                     "train_examples": train_n, "heldout_examples": heldout_n,
+                     "finite_state_transducer": fst,
+                     "continuous_causal_graph": continuous})
+        print(f"CCG {family} mod{modulus}: FST={fst['correct']}/{fst['total']} "
+              f"P={fst['positive_correct']}/{fst['positive_total']} {fst.get('status')} | "
+              f"sürekli={continuous['correct']}/{continuous['total']} "
+              f"P={continuous['positive_correct']}/{continuous['positive_total']} "
+              f"{continuous.get('status')}", flush=True)
+
+    sample_efficiency = []
+    modulus = int(moduli[0])
+    for count in (8, 16, 32, 64):
+        task = _bounded_family_task("counter", modulus, train_n=count,
+                                    heldout_n=heldout_n, seed=MISSION_SEED + count)
+        fst = _fst_measured_attempt(task, expansion_limit)
+        continuous, _learner = _continuous_measured_attempt(
+            task, max_epochs=max_epochs, seed=MISSION_SEED + count,
+            class_balance=class_balance, prefix_augmentation=prefix_augmentation,
+            prefix_warmup_epochs=prefix_warmup_epochs,
+            checkpoint_selection=checkpoint_selection, causal_summary=causal_summary,
+        )
+        sample_efficiency.append({"train_examples": count,
+                                  "finite_state_transducer": fst,
+                                  "continuous_causal_graph": continuous})
+        print(f"CCG örnek={count}: FST={fst['correct']}/{fst['total']} "
+              f"P={fst['positive_correct']}/{fst['positive_total']} | "
+              f"sürekli={continuous['correct']}/{continuous['total']} "
+              f"P={continuous['positive_correct']}/{continuous['positive_total']}", flush=True)
+
+    complete = all(row[model].get("status") and
+                   row[model].get("positive_total", 0) > 0 and
+                   row[model].get("negative_total", 0) > 0 and
+                   row[model].get("ablation_passed", True) and
+                   row[model].get("roundtrip_exact_predictions", True) and
+                   row[model].get("production_gate_passed", True)
+                   for row in [*rows, *sample_efficiency] for model in
+                   ("finite_state_transducer", "continuous_causal_graph"))
+    winners = []
+    for row in rows:
+        a = row["finite_state_transducer"]["accuracy"]
+        b = row["continuous_causal_graph"]["accuracy"]
+        winners.append({"family": row["family"], "modulus": row["modulus"],
+                        "heldout_leader": "tie" if a == b else
+                        ("finite_state_transducer" if a > b else "continuous_causal_graph")})
+    return {
+        "protocol": {
+            "same_task_data_for_both": True, "heldout_passed_to_learner": False,
+            "oracle_passed_to_learner": False, "train_examples": train_n,
+            "validation_examples": 16, "heldout_examples": heldout_n,
+            "fst_expansion_budget": expansion_limit,
+            "fst_expansion_budget_scope": "her arama evresi; raporlanan expansions evrelerin toplamı",
+            "continuous_epoch_budget": max_epochs,
+            "continuous_class_balance": bool(class_balance),
+            "continuous_prefix_augmentation_per_train_row": int(prefix_augmentation),
+            "continuous_prefix_warmup_epochs": int(prefix_warmup_epochs),
+            "continuous_checkpoint_selection": str(checkpoint_selection),
+            "continuous_causal_summary": (str(causal_summary)
+                                           if isinstance(causal_summary, str)
+                                           else bool(causal_summary)),
+            "prefix_augmentation_source": "train-only expected-prefix; zero initial state",
+            "measurement_version": "v2-length-matched-stratified",
+            "split_stratification": "yaklaşık 1/4 pozitif-olay içeren, kalanı tamamen negatif diziler",
+            "length_matched_within_split": True,
+            "positive_negative_and_majority_baseline_reported": True,
+            "budgets_not_numerically_interchangeable": True,
+        },
+        "scale_and_ood": rows, "sample_efficiency_counter": sample_efficiency,
+        "heldout_leaders_descriptive": winners,
+        "measurement_complete": bool(complete),
+        "not_claimed": ["general_intelligence", "phenomenal_consciousness",
+                        "continuous_always_better", "fst_always_better",
+                        "gradient_steps_equal_search_expansions"],
+    }
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--repeat", type=int, default=1)
@@ -1587,12 +2690,25 @@ def main():
     mode.add_argument("--generalization", action="store_true", help="mod7/8, OOD ve seçim-prior ölçümü")
     mode.add_argument("--active-generalization", action="store_true",
                       help="ayrı aktif-oracle OOD sorgu ve conformance ölçümü")
+    mode.add_argument("--oracle-robustness", action="store_true",
+                      help="maliyetli, gürültülü ve erişilemez oracle ölçümü")
+    mode.add_argument("--correlated-oracle", action="store_true",
+                      help="12 OOD görevinde korele aile sapması ve oy stratejileri")
+    mode.add_argument("--adaptive-oracle", action="store_true",
+                      help="uniform ve sıralı oylamanın bağımsız gürültüde maliyet karşılaştırması")
+    mode.add_argument("--dual-oracle", action="store_true",
+                      help="bağımsız ikinci oracle ile acceptance ve uyuşmazlık ölçümü")
+    mode.add_argument("--continuous-comparison", action="store_true",
+                      help="mod12/16/24 ve OOD: FST ↔ sürekli nedensel grafik")
     mode.add_argument("--audit", action="store_true", help="terfi checkpoint'ine yeni mühürlü denetim")
     ap.add_argument("--offline", action="store_true", help="görevde ağı kapalı tut")
     ap.add_argument("--output", default="")
     ap.add_argument("--checkpoint", default="/tmp/nora_autonomous_skill.json")
     args = ap.parse_args()
-    if args.mission or args.scaling or args.generalization or args.active_generalization or args.audit:
+    if (args.mission or args.scaling or args.generalization or args.active_generalization
+            or args.oracle_robustness or args.correlated_oracle
+            or args.adaptive_oracle or args.dual_oracle or args.continuous_comparison
+            or args.audit):
         started = time.perf_counter()
         if args.mission:
             report = autonomous_invention_mission(network=not args.offline,
@@ -1612,6 +2728,26 @@ def main():
             report = active_representation_generalization()
             output = args.output or "/tmp/nora_active_generalization.json"
             success = bool(report["measurement_complete"])
+        elif args.oracle_robustness:
+            report = active_oracle_robustness()
+            output = args.output or "/tmp/nora_oracle_robustness.json"
+            success = bool(report["measurement_complete"])
+        elif args.correlated_oracle:
+            report = correlated_oracle_robustness()
+            output = args.output or "/tmp/nora_correlated_oracle.json"
+            success = bool(report["measurement_complete"])
+        elif args.adaptive_oracle:
+            report = adaptive_oracle_cost_comparison()
+            output = args.output or "/tmp/nora_adaptive_oracle.json"
+            success = bool(report["measurement_complete"])
+        elif args.dual_oracle:
+            report = dual_oracle_acceptance()
+            output = args.output or "/tmp/nora_dual_oracle.json"
+            success = bool(report["measurement_complete"])
+        elif args.continuous_comparison:
+            report = continuous_representation_comparison()
+            output = args.output or "/tmp/nora_continuous_comparison.json"
+            success = bool(report["measurement_complete"])
         else:
             report = sealed_checkpoint_audit(args.checkpoint)
             output = args.output or "/tmp/nora_final_sealed_audit.json"
@@ -1620,7 +2756,10 @@ def main():
         with open(output, "w", encoding="utf-8") as handle:
             json.dump(report, handle, ensure_ascii=False, indent=2, sort_keys=True)
         print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True), flush=True)
-        label = ("ÖLÇÜM TAMAM" if (args.generalization or args.active_generalization) and success
+        label = ("ÖLÇÜM TAMAM" if (args.generalization or args.active_generalization
+                                    or args.oracle_robustness or args.correlated_oracle
+                                    or args.adaptive_oracle or args.dual_oracle
+                                    or args.continuous_comparison) and success
                  else ("GEÇTİ" if success else "KALDI"))
         print(f"KANIT {output} | {label}", flush=True)
         raise SystemExit(0 if success else 1)
@@ -1634,7 +2773,11 @@ def main():
              ("Y8 kısıtlı araştırma ağ sınırı", restricted_research_boundary),
              ("Y9 teknik niyet ve bibliyografik kanıt", technical_epistemic_boundary),
              ("Y10 kanonik etiketleme ve seçim ablasyonu", selection_and_labeling_audit),
-             ("Y11 aktif sorgu ve conformance protokolü", active_query_protocol_audit)]
+             ("Y11 aktif sorgu ve conformance protokolü", active_query_protocol_audit),
+             ("Y12 oracle maliyeti, gürültü ve abstention", active_oracle_boundary_audit),
+             ("Y13 sıralı oy ve korele oracle güveni", adaptive_oracle_boundary_audit),
+             ("Y14 adaptive yanlış-ret aday kurtarma", adaptive_candidate_recovery_audit),
+             ("Y15 bağımsız ikinci oracle acceptance", dual_oracle_boundary_audit)]
     failed = 0
     t0 = time.time()
     for _ in range(max(1, args.repeat)):

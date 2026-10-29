@@ -25,6 +25,8 @@ Dürüstlük
 """
 from __future__ import annotations
 
+import copy
+
 from nora_lang import tr_lower
 
 
@@ -55,6 +57,14 @@ class Driver:
         self.min_items = int(self.MIN_ITEMS)
         self._specs: dict[tuple, int] = {}
         self._run = {"trig": 0, "unres": 0, "reuse": 0}
+        # OTONOM HEDEF YAŞAM DÖNGÜSÜ: insan hedef listesi vermez. Adaylar akış
+        # şaşkınlığı, kullanılmamış yetenek merakı ve gerçek envanterden çıkar.
+        self.goals: list[dict] = []
+        self.goal_history: list[dict] = []
+        self.goal_serial = 0
+        self.goal_step = 0
+        self.goal_idle = 0
+        self.goal_capability: dict[str, dict] = {}
 
     # ------------------------------------------------------------------ algı
     def _surprise_of(self, kind: str, shape: tuple) -> float:
@@ -282,6 +292,331 @@ class Driver:
             self.min_items = min(4, self.min_items + 1)
         return self.thresh
 
+    # ---------------------------------------------------------- otonom hedefler
+    def _experience_version(self) -> tuple:
+        agi = self.agi
+        sy = getattr(agi, "synth", None) if agi is not None else None
+        schema = getattr(agi, "schema", None) if agi is not None else None
+        return (
+            int(self.seen), len(getattr(sy, "programs", []) or []),
+            len(getattr(agi, "_kendi_gorevler", []) or []),
+            len(getattr(agi, "kendi_ögretim", []) or []),
+            len(getattr(schema, "ledger", []) or []),
+            int(getattr(agi, "_oz_aday_butce", 0) or 0),
+        )
+
+    def _capability_inventory(self) -> dict[str, dict]:
+        agi = self.agi
+        available = {
+            "stream_learn": agi is not None and getattr(agi, "synth", None) is not None,
+            "self_task": callable(getattr(agi, "kendine_gorev", None)),
+            "self_teach": callable(getattr(agi, "kendine_ogret", None)),
+            "self_change": callable(getattr(agi, "kendini_degistir", None)),
+        }
+        out = {}
+        for name, present in available.items():
+            stat = self.goal_capability.setdefault(
+                name, {"attempts": 0, "successes": 0, "uses": 0},
+            )
+            attempts = int(stat.get("attempts", 0))
+            successes = int(stat.get("successes", 0))
+            uses = int(stat.get("uses", 0))
+            out[name] = {
+                "available": bool(present), "attempts": attempts,
+                "successes": successes, "uses": uses,
+                # Laplace yalnız seçim önceliğidir; başarı kanıtı değildir.
+                "competence": (successes + 1.0) / (attempts + 2.0),
+                "curiosity": 1.0 / (1.0 + uses),
+            }
+        return out
+
+    @staticmethod
+    def _blocker_of(kind: str, result: dict) -> str:
+        status = str(result.get("durum") or result.get("status") or
+                     result.get("neden") or "doğrulanmamış-sonuç")
+        # "tamam" yalnız sürecin bittiğini söyleyebilir; öğrenme bayrağı false
+        # ise blokajı "tamam" diye etiketlemek ölçüm hatasıdır.
+        if status == "tamam" and (result.get("öğrendi") is False or
+                                  result.get("değişti") is False):
+            status = "self_validation"
+        # İki farklı yüzey durumu aynı ölçülebilir organ blokajına indirgenir;
+        # hedefin başarılı olduğu varsayılmaz, yalnız ortak eksik adlandırılır.
+        if status in {"görev_kurulamadı", "kendi_ornegi_cozulemedi", "self_validation",
+                      "ambiguous", "insufficient", "unresolved"}:
+            return "program_synthesis" if kind != "stream_learn" else "evidence_insufficient"
+        return status
+
+    def _new_goal(self, kind: str, capability: str, *, surprise: float,
+                  blocker: str = "", parents: list[str] | None = None,
+                  signature: str = "", depth: int = 0) -> dict | None:
+        inventory = self._capability_inventory()
+        if not inventory.get(capability, {}).get("available"):
+            return None
+        version = self._experience_version()
+        if not signature and kind == "expand":
+            # İç başarıyı sonsuz yeni dış deneyim gibi sayma: aynı akışta bir
+            # yetenek bir keşif hedefi açar. Yeni ham akış yeni hedef açabilir.
+            signature = f"expand|{capability}|external:{self.seen}"
+        sig = signature or f"{kind}|{capability}|{blocker}|{version!r}"
+        # Deneyim değişmeden aynı terminal hedefi yeniden üretmek otonomi değil,
+        # başarısızlığı bin kez saymaktır. Açık hedef zaten varsa da kopya yok.
+        for old in self.goals:
+            if old.get("signature") == sig:
+                return old if old.get("status") == "active" else None
+        if any(g.get("status") == "active" and g.get("kind") == kind
+               and g.get("capability") == capability and kind == "expand"
+               for g in self.goals):
+            return None
+        self.goal_serial += 1
+        gid = f"G{self.goal_serial}"
+        info = inventory[capability]
+        goal = {
+            "id": gid, "kind": kind, "capability": capability,
+            "signature": sig, "status": "active", "created_step": self.goal_step,
+            "attempts": 0, "failures": 0, "surprise": float(surprise),
+            "curiosity": float(info["curiosity"]),
+            "competence_at_birth": float(info["competence"]),
+            "blocker": str(blocker), "parents": list(parents or []),
+            "depth": int(depth), "history": [],
+            "reason": "şaşkınlık+merak+envanter",
+        }
+        self.goals.append(goal)
+        self.goal_history.append({"step": self.goal_step, "goal": gid,
+                                  "event": "generated", "kind": kind,
+                                  "capability": capability, "blocker": blocker,
+                                  "parents": list(parents or [])})
+        return goal
+
+    def _ensure_autonomous_goals(self) -> None:
+        # Akıştan gelen hedef, insanın "şunu öğren" demesi değildir; küme ve
+        # şaşkınlık Driver'ın kendi algısından oluşur.
+        for cluster in self.clusters():
+            if len(cluster.get("pairs") or []) < self.min_items:
+                continue
+            key = repr(cluster.get("key"))
+            self._new_goal("stream", "stream_learn",
+                           surprise=float(cluster.get("surprise", 0.0)),
+                           signature=f"stream|{key}")
+        inventory = self._capability_inventory()
+        latest_surprise = max([float(item.get("surprise", 0.0))
+                               for item in self.items[-8:]] or [0.0])
+        # Başlangıçta birden çok açık hedef bulunması ortak blokajları gerçekten
+        # birleştirebilmek için gereklidir; tek hedefi yapay olarak bölmeyiz.
+        for capability in ("self_task", "self_teach", "self_change"):
+            if inventory.get(capability, {}).get("available"):
+                self._new_goal("expand", capability, surprise=latest_surprise)
+
+    def _select_goal(self) -> dict | None:
+        inventory = self._capability_inventory()
+        active = [goal for goal in self.goals if goal.get("status") == "active"]
+        scored = []
+        for goal in active:
+            info = inventory.get(goal["capability"], {})
+            surprise = float(goal.get("surprise", 0.0))
+            curiosity = float(info.get("curiosity", 0.0))
+            competence = float(info.get("competence", 0.0)) if info.get("available") else 0.0
+            failures = int(goal.get("failures", 0))
+            waiting = min(1.0, max(0, self.goal_step - int(goal.get("created_step", 0))) / 8.0)
+            # Başarısızlık merakı, bekleyen hedefe dönme baskısı da seçime girer;
+            # sürekli başarılı tek organ diğer açık hedefleri sonsuzca aç bırakamaz.
+            score = (surprise + 0.65 * curiosity * (1.0 + 0.2 * failures)
+                     + 0.35 * competence + 0.50 * waiting)
+            scored.append((score, goal["id"], goal, {
+                "surprise": surprise, "curiosity": curiosity,
+                "competence": competence, "waiting": waiting,
+                "available": bool(info.get("available")), "score": score,
+            }))
+        if not scored:
+            return None
+        scored.sort(key=lambda row: (-row[0], row[1]))
+        _score, _gid, goal, rationale = scored[0]
+        goal["last_rationale"] = rationale
+        return goal
+
+    def _derive_unblock(self, parents: list[dict], blocker: str) -> dict | None:
+        parents = [goal for goal in parents if goal.get("depth", 0) < 2]
+        if not parents or not blocker:
+            return None
+        depth = 1 + max(int(goal.get("depth", 0)) for goal in parents)
+        # Program sentezi tıkandığında mevcut politika-değiştirme yeteneği gerçek
+        # bir alternatif; diğer blokajlarda en az kullanılan yetenek seçilir.
+        inventory = self._capability_inventory()
+        if blocker == "program_synthesis" and inventory["self_change"]["available"]:
+            capability = "self_change"
+        else:
+            choices = [(info["uses"], name) for name, info in inventory.items()
+                       if info["available"] and name != "stream_learn"]
+            if not choices:
+                return None
+            capability = min(choices)[1]
+        surprise = max(float(goal.get("surprise", 0.0)) for goal in parents)
+        child = self._new_goal(
+            "unblock", capability, surprise=surprise, blocker=blocker,
+            parents=[goal["id"] for goal in parents], depth=depth,
+            signature=f"unblock|{blocker}|{capability}|{self._experience_version()!r}",
+        )
+        if child is not None:
+            child["probe_capabilities"] = sorted({goal["capability"] for goal in parents})
+        return child
+
+    def _merge_blocked(self, goal: dict) -> bool:
+        if goal.get("kind") == "unblock" or not goal.get("blocker"):
+            return False
+        # Önce var olan ortak alt hedefi kullan; aynı blokaj için ikinci bir
+        # politika-değiştirme yarışı açmak birleşme değil çoğaltma olurdu.
+        existing = [old for old in self.goals if old["id"] != goal["id"]
+                    and old.get("status") == "active" and old.get("kind") == "unblock"
+                    and old.get("blocker") == goal.get("blocker")]
+        if existing:
+            child = existing[0]
+            parents = [goal]
+        else:
+            others = [old for old in self.goals if old["id"] != goal["id"]
+                      and old.get("status") == "active" and old.get("kind") != "unblock"
+                      and old.get("blocker") == goal.get("blocker")]
+            if not others:
+                return False
+            parents = [goal, others[0]]
+            child = self._derive_unblock(parents, str(goal["blocker"]))
+            if child is None:
+                return False
+        for parent in parents:
+            parent["status"] = "merged"
+            parent["merged_into"] = child["id"]
+            parent["reason"] = f"ortak alt hedefe indirgendi: {goal['blocker']}"
+            child["parents"] = sorted(set(child.get("parents", []) + [parent["id"]]))
+            child["probe_capabilities"] = sorted(set(
+                child.get("probe_capabilities", []) + [parent["capability"]]))
+            self.goal_history.append({"step": self.goal_step, "goal": parent["id"],
+                                      "event": "merged", "into": child["id"],
+                                      "blocker": goal["blocker"]})
+        return True
+
+    def _execute_goal(self, goal: dict) -> tuple[bool, dict]:
+        agi = self.agi
+
+        def call(capability: str) -> tuple[bool, dict]:
+            if capability == "stream_learn":
+                learned = self.step()
+                return bool(learned), dict(learned or {"status": "unresolved"})
+            method = getattr(agi, {
+                "self_task": "kendine_gorev", "self_teach": "kendine_ogret",
+                "self_change": "kendini_degistir",
+            }[capability], None)
+            if method is None:
+                return False, {"durum": "yetenek-yok"}
+            result = dict(method() or {})
+            success = bool(result.get("öğrendi") or result.get("değişti"))
+            return success, result
+
+        try:
+            success, result = call(goal["capability"])
+            if not success or goal.get("kind") != "unblock":
+                return success, result
+            # Yardımcı yeteneğin başarısı blokajın kendisi değildir. Asıl başarısız
+            # yetenekleri bağımsız olarak yeniden çalıştır; hepsi geçmeden alt
+            # hedef "çözüldü" olamaz.
+            probes = list(goal.get("probe_capabilities") or [])
+            last = dict(result, helper_succeeded=True)
+            for capability in probes:
+                if capability == goal["capability"]:
+                    probe_ok, probe = success, result
+                else:
+                    probe_ok, probe = call(capability)
+                last = dict(probe, helper_succeeded=True,
+                            probe_capability=capability)
+                if not probe_ok:
+                    return False, last
+            return True, last
+        except Exception as exc:
+            return False, {"durum": f"exception:{type(exc).__name__}", "error": str(exc)}
+
+    def autonomous_step(self) -> dict:
+        """Bir hedef seçip gerçek yeteneği çalıştır; sonuç uydurma sayaç değildir."""
+        self.goal_step += 1
+        self._ensure_autonomous_goals()
+        goal = self._select_goal()
+        if goal is None:
+            self.goal_idle += 1
+            return {"step": self.goal_step, "event": "idle", "active": 0}
+        success, result = self._execute_goal(goal)
+        stat = self.goal_capability[goal["capability"]]
+        stat["attempts"] += 1
+        stat["uses"] += 1
+        stat["successes"] += int(success)
+        goal["attempts"] += 1
+        summary = {key: result.get(key) for key in
+                   ("durum", "status", "öğrendi", "değişti", "neden", "hedef", "taban",
+                    "helper_succeeded", "probe_capability")
+                   if key in result}
+        event = {"step": self.goal_step, "goal": goal["id"],
+                 "capability": goal["capability"], "success": success,
+                 "result": summary, "rationale": dict(goal.get("last_rationale") or {})}
+        goal["history"].append(event)
+        self.goal_history.append(dict(event, event="attempt"))
+        if success:
+            goal["status"] = "solved"
+            goal["solved_step"] = self.goal_step
+            goal["failures"] = 0
+            goal["reason"] = "yetenek sonucu"
+            self.goal_history.append({"step": self.goal_step, "goal": goal["id"],
+                                      "event": "solved", "result": summary})
+        else:
+            goal["failures"] += 1
+            observed_blocker = self._blocker_of(goal["capability"], result)
+            goal["last_blocker"] = observed_blocker
+            # Alt hedefin çözmeye çalıştığı blokaj, yardımcı yeteneğin yeni
+            # hatasıyla sessizce değişmez; iki durum ayrı alanlarda izlenir.
+            if not goal.get("blocker"):
+                goal["blocker"] = observed_blocker
+            blocker = str(goal["blocker"])
+            goal["reason"] = f"başarısızlık {goal['failures']}/3: {observed_blocker}"
+            if not self._merge_blocked(goal) and goal["failures"] >= 3:
+                goal["status"] = "abandoned"
+                goal["abandoned_step"] = self.goal_step
+                goal["reason"] = (f"üç hata; terk: {blocker}; "
+                                  f"son hata: {observed_blocker}")
+                self.goal_history.append({"step": self.goal_step, "goal": goal["id"],
+                                          "event": "abandoned", "blocker": blocker,
+                                          "last_blocker": observed_blocker})
+                self._derive_unblock([goal], blocker)
+        # Defter sınırlı; sayaçlar ve bütün hedeflerin özeti korunur.
+        if len(self.goal_history) > 2048:
+            del self.goal_history[:-2048]
+        return dict(event, event="solved" if success else "failed",
+                    goal_status=goal["status"])
+
+    def run_autonomous(self, steps: int = 1000, experiences: dict | None = None) -> dict:
+        """İnsan hedefi olmadan çalış; isteğe bağlı girdi yalnız ham gözlemdir.
+
+        ``experiences={adım: metin}`` hedef/çıktı anahtarı değildir. Metin normal
+        ``ingest`` yolundan geçer; başarı yine gerçek yetenek sonucundan ölçülür.
+        """
+        schedule = experiences or {}
+        for step in range(max(0, int(steps))):
+            incoming = schedule.get(step, ())
+            if isinstance(incoming, str):
+                incoming = (incoming,)
+            for text in incoming:
+                self.ingest(text)
+            self.autonomous_step()
+        return self.goal_report()
+
+    def goal_report(self) -> dict:
+        counts = {status: sum(goal.get("status") == status for goal in self.goals)
+                  for status in ("active", "solved", "abandoned", "merged")}
+        return {
+            "steps": self.goal_step, "idle_steps": self.goal_idle,
+            "generated": len(self.goals), **counts,
+            "human_goals_supplied": 0,
+            "three_failure_abandons": sum(goal.get("status") == "abandoned"
+                                           and goal.get("failures") == 3 for goal in self.goals),
+            "capability_inventory": self._capability_inventory(),
+            "goals": [{key: value for key, value in goal.items() if key != "history"}
+                      for goal in self.goals],
+            "history": list(self.goal_history[-80:]),
+        }
+
     # ------------------------------------------------------------------ rapor
     def summary(self) -> dict:
         kinds = {}
@@ -300,7 +635,12 @@ class Driver:
         return {"seen": self.seen, "triggered": self.triggered,
                 "rejected": self.rejected, "unresolved": self.unresolved,
                 "thresh": round(self.thresh, 3), "min_items": int(self.min_items),
-                "learned": self.learned[-24:]}
+                "learned": self.learned[-24:],
+                "autonomous": {
+                    "goals": copy.deepcopy(self.goals), "history": copy.deepcopy(self.goal_history[-256:]),
+                    "serial": self.goal_serial, "step": self.goal_step,
+                    "idle": self.goal_idle, "capability": copy.deepcopy(self.goal_capability),
+                }}
 
     def load_state(self, d: dict | None) -> None:
         d = d or {}
@@ -314,3 +654,10 @@ class Driver:
         except Exception:
             self.thresh = float(self.MIN_SURPRISE)
         self.learned = [r for r in (d.get("learned") or []) if isinstance(r, dict)]
+        autonomous = d.get("autonomous") or {}
+        self.goals = copy.deepcopy(autonomous.get("goals") or [])
+        self.goal_history = copy.deepcopy(autonomous.get("history") or [])
+        self.goal_serial = int(autonomous.get("serial", 0) or 0)
+        self.goal_step = int(autonomous.get("step", 0) or 0)
+        self.goal_idle = int(autonomous.get("idle", 0) or 0)
+        self.goal_capability = copy.deepcopy(autonomous.get("capability") or {})
