@@ -6072,8 +6072,17 @@ def a139_bireysel_ve_tekrarda_degisen_oz_durum_soylemi():
         "Sen beni dinlerken ne hissediyorsun?", speaker="ses-1"
     )
     lived_low = tr_lower(lived)
+    role_u = experience.broca_organ.comprehend_discourse(
+        "Bugün biraz yorucu geçti ama seninle konuşmak iyi geldi.",
+        "bugün biraz yorucu geçti ama seninle konuşmak iyi geldi.",
+        experience.lang.morph, experience.lang.graph.lexicon,
+    )
+    role_ev = next(ev for ev in role_u["affect_events"] if ev.get("kind") == "relief")
     ok["karsit-yasanti-anlami"] = (
-        "yorucu" in lived_low and "iyi gel" in lived_low
+        "yorucu" in lived_low and "benimle konuşmanın" in lived_low
+        and "seninle konuşmanın" not in lived_low
+        and role_ev.get("cause_roles", {}).get("seninle") == "addressee"
+        and role_ev.get("deictic_scope") == "direct_dialogue"
         and "SELF_STATE" in (experience.broca_organ.last_speech_plan.get("volition_acts", []) or [])
     )
     day = tr_lower(experience.converse("Günüm nasıl geçmişti?", speaker="ses-1"))
@@ -6084,10 +6093,22 @@ def a139_bireysel_ve_tekrarda_degisen_oz_durum_soylemi():
     effect_trace = dict(getattr(experience.broca_organ, "last_experience_recall", {}) or {})
     ok["yasanti-bellek-geri-cagirma"] = (
         all(x in day for x in ("günün", "yorucu", "geçti"))
-        and all(x in effect for x in ("seninle konuşma", "sana iyi geldi"))
+        and "benimle konuşman sana iyi geldi" in effect
+        and "seninle konuşma" not in effect
         and day_trace.get("kind") == "past_state" and day_trace.get("found")
         and effect_trace.get("kind") == "felt_effect" and effect_trace.get("found")
         and day_trace.get("turn_id") == effect_trace.get("turn_id")
+        and len(experience.broca_organ.episodic.episodes) == 1
+    )
+    natural_memory = tr_lower(experience.converse(
+        "Biraz önce sana ne anlatmıştım?", speaker="ses-1"
+    ))
+    ok["dogal-ve-rolu-dogru-yasanti-anisi"] = (
+        all(x in natural_memory for x in (
+            "az önce", "günün yorucu geçtiğini", "benimle konuşmanın", "anlatmışsın",
+        ))
+        and "seninle konuşmanın" not in natural_memory
+        and "turda" not in natural_memory and "1." not in natural_memory
         and len(experience.broca_organ.episodic.episodes) == 1
     )
     # Hedef cümlede bulunmayan duygu, zaman ve neden öbeğiyle bağımsız parafraz.
@@ -6107,6 +6128,36 @@ def a139_bireysel_ve_tekrarda_degisen_oz_durum_soylemi():
         and "sohbetimiz sana iyi geldi" in para_effect
         and para_day_trace.get("cue") == "gergin"
         and para_day_trace.get("kind") == "past_state"
+    )
+    article = fixture(786, "reference-scope")
+    article_name = tr_lower(article.converse("Makale Nora’dan bahsetmiyor.", speaker="ses-1"))
+    article_pronoun = tr_lower(article.converse("Makalede senden bahsedilmiyor.", speaker="ses-1"))
+    article_positive = tr_lower(article.converse("Makalede senden bahsediliyor.", speaker="ses-1"))
+    article_other = tr_lower(article.converse("Makalede insanlardan bahsediliyor.", speaker="ses-1"))
+    quoted_raw = "Makalede 'seninle konuşmak iyi geldi' yazıyor."
+    article_quoted = tr_lower(article.converse(quoted_raw, speaker="ses-1"))
+    quoted_u = article.broca_organ.comprehend_discourse(
+        quoted_raw, tr_lower(quoted_raw), article.lang.morph, article.lang.graph.lexicon
+    )
+    quoted_acts = list(article.broca_organ.last_speech_plan.get("volition_acts", []) or [])
+    writing_raw = "Makale yazıyorum."
+    article.converse(writing_raw, speaker="ses-1")
+    writing_u = article.broca_organ.comprehend_discourse(
+        writing_raw, tr_lower(writing_raw), article.lang.morph, article.lang.graph.lexicon
+    )
+    writing_acts = list(article.broca_organ.last_speech_plan.get("volition_acts", []) or [])
+    ok["makale-ve-alinti-gonderge-kapsami"] = (
+        "makalenin benden bahsetmediğini" in article_name
+        and "makalenin benden bahsetmediğini" in article_pronoun
+        and "makalenin benden bahsettiğini" in article_positive
+        and "bu anlatımı kendimle ilişkilendirmiyorum" in article_other
+        and "bu anlatımı kendimle ilişkilendirmiyorum" in article_quoted
+        and "iyi geliyor" not in article_quoted and "içim açıldı" not in article_quoted
+        and quoted_u.get("reference_scope", {}).get("quoted")
+        and not quoted_u.get("affect_events")
+        and "REFERENCE_SCOPE" in quoted_acts
+        and not writing_u.get("reference_scope")
+        and "REFERENCE_SCOPE" not in writing_acts
     )
     blank = fixture(783, "experience-empty")
     blank_day = tr_lower(blank.converse("Günüm nasıl geçmişti?", speaker="ses-1"))

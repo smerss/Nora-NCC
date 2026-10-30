@@ -189,7 +189,39 @@ sana iyi geldi.” Bu parafraz A139'un kalıcı kontrolüne eklendi.
 - Kod denetimi **1.124/1.125**, söylem **126**; `git diff --check` temiz.
 - Hedef ve parafrazın son canlı MoE kanıtı: `runs/live_moe_experience_semantics_final.log`.
 
-## 11. Sonraki eşik
+## 11. Kişi rolleri, belge kapsamı ve doğal anı anlatımı
+
+Önceki sürümdeki “Seninle konuşma sana iyi geldi” çıktısı kişi rolünü koruyan yüzeysel bir
+tekrardı: kullanıcının `sen` zamiri Nora'yı gösterdiği hâlde Nora'nın sözünde değiştirilmiyordu.
+Rahatlama olayı artık `speaker/addressee` rollerini ve `direct_dialogue` kapsamını taşıyor.
+Nora konuşurken `addressee` birinci kişiye, `speaker` ikinci kişiye çözümleniyor; dönüşüm yalnız
+bu olay kapsamında uygulanıyor.
+
+Gerçek MoE ile son çıktılar:
+
+- “Seninle konuşmak bana nasıl hissettirdi?” → **“Benimle konuşman sana iyi geldi.”**
+- “Biraz önce sana ne anlatmıştım?” → **“Az önce günün yorucu geçtiğini ama benimle
+  konuşmanın sana iyi geldiğini anlatmışsın.”** Tur numarası yalnız iç izde kalıyor, yüzeyde
+  kullanılmıyor; cümle epizottaki olaylardan yeniden çekimleniyor.
+- “Makale Nora’dan bahsetmiyor.” → **“Makalenin benden bahsetmediğini anlıyorum.”**
+  Plan `REFERENCE_SCOPE`; `Nora` ve doğrudan hitaptaki `senden` aynı öz-göndergeye bağlanıyor.
+- “Makalede insanlardan bahsediliyor.” ve alıntılı “seninle konuşmak iyi geldi” metni Nora'nın
+  yaşantısı sayılmıyor. Alıntı kapsamında `affect_events=[]`; empati veya kişisel rahatlama
+  belleği oluşmuyor.
+
+Karşıt kontrolde “Makale yazıyorum” belge-içeriği raporu sayılmıyor ve kişisel anlatı yolunda
+kalıyor; “Makale yazarken yoruldum” empati üretmeye devam ediyor. Böylece belge kapsamı bütün
+`yaz-` ve `makale` sözcüklerine körlemesine uygulanmıyor.
+
+- A139 **23/23**: rol, doğal anı, olumlu/olumsuz belge göndergesi, alıntı ve yazma-eylemi
+  kontrolleri. A22, A54, A55, A57, A75, A76, A41, A138 ve A73 geçti.
+- Son ürün koduyla tam AGI pili **140/140, 938,0 sn**
+  (`runs/full_battery_deictic_scope_final.log`); A6 tam koşuda +0,13 farkla geçti.
+- Law battery **15/15, 36,9 sn** (`runs/law_battery_deictic_scope_final.log`).
+- A73 kod denetimi **1.124/1.125**, söylem **126**; `git diff --check` temiz.
+- Son canlı kanıt: `runs/live_moe_deictic_scope_final.log`.
+
+## 12. Sonraki eşik
 
 **Bu turda aşılan eşik:** fold-0 top-1 > %45 ve aynı dondurulmuş MoE ile iki dış veri kümesinde
 taban üstü. **Sıradaki eşik:** fold-1/2 dahil aynı-dağılım çapraz-fold sonuçlarını %45'e taşımak;
