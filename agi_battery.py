@@ -6090,6 +6090,24 @@ def a139_bireysel_ve_tekrarda_degisen_oz_durum_soylemi():
         and day_trace.get("turn_id") == effect_trace.get("turn_id")
         and len(experience.broca_organ.episodic.episodes) == 1
     )
+    # Hedef cümlede bulunmayan duygu, zaman ve neden öbeğiyle bağımsız parafraz.
+    paraphrase = fixture(785, "experience-paraphrase")
+    para_lived = tr_lower(paraphrase.converse(
+        "Dün gecem gergin geçti fakat sohbetimiz çok iyi geldi. "
+        "Sen beni dinlerken ne hissediyorsun?", speaker="ses-1"
+    ))
+    para_day = tr_lower(paraphrase.converse("Gecem nasıl geçmişti?", speaker="ses-1"))
+    para_day_trace = dict(getattr(paraphrase.broca_organ, "last_experience_recall", {}) or {})
+    para_effect = tr_lower(paraphrase.converse(
+        "Seninle konuşmak bana nasıl hissettirdi?", speaker="ses-1"
+    ))
+    ok["parafraz-yasanti-genellemesi"] = (
+        "gergin" in para_lived and "sohbetimizin sana iyi geldiğine" in para_lived
+        and all(x in para_day for x in ("gecen", "gergin", "geçti"))
+        and "sohbetimiz sana iyi geldi" in para_effect
+        and para_day_trace.get("cue") == "gergin"
+        and para_day_trace.get("kind") == "past_state"
+    )
     blank = fixture(783, "experience-empty")
     blank_day = tr_lower(blank.converse("Günüm nasıl geçmişti?", speaker="ses-1"))
     blank_effect = tr_lower(blank.converse(

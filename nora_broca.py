@@ -1049,6 +1049,8 @@ class GenerativeBrocaOrgan:
         "üzgün": (-0.65, "üzüntü", "üzül"),
         "sıkkın": (-0.50, "sıkıntı", "bunalt"),
         "stres": (-0.55, "baskı", "geril"),
+        "gergin": (-0.55, "gerginlik", "geril"),
+        "geril": (-0.55, "gerginlik", "geril"),
         "kaygı": (-0.55, "kaygı", "endişelen"),
         "endişe": (-0.50, "endişe", "endişelen"),
         "kork": (-0.60, "korku", "çekin"),
@@ -1298,9 +1300,15 @@ class GenerativeBrocaOrgan:
                 "kind": "relief", "cause": " ".join(cause_words),
             })
         for ev in affect_events:
-            if "geç" in word_stems_seq and any(w in words for w in ("bugün", "dün", "gün", "gece", "hafta")):
+            has_time = any(w in words for w in (
+                "bugün", "dün", "gün", "günüm", "gece", "gecem", "hafta", "haftam",
+            ))
+            if ev.get("kind") != "relief" and "geç" in word_stems_seq and has_time:
                 ev["frame"] = "time_passage"
-                ev["time_noun"] = "gece" if "gece" in words else ("hafta" if "hafta" in words else "gün")
+                ev["time_noun"] = (
+                    "gece" if any(w.startswith("gece") for w in words)
+                    else ("hafta" if any(w.startswith("hafta") for w in words) else "gün")
+                )
         affect_events.sort(key=lambda e: abs(float(e["value"])), reverse=True)
         aff_tags: list[tuple[str, str]] = []
         for ev in affect_events:
@@ -1549,7 +1557,8 @@ class GenerativeBrocaOrgan:
                     continue
                 events = list(up.get("affect_events") or [])
                 if query_kind == "past_state":
-                    events = [ev for ev in events if ev.get("frame") == "time_passage"]
+                    events = [ev for ev in events if ev.get("frame") == "time_passage"
+                              and ev.get("kind") != "relief"]
                 elif query_kind == "felt_effect":
                     events = [ev for ev in events if ev.get("kind") == "relief"]
                 else:
