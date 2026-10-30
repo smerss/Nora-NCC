@@ -1,0 +1,8 @@
+{
+  "class": "TokenMoEOrgan",
+  "gate": "nll_prefix",
+  "finite": true,
+  "logprob": [
+    -0.8624860644340515
+  ]
+}

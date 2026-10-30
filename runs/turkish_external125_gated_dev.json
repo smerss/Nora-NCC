@@ -1,0 +1,29 @@
+{
+  "weights": {
+    "external": 0.125,
+    "target": 0.875
+  },
+  "plain": {
+    "n": 393,
+    "top1": 0.4300254452926209,
+    "top5": 0.5114503816793893,
+    "ppl": 73.68219642951777
+  },
+  "memory": {
+    "records": 1632,
+    "source_sentences": 234,
+    "source_sha256": "20c8177175ce371cfb2ab663b53c1cb5eec1ffb51170022066795ffc898160ca",
+    "k": 4,
+    "temperature": 0.1,
+    "weight": 0.1,
+    "domain_gate": true,
+    "gate_threshold": 0.9186908006668091
+  },
+  "gated": {
+    "n": 393,
+    "top1": 0.4351145038167939,
+    "top5": 0.5216284987277354,
+    "ppl": 72.70782515477589
+  },
+  "hits": 171
+}

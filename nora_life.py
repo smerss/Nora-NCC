@@ -292,7 +292,237 @@ class HypothesisPool:
 
 
 # ============================================================================
-# 4. KÜRESEL ÇALIŞMA ALANI İHALESİ (LCA)
+# 4. SÜREKLİ TÜRKÇE KAYNAK AKIŞI (disk önbelleği + dengeli alan kapsaması)
+# ============================================================================
+
+class TurkishResearchStream:
+    """Sabit commitli katalogdan Türkçe metni bölümler hâlinde okur.
+
+    Bu sınıf bilgi doğrulamaz ve kavram ağına yazmaz. Döndürdüğü metin ``HypothesisPool``
+    için provisional kanıt, ses organı için ise dil deneyimidir. Ham kaynak diskte
+    tutulur; her çağrıda aynı özeti döndürmek yerine kaynak içindeki ilerlemeyi ve alan
+    kapsamasını sürdürür. Ağ yoksa önbellek çalışır, katalog dışı URL kabul edilmez.
+    """
+
+    MAX_BYTES = 16_000_000
+
+    def __init__(self, catalog_path: str | None = None, cache_dir: str | None = None,
+                 fetcher: Callable[[str], str] | None = None, timeout: float = 4.0):
+        import json
+        import os
+        root = os.path.dirname(os.path.abspath(__file__))
+        self.catalog_path = catalog_path or os.path.join(root, "data", "research_sources.json")
+        self.cache_dir = cache_dir or os.path.join(root, ".cache", "nora_research")
+        self.fetcher = fetcher
+        self.timeout = float(timeout)
+        with open(self.catalog_path, encoding="utf-8") as f:
+            catalog = json.load(f)
+        if catalog.get("language") != "tr":
+            raise ValueError("research catalog language must be tr")
+        self.turkish_markers = set(catalog.get("language_markers") or ())
+        if not self.turkish_markers:
+            raise ValueError("research catalog language markers are missing")
+        self.sources = [dict(x) for x in catalog.get("sources", [])]
+        self._by_id = {x["id"]: x for x in self.sources}
+        if len(self._by_id) != len(self.sources):
+            raise ValueError("source ids must be unique")
+        self.coverage: Counter = Counter()
+        self.offsets: Counter = Counter()
+        self.reads: Counter = Counter()
+        self.log: deque[dict] = deque(maxlen=64)
+
+    def _network_fetch(self, url: str) -> str:
+        """Özel/fake fetcher ile aynı düz metin sözleşmesi; API kullanmaz."""
+        req = urllib.request.Request(url, headers={"User-Agent": "NoraAGI-TurkishResearch/4.0"})
+        with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+            raw = resp.read(self.MAX_BYTES + 1)
+        if len(raw) > self.MAX_BYTES:
+            raise ValueError("source size limit exceeded")
+        return raw.decode("utf-8", errors="ignore")
+
+    def _archive_file(self, url: str) -> str:
+        """Sabit-commit codeload arşivini sınırlı ve atomik disk cache'e indir."""
+        import hashlib
+        import os
+        os.makedirs(self.cache_dir, exist_ok=True)
+        path = os.path.join(self.cache_dir, hashlib.sha256(url.encode("utf-8")).hexdigest() + ".tar.gz")
+        if os.path.exists(path) and os.path.getsize(path) <= self.MAX_BYTES:
+            return path
+        req = urllib.request.Request(url, headers={"User-Agent": "NoraAGI-TurkishResearch/4.0"})
+        tmp = path + ".tmp"
+        try:
+            total = 0
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp, open(tmp, "wb") as out:
+                while True:
+                    chunk = resp.read(min(1024 * 1024, self.MAX_BYTES + 1 - total))
+                    if not chunk:
+                        break
+                    out.write(chunk)
+                    total += len(chunk)
+                    if total > self.MAX_BYTES:
+                        raise ValueError("codeload archive size limit exceeded")
+            os.replace(tmp, path)
+        finally:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+        return path
+
+    def _archive_body(self, entry: dict) -> str:
+        """Codeload tar.gz içinden yalnız katalogdaki dosyayı çıkar; bütün repo RAM'e yüklenmez."""
+        import tarfile
+        archive = self._archive_file(entry["archive_url"])
+        suffix = "/" + str(entry["archive_path"]).lstrip("/")
+        with tarfile.open(archive, mode="r|gz") as tf:
+            for member in tf:
+                if member.isfile() and member.name.endswith(suffix):
+                    if member.size > self.MAX_BYTES:
+                        raise ValueError("archived source size limit exceeded")
+                    source = tf.extractfile(member)
+                    raw = source.read(self.MAX_BYTES + 1) if source is not None else b""
+                    if len(raw) > self.MAX_BYTES:
+                        raise ValueError("archived source size limit exceeded")
+                    return raw.decode("utf-8", errors="ignore")
+        raise FileNotFoundError(f"archive path not found: {entry['archive_path']}")
+
+    def _body(self, entry: dict) -> tuple[str, bool]:
+        import hashlib
+        import os
+        os.makedirs(self.cache_dir, exist_ok=True)
+        cache_identity = entry["url"] + "\0" + str(entry.get("archive_path", ""))
+        key = hashlib.sha256(cache_identity.encode("utf-8")).hexdigest()
+        path = os.path.join(self.cache_dir, key + ".txt")
+        if os.path.exists(path) and os.path.getsize(path) <= self.MAX_BYTES:
+            with open(path, encoding="utf-8", errors="ignore") as f:
+                return f.read(), True
+        if self.fetcher is not None:
+            body = str(self.fetcher(entry["url"]) or "")
+        elif entry.get("archive_url"):
+            body = self._archive_body(entry)
+        else:
+            body = self._network_fetch(entry["url"])
+        if not body.strip():
+            raise ValueError("empty source")
+        if len(body.encode("utf-8")) > self.MAX_BYTES:
+            raise ValueError("source size limit exceeded")
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(body)
+        os.replace(tmp, path)
+        return body, False
+
+    def _clean_sentences(self, text: str) -> list[str]:
+        text = re.sub(r"```.*?```", " ", text, flags=re.S)
+        # Görüntü denklemi önce kalkar: $$…$$ içinde tek-$ kuralını çalıştırmak
+        # iki sınır $ işaretini artık bırakıp sonraki doğal cümleleri matematikle birleştirir.
+        text = re.sub(r"\$\$.*?\$\$", " ", text, flags=re.S)
+        text = re.sub(r"\\\[.*?\\\]", " ", text, flags=re.S)
+        text = re.sub(r"\$[^$\n]+\$", " ", text)
+        text = re.sub(r"\\\(.*?\\\)", " ", text, flags=re.S)
+        text = re.sub(r"<[^>]+>", " ", text)
+        text = re.sub(r"[#*_|`\\{}\[\]()]", " ", text)
+        out = []
+        for sent in re.split(r"(?<=[.!?…])\s+|\n+", text):
+            sent = " ".join(sent.split())
+            words = tokenize(sent)
+            letters = sum(c.isalpha() for c in sent)
+            if (len(sent) >= 30 and len(words) >= 4 and letters >= 0.52 * len(sent)
+                    and self.turkish_markers.intersection(words)):
+                out.append(sent)
+        return out
+
+    def _sentences(self, entry: dict, body: str) -> list[str]:
+        import json
+        fmt = entry.get("format")
+        keys = tuple(tr_lower(x) for x in entry.get("keywords", ()))
+        if fmt == "deeptech_json":
+            data = json.loads(body)
+            chunks = []
+            for module in data.get("modules", []):
+                scope = tr_lower(str(module.get("title_tr", "")) + " " + str(module.get("desc_tr", "")))
+                if keys and not any(k in scope for k in keys):
+                    continue
+                chunks.extend([module.get("title_tr", ""), module.get("desc_tr", "")])
+                for lesson in module.get("lessons", []):
+                    chunks.extend(str(lesson.get(k, "")) for k in ("title_tr", "eli5_tr", "deep_tr"))
+            return self._clean_sentences("\n".join(chunks))
+        if fmt == "notebook_markdown":
+            data = json.loads(body)
+            text = "\n".join("".join(cell.get("source", [])) for cell in data.get("cells", [])
+                             if cell.get("cell_type") == "markdown")
+            return self._clean_sentences(text)
+        if fmt == "text_lines":
+            lines = [ln for ln in body.splitlines()
+                     if not keys or any(k in tr_lower(ln) for k in keys)]
+            return self._clean_sentences("\n".join(lines))
+        return self._clean_sentences(body)
+
+    def read(self, topic: str = "", area: str = "", max_sentences: int = 12) -> dict:
+        topic = tr_lower(topic).strip()
+        candidates = []
+        for entry in self.sources:
+            topics = {tr_lower(x) for x in entry.get("topics", ())}
+            if area and entry.get("area") != area:
+                continue
+            if topic and not area and topic not in topics and not any(t in topic or topic in t for t in topics):
+                continue
+            candidates.append(entry)
+        if not candidates:
+            self.log.append({"topic": topic, "area": area, "ok": False, "reason": "katalog_kapsamasi_yok"})
+            return {"text": "", "n": 0, "ok": False, "reason": "katalog_kapsamasi_yok"}
+        candidates.sort(key=lambda e: (self.reads[e["id"]], self.coverage[e.get("area", "general")], e["id"]))
+        errors = []
+        for entry in candidates[:3]:
+            try:
+                body, cached = self._body(entry)
+                sentences = self._sentences(entry, body)
+                if not sentences:
+                    raise ValueError("no sentence matched catalog language")
+                start = self.offsets[entry["id"]] % len(sentences)
+                count = min(max(1, int(max_sentences)), len(sentences) - start)
+                # Bölüm sonunda kalan birkaç cümleyi atlamak yerine başa sar; kaynak
+                # rotasyonu aynı metnin arka arkaya okunmasını zaten engeller.
+                chosen = sentences[start:start + count]
+                self.offsets[entry["id"]] += len(chosen)
+                self.reads[entry["id"]] += 1
+                self.coverage[entry.get("area", "general")] += len(chosen)
+                rec = {"ok": True, "source": entry["id"], "url": entry["url"],
+                       "archive_url": entry.get("archive_url"), "commit": entry.get("commit"),
+                       "license": entry.get("license", "undetected"),
+                       "area": entry.get("area", "general"), "topic": topic,
+                       "n": len(chosen), "available": len(sentences), "offset": start,
+                       "cached": cached, "epistemic_status": "provisional",
+                       "text": "\n".join(chosen)}
+                self.log.append({k: v for k, v in rec.items() if k != "text"})
+                return rec
+            except Exception as exc:
+                errors.append(f"{entry['id']}:{type(exc).__name__}")
+        self.log.append({"topic": topic, "area": area, "ok": False, "reason": "kaynak_okunamadi", "errors": errors})
+        return {"text": "", "n": 0, "ok": False, "reason": "kaynak_okunamadi", "errors": errors}
+
+    def read_balanced(self, max_sentences: int = 12) -> dict:
+        areas = sorted({str(x.get("area", "general")) for x in self.sources})
+        if not areas:
+            return {"text": "", "n": 0, "ok": False, "reason": "bos_katalog"}
+        ordered = sorted(areas, key=lambda x: (self.coverage[x], x))
+        last = {"text": "", "n": 0, "ok": False, "reason": "kaynak_okunamadi"}
+        for area in ordered:
+            last = self.read(area=area, max_sentences=max_sentences)
+            if last.get("ok"):
+                last["balanced_area"] = area
+                return last
+        return last
+
+    def state_dict(self) -> dict:
+        return {"coverage": dict(self.coverage), "offsets": dict(self.offsets), "reads": dict(self.reads)}
+
+    def load_state_dict(self, data: dict):
+        self.coverage = Counter({k: int(v) for k, v in (data.get("coverage") or {}).items()})
+        self.offsets = Counter({k: int(v) for k, v in (data.get("offsets") or {}).items()})
+        self.reads = Counter({k: int(v) for k, v in (data.get("reads") or {}).items()})
+
+
+# ============================================================================
+# 5. KÜRESEL ÇALIŞMA ALANI İHALESİ (LCA)
 # ============================================================================
 
 class WorkspaceAuction:
@@ -330,6 +560,8 @@ class BackgroundLife:
         self.news: deque[dict] = deque(maxlen=16)
         self.rates_log: deque[tuple[int, list[float]]] = deque(maxlen=256)
         self.sources: list[tuple[str, Callable[[str, str], str]]] = []
+        self.research_stream: TurkishResearchStream | None = None
+        self.balanced_research_every = 240
         self.stride = 3
         self.enabled = True
         self.unanswered = 0
@@ -392,29 +624,60 @@ class BackgroundLife:
 
     # ------------------------------------------------------------ internet
     def enable_internet(self, timeout: float = 3.0):
-        """Gerçek ağ kaynaklarını ekler: Vikipedi özeti + Vikiveri tanımı (iki ayrı alan adı = bağımsız kaynak)."""
+        """API'siz doğrudan Vikipedi + Vikisözlük sayfaları ve sabit-commit codeload."""
         def _get(url: str) -> str:
-            req = urllib.request.Request(url, headers={"User-Agent": "NoraAGI-Curiosity/2.0"})
+            req = urllib.request.Request(url, headers={"User-Agent": "NoraAGI-Curiosity/3.0"})
             with urllib.request.urlopen(req, timeout=timeout) as r:
-                return r.read().decode("utf-8", errors="ignore")
+                raw = r.read(2_000_001)
+            if len(raw) > 2_000_000:
+                raise ValueError("HTML source size limit exceeded")
+            return raw.decode("utf-8", errors="ignore")
+
+        def _html(url: str) -> str:
+            import html
+            raw = re.sub(r"(?:<script\b|<style\b).*?(?:</script>|</style>)", " ",
+                         _get(url), flags=re.I | re.S)
+            raw = re.sub(r"<[^>]+>", " ", raw)
+            return " ".join(html.unescape(raw).split())
 
         def wiki(topic: str, _q: str) -> str:
-            import json
             try:
-                return str(json.loads(_get("https://tr.wikipedia.org/api/rest_v1/page/summary/" + urllib.parse.quote(topic.replace(" ", "_")))).get("extract", ""))
+                return _html("https://tr.wikipedia.org/wiki/" + urllib.parse.quote(topic.replace(" ", "_")))
             except Exception:
                 return ""
 
-        def wikidata(topic: str, _q: str) -> str:
-            import json
+        def wiktionary(topic: str, _q: str) -> str:
             try:
-                d = json.loads(_get("https://www.wikidata.org/w/api.php?action=wbsearchentities&format=json&language=tr&limit=1&search=" + urllib.parse.quote(topic)))
-                hit = (d.get("search") or [{}])[0]
-                return f"{hit.get('label', topic)} {hit.get('description', '')}".strip() + "." if hit.get("description") else ""
+                return _html("https://tr.wiktionary.org/wiki/" + urllib.parse.quote(topic.replace(" ", "_")))
             except Exception:
                 return ""
 
-        self.sources = [("web:tr.wikipedia.org", wiki), ("web:www.wikidata.org", wikidata)]
+        if self.research_stream is None:
+            self.research_stream = TurkishResearchStream(timeout=timeout)
+
+        def github_turkish(topic: str, _q: str) -> str:
+            rec = self.research_stream.read(topic=topic, max_sentences=12)
+            return str(rec.get("text", ""))
+
+        self.sources = [("web:tr.wikipedia.org", wiki), ("web:tr.wiktionary.org", wiktionary),
+                        ("web:github.com", github_turkish)]
+
+    def research_balanced(self, agi, max_sentences: int = 12) -> dict:
+        """En az okunan alandan yeni bir bölüm al; dili öğren, iddiayı provisional tut."""
+        if self.research_stream is None:
+            return {"ok": False, "n": 0, "reason": "arastirma_akisi_kapali"}
+        rec = self.research_stream.read_balanced(max_sentences=max_sentences)
+        if not rec.get("ok"):
+            return rec
+        text = str(rec.pop("text", ""))
+        self.voice.hear(text, state_vector(agi))
+        staged = self.pool.ingest(agi, text, "web:github.com", str(rec.get("area", "general")))
+        promoted = self.pool.promote_ready(agi)
+        for item in promoted:
+            self.news.append(item)
+        rec.update({"staged": len(staged["staged"]), "rejected": len(staged["rejected"]),
+                    "promoted": len(promoted)})
+        return rec
 
     def _research(self, agi, g: Gap) -> dict:
         g.attempts += 1
@@ -430,6 +693,9 @@ class BackgroundLife:
                     intent = max(sc, key=sc.get)
                     self.repertoire.learn(intent, reply, sid)
             else:
+                # Dil deneyimi ile bilgi kabulü ayrıdır: metin ses organına gidebilir;
+                # kavram ağına yalnız çapraz doğrulamadan geçen iddialar terfi eder.
+                self.voice.hear(text, state_vector(agi))
                 self.pool.ingest(agi, text, sid, g.topic)
         promoted = self.pool.promote_ready(agi)
         for p in promoted:
@@ -514,6 +780,9 @@ class BackgroundLife:
             out["researched"] = self._research(agi, self.ledger.top())
         else:
             out["spontaneous_action"] = self._reach(agi, idle)
+        if (self.sources and self.research_stream is not None
+                and self.balanced_research_every > 0 and self.t % self.balanced_research_every == 0):
+            out["balanced_research"] = self.research_balanced(agi)
         self.tick_seconds += time.perf_counter() - t_begin
         return out
 
@@ -577,11 +846,14 @@ class BackgroundLife:
     def snapshot(self) -> dict:
         return {"t": self.t, "actions": dict(self.stats), "gaps": {k: round(g.tension, 3) for k, g in self.ledger.gaps.items()},
                 "pending_hypotheses": len(self.pool.pending), "promoted": self.pool.promoted_total,
-                "outbox": len(self.outbox), "unanswered": self.unanswered, "voice_maturity": round(self.voice.mature, 3)}
+                "outbox": len(self.outbox), "unanswered": self.unanswered, "voice_maturity": round(self.voice.mature, 3),
+                "research_coverage": dict(self.research_stream.coverage) if self.research_stream is not None else {},
+                "research_reads": dict(self.research_stream.reads) if self.research_stream is not None else {}}
 
     def state_dict(self) -> dict:
         return {"voice": self.voice.state_dict(), "ledger": self.ledger.state_dict(), "repertoire": self.repertoire.state_dict(),
-                "pool": self.pool.state_dict(), "last_sleep_age": self.last_sleep_age}
+                "pool": self.pool.state_dict(), "last_sleep_age": self.last_sleep_age,
+                "research_stream": self.research_stream.state_dict() if self.research_stream is not None else None}
 
     def load_state_dict(self, d: dict):
         self.voice.load_state_dict(d.get("voice") or {})
@@ -589,3 +861,7 @@ class BackgroundLife:
         self.repertoire.load_state_dict(d.get("repertoire") or {})
         self.pool.load_state_dict(d.get("pool") or {})
         self.last_sleep_age = int(d.get("last_sleep_age", 0))
+        research_state = d.get("research_stream")
+        if research_state is not None:
+            self.research_stream = TurkishResearchStream()
+            self.research_stream.load_state_dict(research_state)

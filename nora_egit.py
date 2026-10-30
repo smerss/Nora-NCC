@@ -71,7 +71,8 @@ def broca_egit(a):
             batch, st = wiki[iw:iw + B], st_w
             iw += B
         org.lr = 3e-3 / (1.0 + step / 600.0) ** 0.5 * min(1.0, (step + 1) / 100.0)   # ısınma + ters-karekök sönüm
-        losses.append(org.learn_batch(batch, st))
+        losses.append(org.learn_batch(batch, st, anchor_dropout=a.anchor_dropout,
+                                      loss_mode=a.loss_mode, negative_samples=a.negative_samples))
         step += 1
         org.pos["wiki"], org.pos["chat"] = iw, ic
         if step % 100 == 0:
@@ -282,6 +283,11 @@ def main():
     ap.add_argument("--save", default="runs/nora_egitim")
     ap.add_argument("--holdout", type=float, default=0.02)
     ap.add_argument("--seed", type=int, default=1)
+    ap.add_argument("--anchor-dropout", type=float, default=0.0,
+                    help="probability of learning the unanchored language condition [0,1]")
+    ap.add_argument("--loss-mode", choices=["sampled", "full"], default="sampled",
+                    help="full softmax uses the same loss as the evaluated top-1 objective")
+    ap.add_argument("--negative-samples", type=int, default=2048)
     ap.add_argument("--register", choices=["notr", "sosyal", "bilgi"], default="notr",
                     help="metin hangi iç durumda okunur: sosyal (güven/sıcaklık yüksek), bilgi (merak/dikkat yüksek)")
     a = ap.parse_args()

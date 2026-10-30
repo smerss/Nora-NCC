@@ -1,0 +1,17 @@
+{
+  "class": "TokenMoEOrgan",
+  "gate": "nll_prefix",
+  "nll_threshold": 3.7105026245117188,
+  "token_ratio": 0.85,
+  "position_weight": 0.5,
+  "text": [
+    "Kedi i\u00e7in kullan\u0131l\u0131r.",
+    "Kedi bir i\u00e7ebilir."
+  ],
+  "logprob": [
+    -0.8624855279922485,
+    -1.6835483312606812
+  ],
+  "finite": true,
+  "active_parameters": 20210944
+}

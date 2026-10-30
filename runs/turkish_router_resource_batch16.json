@@ -1,0 +1,36 @@
+{
+  "mode": "router",
+  "corpus": ".cache/corpora/processed/unseen_faq_confirmation.jsonl",
+  "corpus_sha256": "5050dad14ee0da9f370c25e55e8d4b003b8bf3d96f02a3b74a1673c94234f987",
+  "input_sentences": 256,
+  "models": [
+    "data/checkpoints/turkish_external.pt",
+    "data/checkpoints/turkish_position149.pt",
+    "data/checkpoints/turkish_wide147.pt",
+    "data/checkpoints/turkish_router_final.pt"
+  ],
+  "model_sha256": {
+    "data/checkpoints/turkish_external.pt": "5ad24f8b88064d5e94d03f34cdc837813652afdb56b3b7c06b8996a12f1f3823",
+    "data/checkpoints/turkish_position149.pt": "d5ddcac2aff06e3ad94022b35c99f3321b24ffae1151ff5b26a63e1bd8204664",
+    "data/checkpoints/turkish_wide147.pt": "0459d0b14bc25286b871df81f0b1a09c98e9857f551bb727deea7167fab4e87c",
+    "data/checkpoints/turkish_router_final.pt": "5e4d0b6412221a3f3422f305dec87004066c52ba276a2647b9042d26e13b1c4d"
+  },
+  "position_weight": 0.5,
+  "batch_size": 16,
+  "seconds": 7.243674518999796,
+  "max_rss_mib": 1214.9375,
+  "metrics": {
+    "n": 5753,
+    "top1": 0.09768816269772293,
+    "top5": 0.16739092647314444,
+    "ppl": 3171.3791551568443,
+    "target_fraction": 0.44011819920041717,
+    "ood_sentences": 158,
+    "sentences": 256,
+    "ood_threshold": 4.1291594243375584e-05,
+    "token_confidence_ratio": 0.85,
+    "gate": "nll_prefix",
+    "nll_threshold": 3.7105026245117188,
+    "causal_ood_after_observed_tokens": 3
+  }
+}

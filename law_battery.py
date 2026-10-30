@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import base64
 import collections
 import hashlib
@@ -2547,6 +2548,476 @@ def _continuous_measured_attempt(task: dict, *, hidden: int = 64,
     return row, learner
 
 
+class _BenchmarkAttention:
+    """Yalnız geçmiş ve şimdiki sembole bakan standart çok-kafalı dikkat.
+
+    Sınıfı doğrudan ``torch.nn.Module``den türetmek yerine burada bir
+    ``new`` yardımcısı kullanmak dış checkpoint'in alan adlarını aynen
+    karşılamamızı sağlar. Böylece pretrained GPT için başka bir gizli
+    uygulama veya API gerekmez.
+    """
+
+    def __new__(cls, d_model: int, n_heads: int, dropout: float = 0.0):
+        import torch
+
+        class Attention(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.n_heads = int(n_heads)
+                self.head_dim = int(d_model) // int(n_heads)
+                self.q_proj = torch.nn.Linear(d_model, d_model)
+                self.k_proj = torch.nn.Linear(d_model, d_model)
+                self.v_proj = torch.nn.Linear(d_model, d_model)
+                self.out_proj = torch.nn.Linear(d_model, d_model)
+                self.resid_dropout = torch.nn.Dropout(float(dropout))
+
+            def forward(self, xs):
+                batch, width, dim = xs.shape
+                q = self.q_proj(xs).view(batch, width, self.n_heads, self.head_dim).transpose(1, 2)
+                k = self.k_proj(xs).view(batch, width, self.n_heads, self.head_dim).transpose(1, 2)
+                v = self.v_proj(xs).view(batch, width, self.n_heads, self.head_dim).transpose(1, 2)
+                scores = (q @ k.transpose(-2, -1)) / math.sqrt(self.head_dim)
+                causal = torch.tril(torch.ones(width, width, dtype=torch.bool, device=xs.device))
+                scores = scores.masked_fill(~causal, float("-inf"))
+                weights = torch.nn.functional.softmax(scores, dim=-1)
+                weights = torch.nn.functional.dropout(
+                    weights, p=self.resid_dropout.p, training=self.training)
+                out = (weights @ v).transpose(1, 2).contiguous().view(batch, width, dim)
+                return self.resid_dropout(self.out_proj(out))
+
+        return Attention()
+
+
+class _BenchmarkTransformer:
+    """Küçük decoder-only GPT; dış MiniGPT checkpoint'iyle de uyumlu.
+
+    Bu sınıf Nora'nın üretim modeli değildir. Aynı train/validation/held-out
+    çiftlerinde bağımsız Transformer tabanı olarak ``law_battery`` içindedir.
+    ``model_state`` alan adları indirilen MiniGPT ile birebir eşleşir; ağırlık
+    yüklemesi ``strict=True`` olduğundan sessiz eksik/yanlış katman olamaz.
+    """
+
+    def __new__(cls, *, vocab_size: int, context_length: int = 128,
+                d_model: int = 64, n_heads: int = 4, n_layers: int = 2,
+                ffn_dim: int = 256, dropout: float = 0.0):
+        import torch
+
+        class FeedForward(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.fc1 = torch.nn.Linear(d_model, ffn_dim)
+                self.act = torch.nn.GELU()
+                self.fc2 = torch.nn.Linear(ffn_dim, d_model)
+                self.dropout = torch.nn.Dropout(float(dropout))
+
+            def forward(self, xs):
+                return self.dropout(self.fc2(self.act(self.fc1(xs))))
+
+        class Block(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.ln1 = torch.nn.LayerNorm(d_model)
+                self.attn = _BenchmarkAttention(d_model, n_heads, dropout)
+                self.ln2 = torch.nn.LayerNorm(d_model)
+                self.ffn = FeedForward()
+
+            def forward(self, xs):
+                xs = xs + self.attn(self.ln1(xs))
+                return xs + self.ffn(self.ln2(xs))
+
+        class GPT(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.d_model = int(d_model)
+                self.context_length = int(context_length)
+                self.token_emb = torch.nn.Embedding(vocab_size, d_model)
+                self.blocks = torch.nn.ModuleList(Block() for _ in range(n_layers))
+                self.ln_f = torch.nn.LayerNorm(d_model)
+                self.lm_head = torch.nn.Linear(d_model, vocab_size, bias=False)
+                self.drop = torch.nn.Dropout(float(dropout))
+                position = torch.arange(context_length, dtype=torch.float32).unsqueeze(1)
+                index = torch.arange(0, d_model, 2, dtype=torch.float32)
+                frequency = torch.exp(-math.log(10000.0) * index / d_model)
+                encoding = torch.zeros(context_length, d_model)
+                encoding[:, 0::2] = torch.sin(position * frequency)
+                encoding[:, 1::2] = torch.cos(position * frequency)
+                self.register_buffer("pe", encoding, persistent=False)
+                self.apply(self._initialize)
+
+            @staticmethod
+            def _initialize(module):
+                if isinstance(module, torch.nn.Linear):
+                    torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+                    if module.bias is not None:
+                        torch.nn.init.zeros_(module.bias)
+                elif isinstance(module, torch.nn.Embedding):
+                    torch.nn.init.normal_(module.weight, mean=0.0, std=d_model ** -0.5)
+
+            def forward(self, ids):
+                width = int(ids.shape[1])
+                if width > self.context_length:
+                    raise ValueError("transformer-context-length")
+                xs = self.token_emb(ids) * math.sqrt(self.d_model) + self.pe[:width]
+                xs = self.drop(xs)
+                for block in self.blocks:
+                    xs = block(xs)
+                return self.lm_head(self.ln_f(xs))
+
+        return GPT()
+
+
+def _transformer_vocab_and_model(task: dict, *, seed: int,
+                                 pretrained_checkpoint: str = ""):
+    """Görev sözlüğünü train'den kur; varsa gerçek GPT ağırlıklarını yükle.
+
+    Pretrained tokenizer'da bulunmayan 0/1/2 gibi semboller için yeni gömme ve
+    çıktı satırları açılır. Eski Transformer gövdesi korunur. Görevin output
+    sınıfları yine yalnız train'den gelir; bütün 65 harf serbest bırakılıp
+    pretrained modele yapay bir hata/avantaj kanalı açılmaz.
+    """
+    import torch
+
+    train = task["train"]
+    input_symbols = sorted({s for source, _ in train for s in source})
+    output_symbols = sorted({s for _source, out in train for s in out})
+    provenance = {"pretrained": False}
+    if pretrained_checkpoint:
+        checkpoint = torch.load(pretrained_checkpoint, map_location="cpu", weights_only=True)
+        config = dict(checkpoint["model_config"])
+        model = _BenchmarkTransformer(
+            vocab_size=int(config["vocab_size"]),
+            context_length=int(config["context_length"]),
+            d_model=int(config["d_model"]), n_heads=int(config["n_heads"]),
+            n_layers=int(config["n_layers"]), ffn_dim=int(config["ffn_dim"]),
+            dropout=float(config.get("dropout", 0.0)),
+        )
+        model.load_state_dict(checkpoint["model_state"], strict=True)
+        characters = [str(s) for s in checkpoint["tokenizer"]["chars"]]
+        symbol_id = {symbol: index for index, symbol in enumerate(characters)}
+        provenance = {
+            "pretrained": True,
+            "checkpoint_sha256": hashlib.sha256(
+                open(pretrained_checkpoint, "rb").read()).hexdigest(),
+            "checkpoint_bytes": os.path.getsize(pretrained_checkpoint),
+            "source_model": "MiniGPT-TinyShakespeare",
+            "source_repository": "NaveedShk/miniGPT_Assignment-",
+            "source_commit": "5063ea23d04f596ee6ddbb258cd2b0bbb245d0b3",
+            "pretraining_data": "Tiny Shakespeare; ayrı ve ek ön-eğitim",
+            "pretraining_steps_recorded": int((checkpoint.get("train_config") or {})
+                                               .get("train", {}).get("max_steps", 0)),
+        }
+    else:
+        characters = []
+        symbol_id = {}
+        model = None
+    torch.manual_seed(int(seed))
+    missing = sorted((set(input_symbols) | set(output_symbols)) - set(symbol_id))
+    old_vocab = len(symbol_id)
+    if missing:
+        if old_vocab:
+            dimension = int(model.token_emb.weight.shape[1])
+            new_embedding = torch.nn.Embedding(old_vocab + len(missing), dimension)
+            new_head = torch.nn.Linear(dimension, old_vocab + len(missing), bias=False)
+            with torch.no_grad():
+                new_embedding.weight[:old_vocab].copy_(model.token_emb.weight)
+                new_head.weight[:old_vocab].copy_(model.lm_head.weight)
+            model.token_emb = new_embedding
+            model.lm_head = new_head
+        for offset, symbol in enumerate(missing):
+            symbol_id[symbol] = old_vocab + offset
+        characters.extend(missing)
+    if not symbol_id:
+        raise ValueError("empty transformer vocabulary")
+    if not pretrained_checkpoint:
+        # vocab_size=0 ile kurulan geçici model yerine aynı mimariyi sıfırdan,
+        # gerçek sözlükle başlat. Tohum ağırlık inisiyalizasyonundan önce sabit.
+        torch.manual_seed(int(seed))
+        model = _BenchmarkTransformer(vocab_size=len(symbol_id))
+        characters = [symbol for symbol, _index in
+                      sorted(symbol_id.items(), key=lambda row: row[1])]
+    provenance["new_task_symbols"] = missing
+    provenance["original_vocab_size"] = old_vocab
+    provenance["task_vocab_size"] = len(symbol_id)
+    return model, symbol_id, characters, input_symbols, output_symbols, provenance
+
+
+def _transformer_batch(model, rows, symbol_id, output_symbols, *, class_weights=None):
+    import torch
+
+    output_id = {symbol: index for index, symbol in enumerate(output_symbols)}
+    allowed = torch.tensor([symbol_id[symbol] for symbol in output_symbols], dtype=torch.long)
+    width = max(len(source) for source, _expected in rows)
+    xs = torch.zeros((len(rows), width), dtype=torch.long)
+    ys = torch.zeros((len(rows), width), dtype=torch.long)
+    mask = torch.zeros((len(rows), width), dtype=torch.bool)
+    for index, (source, expected) in enumerate(rows):
+        xs[index, :len(source)] = torch.tensor([symbol_id[s] for s in source])
+        ys[index, :len(expected)] = torch.tensor([output_id[s] for s in expected])
+        mask[index, :len(source)] = True
+    logits = model(xs)[..., allowed]
+    loss = torch.nn.functional.cross_entropy(
+        logits[mask], ys[mask], reduction="mean", weight=class_weights)
+    return loss, logits, ys, mask
+
+
+def _transformer_evaluate(model, rows, symbol_id, characters, output_symbols,
+                          *, batch_size: int = 32) -> dict:
+    import torch
+
+    exact = correct = total = 0
+    class_correct = [0 for _ in output_symbols]
+    class_total = [0 for _ in output_symbols]
+    predictions = []
+    losses = []
+    with torch.inference_mode():
+        model.eval()
+        for start in range(0, len(rows), batch_size):
+            chunk = rows[start:start + batch_size]
+            loss, logits, ys, mask = _transformer_batch(model, chunk, symbol_id, output_symbols)
+            predicted = logits.argmax(-1)
+            correct += int(((predicted == ys) & mask).sum())
+            total += int(mask.sum())
+            exact += sum(int(bool((predicted[i] == ys[i])[mask[i]].all()))
+                         for i in range(len(chunk)))
+            for class_index in range(len(output_symbols)):
+                selected = mask & (ys == class_index)
+                class_total[class_index] += int(selected.sum())
+                class_correct[class_index] += int(((predicted == ys) & selected).sum())
+            losses.append(float(loss))
+            for index, (source, _expected) in enumerate(chunk):
+                ids = predicted[index, :len(source)].tolist()
+                predictions.append("".join(output_symbols[i] for i in ids))
+    class_accuracy = {symbol: class_correct[index] / class_total[index]
+                      for index, symbol in enumerate(output_symbols) if class_total[index]}
+    return {
+        "token_accuracy": correct / max(1, total),
+        "macro_token_accuracy": sum(class_accuracy.values()) / max(1, len(class_accuracy)),
+        "class_token_accuracy": class_accuracy,
+        "exact_sequences": exact, "total_sequences": len(rows),
+        "exact": exact == len(rows), "loss": sum(losses) / max(1, len(losses)),
+        "predictions": predictions,
+    }
+
+
+def _transformer_causality_probe() -> bool:
+    """Gelecekteki iki girdi değişince önceki logits aynı kalmalı."""
+    import torch
+
+    torch.manual_seed(771)
+    model = _BenchmarkTransformer(vocab_size=3, d_model=16, n_heads=4,
+                                  n_layers=2, ffn_dim=32, dropout=0.0)
+    left = torch.tensor([[0, 1, 2, 0, 1]])
+    right = torch.tensor([[0, 1, 0, 1, 2]])
+    with torch.inference_mode():
+        model.eval()
+        a = model(left)
+        b = model(right)
+    return bool(torch.allclose(a[:, :2], b[:, :2], atol=1e-6, rtol=0.0)
+                and not torch.allclose(a[:, 2:], b[:, 2:], atol=1e-6, rtol=0.0))
+
+
+def _transformer_measured_attempt(task: dict, *, example_budget: int,
+                                  seed: int, learning_rate: float = 0.001,
+                                  batch_size: int = 16, patience: int = 60,
+                                  class_balance: bool = True,
+                                  pretrained_checkpoint: str = "") -> dict:
+    """CCG'nin toplam örnek/gradyan bütçesini aşmayan Transformer ölçümü."""
+    import torch
+
+    started = time.perf_counter()
+    model, symbol_id, characters, input_symbols, output_symbols, provenance = \
+        _transformer_vocab_and_model(
+            task, seed=seed, pretrained_checkpoint=pretrained_checkpoint)
+    train = list(task["train"])
+    validation = list(task["validation"])
+    if any(s not in symbol_id for source, _ in validation for s in source):
+        raise ValueError("validation-alphabet")
+    torch.manual_seed(int(seed) + 19)
+    np.random.seed(int(seed) % (2 ** 32 - 1))
+    output_id = {symbol: index for index, symbol in enumerate(output_symbols)}
+    counts = torch.zeros(len(output_symbols), dtype=torch.float64)
+    for _source, expected in train:
+        for symbol in expected:
+            counts[output_id[symbol]] += 1
+    weights = torch.zeros_like(counts, dtype=torch.float32)
+    present = counts > 0
+    weights[present] = (counts[present].sum() / (present.sum() * counts[present])).float()
+    if not class_balance:
+        weights.fill_(1.0)
+    optimizer = torch.optim.Adam(model.parameters(), lr=float(learning_rate))
+    rng = np.random.default_rng(int(seed) + 91_733)
+    max_epochs = max(1, int(example_budget) // max(1, len(train)))
+    best_score = (-1, -1, -float("inf"), -float("inf"), -float("inf"), -float("inf"))
+    best_weights = None
+    best_epoch = stale = gradient_steps = presentations = 0
+    epoch = 0
+    for epoch in range(1, max_epochs + 1):
+        model.train()
+        order = rng.permutation(len(train))
+        for start in range(0, len(order), int(batch_size)):
+            rows = [train[int(i)] for i in order[start:start + batch_size]]
+            optimizer.zero_grad()
+            loss, _logits, _ys, _mask = _transformer_batch(
+                model, rows, symbol_id, output_symbols, class_weights=weights)
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            optimizer.step()
+            gradient_steps += 1
+        presentations += len(train)
+        if epoch == 1 or epoch % 5 == 0 or epoch == max_epochs:
+            valid = _transformer_evaluate(model, validation, symbol_id, characters, output_symbols)
+            trained = _transformer_evaluate(model, train, symbol_id, characters, output_symbols)
+            score = (int(valid["exact"]), int(trained["exact"]),
+                     float(valid["macro_token_accuracy"]), float(trained["macro_token_accuracy"]),
+                     float(valid["token_accuracy"]), float(trained["token_accuracy"]))
+            if score > best_score:
+                best_score = score
+                best_weights = copy.deepcopy(model.state_dict())
+                best_epoch = epoch
+                stale = 0
+            else:
+                stale += 5
+            if (valid["exact"] and trained["exact"]) or stale >= int(patience):
+                break
+    if best_weights is not None:
+        model.load_state_dict(best_weights)
+    valid = _transformer_evaluate(model, validation, symbol_id, characters, output_symbols)
+    trained = _transformer_evaluate(model, train, symbol_id, characters, output_symbols)
+    held = _transformer_evaluate(model, task["heldout"], symbol_id, characters, output_symbols)
+    predictions = held.pop("predictions")
+    valid.pop("predictions")
+    trained.pop("predictions")
+    correct = sum(prediction == expected for prediction, (_source, expected)
+                  in zip(predictions, task["heldout"]))
+    total = len(task["heldout"])
+    seconds = time.perf_counter() - started
+    return {
+        "status": "fitted", "kind": "pretrained_mini_gpt" if provenance["pretrained"]
+                  else "transformer_from_scratch",
+        "family": task["family"], "modulus": task["modulus"],
+        "seconds": seconds, "correct": correct, "total": total,
+        "accuracy": correct / max(1, total), "exact": correct == total,
+        "parameters": sum(p.numel() for p in model.parameters()),
+        "trainable_parameters": sum(p.numel() for p in model.parameters() if p.requires_grad),
+        "layers": len(model.blocks), "heads": model.blocks[0].attn.n_heads,
+        "d_model": model.d_model, "context_length": model.context_length,
+        "epochs": epoch, "best_epoch": best_epoch, "gradient_steps": gradient_steps,
+        "example_presentations": presentations,
+        "example_budget_cap": int(example_budget),
+        "budget": int(example_budget), "budget_unit": "example_presentations",
+        "within_example_budget": presentations <= int(example_budget),
+        "learning_rate": float(learning_rate), "batch_size": int(batch_size),
+        "class_balance": bool(class_balance),
+        "class_weights": {symbol: float(weights[index]) for index, symbol in enumerate(output_symbols)},
+        "train_token_accuracy": trained["token_accuracy"],
+        "train_exact_sequences": trained["exact_sequences"],
+        "validation_token_accuracy": valid["token_accuracy"],
+        "validation_macro_token_accuracy": valid["macro_token_accuracy"],
+        "validation_exact_sequences": valid["exact_sequences"],
+        "heldout_token_accuracy": held["token_accuracy"],
+        "heldout_macro_token_accuracy": held["macro_token_accuracy"],
+        "heldout_exact_sequences": held["exact_sequences"],
+        "heldout_passed_to_learner": False,
+        "train_sha256": _rows_hash(task["train"]),
+        "validation_sha256": _rows_hash(task["validation"]),
+        "heldout_sha256": _rows_hash(task["heldout"]),
+        "causal_architecture": True, "causality_probe": _transformer_causality_probe(),
+        **provenance,
+        **_heldout_prediction_metrics(predictions, task["heldout"]),
+    }
+
+
+def transformer_representation_comparison(*, moduli=(12, 16, 24), train_n: int = 64,
+                                          heldout_n: int = 64, max_epochs: int = 240,
+                                          seed: int = MISSION_SEED,
+                                          data_seed: int = MISSION_SEED,
+                                          include_other_families: bool = True,
+                                          pretrained_checkpoint: str = "") -> dict:
+    """CCG ↔ sıfırdan Transformer ↔ isteğe bağlı pretrained MiniGPT.
+
+    Transformer'lara CCG auto'nun üç adayının toplam örnek sunumu kadar üst
+    sınır verilir. Böylece CCG'nin mimari seçim bütçesi gizlenip Transformer'a
+    yalnız tek-aday bütçesi verilmez. Erken duran model daha az tüketebilir;
+    hiçbiri üst sınırı aşamaz. Adım sayısı eşitlenebilir, FLOP ve duvar süresi
+    eşit değildir; bunlar ayrı raporlanır.
+    """
+    specs = [("counter", int(modulus)) for modulus in moduli]
+    if include_other_families:
+        specs.extend((family, 12) for family in
+                     ("reset", "affine", "ternary_reset", "ternary_weighted"))
+    rows = []
+    for index, (family, modulus) in enumerate(specs):
+        task = _bounded_family_task(family, modulus, train_n=train_n,
+                                    heldout_n=heldout_n, seed=data_seed)
+        continuous, _learner = _continuous_measured_attempt(
+            task, max_epochs=max_epochs, seed=seed + index,
+            class_balance=True, causal_summary="auto")
+        budget = int(continuous["example_presentations"])
+        transformer = _transformer_measured_attempt(
+            task, example_budget=budget, seed=seed + index,
+            learning_rate=0.001, class_balance=True)
+        row = {"family": family, "modulus": modulus,
+               "train_examples": train_n, "heldout_examples": heldout_n,
+               "continuous_causal_graph": continuous,
+               "transformer_from_scratch": transformer}
+        if pretrained_checkpoint:
+            row["pretrained_mini_gpt"] = _transformer_measured_attempt(
+                task, example_budget=budget, seed=seed + index,
+                learning_rate=0.0003, class_balance=True,
+                pretrained_checkpoint=pretrained_checkpoint)
+        rows.append(row)
+        message = (f"TR {family} mod{modulus}: CCG={continuous['correct']}/{continuous['total']} "
+                   f"P={continuous['positive_correct']}/{continuous['positive_total']} | "
+                   f"Transformer={transformer['correct']}/{transformer['total']} "
+                   f"P={transformer['positive_correct']}/{transformer['positive_total']} "
+                   f"steps={transformer['gradient_steps']}/{budget // 16}")
+        if pretrained_checkpoint:
+            pretrained = row["pretrained_mini_gpt"]
+            message += (f" | pretrained={pretrained['correct']}/{pretrained['total']} "
+                        f"P={pretrained['positive_correct']}/{pretrained['positive_total']}")
+        print(message, flush=True)
+    model_names = ["continuous_causal_graph", "transformer_from_scratch"]
+    if pretrained_checkpoint:
+        model_names.append("pretrained_mini_gpt")
+    complete = all(row[model].get("status") and
+                   row[model].get("positive_total", 0) > 0 and
+                   row[model].get("negative_total", 0) > 0 and
+                   row[model].get("within_example_budget", True) and
+                   row[model].get("causality_probe", True)
+                   for row in rows for model in model_names)
+    leaders = []
+    for row in rows:
+        scores = {model: row[model]["accuracy"] for model in model_names}
+        best = max(scores.values())
+        leaders.append({"family": row["family"], "modulus": row["modulus"],
+                        "heldout_leaders": sorted(model for model, score in scores.items()
+                                                  if score == best),
+                        "accuracies": scores})
+    return {
+        "protocol": {
+            "same_task_data_for_all": True, "heldout_passed_to_learner": False,
+            "heldout_used_for_checkpoint_or_budget": False,
+            "train_examples": train_n, "validation_examples": 16,
+            "heldout_examples": heldout_n,
+            "budget_rule": "each Transformer <= CCG auto total example presentations",
+            "gradient_step_batch_size": 16,
+            "budgets_not_flops_or_seconds": True,
+            "ccg_max_epochs_per_candidate": max_epochs,
+            "transformer_learning_rate": 0.001,
+            "pretrained_finetune_learning_rate": 0.0003,
+            "data_seed": data_seed, "model_seed_base": seed,
+            "causality_probe": _transformer_causality_probe(),
+            "pretrained_checkpoint_supplied": bool(pretrained_checkpoint),
+            "measurement_version": "v1-transformer-equal-example-step-cap",
+        },
+        "scale_and_ood": rows, "heldout_leaders_descriptive": leaders,
+        "measurement_complete": bool(complete),
+        "not_claimed": ["general_intelligence", "pretrained_tiny_gpt_is_general_llm",
+                        "gradient_steps_equal_flops", "single_seed_universality",
+                        "heldout_used_for_tuning"],
+    }
+
+
 def _fst_measured_attempt(task: dict, expansion_limit: int) -> dict:
     learner = _prior_learner()
     started = time.perf_counter()
@@ -2700,15 +3171,19 @@ def main():
                       help="bağımsız ikinci oracle ile acceptance ve uyuşmazlık ölçümü")
     mode.add_argument("--continuous-comparison", action="store_true",
                       help="mod12/16/24 ve OOD: FST ↔ sürekli nedensel grafik")
+    mode.add_argument("--transformer-comparison", action="store_true",
+                      help="CCG ↔ eşit örnek/adım bütçeli Transformer ↔ isteğe bağlı pretrained GPT")
     mode.add_argument("--audit", action="store_true", help="terfi checkpoint'ine yeni mühürlü denetim")
     ap.add_argument("--offline", action="store_true", help="görevde ağı kapalı tut")
     ap.add_argument("--output", default="")
+    ap.add_argument("--pretrained-checkpoint", default="",
+                    help="varsa indirilen MiniGPT tiny_gpt.pt; strict yükleme ve aynı ince-ayar bütçesi")
     ap.add_argument("--checkpoint", default="/tmp/nora_autonomous_skill.json")
     args = ap.parse_args()
     if (args.mission or args.scaling or args.generalization or args.active_generalization
             or args.oracle_robustness or args.correlated_oracle
             or args.adaptive_oracle or args.dual_oracle or args.continuous_comparison
-            or args.audit):
+            or args.transformer_comparison or args.audit):
         started = time.perf_counter()
         if args.mission:
             report = autonomous_invention_mission(network=not args.offline,
@@ -2748,6 +3223,11 @@ def main():
             report = continuous_representation_comparison()
             output = args.output or "/tmp/nora_continuous_comparison.json"
             success = bool(report["measurement_complete"])
+        elif args.transformer_comparison:
+            report = transformer_representation_comparison(
+                pretrained_checkpoint=args.pretrained_checkpoint)
+            output = args.output or "/tmp/nora_transformer_comparison.json"
+            success = bool(report["measurement_complete"])
         else:
             report = sealed_checkpoint_audit(args.checkpoint)
             output = args.output or "/tmp/nora_final_sealed_audit.json"
@@ -2759,7 +3239,7 @@ def main():
         label = ("ÖLÇÜM TAMAM" if (args.generalization or args.active_generalization
                                     or args.oracle_robustness or args.correlated_oracle
                                     or args.adaptive_oracle or args.dual_oracle
-                                    or args.continuous_comparison) and success
+                                    or args.continuous_comparison or args.transformer_comparison) and success
                  else ("GEÇTİ" if success else "KALDI"))
         print(f"KANIT {output} | {label}", flush=True)
         raise SystemExit(0 if success else 1)
