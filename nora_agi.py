@@ -2000,6 +2000,13 @@ class NoraAGI:
         if _experience:
             self._log_turn(speaker, raw, _experience, t0)
             return _experience
+        try:
+            _reference = self._reference_turn(raw, speaker=speaker)
+        except Exception:
+            _reference = None
+        if _reference:
+            self._log_turn(speaker, raw, _reference, t0)
+            return _reference
         # OPERATÖR SENTEZİ: "kitap -> patik, kalem -> melak" gibi ÖRNEK verilirse
         # dönüşümü Nora kendi yazar; "dönüşümü uygula: deniz" derse yazdığını çalıştırır.
         try:
@@ -6016,6 +6023,33 @@ class NoraAGI:
         self._turn_path = "organ"
         self._intent_locked = True
         self._apply_tag("ag", 1)
+        return text
+
+    def _reference_turn(self, raw: str, speaker: str) -> str | None:
+        """Belge anlatımını doğrudan diyalogdan ve öz-göndergeden ayır."""
+        low = tr_lower(raw)
+        if "?" in raw or len(re.split(r"(?<=[.!?])\s+", raw.strip())) > 1:
+            return None
+        if not re.search(r"\b(?:makale|metin|kitap)\w*\b", low):
+            return None
+        if not re.search(r"\b(?:bahset|bahsedil|değin|değinil|yaz)\w*\b", low):
+            return None
+        u = self.broca_organ.comprehend_discourse(
+            raw, low, self.lang.morph, self.lang.graph.lexicon
+        )
+        scope = dict(u.get("reference_scope") or {})
+        if not scope:
+            return None
+        text, trace = self.broca_organ._reference_scope_response(scope)
+        self.broca_organ.last_speech_plan = {
+            "volition_acts": ["REFERENCE_SCOPE"],
+            "surface_tr": text, "ask_back_chosen": False,
+            "raw_thought_nodes": [trace], "reference_scope": scope,
+        }
+        self._last_utterance_info = u
+        self._turn_path = "organ"
+        self._intent_locked = True
+        self._apply_tag("cikarim", 1)
         return text
 
     def _self_history_turn(self, raw: str) -> str | None:
