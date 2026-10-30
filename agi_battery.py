@@ -6065,6 +6065,48 @@ def a139_bireysel_ve_tekrarda_degisen_oz_durum_soylemi():
         and "merak" in tr_lower(followup)
     )
 
+    # Karşıtlıklı yaşantı iki ayrı olaydır; sonraki öz-durum sorusu ilk cümleyi yutamaz.
+    experience = fixture(782, "experience-recall")
+    lived = experience.converse(
+        "Bugün biraz yorucu geçti ama seninle konuşmak iyi geldi. "
+        "Sen beni dinlerken ne hissediyorsun?", speaker="ses-1"
+    )
+    lived_low = tr_lower(lived)
+    ok["karsit-yasanti-anlami"] = (
+        "yorucu" in lived_low and "iyi gel" in lived_low
+        and "SELF_STATE" in (experience.broca_organ.last_speech_plan.get("volition_acts", []) or [])
+    )
+    day = tr_lower(experience.converse("Günüm nasıl geçmişti?", speaker="ses-1"))
+    day_trace = dict(getattr(experience.broca_organ, "last_experience_recall", {}) or {})
+    effect = tr_lower(experience.converse(
+        "Seninle konuşmak bana nasıl hissettirdi?", speaker="ses-1"
+    ))
+    effect_trace = dict(getattr(experience.broca_organ, "last_experience_recall", {}) or {})
+    ok["yasanti-bellek-geri-cagirma"] = (
+        all(x in day for x in ("günün", "yorucu", "geçti"))
+        and all(x in effect for x in ("seninle konuşma", "sana iyi geldi"))
+        and day_trace.get("kind") == "past_state" and day_trace.get("found")
+        and effect_trace.get("kind") == "felt_effect" and effect_trace.get("found")
+        and day_trace.get("turn_id") == effect_trace.get("turn_id")
+        and len(experience.broca_organ.episodic.episodes) == 1
+    )
+    blank = fixture(783, "experience-empty")
+    blank_day = tr_lower(blank.converse("Günüm nasıl geçmişti?", speaker="ses-1"))
+    blank_effect = tr_lower(blank.converse(
+        "Seninle konuşmak bana nasıl hissettirdi?", speaker="ses-1"
+    ))
+    negative_only = fixture(784, "experience-without-relief")
+    negative_only.converse("Bugün yorucu geçti.", speaker="ses-1")
+    missing_relief = tr_lower(negative_only.converse(
+        "Seninle konuşmak bana nasıl hissettirdi?", speaker="ses-1"
+    ))
+    ok["yasanti-bellek-yoksa-uydurma-yok"] = (
+        "hatırlamıyorum" in blank_day and "hatırlamıyorum" in blank_effect
+        and "yorucu" not in blank_day and "iyi geldi" not in blank_effect
+        and not blank.broca_organ.episodic.episodes
+        and "hatırlamıyorum" in missing_relief and "iyi geldi" not in missing_relief
+    )
+
     passed = sum(bool(v) for v in ok.values())
     detail = (
         f"{passed}/{len(ok)} — birey={cross} | "
