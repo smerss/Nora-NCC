@@ -1993,6 +1993,13 @@ class NoraAGI:
             self._intent_locked = True
             self._log_turn(speaker, raw, _pred, t0)
             return _pred
+        try:
+            _experience = self._experience_turn(raw, speaker=speaker)
+        except Exception:
+            _experience = None
+        if _experience:
+            self._log_turn(speaker, raw, _experience, t0)
+            return _experience
         # OPERATÖR SENTEZİ: "kitap -> patik, kalem -> melak" gibi ÖRNEK verilirse
         # dönüşümü Nora kendi yazar; "dönüşümü uygula: deniz" derse yazdığını çalıştırır.
         try:
@@ -2414,6 +2421,7 @@ class NoraAGI:
                 parts = [parts[0] + " " + parts[1]] + parts[2:]
         if len(parts) > 1:
             taught_msgs = []
+            taught_social = []
             last_part = parts[-1]
             # Soru mu, bildirim mi? Bu sınıflandırmayı artık Nora'nın plastik Mantar Gövdesi KENDİSİ yapar.
             last_utt = self.utter_cortex.classify(last_part)
@@ -2426,8 +2434,13 @@ class NoraAGI:
             for sent in teach_slice:
                 r_msg = self._handle_single_sentence(sent, speaker=speaker)
                 taught_msgs.append(r_msg)
+                acts = list(self.broca_organ.last_speech_plan.get("volition_acts", []) or [])
+                if r_msg and any(a in acts for a in ("EMPATHIZE", "NARRATION_EMPATHIZE")):
+                    taught_social.append(r_msg)
             if is_last_q:
                 q_ans = self._handle_single_sentence(last_part, speaker=speaker)
+                if taught_social:
+                    q_ans = " ".join([*taught_social, q_ans])
                 self._log_turn(speaker, raw, q_ans, t0)
                 return q_ans
             joined = " ".join(taught_msgs)
@@ -5981,6 +5994,29 @@ class NoraAGI:
                 "test": self._len_of(getattr(self, "testimony", None), "records"),
                 "num": self._len_of(self, "num_facts"),
                 "goal": int(getattr(self, "_goals_done", 0))}
+
+    def _experience_turn(self, raw: str, speaker: str) -> str | None:
+        """Öznel yaşantı sorgusunu genel sözlük yerine olay belleğine bağla."""
+        low = tr_lower(raw)
+        u = self.broca_organ.comprehend_discourse(
+            raw, low, self.lang.morph, self.lang.graph.lexicon
+        )
+        query_kind = str(u.get("experience_query") or "")
+        if not query_kind:
+            return None
+        text, trace = self.broca_organ._recall_experience(
+            self, speaker, query_kind
+        )
+        self.broca_organ.last_speech_plan = {
+            "volition_acts": ["RECALL_EXPERIENCE"],
+            "surface_tr": text, "ask_back_chosen": False,
+            "raw_thought_nodes": [trace],
+        }
+        self._last_utterance_info = u
+        self._turn_path = "organ"
+        self._intent_locked = True
+        self._apply_tag("ag", 1)
+        return text
 
     def _self_history_turn(self, raw: str) -> str | None:
         """'BU OTURUMDA ne öğrendin?' — cevap DEFTERLERDEN, uydurma yok.

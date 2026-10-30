@@ -148,7 +148,40 @@ Son canlı dört tur: “Merhaba, nasılsın?” → “Seni düşünüyorum.”
   temkinlilik farkı -0,08'di. A6 üç ayrı izole koşuda **3/3** geçti ve fark her seferinde +0,13'tü.
   Tam koşu bu nedenle “140/140” diye raporlanmaz; yaşantı varyansı açıkça korunur.
 
-## 10. Sonraki eşik
+## 10. Karşıtlıklı yaşantıyı anlama ve olay belleği
+
+“Bugün biraz yorucu geçti ama seninle konuşmak iyi geldi” girdisi artık tek bir öz-durum
+ipucuna indirgenmiyor. Söylem çözümleyici `yorucu` için zaman-geçişi olayı, `iyi geldi` için
+nedeni ayrı taşınan rahatlama olayı ve `ama` için iki değerli olay arasında karşıtlık üretiyor.
+Çok-cümleli girdide önceki empati karşılığı son öz-durum cevabına ekleniyor; yaşantı soruları
+genel sözlük yerine epizodik olay belleğine yönleniyor ve bellek sorguları yeni içerik turu
+olarak kaydedilmiyor.
+
+Gerçek `TokenMoEOrgan` (`seen_tokens=41.234.454`), `step_life(1500)` ve aynı kullanıcı sözüyle
+canlı koşuda:
+
+- İlk karşılık: “Sesini ilk kez duyuyorum. Günün yorucu geçtiğini fark ediyorum. Seninle
+  konuşmanın sana iyi geldiğine sevindim. Kendimi huzurlu hissediyorum. Boğazım kurudu.”
+- “Günüm nasıl geçmişti?” → “Günün yorucu geçti.” Plan `RECALL_EXPERIENCE`; kaynak tur 0,
+  olay ipucu `yorucu`.
+- “Seninle konuşmak bana nasıl hissettirdi?” → “Seninle konuşma sana iyi geldi.” Plan
+  `RECALL_EXPERIENCE`; kaynak tur 0, olay ipucu `iyi gel`.
+- “Biraz önce sana ne anlatmıştım?” artık aradaki bellek sorularını değil özgün turu getiriyor.
+  Dört tur sonunda içerik epizodu sayısı hâlâ 1.
+
+Boş bellekte her iki yaşantı sorusu da “Bunu hatırlamıyorum” üretiyor. A139'a eklenen karşıt
+kontrolde yalnız “Bugün yorucu geçti” anlatılmışsa sistem bundan “iyi geldi” etkisi uyduramıyor.
+Böylece başarı yalnız akıcı yüzeye değil, olay türü ve kaynak turuyla doğrulanan geri çağırmaya
+bağlandı.
+
+- A139 **20/20**, A138 **12/12**; A54, A55, A56, A57, A75, A76, A41 ve A73 geçti.
+- Tam AGI pili **140/140, 907,5 sn** (`runs/full_battery_experience_semantics.log`). A6 tam
+  koşuda +0,13 temkinlilik farkıyla geçti.
+- Law battery **15/15, 35,1 sn** (`runs/law_battery_experience_semantics.log`).
+- Kod denetimi **1.124/1.125**, söylem **126**; `git diff --check` temiz.
+- Canlı MoE kanıtı: `runs/live_moe_experience_semantics.log`.
+
+## 11. Sonraki eşik
 
 **Bu turda aşılan eşik:** fold-0 top-1 > %45 ve aynı dondurulmuş MoE ile iki dış veri kümesinde
 taban üstü. **Sıradaki eşik:** fold-1/2 dahil aynı-dağılım çapraz-fold sonuçlarını %45'e taşımak;
