@@ -1403,9 +1403,75 @@ def a42_cross_verification_hypothesis_pool():
     agi.autonomous_research(fetchers=[("web:tdk.gov.tr", f)])
     in_graph_2 = bool(agi.lang.graph._out_edges.get("magnetar"))
     water_poisoned = any(e.obj in ("zararlı",) for e in agi.lang.graph._out_edges.get("su", []))
-    ok = (not in_graph_1) and trace1 is not None and (not in_graph_same_domain) and in_graph_2 and (not water_poisoned)
+
+    # Gerçek ağ gerektirmeyen kaynak akışı: alan dengesi, Türkçe filtre, yeni
+    # bölüme ilerleme, disk cache ve sayaç kalıcılığı birlikte denetlenir.
+    import json
+    from nora_life import TurkishResearchStream
+    tr_chunks = [
+        "Bilgisayar bilimi verileri işlemek için algoritmalar ve veri yapıları kullanır.",
+        "Kuantum bilgisayarlar kübitlerle hesaplama yapar ve dolanıklık kullanır.",
+        "Bu kaynak Türkçe öğrenme için yeni bir açıklama ve ek ayrıntı içerir.",
+        "Araştırma sırasında elde edilen bilgiler bağımsız kaynaklarla doğrulanmalıdır.",
+        "Yazılım ve donanım birlikte çalışarak bilgisayarın temel işlevlerini oluşturur.",
+        "Dolanıklık ve süperpozisyon kuantum sistemlerinin önemli özellikleri arasındadır.",
+        "Fizik ve enerji araştırmaları doğadaki kuvvetleri ve atomları anlamaya yardımcı olur.",
+        "Matematik ve geometri derslerinde sayı, denklem ve teorem kavramları birlikte öğrenilir.",
+        "Tarih araştırmalarında imparatorluk, savaş ve yüzyıl kavramları kaynaklarla incelenir.",
+        "Coğrafya derslerinde ülke, şehir, iklim, nehir ve dağ kavramları birlikte ele alınır.",
+    ]
+
+    def fake_source(url):
+        if "lessons.json" in url:
+            titles = ("Bilgisayar ve Yazılım", "Kuantum Hesaplama", "Biyoloji ve Genom",
+                      "Fizik ve Enerji", "Matematik", "Tarih", "Coğrafya")
+            modules = [{"title_tr": title, "desc_tr": title + " için temel bilgiler ve açıklamalar.",
+                        "lessons": [{"title_tr": title, "eli5_tr": "\n".join(tr_chunks),
+                                     "deep_tr": "Bu alan için ek açıklamalar ve yeni örnekler vardır."}]}
+                       for title in titles]
+            return json.dumps({"modules": modules})
+        if ".ipynb" in url:
+            return json.dumps({"cells": [{"cell_type": "markdown", "source": "\n".join(tr_chunks)
+                                           + "\n$$|\\Psi\\rangle = |00\\rangle + |11\\rangle$$"
+                                           + "\nKuantum açıklaması denklem sonrasında da Türkçe ve okunabilir kalmalıdır."
+                                           + "\nThis is only an English sentence and must be filtered."}]})
+        return "\n".join(tr_chunks)
+
+    with tempfile.TemporaryDirectory(prefix="nora-research-stream-") as td:
+        stream = TurkishResearchStream(cache_dir=td, fetcher=fake_source)
+        chunks = []
+        for _ in range(21):
+            rec = stream.read_balanced(max_sentences=2)
+            chunks.append(str(rec.get("text", "")))
+        coverage = dict(stream.coverage)
+        state = stream.state_dict()
+        offline = TurkishResearchStream(
+            cache_dir=td, fetcher=lambda _url: (_ for _ in ()).throw(RuntimeError("ağ yasak")))
+        cached = offline.read(topic="bilgisayar", max_sentences=2)
+        offline.load_state_dict(state)
+        persistence_ok = offline.coverage == stream.coverage and offline.offsets == stream.offsets
+        agi.life.research_stream = stream
+        heard_before = agi.life.voice.heard_tokens
+        life_rec = agi.life.research_balanced(agi, max_sentences=2)
+        life_ok = (life_rec.get("ok") and life_rec.get("epistemic_status") == "provisional"
+                   and life_rec.get("promoted") == 0 and agi.life.voice.heard_tokens > heard_before)
+        research_ok = (
+            len(chunks) == 21 and all(chunks) and len(set(chunks)) > 7
+            and coverage.get("computer", 0) > 0 and coverage.get("quantum", 0) > 0
+            and len([a for a, n in coverage.items() if n > 0]) >= 7
+            and all("English sentence" not in text for text in chunks)
+            and all("rangle" not in text and "$$" not in text for text in chunks)
+            and any(n > 2 for n in stream.offsets.values())
+            and cached.get("ok") and cached.get("cached")
+            and persistence_ok and life_ok
+            and all(x.get("archive_url", "").startswith("https://codeload.github.com/")
+                    and "api.github.com" not in x.get("url", "") for x in stream.sources)
+        )
+    ok = ((not in_graph_1) and trace1 is not None and (not in_graph_same_domain) and in_graph_2
+          and (not water_poisoned) and research_ok)
     return ok, (f"tek-kaynak-ağda={in_graph_1} iz={trace1} | aynı-alan-ağda={in_graph_same_domain} | "
-                f"2.bağımsız-kaynak-ağda={in_graph_2} | yalan-reddedildi={not water_poisoned}")
+                f"2.bağımsız-kaynak-ağda={in_graph_2} | yalan-reddedildi={not water_poisoned} | "
+                f"Türkçe-akış={research_ok} yaşam-akışı={life_ok} kapsama={coverage}")
 
 
 def a43_self_completion_drive_social_gap():

@@ -1,0 +1,30 @@
+[
+  {
+    "ok": true,
+    "source": "ai-roadmap-computer",
+    "url": "https://api.github.com/repos/bturkerp/ai-education-roadmap/contents/README.md?ref=60ec909100ac9ac742ceffa768626670e7639dfe",
+    "area": "computer",
+    "topic": "bilgisayar",
+    "n": 4,
+    "available": 22,
+    "offset": 0,
+    "cached": false,
+    "epistemic_status": "provisional",
+    "text_preview": "Yapay zeka öğrenim yol haritası: Python, makine öğrenmesi, derin öğrenme, optimizasyon ve kuantum bilgisayar dersleri.\nYapay Zekâ Öğrenim Yol Haritası ve Eğitim Materyalleri\nBu depo, yapay zekâ alanında sıfırdan ileri seviyeye kadar öğrenmek isteyen öğrenciler, araştırmacılar ve profesyoneller için hazırlanmış kapsamlı bir eğitim yol haritasıdır.\nTüm içerikler Türkçe, örneklerle desteklenmiş ve basitten karmaşığa doğru yapılandırılmıştır.",
+    "text_chars": 442
+  },
+  {
+    "ok": true,
+    "source": "deeptech-quantum",
+    "url": "https://api.github.com/repos/aliturgutbozkurt/deeptech/contents/web/data/lessons.json?ref=0817963ca400e2fe74666d650bd2073a120116f6",
+    "area": "quantum",
+    "topic": "kuantum",
+    "n": 4,
+    "available": 254,
+    "offset": 0,
+    "cached": false,
+    "epistemic_status": "provisional",
+    "text_preview": "Kuantum mekaniği prensipleri, Bloch küresi, süperpozisyon durumları, Bell durumları ve kuantum dolaşıklığının hesaplamalı gücü.\nKuantum Hesaplama Temelleri: Kübitler, Süperpozisyon & Dolaşıklık - Temel Fizik İlkeleri, Bilimsel Temel ve Tarihsel Gelişim\nEvde yemek yapmayı düşünün: Bir web sitesi kodlamak ekmek arasına peynir koymaya benzer; hata yaparsanız peyniri çıkarıp zeytin koyabilirsiniz.\nAncak derin teknoloji Quantum , unun içindeki molekülleri laboratuvarda yeniden dizip 300 derece fırınd",
+    "text_chars": 561
+  }
+]

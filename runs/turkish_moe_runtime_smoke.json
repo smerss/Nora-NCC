@@ -1,0 +1,27 @@
+{
+  "sequences": [
+    [
+      6174,
+      563,
+      2372,
+      14
+    ],
+    [
+      6174,
+      460,
+      567,
+      718,
+      14
+    ]
+  ],
+  "text": [
+    "Kedi i\u00e7in kullan\u0131l\u0131r.",
+    "Kedi bir karedir."
+  ],
+  "logprob": [
+    -0.8427349925041199,
+    -1.745355248451233
+  ],
+  "active_parameters": 20210944,
+  "finite": true
+}

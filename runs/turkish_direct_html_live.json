@@ -1,0 +1,21 @@
+{
+  "date": "2026-10-30",
+  "status": "network_unreachable_in_this_sandbox",
+  "api_used": false,
+  "topic": "bilgisayar",
+  "sources": {
+    "web:tr.wikipedia.org": {
+      "url": "https://tr.wikipedia.org/wiki/Bilgisayar",
+      "characters_returned_by_background_source": 0,
+      "seconds": 0.07272734700018191,
+      "direct_urlopen_error": "URLError: <urlopen error TLS/SSL connection has been closed (EOF) (_ssl.c:992)>"
+    },
+    "web:tr.wiktionary.org": {
+      "url": "https://tr.wiktionary.org/wiki/Bilgisayar",
+      "characters_returned_by_background_source": 0,
+      "seconds": 0.06838445200037313,
+      "direct_urlopen_error": "URLError: <urlopen error TLS/SSL connection has been closed (EOF) (_ssl.c:992)>"
+    }
+  },
+  "interpretation": "Doğrudan HTML yolu bu sandıkta canlı doğrulanamadı; boş metin başarı sayılmadı. Sabit-commit codeload ve disk-cache akışı ayrı canlı testlerde çalıştı."
+}

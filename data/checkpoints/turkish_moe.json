@@ -1,0 +1,7 @@
+{
+  "kind": "token_moe_broca",
+  "external": "turkish_external.pt",
+  "position": "turkish_position149.pt",
+  "wide": "turkish_wide147.pt",
+  "router": "turkish_router_final.pt"
+}

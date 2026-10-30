@@ -1,0 +1,43 @@
+{
+  "seed": 140,
+  "prefix": 3,
+  "router_train_loss": 0.001202298328280449,
+  "router_train_accuracy": 1.0,
+  "development": {
+    "n": 393,
+    "top1": 0.44783715012722647,
+    "top5": 0.5114503816793893,
+    "ppl": 81.49876471747794,
+    "target_fraction": 0.9592875318066157,
+    "ood_sentences": 0,
+    "sentences": 55,
+    "ood_threshold": 4.1291594243375584e-05,
+    "token_confidence_ratio": 0.75,
+    "causal_ood_after_observed_tokens": 3
+  },
+  "xquad": {
+    "n": 37097,
+    "top1": 0.08472383211580452,
+    "top5": 0.16028250262824487,
+    "ppl": 4140.523273978071,
+    "target_fraction": 0.8237323772811818,
+    "ood_sentences": 136,
+    "sentences": 1230,
+    "ood_threshold": 4.1291594243375584e-05,
+    "token_confidence_ratio": 0.75,
+    "causal_ood_after_observed_tokens": 3
+  },
+  "target_ensemble": {
+    "position": 0.65,
+    "wide": 0.35
+  },
+  "model_paths": {
+    "external": "data/checkpoints/turkish_external.pt",
+    "position": "data/checkpoints/turkish_position144.pt",
+    "wide": "data/checkpoints/turkish_wide149.pt"
+  },
+  "corpora": {
+    "external_router_train": ".cache/corpora/processed/external_train.jsonl",
+    "xquad": ".cache/corpora/processed/xquad_rebuilt_v2.jsonl"
+  }
+}

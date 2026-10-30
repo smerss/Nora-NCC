@@ -764,9 +764,18 @@ class NoraAGI:
         return stats
 
     def attach_broca(self, path: str):
-        """Sinirsel Broca artikülasyon organını bağlar (zihin karar verir, organ yalnızca dile döker)."""
-        from nora_broca_net import BrocaOrgan
-        self.life.voice.organ = BrocaOrgan.load(path)
+        """Sinirsel Broca artikülasyon organını bağlar (zihin karar verir, organ yalnızca dile döker).
+
+        Tek ``.pt`` taban organı veya üç uzmanlı ``token_moe_broca`` JSON manifesti
+        aynı çalışma-zamanı söz arayüzüne bağlanır; varsayılan davranış değişmez.
+        """
+        from nora_broca_net import BrocaOrgan, TokenMoEOrgan
+        is_manifest = path.endswith(".json")
+        if not is_manifest:
+            with open(path, "rb") as handle:
+                is_manifest = handle.read(16).lstrip().startswith(b"{")
+        self.life.voice.organ = (TokenMoEOrgan.from_manifest(path)
+                                 if is_manifest else BrocaOrgan.load(path))
         self.life.voice.tok = self.life.voice.organ.tok
 
     # Söz organı konuşmaya başlamak için ne kadar dil duymuş olmalı (duyulan parça sayısından üstel doyma).

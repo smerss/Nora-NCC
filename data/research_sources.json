@@ -1,0 +1,273 @@
+{
+  "version": 2,
+  "language": "tr",
+  "language_markers": [
+    "bir", "ve", "ile", "için", "bu", "şu", "da", "de", "mi", "mı",
+    "olarak", "ancak", "ise", "göre", "daha", "çok", "değil", "var", "yok"
+  ],
+  "epistemic_status": "provisional",
+  "description": "Hazır cevap değil, sabit commitli codeload/disk-cache Türkçe okuma kaynakları. Tek başına kavram ağına bilgi yazmaz.",
+  "sources": [
+    {
+      "id": "deeptech-computer",
+      "area": "computer",
+      "topics": [
+        "bilgisayar",
+        "yazılım",
+        "yapay zeka",
+        "algoritma"
+      ],
+      "keywords": [
+        "bilgisayar",
+        "yazılım",
+        "algoritma",
+        "yapay zek",
+        "hesaplama",
+        "çip"
+      ],
+      "url": "https://github.com/aliturgutbozkurt/deeptech/blob/0817963ca400e2fe74666d650bd2073a120116f6/web/data/lessons.json",
+      "format": "deeptech_json",
+      "license": "MIT",
+      "archive_url": "https://codeload.github.com/aliturgutbozkurt/deeptech/tar.gz/0817963ca400e2fe74666d650bd2073a120116f6",
+      "archive_path": "web/data/lessons.json",
+      "commit": "0817963ca400e2fe74666d650bd2073a120116f6"
+    },
+    {
+      "id": "deeptech-quantum",
+      "area": "quantum",
+      "topics": [
+        "kuantum",
+        "kübit",
+        "dolanıklık"
+      ],
+      "keywords": [
+        "kuantum",
+        "qubit",
+        "kübit",
+        "dolanık"
+      ],
+      "url": "https://github.com/aliturgutbozkurt/deeptech/blob/0817963ca400e2fe74666d650bd2073a120116f6/web/data/lessons.json",
+      "format": "deeptech_json",
+      "license": "MIT",
+      "archive_url": "https://codeload.github.com/aliturgutbozkurt/deeptech/tar.gz/0817963ca400e2fe74666d650bd2073a120116f6",
+      "archive_path": "web/data/lessons.json",
+      "commit": "0817963ca400e2fe74666d650bd2073a120116f6"
+    },
+    {
+      "id": "deeptech-biology",
+      "area": "biology",
+      "topics": [
+        "biyoloji",
+        "genom",
+        "protein"
+      ],
+      "keywords": [
+        "biyoloj",
+        "genom",
+        "protein",
+        "hücre",
+        "crispr"
+      ],
+      "url": "https://github.com/aliturgutbozkurt/deeptech/blob/0817963ca400e2fe74666d650bd2073a120116f6/web/data/lessons.json",
+      "format": "deeptech_json",
+      "license": "MIT",
+      "archive_url": "https://codeload.github.com/aliturgutbozkurt/deeptech/tar.gz/0817963ca400e2fe74666d650bd2073a120116f6",
+      "archive_path": "web/data/lessons.json",
+      "commit": "0817963ca400e2fe74666d650bd2073a120116f6"
+    },
+    {
+      "id": "quantum-qubit",
+      "area": "quantum",
+      "topics": [
+        "kuantum",
+        "kübit"
+      ],
+      "keywords": [
+        "kuantum",
+        "kübit",
+        "qubit"
+      ],
+      "url": "https://github.com/iremsener/quantum-cryptography-notebooks-tr/blob/ee958122037b9e725ded4842a856fc770e6cd24d/week00_arka-plan-giris/kubit-nedir.ipynb",
+      "format": "notebook_markdown",
+      "license": "undetected",
+      "archive_url": "https://codeload.github.com/iremsener/quantum-cryptography-notebooks-tr/tar.gz/ee958122037b9e725ded4842a856fc770e6cd24d",
+      "archive_path": "week00_arka-plan-giris/kubit-nedir.ipynb",
+      "commit": "ee958122037b9e725ded4842a856fc770e6cd24d"
+    },
+    {
+      "id": "quantum-entanglement",
+      "area": "quantum",
+      "topics": [
+        "kuantum",
+        "dolanıklık"
+      ],
+      "keywords": [
+        "kuantum",
+        "dolanık"
+      ],
+      "url": "https://github.com/iremsener/quantum-cryptography-notebooks-tr/blob/ee958122037b9e725ded4842a856fc770e6cd24d/Bolum02_Dolanikligin-Gücü/2.1-Dolaniklik.ipynb",
+      "format": "notebook_markdown",
+      "license": "undetected",
+      "archive_url": "https://codeload.github.com/iremsener/quantum-cryptography-notebooks-tr/tar.gz/ee958122037b9e725ded4842a856fc770e6cd24d",
+      "archive_path": "Bolum02_Dolanikligin-Gücü/2.1-Dolaniklik.ipynb",
+      "commit": "ee958122037b9e725ded4842a856fc770e6cd24d"
+    },
+    {
+      "id": "quantum-information",
+      "area": "quantum",
+      "topics": [
+        "kuantum",
+        "bilgi",
+        "şifreleme"
+      ],
+      "keywords": [
+        "kuantum",
+        "bilgi",
+        "şifre"
+      ],
+      "url": "https://github.com/iremsener/quantum-cryptography-notebooks-tr/blob/ee958122037b9e725ded4842a856fc770e6cd24d/Bolum03_Kuantum-Bilgi-Teorisi/3.1-iz-mesafesi.ipynb",
+      "format": "notebook_markdown",
+      "license": "undetected",
+      "archive_url": "https://codeload.github.com/iremsener/quantum-cryptography-notebooks-tr/tar.gz/ee958122037b9e725ded4842a856fc770e6cd24d",
+      "archive_path": "Bolum03_Kuantum-Bilgi-Teorisi/3.1-iz-mesafesi.ipynb",
+      "commit": "ee958122037b9e725ded4842a856fc770e6cd24d"
+    },
+    {
+      "id": "ai-roadmap-computer",
+      "area": "computer",
+      "topics": [
+        "bilgisayar",
+        "yazılım",
+        "yapay zeka",
+        "optimizasyon"
+      ],
+      "keywords": [
+        "bilgisayar",
+        "yazılım",
+        "yapay zek",
+        "optimizasyon",
+        "python"
+      ],
+      "url": "https://github.com/bturkerp/ai-education-roadmap/blob/60ec909100ac9ac742ceffa768626670e7639dfe/README.md",
+      "format": "markdown",
+      "license": "undetected",
+      "archive_url": "https://codeload.github.com/bturkerp/ai-education-roadmap/tar.gz/60ec909100ac9ac742ceffa768626670e7639dfe",
+      "archive_path": "README.md",
+      "commit": "60ec909100ac9ac742ceffa768626670e7639dfe"
+    },
+    {
+      "id": "wiki-computer",
+      "area": "computer",
+      "topics": [
+        "bilgisayar",
+        "donanım",
+        "yazılım",
+        "internet"
+      ],
+      "keywords": [
+        "bilgisayar",
+        "donanım",
+        "yazılım",
+        "internet",
+        "programlama"
+      ],
+      "url": "https://github.com/damirci/turkish-sentences-dataset/blob/6742ce14eec378a01d778487e00347600ffb3018/wiki.tr.txt",
+      "format": "text_lines",
+      "license": "CC0-1.0",
+      "archive_url": "https://codeload.github.com/damirci/turkish-sentences-dataset/tar.gz/6742ce14eec378a01d778487e00347600ffb3018",
+      "archive_path": "wiki.tr.txt",
+      "commit": "6742ce14eec378a01d778487e00347600ffb3018"
+    },
+    {
+      "id": "wiki-physics",
+      "area": "physics",
+      "topics": [
+        "fizik",
+        "enerji",
+        "ışık",
+        "atom"
+      ],
+      "keywords": [
+        "fizik",
+        "enerji",
+        "ışık",
+        "atom",
+        "kuvvet"
+      ],
+      "url": "https://github.com/damirci/turkish-sentences-dataset/blob/6742ce14eec378a01d778487e00347600ffb3018/wiki.tr.txt",
+      "format": "text_lines",
+      "license": "CC0-1.0",
+      "archive_url": "https://codeload.github.com/damirci/turkish-sentences-dataset/tar.gz/6742ce14eec378a01d778487e00347600ffb3018",
+      "archive_path": "wiki.tr.txt",
+      "commit": "6742ce14eec378a01d778487e00347600ffb3018"
+    },
+    {
+      "id": "wiki-mathematics",
+      "area": "mathematics",
+      "topics": [
+        "matematik",
+        "geometri",
+        "sayı"
+      ],
+      "keywords": [
+        "matematik",
+        "geometri",
+        "sayı",
+        "denklem",
+        "teorem"
+      ],
+      "url": "https://github.com/damirci/turkish-sentences-dataset/blob/6742ce14eec378a01d778487e00347600ffb3018/wiki.tr.txt",
+      "format": "text_lines",
+      "license": "CC0-1.0",
+      "archive_url": "https://codeload.github.com/damirci/turkish-sentences-dataset/tar.gz/6742ce14eec378a01d778487e00347600ffb3018",
+      "archive_path": "wiki.tr.txt",
+      "commit": "6742ce14eec378a01d778487e00347600ffb3018"
+    },
+    {
+      "id": "wiki-history",
+      "area": "history",
+      "topics": [
+        "tarih",
+        "imparatorluk",
+        "savaş"
+      ],
+      "keywords": [
+        "tarih",
+        "imparatorluk",
+        "savaş",
+        "yüzyıl",
+        "krallık"
+      ],
+      "url": "https://github.com/damirci/turkish-sentences-dataset/blob/6742ce14eec378a01d778487e00347600ffb3018/wiki.tr.txt",
+      "format": "text_lines",
+      "license": "CC0-1.0",
+      "archive_url": "https://codeload.github.com/damirci/turkish-sentences-dataset/tar.gz/6742ce14eec378a01d778487e00347600ffb3018",
+      "archive_path": "wiki.tr.txt",
+      "commit": "6742ce14eec378a01d778487e00347600ffb3018"
+    },
+    {
+      "id": "wiki-geography",
+      "area": "geography",
+      "topics": [
+        "coğrafya",
+        "ülke",
+        "şehir",
+        "iklim"
+      ],
+      "keywords": [
+        "coğrafya",
+        "ülke",
+        "şehir",
+        "iklim",
+        "nehir",
+        "dağ"
+      ],
+      "url": "https://github.com/damirci/turkish-sentences-dataset/blob/6742ce14eec378a01d778487e00347600ffb3018/wiki.tr.txt",
+      "format": "text_lines",
+      "license": "CC0-1.0",
+      "archive_url": "https://codeload.github.com/damirci/turkish-sentences-dataset/tar.gz/6742ce14eec378a01d778487e00347600ffb3018",
+      "archive_path": "wiki.tr.txt",
+      "commit": "6742ce14eec378a01d778487e00347600ffb3018"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "mode": "base",
+  "corpus": ".cache/corpora/processed/xquad_rebuilt_v2.jsonl",
+  "corpus_sha256": "c6a3fdac5f70bf6454671d767ffebd196bebd70f73048536ec6b69037c696201",
+  "input_sentences": 1230,
+  "models": [
+    "data/broca_tr.pt"
+  ],
+  "model_sha256": {
+    "data/broca_tr.pt": "d2af910c07986ae33bb0fcedfad1ddf62a0a43be24100025c6751e73a8a58222"
+  },
+  "position_weight": 0.65,
+  "seconds": 13.830172079000022,
+  "max_rss_mib": 1344.48828125,
+  "metrics": {
+    "n": 37097,
+    "hit1": 3345,
+    "hit5": 6199,
+    "top1": 0.0901690163625091,
+    "top5": 0.16710246111545407,
+    "ppl": 5951.449800352462
+  }
+}
