@@ -161,7 +161,7 @@ Gerçek `TokenMoEOrgan` (`seen_tokens=41.234.454`), `step_life(1500)` ve aynı k
 canlı koşuda:
 
 - İlk karşılık: “Sesini ilk kez duyuyorum. Günün yorucu geçtiğini fark ediyorum. Seninle
-  konuşmanın sana iyi geldiğine sevindim. Kendimi huzurlu hissediyorum. Boğazım kurudu.”
+  konuşmanın sana iyi geldiğine sevindim. Kendimi huzurlu hissediyorum.”
 - “Günüm nasıl geçmişti?” → “Günün yorucu geçti.” Plan `RECALL_EXPERIENCE`; kaynak tur 0,
   olay ipucu `yorucu`.
 - “Seninle konuşmak bana nasıl hissettirdi?” → “Seninle konuşma sana iyi geldi.” Plan
@@ -174,12 +174,20 @@ kontrolde yalnız “Bugün yorucu geçti” anlatılmışsa sistem bundan “iy
 Böylece başarı yalnız akıcı yüzeye değil, olay türü ve kaynak turuyla doğrulanan geri çağırmaya
 bağlandı.
 
-- A139 **20/20**, A138 **12/12**; A54, A55, A56, A57, A75, A76, A41 ve A73 geçti.
-- Tam AGI pili **140/140, 907,5 sn** (`runs/full_battery_experience_semantics.log`). A6 tam
-  koşuda +0,13 temkinlilik farkıyla geçti.
-- Law battery **15/15, 35,1 sn** (`runs/law_battery_experience_semantics.log`).
+Hedef cümlede bulunmayan “Dün gecem gergin geçti fakat sohbetimiz çok iyi geldi” parafrazı da
+aynı MoE ile çalıştırıldı. İlk deneme rahatlama olayını yanlışlık zaman-geçişi sayarak “Günün iyi
+geçti” üretti; bu sonuç başarı sayılmadı. Olay türü ayrımı ve çekimli zaman adları düzeltildikten
+sonra nihai çıktı “Gecen gergin geçtiğini fark ediyorum. Sohbetimizin sana iyi geldiğine
+sevindim.” oldu; “Gecem nasıl geçmişti?” → “Gecen gergin geçti.” ve etki sorusu → “Sohbetimiz
+sana iyi geldi.” Bu parafraz A139'un kalıcı kontrolüne eklendi.
+
+- A139 **21/21**, A138 **12/12**; A54, A55, A56, A57, A75, A76, A41 ve A73 geçti.
+- Son ürün koduyla tam AGI pili **140/140, 929,1 sn**
+  (`runs/full_battery_experience_semantics_final.log`). A6 tam koşuda +0,13 temkinlilik farkıyla
+  geçti.
+- Law battery **15/15, 35,5 sn** (`runs/law_battery_experience_semantics_final.log`).
 - Kod denetimi **1.124/1.125**, söylem **126**; `git diff --check` temiz.
-- Canlı MoE kanıtı: `runs/live_moe_experience_semantics.log`.
+- Hedef ve parafrazın son canlı MoE kanıtı: `runs/live_moe_experience_semantics_final.log`.
 
 ## 11. Sonraki eşik
 
