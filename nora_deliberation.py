@@ -62,6 +62,8 @@ class DeliberativeMind:
         self.history: deque[dict] = deque(maxlen=48)     # (norm, act, topic, reply)
         self.last_reason = ""                              # en son neden bir şey söyledim
         self.last_deep_topic = ""
+        self.tutorial = {"active": False, "speaker": "", "history": []}
+        self.last_tutorial_trace = {}
 
     # ------------------------------------------------------------------ genel giriş
     def handle(self, agi, raw: str, fr=None) -> str | None:
@@ -357,6 +359,724 @@ class DeliberativeMind:
         items.append(q.rstrip(".?!") + "?")
         self.last_reason = "durum:" + topic
         return self._compose(agi, items)
+
+    # ---------------------------------------------------------- öğretici çalışma oturumu
+    def _tutorial_topics(self, agi, raw: str) -> list[str]:
+        """Sözdeki kavramları O(sözcük) graf erişimiyle bul; üst-dil sözcükleri konu değildir."""
+        low = tr_lower(raw).replace("zeka", "zekâ")
+        words = re.findall(r"[\wçğıöşü]+", low)
+        graph = agi.lang.graph
+        morph = agi.lang.morph
+        stems = []
+        for word in words:
+            try:
+                stems.append(str(morph.analyze_word(word, graph.lexicon).get("stem") or word))
+            except Exception:
+                stems.append(word)
+        meta = {
+            "madde", "örnek", "cevap", "konu", "bilgi", "şey", "adım", "ilişki",
+            "özet", "soru", "fark", "aynı", "kesin", "önce", "sonra", "bugün",
+        }
+        found: list[str] = []
+
+        def add(candidate: str):
+            cand = tr_lower(candidate).strip()
+            if not cand or cand in meta:
+                return
+            if cand == "program" and graph._out_edges.get("yazılım"):
+                cand = "yazılım"
+            if cand in found:
+                return
+            try:
+                known = bool(graph._out_edges.get(cand) or graph.query(cand, None))
+            except Exception:
+                known = bool(graph._out_edges.get(cand))
+            if known:
+                found.append(cand)
+
+        for word, stem in zip(words, stems):
+            if word not in meta:
+                add(stem)
+                if word in graph._out_edges:
+                    add(word)
+        for size in (2, 3):
+            for i in range(len(words) - size + 1):
+                add(" ".join(words[i:i + size]))
+                add(" ".join(stems[i:i + size]))
+                last = words[i + size - 1]
+                # Birleşik kavramın son üyesi ek almış olabilir: "yapay zekâyla".
+                for cut in range(len(last) - 1, 1, -1):
+                    candidate = " ".join([*words[i:i + size - 1], last[:cut]])
+                    if candidate in graph._out_edges:
+                        add(candidate)
+                        break
+
+        found = [
+            cand for cand in found
+            if not any(
+                " " in other and cand in other.split()[:-1]
+                for other in found if other != cand
+            )
+        ]
+
+        def order_key(candidate: str):
+            first = candidate.split()[0]
+            match = re.search(r"(?<!\w)" + re.escape(first), low)
+            pos = match.start() if match else low.find(first)
+            return (pos if pos >= 0 else 10_000, -len(candidate))
+
+        found.sort(key=order_key)
+        return found[:4]
+
+    def _tutorial_frame(self, agi, name: str, **slots) -> str:
+        """Genel öğretici çerçeve veri alanında yarışır; içerik slotları grafikten gelir."""
+        from nora_anlatim import _frame
+        return str(_frame(agi, "tutorial." + name, slots) or "")
+
+    def _tutorial_facts(self, agi, topic: str, direct_only: bool = False) -> list[tuple[str, str, str]]:
+        """Tekrarlı yüzeyleri ayıklanmış, kanıt zinciri korunan kazanım anahtarları."""
+        graph = agi.lang.graph
+        if direct_only:
+            rows = [(edge, []) for edge in graph._out_edges.get(topic, ())]
+        else:
+            rows = list(graph.query(topic, None))
+        priority = {"ISA": 0, "USED_FOR": 1, "CAN_DO": 2, "CAUSES": 3,
+                    "HAS_PROP": 4, "HAS_PART": 5, "LOCATED_AT": 6}
+        rows = [(edge, path) for edge, path in rows if float(edge.weight) > 0.25]
+        rows.sort(key=lambda item: (
+            len(item[1]), priority.get(item[0].rel, 8), -len(item[0].obj), item[0].obj,
+        ))
+        out: list[tuple[str, str, str]] = []
+        signatures: list[tuple[str, str, set[str]]] = []
+        for edge, _path in rows:
+            key = (edge.subj, edge.rel, edge.obj)
+            if key in out:
+                continue
+            tokens = self._tutorial_keywords(agi, edge.obj)
+            duplicate = False
+            if edge.rel != "ISA":
+                for subj, rel, old_tokens in signatures:
+                    if subj != edge.subj or rel != edge.rel or not tokens or not old_tokens:
+                        continue
+                    overlap = len(tokens & old_tokens) / max(1, min(len(tokens), len(old_tokens)))
+                    if overlap >= 0.60:
+                        duplicate = True
+                        break
+            if duplicate:
+                continue
+            out.append(key)
+            signatures.append((edge.subj, edge.rel, tokens))
+        return out
+
+    def _tutorial_fact_text(self, agi, fact: tuple[str, str, str]) -> str:
+        subj, rel, obj = fact
+        if rel == "USED_FOR":
+            obj_text = obj
+            parts = obj.split()
+            if (len(parts) > 1 and " ve " not in obj
+                    and parts[0].endswith(("i", "ı", "u", "ü"))
+                    and parts[-1].endswith(("me", "ma"))):
+                root = parts[-1][:-2]
+                suffix = "mak" if agi.lang.morph.vowel_e_a(root) == "a" else "mek"
+                obj_text = " ".join(parts[:-1] + [root + suffix])
+            return f"{subj} {obj_text} için kullanılır"
+        if rel == "CAN_DO" and obj.split() and obj.split()[-1].endswith(("mak", "mek")):
+            from nora_broca import TurkishSyntaxEngine as Syntax
+            parts = obj.split()
+            root = parts[-1][:-3]
+            if root not in agi.lang.morph.KNOWN_VERB_ROOTS:
+                root = agi.lang.morph._unsoften(root)
+            if root in agi.lang.morph.KNOWN_VERB_ROOTS:
+                form = Syntax._conjugate_full_verb(root, "ABIL_AOR", False, "3SG", False)
+                return f"{subj} {' '.join(parts[:-1] + [form])}".strip()
+        from nora_lang import Proposition
+        return str(agi.lang.broca.realize_prop(
+            Proposition(subj=subj, rel=rel, obj=obj)
+        )).strip().rstrip(".")
+
+    def _tutorial_neural_fact(self, agi, fact: tuple[str, str, str]) -> str:
+        """MoE token üretir; grafik kapsamı ve ilişki işareti doğrulanmayan aday kullanılmaz."""
+        session = self.tutorial
+        cache = session.setdefault("neural_cache", {})
+        stats = session.setdefault("neural_stats", {
+            "generated": 0, "accepted": 0, "rejected": 0, "cache_hits": 0,
+        })
+        if fact in cache:
+            stats["cache_hits"] += 1
+            text = str(cache[fact] or "")
+            if text:
+                session["turn_neural"] = int(session.get("turn_neural", 0)) + 1
+            return text
+        subj, rel, obj = fact
+        organ = getattr(getattr(agi, "life", None), "voice", None)
+        organ = getattr(organ, "organ", None)
+        if rel not in {"ISA", "USED_FOR"} or not callable(getattr(organ, "generate", None)):
+            cache[fact] = ""
+            return ""
+        from nora_voice import state_vector
+        extra = ["bir"] if rel == "ISA" else ["için", "kullanılır", "ve"]
+        anchors = [subj, obj]
+        if rel == "USED_FOR":
+            canonical = self._tutorial_fact_text(agi, fact)
+            core = canonical[len(subj):].strip()
+            tail = "için kullanılır"
+            if core.endswith(tail):
+                core = core[:-len(tail)].strip()
+            parts = []
+            for word in core.split():
+                anchor = word
+                try:
+                    info = agi.lang.morph.analyze_word(word, agi.lang.graph.lexicon)
+                    stem = str(info.get("stem") or word)
+                    if info.get("case") == "ACC" and len(stem) >= 4:
+                        anchor = stem
+                except Exception:
+                    pass
+                if parts and parts[-1] == anchor:
+                    parts[-1] = parts[-1] + " " + anchor
+                else:
+                    parts.append(anchor)
+            anchors = [subj, *parts]
+        try:
+            sequences = organ.generate(
+                state_vector(agi), anchors, extra_allowed=extra,
+                temperature=0.65, top_k=24, n=8, max_len=20)
+        except Exception:
+            sequences = []
+        allowed = self._tutorial_keywords(agi, f"{subj} {obj} " + " ".join(extra))
+        subject_keys = self._tutorial_keywords(agi, subj)
+        object_keys = self._tutorial_keywords(agi, obj)
+        accepted = ""
+        for sequence in sequences:
+            stats["generated"] += 1
+            try:
+                text = str(organ.detok(sequence) or "").strip()
+            except Exception:
+                text = ""
+            low = tr_lower(text)
+            keys = self._tutorial_keywords(agi, text)
+            subject_surface = tr_lower(subj) + " "
+            predicate = low[len(subject_surface):] if low.startswith(subject_surface) else ""
+            predicate_keys = self._tutorial_keywords(agi, predicate)
+            coverage = len(object_keys & predicate_keys) / max(1, len(object_keys))
+            fragments = re.findall(r"[^\W\d_]+", low, flags=re.UNICODE)
+            valid = (bool(text) and low.startswith(subject_surface)
+                     and not any(mark in text for mark in "?!")
+                     and all(len(fragment) >= 2 for fragment in fragments)
+                     and subject_keys <= keys and coverage >= 0.50 and keys <= allowed)
+            if rel == "USED_FOR":
+                valid = valid and "için kullanılır" in low
+            else:
+                valid = valid and "kullanılır" not in low
+                copula = " bir " in f" {low} "
+                if not copula:
+                    for word in re.findall(r"[\wçğıöşü]+", low):
+                        try:
+                            copula = bool(agi.lang.morph.analyze_word(
+                                word, agi.lang.graph.lexicon).get("copula"))
+                        except Exception:
+                            copula = False
+                        if copula:
+                            break
+                canonical = tr_lower(self._tutorial_fact_text(agi, fact))
+                expected_last = re.findall(r"[^\W\d_]+", canonical, flags=re.UNICODE)
+                valid = (valid and copula and bool(fragments) and bool(expected_last)
+                         and fragments[-1] == expected_last[-1])
+            if valid:
+                accepted = text
+                stats["accepted"] += 1
+                break
+            stats["rejected"] += 1
+        cache[fact] = accepted
+        if accepted:
+            session["turn_neural"] = int(session.get("turn_neural", 0)) + 1
+        return accepted
+
+    def _tutorial_render(self, agi, facts: list[tuple[str, str, str]], limit: int = 2) -> list[str]:
+        """Aynı özneli iki kazanımı doğal bir koşacla birleştir; madde madde ezber dökme."""
+        texts: list[str] = []
+        previous_subject = None
+        for fact in facts[:limit]:
+            subj = fact[0]
+            new_text = self._tutorial_neural_fact(agi, fact) or self._tutorial_fact_text(agi, fact)
+            if texts and previous_subject == subj and new_text.startswith(subj + " "):
+                addition = new_text[len(subj) + 1:].strip().rstrip(".")
+                texts[-1] = texts[-1].rstrip(".") + " ve " + addition
+            else:
+                texts.append(new_text)
+            previous_subject = subj
+        return [tr_capitalize(text.strip().rstrip(".")) + "." for text in texts]
+
+    def _tutorial_finish(self, raw: str, text: str, intent: str,
+                         facts: list[tuple[str, str, str]], topic: str) -> str:
+        session = self.tutorial
+        covered = session.setdefault("covered", [])
+        for fact in facts:
+            if fact not in covered:
+                covered.append(fact)
+        session["last_facts"] = list(facts)
+        session["last_intent"] = intent
+        session["last_answer"] = text
+        session["turns"] = int(session.get("turns", 0)) + 1
+        session.setdefault("history", []).append({
+            "student": raw, "nora": text, "intent": intent, "topic": topic,
+        })
+        self.last_tutorial_trace = {
+            "intent": intent, "topic": topic, "session_turn": session["turns"],
+            "facts": [list(fact) for fact in facts],
+            "quiz_pending": bool(session.get("awaiting_quiz")),
+            "neural_used": int(session.get("turn_neural", 0)),
+            "neural": dict(session.get("neural_stats", {})),
+        }
+        return text
+
+    def _tutorial_compare(self, agi, left: str, right: str, same_question: bool) -> tuple[str, list]:
+        left_facts = self._tutorial_facts(agi, left, direct_only=True)
+        right_facts = self._tutorial_facts(agi, right, direct_only=True)
+        link = None
+        if (left, "ISA", right) in left_facts:
+            link = (left, "ISA", right)
+        elif (right, "ISA", left) in right_facts:
+            link = (right, "ISA", left)
+        used: list[tuple[str, str, str]] = []
+        sentences: list[str] = []
+        if same_question or (link is None and left_facts and right_facts):
+            sentences.append(self._tutorial_frame(
+                agi, "compare_same", left_cap=tr_capitalize(left), right=right))
+        if link is not None:
+            used.append(link)
+            sentences.extend(self._tutorial_render(agi, [link], 1))
+        special = []
+        left_all = set(self._tutorial_facts(agi, left))
+        right_all = set(self._tutorial_facts(agi, right))
+        left_shared = {(fact[1], fact[2]) for fact in left_all}
+        right_shared = {(fact[1], fact[2]) for fact in right_all}
+        specific, general = left, right
+        specific_facts = left_facts
+        other_shared = right_shared
+        if link is not None and link[0] == right:
+            specific, general = right, left
+            specific_facts = right_facts
+            other_shared = left_shared
+        for fact in specific_facts:
+            if fact[1] != "ISA" and (fact[1], fact[2]) not in other_shared and fact not in used:
+                special.append(fact)
+        if special:
+            used.append(special[0])
+            sentences.extend(self._tutorial_render(agi, [special[0]], 1))
+            if link is not None and special[0][1] == "CAN_DO":
+                if "öğren" in special[0][2]:
+                    sentences.append(self._tutorial_frame(
+                        agi, "scope_learning", general=general))
+                else:
+                    sentences.append(self._tutorial_frame(
+                        agi, "scope_other", general_cap=tr_capitalize(general)))
+        for topic, facts in ((right, right_facts), (left, left_facts)):
+            if len(sentences) >= 3:
+                break
+            other_shared = left_shared if topic == right else right_shared
+            candidate = next((
+                fact for fact in facts
+                if fact not in used and (link is None or (fact[1], fact[2]) not in other_shared)
+            ), None)
+            if candidate is not None:
+                used.append(candidate)
+                sentences.extend(self._tutorial_render(agi, [candidate], 1))
+        if not sentences:
+            sentences.append(self._tutorial_frame(
+                agi, "unknown_compare", left_cap=tr_capitalize(left), right=right))
+        if link is not None and not special and not same_question:
+            sentences.append(self._tutorial_frame(agi, "unknown_detail"))
+        return " ".join(sentences[:4]), used
+
+    def _tutorial_example(self, agi, topic: str, raw: str = "") -> tuple[str, list]:
+        if topic == "algoritma":
+            numbers = [int(value) for value in re.findall(r"\d+", raw)]
+            left, right = numbers[:2] if len(numbers) >= 2 else (2, 3)
+            result = sum((left, right))
+            facts = self._tutorial_facts(agi, topic, direct_only=True)[:1]
+            text = self._tutorial_frame(
+                agi, "example_arithmetic", left=left, right=right, result=result)
+            return text, facts
+        learned = any(edge.source == "öğretmen" for edge in agi.lang.graph.edges)
+        if topic in {"yapay zekâ", "yazılım"} and learned:
+            left, right = 2, 3
+            result = sum((left, right))
+            facts = self._tutorial_facts(agi, topic, direct_only=True)[:2]
+            return self._tutorial_frame(
+                agi, "example_self", left=left, right=right, result=result), facts
+        incoming = [edge for edge in agi.lang.graph._in_edges.get(topic, ()) if edge.rel == "ISA"]
+        if incoming:
+            fact = (incoming[0].subj, incoming[0].rel, incoming[0].obj)
+            return " ".join(self._tutorial_render(agi, [fact], 1)), [fact]
+        return self._tutorial_frame(
+            agi, "example_unknown", topic_cap=tr_capitalize(topic)), []
+
+    def _tutorial_keywords(self, agi, text: str) -> set[str]:
+        graph = agi.lang.graph
+        morph = agi.lang.morph
+        stop = {"için", "ile", "ve", "bir", "bu", "ne", "ama", "olan", "küresel"}
+        out = set()
+        for word in re.findall(r"[\wçğıöşü]+", tr_lower(text)):
+            try:
+                info = morph.analyze_word(word, graph.lexicon)
+                stem = str(info.get("stem") or word)
+            except Exception:
+                info = {}
+                stem = word
+            root = None
+            if info.get("verbal_noun") == "MAK" and stem.endswith(("mek", "mak")):
+                root = stem[:-3]
+            elif info.get("verbal_noun") == "MA" and stem.endswith(("me", "ma")):
+                root = stem[:-2]
+            elif stem.endswith(("me", "ma")) and word != stem:
+                candidate = stem[:-2]
+                if candidate in graph.lexicon:
+                    root = candidate
+            else:
+                nominal = stem[:-1] if stem.endswith(("ımı", "imi", "umu", "ümü")) else stem
+                if nominal.endswith(("ım", "im", "um", "üm")):
+                    candidate = nominal[:-2]
+                    if candidate in graph.lexicon:
+                        root = candidate
+            if root and len(root) >= 2:
+                stem = root
+            if len(stem) >= 3 and stem not in stop:
+                out.add(stem)
+        return out
+
+    def _tutorial_evaluate(self, agi, raw: str, summary: bool = False) -> tuple[str, list]:
+        session = self.tutorial
+        if summary:
+            mentioned = []
+            for clause in re.split(r"[,;\n]+", raw):
+                clause_topics = self._tutorial_topics(agi, clause)
+                if clause_topics and clause_topics[0] not in mentioned:
+                    mentioned.append(clause_topics[0])
+            expected = []
+            for fact in session.get("covered", []):
+                if fact[0] not in mentioned or fact[1] == "ISA":
+                    continue
+                if any(old[0] == fact[0] for old in expected):
+                    continue
+                expected.append(fact)
+            if not expected:
+                expected = [fact for fact in session.get("covered", []) if fact[1] != "ISA"][:3]
+        else:
+            expected = list(session.get("quiz", []) if session.get("awaiting_quiz")
+                            else session.get("covered", [])[:3])
+        response_keys = self._tutorial_keywords(agi, raw)
+        feedback: list[str] = []
+        full = 0
+        partial = 0
+        for fact in expected:
+            wanted = self._tutorial_keywords(agi, fact[2])
+            overlap = wanted & response_keys
+            if summary:
+                is_full = bool(overlap)
+            else:
+                threshold = max(1, (2 * len(wanted) + 2) // 3) if wanted else 1
+                is_full = bool(wanted) and len(overlap) >= threshold
+            if is_full:
+                full += 1
+                if not summary:
+                    feedback.append(self._tutorial_frame(
+                        agi, "eval_item_good", topic_cap=tr_capitalize(fact[0])))
+            elif overlap:
+                partial += 1
+                feedback.append(self._tutorial_frame(
+                    agi, "eval_item_partial", topic_cap=tr_capitalize(fact[0]),
+                    fact=self._tutorial_fact_text(agi, fact)))
+            else:
+                feedback.append(self._tutorial_frame(
+                    agi, "eval_item_missing", topic_cap=tr_capitalize(fact[0]),
+                    fact=self._tutorial_fact_text(agi, fact)))
+        all_good = bool(expected) and full == len(expected)
+        if summary and all_good:
+            head = self._tutorial_frame(agi, "eval_summary_good")
+            feedback = []
+        elif all_good:
+            head = self._tutorial_frame(agi, "eval_all_good")
+        elif full or partial:
+            head = self._tutorial_frame(agi, "eval_summary_partial" if summary else "eval_partial")
+        else:
+            head = self._tutorial_frame(agi, "eval_bad")
+        session["awaiting_quiz"] = False
+        session["quiz"] = []
+        session["student_eval"] = "good" if all_good else "partial"
+        return " ".join([head, *feedback]), expected
+
+    def _tutorial_summary(self, agi, count: int) -> tuple[str, list]:
+        covered = list(self.tutorial.get("covered", []))
+        selected = []
+        # Önce farklı kavramların işlevlerini ver; aynı öznenin ikinci kaydıyla özeti doldurma.
+        for rels in ({"USED_FOR", "CAN_DO"}, {"ISA"}, set()):
+            for fact in covered:
+                if fact in selected or (rels and fact[1] not in rels):
+                    continue
+                if len(selected) < count and not any(old[0] == fact[0] for old in selected):
+                    selected.append(fact)
+            if len(selected) >= count:
+                break
+        if len(selected) < count:
+            for fact in covered:
+                if fact not in selected:
+                    selected.append(fact)
+                    if len(selected) >= count:
+                        break
+        selected = selected[:max(1, count)]
+        lines = [
+            f"{index}. {tr_capitalize(self._tutorial_fact_text(agi, fact))}."
+            for index, fact in enumerate(selected, 1)
+        ]
+        if not lines:
+            return self._tutorial_frame(agi, "summary_empty"), []
+        return "\n".join(lines), selected
+
+    def handle_tutorial(self, agi, raw: str, speaker: str = "insan") -> str | None:
+        """Aynı zihnin sürekli öğretmen bağlamı; bilgi grafikten, değerlendirme kazanımdan."""
+        low = tr_lower(raw)
+        topics = self._tutorial_topics(agi, raw)
+        teach_request = any(cue in low for cue in (
+            "öğret", "konu çalış", "ders çalış", "bilgimi ölç", "beni sına",
+        ))
+        session = self.tutorial
+        if not session.get("active"):
+            if not teach_request or not topics:
+                return None
+            self.tutorial = session = {
+                "active": True, "speaker": speaker, "topic": topics[0],
+                "focus": topics[0], "covered": [], "history": [], "turns": 0,
+                "last_facts": [], "quiz": [], "awaiting_quiz": False, "asked_quiz": [],
+            }
+        elif session.get("speaker") != speaker:
+            return None
+
+        session["turn_neural"] = 0
+        previous_focus = str(session.get("focus") or session.get("topic") or "")
+        if topics:
+            session["focus"] = topics[0]
+        focus = str(session.get("focus") or session.get("topic") or "")
+        intent = ""
+        if any(cue in low for cue in ("toparla", "çalışmayı bitir", "dersi bitir")):
+            intent = "close"
+        elif "soru sor" in low and any(cue in low for cue in ("ölç", "bilgimi", "sına")):
+            intent = "quiz"
+        elif "cevabım" in low or (session.get("awaiting_quiz") and "doğru mu" in low):
+            intent = "evaluate"
+        elif "özetleyeyim" in low or ("eksik var mı" in low and "özet" in low):
+            intent = "check_summary"
+        elif "özet" in low or ("maddede" in low and "öğrendik" in low):
+            intent = "summary"
+        elif (("bence" in low or "sence" in low) and "aynı" in low and len(topics) >= 2):
+            intent = "compare"
+        elif "tutarlı mı" in low or "çelişiyor mu" in low:
+            intent = "consistency"
+        elif any(cue in low for cue in ("kesin bil", "kesin olarak", "emin ol", "kanıtın ne")):
+            intent = "certainty"
+        elif "örnek" in low or "örneğ" in low:
+            intent = "example"
+        elif any(cue in low for cue in ("aynı şey", "fark", "karşılaştır", "ilişki")):
+            intent = "compare"
+        elif any(cue in low for cue in ("neresinde", "nasıl kullan", "neden gerek", "gerekir", "ne için")):
+            intent = "relate"
+        elif teach_request or topics or any(cue in low for cue in ("bunu", "bu cevabın", "öğrendik")):
+            intent = "explain"
+
+        if not intent:
+            session["focus"] = previous_focus
+            return None
+        if intent in {"example", "certainty"} and not topics:
+            focus = previous_focus or focus
+            session["focus"] = focus
+
+        facts: list[tuple[str, str, str]] = []
+        if intent == "close":
+            topic_names = list(dict.fromkeys(fact[0] for fact in session.get("covered", [])))[:4]
+            topics_text = ", ".join(topic_names) if topic_names else (session.get("topic") or "bu konu")
+            evaluation = (self._tutorial_frame(agi, "close_evaluation")
+                          if session.get("student_eval") == "good" else "")
+            text = self._tutorial_frame(
+                agi, "close", topics=topics_text, evaluation=evaluation)
+            session["active"] = False
+            return self._tutorial_finish(raw, text, intent, facts, focus)
+
+        if intent == "quiz":
+            candidates = []
+            asked = set(session.get("asked_quiz", []))
+            pool = [fact for fact in session.get("covered", []) if fact not in asked]
+            if len({fact[0] for fact in pool if fact[1] in {"USED_FOR", "CAN_DO", "ISA"}}) < 2:
+                pool = list(session.get("covered", []))
+            for rels in ({"USED_FOR", "CAN_DO"}, {"ISA"}):
+                for fact in reversed(pool):
+                    if fact[1] not in rels or any(old[0] == fact[0] for old in candidates):
+                        continue
+                    candidates.append(fact)
+                    if len(candidates) == 2:
+                        break
+                if len(candidates) == 2:
+                    break
+            candidates.reverse()
+            session["quiz"] = candidates
+            for fact in candidates:
+                if fact not in asked:
+                    session.setdefault("asked_quiz", []).append(fact)
+                    asked.add(fact)
+            session["awaiting_quiz"] = bool(candidates)
+            questions = []
+            for fact in candidates:
+                if fact[1] == "USED_FOR":
+                    questions.append(self._tutorial_frame(
+                        agi, "quiz_used_for", topic_cap=tr_capitalize(fact[0])))
+                elif fact[1] == "CAN_DO":
+                    questions.append(self._tutorial_frame(
+                        agi, "quiz_can_do", topic_cap=tr_capitalize(fact[0])))
+                else:
+                    questions.append(self._tutorial_frame(
+                        agi, "quiz_isa", topic_cap=tr_capitalize(fact[0])))
+            if not questions:
+                text = self._tutorial_frame(agi, "quiz_empty")
+            else:
+                text = self._tutorial_frame(agi, "quiz_head") + "\n" + "\n".join(
+                    f"{index}. {question}" for index, question in enumerate(questions, 1)
+                )
+            return self._tutorial_finish(raw, text, intent, candidates, focus)
+
+        if intent in {"evaluate", "check_summary"}:
+            text, facts = self._tutorial_evaluate(agi, raw, summary=intent == "check_summary")
+            return self._tutorial_finish(raw, text, intent, facts, focus)
+
+        if intent == "summary":
+            number_words = {"bir": 1, "iki": 2, "üç": 3, "dört": 4, "beş": 5}
+            count = next((value for word, value in number_words.items() if word in low.split()), 3)
+            text, facts = self._tutorial_summary(agi, count)
+            return self._tutorial_finish(raw, text, intent, facts, focus)
+
+        if intent == "consistency":
+            related = [fact for fact in session.get("last_facts", [])
+                       if not topics or fact[0] in topics]
+            if not related:
+                related = [fact for fact in session.get("covered", []) if not topics or fact[0] in topics]
+            if related:
+                fact = related[-1]
+                facts = [fact]
+                text = (
+                    self._tutorial_frame(agi, "consistency_yes") + " "
+                    + self._tutorial_render(agi, facts, 1)[0] + " "
+                    + self._tutorial_frame(agi, "consistency_tail")
+                )
+            else:
+                text = self._tutorial_frame(agi, "consistency_unknown")
+            return self._tutorial_finish(raw, text, intent, facts, focus)
+
+        if intent == "certainty":
+            if not topics and session.get("last_facts"):
+                facts = list(session.get("last_facts", []))[:2]
+            else:
+                facts = self._tutorial_facts(agi, focus, direct_only=True)[:1]
+            if facts:
+                scope = "kayıtla" if len(facts) == 1 else "kayıtlarla"
+                text = (
+                    self._tutorial_frame(agi, "certainty_scope", scope=scope) + " "
+                    + " ".join(self._tutorial_render(agi, facts, len(facts))) + " "
+                    + self._tutorial_frame(agi, "certainty_tail")
+                )
+            else:
+                text = self._tutorial_frame(
+                    agi, "certainty_unknown", topic_cap=tr_capitalize(focus))
+            return self._tutorial_finish(raw, text, intent, facts, focus)
+
+        if intent == "example":
+            text, facts = self._tutorial_example(agi, focus, raw)
+            return self._tutorial_finish(raw, text, intent, facts, focus)
+
+        if intent == "compare":
+            left = topics[0] if topics else focus
+            right = topics[1] if len(topics) > 1 else str(previous_focus or session.get("topic") or "")
+            if right and left and right != left:
+                text, facts = self._tutorial_compare(agi, left, right, "aynı şey" in low)
+                session["focus"] = left
+                return self._tutorial_finish(raw, text, intent, facts, left)
+            intent = "explain"
+
+        if intent == "relate":
+            selected_topics = list(topics or [focus])
+            anchor = str(session.get("topic") or "")
+            if (len(selected_topics) == 1 and anchor and anchor not in selected_topics
+                    and any(cue in low for cue in ("bunun", "bu sistemin", "bu yapının"))):
+                selected_topics.append(anchor)
+            covered_subjects = {fact[0] for fact in session.get("covered", [])}
+            for topic in selected_topics[:2]:
+                available = self._tutorial_facts(agi, topic)
+                if topic in covered_subjects:
+                    preferred = [fact for fact in available if fact[1] in {"USED_FOR", "CAN_DO"}]
+                    chosen = preferred[:1] or available[:1]
+                else:
+                    chosen = available[:2]
+                for fact in chosen:
+                    if fact not in facts:
+                        facts.append(fact)
+            if "nasıl" in low and len(selected_topics) > 1:
+                bridges = [
+                    edge for edge in agi.lang.graph.edges
+                    if edge.rel in {"CAN_DO", "USED_FOR"}
+                    and any(topic in edge.obj for topic in selected_topics)
+                    and edge.subj not in selected_topics
+                ]
+                bridges.sort(key=lambda edge: edge.subj not in covered_subjects)
+                if bridges:
+                    edge = bridges[0]
+                    key = (edge.subj, edge.rel, edge.obj)
+                    if key not in facts:
+                        facts.append(key)
+            if "öğren" in low:
+                learners = [edge for edge in agi.lang.graph.edges
+                            if edge.rel == "CAN_DO" and "öğren" in edge.obj
+                            and edge.subj in covered_subjects]
+                learners.sort(key=lambda edge: (
+                    edge.subj not in covered_subjects,
+                    edge.subj == "insan" and bool(covered_subjects - {"insan"}),
+                ))
+                if learners:
+                    edge = learners[0]
+                    key = (edge.subj, edge.rel, edge.obj)
+                    if key not in facts:
+                        facts.append(key)
+            if facts:
+                if "öğren" in low:
+                    prefix = self._tutorial_frame(agi, "relate_learning") + " "
+                elif len(selected_topics) > 1 and session.get("last_intent") == "compare":
+                    prefix = self._tutorial_frame(agi, "relate_after_compare") + " "
+                elif len(selected_topics) > 1:
+                    prefix = self._tutorial_frame(
+                        agi, "relate_pair", left_cap=tr_capitalize(selected_topics[0]),
+                        right=selected_topics[1]) + " "
+                else:
+                    prefix = ""
+                text = prefix + " ".join(self._tutorial_render(agi, facts, 4))
+                if "öğren" in low and any(fact[0] == "veri" for fact in facts):
+                    text += " " + self._tutorial_frame(agi, "learning_data_limit")
+            else:
+                text = self._tutorial_frame(
+                    agi, "relate_unknown", topic_cap=tr_capitalize(focus))
+            return self._tutorial_finish(raw, text, intent, facts, focus)
+
+        available = self._tutorial_facts(agi, focus)
+        limitation = ""
+        if "ne yapar" in low:
+            abilities = [fact for fact in available if fact[1] == "CAN_DO"]
+            facts = abilities[:2] if abilities else available[:1]
+            if not abilities and facts:
+                limitation = " " + self._tutorial_frame(agi, "ability_unknown")
+        else:
+            facts = available[:2]
+        if facts:
+            prefix = (self._tutorial_frame(agi, "explain_start") + " ") if teach_request else ""
+            text = prefix + " ".join(self._tutorial_render(agi, facts, 2)) + limitation
+        else:
+            text = self._tutorial_frame(
+                agi, "explain_unknown", topic_cap=tr_capitalize(focus))
+        return self._tutorial_finish(raw, text, "explain", facts, focus)
 
     # ------------------------------------------------------------------ 3. TEKRAR
     def _repeat(self, agi, raw: str, prev: dict, act: str) -> str:

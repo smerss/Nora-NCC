@@ -2007,6 +2007,25 @@ class NoraAGI:
         if _reference:
             self._log_turn(speaker, raw, _reference, t0)
             return _reference
+        try:
+            _tutorial = self.deliberation.handle_tutorial(self, raw, speaker=speaker)
+        except Exception:
+            _tutorial = None
+        if _tutorial:
+            trace = dict(self.deliberation.last_tutorial_trace or {})
+            self.broca_organ.last_speech_plan = {
+                "volition_acts": ["TUTORING"], "surface_tr": _tutorial,
+                "ask_back_chosen": "?" in _tutorial,
+                "raw_thought_nodes": [
+                    f"TUTORING({trace.get('intent')},topic={trace.get('topic')})"
+                ],
+                "tutorial_trace": trace,
+            }
+            self._turn_path = "organ"
+            self._intent_locked = True
+            self._apply_tag("cikarim", 1)
+            self._log_turn(speaker, raw, _tutorial, t0)
+            return _tutorial
         # OPERATÖR SENTEZİ: "kitap -> patik, kalem -> melak" gibi ÖRNEK verilirse
         # dönüşümü Nora kendi yazar; "dönüşümü uygula: deniz" derse yazdığını çalıştırır.
         try:
