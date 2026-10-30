@@ -3053,6 +3053,12 @@ def a75_uygulama_operatoru_bind_apply_transfer():
     ok["tek-plan"] = (r_plan.count("1.durum") == 1 and "7 adım" in r_plan
                       and "10 adım" not in r_plan)
 
+    # "şu sıralar" bir zaman ifadesidir; "sırala" alt dizgesi komut üretmemeli.
+    small_talk = "Peki şu sıralar aklını en çok ne meşgul ediyor?"
+    ok["sohbet-komut-ayrimi"] = agi._handle_apply_ops(small_talk) is None
+    ordered = agi._handle_apply_ops("3, 1, 2 sayılarını küçükten büyüğe sırala") or ""
+    ok["siralama-komutu-korunur"] = re.findall(r"\d+", ordered) == ["1", "2", "3"]
+
     passed = sum(1 for v in ok.values() if v)
     detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
     return passed == len(ok), f"{passed}/{len(ok)} — {detail}"
@@ -5914,6 +5920,8 @@ def a139_bireysel_ve_tekrarda_degisen_oz_durum_soylemi():
     heldout_routes = (
         ("Moralin nasıl?", True),
         ("Bugün kendini iyi hissediyor musun?", True),
+        ("Sen beni dinlerken ne hissediyorsun?", True),
+        ("Beni hissettin mi?", False),
         ("Benim keyfim yerinde mi?", False),
         ("Onun keyfi yerinde mi?", False),
     )
@@ -6043,6 +6051,19 @@ def a139_bireysel_ve_tekrarda_degisen_oz_durum_soylemi():
     )
     mutters = [infer.style._own_mutter(infer) for _ in range(12)]
     ok["mirildanma-cercevesiz"] = all("içimden" not in tr_lower(m) for m in mutters)
+
+    # Zamirli takip, önceki söz edimine bağlanır; bilinmeyen nesne veya sıralama
+    # komutu olarak yeniden yorumlanmaz.
+    context = fixture(781, "context-followup")
+    thought = context.converse("Peki şu sıralar aklını en çok ne meşgul ediyor?", speaker="ses-1")
+    followup = context.converse("Bunu biraz açar mısın? Sana bunu düşündüren ne oldu?", speaker="ses-1")
+    acts = [str(h.get("act", "")) for h in context.deliberation.history]
+    ok["sohbet-baglam-takibi"] = (
+        acts == ["thought", "meta", "meta"]
+        and "sıra şu" not in tr_lower(thought)
+        and "bilmiyorum" not in tr_lower(followup)
+        and "merak" in tr_lower(followup)
+    )
 
     passed = sum(bool(v) for v in ok.values())
     detail = (

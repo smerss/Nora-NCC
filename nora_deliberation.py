@@ -45,6 +45,8 @@ _CUE_LEARN_HOW = ("nasıl öğren", "öğrenmeyi nasıl", "nasıl öğrendin", "
 _COND = ("olunca", "olduğunda", "yağarken", "yağmurda", "soğukta", "sıcakta", "geceleri",
          "karanlıkta", "sabahları")
 _NOT_TOPIC = {"sen", "ben", "o", "biz", "siz", "onlar", "bu", "şu", "bir", "ve", "çok", "daha",
+              "beni", "benim", "bende", "benden", "seni", "senin", "sende", "senden",
+              "onu", "onun", "onda", "ondan", "bize", "bizim", "size", "sizin",
               "en", "mi", "mı", "mu", "mü", "ne", "neden", "niye", "nasıl", "kim", "hangi",
               "sence", "bence", "gerçekten", "acaba", "peki", "evet", "hayır", "şey", "kadar",
               "gibi", "ile", "için", "ama", "fakat", "yani", "demek", "soru", "cevap", "zaman",
@@ -71,6 +73,13 @@ class DeliberativeMind:
 
         prev = [h for h in self.history if h["norm"] == norm]
         act = self._classify(low)
+        if act is None and self.history:
+            followup = any(c in low for c in (
+                "açar mısın", "açabilir misin", "ne demek istedin", "neyi kastettin",
+                "düşündüren ne"))
+            deictic = any(c in low for c in ("bunu", "şunu", "onu", "düşündüren"))
+            if followup and deictic:
+                act = "meta"
         if act is None and prev and prev[-1]["act"]:
             act = prev[-1]["act"]                      # aynı soru, aynı edim: tekrar sayılır
         if act is None:
@@ -140,7 +149,8 @@ class DeliberativeMind:
             return "desire"
         if "hakkında" in low and any(v in low for v in ("düşün", "hisset", "söyle")):
             return "attitude"                           # 'X hakkında ne düşünüyorsun?'
-        if any(c in low for c in _CUE_THOUGHT):
+        if any(c in low for c in _CUE_THOUGHT) or (
+                "meşgul" in low and ("aklını" in low or "zihnini" in low)):
             return "thought"
         if any(c in low for c in _CUE_ATTITUDE):
             return "attitude"
@@ -527,8 +537,9 @@ class DeliberativeMind:
                     verb_root="uyandır", subj=NP(topic), loc=NP("ben", case="LOC"),
                     obj=NP(ev["word"], case="NOM"), tense="PRES", person="3SG")))
         elif reason.startswith("düşünce:"):
+            topic = reason.split(":", 1)[1].strip() or "sen"
             items.append(SYN.realize_verb(VerbSpec(
-                verb_root="merak et", obj=NP("sen", case="ACC"), tense="PAST", person="1SG")))
+                verb_root="merak et", obj=NP(topic, case="ACC"), tense="PAST", person="1SG")))
         elif reason == "kimlik":
             items.append(SYN.realize_verb(VerbSpec(
                 verb_root="tanı", obj=NP("kendi", poss=1, case="ACC"), neg=True,

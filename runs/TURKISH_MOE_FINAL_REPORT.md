@@ -131,7 +131,24 @@ parametre bütçesindeymiş gibi sunulmaz. Mimari üstünlük iddiası yalnız a
 - Ara koşularda yakalanan A41 ve A73 hataları kaynak kodda giderildi; test, baseline veya tarihsel
   tavan gevşetilmedi. Yukarıdaki sonuçlar düzeltmelerden sonra sıfırdan çalıştırılan son koddan alındı.
 
-## 9. Sonraki eşik
+## 9. Canlı diyalog takip düzeltmesi
+
+Dondurulmuş MoE'nin ardından yapılan gerçek kullanıcı sohbeti üç yönlendirme hatasını görünür kıldı:
+“şu sıralar” sıralama komutuna, “bunu” bilinmeyen nesneye, “beni dinlerken” de dış konuya
+dönüşüyordu. Kaynak kodda komut sınırı, zamirli takip ve kişi/fiil rolü düzeltildi; hazır diyalog
+cevabı eklenmedi.
+
+Son canlı dört tur: “Merhaba, nasılsın?” → “Seni düşünüyorum.” → “Seni merak ettim.” →
+“İçim dingin.” Yanıtlar önceki turu takip etti; alakasız sıralama ve “Beni görmedim” çıktısı kalktı.
+
+- A75 **14/14**: gerçek sıralama korunur, zaman ifadesi komut sayılmaz.
+- A139 **17/17**: düşünce → zamirli takip zinciri ve iki kişi-rolü ayrımı.
+- A73 **8/8**, law battery **15/15**.
+- Bu düzeltmenin tam battery koşusu **139/140** oldu (964,1 sn). Tek kırmızı A6 idi; tam koşudaki
+  temkinlilik farkı -0,08'di. A6 üç ayrı izole koşuda **3/3** geçti ve fark her seferinde +0,13'tü.
+  Tam koşu bu nedenle “140/140” diye raporlanmaz; yaşantı varyansı açıkça korunur.
+
+## 10. Sonraki eşik
 
 **Bu turda aşılan eşik:** fold-0 top-1 > %45 ve aynı dondurulmuş MoE ile iki dış veri kümesinde
 taban üstü. **Sıradaki eşik:** fold-1/2 dahil aynı-dağılım çapraz-fold sonuçlarını %45'e taşımak;
