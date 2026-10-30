@@ -6236,7 +6236,7 @@ class NoraAGI:
         # --- (A0b) SIRALAMA: ölçüt -> sıra. Parite ailesinden farklı bir şekil. ---
         # DİKKAT: "diz" alt dizge olarak aranmaz — "4, 9, 14, 19 dizisinde sıradaki sayı kaç?"
         # bir SIRALAMA değil dizi sorusudur; alt dizge eşleşmesi o soruyu yutuyordu (A8).
-        if re.search(r"\bdiz\b|sırala|sıraya koy", tl) and not re.search(r"dizi|sıradaki", tl):
+        if re.search(r"\bdiz\b|\bsırala\b|\bsıralay(?:ın|ınız|alım)\b|\bsıralar\s+m[ıi]sin(?:iz)?\b|\bsıraya\s+koy\b", tl) and not re.search(r"dizi|sıradaki", tl):
             from nora_apply import Interpreter as _IT
             seg = raw.split(":", 1)[1] if ":" in raw else raw
             items = [x.strip(" .;") for x in re.split(r"[,;]|\s+ve\s+", seg) if x.strip(" .;")]

@@ -1297,7 +1297,18 @@ class GenerativeBrocaOrgan:
             an.get("case") == "ACC" and w not in ("kendin", "kendini", "kendiniz", "kendinizi", "ne")
             for w, an in zip(words, word_analyses)
         )
-        if second_feeling and (reflexive or not other_object):
+        # 'Beni dinlerken ne hissediyorsun?' sorusunda birinci-kişi nesnesi
+        # alt cümleciğin fiiline bağlıdır; 'Beni hissettin mi?'den farklı olarak
+        # Nora'nın etkileşim sırasındaki kendi duyumu sorulur.
+        first_person_context = any(
+            w in ("beni", "bana", "benimle", "benim")
+            and any(
+                later.get("is_verb") and later.get("stem") not in ("hisset", "duyumsa")
+                for later in word_analyses[i + 1:]
+            )
+            for i, (w, _an) in enumerate(zip(words, word_analyses))
+        )
+        if second_feeling and (reflexive or not other_object or first_person_context):
             asks_wellbeing = True
         state_nouns = {"keyif", "moral", "hâl", "hal", "duygu"}
         second_state = any(w in ("senin", "sana") for w in words) or any(
