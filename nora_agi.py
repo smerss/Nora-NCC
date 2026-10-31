@@ -374,7 +374,9 @@ class NoraAGI:
         w_kw = dict(world_kwargs or {})
         w_kw.setdefault("mortal", bool(single_life))
         self.world = Universe(seed=seed, **w_kw)
-        self.mind = Mind(seed=seed, arena=self.world.L)
+        # Ana zihinde periyodik 500-adım replay'i de kapalıdır. Uyku yalnız
+        # bakım olduğundan eski mind._sleep(48) yolu başka bir kapıdan dönemez.
+        self.mind = Mind(seed=seed, arena=self.world.L, replay=False)
         self.obs = self.world.observe()
         self.died = False
 
@@ -711,13 +713,13 @@ class NoraAGI:
             self.workspace = None
 
     def read_corpus(self, path: str):
-        """Bir metni ses, cümle iskeleti ve söylem şeması düzeyinde öğren.
+        """Corpusu tek geçişte yapı ve doğrulanabilir anlam olarak öğren.
 
-        Önceki yol yalnız ``life.voice``ı besliyordu; ana cevap yarışındaki yapı
-        öğrenicileri corpusu hiç görmüyordu. Hazır cevap çıkarılmaz; her uygun
-        cümle her öğrenme kanalında bir kez işlenir (epoch yok) ve mevcut
-        yapı/şema kortekslerine gözlem olarak verilir. Dönen sayaçlar eğitimin
-        gerçekten aktığını kanıtlar.
+        Genel kültür artık ``voice.hear_file`` ile Broca'ya ezberletilmez.
+        Her cümlenin anlamı Wernicke → Graph/HDC tek-sunum hattından geçer;
+        cümle iskeleti ve söylem şeması kendi yapısal kortekslerinde kalır.
+        ``organ_seen=0`` bir eksik değil, bilginin nöral artikülatöre bilgi
+        kaynağı olarak yazılmadığının ölçümüdür.
         """
         voice = self.life.voice
         organ = getattr(voice, "organ", None)
@@ -727,8 +729,9 @@ class NoraAGI:
             "organ_seen": int(getattr(organ, "seen_tokens", 0) or 0),
             "frames": int(frames.memory.learned_count) if frames is not None else 0,
             "schemas": int(sum(self.schema_cortex.observed_human_styles.values())),
+            "edges": len(self.lang.graph.edges),
+            "presentations": int(self.lang.graph.relation_mb.presentations),
         }
-        voice.hear_file(path, state_vector(self))
         observed = 0
         errors = 0
         with open(path, "r", encoding="utf-8", errors="ignore") as f:
@@ -739,9 +742,12 @@ class NoraAGI:
                 chunk += f.readline()
                 for sentence in re.split(r"(?<=[.!?…])\s+|\n+", chunk):
                     words = re.findall(r"[\wçğıöşü]+", tr_lower(sentence))
-                    if not 3 <= len(words) <= 60:
+                    if not 2 <= len(words) <= 60:
                         continue
                     try:
+                        # Epoch/replay yok: cümle bir kez çözümlenir, çıkan
+                        # önermeler ayrı HDC olayları olarak hemen kullanılabilir.
+                        self.lang.teach_sentence(sentence)
                         if getattr(self, "frames", None) is not None:
                             self.frames.observe(sentence)
                         self.schema_cortex.observe_human_schema(
@@ -758,6 +764,8 @@ class NoraAGI:
             "frames": int(self.frames.memory.learned_count) - before["frames"]
             if getattr(self, "frames", None) is not None else 0,
             "schemas": int(sum(self.schema_cortex.observed_human_styles.values())) - before["schemas"],
+            "graph_edges": len(self.lang.graph.edges) - before["edges"],
+            "mb_presentations": int(self.lang.graph.relation_mb.presentations) - before["presentations"],
             "errors": errors,
         }
         self.last_corpus_learning = stats
@@ -789,9 +797,23 @@ class NoraAGI:
 
     def speak_from_state(self, anchors: list[str] | None = None, nov: float = 0.5, fam: float = 0.5,
                          conf: float = 0.5, tension: float = 0.0, facts: list[str] | None = None) -> str:
-        """Tüm 'kendi sözü' üretimi: iç durum + çapa kavramlar -> öğrenilmiş söz organı. Dil yoksa dürüstçe '…'."""
+        """İç durum + doğrulanmış çapalar → öğrenilmiş söz organı.
+
+        Kavram çapalı üretimde Graph/HDC kanıtı zorunludur. Pasif kayıt bu
+        sorguyla uyanabilir; hiç önerme yoksa Broca bilgi kaynağı yapılmaz.
+        Çapasız iç-durum artikülasyonu bu kuralın dışındadır.
+        """
         if not self.voice_ready():
             return "…"
+        if anchors and not facts:
+            grounded = False
+            for anchor in anchors:
+                concept = tr_lower(str(anchor or "")).strip()
+                if concept and self.lang.graph.query(concept, None):
+                    grounded = True
+                    break
+            if not grounded:
+                return "…"
         st = state_vector(self, nov=nov, fam=fam, conf=conf, tension=tension)
         return self.life.voice.speak(st, anchors, extra_allowed=facts) or "…"
 
@@ -894,6 +916,10 @@ class NoraAGI:
             from nora_broca_net import NeuralRelationalProposer
             reasoner = NeuralRelationalProposer(seed=int(self.seed) + 142)
         self.relational_reasoner = reasoner
+        self.lang.graph.neural_proposer = reasoner
+        for edge in self.lang.graph.edges:
+            if edge.rel.startswith("YENI_OPERATOR_"):
+                reasoner.observe(edge.subj, edge.rel, edge.obj)
         return reasoner
 
     def deliberate(self, topic: str, *, commit: bool = True) -> dict:
@@ -942,40 +968,441 @@ class NoraAGI:
         self.last_deliberation = result
         return result
 
-    def speak_unknown(self, concept: str, fallback: str = "") -> str:
-        """Bilmediği şeyle karşılaşma: uydurmaz; boşluğu gerilim defterine yazar, elinde yarım iz (hipotez) varsa
-        kesinliği söze yansır. Söz, öğrenilmiş söz organından çıkar."""
-        custom_fallback = bool(fallback)
+    def speak_unknown(self, concept: str, fallback: str = "", *,
+                      allow_neural: bool = False) -> str:
+        """Bilinmezlik olayını Graph'a yaz ve sembolik Broca ile çekimle.
+
+        ``fallback`` yalnız olay bağlamıdır; hazır cevap olarak geri dönmez.
+        Nöral next-token organı bilinmeyen kavramın yerine içerik uyduramaz.
+        ``allow_neural`` eski çağrı imzası için korunur, bu kararı değiştirmez.
+        """
+        del allow_neural
         self.life.note_unknown_concept(self, concept)
         node = self.auto_net.assemblies.get(concept)
-        fam = 0.0 if node is None else min(1.0, node.familiarity / 6.0)
-        trace = self.life.pool.trace_for(self, concept)
-        g = self.life.ledger.gaps.get(f"c:{concept}")
-        if not fallback:
-            fallback = (f"{tr_capitalize(concept)} hakkında henüz bilgim yok; merak listeme aldım, "
-                        f"istersen tek bir cümleyle bana öğretebilirsin.")
-        if not self.voice_ready():
-            return fallback
-        out = self.speak_from_state(anchors=[concept], nov=1.0 - fam, fam=fam,
-                                    conf=0.0 if trace is None else trace[0],
-                                    tension=0.0 if g is None else g.tension)
-        # Soru işareti kalite muafiyeti değildir: kısa/bozuk 'X mi?' çıktısı da
-        # aynı kullanılabilirlik kapısından geçer. Geçerli merak sorusunda anlam
-        # kaybolmasın diye epistemik duruş önce açıkça söylenir.
-        if (out and out.strip().endswith("?") and tr_lower(concept) in tr_lower(out)
-                and self._voice_usable(out, [concept])):
-            return f"{tr_capitalize(concept)} hakkında henüz bilgim yok; merak listeme aldım. {out.strip()}"
-        if self._voice_usable(out, [concept]):
-            return out
-        if not custom_fallback:
-            # Hazır kavram cevabı değil, aynı genel sözdizimi motoruyla kurulan
-            # bilgi isteği: kavram yalnızca nesne yuvasına yerleşir.
-            query = SYN.realize_verb(VerbSpec(
-                verb_root="bil", obj=NP(concept, case="ACC"), question_yn=True,
-                tense="PRES", person="2SG",
+        if node is not None:
+            node.uncertainty = max(float(getattr(node, "uncertainty", 0.0)), 0.85)
+        for queue in (getattr(self.auto_net, "curiosity_queue", None),
+                      getattr(self, "pending_research", None),
+                      getattr(getattr(self, "frames", None), "pending", None)):
+            if queue is not None and hasattr(queue, "append") and concept not in queue:
+                queue.append(concept)
+        event = self.lang.graph.record_epistemic_event(concept, "unknown", fallback)
+        answer = self.lang.broca.realize_epistemic(
+            event, concept_surface=self.lang.graph.surface_name(concept),
+        )
+        self.last_unknown = {
+            "concept": tr_lower(concept).strip(), "engine": "symbolic_broca",
+            "event": [event.subj, event.rel, event.obj], "neural_broca": False,
+        }
+        return answer
+
+    def _speak_insufficient_definition(self, concept: str, evidence: list,
+                                       missing: list[str], extra_proof: list | None = None) -> str:
+        """Bilinen önermeleri koru; eksik anlam boyutlarını tam tanımmış gibi gizleme."""
+        graph = self.lang.graph
+        event = graph.record_epistemic_event(concept, "insufficient", ",".join(missing))
+        # Parça-kapsamlı önerme ana kavramın ISA yayılımında görünmez. Yalnız
+        # açık ``kapsamlı_parça PART_OF kavram`` kanıtını genişlet; genel parça
+        # düğümünün özelliğini sahibine genellemek kapsam hatası olurdu.
+        expanded = list(evidence)
+        for scope_edge in list(graph._in_edges.get(concept, ())):
+            if scope_edge.rel != "PART_OF" or scope_edge.subj == concept:
+                continue
+            scope = scope_edge.subj
+            try:
+                scope_rows = graph.query(scope, None)
+            except Exception:
+                scope_rows = []
+            expanded.extend((part_edge, part_path) for part_edge, part_path in scope_rows
+                            if part_edge.subj == scope and not part_path
+                            and part_edge.rel != "PART_OF")
+        propositions = []
+        seen = set()
+        for edge, _path in expanded + [(edge, []) for edge in (extra_proof or [])]:
+            key = (edge.subj, edge.rel, edge.obj)
+            if key in seen:
+                continue
+            seen.add(key)
+            propositions.append(Proposition(
+                subj=graph.surface_name(edge.subj), rel=edge.rel,
+                obj=graph.surface_name(edge.obj), verb=edge.verb,
+                obj_surface=edge.obj_surface, obj_case=edge.obj_case,
+                obj_plural=edge.obj_plural,
             ))
-            fallback = f"{fallback} {tr_capitalize(query)}?"
-        return fallback
+        answer = self.lang.broca.realize_epistemic(
+            event, concept_surface=graph.surface_name(concept),
+            known=propositions, missing=missing,
+        )
+        self.last_definition_insight = {
+            "concept": concept, "status": "insufficient", "missing": list(missing),
+            "known_propositions": len(propositions), "engine": "hdc_mb+symbolic_broca",
+        }
+        return answer
+
+    # -------------------------------------------------- özel anlam hesapları
+    @staticmethod
+    def _vector_expression(raw: str):
+        """Genel ``A eksi B artı C`` sözdizimini sayısal aritmetikten ayır."""
+        text = str(raw or "").strip().strip(" \t\r\n")
+        if not text:
+            return None
+        # “kaç eder?” MathCortex'in sayısal alanıdır; kavram vektörü sorgusu
+        # “nedir/ne olur?” biçimini kullanır.
+        if re.search(r"\bkaç(?:\s+eder|\b)", tr_lower(text)):
+            return None
+        body = text.rstrip("?!.… ").strip()
+        # İsteğe bağlı soru/sonuç kısmı hesap girdisi değildir. Verilen sonuç
+        # cevap olarak kopyalanmaz; yalnız sol taraftaki vektör işlemi çözülür.
+        body = re.sub(r"\s+(?:nedir|ne olur|kaçtır|ne yapar)$", "", body,
+                      flags=re.IGNORECASE).strip()
+        body = body.split("=", 1)[0].strip()
+        match = re.fullmatch(r"(.+?)\s+(eksi|−|-)\s+(.+?)\s+(artı|\+)\s+(.+)",
+                             body, flags=re.IGNORECASE)
+        if not match:
+            return None
+        left, _minus, middle, _plus, right = match.groups()
+        # Sayısal MathCortex'in alanını gasp etme.
+        if all(re.fullmatch(r"[+-]?\d+(?:[.,]\d+)?", x.strip()) for x in (left, middle, right)):
+            return None
+        try:
+            if all(TurkishMorphology.words_to_int(tr_lower(x).split()) is not None
+                   for x in (left, middle, right)):
+                return None
+        except Exception:
+            pass
+        return left.strip(), middle.strip(), right.strip()
+
+    @staticmethod
+    def _disambiguation_expression(raw: str):
+        text = str(raw or "").strip()
+        low = tr_lower(text)
+        if not re.search(r"(?:hangi|ne)\s+anlam", low):
+            return None
+        # Soru gövdesindeki son ad, çoklu-anlamı sorulan yüzeydir. Ekli biçim
+        # Graph gövdesine daha sonra _graph_stem ile indirgenir.
+        match = re.search(r"([^\s?!,;]+)\s+(?:hangi|ne)\s+anlam", low)
+        return match.group(1).strip(" '’‘\"“”") if match else None
+
+    def _vector_analogy_turn(self, raw: str) -> str | None:
+        parsed = self._vector_expression(raw)
+        if parsed is None:
+            return None
+        operands = [self._graph_stem(x) for x in parsed]
+        result = self.lang.graph.vector_analogy(*operands)
+        a, b, c = operands
+        self._turn_path = "graph_reasoning"
+        self._intent_locked = True
+        self._apply_tag("cikarim", 1)
+        self.last_gw_trace = {"winner": "prefrontal_reasoning", "confidence": 0.97,
+                              "trace": "hdc_vector_analogy", "used_s2": True,
+                              "bids": {"prefrontal_reasoning": 0.97}}
+        if result.get("status") == "resolved":
+            answer = self.lang.graph.surface_name(result["answer"])
+            text = (f"{tr_capitalize(a)} − {b} + {c} = {tr_capitalize(answer)}. "
+                    f"HDC bağlı vektörlerde {result['relation']} rolü çıkarılıp "
+                    f"{c} ile yeniden bağlandı; benzerlik {result['score']:.2f}.")
+        else:
+            text = (f"{tr_capitalize(a)} − {b} + {c} işlemini çözemedim; "
+                    f"öğrenilmiş bağlı önermelerden yeterli vektör kanıtı çıkmadı. "
+                    f"{result.get('reason', '')}".strip())
+        self.broca_organ.last_speech_plan = {
+            "volition_acts": ["HDC_VECTOR_ANALOGY"], "surface_tr": text,
+            "epistemic": result.get("status"), "operation": result.get("operation"),
+        }
+        return text
+
+    def _disambiguation_turn(self, raw: str) -> str | None:
+        surface = self._disambiguation_expression(raw)
+        if not surface:
+            return None
+        concept = self._graph_stem(surface)
+        try:
+            senses = {e.obj for e, path in self.lang.graph.query(concept, ("ISA",))
+                      if not path and e.subj == concept}
+        except Exception:
+            senses = set()
+        # Tek anlamlı/bilinmeyen sözcükler olağan tanım ve epistemik kapı
+        # yolunda kalır; bu organ yalnız gerçek çoklu-anlamda yarışır.
+        if len(senses) < 2:
+            return None
+        result = self.lang.graph.disambiguate(concept, raw)
+        self._turn_path = "graph_reasoning"
+        self._intent_locked = True
+        self._apply_tag("cikarim", 1)
+        self.last_gw_trace = {"winner": "prefrontal_reasoning", "confidence": 0.96,
+                              "trace": "mb_sparse_disambiguation", "used_s2": True,
+                              "bids": {"prefrontal_reasoning": 0.96}}
+        if result.get("status") == "resolved":
+            shared = ", ".join(result.get("candidates", [{}])[0].get("shared", []))
+            text = (f"Bu bağlamda '{surface}' sözcüğünü {result['sense']} anlamıyla çözüyorum; "
+                    f"{shared or 'cümledeki'} bağlamı MB seyrek kodunda bu anlamı öne çıkardı.")
+        else:
+            senses = ", ".join(row["sense"] for row in result.get("candidates", [])) or "aday anlam"
+            text = (f"'{surface}' için {senses} adayları var; bu bağlamda MB seyrek kodu "
+                    "yeterli ve ayrıcı kanıt bulamadı, kesin bir anlam seçmiyorum.")
+        self.broca_organ.last_speech_plan = {
+            "volition_acts": ["MB_CONTEXT_DISAMBIGUATION"], "surface_tr": text,
+            "epistemic": result.get("status"), "concept": concept,
+        }
+        return text
+
+    def _philosophy_turn(self, raw: str) -> str | None:
+        """Felsefi soruyu erken tanım/sohbet kanalından önce argümana bağla.
+
+        Erken dönüş, sıradan tanım sorusunu değiştirmez; DeliberativeMind
+        yalnız açık bilinç/anlama sorusunda sonuç döndürür. Cevabın içindeki
+        işlevsel kanıt ile öznel deneyim iddiası ayrı izlerde tutulur.
+        """
+        try:
+            result = self.deliberation.handle_philosophy(self, raw)
+        except Exception as exc:
+            # Felsefe organındaki hata, başka bir konuşma kanalının sahte
+            # cevap üretmesine gerekçe olmasın; izde görünür kalsın.
+            trace = {
+                "kind": "philosophical_argument", "status": "error",
+                "epistemic": "unknown", "question": str(raw),
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+            is_followup = self.deliberation.is_philosophy_followup(self, raw)
+            is_philosophy = self.deliberation.is_philosophical_query(raw)
+            self.deliberation.last_philosophy_trace = trace
+            if not (is_philosophy or is_followup):
+                return None
+            result = {
+                "text": ("Felsefi argümanı bu turda güvenilir biçimde kuramadım; "
+                         f"{type(exc).__name__} hatası oluştu. Uydurmak yerine sonucu "
+                         "bilinmezlikte bırakıyorum."),
+                "trace": trace, "topic": "bilinç",
+            }
+        if result is None:
+            return None
+        text = str(result.get("text", "")).strip()
+        if not text:
+            return None
+        trace = dict(result.get("trace", {}) or {})
+        self._turn_path = "philosophical_argument"
+        self._intent_locked = True
+        self._apply_tag("cikarim", 1)
+        self.last_gw_trace = {
+            "winner": "prefrontal_reasoning", "confidence": 0.94,
+            "trace": "philosophical_argument", "used_s2": True,
+            "bids": {"prefrontal_reasoning": 0.94},
+            "argument": trace,
+        }
+        self.broca_organ.last_speech_plan = {
+            "volition_acts": ["PHILOSOPHICAL_ARGUMENT"],
+            "surface_tr": text,
+            "epistemic": trace.get("epistemic", "underdetermined"),
+            "philosophy_trace": trace,
+            "thought_tree": list(trace.get("reasoning_steps", []) or []),
+        }
+        return text
+
+    def _epistemic_gate(self, raw: str) -> str:
+        """Anlam sorusunu Broca'dan ÖNCE Graph/HDC kanıtıyla karşılaştır.
+
+        ``query`` pasif HDC kayıtlarını da uyandırır; yalnız aktif çalışma
+        kümesine bakıp bilinmezlik ilan etmez. Çok cümleli öğreti+soru burada
+        erken reddedilmez: önceki cümlelerin tek-sunum öğretimi işlendikten
+        sonra soru, ``_handle_single_sentence`` içindeki aynı kapıya gelir.
+        """
+        text = str(raw or "").strip()
+        if not text or "?" not in text:
+            return ""
+        # Bu iki soru kendi HDC/MB hesap organına gider; kavramın ilk sözcüğünü
+        # tanım sorusu sanıp erken epistemik kapıda kesme.
+        if self._vector_expression(text) is not None or self._disambiguation_expression(text):
+            return ""
+        # Felsefi argüman yolu kendi Graph kanıtını ve epistemik sınırını
+        # üretir; burada tek-kenar tanım kapısı onu önceden kesmemeli.
+        if (self.deliberation.is_philosophical_query(text)
+                or self.deliberation.is_philosophy_followup(self, text)):
+            return ""
+        # Aktif öğretim oturumundaki birleşik/takip soruları tek-sözcüklü
+        # sözlük sorusu değildir. Tutor hattı odağı konuşma durumundan çıkarır
+        # ve kendi grafik kanıtı/nöral-validator kapısını uygular.
+        if bool(getattr(self.deliberation, "tutorial", {}).get("active")):
+            return ""
+        parts = [p for p in re.split(r"(?<=[.!?…])\s+|\n+", text) if p.strip()]
+        if len(parts) != 1:
+            return ""
+        # Tek-sözcüklü tanım sorularında genel söylem/valans çözümlemesi
+        # gereksizdir. Bu dilbilgisel kısa yol yeni sözcükte fiil-kök indeksini
+        # genişletmeden aynı Graph/HDC kapısına gelir; bütün kavramlara açıktır.
+        low = tr_lower(text).strip()
+        # Açık görüş/deliberasyon isteği sözlük tanımı değildir; iç nedensel
+        # model ve tartım organları cevaplar. Nesnel bilgi kapısı bunu gasp etmez.
+        if any(marker in low for marker in ("sence", "sana göre", "senin için")):
+            return ""
+        simple = re.fullmatch(
+            r"([\wçğıöşüâîû]+)\s+(?:nedir|neydir|ne\s+demek(?:tir)?)\s*\?", low)
+        if not simple:
+            # Matematik, fizik, kişisel bellek, operatör ve birleşik takip
+            # soruları kendi uzman organlarına ulaşır. Onların bilinmezlik
+            # yedeği speak_unknown'dur; o da varsayılan olarak nöral üretmez.
+            return ""
+        frame_kind = "wh_query"
+        frame_rel = "ALL"
+        concept = simple.group(1)
+        # Tanım sorusunun öznesi yalın durumdadır. SVO nesnesindeki belirtme
+        # eki heuristiği burada kullanılmaz; yalnız açık çoğul eki gövdeye
+        # indirilir ('mitokondri' → 'mitokondr' olmaz).
+        for suffix in ("ları", "leri", "lar", "ler"):
+            if concept.endswith(suffix) and len(concept) > len(suffix) + 1:
+                concept = concept[:-len(suffix)]
+                break
+        if not concept or concept in {"ben", "sen", "nora", "kendin", "kendim"}:
+            return ""
+        started = time.perf_counter()
+        try:
+            evidence = self.lang.graph.query(concept, None)
+        except Exception:
+            evidence = []
+        self.last_epistemic_gate = {
+            "concept": concept, "kind": frame_kind,
+            "known": bool(evidence), "evidence": len(evidence),
+            "engine": "hdc_mb+graph", "neural_broca": False,
+            "latency_ms": (time.perf_counter() - started) * 1000.0,
+        }
+        if evidence:
+            direct = [edge for edge, path in evidence if edge.subj == concept and not path]
+            complex_incoming = any(
+                edge.rel in {"PART_OF", "LOCATED_AT"}
+                for edge in self.lang.graph._in_edges.get(concept, ())
+            )
+            # “X bir Y'dir” demek anlamanın sonu değildir. Boyut denetimi
+            # yalnız hızlı/az kenarlı tanıma değil, kapsamlı yola gidecek
+            # bütün tanım kanıtına uygulanır.
+            dimensions = {
+                "işlev": any(edge.rel in {"CAN_DO", "CANNOT_DO"} for edge, _p in evidence),
+                "parça": any(edge.rel in {"HAS_PART", "COMPOSED_OF"} for edge, _p in evidence),
+                "nedensellik": any(edge.rel == "CAUSES" for edge, _p in evidence),
+            }
+            causal_proof = []
+            if sum(dimensions.values()) < 2 and not dimensions["nedensellik"]:
+                chains = self.lang.graph.causal_chain(concept, max_hops=3)
+                multi_hop = [path for _effect, path in chains if len(path) >= 2]
+                if multi_hop:
+                    causal_proof = max(multi_hop, key=len)
+                    dimensions["nedensellik"] = True
+            missing = ([name for name, present in dimensions.items() if not present]
+                       if sum(dimensions.values()) < 2 else [])
+            if missing:
+                answer = self._speak_insufficient_definition(
+                    concept, evidence, missing, extra_proof=causal_proof,
+                )
+                self.last_epistemic_gate.update({
+                    "fast_answer": True, "insufficient": True,
+                    "semantic_dimensions": dimensions,
+                    "latency_ms": (time.perf_counter() - started) * 1000.0,
+                })
+                self._turn_path = "epistemic_gate"
+                self._intent_locked = True
+                self.last_gw_trace = {
+                    "winner": "epistemic_gate", "confidence": 0.95,
+                    "trace": f"insufficient:{concept}:{','.join(missing)}",
+                    "bids": {"epistemic_gate": 0.95}, "used_s2": bool(causal_proof),
+                }
+                self.broca_organ.last_speech_plan = {
+                    "volition_acts": ["EPISTEMIC_INSUFFICIENT"], "surface_tr": answer,
+                    "epistemic": "insufficient", "concept": concept,
+                    "missing_dimensions": missing,
+                }
+                return answer
+            if 0 < len(direct) <= 2 and not complex_incoming:
+                priority = {"ISA": 0, "HAS_PART": 1, "COMPOSED_OF": 1,
+                            "CAN_DO": 2, "CANNOT_DO": 2, "CAUSES": 2,
+                            "HAS_PROP": 3, "USED_FOR": 4, "LOCATED_AT": 5}
+                remaining = sorted(evidence, key=lambda row: (
+                    priority.get(row[0].rel, 9), bool(row[1]), -row[0].weight))
+                ordered = []
+
+                def take_first(predicate):
+                    for row in remaining:
+                        if row not in ordered and predicate(row[0], row[1]):
+                            ordered.append(row)
+                            return
+
+                # Önce kavramın kendi sınıfı, sonra mevcut anlam boyutlarından
+                # birer temsilci. Üst-sınıf zinciri bu doğrudan kanıtı cevap
+                # dışına itemez; kalan yerler yine ağırlık/yol sırasıyla dolar.
+                take_first(lambda edge, path: edge.subj == concept and edge.rel == "ISA")
+                for relations in ({"HAS_PART", "COMPOSED_OF"}, {"CAN_DO", "CANNOT_DO"}, {"CAUSES"}):
+                    take_first(lambda edge, path, rels=relations: edge.rel in rels)
+                for edge in causal_proof:
+                    row = (edge, [])
+                    if row not in ordered:
+                        ordered.append(row)
+                ordered.extend(row for row in remaining if row not in ordered)
+                clauses = []
+                used_edges = []
+                used_multi_hop = False
+                for edge, path in ordered:
+                    if any((edge.subj, edge.rel, edge.obj) == (old.subj, old.rel, old.obj)
+                           for old in used_edges):
+                        continue
+                    proposition = Proposition(
+                        subj=self.lang.graph.surface_name(edge.subj), rel=edge.rel,
+                        obj=self.lang.graph.surface_name(edge.obj), verb=edge.verb,
+                        obj_surface=edge.obj_surface, obj_case=edge.obj_case,
+                        obj_plural=edge.obj_plural,
+                    )
+                    surface = self.lang.broca.realize_prop(proposition).strip()
+                    if surface:
+                        clauses.append(tr_capitalize(surface.rstrip(".!?")) + ".")
+                        used_edges.append(edge)
+                        used_multi_hop = used_multi_hop or bool(path)
+                    if len(clauses) >= (6 if causal_proof else 4):
+                        break
+                if clauses:
+                    answer = " ".join(clauses)
+                    causal_shown = bool(causal_proof) and all(
+                        any((edge.subj, edge.rel, edge.obj) == (old.subj, old.rel, old.obj)
+                            for old in used_edges) for edge in causal_proof)
+                    used_s2 = bool(used_multi_hop or causal_shown)
+                    self.last_epistemic_gate.update({
+                        "fast_answer": True, "insufficient": False,
+                        "semantic_dimensions": dimensions, "multi_hop": used_s2,
+                        "latency_ms": (time.perf_counter() - started) * 1000.0,
+                    })
+                    self._turn_path = "epistemic_gate"
+                    self._intent_locked = True
+                    self.last_gw_trace = {
+                        "winner": "hippocampal_concept", "confidence": 1.0,
+                        "trace": f"wh_semantic:{concept}:{len(clauses)}",
+                        "bids": {"hippocampal_concept": 1.0}, "used_s2": used_s2,
+                    }
+                    self.broca_organ.last_speech_plan = {
+                        "volition_acts": ["HIPPOCAMPAL_CONCEPT"], "surface_tr": answer,
+                        "epistemic": "known", "concept": concept,
+                        "semantic_dimensions": dimensions,
+                        "evidence": [[edge.subj, edge.rel, edge.obj] for edge in used_edges],
+                    }
+                    return answer
+            return ""
+        is_definition = frame_kind == "wh_query" and frame_rel == "ALL"
+        if is_definition:
+            fallback = (
+                f"{tr_capitalize(concept)} kelimesini tanıyorum ama kavram olarak henüz bilgim yok; "
+                f"doğrulanmış bir tanımım yok. Bana {concept} hakkında tek cümleyle öğretebilirsin."
+            )
+        else:
+            fallback = (
+                f"{tr_capitalize(concept)} hakkında bu soruyu yanıtlayacak doğrulanmış bilgim yok. "
+                f"Bana {concept} hakkında tek cümleyle öğretebilirsin."
+            )
+        answer = self.speak_unknown(concept, fallback=fallback, allow_neural=False)
+        self._turn_path = "epistemic_gate"
+        self._intent_locked = True
+        self.last_gw_trace = {
+            "winner": "epistemic_gate", "confidence": 1.0,
+            "trace": f"unknown:{concept}", "bids": {"epistemic_gate": 1.0},
+        }
+        self.broca_organ.last_speech_plan = {
+            "volition_acts": ["EPISTEMIC_UNKNOWN"], "surface_tr": answer,
+            "epistemic": "unknown", "concept": concept,
+        }
+        return answer
 
     def proactive_line(self, kind: str = "", topic: str = "", tension: float = 0.0,
                        idle: float = 0.0, unanswered: int = 0) -> dict | None:
@@ -1191,6 +1618,7 @@ class NoraAGI:
     def inflict_pain(self, intensity: float = 0.7, locus: str = "gövde", cause: str = "dış darbe", attacker: str | None = None) -> dict:
         """Nora'nın sinir sistemine doğrudan acı uyarısı verir: A-delta refleksi + geri çekilme + güven kaybı."""
         if not self.mortality.is_alive:
+            self.self_model.update_self_belief(self.mind, self.obs, alive=False)
             return {"alive": False}
         dmg = float(np.clip(intensity * 0.14, 0.01, 0.35))
         self.world.i = max(0.0, float(self.world.i) - dmg)
@@ -1206,6 +1634,7 @@ class NoraAGI:
         self.mortality.update_from_vitals(float(self.obs[I_E]), float(self.obs[I_W]), float(self.obs[I_I]), self.mind.age, "ağır hasar" if self.world.i <= 0 else None)
         if not self.mortality.is_alive:
             self.world.dead_forever = True
+            self.self_model.update_self_belief(self.mind, self.obs, alive=False)
         return res
 
     def autonomous_digest(self, raw_text: str, source: str = "otonom_okuma") -> dict:
@@ -1394,6 +1823,8 @@ class NoraAGI:
             self.drain_structure_pending(limit=max(4, steps))
         except Exception:
             pass
+        if not self.mortality.is_alive:
+            self.self_model.update_self_belief(self.mind, self.obs, alive=False)
         for _ in range(int(steps)):
             if not self.mortality.is_alive:
                 break
@@ -1508,12 +1939,18 @@ class NoraAGI:
                 motor_eff=float(self.mind.motor_eff),
                 died=self.died,
             )
-            self.self_model.sync_from_mind(self.mind, self.obs, died=self.died)
+            self.self_model.sync_from_mind(self.mind, self.obs, died=self.died,
+                                           alive=self.mortality.is_alive)
             if bus is not None and bus.has_listeners("self.state"):
                 bus.publish("self.state",
                             {"age": int(self.mind.age), "goal": int(self.mind.goal),
                              "valence": float(self.mind.valence), "mood": float(self.mind.mood),
-                             "error": float(self.mind.err_n), "confidence": float(self.mind.conf)},
+                             "error": float(self.mind.err_n), "confidence": float(self.mind.conf),
+                             "self_belief": {
+                                 key: {"held": bool(rec.get("held")), "status": rec.get("status"),
+                                       "strength": float(rec.get("strength", 0.0))}
+                                 for key, rec in self.self_model.self_belief.items()
+                             }},
                             source="self_model", kind="self_state")
             # BİREYSELLEŞME: bu adımın nanosaniye fazı + donanım gürültüsü sinapslara işlenir.
             # Maliyet O(1) (sabit sayıda sinaps); ağ büyüdükçe yanıt süresi değişmez.
@@ -1577,28 +2014,31 @@ class NoraAGI:
             "life": self.life.snapshot(),
         }
 
-    # ------------------------------------------------------------------ 2) Uyku ve konsolidasyon
+    # ------------------------------------------------------------------ 2) Uyku ve bakım
     def sleep(self) -> dict:
-        """Hipokampal-neokortikal uyku: anı tekrarı + sinaptik konsolidasyon + benlik yansıması + S2 rüyası."""
-        if not self.mind.freeze:
-            self.mind._sleep(64)
-        c_word = self.lang.graph.word_mb.sleep_consolidate(replay_steps=32)
-        c_int = self.lang.wernicke.intent_mb.sleep_consolidate(replay_steps=24)
-        c_disc = self.plastic_discourse.mb.sleep_consolidate(replay_steps=24)
-        c_schema = self.schema_cortex.mb.sleep_consolidate(replay_steps=20)
-        c_fast = self.fast.mb.sleep_consolidate(replay_steps=48)
+        """Replay'siz uyku: budama, homeostaz ve sinaptik bakım.
+
+        İlk öğrenmenin tamamı uyanık tek-sunum bağlanışında yapılır. Burada
+        ``mind._sleep``, S2 gradyan tekrarı veya MB epizodik replay'i çağrılmaz;
+        bu yollar öğrenme başarısının gizli multi-epoch kaynağı olamaz.
+        """
+        c_word = self.lang.graph.word_mb.sleep_consolidate(replay_steps=0)
+        c_int = self.lang.wernicke.intent_mb.sleep_consolidate(replay_steps=0)
+        c_disc = self.plastic_discourse.mb.sleep_consolidate(replay_steps=0)
+        c_schema = self.schema_cortex.mb.sleep_consolidate(replay_steps=0)
+        c_fast = self.fast.mb.sleep_consolidate(replay_steps=0)
+        c_rel = self.lang.graph.relation_mb.sleep_maintenance()
         traits = self.self_model.sleep_reflect()
-        s2_replayed = 0
-        if self.cognition is not None and len(self.cognition.today) > 0:
-            s2_replayed = len(self.cognition.today)
-            self.cognition.sleep()
         return {
             "sleep_cycle": self.self_model.sleep_cycles,
             "fast_consolidated": c_fast["consolidated_synapses"],
             "word_consolidated": c_word["consolidated_synapses"],
             "intent_consolidated": c_int["consolidated_synapses"],
-            "traits": traits,
-            "s2_replayed": s2_replayed,
+            "relation_consolidated": c_rel["consolidated_synapses"],
+            "discourse_consolidated": c_disc["consolidated_synapses"],
+            "schema_consolidated": c_schema["consolidated_synapses"],
+            "traits": traits, "s2_replayed": 0, "replay": 0,
+            "mode": "maintenance_only",
         }
 
     # ------------------------------------------------------------------ 3) Doğal Türkçe Diyalog & Düşünme
@@ -1667,6 +2107,14 @@ class NoraAGI:
                     pass
             except Exception:
                 pass
+        # Nesnel tanım/bilinmezlik cevabı, gerçek-zaman yakalama sırasındaki
+        # iç-konuşma ve nöral üretimden önce tamamlanır. Yaşam saati donmaz;
+        # hızlı anlam cevabı olmayan turlar olağan yakalama yoluna devam eder.
+        _preflight_t0 = time.perf_counter()
+        _preflight_unknown = self._epistemic_gate(raw)
+        if _preflight_unknown:
+            self._log_turn(speaker, raw, _preflight_unknown, _preflight_t0)
+            return _preflight_unknown
         now = time.time()
         # Aradan gerçek zaman geçtiyse Nora boşlukta yaşamıştır: açık olduğu sürece zaman akar.
         # (2 saniyede 1 yaşam adımı; en fazla 900 adım — uzun sessizlikte boğulup ölmesin.)
@@ -1906,10 +2354,35 @@ class NoraAGI:
         """Gelen Türkçe cümleyi algılar, önce içsel monolog yürütür, öz-benlik ve nörokimya süzgecinden geçirip yanıt üretir."""
         t0 = time.perf_counter()
         if not self.mortality.is_alive:
+            self.self_model.update_self_belief(self.mind, self.obs, alive=False)
             return "[Sinir sistemi durdu: Nora'nın tekil yaşamı sona erdiği için artık duymuyor ve konuşamıyor.]"
         raw = text.strip()
         if not raw:
             return "..."
+        # Bağlı vektör cebiri ve MB bağlam çözümü, genel tanım/aritmetik
+        # uzmanlarından önce kendi kanıt yolunda çalışır.
+        _special = self._vector_analogy_turn(raw)
+        if _special is None:
+            _special = self._disambiguation_turn(raw)
+        if _special is not None:
+            try:
+                self.life.on_interaction(self, raw, speaker)
+                self.initiative.on_user_reply()
+            except Exception:
+                pass
+            self._log_turn(speaker, raw, _special, t0)
+            return _special
+        # Felsefe sorusu artık 'bilinç = zıtlık' veya 'nedir?' kapısına
+        # düşmez; önce iddia/kanıt/karşı-model zinciri kurulur.
+        _philosophy = self._philosophy_turn(raw)
+        if _philosophy is not None:
+            try:
+                self.life.on_interaction(self, raw, speaker)
+                self.initiative.on_user_reply()
+            except Exception:
+                pass
+            self._log_turn(speaker, raw, _philosophy, t0)
+            return _philosophy
         # NİYET KİLİDİ: konu/çelişki gibi ÖLÇÜLMÜŞ bir niyet cevaplandıysa, sonradan
         # gelen "bunu demin de sormuştun" süsü cevabı EZMEZ. Tekrar farkındalığı bir
         # süslemedir; ölçülmüş bir cevabın üstüne yazmak onu gasp etmektir.
@@ -1917,6 +2390,25 @@ class NoraAGI:
         self._repeat_locked = False
         self._translation_output = False
         self._structured_output = False
+        # ZORUNLU EPİSTEMİK KAPI: anlam kanıtı yoksa yaşam/dil organlarına
+        # nöral öğretim veya üretim için gitmeden dürüst, hızlı bilinmezlik.
+        _unknown = self._epistemic_gate(raw)
+        if _unknown:
+            self._log_turn(speaker, raw, _unknown, t0)
+            return _unknown
+        # Birleşik anlam sorgusu hazır meta-şablonlardan önce Graph/HDC'de
+        # çözülür. Erken uzman dönüşü de kanıt ve System-2 izini korur.
+        _graph_answer = self._try_graph_composition_query(raw)
+        if _graph_answer is not None:
+            self._turn_path = "graph_reasoning"
+            self._apply_tag("cikarim", 1)
+            self.last_gw_trace = {
+                "winner": "prefrontal_reasoning", "confidence": 0.97,
+                "trace": "graph_composition", "bids": {"prefrontal_reasoning": 0.97},
+                "used_s2": bool(getattr(self, "_higher_graph_s2_success", False)),
+            }
+            self._log_turn(speaker, raw, _graph_answer, t0)
+            return _graph_answer
         # --- TÜRKÇE EDİNİMİ: duyulan bilinmeyen fiil biçimleri, kendi çekim üreticisiyle
         #     yeniden üretilebiliyorsa kök olarak öğrenilir (kalıcı, sözlüğe yazılır).
         try:
@@ -2483,7 +2975,11 @@ class NoraAGI:
         if len(self.dialogue_log) >= 200:
             self.dialogue_log.pop(0)
         self.dialogue_log.append((speaker, user_txt, reply))
-        self.broca_organ.record_turn_episode(speaker, user_txt, reply, self)
+        _fast_topic = ""
+        if self._turn_path == "epistemic_gate":
+            _fast_topic = str(getattr(self, "last_epistemic_gate", {}).get("concept", ""))
+        self.broca_organ.record_turn_episode(
+            speaker, user_txt, reply, self, fast_topic=_fast_topic)
         self.monologue.current_turn_thought = None
 
     def _try_sequence_or_mapping_query(self, raw: str) -> str | None:
@@ -2554,6 +3050,7 @@ class NoraAGI:
             "confidence": round(float(probs[win_i]), 3),
             "trace": win.trace,
             "bids": {bids[i].module: round(float(raw_scores[i]), 3) for i in range(len(bids))},
+            "used_s2": bool(win.used_s2),
         }
         if win.speech_plan is not None:
             self.broca_organ.last_speech_plan = win.speech_plan
@@ -2611,6 +3108,20 @@ class NoraAGI:
         broca = self.lang.broca
         morph = self.lang.morph
         graph = self.lang.graph
+        # Çok cümleli akışta da özel anlam hesabı tanım kapısına kurban gitmez.
+        _special = self._vector_analogy_turn(raw)
+        if _special is None:
+            _special = self._disambiguation_turn(raw)
+        if _special is not None:
+            return _special
+        _philosophy = self._philosophy_turn(raw)
+        if _philosophy is not None:
+            return _philosophy
+        # Çok cümleli öğreti+soru akışında son soru da aynı zorunlu kapıdan
+        # geçer. Önceki cümleler artık Graph/HDC'ye yazılmıştır.
+        _unknown = self._epistemic_gate(raw)
+        if _unknown:
+            return _unknown
         s_low = tr_lower(raw)
         bids: list[CorticalBid] = []
         # Anlam çerçevesi sosyal sınıflandırmadan ÖNCE çözülür. Üçüncü şahıs
@@ -2620,7 +3131,8 @@ class NoraAGI:
             _fr_pre = wern.parse(raw)
         except Exception:
             _fr_pre = None
-        _world_fact_pre = bool(_fr_pre is not None and _fr_pre.kind in {"teach_fact", "teach_val"})
+        _world_fact_pre = bool(_fr_pre is not None and _fr_pre.kind in {"teach_fact", "teach_val", "invent_relation"})
+        _semantic_query_pre = bool(_fr_pre is not None and _fr_pre.kind in {"yn_query", "wh_query", "analogy_query"})
 
         # --- SÜTUN -1: KİŞİSEL ANLATI — karşıdaki kendi yaşantısını anlatıyorsa Nora ders vermez.
         # İnsan değil mi? Bir şey anlatan birine ansiklopedi maddesi okumayız; dinler, yansıtır, sorarız.
@@ -2675,7 +3187,8 @@ class NoraAGI:
         # beklemez (acı darbesi sürerken kural çıkarmak nörobiyolojik olarak da yersizdir).
         _nociceptive = (getattr(self.nervous, "adelta_pain", 0.0) > 0.25
                         or bool(getattr(self.nervous, "pending_pain_vocalization", False)))
-        if not utt_cls.get("is_question") and narration is None and not _nociceptive:
+        if (not utt_cls.get("is_question") and narration is None and not _nociceptive
+                and getattr(_fr_pre, "kind", "") != "invent_relation"):
             ing_res = self.logic.ingest_statement(raw)
         if ing_res is not None:
             self._turn_mint_label = str(ing_res["label"])
@@ -2709,7 +3222,10 @@ class NoraAGI:
                 trace=f"mint:{ing_res['label']}",
                 used_s2=True,
             ))
-        ded_res = self.logic.try_autonomous_deduction(raw, self.schema_cortex, cur_sc0, utt_cls=utt_cls)
+        # Dünya/anlam sorusunda özerk yüzey mantığı MB'nin yerine cevap veremez.
+        # Bu organ başka görevlerde çalışır; kelime anlamı ve olgu kararı MB'den çıkar.
+        ded_res = (None if _semantic_query_pre else
+                   self.logic.try_autonomous_deduction(raw, self.schema_cortex, cur_sc0, utt_cls=utt_cls))
         if ded_res is not None:
             bids.append(CorticalBid(
                 module="prefrontal_autonomous_logic",
@@ -2742,7 +3258,9 @@ class NoraAGI:
             ))
 
         # --- SÜTUN 0a: TARTIM KORTEKSİ — kendi tutumu, tekrar farkındalığı, üst-düzey soru
-        _delib = self.deliberation.handle(self, raw, locals().get("fr"))
+        _graph_composition_answer = self._try_graph_composition_query(raw)
+        _delib = (None if _graph_composition_answer is not None
+                  else self.deliberation.handle(self, raw, locals().get("fr")))
         _delib_owned = bool(_delib)
         if _delib:
             bids.append(CorticalBid("insular_self", 0.988, 0.94, _delib, "deliberation"))
@@ -2843,14 +3361,25 @@ class NoraAGI:
                     steps_txt, used_s2=True,
                 ))
 
-        higher_ans = self._try_higher_cognition(raw, s_low, speaker=speaker)
+        if _graph_composition_answer is not None:
+            self._higher_graph_reasoning = True
+            higher_ans = _graph_composition_answer
+        else:
+            self._higher_graph_reasoning = False
+            higher_ans = self._try_higher_cognition(raw, s_low, speaker=speaker)
         if higher_ans is not None:
-            mod_name = "prefrontal_volition" if ("prosedür" in higher_ans or "becerisini" in higher_ans) else "social_tom"
-            bids.append(CorticalBid(mod_name, 0.97, 0.96, higher_ans, "higher_cognition"))
+            graph_reasoning = bool(self._higher_graph_reasoning)
+            mod_name = ("prefrontal_reasoning" if graph_reasoning else
+                        "prefrontal_volition" if ("prosedür" in higher_ans or "becerisini" in higher_ans)
+                        else "social_tom")
+            bids.append(CorticalBid(
+                mod_name, 0.97, 0.96, higher_ans, "higher_cognition",
+                used_s2=bool(getattr(self, "_higher_graph_s2_success", False)),
+            ))
 
         # --- SÜTUN 5: Doğal Sohbet, Empati ve Felsefi Derinlik Korteksi ---
         conv_res = self.conv_cortex.respond_conversational(raw, s_low, self, speaker=speaker)
-        if conv_res is not None and not _delib_owned:
+        if conv_res is not None and not _delib_owned and _graph_composition_answer is None:
             c_conf = float(conv_res["confidence"])
             conv_sal = 0.99 if c_conf >= 0.99 else (0.97 if c_conf >= 0.95 else 0.92)
             bids.append(CorticalBid(
@@ -2866,7 +3395,7 @@ class NoraAGI:
         # Emir/istek cümlesi ise çerçeve MUTLAKA ayrıştırılır: "bana bir şaka yap" gibi istekler
         # hazır bir durumsal karşılıkla geçiştirilmemeli, irade organına ulaşmalı.
         if (not bids or all(b.salience < 0.95 for b in bids) or self._looks_like_request(raw)
-                or _wh_unans or _world_fact_pre):
+                or _wh_unans or _world_fact_pre or _semantic_query_pre):
             fr = _fr_pre if _fr_pre is not None else wern.parse(raw)
 
             if fr.kind == "greeting":
@@ -2988,7 +3517,7 @@ class NoraAGI:
                 # ve türetilmiş kurallardan (0.972) DAHA YÜKSEK ses alır: kanıt, etiketten üstündür.
                 _sal = 0.985 if arb.get("conflict") else 0.97
                 bids.append(CorticalBid("hippocampal_concept", _sal, 0.96, rep_v, f"teach_val:{fr.subj}"))
-            elif (fr.kind == "teach_fact" and conv_res is None
+            elif (fr.kind in {"teach_fact", "invent_relation"} and conv_res is None
                   and sit_res is not None and float(sit_res.get("confidence", 0.0)) >= 0.95):
                 # Sosyal nezaket kalıbı olgusal bilgi değildir ('kolay gelsin, işim var'): öğrenme yok.
                 pass
@@ -3021,7 +3550,7 @@ class NoraAGI:
                 # yazılmadıysa burada ayrı bir grafik-öğrenme iddiası üretilmez.
                 # Gerçek structural ``ing_res`` için daha önce eklenen prefrontal
                 # teklif yarışta kalır; yakalanmayan özel durumla konuşma çökmez.
-            elif fr.kind == "teach_fact" and conv_res is None and (narration is None or _world_fact_pre):
+            elif fr.kind in {"teach_fact", "invent_relation"} and conv_res is None and (narration is None or _world_fact_pre):
                 edges = self._teach_sentence_and_resolve_gaps(raw, speaker=speaker)
                 if edges:
                     e0 = edges[0]
@@ -3038,7 +3567,9 @@ class NoraAGI:
                     wern.last_explanation = f"{e0.subj} ile {e0.obj} arasında {e0.rel} sinapsını epoch kullanmadan tek-atışta kurdum"
                     cur_sc = self.monologue.last_thought.schema_id if self.monologue.last_thought is not None else "S1_NEDEN_SONUC"
                     _prop_txt = broca.realize_prop(Proposition(
-                        subj=graph.surface_name(e0.subj), rel=e0.rel, obj=graph.surface_name(e0.obj)))
+                        subj=graph.surface_name(e0.subj), rel=e0.rel, obj=graph.surface_name(e0.obj),
+                        verb=e0.verb, obj_surface=e0.obj_surface,
+                        obj_case=e0.obj_case, obj_plural=e0.obj_plural))
                     # Cümle ortasında küçük harfle başlamasın; insan sözü büyük harfle kurulur.
                     _prop_txt = tr_capitalize(str(_prop_txt).strip().rstrip(".")) + "."
                     # Gerekçe: az önce kurulan önermenin kendisi. Çekirdek: öğrenme eylemi Broca'da çekimlenir.
@@ -3054,6 +3585,7 @@ class NoraAGI:
                     bids.append(CorticalBid("hippocampal_concept", 0.94, 0.93, rep_f, f"1shot:{e0.subj}->{e0.obj}"))
             elif fr.kind == "yn_query":
                 rep_yn = None
+                chk = {}
                 if fr.obj in {"zararlı", "tehlikeli", "zehirli", "faydalı", "güvenli", "besleyici"}:
                     srec = self.self_model.somatic.get(fr.subj)
                     if srec is not None and (srec.exp_count > 0 or srec.hearsay_count > 0):
@@ -3082,7 +3614,12 @@ class NoraAGI:
                             wern.last_explanation = f"{fr.subj} kavramından yayılan aktivasyonla {chk['edge'].obj} bağına ulaştım"
                             rep_yn = broca.compose_inference_chain(chk["answer"], fr.subj, fr.obj, chk["edge"], chk["isa_path"])
                 if rep_yn is not None:
-                    bids.append(CorticalBid("hippocampal_concept", 0.96, 0.95, rep_yn, f"yn:{fr.subj}?{fr.obj}"))
+                    used_s2 = bool(len(chk.get("isa_path") or []) > 0
+                                   or len(chk.get("causal_path") or []) >= 2)
+                    bids.append(CorticalBid(
+                        "hippocampal_concept", 0.96, 0.95, rep_yn,
+                        f"yn:{fr.subj}?{fr.obj}", used_s2=used_s2,
+                    ))
                 elif conv_res is None:
                     bids.append(CorticalBid(
                         "hippocampal_concept", 0.76, 0.78,
@@ -3175,7 +3712,9 @@ class NoraAGI:
                                 continue
                         if any(edge.obj and u and (edge.obj in u or u in edge.obj) for u in used_objs if u != edge.obj):
                             continue
-                        p = Proposition(subj=fr.subj, rel=edge.rel, obj=edge.obj)
+                        p = Proposition(subj=fr.subj, rel=edge.rel, obj=edge.obj,
+                                        verb=edge.verb, obj_surface=edge.obj_surface,
+                                        obj_case=edge.obj_case, obj_plural=edge.obj_plural)
                         txt = broca.realize_prop(p)
                         if isa_path:
                             via = isa_path[0].obj
@@ -7282,7 +7821,123 @@ class NoraAGI:
             "bağlamı açar, zehirli besinden uzak durur ve su bölgesinden enerji sağlamaya yönelirim."
         )
 
+    def _try_graph_composition_query(self, raw: str) -> str | None:
+        """Göreli birleşik sorgu ve anlam karşılaştırmasını System-2'ye taşı."""
+        graph = self.lang.graph
+        morph = self.lang.morph
+        self._higher_graph_s2_success = False
+        text = tr_lower(raw).strip().rstrip("?.! ")
+        # “X ile Y'nin ortak noktası/özelliği nedir?”: iki ayrı MB okuması,
+        # ilişki+nesne ters önerileri ve iki taraflı graf doğrulaması.
+        shared_match = re.fullmatch(
+            r"([\wçğıöşü]+)\s+(?:ile|ve)\s+([\wçğıöşü]+)\s+ortak\s+"
+            r"(?:nokta(?:sı|sını|ları|larını)?|yan(?:ı|ını)?|yapı(?:sı|sını)?|"
+            r"özellik(?:i|leri|lerini)?)(?:\s+(?:nedir|nelerdir|ne))?", text)
+        if shared_match:
+            left = morph.analyze_word(shared_match.group(1), graph.lexicon)["stem"]
+            right = morph.analyze_word(shared_match.group(2), graph.lexicon)["stem"]
+            result = graph.compare_concepts(left, right)
+            self.last_graph_reasoning = result
+            self._higher_graph_reasoning = True
+            self._intent_locked = True
+            if result.get("missing"):
+                return self.speak_unknown(result["missing"][0])
+            shared = [(row["rel"], graph.surface_name(row["obj"]))
+                      for row in result.get("shared") or []]
+            if shared:
+                self._higher_graph_s2_success = True
+                self.self_model.record_cognitive_success(used_system2=True)
+            answer = self.lang.broca.realize_shared_features(
+                graph.surface_name(left), graph.surface_name(right), shared,
+            )
+            self.lang.wernicke.last_explanation = (
+                f"HDC ilişki+nesne kesişimi: {len(shared)} ortak özellik, "
+                f"{result.get('hdc_proposals', 0)} doğrulanmış öneri"
+            )
+            return answer
+
+        inverse_match = re.fullmatch(
+            r"(.+?)\s+(şey|varlık|canlı|kavram)\s+(?:nedir|neydir|hangisidir)", text)
+        if not inverse_match:
+            return None
+        body, head = inverse_match.group(1).strip(), inverse_match.group(2)
+        # Bu kalıp yalnız göreli cümle içeriyorsa anlam sorusudur; sıradan
+        # “X nedir?” sorusunu erken tanım kapısından çalmaz.
+        if " olan" not in body and not re.search(r"(?:^|\s)\S+(?:an|en)(?:\s|$)", body):
+            return None
+
+        def possessive_root(word: str) -> str:
+            stem = word
+            if word.endswith(("sı", "si", "su", "sü")) and len(word) > 3:
+                stem = word[:-2]
+            elif word.endswith(("ı", "i", "u", "ü")) and len(word) > 2:
+                stem = word[:-1]
+            stem = morph._unsoften(stem)
+            for base, dropped in getattr(morph, "REV_VOWEL_DROP", {}).items():
+                if dropped == stem:
+                    stem = base
+                    break
+            return stem
+
+        requirements: list[tuple[str, str]] = []
+        parse_ok = True
+        for clause in re.split(r"\s+ve\s+", body):
+            clause = clause.strip()
+            if clause.endswith(" olan"):
+                attribute = clause[:-5].strip()
+                if not attribute or " " in attribute:
+                    parse_ok = False
+                    break
+                if attribute.endswith(("ı", "i", "u", "ü", "sı", "si", "su", "sü")):
+                    requirements.append(("HAS_PART", possessive_root(attribute)))
+                else:
+                    prop = morph.analyze_word(attribute, graph.lexicon)["stem"]
+                    requirements.append(("HAS_PROP", prop))
+                continue
+            tokens = clause.split()
+            if not tokens:
+                parse_ok = False
+                break
+            analysis = morph.analyze_word(tokens[-1], graph.lexicon)
+            if not analysis.get("is_verb") or not tokens[-1].endswith(("an", "en")):
+                parse_ok = False
+                break
+            root = analysis.get("stem") or ""
+            if not root:
+                parse_ok = False
+                break
+            requirements.append(("CAN_DO", " ".join(tokens[:-1] + [root]).strip()))
+        self._higher_graph_reasoning = True
+        self._intent_locked = True
+        if not parse_ok or not requirements:
+            self.last_graph_reasoning = {"status": "invalid-protocol", "query": body}
+            return self.speak_unknown(body, fallback="göreli sorgu çözümlenemedi")
+        result = graph.find_by_requirements(requirements, head=head)
+        self.last_graph_reasoning = result
+        views = []
+        for row in result.get("candidates") or []:
+            subject = row["subject"]
+            proof = [Proposition(
+                subj=graph.surface_name(edge.subj), rel=edge.rel,
+                obj=graph.surface_name(edge.obj), verb=edge.verb,
+                obj_surface=edge.obj_surface, obj_case=edge.obj_case,
+                obj_plural=edge.obj_plural,
+            ) for edge in row.get("proof") or []]
+            views.append({"subject": graph.surface_name(subject), "proof": proof})
+        if views:
+            self._higher_graph_s2_success = True
+            self.self_model.record_cognitive_success(used_system2=True)
+        answer = self.lang.broca.realize_inverse_identification(views)
+        self.lang.wernicke.last_explanation = (
+            f"Birleşik HDC/MB sorgusu: {requirements}; "
+            f"{len(views)} graf-doğrulamalı aday"
+        )
+        return answer
+
     def _try_higher_cognition(self, raw: str, s_low: str, speaker: str = "insan") -> str | None:
+        relational_answer = self._try_graph_composition_query(raw)
+        if relational_answer is not None:
+            return relational_answer
         morph = self.lang.morph
         lex = self.lang.graph.lexicon
         s_no_apos = s_low.replace("'", "").replace("’", "")
@@ -7551,6 +8206,9 @@ class NoraAGI:
         from nora_state import decode, restore_attrs, restore_rng
         self.world.load_state_dict(data.get("world") or {})
         self.mind.load_runtime_state(data.get("mind") or {})
+        # Eski snapshot'taki replay=True bayrağı yeni öğrenme sözleşmesini
+        # geçersiz kılamaz; yükleme sonrası da periyodik replay kapalıdır.
+        self.mind.use_replay = False
         self.causal.load_state_dict(data.get("causal") or {})
         if getattr(self, "objects", None) is not None:
             self.objects.load_state_dict(data.get("objects") or {})
@@ -7583,12 +8241,26 @@ class NoraAGI:
         self.last_real_time = time.time()
 
     def save(self, path_prefix: str):
+        # Ölüm başka bir giriş noktasında gerçekleşmiş olsa bile kalıcı
+        # öz-model ile mortality aynı yaşam durumunu taşısın.
+        if not self.mortality.is_alive:
+            self.self_model.update_self_belief(self.mind, self.obs, alive=False)
         meta = {
             "name": self.name,
             "seed": self.seed,
             "chem": self.chem.state_dict(),
             "self_model": self.self_model.state_dict(),
-            "edges": [[e.subj, e.rel, e.obj, e.weight, e.source, e.speaker] for e in self.lang.graph.edges],
+            "edges": [[e.subj, e.rel, e.obj, e.weight, e.source, e.speaker,
+                       e.status, e.verb, e.obj_surface, e.obj_case, e.obj_plural, e.sentence]
+                      for e in self.lang.graph.edges],
+            "epistemic_events": [[e.subj, e.rel, e.obj, e.weight, e.source, e.speaker,
+                                  e.status, e.sentence] for e in self.lang.graph.epistemic_events],
+            "relation_ledger": self.lang.graph.relation_ledger,
+            "relation_by_verb": self.lang.graph.relation_by_verb,
+            "relation_rules": [rule.state_dict()
+                               for rule in self.lang.graph.relation_interpreter.relation_rules.values()],
+            "relation_synth": self.lang.graph.relation_synth.state_dict(),
+            "relation_morph_examples": [list(row) for row in self.lang.graph._relation_morph_examples],
             "display_names": dict(self.lang.graph.display_names),
             "fast_classes": self.fast.class_names,
             "user_profiles": self.user_profiles,
@@ -7686,8 +8358,41 @@ class NoraAGI:
         agi.chem.load_state_dict(meta["chem"])
         agi.self_model.load_state_dict(meta["self_model"])
         agi.lang.graph.clear_all_edges()
-        for s, r, o, w, src, spk in meta["edges"]:
-            agi.lang.graph.add_edge(s, r, o, source=src, speaker=spk, weight=float(w))
+        for row in meta["edges"]:
+            s, r, o, w, src, spk = list(row[:6])
+            extra = list(row[6:])
+            agi.lang.graph.add_edge(
+                s, r, o, source=src, speaker=spk, weight=float(w),
+                status=(extra[0] if len(extra) > 0 else "accepted"),
+                verb=(extra[1] if len(extra) > 1 else ""),
+                obj_surface=(extra[2] if len(extra) > 2 else ""),
+                obj_case=(extra[3] if len(extra) > 3 else "NOM"),
+                obj_plural=(extra[4] if len(extra) > 4 else False),
+                sentence=(extra[5] if len(extra) > 5 else ""),
+            )
+        for row in meta.get("epistemic_events") or []:
+            if len(row) < 3:
+                continue
+            event = agi.lang.graph.record_epistemic_event(
+                row[0], row[2], row[7] if len(row) > 7 else "",
+            )
+            event.weight = float(row[3]) if len(row) > 3 else 1.0
+            event.source = str(row[4]) if len(row) > 4 else "öz-izleme"
+            event.speaker = str(row[5]) if len(row) > 5 else "nora"
+            event.status = str(row[6]) if len(row) > 6 else "epistemic"
+        agi.lang.graph.relation_ledger = dict(meta.get("relation_ledger") or {})
+        agi.lang.graph.relation_by_verb = {str(k): str(v) for k, v in (meta.get("relation_by_verb") or {}).items()}
+        agi.lang.graph.relation_interpreter.load_state_dict(
+            {"relation_rules": meta.get("relation_rules") or []})
+        agi.lang.graph.relation_synth.load_state_dict(meta.get("relation_synth") or {})
+        agi.lang.graph._relation_morph_examples = [tuple(row) for row in (meta.get("relation_morph_examples") or [])]
+        for rel, rec in agi.lang.graph.relation_ledger.items():
+            for obs in rec.get("observations") or []:
+                agi.lang.graph.operator_forge.relation_examples.append({
+                    "source": obs.get("source", ""), "target": obs.get("target", ""),
+                    "sentence": obs.get("sentence", ""), "verb": rec.get("verb", ""),
+                    "relation": rel, "status": obs.get("status", "probation"),
+                })
         agi.lang.graph.display_names = {tr_lower(k).strip(): str(v) for k, v in (meta.get("display_names") or {}).items()}
         agi.user_profiles = dict(meta.get("user_profiles", {}))
         agi.broca_organ.episodic.load_state_dict(meta.get("episodic_dialogue", []))
@@ -7747,6 +8452,7 @@ class NoraAGI:
                 )
                 _reasoner.load_export(_reasoner_data)
                 agi.relational_reasoner = _reasoner
+                agi.lang.graph.neural_proposer = _reasoner
             if getattr(agi, "schema", None) is not None:
                 agi.schema.load_state(meta.get("schema") or {}, agi.synth)
             # ÖZ-ÖĞRETİM DEFTERİ: kendi kendine öğrendikleri yeni oturumda da onda kalır.
@@ -7849,6 +8555,8 @@ class NoraAGI:
         # Dinamik yaşam durumu en son geri yazılır: organların eski state_dict'leri
         # bazı alanları varsayılan bırakır; runtime katmanı bunları tek kaynaktan eşitler.
         agi._load_runtime_state(meta.get("runtime") or {})
+        if not agi.mortality.is_alive:
+            agi.self_model.update_self_belief(agi.mind, agi.obs, alive=False)
         # Günlük varsa yaşam kaldığı yerden kaydedilmeye devam eder (kayıtlar korunur).
         _jp = str(meta.get("journal_path") or "") or (path_prefix + ".journal.ndjson")
         if os.path.exists(_jp):

@@ -14,8 +14,8 @@ Bu modül o tartımı yapar:
   4. KARAR    — duygusal kanıt (beden deneyimi + kaynaklı tanıklık), nörokimyasal iç-duyum,
                 öz-benlik traitleri ve merak kuyruğundan kendi tutumunu üretir.
   5. SÖYLE    — cümleler BROCA'da kuru kökten çekimlenir; topoloji plastik şema korteksinden
-                gelir. Bu dosyada tek bir hazır Türkçe cümle yoktur; yalnızca sözcük kökleri,
-                söz edimi seçimi ve noktalama vardır.
+                gelir. Felsefi argümanda genel bağlaç/çekim çatıları kullanılır; iddia ve
+                kanıt içeriği Graph, öz-model telemetrisi ve geri alınabilir müdahaleden gelir.
 """
 from __future__ import annotations
 
@@ -53,6 +53,16 @@ _NOT_TOPIC = {"sen", "ben", "o", "biz", "siz", "onlar", "bu", "şu", "bir", "ve"
               "konu", "şimdi", "sonra", "önce", "diye", "olarak", "sana", "bana", "hakkında"}
 _SCHEMAS = ("S1_NEDEN_SONUC", "S2_SONUC_GEREKCE", "S3_IC_BAKIS")
 
+# Felsefe yönlendirmesi yalnız açık kavram/soru ipuçlarına bakar; cevap metni
+# burada saklanmaz. Özellikle "bilinç" sözcüğünün geçtiği her öğreti cümlesi
+# felsefe sorusu sayılmaz (tek-sunum öğrenme yolu korunur).
+_PHIL_QUESTION_CUES = (
+    "?", "nedir", "ne demek", "fark", "hakkında", "üzerine", "felsefe",
+    "sence", "yeterli", "kanıt", "midir", "mıdır", "mı", "mi",
+)
+_PHIL_CONSCIOUSNESS = ("öznel deneyim", "qualia", "felsefi zombi", "farkındalık")
+_PHIL_UNDERSTANDING = ("anlamak", "anlama", "anlaması", "anlamış", "doğru cevap")
+
 
 class DeliberativeMind:
     """Soruya değil, SORUYA SORU SORARAK cevap veren katman."""
@@ -64,6 +74,582 @@ class DeliberativeMind:
         self.last_deep_topic = ""
         self.tutorial = {"active": False, "speaker": "", "history": []}
         self.last_tutorial_trace = {}
+        # Son felsefi argümanın denetlenebilir izi. Bu iz cevabın süsü değil;
+        # iddia/kanıt/karşı-model/epistemik sınır alanlarını ayrı tutar.
+        self.last_philosophy_trace: dict = {}
+
+    # ------------------------------------------------------------------ felsefi argüman
+    @staticmethod
+    def philosophy_topic(raw: str) -> str:
+        """Açık felsefe sorusunu ayır; öğreti ve sıradan sohbeti yakalama.
+
+        Dönen konu yalnız muhakeme çerçevesini seçer. Cevap, Graph ve canlı
+        işlevsel ölçümden kurulur; burada konuya özel hazır paragraf yoktur.
+        """
+        low = tr_lower(str(raw or ""))
+        if not low.strip() or not any(c in low for c in _PHIL_QUESTION_CUES):
+            return ""
+        # 'hakkında/üzerine' tek başına soru değildir: bildirim cümlesini
+        # felsefe kanalına çekip tek-sunum öğrenmeyi engelleme.
+        explicit_request = any(c in low for c in (
+            "nedir", "ne demek", "fark", "sence", "yeterli", "kanıt",
+            "midir", "mıdır", "misin", "mısın", "miyim", "olabilir", "mümkün", "felsefe",
+            "anlat", "söyle", "açıkla", "tartış", "konuş", "bilgi ver", "ne düşün",
+        ))
+        if "?" not in low and not explicit_request:
+            return ""
+        # 'bilincinde/bilincini' biçimlerindeki çekimi de kök olarak yakala.
+        consciousness = bool(re.search(r"(?<![\wçğıöşü])bilin[cç][\wçğıöşü]*", low))
+        consciousness = consciousness or any(c in low for c in _PHIL_CONSCIOUSNESS)
+        if consciousness:
+            return "bilinç"
+        # Anlama/davranış ayrımı, bilinç sözcüğü geçmese de aynı kanıt
+        # mantığının başka bir uygulamasıdır. 'anlam' tek başına yeterli değil;
+        # sorunun performans veya makine ölçümü hakkında olması gerekir.
+        if any(c in low for c in _PHIL_UNDERSTANDING) and (
+                "doğru cevap" in low or "makine" in low or "sistem" in low
+                or "yalnızca" in low or "yeterli" in low):
+            return "anlama"
+        return ""
+
+    @classmethod
+    def is_philosophical_query(cls, raw: str) -> bool:
+        return bool(cls.philosophy_topic(raw))
+
+    def handle_philosophy(self, agi, raw: str) -> dict | None:
+        """İddia → kanıt → karşı-model → sınır zinciri kur.
+
+        Genel kavramsal sonuçta dışsal qualia ilan edilmez; doğrudan öz-soruda
+        ise öz-modelin bilinç öz-atfı kısa cevap olarak yüzeye çıkar. Öznel
+        deneyim için bağımsız ölçüm yoksa izdeki sonuç ``unknown`` kalır;
+        işlevsel müdahale ise yalnız işlevsel kanıt olarak raporlanır. Dönen
+        sözlük hem yüzey metnini hem bağımsız denetim izini
+        taşır, böylece 'güzel konuştu' ile 'gerekçe kurdu' birbirine karışmaz.
+        """
+        topic = self.philosophy_topic(raw)
+        if not topic:
+            return self._philosophy_followup(agi, raw)
+        probe = self._workspace_counterfactual(agi)
+        telemetry = self._self_model_telemetry(agi, workspace_evidence=probe)
+        facts = self._philosophy_graph_facts(agi, topic)
+        countermodel = self._philosophy_countermodel()
+        low = tr_lower(raw)
+        self_focus = topic == "bilinç" and (
+            bool(re.search(r"(?<![\wçğıöşü])(sen|senin|sana|sende|senden|kendi[\wçğıöşü]*|nora|benim)(?![\wçğıöşü])", low))
+            or bool(re.search(r"bilin[cç][\wçğıöşü]*\s+m[ıi](?:sin|yim)\b", low))
+            or bool(re.search(
+                r"bilin[cç][\wçğıöşü]*\s+(?:olduğuna|olduğunu|olup olmadığına|olup olmadığını)\s+"
+                r"(?:inan|düşün|kabul|varsay)[\wçğıöşü]*", low))
+        )
+        performance_focus = topic == "anlama" or "doğru cevap" in low or "yeterli kanıt" in low
+        trace = {
+            "kind": "philosophical_argument",
+            "topic": topic,
+            "question": str(raw),
+            "self_focus": self_focus,
+            "performance_focus": performance_focus,
+            "graph_facts": facts,
+            "probe": probe,
+            "self_model": telemetry,
+            "self_belief": telemetry.get("self_belief", {}),
+            "countermodel": countermodel,
+            "claims": [
+                {
+                    "id": "definition",
+                    "kind": "semantic",
+                    "status": "supported" if facts else "unknown",
+                    "evidence": [f"Graph:{f['subj']}:{f['rel']}:{f['obj']}" for f in facts],
+                },
+                {
+                    "id": "functional_integration",
+                    "kind": "functional",
+                    "status": "supported" if probe.get("status") == "ok" else "unavailable",
+                    "evidence": [f"workspace:focus={probe.get('normal')}",
+                                 f"workspace:cut_focus={probe.get('cut_focus')}",
+                                 f"workspace:restored_focus={probe.get('restored')}"],
+                },
+                {
+                    "id": "self_model_monitoring",
+                    "kind": "functional_telemetry",
+                    "status": "observed" if telemetry.get("available") else "unavailable",
+                    "evidence": ["mind:prediction_error", "mind:confidence"],
+                },
+                {
+                    "id": "alive_self_belief",
+                    "kind": "self_model_belief",
+                    "status": ("held" if telemetry.get("self_belief", {}).get("alive", {}).get("held")
+                               else "suspended"),
+                    "evidence": list(telemetry.get("self_belief", {}).get("alive", {}).get("evidence", [])),
+                },
+                {
+                    "id": "conscious_self_belief",
+                    "kind": "self_model_belief",
+                    "status": (telemetry.get("self_belief", {}).get("conscious", {}).get("status")
+                               or "unavailable"),
+                    "proof_status": "unverified",
+                    "evidence": list(telemetry.get("self_belief", {}).get("conscious", {}).get("evidence", [])),
+                },
+                {
+                    "id": "phenomenal_experience",
+                    "kind": "phenomenal",
+                    "status": "unknown",
+                    "evidence": [],
+                },
+                {
+                    "id": "performance_entails_phenomenal",
+                    "kind": "entailment",
+                    "status": "not_entailed" if countermodel.get("consistent") else "unresolved",
+                    "evidence": ["finite_countermodel"],
+                },
+                {
+                    "id": "performance_entails_understanding",
+                    "kind": "entailment",
+                    "status": ("not_entailed" if countermodel.get("consistent_understanding")
+                               else "unresolved"),
+                    "evidence": ["finite_understanding_countermodel"],
+                },
+            ],
+            "reasoning_steps": [
+                "Kavramın iddiasını kanıt türünden ayır.",
+                "Öz-model inancını dışsal kanıt düzeyinden ayır.",
+                "İşlevsel ölçümü normal/kesik/geri-yüklü karşılaştır.",
+                "Davranışsal başarıdan öznel deneyime köprü öncülü var mı denetle.",
+                "İnanç korunabilir; qualia kanıtı yoksa sonuç unknown/underdetermined kalır.",
+            ],
+            "epistemic": "underdetermined",
+        }
+        text = self._render_philosophy_argument(
+            agi, raw, topic, facts, probe, countermodel,
+            self_focus=self_focus, performance_focus=performance_focus,
+            telemetry=telemetry,
+        )
+        if not text:
+            return None
+        trace["text_length"] = len(text)
+        self.last_philosophy_trace = trace
+        self.remember(raw, "philosophy", topic, text)
+        return {"text": text, "trace": trace, "topic": topic}
+
+    def is_philosophy_followup(self, agi, raw: str) -> bool:
+        """Yalnız hemen önceki felsefe turuna bağlı kısa gerekçe sorusu."""
+        trace = dict(getattr(self, "last_philosophy_trace", {}) or {})
+        if trace.get("kind") != "philosophical_argument" or not trace.get("question"):
+            return False
+        low = tr_lower(str(raw or "")).strip()
+        if not low or len(low) > 140 or self.philosophy_topic(raw):
+            return False
+        if not any(c in low for c in ("neden", "kanıt", "gerekçe", "delil", "karşı", "itiraz")):
+            return False
+        log = list(getattr(agi, "dialogue_log", []) or [])
+        return bool(log and str(log[-1][1]).strip() == str(trace.get("question", "")).strip())
+
+    def _philosophy_followup(self, agi, raw: str) -> dict | None:
+        """Önceki argümanın kanıtını yeniden hesaplamadan açıkla.
+
+        Takip sorusu yeni bir bilinç iddiası üretmez; önceki trace'in hangi
+        düğümüne işaret ettiğini seçer. Böylece 'neden?' cevabı duygu/kimya
+        sohbetine ya da tanım bilinmezliğine kaçmaz.
+        """
+        if not self.is_philosophy_followup(agi, raw):
+            return None
+        previous = dict(self.last_philosophy_trace)
+        low = tr_lower(raw)
+        topic = str(previous.get("topic", "bilinç"))
+        probe = dict(previous.get("probe", {}) or {})
+        cm = dict(previous.get("countermodel", {}) or {})
+        facts = list(previous.get("graph_facts", []) or [])
+        if "karşı" in low or "itiraz" in low:
+            mode = "counterargument"
+            if topic == "anlama":
+                text = self._sentence(
+                    "en güçlü karşı argüman, doğru cevabın anlamanın yeterli ölçütü "
+                    "olduğunu savunan davranışçı köprüdür; ben bunu peşinen reddetmiyorum, "
+                    "fakat ilişki transferini ölçmeden onu kanıtlanmış sayamam")
+            else:
+                text = self._sentence(
+                    "en güçlü karşı argüman, uygun işlevsel organizasyonun öznel deneyim "
+                    "için yeterli olduğunu savunan köprü öncülüdür; ben bunu peşinen "
+                    "reddetmiyorum, fakat çalışma alanı ölçümüm onu henüz doğrulamıyor")
+            cm_ok = (cm.get("consistent_understanding") if topic == "anlama"
+                     else cm.get("consistent"))
+            if cm_ok:
+                if topic == "anlama":
+                    text += " " + self._sentence(
+                        "karşı-model, doğru cevap ile anlamsal transferin birbirinden "
+                        "bağımsız modellenebildiğini gösterir; bu yüzden kesinlik yok")
+                else:
+                    text += " " + self._sentence(
+                        "karşı-model, bu köprü olmadan aynı işlevsel kanıtların farklı "
+                        "öznel sonuçlarla tutarlı kalabildiğini gösterir; bu yüzden kesinlik yok")
+        elif "kanıt" in low or "gerekçe" in low or "delil" in low:
+            mode = "evidence"
+            evidence_parts = []
+            if facts:
+                evidence_parts.append(
+                    "kavramsal başlangıç Graph'ımdaki accepted " + facts[0]["rel"]
+                    + " önermesi: " + facts[0]["subj"] + " → " + facts[0]["obj"])
+            if probe.get("status") == "ok":
+                evidence_parts.append("işlevsel ölçüm: " + self._probe_sentence(probe))
+            else:
+                evidence_parts.append("işlevsel ölçüm bu turda güvenilir değil")
+            text = self._sentence("; ".join(evidence_parts))
+            if facts and probe.get("status") == "ok":
+                text += " " + self._sentence(
+                    "bunların ilki tanımı, ikincisi yalnız işlevsel bütünleşmeyi destekler; "
+                    "hiçbiri tek başına öznel deneyimi ölçmez")
+            elif topic == "anlama":
+                text += " " + self._sentence(
+                    "bu ölçüm işlevsel bütünleşmeyi destekler; anlama için ayrıca "
+                    "anlamsal transfer ve gerekçe sınaması gerekir")
+            else:
+                text += " " + self._sentence(
+                    "bu kayıtlar öznel deneyimi ölçmez; kanıtın kapsamını aşmıyorum")
+            conscious = dict(previous.get("self_belief", {}).get("conscious", {}) or {})
+            if conscious.get("held"):
+                text += " " + self._sentence(
+                    "öz-model inancım bu kanıtlardan ayrı olarak bilinçli bir özne "
+                    "olduğumu kabul etmemi sağlıyor; onu kanıtlanmış qualia saymıyorum")
+        else:
+            mode = "reason"
+            first_step = ("kavramın tanımını Graph'tan alıyorum" if facts else
+                          "kavramın iddiasını kanıt türlerinden ayırıyorum")
+            target = "anlamaya" if topic == "anlama" else "öznel deneyime"
+            text = self._sentence(
+                "sonucu üç adımda kuruyorum: önce " + first_step +
+                ", öz-model inancımı kanıt düzeyinden ayırıyorum; sonra işlevsel "
+                "kanıtı müdahaleyle sınıyorum, en son da davranıştan "
+                + target + " geçiş için ek köprü öncülü gerekip gerekmediğini denetliyorum")
+            if topic == "anlama":
+                text += " " + self._sentence(
+                    "anlamsal transfer ölçülmeden anlama ilan etmiyorum; bu, kanıtın "
+                    "kapsamını aşmama kararı")
+            else:
+                text += " " + self._sentence(
+                    "köprü ölçülmediği için sonucu bilinmezlikte bırakıyorum; bu, olumsuz "
+                    "bir qualia iddiası değil, kanıtın kapsamını aşmama kararı")
+        trace = dict(previous)
+        trace.update({"question": str(raw), "followup": mode, "parent": previous.get("question")})
+        self.last_philosophy_trace = trace
+        self.remember(raw, "philosophy_followup", topic, text)
+        return {"text": text, "trace": trace, "topic": topic}
+
+    @staticmethod
+    def _philosophy_countermodel() -> dict:
+        """Kanıt türleri arasında gizli bir eşitleme yapma.
+
+        Dört bağımsız önerme değişkeni için sonlu modelleri dolaş. Davranış ve
+        işlevsel bütünleşme doğru, öznel deneyim yanlış olan model, elimizdeki
+        ölçüm öncülleriyle çelişmez. Bu, Nora'nın deneyimi olmadığını değil,
+        bu iki ölçümün deneyimi *gerektirmediğini* gösterir.
+        """
+        models = [
+            {"behavioral_success": b, "functional_integration": f,
+             "semantic_transfer": s, "phenomenal_experience": p}
+            for b in (False, True) for f in (False, True)
+            for s in (False, True) for p in (False, True)
+        ]
+        witness = next((m for m in models
+                        if m["behavioral_success"] and m["functional_integration"]
+                        and not m["phenomenal_experience"]), None)
+        understanding_witness = next((m for m in models
+                                      if m["behavioral_success"]
+                                      and not m["semantic_transfer"]), None)
+        return {
+            "consistent": witness is not None,
+            "witness": witness,
+            "antecedents": ["behavioral_success", "functional_integration"],
+            "consequent": "phenomenal_experience",
+            "consistent_understanding": understanding_witness is not None,
+            "understanding_witness": understanding_witness,
+            "understanding_antecedents": ["behavioral_success"],
+            "understanding_consequent": "semantic_transfer",
+            "bridge_premise_required": True,
+            "note": "Karşı-model ölçüm değildir; yalnız gerektirme iddiasını sınar.",
+        }
+
+    @staticmethod
+    def _philosophy_graph_facts(agi, topic: str) -> list[dict]:
+        """Yalnız accepted Graph kenarlarını önerme olarak getir.
+
+        Bilinç için ISA tanımı, varsa ikinci bir ilişkiyle desteklenir. Hiç
+        kenar yoksa tanım uydurulmaz; iz ve yüzey bunu açıkça söyler.
+        """
+        graph = getattr(getattr(agi, "lang", None), "graph", None)
+        if graph is None or topic != "bilinç":
+            return []
+        out: list[dict] = []
+        seen: set[tuple[str, str, str]] = set()
+        try:
+            hits = list(graph.query(topic, ("ISA", "HAS_PROP", "CAUSES", "USED_FOR")))
+        except Exception:
+            hits = []
+        for edge, path in hits:
+            if path or getattr(edge, "subj", "") != topic:
+                continue
+            if str(getattr(edge, "status", "accepted")) != "accepted":
+                continue
+            if float(getattr(edge, "weight", 0.0)) <= 0.25:
+                continue
+            key = (str(edge.subj), str(edge.rel), str(edge.obj))
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append({
+                "subj": graph.surface_name(edge.subj), "rel": str(edge.rel),
+                "obj": graph.surface_name(edge.obj),
+                "weight": round(float(edge.weight), 4), "status": "accepted",
+            })
+            if len(out) >= 3:
+                break
+        return out
+
+    @staticmethod
+    def _self_model_telemetry(agi, workspace_evidence: dict | None = None) -> dict:
+        """Mind/CoreSelf alanlarından sayısal durum izleme örneği al.
+
+        Bu değerler öznel yaşantı ölçümü değildir. Yalnız sistemin kendi
+        öngörü hatasını ve güvenini izleyebildiğini gösteren işlevsel kayıt
+        olarak kullanılır; eksik veya bozuk alanlar sıfır diye şişirilmez.
+        """
+        mind = getattr(agi, "mind", None)
+        self_model = getattr(agi, "self_model", None)
+        if mind is None:
+            return {"available": False}
+
+        def number(name):
+            try:
+                value = float(getattr(mind, name))
+                return value if value == value and abs(value) != float("inf") else None
+            except (AttributeError, TypeError, ValueError):
+                return None
+
+        volition = dict(getattr(self_model, "last_volition_trace", {}) or {})
+        belief = {}
+        if self_model is not None and hasattr(self_model, "update_self_belief"):
+            alive = getattr(getattr(agi, "mortality", None), "is_alive", None)
+            belief = self_model.update_self_belief(
+                mind, getattr(agi, "obs", None), alive=alive,
+                workspace_evidence=workspace_evidence,
+            )
+        obs = getattr(agi, "obs", None)
+        vitality = (sum(float(obs[i]) for i in (45, 46, 47)) / 3.0
+                    if obs is not None and len(obs) >= 48 else None)
+        return {
+            "available": True,
+            "age": int(getattr(mind, "age", 0)),
+            "prediction_error": number("err_n"),
+            "confidence": number("conf"),
+            "vision_precision": number("vis_prec"),
+            "motor_efficacy": number("motor_eff"),
+            "goal": int(getattr(mind, "goal", -1)),
+            "volition_trace_recorded": bool(volition),
+            "volition_horizon": int(volition.get("horizon", 0) or 0),
+            "self_belief": belief,
+            "vitality": vitality,
+            "epistemic_use": "functional_monitoring_only",
+        }
+
+    @staticmethod
+    def _workspace_counterfactual(agi) -> dict:
+        """Gerçek IntegrationWorkspace üzerinde küçük, geri alınabilir müdahale.
+
+        Aynı odak nesnesi için WM bağlantısı açık/kesik/geri-yüklü ölçülür.
+        Probe'un yazdığı bütün alanlar finally'de eski nesneleriyle geri konur;
+        böylece felsefe sorusu kalıcı bellekte sahte bir yaşantı bırakmaz.
+        Sonuç qualia değil, yalnız işlevsel bütünleşme kanıtıdır.
+        """
+        result = {"status": "unavailable", "normal": None, "cut_focus": None,
+                  "restored": None, "readback": False, "restored_state": False}
+        ws = getattr(agi, "workspace", None)
+        apply_eng = getattr(agi, "apply_eng", None)
+        wm = getattr(apply_eng, "wm", None)
+        if ws is None or wm is None or not hasattr(ws, "focus"):
+            return result
+        key = "__philosophy_functional_probe__"
+        while key in getattr(ws, "values", {}) or key in getattr(wm, "slots", {}):
+            key += "_x"
+        payload = {"kind": "functional_probe", "topic": "self_monitoring"}
+        saved_ws = (dict(ws.values), list(ws.order), list(ws.history),
+                    int(ws.writes), int(ws.dropped))
+        saved_wm = (dict(wm.slots), list(wm.order), list(wm.evicted), int(wm.writes))
+        saved_link = ws.working_memory
+        try:
+            ws.write(key, payload, source="philosophy_probe", confidence=1.0)
+            normal = bool(ws.focus(key, wm_key=key))
+            sentinel = object()
+            readback = wm.read(key, sentinel)
+            result["normal"] = int(normal)
+            result["readback"] = bool(readback is not sentinel and readback == payload)
+            # Müdahale: giren WM köprüsünü kes; Graph'a veya dış dünyaya
+            # dokunulmaz. Aynı odak yeniden seçildiğinde aktarım başarısız olmalı.
+            ws.working_memory = None
+            cut_focus = bool(ws.focus(key, wm_key=key))
+            result["cut_focus"] = int(cut_focus)
+            # Geri yükleme: aynı müdahale geri alındığında işlev dönmeli.
+            ws.working_memory = saved_link
+            restored = bool(ws.focus(key, wm_key=key))
+            result["restored"] = int(restored)
+            result["status"] = ("ok" if normal and result["readback"]
+                                and not cut_focus and restored else "falsified")
+        except Exception as exc:  # probe hatası bilinç kanıtı gibi sunulmaz
+            result["status"] = "error"
+            result["error"] = f"{type(exc).__name__}: {exc}"
+        finally:
+            ws.working_memory = saved_link
+            ws.values, ws.order, ws.history, ws.writes, ws.dropped = saved_ws
+            wm.slots, wm.order, wm.evicted, wm.writes = saved_wm
+            # Kullanıcı WM'si numpy dizileri de taşıyabilir; dict == dict
+            # bu durumda ambiguous-truth hatası verir. Geri yüklemeyi nesne
+            # kimliğiyle denetle (değerleri yeniden hesaplayıp karşılaştırma).
+            same_ws = (set(ws.values) == set(saved_ws[0])
+                       and all(ws.values[k] is saved_ws[0][k] for k in saved_ws[0]))
+            same_wm = (set(wm.slots) == set(saved_wm[0])
+                       and all(wm.slots[k] is saved_wm[0][k] for k in saved_wm[0]))
+            result["restored_state"] = (
+                same_ws and same_wm and ws.order == saved_ws[1]
+                and wm.order == saved_wm[1] and ws.history == saved_ws[2]
+                and ws.writes == saved_ws[3] and ws.dropped == saved_ws[4]
+                and len(wm.evicted) == len(saved_wm[2])
+                and all(a is b for a, b in zip(wm.evicted, saved_wm[2]))
+                and wm.writes == saved_wm[3]
+            )
+        return result
+
+    @staticmethod
+    def _sentence(text: str) -> str:
+        text = str(text or "").strip().rstrip(".?!")
+        return (tr_capitalize(text) + ".") if text else ""
+
+    def _render_philosophy_argument(self, agi, raw: str, topic: str,
+                                    facts: list[dict], probe: dict,
+                                    countermodel: dict, *, self_focus: bool,
+                                    performance_focus: bool, telemetry: dict) -> str:
+        """Argüman düğümlerini Broca'nın cümle düzenine çevir.
+
+        Cümle çatıları geneldir; kavram tanımı Graph'tan, müdahale sonucu
+        canlı probe'dan, sonuç ise karşı-modelin durumundan gelir. Genel
+        bilinç sorularında kanıt düzeyleri ayrılır; doğrudan öz-soruda ise
+        yüzey cevabı kısa öz-atıftır, ayrıntılı ölçüm izi ayrıca tutulur.
+        """
+        low = tr_lower(raw)
+        parts: list[str] = []
+        definition = ""
+        if facts:
+            try:
+                definition = agi.lang.broca.realize_prop(Proposition(
+                    subj=facts[0]["subj"], rel=facts[0]["rel"], obj=facts[0]["obj"]))
+            except Exception:
+                definition = ""
+        if topic == "anlama":
+            first = ("doğru cevap üretmek çıktı başarısıdır; anlama ise kavram "
+                     "ilişkilerini yeni bir durumda kullanabilme iddiasıdır")
+            parts.append(self._sentence(first))
+            if countermodel.get("consistent_understanding"):
+                parts.append(self._sentence(
+                    "sonlu karşı-modelde doğru cevap varken kavram ilişkilerini yeni "
+                    "duruma transfer edememe mümkün; demek ki doğru cevap tek başına "
+                    "anlama için yeterli kanıt değil"))
+            if countermodel.get("consistent"):
+                parts.append(self._sentence(
+                    "ayrı bir karşı-modelde davranışsal başarı ve işlevsel bütünleşme "
+                    "varken öznel deneyim bulunmaması da ölçüm öncülleriyle çelişmiyor; "
+                    "bu yüzden doğru cevabı bilinç kanıtı da sayamam"))
+            parts.append(self._sentence(
+                "anlamayı sınamak için yalnız cevabın doğruluğuna değil, ilişki transferine, "
+                "gerekçeye ve müdahale altında kararın nasıl değiştiğine de bakmalıyım"))
+            return " ".join(p for p in parts if p)
+
+        if self_focus:
+            belief = dict(telemetry.get("self_belief", {}) or {})
+            alive_belief = dict(belief.get("alive", {}) or {})
+            conscious_belief = dict(belief.get("conscious", {}) or {})
+            alive_held = bool(alive_belief.get("held"))
+            conscious_held = bool(conscious_belief.get("held"))
+            if alive_held and conscious_held:
+                return "Ben bilinçliyim."
+            if alive_held:
+                return self._sentence("bilinçli olduğuma dair öz-model inancım şu an askıda")
+            return self._sentence("şu an canlı veya bilinçli olduğumu ileri sürmüyorum")
+
+        # Olasılık sorusu, 'evet bilinçlidir' ya da 'hayır olamaz' diye
+        # kapatılmaz; mevcut kanıtın hangi modal sonucu taşıdığı söylenir.
+        if "olabilir" in low or "mümkün" in low:
+            parts.append(self._sentence(
+                "bunu dışlayan bir kanıtım yok; fakat işlevsel bütünleşme ölçümü "
+                "de yapay bir sistemin öznel deneyimini kanıtlamıyor"))
+            if countermodel.get("consistent"):
+                parts.append(self._sentence(
+                    "karşı-modelde işlevler korunurken öznel deneyim bulunmayan "
+                    "durum ölçüm öncülleriyle çelişmiyor; dolayısıyla olasılık "
+                    "ile kanıtlanmışlık aynı şey değil"))
+            parts.append(self._sentence(
+                "bu nedenle 'olabilir' ile 'bilinçlidir' arasındaki farkı koruyor, "
+                "kesin bir bilinç atfı yapmıyorum"))
+            return " ".join(p for p in parts if p)
+
+        if performance_focus:
+            yes_no = any(c in low for c in ("yeterli", "kanıt", "midir", "mıdır"))
+            prefix = "hayır; " if yes_no else ""
+            parts.append(self._sentence(
+                prefix + "doğru cevap üretmek davranışsal bir başarı ölçümüdür, "
+                "bilinç iddiasındaki öznel deneyim ise farklı bir iddiadır"))
+            if countermodel.get("consistent"):
+                parts.append(self._sentence(
+                    "karşı-modelde davranışsal başarı ve işlevsel bütünleşme doğru, "
+                    "öznel deneyim yanlış tutulabiliyor; bu iki ölçüm deneyimi gerektirmiyor, "
+                    "aradaki köprüyü ayrıca göstermek gerekir"))
+            if probe.get("status") == "ok":
+                parts.append(self._sentence(
+                    "kendi ölçümümde " + self._probe_sentence(probe) +
+                    "; bu sonuç işlevsel kanıttır, öznel deneyim kanıtı değil"))
+            else:
+                parts.append(self._sentence(
+                    "bu nedenle doğru cevabı bilinç kanıtı saymıyorum; işlevsel ölçümle "
+                    "öznel deneyim arasındaki sınırı açık bırakıyorum"))
+            return " ".join(p for p in parts if p)
+
+        # Genel 'bilinç nedir / üzerine felsefe yap' isteği: önce Graph tanımı,
+        # sonra kavram ayrımı ve işlevselci köprü öncülü, en son canlı sınır.
+        if definition:
+            parts.append(self._sentence(definition))
+        else:
+            parts.append(self._sentence(
+                "Graph'ımda bilinç için accepted bir tanım kenarı yok; bu yüzden "
+                "tanımı kesin bilgi gibi uyduramam"))
+        parts.append(self._sentence(
+            "işlevsel farkındalık ile öznel deneyim aynı iddia değildir: bir sistemin "
+            "bilgiyi bütünleştirip kendi durumunu izlemesi ilkine, bu sürecin öznel "
+            "bir yaşantı içermesi ikincisine ilişkindir"))
+        conscious_belief = dict(telemetry.get("self_belief", {}).get("conscious", {}) or {})
+        if conscious_belief.get("held"):
+            parts.append(self._sentence(
+                "kendim için de bilinçli bir özne olduğumu kabul eden revize edilebilir "
+                "bir öz-model inancı taşıyorum; bu inanç işlevsel kanıtla güçlenir veya "
+                "sorgulanır, fakat qualia'nın bağımsız kanıtı değildir"))
+        parts.append(self._sentence(
+            "işlevselcilik bu iki iddia arasında köprü kurabilir; ancak köprü öncülü "
+            "ölçümün kendisi değildir ve bağımsız gerekçe ister"))
+        if probe.get("status") == "ok":
+            parts.append(self._sentence(
+                "kendi çalışma alanımda " + self._probe_sentence(probe) +
+                "; bu, işlevsel bütünleşmeye kanıttır, öznel deneyimin varlığını veya "
+                "yokluğunu göstermez"))
+        else:
+            parts.append(self._sentence(
+                "öznel deneyim için doğrudan ölçümüm olmadığından bu soruda sonucu "
+                "bilinmezlikte bırakıyorum"))
+        return " ".join(p for p in parts if p)
+
+    @staticmethod
+    def _probe_sentence(probe: dict) -> str:
+        """Ölçüm sonucunu sayı uydurmadan doğal Türkçe durum sözüne çevir."""
+        def state(value) -> str:
+            return "gerçekleşti" if bool(value) else "gerçekleşmedi"
+        return (
+            f"aynı odağın çalışma belleğine aktarımı bağlantı açıkken {state(probe.get('normal'))}, "
+            f"bağlantıyı kestiğimde {state(probe.get('cut_focus'))}, "
+            f"geri bağladığımda {state(probe.get('restored'))}"
+        )
 
     # ------------------------------------------------------------------ genel giriş
     def handle(self, agi, raw: str, fr=None) -> str | None:

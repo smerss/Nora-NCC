@@ -556,7 +556,10 @@ class StudioRuntime:
                 reward=float(self.agi.mind.valence), novelty=0.25, surprise=surp,
                 vis_prec=float(self.agi.mind.vis_prec), motor_eff=float(self.agi.mind.motor_eff), died=self.agi.died,
             )
-            self.agi.self_model.sync_from_mind(self.agi.mind, self.agi.obs, died=self.agi.died)
+            self.agi.self_model.sync_from_mind(
+                self.agi.mind, self.agi.obs, died=self.agi.died,
+                alive=self.agi.mortality.is_alive,
+            )
             self.agi.monologue.spontaneous_tick(self.agi)
             # Arka plan yaşamı: kullanıcı yazmasa da zihin işler (dinlen/prova/araştır/seslen).
             if self.agi.life.enabled and self.agi.mind.age % self.agi.life.stride == 0:
