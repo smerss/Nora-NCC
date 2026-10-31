@@ -1,0 +1,84 @@
+[
+  {
+    "fold": 1,
+    "position_seed": 149,
+    "wide_seed": 147,
+    "position_epochs_fixed": 4,
+    "wide_epochs_fixed": 3,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean3500_step1750.pt",
+    "freeze_emb": false,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "dialogue_repeats": 1,
+    "target_l2sp": 0.0,
+    "position": {
+      "n": 401,
+      "hit1": 168,
+      "hit5": 201,
+      "top1": 0.41895261845386533,
+      "top5": 0.5012468827930174,
+      "ppl": 62.219294859981396
+    },
+    "wide": {
+      "n": 401,
+      "hit1": 173,
+      "hit5": 208,
+      "top1": 0.4314214463840399,
+      "top5": 0.5187032418952618,
+      "ppl": 58.90614357698937
+    },
+    "ensemble": {
+      "n": 401,
+      "hit1": 174,
+      "hit5": 209,
+      "top1": 0.4339152119700748,
+      "top5": 0.5211970074812967,
+      "ppl": 57.225825400580995
+    },
+    "seconds": 18.916163517000314
+  },
+  {
+    "fold": 2,
+    "position_seed": 149,
+    "wide_seed": 147,
+    "position_epochs_fixed": 4,
+    "wide_epochs_fixed": 3,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean3500_step1750.pt",
+    "freeze_emb": false,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "dialogue_repeats": 1,
+    "target_l2sp": 0.0,
+    "position": {
+      "n": 419,
+      "hit1": 166,
+      "hit5": 208,
+      "top1": 0.39618138424821003,
+      "top5": 0.4964200477326969,
+      "ppl": 82.69967009801294
+    },
+    "wide": {
+      "n": 419,
+      "hit1": 169,
+      "hit5": 205,
+      "top1": 0.4033412887828162,
+      "top5": 0.4892601431980907,
+      "ppl": 86.3031858956991
+    },
+    "ensemble": {
+      "n": 419,
+      "hit1": 165,
+      "hit5": 211,
+      "top1": 0.3937947494033413,
+      "top5": 0.5035799522673031,
+      "ppl": 79.40066678521903
+    },
+    "seconds": 13.516176985999664
+  }
+]

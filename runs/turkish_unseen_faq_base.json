@@ -1,0 +1,23 @@
+{
+  "mode": "base",
+  "corpus": ".cache/corpora/processed/unseen_faq_confirmation.jsonl",
+  "corpus_sha256": "5050dad14ee0da9f370c25e55e8d4b003b8bf3d96f02a3b74a1673c94234f987",
+  "input_sentences": 8467,
+  "models": [
+    "data/broca_tr.pt"
+  ],
+  "model_sha256": {
+    "data/broca_tr.pt": "d2af910c07986ae33bb0fcedfad1ddf62a0a43be24100025c6751e73a8a58222"
+  },
+  "position_weight": 0.65,
+  "seconds": 78.90705141000035,
+  "max_rss_mib": 1364.35546875,
+  "metrics": {
+    "n": 199307,
+    "hit1": 17647,
+    "hit5": 29787,
+    "top1": 0.08854179732774062,
+    "top5": 0.1494528541395937,
+    "ppl": 7933.160307213103
+  }
+}

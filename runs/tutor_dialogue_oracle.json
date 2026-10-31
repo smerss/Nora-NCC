@@ -1,0 +1,571 @@
+{
+  "checks": {
+    "thirty_turns": true,
+    "sequential_traces": true,
+    "graph_grounding": true,
+    "aritmetik": true,
+    "quiz_and_evaluation": true,
+    "student_summaries": true,
+    "nora_summaries": true,
+    "misconception_correction": true,
+    "knowledge_limits": true,
+    "surface_quality": true,
+    "real_moe_candidates": true,
+    "closed": true,
+    "code_hash": true
+  },
+  "passed": true,
+  "fact_count": 58,
+  "fact_results": [
+    {
+      "turn": 1,
+      "fact": [
+        "bilgisayar",
+        "ISA",
+        "makine"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 1,
+      "fact": [
+        "bilgisayar",
+        "USED_FOR",
+        "veri işleme ve hesaplama"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 2,
+      "fact": [
+        "algoritma",
+        "USED_FOR",
+        "problemi adım adım çözme"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 2,
+      "fact": [
+        "bilgisayar",
+        "USED_FOR",
+        "veri işleme ve hesaplama"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 3,
+      "fact": [
+        "algoritma",
+        "USED_FOR",
+        "problemi adım adım çözme"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 4,
+      "fact": [
+        "algoritma",
+        "USED_FOR",
+        "problemi adım adım çözme"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 4,
+      "fact": [
+        "yazılım",
+        "ISA",
+        "program"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 5,
+      "fact": [
+        "bilgisayar",
+        "USED_FOR",
+        "veri işleme ve hesaplama"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 5,
+      "fact": [
+        "algoritma",
+        "USED_FOR",
+        "problemi adım adım çözme"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 6,
+      "fact": [
+        "veri",
+        "USED_FOR",
+        "öğrenmek"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 7,
+      "fact": [
+        "yapay zekâ",
+        "ISA",
+        "yazılım"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 7,
+      "fact": [
+        "yapay zekâ",
+        "CAN_DO",
+        "öğrenmek"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 8,
+      "fact": [
+        "yapay zekâ",
+        "ISA",
+        "program"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 8,
+      "fact": [
+        "yapay zekâ",
+        "ISA",
+        "yazılım"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 9,
+      "fact": [
+        "internet",
+        "ISA",
+        "ağ"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 9,
+      "fact": [
+        "internet",
+        "USED_FOR",
+        "küresel bilgi paylaşımı ve araştırma"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 9,
+      "fact": [
+        "bilgisayar",
+        "USED_FOR",
+        "veri işleme ve hesaplama"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 10,
+      "fact": [
+        "bilgisayar",
+        "USED_FOR",
+        "veri işleme ve hesaplama"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 10,
+      "fact": [
+        "veri",
+        "USED_FOR",
+        "öğrenmek"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 10,
+      "fact": [
+        "yapay zekâ",
+        "CAN_DO",
+        "öğrenmek"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 11,
+      "fact": [
+        "veri",
+        "USED_FOR",
+        "öğrenmek"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 12,
+      "fact": [
+        "yapay zekâ",
+        "CAN_DO",
+        "öğrenmek"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 12,
+      "fact": [
+        "internet",
+        "USED_FOR",
+        "küresel bilgi paylaşımı ve araştırma"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 13,
+      "fact": [
+        "yapay zekâ",
+        "CAN_DO",
+        "öğrenmek"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 13,
+      "fact": [
+        "internet",
+        "USED_FOR",
+        "küresel bilgi paylaşımı ve araştırma"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 14,
+      "fact": [
+        "bilgisayar",
+        "USED_FOR",
+        "veri işleme ve hesaplama"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 14,
+      "fact": [
+        "algoritma",
+        "USED_FOR",
+        "problemi adım adım çözme"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 14,
+      "fact": [
+        "veri",
+        "USED_FOR",
+        "öğrenmek"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 15,
+      "fact": [
+        "bilgisayar",
+        "USED_FOR",
+        "veri işleme ve hesaplama"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 15,
+      "fact": [
+        "algoritma",
+        "USED_FOR",
+        "problemi adım adım çözme"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 15,
+      "fact": [
+        "veri",
+        "USED_FOR",
+        "öğrenmek"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 16,
+      "fact": [
+        "kuantum bilgisayar",
+        "ISA",
+        "bilgisayar"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 17,
+      "fact": [
+        "kuantum bilgisayar",
+        "ISA",
+        "bilgisayar"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 18,
+      "fact": [
+        "kuantum bilgisayar",
+        "ISA",
+        "bilgisayar"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 19,
+      "fact": [
+        "internet",
+        "USED_FOR",
+        "küresel bilgi paylaşımı ve araştırma"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 19,
+      "fact": [
+        "veri",
+        "USED_FOR",
+        "öğrenmek"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 20,
+      "fact": [
+        "internet",
+        "USED_FOR",
+        "küresel bilgi paylaşımı ve araştırma"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 20,
+      "fact": [
+        "veri",
+        "USED_FOR",
+        "öğrenmek"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 21,
+      "fact": [
+        "algoritma",
+        "USED_FOR",
+        "problemi adım adım çözme"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 22,
+      "fact": [
+        "algoritma",
+        "USED_FOR",
+        "problemi adım adım çözme"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 22,
+      "fact": [
+        "veri",
+        "USED_FOR",
+        "öğrenmek"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 23,
+      "fact": [
+        "algoritma",
+        "USED_FOR",
+        "problemi adım adım çözme"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 23,
+      "fact": [
+        "yazılım",
+        "ISA",
+        "program"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 24,
+      "fact": [
+        "yazılım",
+        "ISA",
+        "program"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 25,
+      "fact": [
+        "yapay zekâ",
+        "ISA",
+        "yazılım"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 25,
+      "fact": [
+        "yapay zekâ",
+        "CAN_DO",
+        "öğrenmek"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 26,
+      "fact": [
+        "algoritma",
+        "USED_FOR",
+        "problemi adım adım çözme"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 26,
+      "fact": [
+        "veri",
+        "USED_FOR",
+        "öğrenmek"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 27,
+      "fact": [
+        "algoritma",
+        "USED_FOR",
+        "problemi adım adım çözme"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 27,
+      "fact": [
+        "veri",
+        "USED_FOR",
+        "öğrenmek"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 28,
+      "fact": [
+        "bilgisayar",
+        "USED_FOR",
+        "veri işleme ve hesaplama"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 28,
+      "fact": [
+        "algoritma",
+        "USED_FOR",
+        "problemi adım adım çözme"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 28,
+      "fact": [
+        "veri",
+        "USED_FOR",
+        "öğrenmek"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 28,
+      "fact": [
+        "yapay zekâ",
+        "CAN_DO",
+        "öğrenmek"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 29,
+      "fact": [
+        "bilgisayar",
+        "USED_FOR",
+        "veri işleme ve hesaplama"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 29,
+      "fact": [
+        "algoritma",
+        "USED_FOR",
+        "problemi adım adım çözme"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 29,
+      "fact": [
+        "veri",
+        "USED_FOR",
+        "öğrenmek"
+      ],
+      "grounded": true
+    },
+    {
+      "turn": 29,
+      "fact": [
+        "yapay zekâ",
+        "CAN_DO",
+        "öğrenmek"
+      ],
+      "grounded": true
+    }
+  ],
+  "arithmetic": [
+    {
+      "turn": 3,
+      "expression": "2+3",
+      "expected": 5,
+      "passed": true
+    },
+    {
+      "turn": 8,
+      "expression": "2+3",
+      "expected": 5,
+      "passed": true
+    },
+    {
+      "turn": 21,
+      "expression": "4+7",
+      "expected": 11,
+      "passed": true
+    }
+  ],
+  "neural_stats": {
+    "generated": 57,
+    "accepted": 3,
+    "rejected": 54,
+    "cache_hits": 22
+  },
+  "neural_turns": 8,
+  "code_sha256": "62ec753c419e8dce7972e2d542a56925cce125229f39d41f3f514edac7b8f095"
+}

@@ -1,0 +1,23 @@
+{
+  "mode": "base",
+  "corpus": ".cache/corpora/processed/unseen_faq_confirmation.jsonl",
+  "corpus_sha256": "5050dad14ee0da9f370c25e55e8d4b003b8bf3d96f02a3b74a1673c94234f987",
+  "input_sentences": 8467,
+  "models": [
+    "data/checkpoints/turkish_external.pt"
+  ],
+  "model_sha256": {
+    "data/checkpoints/turkish_external.pt": "5ad24f8b88064d5e94d03f34cdc837813652afdb56b3b7c06b8996a12f1f3823"
+  },
+  "position_weight": 0.65,
+  "seconds": 79.79113621299985,
+  "max_rss_mib": 1368.74609375,
+  "metrics": {
+    "n": 199307,
+    "hit1": 22174,
+    "hit5": 38896,
+    "top1": 0.11125550030856919,
+    "top5": 0.1951562162894429,
+    "ppl": 1233.0090424250361
+  }
+}

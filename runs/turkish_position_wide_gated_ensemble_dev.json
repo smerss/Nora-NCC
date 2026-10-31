@@ -1,0 +1,185 @@
+[
+  {
+    "position_gated_memory": true,
+    "position_weight": 0.7,
+    "wide143_weight": 0.30000000000000004,
+    "n": 393,
+    "top1": 0.44783714413642883,
+    "top5": 0.4987277388572693,
+    "ppl": 75.85662078857422
+  },
+  {
+    "position_gated_memory": false,
+    "position_weight": 0.75,
+    "wide143_weight": 0.25,
+    "n": 393,
+    "top1": 0.44783714413642883,
+    "top5": 0.4987277388572693,
+    "ppl": 76.93638610839844
+  },
+  {
+    "position_gated_memory": true,
+    "position_weight": 0.75,
+    "wide143_weight": 0.25,
+    "n": 393,
+    "top1": 0.44783714413642883,
+    "top5": 0.4987277388572693,
+    "ppl": 76.9734115600586
+  },
+  {
+    "position_gated_memory": true,
+    "position_weight": 0.55,
+    "wide143_weight": 0.44999999999999996,
+    "n": 393,
+    "top1": 0.4452926218509674,
+    "top5": 0.5114504098892212,
+    "ppl": 73.51406860351562
+  },
+  {
+    "position_gated_memory": false,
+    "position_weight": 0.55,
+    "wide143_weight": 0.44999999999999996,
+    "n": 393,
+    "top1": 0.4452926218509674,
+    "top5": 0.508905827999115,
+    "ppl": 73.5545654296875
+  },
+  {
+    "position_gated_memory": true,
+    "position_weight": 0.65,
+    "wide143_weight": 0.35,
+    "n": 393,
+    "top1": 0.4452926218509674,
+    "top5": 0.5038167834281921,
+    "ppl": 74.92568969726562
+  },
+  {
+    "position_gated_memory": false,
+    "position_weight": 0.65,
+    "wide143_weight": 0.35,
+    "n": 393,
+    "top1": 0.4452926218509674,
+    "top5": 0.5012722611427307,
+    "ppl": 74.92865753173828
+  },
+  {
+    "position_gated_memory": false,
+    "position_weight": 0.7,
+    "wide143_weight": 0.30000000000000004,
+    "n": 393,
+    "top1": 0.4452926218509674,
+    "top5": 0.49618321657180786,
+    "ppl": 75.83980560302734
+  },
+  {
+    "position_gated_memory": true,
+    "position_weight": 0.9,
+    "wide143_weight": 0.09999999999999998,
+    "n": 393,
+    "top1": 0.4452926218509674,
+    "top5": 0.4987277388572693,
+    "ppl": 82.04826354980469
+  },
+  {
+    "position_gated_memory": true,
+    "position_weight": 0.95,
+    "wide143_weight": 0.050000000000000044,
+    "n": 393,
+    "top1": 0.4452926218509674,
+    "top5": 0.5012722611427307,
+    "ppl": 84.85404968261719
+  },
+  {
+    "name": "position_gated",
+    "n": 393,
+    "top1": 0.4452926218509674,
+    "top5": 0.5012722611427307,
+    "ppl": 90.02022552490234
+  },
+  {
+    "position_gated_memory": true,
+    "position_weight": 0.6,
+    "wide143_weight": 0.4,
+    "n": 393,
+    "top1": 0.442748099565506,
+    "top5": 0.508905827999115,
+    "ppl": 74.15139770507812
+  },
+  {
+    "position_gated_memory": false,
+    "position_weight": 0.6,
+    "wide143_weight": 0.4,
+    "n": 393,
+    "top1": 0.442748099565506,
+    "top5": 0.5063613057136536,
+    "ppl": 74.17353820800781
+  },
+  {
+    "position_gated_memory": false,
+    "position_weight": 0.8,
+    "wide143_weight": 0.19999999999999996,
+    "n": 393,
+    "top1": 0.442748099565506,
+    "top5": 0.4987277388572693,
+    "ppl": 78.26319122314453
+  },
+  {
+    "position_gated_memory": true,
+    "position_weight": 0.8,
+    "wide143_weight": 0.19999999999999996,
+    "n": 393,
+    "top1": 0.442748099565506,
+    "top5": 0.4987277388572693,
+    "ppl": 78.32027435302734
+  },
+  {
+    "position_gated_memory": true,
+    "position_weight": 0.85,
+    "wide143_weight": 0.15000000000000002,
+    "n": 393,
+    "top1": 0.442748099565506,
+    "top5": 0.4987277388572693,
+    "ppl": 79.96868896484375
+  },
+  {
+    "position_gated_memory": false,
+    "position_weight": 0.9,
+    "wide143_weight": 0.09999999999999998,
+    "n": 393,
+    "top1": 0.442748099565506,
+    "top5": 0.49618321657180786,
+    "ppl": 81.95793151855469
+  },
+  {
+    "position_gated_memory": false,
+    "position_weight": 0.95,
+    "wide143_weight": 0.050000000000000044,
+    "n": 393,
+    "top1": 0.442748099565506,
+    "top5": 0.49618321657180786,
+    "ppl": 84.76233673095703
+  },
+  {
+    "name": "position_plain",
+    "n": 393,
+    "top1": 0.442748099565506,
+    "top5": 0.49363866448402405,
+    "ppl": 89.97065734863281
+  },
+  {
+    "position_gated_memory": false,
+    "position_weight": 0.85,
+    "wide143_weight": 0.15000000000000002,
+    "n": 393,
+    "top1": 0.44020354747772217,
+    "top5": 0.4987277388572693,
+    "ppl": 79.89288330078125
+  },
+  {
+    "name": "wide143",
+    "n": 393,
+    "top1": 0.43765902519226074,
+    "top5": 0.5012722611427307,
+    "ppl": 75.63099670410156
+  }
+]

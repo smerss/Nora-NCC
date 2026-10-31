@@ -1,0 +1,17 @@
+{
+  "protocol": "external first32 only; no held-out target text; same tokenizer and repeated seed reset",
+  "results": [
+    {
+      "dropout": 0.0,
+      "sentences": 32,
+      "changed_after_reseeding_same_123": 0,
+      "deterministic_under_torch_numpy_python_seed": true
+    },
+    {
+      "dropout": 0.1,
+      "sentences": 32,
+      "changed_after_reseeding_same_123": 26,
+      "deterministic_under_torch_numpy_python_seed": false
+    }
+  ]
+}

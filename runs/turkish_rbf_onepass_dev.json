@@ -1,0 +1,149 @@
+{
+  "protocol": "one-pass local RBF readout; frozen base; 256 train landmarks; closed-form ridge; no epoch/replay",
+  "results": [
+    {
+      "fold": 1,
+      "factor": 2.0,
+      "lambda": 1.0,
+      "alpha": 10.0,
+      "held": {
+        "hit1": 152,
+        "hit5": 186,
+        "n": 401,
+        "ppl": 103.28082977200827
+      }
+    },
+    {
+      "fold": 1,
+      "factor": 2.0,
+      "lambda": 1.0,
+      "alpha": 30.0,
+      "held": {
+        "hit1": 157,
+        "hit5": 209,
+        "n": 401,
+        "ppl": 198.29080151853157
+      }
+    },
+    {
+      "fold": 1,
+      "factor": 2.0,
+      "lambda": 1.0,
+      "alpha": 100.0,
+      "held": {
+        "hit1": 156,
+        "hit5": 208,
+        "n": 401,
+        "ppl": 45921.29745977356
+      }
+    },
+    {
+      "fold": 1,
+      "factor": 2.0,
+      "lambda": 1.0,
+      "alpha": "readout",
+      "held": {
+        "hit1": 151,
+        "hit5": 197,
+        "n": 401,
+        "ppl": 12105.995159462012
+      }
+    },
+    {
+      "fold": 1,
+      "factor": 2.0,
+      "lambda": 1.0,
+      "alpha": 10.0,
+      "probe": {
+        "hit1": 332,
+        "hit5": 559,
+        "n": 1461,
+        "ppl": 330.3059184069371
+      }
+    },
+    {
+      "fold": 1,
+      "factor": 2.0,
+      "lambda": 1.0,
+      "alpha": 30.0,
+      "probe": {
+        "hit1": 288,
+        "hit5": 543,
+        "n": 1461,
+        "ppl": 2914.560238137948
+      }
+    },
+    {
+      "fold": 2,
+      "factor": 2.0,
+      "lambda": 1.0,
+      "alpha": 10.0,
+      "held": {
+        "hit1": 160,
+        "hit5": 197,
+        "n": 419,
+        "ppl": 125.88353526094501
+      }
+    },
+    {
+      "fold": 2,
+      "factor": 2.0,
+      "lambda": 1.0,
+      "alpha": 30.0,
+      "held": {
+        "hit1": 160,
+        "hit5": 205,
+        "n": 419,
+        "ppl": 244.44426103036827
+      }
+    },
+    {
+      "fold": 2,
+      "factor": 2.0,
+      "lambda": 1.0,
+      "alpha": 100.0,
+      "held": {
+        "hit1": 159,
+        "hit5": 201,
+        "n": 419,
+        "ppl": 33349.14277469444
+      }
+    },
+    {
+      "fold": 2,
+      "factor": 2.0,
+      "lambda": 1.0,
+      "alpha": "readout",
+      "held": {
+        "hit1": 159,
+        "hit5": 196,
+        "n": 419,
+        "ppl": 12174.905294410166
+      }
+    },
+    {
+      "fold": 2,
+      "factor": 2.0,
+      "lambda": 1.0,
+      "alpha": 10.0,
+      "probe": {
+        "hit1": 331,
+        "hit5": 567,
+        "n": 1461,
+        "ppl": 323.5134623212601
+      }
+    },
+    {
+      "fold": 2,
+      "factor": 2.0,
+      "lambda": 1.0,
+      "alpha": 30.0,
+      "probe": {
+        "hit1": 303,
+        "hit5": 557,
+        "n": 1461,
+        "ppl": 2624.24075340201
+      }
+    }
+  ]
+}

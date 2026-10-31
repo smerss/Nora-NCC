@@ -564,6 +564,446 @@
           "need": [
             "head"
           ]
+        },
+        {
+          "id": "tutor.compare_same.a",
+          "text": "{left_cap} ile {right} aynı kavram değil.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.compare_same"
+            }
+          }
+        },
+        {
+          "id": "tutor.compare_same.b",
+          "text": "{left_cap} ve {right} aynı kavram değil; öğrendiğim kayıtlar onları ayırıyor.",
+          "bias": 0.96,
+          "when": {
+            "eq": {
+              "frame": "tutorial.compare_same"
+            }
+          }
+        },
+        {
+          "id": "tutor.unknown_compare.a",
+          "text": "{left_cap} ile {right} arasındaki fark için yeterli kaydım yok.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.unknown_compare"
+            }
+          }
+        },
+        {
+          "id": "tutor.unknown_detail.a",
+          "text": "Çalışma biçimlerinin ayrıntılı farkı için elimde ek kanıt yok.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.unknown_detail"
+            }
+          }
+        },
+        {
+          "id": "tutor.scope_learning.a",
+          "text": "Bu farkı öğrenme kaydı olan sistemlerle sınırlıyorum; {general} için aynı yeteneği gösteren ayrı bir kaydım yok.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.scope_learning"
+            }
+          }
+        },
+        {
+          "id": "tutor.scope_other.a",
+          "text": "{general_cap} için aynı yeteneği gösteren ayrı bir kaydım yok.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.scope_other"
+            }
+          }
+        },
+        {
+          "id": "tutor.example_arithmetic.a",
+          "text": "Basit bir hesap örneği vereyim: {left} ile {right} sayısını alıp toplama işlemini uyguladığında sonuç {result} olur. Bu sıralı işlem küçük bir algoritmadır.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.example_arithmetic"
+            }
+          }
+        },
+        {
+          "id": "tutor.example_arithmetic.b",
+          "text": "{left} ve {right} sayısını sırayla alıp topladığında {result} çıkar. Bu basit işlem dizisi bir algoritmadır.",
+          "bias": 0.96,
+          "when": {
+            "eq": {
+              "frame": "tutorial.example_arithmetic"
+            }
+          }
+        },
+        {
+          "id": "tutor.example_self.a",
+          "text": "Sabit bir toplama işlemi {left} + {right} için {result} sonucunu üretir. Ben ise öğretilen bir ilişkiyi belleğime ekleyip sonraki soruda kullanabilirim; buradaki ayırt edici özellik öğrenme.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.example_self"
+            }
+          }
+        },
+        {
+          "id": "tutor.example_unknown.a",
+          "text": "{topic_cap} için doğrulanmış bir örnek kaydım yok; örnek uydurmayacağım.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.example_unknown"
+            }
+          }
+        },
+        {
+          "id": "tutor.eval_item_good.a",
+          "text": "{topic_cap} cevabın önceki bilgiyle uyumlu.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.eval_item_good"
+            }
+          }
+        },
+        {
+          "id": "tutor.eval_item_partial.a",
+          "text": "{topic_cap} için bir parçayı yakaladın; {fact} demiştik.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.eval_item_partial"
+            }
+          }
+        },
+        {
+          "id": "tutor.eval_item_missing.a",
+          "text": "{topic_cap} için öğrendiğimiz ilişki: {fact}.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.eval_item_missing"
+            }
+          }
+        },
+        {
+          "id": "tutor.eval_summary_good.a",
+          "text": "Özetin temel bağları doğru aktarıyor; önceki bilgilerle çelişmiyor.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.eval_summary_good"
+            }
+          }
+        },
+        {
+          "id": "tutor.eval_all_good.a",
+          "text": "Evet, temel bağlar doğru.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.eval_all_good"
+            }
+          }
+        },
+        {
+          "id": "tutor.eval_all_good.b",
+          "text": "Evet, iki cevabın da önceki ilişkilerle uyumlu.",
+          "bias": 0.96,
+          "when": {
+            "eq": {
+              "frame": "tutorial.eval_all_good"
+            }
+          }
+        },
+        {
+          "id": "tutor.eval_partial.a",
+          "text": "Kısmen doğru; eksikleri birlikte tamamlayalım.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.eval_partial"
+            }
+          }
+        },
+        {
+          "id": "tutor.eval_summary_partial.a",
+          "text": "Özetin kısmen doğru; eksik kalan bağı düzeltelim.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.eval_summary_partial"
+            }
+          }
+        },
+        {
+          "id": "tutor.eval_bad.a",
+          "text": "Henüz değil; temel bağları yeniden kuralım.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.eval_bad"
+            }
+          }
+        },
+        {
+          "id": "tutor.summary_empty.a",
+          "text": "Özetleyecek ortak kazanımımız henüz oluşmadı.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.summary_empty"
+            }
+          }
+        },
+        {
+          "id": "tutor.close.a",
+          "text": "Bugün {topics} arasındaki temel bağları çalıştık.{evaluation} Burada iyi bir noktada bırakabiliriz.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.close"
+            }
+          }
+        },
+        {
+          "id": "tutor.close.b",
+          "text": "Bu çalışmada {topics} arasındaki temel bağları birlikte çalıştık.{evaluation} Burada doğal bir durakta bitirebiliriz.",
+          "bias": 0.96,
+          "when": {
+            "eq": {
+              "frame": "tutorial.close"
+            }
+          }
+        },
+        {
+          "id": "tutor.close_evaluation.a",
+          "text": " Özetinde de temel bağları korudun.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.close_evaluation"
+            }
+          }
+        },
+        {
+          "id": "tutor.quiz_empty.a",
+          "text": "Seni ölçecek kadar ortak kazanımımız oluşmadı; önce bir konuyu işleyelim.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.quiz_empty"
+            }
+          }
+        },
+        {
+          "id": "tutor.quiz_head.a",
+          "text": "İki soruyla kontrol edelim:",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.quiz_head"
+            }
+          }
+        },
+        {
+          "id": "tutor.quiz_used_for.a",
+          "text": "{topic_cap} ne için kullanılır?",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.quiz_used_for"
+            }
+          }
+        },
+        {
+          "id": "tutor.quiz_can_do.a",
+          "text": "{topic_cap} ne yapar?",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.quiz_can_do"
+            }
+          }
+        },
+        {
+          "id": "tutor.quiz_isa.a",
+          "text": "{topic_cap} hangi genel kavramın bir türüdür?",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.quiz_isa"
+            }
+          }
+        },
+        {
+          "id": "tutor.consistency_yes.a",
+          "text": "Evet, önceki bilgimle tutarlı.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.consistency_yes"
+            }
+          }
+        },
+        {
+          "id": "tutor.consistency_tail.a",
+          "text": "Son cevabımda da aynı ilişkiyi korudum.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.consistency_tail"
+            }
+          }
+        },
+        {
+          "id": "tutor.consistency_unknown.a",
+          "text": "Bu iki cevabı bağlayacağım ortak bir kayıt bulamıyorum; tutarlılık uydurmayacağım.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.consistency_unknown"
+            }
+          }
+        },
+        {
+          "id": "tutor.certainty_scope.a",
+          "text": "Öğrendiğim {scope} sınırlı olarak:",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.certainty_scope"
+            }
+          }
+        },
+        {
+          "id": "tutor.certainty_tail.a",
+          "text": "Bunun ötesindeki ayrıntı için kanıtım yok; onu eklemiyorum.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.certainty_tail"
+            }
+          }
+        },
+        {
+          "id": "tutor.certainty_tail.b",
+          "text": "Daha fazlası için kanıtım yok; bu yüzden ayrıntı eklemiyorum.",
+          "bias": 0.96,
+          "when": {
+            "eq": {
+              "frame": "tutorial.certainty_tail"
+            }
+          }
+        },
+        {
+          "id": "tutor.certainty_unknown.a",
+          "text": "{topic_cap} hakkında doğrudan kaydım yok; ayrıntı eklemiyorum.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.certainty_unknown"
+            }
+          }
+        },
+        {
+          "id": "tutor.relate_learning.a",
+          "text": "Öğrenme sorusunu mevcut kayıtlarla cevaplayayım.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.relate_learning"
+            }
+          }
+        },
+        {
+          "id": "tutor.relate_after_compare.a",
+          "text": "Şimdi bu kavramların birlikte nasıl çalıştığına bakalım.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.relate_after_compare"
+            }
+          }
+        },
+        {
+          "id": "tutor.relate_pair.a",
+          "text": "{left_cap} ile {right} arasındaki bağı kayıtlar üzerinden kuralım.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.relate_pair"
+            }
+          }
+        },
+        {
+          "id": "tutor.relate_pair.b",
+          "text": "{left_cap} ile {right} arasındaki bağ için öğrendiğim kayıtları yan yana koyalım.",
+          "bias": 0.96,
+          "when": {
+            "eq": {
+              "frame": "tutorial.relate_pair"
+            }
+          }
+        },
+        {
+          "id": "tutor.learning_data_limit.a",
+          "text": "Öğrenme iddiasında veri olmadan ilerlemek için elimde kanıt yok.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.learning_data_limit"
+            }
+          }
+        },
+        {
+          "id": "tutor.relate_unknown.a",
+          "text": "{topic_cap} için bu bağı kuracak kaydım yok.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.relate_unknown"
+            }
+          }
+        },
+        {
+          "id": "tutor.ability_unknown.a",
+          "text": "Ne yaptığına dair bundan öte bir kaydım yok.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.ability_unknown"
+            }
+          }
+        },
+        {
+          "id": "tutor.explain_start.a",
+          "text": "Temel tanımla başlayalım.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.explain_start"
+            }
+          }
+        },
+        {
+          "id": "tutor.explain_unknown.a",
+          "text": "{topic_cap} hakkında öğretilmiş bir ilişkim yok; içerik uydurmayacağım.",
+          "bias": 1.0,
+          "when": {
+            "eq": {
+              "frame": "tutorial.explain_unknown"
+            }
+          }
         }
       ]
     },

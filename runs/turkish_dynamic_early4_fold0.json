@@ -1,0 +1,42 @@
+[
+  {
+    "fold": 0,
+    "position_seed": 149,
+    "wide_seed": 147,
+    "position_epochs_fixed": 4,
+    "wide_epochs_fixed": 3,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean1000_step1000.pt",
+    "freeze_emb": false,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "dialogue_repeats": 1,
+    "position": {
+      "n": 393,
+      "hit1": 155,
+      "hit5": 194,
+      "top1": 0.3944020356234097,
+      "top5": 0.49363867684478374,
+      "ppl": 78.12263096226643
+    },
+    "wide": {
+      "n": 393,
+      "hit1": 169,
+      "hit5": 192,
+      "top1": 0.4300254452926209,
+      "top5": 0.48854961832061067,
+      "ppl": 73.53662184945284
+    },
+    "ensemble": {
+      "n": 393,
+      "hit1": 168,
+      "hit5": 196,
+      "top1": 0.42748091603053434,
+      "top5": 0.49872773536895676,
+      "ppl": 71.30839443835009
+    },
+    "seconds": 13.672801697000068
+  }
+]

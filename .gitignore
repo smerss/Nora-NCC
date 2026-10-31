@@ -16,6 +16,7 @@ data/text/
 runs/*.pkl.gz
 runs/*.pt
 runs/*.pt.*
+runs/models/
 runs/nora_egitim*
 runs/ses_*
 runs/bozuk/
@@ -32,3 +33,4 @@ runs/continuous_*.json
 runs/relational_*.json
 runs/ccg_*.json
 runs/fst_*.json
+runs/transformer_*.json

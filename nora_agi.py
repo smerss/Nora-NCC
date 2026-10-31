@@ -764,9 +764,18 @@ class NoraAGI:
         return stats
 
     def attach_broca(self, path: str):
-        """Sinirsel Broca artikülasyon organını bağlar (zihin karar verir, organ yalnızca dile döker)."""
-        from nora_broca_net import BrocaOrgan
-        self.life.voice.organ = BrocaOrgan.load(path)
+        """Sinirsel Broca artikülasyon organını bağlar (zihin karar verir, organ yalnızca dile döker).
+
+        Tek ``.pt`` taban organı veya üç uzmanlı ``token_moe_broca`` JSON manifesti
+        aynı çalışma-zamanı söz arayüzüne bağlanır; varsayılan davranış değişmez.
+        """
+        from nora_broca_net import BrocaOrgan, TokenMoEOrgan
+        is_manifest = path.endswith(".json")
+        if not is_manifest:
+            with open(path, "rb") as handle:
+                is_manifest = handle.read(16).lstrip().startswith(b"{")
+        self.life.voice.organ = (TokenMoEOrgan.from_manifest(path)
+                                 if is_manifest else BrocaOrgan.load(path))
         self.life.voice.tok = self.life.voice.organ.tok
 
     # Söz organı konuşmaya başlamak için ne kadar dil duymuş olmalı (duyulan parça sayısından üstel doyma).
@@ -1984,6 +1993,39 @@ class NoraAGI:
             self._intent_locked = True
             self._log_turn(speaker, raw, _pred, t0)
             return _pred
+        try:
+            _experience = self._experience_turn(raw, speaker=speaker)
+        except Exception:
+            _experience = None
+        if _experience:
+            self._log_turn(speaker, raw, _experience, t0)
+            return _experience
+        try:
+            _reference = self._reference_turn(raw, speaker=speaker)
+        except Exception:
+            _reference = None
+        if _reference:
+            self._log_turn(speaker, raw, _reference, t0)
+            return _reference
+        try:
+            _tutorial = self.deliberation.handle_tutorial(self, raw, speaker=speaker)
+        except Exception:
+            _tutorial = None
+        if _tutorial:
+            trace = dict(self.deliberation.last_tutorial_trace or {})
+            self.broca_organ.last_speech_plan = {
+                "volition_acts": ["TUTORING"], "surface_tr": _tutorial,
+                "ask_back_chosen": "?" in _tutorial,
+                "raw_thought_nodes": [
+                    f"TUTORING({trace.get('intent')},topic={trace.get('topic')})"
+                ],
+                "tutorial_trace": trace,
+            }
+            self._turn_path = "organ"
+            self._intent_locked = True
+            self._apply_tag("cikarim", 1)
+            self._log_turn(speaker, raw, _tutorial, t0)
+            return _tutorial
         # OPERATÖR SENTEZİ: "kitap -> patik, kalem -> melak" gibi ÖRNEK verilirse
         # dönüşümü Nora kendi yazar; "dönüşümü uygula: deniz" derse yazdığını çalıştırır.
         try:
@@ -2405,6 +2447,7 @@ class NoraAGI:
                 parts = [parts[0] + " " + parts[1]] + parts[2:]
         if len(parts) > 1:
             taught_msgs = []
+            taught_social = []
             last_part = parts[-1]
             # Soru mu, bildirim mi? Bu sınıflandırmayı artık Nora'nın plastik Mantar Gövdesi KENDİSİ yapar.
             last_utt = self.utter_cortex.classify(last_part)
@@ -2417,8 +2460,13 @@ class NoraAGI:
             for sent in teach_slice:
                 r_msg = self._handle_single_sentence(sent, speaker=speaker)
                 taught_msgs.append(r_msg)
+                acts = list(self.broca_organ.last_speech_plan.get("volition_acts", []) or [])
+                if r_msg and any(a in acts for a in ("EMPATHIZE", "NARRATION_EMPATHIZE")):
+                    taught_social.append(r_msg)
             if is_last_q:
                 q_ans = self._handle_single_sentence(last_part, speaker=speaker)
+                if taught_social:
+                    q_ans = " ".join([*taught_social, q_ans])
                 self._log_turn(speaker, raw, q_ans, t0)
                 return q_ans
             joined = " ".join(taught_msgs)
@@ -5973,6 +6021,56 @@ class NoraAGI:
                 "num": self._len_of(self, "num_facts"),
                 "goal": int(getattr(self, "_goals_done", 0))}
 
+    def _experience_turn(self, raw: str, speaker: str) -> str | None:
+        """Öznel yaşantı sorgusunu genel sözlük yerine olay belleğine bağla."""
+        low = tr_lower(raw)
+        u = self.broca_organ.comprehend_discourse(
+            raw, low, self.lang.morph, self.lang.graph.lexicon
+        )
+        query_kind = str(u.get("experience_query") or "")
+        if not query_kind:
+            return None
+        text, trace = self.broca_organ._recall_experience(
+            self, speaker, query_kind
+        )
+        self.broca_organ.last_speech_plan = {
+            "volition_acts": ["RECALL_EXPERIENCE"],
+            "surface_tr": text, "ask_back_chosen": False,
+            "raw_thought_nodes": [trace],
+        }
+        self._last_utterance_info = u
+        self._turn_path = "organ"
+        self._intent_locked = True
+        self._apply_tag("ag", 1)
+        return text
+
+    def _reference_turn(self, raw: str, speaker: str) -> str | None:
+        """Belge anlatımını doğrudan diyalogdan ve öz-göndergeden ayır."""
+        low = tr_lower(raw)
+        if "?" in raw or len(re.split(r"(?<=[.!?])\s+", raw.strip())) > 1:
+            return None
+        if not re.search(r"\b(?:makale|metin|kitap)\w*\b", low):
+            return None
+        if not re.search(r"\b(?:bahset|bahsedil|değin|değinil|yaz)\w*\b", low):
+            return None
+        u = self.broca_organ.comprehend_discourse(
+            raw, low, self.lang.morph, self.lang.graph.lexicon
+        )
+        scope = dict(u.get("reference_scope") or {})
+        if not scope:
+            return None
+        text, trace = self.broca_organ._reference_scope_response(scope)
+        self.broca_organ.last_speech_plan = {
+            "volition_acts": ["REFERENCE_SCOPE"],
+            "surface_tr": text, "ask_back_chosen": False,
+            "raw_thought_nodes": [trace], "reference_scope": scope,
+        }
+        self._last_utterance_info = u
+        self._turn_path = "organ"
+        self._intent_locked = True
+        self._apply_tag("cikarim", 1)
+        return text
+
     def _self_history_turn(self, raw: str) -> str | None:
         """'BU OTURUMDA ne öğrendin?' — cevap DEFTERLERDEN, uydurma yok.
 
@@ -6227,7 +6325,7 @@ class NoraAGI:
         # --- (A0b) SIRALAMA: ölçüt -> sıra. Parite ailesinden farklı bir şekil. ---
         # DİKKAT: "diz" alt dizge olarak aranmaz — "4, 9, 14, 19 dizisinde sıradaki sayı kaç?"
         # bir SIRALAMA değil dizi sorusudur; alt dizge eşleşmesi o soruyu yutuyordu (A8).
-        if re.search(r"\bdiz\b|sırala|sıraya koy", tl) and not re.search(r"dizi|sıradaki", tl):
+        if re.search(r"\bdiz\b|\bsırala\b|\bsıralay(?:ın|ınız|alım)\b|\bsıralar\s+m[ıi]sin(?:iz)?\b|\bsıraya\s+koy\b", tl) and not re.search(r"dizi|sıradaki", tl):
             from nora_apply import Interpreter as _IT
             seg = raw.split(":", 1)[1] if ":" in raw else raw
             items = [x.strip(" .;") for x in re.split(r"[,;]|\s+ve\s+", seg) if x.strip(" .;")]

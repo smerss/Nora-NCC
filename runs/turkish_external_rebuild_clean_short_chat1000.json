@@ -1,0 +1,90 @@
+[
+  {
+    "step": 250,
+    "seen_delta": 55803,
+    "loss250": 4.641037563323975,
+    "lr": 0.0009516619028617729,
+    "seconds": 45.500647994000246,
+    "held_exact_skipped": 0,
+    "dropout": 0.0,
+    "bpe_dropout": 0.0,
+    "batch": 32,
+    "sources": [
+      "chatbot_gpl3"
+    ],
+    "stream_sentences": 67922,
+    "min_chars": 8,
+    "max_chars": 49,
+    "hidden": 512,
+    "n": 393,
+    "top1": 0.30025445292620867,
+    "top5": 0.3638676844783715,
+    "ppl": 253.9668637651254
+  },
+  {
+    "step": 500,
+    "seen_delta": 111735,
+    "loss250": 4.443966786384583,
+    "lr": 0.0009097176522946842,
+    "seconds": 92.17066165599863,
+    "held_exact_skipped": 0,
+    "dropout": 0.0,
+    "bpe_dropout": 0.0,
+    "batch": 32,
+    "sources": [
+      "chatbot_gpl3"
+    ],
+    "stream_sentences": 67922,
+    "min_chars": 8,
+    "max_chars": 49,
+    "hidden": 512,
+    "n": 393,
+    "top1": 0.30025445292620867,
+    "top5": 0.37659033078880405,
+    "ppl": 244.89996793209693
+  },
+  {
+    "step": 750,
+    "seen_delta": 167340,
+    "loss250": 4.351947011947632,
+    "lr": 0.0008728715609439695,
+    "seconds": 138.41261782999936,
+    "held_exact_skipped": 0,
+    "dropout": 0.0,
+    "bpe_dropout": 0.0,
+    "batch": 32,
+    "sources": [
+      "chatbot_gpl3"
+    ],
+    "stream_sentences": 67922,
+    "min_chars": 8,
+    "max_chars": 49,
+    "hidden": 512,
+    "n": 393,
+    "top1": 0.2926208651399491,
+    "top5": 0.366412213740458,
+    "ppl": 269.95696667575913
+  },
+  {
+    "step": 1000,
+    "seen_delta": 223614,
+    "loss250": 4.316659540176391,
+    "lr": 0.0008401680504168059,
+    "seconds": 184.77221307999935,
+    "held_exact_skipped": 0,
+    "dropout": 0.0,
+    "bpe_dropout": 0.0,
+    "batch": 32,
+    "sources": [
+      "chatbot_gpl3"
+    ],
+    "stream_sentences": 67922,
+    "min_chars": 8,
+    "max_chars": 49,
+    "hidden": 512,
+    "n": 393,
+    "top1": 0.3053435114503817,
+    "top5": 0.3638676844783715,
+    "ppl": 265.5089570516393
+  }
+]

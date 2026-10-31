@@ -856,7 +856,7 @@ class ContinuousCausalGraph:
                  class_balance: bool = True, prefix_augmentation: int = 0,
                  prefix_warmup_epochs: int = 0,
                  checkpoint_selection: str = "train_first",
-                 causal_summary: bool = False):
+                 causal_summary: bool | str = False):
         self.hidden = max(8, int(hidden))
         self.seed = int(seed)
         self.learning_rate = float(learning_rate)
@@ -869,7 +869,13 @@ class ContinuousCausalGraph:
         if checkpoint_selection not in {"train_first", "validation_macro"}:
             raise ValueError("unknown checkpoint selection")
         self.checkpoint_selection = str(checkpoint_selection)
-        self.causal_summary = bool(causal_summary)
+        if causal_summary == "linear":
+            causal_summary = True
+        if causal_summary not in (False, True, "rotation"):
+            raise ValueError("unknown causal summary")
+        if causal_summary in (False, True):
+            causal_summary = bool(causal_summary)
+        self.causal_summary = causal_summary
         self.model = None
         self.input_symbols: list[str] = []
         self.output_symbols: list[str] = []
@@ -938,6 +944,70 @@ class ContinuousCausalGraph:
         )
         return loss, logits, ys, mask
 
+    @staticmethod
+    def _build_cell(n_in: int, n_out: int, embedding: int, hidden: int, summary):
+        """Aynı hücreyi fit ve persistence yolunda kur; eski modları aynen tut."""
+        import torch
+
+        mode = "rotation" if summary == "rotation" else ("linear" if summary else "off")
+
+        class CausalCell(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.embed = torch.nn.Embedding(n_in, embedding)
+                self.gru = torch.nn.GRU(embedding, hidden, num_layers=1, batch_first=True)
+                self.readout = torch.nn.Linear(hidden, n_out)
+                self.mode = mode
+                if mode == "linear":
+                    self.summary_input = torch.nn.Linear(embedding, hidden)
+                    self.summary_reset = torch.nn.Linear(embedding, hidden)
+                    self.summary_decay = torch.nn.Parameter(torch.zeros(hidden))
+                    torch.nn.init.zeros_(self.summary_reset.weight)
+                    torch.nn.init.zeros_(self.summary_reset.bias)
+                    self.summary_readout = torch.nn.Sequential(
+                        torch.nn.Linear(2 * hidden, hidden), torch.nn.SiLU(),
+                        torch.nn.Linear(hidden, n_out),
+                    )
+                    torch.nn.init.zeros_(self.summary_readout[-1].weight)
+                    torch.nn.init.zeros_(self.summary_readout[-1].bias)
+                elif mode == "rotation":
+                    # Token değeri veya modulus verilmez. Her sembolün açı
+                    # artışı gradyanla öğrenilir; durum saf periyodik izdir.
+                    self.rotation_input = torch.nn.Linear(embedding, hidden)
+                    self.rotation_readout = torch.nn.Sequential(
+                        torch.nn.Linear(3 * hidden, hidden), torch.nn.SiLU(),
+                        torch.nn.Linear(hidden, n_out),
+                    )
+                    torch.nn.init.zeros_(self.rotation_readout[-1].weight)
+                    torch.nn.init.zeros_(self.rotation_readout[-1].bias)
+
+            def forward(self, xs):
+                embedded = self.embed(xs)
+                recurrent = self.gru(embedded)[0]
+                if self.mode == "off":
+                    return self.readout(recurrent)
+                state = embedded.new_zeros((embedded.shape[0], self.gru.hidden_size))
+                summaries = []
+                for index in range(embedded.shape[1]):
+                    current = embedded[:, index]
+                    if self.mode == "linear":
+                        decay = 2.0 * torch.sigmoid(
+                            self.summary_decay + self.summary_reset(current))
+                        state = decay * state + self.summary_input(current)
+                        summaries.append(state)
+                    else:
+                        state = state + self.rotation_input(current)
+                        summaries.append(torch.cat([
+                            torch.sin(state), torch.cos(state),
+                        ], dim=-1))
+                summary = torch.stack(summaries, dim=1)
+                joined = torch.cat((recurrent, summary), dim=-1)
+                if self.mode == "linear":
+                    return self.readout(recurrent) + self.summary_readout(joined)
+                return self.readout(recurrent) + self.rotation_readout(joined)
+
+        return CausalCell()
+
     def fit(self, train, validation) -> dict:
         import torch
         import numpy as np
@@ -953,55 +1023,8 @@ class ContinuousCausalGraph:
         torch.manual_seed(self.seed)
         np.random.seed(self.seed % (2 ** 32 - 1))
         embedding = max(8, self.hidden // 2)
-        # Sequential yerine açık hücre: sıfır başlangıç durumu her bağımsız
-        # dizide yeniden kurulur; örnekler arasında gizli bilgi sızıntısı yoktur.
-        class CausalCell(torch.nn.Module):
-            def __init__(self, n_in, n_out, d, h, summary=False):
-                super().__init__()
-                self.embed = torch.nn.Embedding(n_in, d)
-                self.gru = torch.nn.GRU(d, h, num_layers=1, batch_first=True)
-                self.readout = torch.nn.Linear(h, n_out)
-                self.with_summary = bool(summary)
-                if self.with_summary:
-                    self.summary_input = torch.nn.Linear(d, h)
-                    self.summary_reset = torch.nn.Linear(d, h)
-                    self.summary_decay = torch.nn.Parameter(torch.zeros(h))
-                    # Başlangıçta nötr reset; hangi girdinin durumu sıfırladığı
-                    # veya sönümü değiştirdiği yalnız gradyanla öğrenilir.
-                    torch.nn.init.zeros_(self.summary_reset.weight)
-                    torch.nn.init.zeros_(self.summary_reset.bias)
-                    # Eski GRU+readout başlangıcı aynen korunur. Sıfır adaptör
-                    # başlangıçta hiçbir tahmini değiştirmez; faydasız özet yolu
-                    # diğer ailelerin çalışan çözümünü bozmak zorunda kalmaz.
-                    self.summary_readout = torch.nn.Sequential(
-                        torch.nn.Linear(2 * h, h), torch.nn.SiLU(),
-                        torch.nn.Linear(h, n_out),
-                    )
-                    torch.nn.init.zeros_(self.summary_readout[-1].weight)
-                    torch.nn.init.zeros_(self.summary_readout[-1].bias)
-
-            def forward(self, xs):
-                embedded = self.embed(xs)
-                recurrent = self.gru(embedded)[0]
-                if not self.with_summary:
-                    return self.readout(recurrent)
-                # Doygun tanh durumuna paralel, modulusü bilmeyen sürekli lineer
-                # biriktirici. decay=2*sigmoid(...) sıfır-reset, bir-sayım ve
-                # iki-affine rejimlerini aynı genel hücrede erişilebilir kılar.
-                state = embedded.new_zeros((embedded.shape[0], self.gru.hidden_size))
-                summaries = []
-                for index in range(embedded.shape[1]):
-                    current = embedded[:, index]
-                    decay = 2.0 * torch.sigmoid(
-                        self.summary_decay + self.summary_reset(current))
-                    state = decay * state + self.summary_input(current)
-                    summaries.append(state)
-                summary = torch.stack(summaries, dim=1)
-                joined = torch.cat((recurrent, summary), dim=-1)
-                return self.readout(recurrent) + self.summary_readout(joined)
-
-        model = CausalCell(len(self.input_symbols), len(self.output_symbols),
-                           embedding, self.hidden, self.causal_summary)
+        model = self._build_cell(len(self.input_symbols), len(self.output_symbols),
+                               embedding, self.hidden, self.causal_summary)
         self.model = model
         input_id = {s: i for i, s in enumerate(self.input_symbols)}
         output_id = {s: i for i, s in enumerate(self.output_symbols)}
@@ -1076,7 +1099,11 @@ class ContinuousCausalGraph:
                     stale = 0
                 else:
                     stale += 5
-                if (metrics["exact"] and training_metrics["exact"]) or stale >= self.patience:
+                if ((metrics["exact"] and training_metrics["exact"]) or
+                        (stale >= self.patience and training_metrics["exact"])):
+                    # Train henüz tam değilse stale sayacı kalan bütçeyi
+                    # kullanmayı engellemez; bu erken-durdurma değil, kapasite/
+                    # optimizasyon hatasını gizleyen yarım fit olurdu.
                     break
         if best_weights is not None:
             model.load_state_dict(best_weights)
@@ -1087,6 +1114,7 @@ class ContinuousCausalGraph:
             "status": "accepted" if validation_metrics["exact"] and train_metrics["exact"] else "provisional",
             "class_balance": self.class_balance,
             "checkpoint_selection": self.checkpoint_selection,
+            "early_stop_rule": "exact_or_stale_after_train_fit",
             "causal_summary": self.causal_summary,
             "hidden": self.hidden, "parameters": sum(p.numel() for p in model.parameters()),
             "train_examples": len(train_rows), "validation_examples": len(validation_rows),
@@ -1099,9 +1127,12 @@ class ContinuousCausalGraph:
             "seconds": time.perf_counter() - started,
             "train_token_accuracy": train_metrics["token_accuracy"],
             "train_macro_token_accuracy": train_metrics["macro_token_accuracy"],
+            "train_class_token_accuracy": train_metrics["class_token_accuracy"],
             "train_exact_sequences": train_metrics["exact_sequences"],
             "validation_token_accuracy": validation_metrics["token_accuracy"],
             "validation_macro_token_accuracy": validation_metrics["macro_token_accuracy"],
+            "validation_class_token_accuracy": validation_metrics["class_token_accuracy"],
+            "validation_class_token_counts": validation_metrics["class_token_counts"],
             "validation_exact_sequences": validation_metrics["exact_sequences"],
             "class_weights": {symbol: float(class_weights[index])
                               for index, symbol in enumerate(self.output_symbols)},
@@ -1145,6 +1176,9 @@ class ContinuousCausalGraph:
             "macro_token_accuracy": (sum(class_accuracy.values()) /
                                       max(1, len(class_accuracy))),
             "class_token_accuracy": class_accuracy,
+            "class_token_counts": {symbol: class_total[index]
+                                   for index, symbol in enumerate(self.output_symbols)
+                                   if class_total[index] > 0},
             "exact_sequences": exact_sequences, "total_sequences": len(rows),
             "exact": exact_sequences == len(rows), "loss": sum(losses) / max(1, len(losses)),
         }
@@ -1180,52 +1214,14 @@ class ContinuousCausalGraph:
         import torch
         evidence = dict(data.get("evidence") or {})
         out = cls(hidden=int(data.get("hidden", 48)), seed=int(data.get("seed", 0)),
-                  causal_summary=bool(data.get("causal_summary", False)))
+                  causal_summary=data.get("causal_summary", False))
         out.input_symbols = [str(s) for s in data.get("input_symbols") or ()]
         out.output_symbols = [str(s) for s in data.get("output_symbols") or ()]
         if not out.input_symbols or not out.output_symbols:
             raise ValueError("invalid continuous representation")
-        # Fit'in içindeki küçük hücreyle aynı mimariyi kur; eğitim çalıştırılmaz.
         embedding = max(8, out.hidden // 2)
-        class CausalCell(torch.nn.Module):
-            def __init__(self, n_in, n_out, d, h, summary=False):
-                super().__init__()
-                self.embed = torch.nn.Embedding(n_in, d)
-                self.gru = torch.nn.GRU(d, h, num_layers=1, batch_first=True)
-                self.readout = torch.nn.Linear(h, n_out)
-                self.with_summary = bool(summary)
-                if self.with_summary:
-                    self.summary_input = torch.nn.Linear(d, h)
-                    self.summary_reset = torch.nn.Linear(d, h)
-                    self.summary_decay = torch.nn.Parameter(torch.zeros(h))
-                    torch.nn.init.zeros_(self.summary_reset.weight)
-                    torch.nn.init.zeros_(self.summary_reset.bias)
-                    self.summary_readout = torch.nn.Sequential(
-                        torch.nn.Linear(2 * h, h), torch.nn.SiLU(),
-                        torch.nn.Linear(h, n_out),
-                    )
-                    torch.nn.init.zeros_(self.summary_readout[-1].weight)
-                    torch.nn.init.zeros_(self.summary_readout[-1].bias)
-
-            def forward(self, xs):
-                embedded = self.embed(xs)
-                recurrent = self.gru(embedded)[0]
-                if not self.with_summary:
-                    return self.readout(recurrent)
-                state = embedded.new_zeros((embedded.shape[0], self.gru.hidden_size))
-                summaries = []
-                for index in range(embedded.shape[1]):
-                    current = embedded[:, index]
-                    decay = 2.0 * torch.sigmoid(
-                        self.summary_decay + self.summary_reset(current))
-                    state = decay * state + self.summary_input(current)
-                    summaries.append(state)
-                summary = torch.stack(summaries, dim=1)
-                joined = torch.cat((recurrent, summary), dim=-1)
-                return self.readout(recurrent) + self.summary_readout(joined)
-
-        out.model = CausalCell(len(out.input_symbols), len(out.output_symbols),
-                               embedding, out.hidden, out.causal_summary)
+        out.model = cls._build_cell(len(out.input_symbols), len(out.output_symbols),
+                                   embedding, out.hidden, out.causal_summary)
         weights = {key: torch.tensor(value, dtype=out.model.state_dict()[key].dtype)
                    for key, value in (data.get("weights") or {}).items()}
         out.model.load_state_dict(weights, strict=True)
@@ -2813,13 +2809,16 @@ class CompositionalCodeLearner:
         Dönen ``provisional`` kimlik yalnız araştırma/held-out ölçümünde
         ``allow_provisional=True`` ile çalıştırılabilir. Normal üretim çağrısı
         kabul edilmemiş modeli çalıştırmaz; bu ayrım FST'nin exhaustive kanıtıyla
-        sinirsel validation skorunu birbirine karıştırmaz. ``auto`` iki mimariyi
-        yalnız train/validation kanıtıyla seçer; held-out bu karara katılmaz.
+        sinirsel validation skorunu birbirine karıştırmaz. ``auto`` baseline,
+        linear-summary ve rotation adaylarını yalnız train/validation kanıtıyla
+        seçer; held-out bu karara katılmaz.
         """
-        if isinstance(causal_summary, str) and causal_summary != "auto":
+        if isinstance(causal_summary, str) and causal_summary not in {"auto", "linear", "rotation"}:
             raise ValueError("unknown causal summary mode")
+        if causal_summary == "linear":
+            causal_summary = True
 
-        def fit_candidate(with_summary: bool):
+        def fit_candidate(with_summary: bool | str):
             candidate = ContinuousCausalGraph(
                 hidden=hidden, seed=seed, learning_rate=learning_rate,
                 max_epochs=max_epochs, batch_size=batch_size, patience=patience,
@@ -2834,6 +2833,7 @@ class CompositionalCodeLearner:
         if causal_summary == "auto":
             baseline, baseline_report = fit_candidate(False)
             summary, summary_report = fit_candidate(True)
+            rotation, rotation_report = fit_candidate("rotation")
             # Held-out burada yoktur. Önce özgün validation'daki tam dizi
             # sayısı; eşitlikte yalnız bir tokenlik gürültüyü aşan token ve
             # makro kazanç. Kanıt yoksa küçük baseline kalır; aile/modulus yok.
@@ -2852,31 +2852,88 @@ class CompositionalCodeLearner:
                             token_correct_gain > 1 and macro_gain > 0.0))
             model, report = ((summary, dict(summary_report)) if use_summary
                              else (baseline, dict(baseline_report)))
+            current_exact = report["validation_exact_sequences"]
+            rotation_exact = rotation_report["validation_exact_sequences"]
+            rotation_token_gain = (rotation_report["validation_token_accuracy"] -
+                                   report["validation_token_accuracy"])
+            rotation_token_correct_gain = (
+                round(rotation_report["validation_token_accuracy"] * validation_tokens) -
+                round(report["validation_token_accuracy"] * validation_tokens))
+            rotation_macro_gain = (rotation_report["validation_macro_token_accuracy"] -
+                                   report["validation_macro_token_accuracy"])
+            use_rotation = (
+                (rotation_exact > current_exact and rotation_macro_gain >= 0.0) or
+                (rotation_exact == current_exact and
+                 rotation_token_correct_gain > 1 and rotation_macro_gain > 0.0))
+            if use_rotation:
+                model, report = rotation, dict(rotation_report)
+            selected_mode = ("rotation" if use_rotation else
+                             ("causal_summary" if use_summary else "baseline"))
+
+            def has_class_collapse(candidate_report):
+                recall = candidate_report.get("validation_class_token_accuracy") or {}
+                return any(float(value) <= 0.0 for value in recall.values())
+
+            coverage_rescue = False
+            coverage_candidates = []
+            if has_class_collapse(report):
+                candidate_map = {
+                    "baseline": (baseline, baseline_report),
+                    "causal_summary": (summary, summary_report),
+                    "rotation": (rotation, rotation_report),
+                }
+                coverage_candidates = [name for name, (_candidate, candidate_report)
+                                       in candidate_map.items()
+                                       if not has_class_collapse(candidate_report)]
+                if coverage_candidates:
+                    # Yalnız açık sınıf çöküşünde devreye girer. Adayların
+                    # hiçbiri coverage sağlamıyorsa eski sonuç değiştirilmez.
+                    order = {name: index for index, name in enumerate(candidate_map)}
+                    rescue_name = min(coverage_candidates, key=lambda name: (
+                        -candidate_map[name][1]["validation_macro_token_accuracy"],
+                        -candidate_map[name][1]["validation_exact_sequences"],
+                        -candidate_map[name][1]["validation_token_accuracy"],
+                        order[name],
+                    ))
+                    model, report = candidate_map[rescue_name][0], dict(candidate_map[rescue_name][1])
+                    selected_mode = rescue_name
+                    coverage_rescue = True
             report["selected_gradient_steps"] = report["gradient_steps"]
             report["selected_example_presentations"] = report["example_presentations"]
             report["selected_seconds"] = report["seconds"]
             report["gradient_steps"] = (baseline_report["gradient_steps"] +
-                                        summary_report["gradient_steps"])
+                                        summary_report["gradient_steps"] +
+                                        rotation_report["gradient_steps"])
             report["example_presentations"] = (
                 baseline_report["example_presentations"] +
-                summary_report["example_presentations"])
-            report["seconds"] = baseline_report["seconds"] + summary_report["seconds"]
+                summary_report["example_presentations"] +
+                rotation_report["example_presentations"])
+            report["seconds"] = (baseline_report["seconds"] + summary_report["seconds"] +
+                                 rotation_report["seconds"])
             report["candidate_selection"] = {
-                "rule": "validation_exact_or_multi_token_macro_else_baseline",
-                "selected_causal_summary": bool(use_summary),
+                "rule": "validation_exact_macro_then_zero_recall_coverage_rescue",
+                "selected_causal_summary": selected_mode != "baseline",
+                "selected_mode": selected_mode,
                 "validation_tokens": validation_tokens,
                 "validation_token_gain": token_gain,
                 "validation_token_correct_gain": token_correct_gain,
                 "validation_macro_gain": macro_gain,
+                "rotation_validation_token_gain": rotation_token_gain,
+                "rotation_validation_token_correct_gain": rotation_token_correct_gain,
+                "rotation_validation_macro_gain": rotation_macro_gain,
+                "class_coverage_rescue": coverage_rescue,
+                "class_coverage_candidates": coverage_candidates,
                 "heldout_used": False,
                 "candidates": {
                     "baseline": copy.deepcopy(baseline_report),
                     "causal_summary": copy.deepcopy(summary_report),
+                    "rotation": copy.deepcopy(rotation_report),
                 },
             }
             model.report = copy.deepcopy(report)
         else:
-            model, report = fit_candidate(bool(causal_summary))
+            model, report = fit_candidate(causal_summary if isinstance(causal_summary, str)
+                                          else bool(causal_summary))
         serial = 1 + max(
             [int(name[4:]) for name in self.representations if name.startswith("repr")
              and name[4:].isdigit()] or [0],

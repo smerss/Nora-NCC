@@ -1,0 +1,149 @@
+{
+  "protocol": "one-pass local RBF readout; frozen base; 256 train landmarks; closed-form ridge; no epoch/replay",
+  "results": [
+    {
+      "fold": 1,
+      "factor": 2.0,
+      "lambda": 1.0,
+      "alpha": 10.0,
+      "held": {
+        "hit1": 152,
+        "hit5": 203,
+        "n": 401,
+        "ppl": 89.30182267594708
+      }
+    },
+    {
+      "fold": 1,
+      "factor": 2.0,
+      "lambda": 1.0,
+      "alpha": 30.0,
+      "held": {
+        "hit1": 166,
+        "hit5": 215,
+        "n": 401,
+        "ppl": 169.30173081857203
+      }
+    },
+    {
+      "fold": 1,
+      "factor": 2.0,
+      "lambda": 1.0,
+      "alpha": 100.0,
+      "held": {
+        "hit1": 160,
+        "hit5": 212,
+        "n": 401,
+        "ppl": 32941.54378066119
+      }
+    },
+    {
+      "fold": 1,
+      "factor": 2.0,
+      "lambda": 1.0,
+      "alpha": "readout",
+      "held": {
+        "hit1": 156,
+        "hit5": 202,
+        "n": 401,
+        "ppl": 12063.571440349806
+      }
+    },
+    {
+      "fold": 1,
+      "factor": 2.0,
+      "lambda": 1.0,
+      "alpha": 10.0,
+      "probe": {
+        "hit1": 363,
+        "hit5": 599,
+        "n": 1461,
+        "ppl": 242.07075828945153
+      }
+    },
+    {
+      "fold": 1,
+      "factor": 2.0,
+      "lambda": 1.0,
+      "alpha": 30.0,
+      "probe": {
+        "hit1": 322,
+        "hit5": 580,
+        "n": 1461,
+        "ppl": 2187.638820183883
+      }
+    },
+    {
+      "fold": 2,
+      "factor": 2.0,
+      "lambda": 1.0,
+      "alpha": 10.0,
+      "held": {
+        "hit1": 156,
+        "hit5": 198,
+        "n": 419,
+        "ppl": 120.40284393776223
+      }
+    },
+    {
+      "fold": 2,
+      "factor": 2.0,
+      "lambda": 1.0,
+      "alpha": 30.0,
+      "held": {
+        "hit1": 161,
+        "hit5": 208,
+        "n": 419,
+        "ppl": 239.676895477506
+      }
+    },
+    {
+      "fold": 2,
+      "factor": 2.0,
+      "lambda": 1.0,
+      "alpha": 100.0,
+      "held": {
+        "hit1": 161,
+        "hit5": 202,
+        "n": 419,
+        "ppl": 33684.65580879791
+      }
+    },
+    {
+      "fold": 2,
+      "factor": 2.0,
+      "lambda": 1.0,
+      "alpha": "readout",
+      "held": {
+        "hit1": 160,
+        "hit5": 194,
+        "n": 419,
+        "ppl": 12171.053857852536
+      }
+    },
+    {
+      "fold": 2,
+      "factor": 2.0,
+      "lambda": 1.0,
+      "alpha": 10.0,
+      "probe": {
+        "hit1": 362,
+        "hit5": 606,
+        "n": 1461,
+        "ppl": 237.73842613530144
+      }
+    },
+    {
+      "fold": 2,
+      "factor": 2.0,
+      "lambda": 1.0,
+      "alpha": 30.0,
+      "probe": {
+        "hit1": 326,
+        "hit5": 586,
+        "n": 1461,
+        "ppl": 1955.8644469769715
+      }
+    }
+  ]
+}

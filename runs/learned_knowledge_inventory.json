@@ -1,0 +1,58 @@
+{
+  "edge_count": 121,
+  "subject_count": 116,
+  "lexicon_count": 436,
+  "sources": {
+    "doğuştan": 121
+  },
+  "topics": {
+    "bilgisayar": [
+      {
+        "subj": "bilgisayar",
+        "rel": "USED_FOR",
+        "obj": "veri işleme ve hesaplama",
+        "source": "doğuştan"
+      }
+    ],
+    "algoritma": [
+      {
+        "subj": "algoritma",
+        "rel": "USED_FOR",
+        "obj": "problemi adım adım çözme",
+        "source": "doğuştan"
+      }
+    ],
+    "internet": [
+      {
+        "subj": "internet",
+        "rel": "USED_FOR",
+        "obj": "küresel bilgi paylaşımı ve araştırma",
+        "source": "doğuştan"
+      }
+    ],
+    "elektron": [
+      {
+        "subj": "elektron",
+        "rel": "LOCATED_AT",
+        "obj": "atom yörüngesi",
+        "source": "doğuştan"
+      }
+    ],
+    "fotosentez": [
+      {
+        "subj": "fotosentez",
+        "rel": "CAUSES",
+        "obj": "oksijen ve besin üretimi",
+        "source": "doğuştan"
+      }
+    ],
+    "matematik": [
+      {
+        "subj": "matematik",
+        "rel": "ISA",
+        "obj": "soyut örüntü ve kanıt bilimi",
+        "source": "doğuştan"
+      }
+    ]
+  }
+}

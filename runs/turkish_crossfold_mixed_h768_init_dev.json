@@ -1,0 +1,88 @@
+[
+  {
+    "fold": 1,
+    "position_seed": 149,
+    "wide_seed": 147,
+    "position_epochs_fixed": 12,
+    "wide_epochs_fixed": 9,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean_mixed_h768_1000_step1000.pt",
+    "freeze_emb": false,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "dialogue_repeats": 1,
+    "target_l2sp": 0.0,
+    "target_top1_margin": 0.0,
+    "position": {
+      "n": 401,
+      "hit1": 170,
+      "hit5": 211,
+      "top1": 0.4239401496259352,
+      "top5": 0.5261845386533666,
+      "ppl": 92.72248789500001
+    },
+    "wide": {
+      "n": 401,
+      "hit1": 171,
+      "hit5": 209,
+      "top1": 0.42643391521197005,
+      "top5": 0.5211970074812967,
+      "ppl": 74.93571432651177
+    },
+    "ensemble": {
+      "n": 401,
+      "hit1": 171,
+      "hit5": 218,
+      "top1": 0.42643391521197005,
+      "top5": 0.543640897755611,
+      "ppl": 73.49952608433333
+    },
+    "seconds": 39.94001653600026
+  },
+  {
+    "fold": 2,
+    "position_seed": 149,
+    "wide_seed": 147,
+    "position_epochs_fixed": 12,
+    "wide_epochs_fixed": 9,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean_mixed_h768_1000_step1000.pt",
+    "freeze_emb": false,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "dialogue_repeats": 1,
+    "target_l2sp": 0.0,
+    "target_top1_margin": 0.0,
+    "position": {
+      "n": 419,
+      "hit1": 164,
+      "hit5": 202,
+      "top1": 0.3914081145584726,
+      "top5": 0.4821002386634845,
+      "ppl": 147.96829988547887
+    },
+    "wide": {
+      "n": 419,
+      "hit1": 165,
+      "hit5": 202,
+      "top1": 0.3937947494033413,
+      "top5": 0.4821002386634845,
+      "ppl": 137.1642738384816
+    },
+    "ensemble": {
+      "n": 419,
+      "hit1": 167,
+      "hit5": 202,
+      "top1": 0.39856801909307876,
+      "top5": 0.4821002386634845,
+      "ppl": 125.84349300647395
+    },
+    "seconds": 37.75310896300107
+  }
+]

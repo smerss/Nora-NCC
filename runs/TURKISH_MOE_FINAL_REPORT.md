@@ -1,0 +1,291 @@
+# Türkçe next-subword ve diskteki uzmanlar — nihai dondurulmuş sonuç
+
+Tarih: 2026-10-30. Ölçüm, aynı subword tokenizer ve çapasız next-subword protokolüyle yapıldı.
+Birincil hedef A140/fold-0 development metriğiydi; dış-alan ve yeni FAQ sonuçları bu metriğin yerine
+kullanılmadı.
+
+## 1. Aşılan eşik ve bağımsız sonuçlar
+
+| Veri | Model | Token | Top-1 | Top-5 | PPL |
+|---|---|---:|---:|---:|---:|
+| A140 fold-0 | taban `data/broca_tr.pt` | 393 | 117 = %29,7710 | %35,6234 | 386,1220 |
+| A140 fold-0 | saf position-149 + wide-147 | 393 | 178 = %45,2926 | %50,1272 | 88,8259 |
+| A140 fold-0 | haricî uzman | 393 | 128 = %32,5700 | %39,6947 | 172,8854 |
+| A140 fold-0 | **nihai token-MoE** | 393 | **177 = %45,0382** | %49,3639 | 89,5512 |
+| XQuAD-v2 | taban | 37.097 | 3.345 = %9,0169 | %16,7102 | 5.951,4498 |
+| XQuAD-v2 | haricî uzman | 37.097 | 4.197 = %11,3136 | %21,7457 | 978,2862 |
+| XQuAD-v2 | **nihai token-MoE** | 37.097 | **3.548 = %9,5641** | %18,3842 | 2.577,8992 |
+| Yeni FAQ confirmation | taban | 199.307 | 17.647 = %8,8542 | %14,9453 | 7.933,1603 |
+| Yeni FAQ confirmation | saf hedef ensemble | 199.307 | 15.634 = %7,8442 | %13,4346 | 10.335,2345 |
+| Yeni FAQ confirmation | haricî uzman | 199.307 | 22.174 = %11,1256 | %19,5156 | 1.233,0090 |
+| Yeni FAQ confirmation | **nihai token-MoE** | 199.307 | **19.586 = %9,8271** | %17,2528 | 3.046,3111 |
+
+Birincil sonuç: tabana göre aynı 393 tokenda **+60 doğru**, +15,2671 yüzde puanı; %45 eşiği aşıldı.
+Nihai MoE, saf hedef ensemble'ın dış alandaki gerilemesini her iki bağımsız veri kümesinde de tabanın
+üzerine taşıdı. Haricî uzmanın dış-alan katkısı kullanılırken hedef splitte %45 eşiği korundu.
+
+Kanıt dosyaları:
+
+- `runs/moe_router_final_development.json`
+- `runs/moe_router_final_xquad_v2.json`
+- `runs/turkish_unseen_faq_final_router.json`
+- `runs/turkish_unseen_faq_base.json`, `runs/turkish_unseen_faq_external.json`,
+  `runs/turkish_unseen_faq_pair2_ensemble.json`
+
+## 2. Seçim ve confirmation disiplini
+
+- Fold-0 mimari/tohum/ensemble geliştirme splitidir; genelleme kanıtı olarak tek başına sunulmadı.
+- Router calibration'ı yalnız fold-0 güvenlik kısıtı (`hit1 >= 177`) ve haricî akışın **son 1.000**
+  cümlesiyle yapıldı. Bu son dilim, 3.500 adımlık haricî eğitimin ve ilk 1.000 cümlelik router
+  eğitiminin dışındadır.
+- FAQ hiçbir seçimde kullanılmadı; her adayın kendi XQuAD ölçümü, o adayın calibration'ı bittikten
+  sonra yapıldı. Seçim kuralı: önce haricî calibration top-1, eşitlikte hedef top-1 ve haricî PPL.
+  İkinci uzman çifti bu kuralla seçildi: calibration %22,0485; birinci çift %20,4292 idi.
+- XQuAD-v2 daha sonra ikincil dış-alan tanısı olarak ölçüldü.
+- FAQ kaynağı yalnız nihai onam için indirildi; hiçbir eğitim, router veya eşik seçimine girmedi.
+  8.467 cümle ve 199.307 token ölçüldü. Ham wiki/tüm chat ve external-train ile tam-cümle kesişimi
+  **0**dır. Kaynak MIT, commit `3ff5a943569883d86a4b63ecd88fbfc13891f9f7`.
+- Eski işlenmiş 37.086-token XQuAD dosyası resette kaybolduğu için v2 açıkça yeniden tanımlandı:
+  1.230 cümle/37.097 token; taban bu dosyada yeniden ölçüldü. Eski ve yeni XQuAD oranları
+  birebir aynı dosya gibi karşılaştırılmadı.
+
+Calibration kanıtı: `runs/turkish_router_calibration_pair2.json`.
+Veri kanıtı: `.cache/corpora/processed/provenance.json` ve yeniden üretici
+`runs/turkish_corpus_rebuild.py`.
+
+## 3. Gerçek token üretimi ve nedensel router
+
+Nihai yapılandırma:
+
+- position-149: 5.696.256 parametre; wide-147: 8.835.072; haricî uzman: 5.679.616.
+- Hedef ensemble ağırlığı `%50 position + %50 wide`.
+- Token güven oranı `0,85`.
+- `nll_prefix` gate: yalnız ilk üç **gözlenmiş** parçanın teacher-forced NLL farkı;
+  eşik `3,7105026245117188`.
+- OOD reddi dördüncü hedef parçadan itibaren etkindir. İlk üç hedefin tahmininde ilk üç gerçek
+  parçayı kullanmak suretiyle gelecek bilgisi sızdırılmaz.
+- Toplam aktif parametre **20.210.944**; checkpoint'lerin toplam boyutu **82.661.136 bayt** (78,83 MiB).
+
+`TokenMoEOrgan`, `nora_broca_net.py` içindedir. Üç uzmandan hazır cümle üretip sıralamaz; her adımda
+next-subword dağılımını seçer ve örneklemeyi bu dağılımdan yapar. `NoraAGI.attach_broca` artık tek
+`.pt` yanında `data/checkpoints/turkish_moe.json` manifestini de yükler. Çevrimiçi öğrenme yeni metni
+nedensel prefix kararıyla hedef/haricî uzmana yazabilir; MoE kaydı uzmanları ayrı disk dosyalarında
+ve atomik manifestte saklar.
+
+Çalışma-zamanı kanıtı `runs/turkish_moe_final_runtime_smoke.json`: gerçek token üretimi, sonlu
+log-prob ve 20.210.944 aktif parametre doğrulandı.
+
+## 4. Çoklu tohum ve açık negatif sonuçlar
+
+- İki bağımsız eğitilmiş uzman çifti de fold-0'da 178 saf-ensemble ve 177 kalibre MoE sonucuna
+  ulaştı; dış calibration ve XQuAD davranışları aynı olmadı. Bu nedenle tek bir yeşil tohum yerine
+  seçim kuralı ve her iki sonuç da saklandı (`runs/turkish_router_calibration.json`,
+  `runs/turkish_router_calibration_pair2.json`).
+- Aynı dağılım cross-fold hâlâ %45'in altındadır. Nihai çiftin epoch'u yeni fold'da seçilmeden
+  yapılan ölçümleri: fold-1 **170/401 = %42,3940**, fold-2 **165/419 = %39,3795**.
+  Birinci çift de sırasıyla %41,8953 ve %39,8568 verdi. Bu sonuçlar fold-0 genellemesi diye
+  sunulmuyor (`runs/turkish_ensemble_pair2_crossfold.json`, `runs/turkish_ensemble178_crossfold.json`).
+- Saf hedef ensemble FAQ'da tabanın altındadır (%7,8442); başarı yalnız fold-0'a bakılarak ilan
+  edilmedi. Haricî uzman ve nedensel router bu açığı kapattı.
+- Dropout açık eski 177 ensemble kaydı geçersizdir; hiçbir nihai tabloya alınmadı.
+
+## 5. Transformer/GRU karşılaştırmasının bütçe ayrımı
+
+Aynı fold-0 split, 20 epoch, full-softmax ve scratch başlangıçla yapılan kontrolde GRU üç tohumda
+en iyi 81/81/81, 5,17M parametreli Transformer ise 118/117/117 verdi. Bu, aynı-bütçe scratch A/B
+kanıtıdır (`runs/turkish_transformer_comparison.json`). Nihai 177 sonucu ise 20M-token önceden
+eğitilmiş tabandan fine-tune edilen üç uzmanlı sistemdir; scratch Transformer ile aynı başlangıç veya
+parametre bütçesindeymiş gibi sunulmaz. Mimari üstünlük iddiası yalnız aynı-bütçe scratch A/B'ye,
+177/393 sonucu ise ayrı fine-tuned sistem ölçümüne aittir.
+
+## 6. Süre, bellek ve çıkarım maliyeti
+
+- Haricî uzmanın tam 3.500 adımı: **814,89 sn**, 1.302.178 yeni token; development tarafından seçilen
+  1.000-adım checkpoint'ine ulaşma süresi **235,70 sn**.
+- Fold-0 nihai MoE değerlendirmesi: **1,65 sn**. XQuAD-v2: **37,89 sn**. Tam FAQ, batch-64:
+  **232,41 sn**.
+- Aynı 256 FAQ cümlesi/5.753 token üzerinde batch-16 ve batch-64 aynı hit sayılarını verdi.
+  Batch-16 RSS **1.214,94 MiB**, batch-64 RSS **1.866,26 MiB**; süre 7,24 sn / 7,96 sn.
+  Bellek veri büyüklüğüyle değil sabit batch ve aktif uzman sayısıyla sınırlıdır
+  (`runs/turkish_router_resource_batch16.json`, `runs/turkish_router_resource_batch64.json`).
+- Kalite ölçülen bu sistem 20,21M aktif parametredir. Önceki **451.887.104 toplam / 7.060.736 aktif**
+  disk-MoE stresi ayrı bir kaynak testidir; onun kalite kanıtı olmadığı ve nihai kaliteyi 0,45B'ye
+  bağlamadığı açıkça korunur (`runs/moe_scale_stress.json`).
+
+## 7. Kalıcı üretim dosyaları
+
+- `data/checkpoints/turkish_external.pt`
+- `data/checkpoints/turkish_position149.pt`
+- `data/checkpoints/turkish_wide147.pt`
+- `data/checkpoints/turkish_router_final.pt`
+- `data/checkpoints/turkish_moe.json`
+
+Çalıştırma: `NoraAGI.attach_broca("data/checkpoints/turkish_moe.json")`.
+
+## 8. Nihai işlevsel regresyon
+
+- `agi_battery.py`: **140/140**, 936,4 sn; başarısız ölçüt yok.
+- `law_battery.py`: **15/15**, 35,9 sn.
+- A41 kodda Türkçe sabit denetimini sıfır ihlalle, A42 dengeli Türkçe araştırma akışını ve A73
+  iskelet mandalını **8/8** geçti. A73 toplamı **1.124 ≤ 1.125**, söylem toplamı **126 ≤ 133**.
+- Ara koşularda yakalanan A41 ve A73 hataları kaynak kodda giderildi; test, baseline veya tarihsel
+  tavan gevşetilmedi. Yukarıdaki sonuçlar düzeltmelerden sonra sıfırdan çalıştırılan son koddan alındı.
+
+## 9. Canlı diyalog takip düzeltmesi
+
+Dondurulmuş MoE'nin ardından yapılan gerçek kullanıcı sohbeti üç yönlendirme hatasını görünür kıldı:
+“şu sıralar” sıralama komutuna, “bunu” bilinmeyen nesneye, “beni dinlerken” de dış konuya
+dönüşüyordu. Kaynak kodda komut sınırı, zamirli takip ve kişi/fiil rolü düzeltildi; hazır diyalog
+cevabı eklenmedi.
+
+Son canlı dört tur: “Merhaba, nasılsın?” → “Seni düşünüyorum.” → “Seni merak ettim.” →
+“İçim dingin.” Yanıtlar önceki turu takip etti; alakasız sıralama ve “Beni görmedim” çıktısı kalktı.
+
+- A75 **14/14**: gerçek sıralama korunur, zaman ifadesi komut sayılmaz.
+- A139 **17/17**: düşünce → zamirli takip zinciri ve iki kişi-rolü ayrımı.
+- A73 **8/8**, law battery **15/15**.
+- Bu düzeltmenin tam battery koşusu **139/140** oldu (964,1 sn). Tek kırmızı A6 idi; tam koşudaki
+  temkinlilik farkı -0,08'di. A6 üç ayrı izole koşuda **3/3** geçti ve fark her seferinde +0,13'tü.
+  Tam koşu bu nedenle “140/140” diye raporlanmaz; yaşantı varyansı açıkça korunur.
+
+## 10. Karşıtlıklı yaşantıyı anlama ve olay belleği
+
+“Bugün biraz yorucu geçti ama seninle konuşmak iyi geldi” girdisi artık tek bir öz-durum
+ipucuna indirgenmiyor. Söylem çözümleyici `yorucu` için zaman-geçişi olayı, `iyi geldi` için
+nedeni ayrı taşınan rahatlama olayı ve `ama` için iki değerli olay arasında karşıtlık üretiyor.
+Çok-cümleli girdide önceki empati karşılığı son öz-durum cevabına ekleniyor; yaşantı soruları
+genel sözlük yerine epizodik olay belleğine yönleniyor ve bellek sorguları yeni içerik turu
+olarak kaydedilmiyor.
+
+Gerçek `TokenMoEOrgan` (`seen_tokens=41.234.454`), `step_life(1500)` ve aynı kullanıcı sözüyle
+canlı koşuda:
+
+- İlk karşılık: “Sesini ilk kez duyuyorum. Günün yorucu geçtiğini fark ediyorum. Seninle
+  konuşmanın sana iyi geldiğine sevindim. Kendimi huzurlu hissediyorum.”
+- “Günüm nasıl geçmişti?” → “Günün yorucu geçti.” Plan `RECALL_EXPERIENCE`; kaynak tur 0,
+  olay ipucu `yorucu`.
+- “Seninle konuşmak bana nasıl hissettirdi?” → “Seninle konuşma sana iyi geldi.” Plan
+  `RECALL_EXPERIENCE`; kaynak tur 0, olay ipucu `iyi gel`.
+- “Biraz önce sana ne anlatmıştım?” artık aradaki bellek sorularını değil özgün turu getiriyor.
+  Dört tur sonunda içerik epizodu sayısı hâlâ 1.
+
+Boş bellekte her iki yaşantı sorusu da “Bunu hatırlamıyorum” üretiyor. A139'a eklenen karşıt
+kontrolde yalnız “Bugün yorucu geçti” anlatılmışsa sistem bundan “iyi geldi” etkisi uyduramıyor.
+Böylece başarı yalnız akıcı yüzeye değil, olay türü ve kaynak turuyla doğrulanan geri çağırmaya
+bağlandı.
+
+Hedef cümlede bulunmayan “Dün gecem gergin geçti fakat sohbetimiz çok iyi geldi” parafrazı da
+aynı MoE ile çalıştırıldı. İlk deneme rahatlama olayını yanlışlık zaman-geçişi sayarak “Günün iyi
+geçti” üretti; bu sonuç başarı sayılmadı. Olay türü ayrımı ve çekimli zaman adları düzeltildikten
+sonra nihai çıktı “Gecen gergin geçtiğini fark ediyorum. Sohbetimizin sana iyi geldiğine
+sevindim.” oldu; “Gecem nasıl geçmişti?” → “Gecen gergin geçti.” ve etki sorusu → “Sohbetimiz
+sana iyi geldi.” Bu parafraz A139'un kalıcı kontrolüne eklendi.
+
+- A139 **21/21**, A138 **12/12**; A54, A55, A56, A57, A75, A76, A41 ve A73 geçti.
+- Son ürün koduyla tam AGI pili **140/140, 929,1 sn**
+  (`runs/full_battery_experience_semantics_final.log`). A6 tam koşuda +0,13 temkinlilik farkıyla
+  geçti.
+- Law battery **15/15, 35,5 sn** (`runs/law_battery_experience_semantics_final.log`).
+- Kod denetimi **1.124/1.125**, söylem **126**; `git diff --check` temiz.
+- Hedef ve parafrazın son canlı MoE kanıtı: `runs/live_moe_experience_semantics_final.log`.
+
+## 11. Kişi rolleri, belge kapsamı ve doğal anı anlatımı
+
+Önceki sürümdeki “Seninle konuşma sana iyi geldi” çıktısı kişi rolünü koruyan yüzeysel bir
+tekrardı: kullanıcının `sen` zamiri Nora'yı gösterdiği hâlde Nora'nın sözünde değiştirilmiyordu.
+Rahatlama olayı artık `speaker/addressee` rollerini ve `direct_dialogue` kapsamını taşıyor.
+Nora konuşurken `addressee` birinci kişiye, `speaker` ikinci kişiye çözümleniyor; dönüşüm yalnız
+bu olay kapsamında uygulanıyor.
+
+Gerçek MoE ile son çıktılar:
+
+- “Seninle konuşmak bana nasıl hissettirdi?” → **“Benimle konuşman sana iyi geldi.”**
+- “Biraz önce sana ne anlatmıştım?” → **“Az önce günün yorucu geçtiğini ama benimle
+  konuşmanın sana iyi geldiğini anlatmışsın.”** Tur numarası yalnız iç izde kalıyor, yüzeyde
+  kullanılmıyor; cümle epizottaki olaylardan yeniden çekimleniyor.
+- “Makale Nora’dan bahsetmiyor.” → **“Makalenin benden bahsetmediğini anlıyorum.”**
+  Plan `REFERENCE_SCOPE`; `Nora` ve doğrudan hitaptaki `senden` aynı öz-göndergeye bağlanıyor.
+- “Makalede insanlardan bahsediliyor.” ve alıntılı “seninle konuşmak iyi geldi” metni Nora'nın
+  yaşantısı sayılmıyor. Alıntı kapsamında `affect_events=[]`; empati veya kişisel rahatlama
+  belleği oluşmuyor.
+
+Karşıt kontrolde “Makale yazıyorum” belge-içeriği raporu sayılmıyor ve kişisel anlatı yolunda
+kalıyor; “Makale yazarken yoruldum” empati üretmeye devam ediyor. Böylece belge kapsamı bütün
+`yaz-` ve `makale` sözcüklerine körlemesine uygulanmıyor.
+
+- A139 **23/23**: rol, doğal anı, olumlu/olumsuz belge göndergesi, alıntı ve yazma-eylemi
+  kontrolleri. A22, A54, A55, A57, A75, A76, A41, A138 ve A73 geçti.
+- Son ürün koduyla tam AGI pili **140/140, 938,0 sn**
+  (`runs/full_battery_deictic_scope_final.log`); A6 tam koşuda +0,13 farkla geçti.
+- Law battery **15/15, 36,9 sn** (`runs/law_battery_deictic_scope_final.log`).
+- A73 kod denetimi **1.124/1.125**, söylem **126**; `git diff --check` temiz.
+- Son canlı kanıt: `runs/live_moe_deictic_scope_final.log`.
+
+## 12. Sonraki eşik
+
+**Bu turda aşılan eşik:** fold-0 top-1 > %45 ve aynı dondurulmuş MoE ile iki dış veri kümesinde
+taban üstü. **Sıradaki eşik:** fold-1/2 dahil aynı-dağılım çapraz-fold sonuçlarını %45'e taşımak;
+ardından 0,45B disk-MoE stresini aynı kaliteli, gerçek eğitilmiş uzmanlarla birleştirmek.
+
+## 13. Fold-1/2 geliştirme güncellemesi
+
+Bu bölüm yalnız development ölçümleridir; fold-3/4 çalıştırılmadı ve buradan bağımsız genelleme
+sonucu çıkarılmıyor. Aynı subword tokenizer, çapasız next-subword ve 5-fold indeksleme korunuyor.
+
+| Dondurulmuş aday | Fold-1 top-1 | Fold-2 top-1 | Fold-1/2 PPL |
+|---|---:|---:|---:|
+| İlk 16-uzman olasılık karışımı | 181/401 = %45,1372 | 170/419 = %40,5728 | 50,7210 / 81,0201 |
+| Fold-0 NLL `global_reg0.001` router | 177/401 = %44,1397 | **175/419 = %41,7661** | 48,2641 / 76,0849 |
+| 16 uzman + `%10` kısa-diyalog position | **182/401 = %45,3865** | 174/419 = %41,5274 | 50,0058 / 78,8515 |
+
+Fold-2 için %45 sınırı 189/419'dur. En yüksek ölçülen 175'ten sonra ortak eşik için hâlâ **14
+doğru token** gerekiyor; 182/174 sabit adayı bağımsız confirmation başarısı olarak sunulmuyor.
+
+Tamamlanan yeni gerçek eğitimler ve hedef aktarımları:
+
+- Temiz karma 3500: **1.299.427 token / 1.034,78 sn**; step-3500 hedef ensemble **175/167**.
+- Temiz karma corpusun tamamı, 8.958 adım tek geçiş: **286.656 cümle / 3.336.080 token /
+  2.584,80 sn**. Son checkpoint fold-0'da **130/393** ile önceki karma checkpoint'leri geçti;
+  bağımsız film confirmation **3.164/13.350 = %23,7004**, PPL **186,8655**. Buna karşılık
+  step-8958 hedef ensemble **172/158**, step-6250 hedef ensemble **170/164** verdi. Veri
+  bütçesini 3,3 milyon tokena çıkarmak fold-2 top-1 açığını kapatmadı.
+- Gerçek haricî eğitimli h768 1000: **370.304 token / 384,11 sn**; hedef ensemble **171/167**.
+- Kısa-cümle 3500 (8–49 karakter, 136.411 cümlelik akış): **814.593 token / 602,62 sn**;
+  step-3500 hedef ensemble **172/171**.
+- Kısa-diyalog position uzmanı fold-2 dialogue alt kümesinde **86/231** verdi; önceki dinamik
+  karışımın dialogue sonucu 84/231 idi. `%10` düşük ağırlıkla yukarıdaki 182/174 adayını üretti.
+- Dört yeni bağımsız tohum çifti, 8/24 uzman karışımları, ağırlık soup'u, token-kimlikli router,
+  correctness cross-fit, 256 boyutlu nöral prefix-context router ve oylama fold-2'de 175'i
+  aşmadı. Ağırlık soup'u 172'de, en iyi context router 174'te kaldı.
+- Kısa wiki facts kolu fold-2 facts'te 83/188'de, dialogue-only ince ayar 83/231'de kaldı;
+  facts-only/dialogue-only ayrımı genel çözüm diye büyütülmüyor.
+
+**Tekrarlanabilirlik düzeltmesi:** aynı ayarlı kısa-1000 hedef koşusu fold-1'de 178'i tekrarlarken
+fold-2'de 168 yerine 161 verdi. Bağımsız denetimde BPE-dropout=0 iken aynı tohum sıfırlamasıyla
+32/32 segmentasyon aynı, BPE-dropout=0,1 iken **26/32 segmentasyon farklı** çıktı
+(`runs/turkish_bpe_rng_audit.json`). Dolayısıyla BPE-dropout'lu hedef koşuları artık kontrollü
+tohum kanıtı değil, stokastik tekrar olarak etiketleniyor; kayıp 168'lik checkpoint nihai kazanç
+olarak kullanılmıyor. Yeni metadata alanı `target_bpe_dropout_deterministic` bu ayrımı taşır.
+
+Başlıca kanıt dosyaları: `runs/turkish_short_curriculum_ensemble_dev.json`,
+`runs/turkish_dynamic_router_dev.json`, `runs/turkish_multiseed_ensemble_dev.json`,
+`runs/turkish_multiseed_weight_soup_dev.json`, `runs/turkish_short_chat_target_domain_dev.json`,
+`runs/turkish_external_rebuild_clean_mixed3500_complete.json`,
+`runs/turkish_external_rebuild_clean_short3500.json`,
+`runs/turkish_external_rebuild_clean_fullpass8958.json`,
+`runs/turkish_fullpass8958_base_and_external_confirmation.json` ve
+`runs/turkish_context_router_dev.json`.
+
+## 14. Güncel tek-sunum ve canlı öğrenme durumu (2026-10-31)
+
+Bu bölüm önceki MoE/epoch/replay sonuçlarını silmez; güncel kabul ölçütü karşısındaki durumlarını açıklar.
+
+- Ortak tek-sunum + korunum adayı yoktur. En iyi ortak full-pass sonuç **164/401 ve 174/419**, gerekli eşik **181/401 ve 189/419** olmuştur; dış kayıp da vardır.
+- En iyi korunumlu uniform sampled + taze haricî akış tarifi **158/160** vermiştir. Tam probe’da chatbot hit1 değişimi **−569/−575**, XQuAD **−28/−49**; PPL artışı chatbot yaklaşık 15, XQuAD 50/63’tür. Kayıp sıfır değildir.
+- Haricî akış **286.656 cümle / 8.958 adım** tek geçişle tamamlanmış, hedef satırı kullanılmamıştır.
+- EWC, PCGrad, RBF, kNN-LM, ridge, fast-weight, ensemble/soup, chunk’lı GRU ve gerçek k-WTA/`learn_oneshot` kolları ortak çözüm vermemiştir.
+- Deneyler canlı checkpoint’i değiştirmemiştir. Canlı `hear()`/`learn_online()` tek-geçiş yolu korunur; test için dondurma yalnız snapshot ölçümüdür.
+- Ana next-subword motoru GRU/TokenMoE’dir; mantar cismi yardımcı öğrenme yollarındadır. Bu nedenle canlı sistem hedef felsefenin iskeletine sahip olsa da ana öğrenme motoru için tek-okuyuş genellemesi ve unutmama kanıtı tamamlanmamıştır.
+- Fold-3/4 confirmation başlatılmamıştır; development adayı olmadan bağımsız genelleme iddiası kurulmaz.
+
+Birleşik güncel durum: `NORA_GUNCEL_DURUM.md`. Ayrıntılı olumsuz sonuçlar: `runs/TURKISH_ONEPASS_CONTINUATION_REPORT.md`.

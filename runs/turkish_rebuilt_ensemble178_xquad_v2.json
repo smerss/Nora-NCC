@@ -1,0 +1,25 @@
+{
+  "mode": "ensemble",
+  "corpus": ".cache/corpora/processed/xquad_rebuilt_v2.jsonl",
+  "corpus_sha256": "c6a3fdac5f70bf6454671d767ffebd196bebd70f73048536ec6b69037c696201",
+  "input_sentences": 1230,
+  "models": [
+    "runs/models/rebuilt_position144_best.pt",
+    "runs/models/rebuilt_wide149_best.pt"
+  ],
+  "model_sha256": {
+    "runs/models/rebuilt_position144_best.pt": "0a00ceb9cd5f788af111e87a56354736060ac0ec0738951dae7d4740ed029fc8",
+    "runs/models/rebuilt_wide149_best.pt": "a165bd1e5f5f480ae0d5c7524894b5183d40284011b17b1fe20d6aa2443a7f50"
+  },
+  "position_weight": 0.65,
+  "seconds": 26.20798480999997,
+  "max_rss_mib": 1446.046875,
+  "metrics": {
+    "n": 37097,
+    "hit1": 2690,
+    "hit5": 5236,
+    "top1": 0.07251260209720463,
+    "top5": 0.14114348869180796,
+    "ppl": 5508.063419620461
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "computer": {
+    "ok": true,
+    "source": "ai-roadmap-computer",
+    "url": "https://github.com/bturkerp/ai-education-roadmap/blob/60ec909100ac9ac742ceffa768626670e7639dfe/README.md",
+    "area": "computer",
+    "topic": "bilgisayar",
+    "n": 2,
+    "available": 22,
+    "offset": 0,
+    "cached": false,
+    "epistemic_status": "provisional",
+    "text": "Yapay zeka öğrenim yol haritası: Python, makine öğrenmesi, derin öğrenme, optimizasyon ve kuantum bilgisayar dersleri.\nYapay Zekâ Öğrenim Yol Haritası ve Eğitim Materyalleri"
+  },
+  "quantum": {
+    "ok": true,
+    "source": "quantum-entanglement",
+    "url": "https://github.com/iremsener/quantum-cryptography-notebooks-tr/blob/ee958122037b9e725ded4842a856fc770e6cd24d/Bolum02_Dolanikligin-Gücü/2.1-Dolaniklik.ipynb",
+    "area": "quantum",
+    "topic": "kuantum",
+    "n": 2,
+    "available": 3,
+    "offset": 0,
+    "cached": false,
+    "epistemic_status": "provisional",
+    "text": "Her biri saf pure bir durumda olan iki bağımsız kuantum sistemini ve bir araya getirdiğimizde, bu iki kübitin ortak birleşik durumu tensör çarpımı ile verilir:\n$ psi rangle psi 1 rangle psi 2 rangle rho rho AB rho AB 00 rangle 11 rangle >0 rho AB rho AB = sum i p i phi i rangle langle phi i A otimes psi i rangle langle psi i B 01 rangle 10 rangle 0 i 0 rangle 1 rangle +- rangle langle + 0 rangle ^2 = 1/2 langle - 1 rangle ^2 = 1/2 p 0 + p 1 = 1 1/4 ++ rangle -- rangle +- rangle -+ rangle 0 1/4 A B otimes A B rho AB p i A B rho i^A rho i^B rho AB rho AB = Psi rangle langle Psi AB Psi rangle AB A B rho XQ = sum i p i x rangle langle x X otimes rho i^Q rho AB sigma AB A rho AB 0 rangle B 1 rangle B sigma AB + rangle, - rangle M + = + rangle langle+ A otimes mathbb I B M - = - rangle langle- A otimes mathbb I B rho AB + langle + 0 rangle ^2 = 1/2 langle + 1 rangle ^2 = 1/2 rho + rangle A ^B = mathbb I B/2 sigma AB sigma AB + sigma + rangle A ^B = + rangle langle+ B sigma AB rho AB $ durumundaki bağlardan katbekat daha güçlü ve derin olduğunun en kesin matematiksel kanıtıdır."
+  }
+}

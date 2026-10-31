@@ -1,0 +1,258 @@
+{
+  "protocol": "development fold1/2 only; no fold3/4; equal static mixtures; four new seed pairs",
+  "seed_pairs": [
+    [
+      150,
+      151
+    ],
+    [
+      152,
+      153
+    ],
+    [
+      154,
+      155
+    ],
+    [
+      156,
+      157
+    ]
+  ],
+  "model_paths": {
+    "1": [
+      "runs/models/pair2_fold1_position.pt",
+      "runs/models/pair2_fold1_wide.pt",
+      "runs/models/clean_init_fold1_position.pt",
+      "runs/models/clean_init_fold1_wide.pt",
+      "runs/models/early4_fold1_position.pt",
+      "runs/models/early4_fold1_wide.pt",
+      "runs/models/early8_fold1_position.pt",
+      "runs/models/early8_fold1_wide.pt",
+      "runs/models/focal1_fold1_position.pt",
+      "runs/models/focal1_fold1_wide.pt",
+      "runs/models/focal2_fold1_position.pt",
+      "runs/models/focal2_fold1_wide.pt",
+      "runs/models/chat_init_fold1_position.pt",
+      "runs/models/chat_init_fold1_wide.pt",
+      "runs/models/external_clean1000_step1000.pt",
+      "runs/models/external_clean_chat1000_step1000.pt",
+      "runs/models/s150_151_fold1_position.pt",
+      "runs/models/s150_151_fold1_wide.pt",
+      "runs/models/s152_153_fold1_position.pt",
+      "runs/models/s152_153_fold1_wide.pt",
+      "runs/models/s154_155_fold1_position.pt",
+      "runs/models/s154_155_fold1_wide.pt",
+      "runs/models/s156_157_fold1_position.pt",
+      "runs/models/s156_157_fold1_wide.pt"
+    ],
+    "2": [
+      "runs/models/pair2_fold2_position.pt",
+      "runs/models/pair2_fold2_wide.pt",
+      "runs/models/clean_init_fold2_position.pt",
+      "runs/models/clean_init_fold2_wide.pt",
+      "runs/models/early4_fold2_position.pt",
+      "runs/models/early4_fold2_wide.pt",
+      "runs/models/early8_fold2_position.pt",
+      "runs/models/early8_fold2_wide.pt",
+      "runs/models/focal1_fold2_position.pt",
+      "runs/models/focal1_fold2_wide.pt",
+      "runs/models/focal2_fold2_position.pt",
+      "runs/models/focal2_fold2_wide.pt",
+      "runs/models/chat_init_fold2_position.pt",
+      "runs/models/chat_init_fold2_wide.pt",
+      "runs/models/external_clean1000_step1000.pt",
+      "runs/models/external_clean_chat1000_step1000.pt",
+      "runs/models/s150_151_fold2_position.pt",
+      "runs/models/s150_151_fold2_wide.pt",
+      "runs/models/s152_153_fold2_position.pt",
+      "runs/models/s152_153_fold2_wide.pt",
+      "runs/models/s154_155_fold2_position.pt",
+      "runs/models/s154_155_fold2_wide.pt",
+      "runs/models/s156_157_fold2_position.pt",
+      "runs/models/s156_157_fold2_wide.pt"
+    ]
+  },
+  "results": [
+    {
+      "fold": 1,
+      "variant": "old16",
+      "n": 401,
+      "hit1": 181,
+      "hit5": 223,
+      "top1": 0.4513715710723192,
+      "top5": 0.5561097256857855,
+      "ppl": 50.72099003986004
+    },
+    {
+      "fold": 1,
+      "variant": "seed8",
+      "n": 401,
+      "hit1": 180,
+      "hit5": 213,
+      "top1": 0.4488778054862843,
+      "top5": 0.5311720698254364,
+      "ppl": 66.26116329392579
+    },
+    {
+      "fold": 1,
+      "variant": "seed8_clean10",
+      "n": 401,
+      "hit1": 180,
+      "hit5": 214,
+      "top1": 0.4488778054862843,
+      "top5": 0.5336658354114713,
+      "ppl": 58.941392681624606
+    },
+    {
+      "fold": 1,
+      "variant": "seed8_clean20",
+      "n": 401,
+      "hit1": 180,
+      "hit5": 214,
+      "top1": 0.4488778054862843,
+      "top5": 0.5336658354114713,
+      "ppl": 56.84245389348816
+    },
+    {
+      "fold": 1,
+      "variant": "all22",
+      "n": 401,
+      "hit1": 182,
+      "hit5": 218,
+      "top1": 0.4538653366583541,
+      "top5": 0.543640897755611,
+      "ppl": 55.50864448265063
+    },
+    {
+      "fold": 1,
+      "variant": "all24",
+      "n": 401,
+      "hit1": 181,
+      "hit5": 221,
+      "top1": 0.4513715710723192,
+      "top5": 0.5511221945137157,
+      "ppl": 51.71251306962749
+    },
+    {
+      "fold": 1,
+      "variant": "hybrid_new50",
+      "n": 401,
+      "hit1": 180,
+      "hit5": 220,
+      "top1": 0.4488778054862843,
+      "top5": 0.5486284289276808,
+      "ppl": 53.7472676771081
+    },
+    {
+      "fold": 1,
+      "variant": "seed4_position",
+      "n": 401,
+      "hit1": 174,
+      "hit5": 215,
+      "top1": 0.4339152119700748,
+      "top5": 0.5361596009975063,
+      "ppl": 71.15732563744481
+    },
+    {
+      "fold": 1,
+      "variant": "seed4_wide",
+      "n": 401,
+      "hit1": 172,
+      "hit5": 199,
+      "top1": 0.428927680798005,
+      "top5": 0.49625935162094764,
+      "ppl": 77.63290164672046
+    },
+    {
+      "fold": 2,
+      "variant": "old16",
+      "n": 419,
+      "hit1": 170,
+      "hit5": 213,
+      "top1": 0.40572792362768495,
+      "top5": 0.5083532219570406,
+      "ppl": 81.02008112826185
+    },
+    {
+      "fold": 2,
+      "variant": "seed8",
+      "n": 419,
+      "hit1": 169,
+      "hit5": 207,
+      "top1": 0.4033412887828162,
+      "top5": 0.49403341288782815,
+      "ppl": 112.32527692217883
+    },
+    {
+      "fold": 2,
+      "variant": "seed8_clean10",
+      "n": 419,
+      "hit1": 169,
+      "hit5": 208,
+      "top1": 0.4033412887828162,
+      "top5": 0.4964200477326969,
+      "ppl": 93.78703335707795
+    },
+    {
+      "fold": 2,
+      "variant": "seed8_clean20",
+      "n": 419,
+      "hit1": 169,
+      "hit5": 209,
+      "top1": 0.4033412887828162,
+      "top5": 0.4988066825775656,
+      "ppl": 88.30500289136342
+    },
+    {
+      "fold": 2,
+      "variant": "all22",
+      "n": 419,
+      "hit1": 168,
+      "hit5": 208,
+      "top1": 0.4009546539379475,
+      "top5": 0.4964200477326969,
+      "ppl": 93.5959954590334
+    },
+    {
+      "fold": 2,
+      "variant": "all24",
+      "n": 419,
+      "hit1": 169,
+      "hit5": 213,
+      "top1": 0.4033412887828162,
+      "top5": 0.5083532219570406,
+      "ppl": 83.23607395897677
+    },
+    {
+      "fold": 2,
+      "variant": "hybrid_new50",
+      "n": 419,
+      "hit1": 167,
+      "hit5": 209,
+      "top1": 0.39856801909307876,
+      "top5": 0.4988066825775656,
+      "ppl": 88.38525588738
+    },
+    {
+      "fold": 2,
+      "variant": "seed4_position",
+      "n": 419,
+      "hit1": 168,
+      "hit5": 205,
+      "top1": 0.4009546539379475,
+      "top5": 0.4892601431980907,
+      "ppl": 128.91348500557612
+    },
+    {
+      "fold": 2,
+      "variant": "seed4_wide",
+      "n": 419,
+      "hit1": 165,
+      "hit5": 203,
+      "top1": 0.3937947494033413,
+      "top5": 0.48448687350835323,
+      "ppl": 123.5552535748626
+    }
+  ],
+  "seconds": 39.84378405799998
+}

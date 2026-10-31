@@ -1,0 +1,122 @@
+[
+  {
+    "fold": 1,
+    "position_seed": 149,
+    "wide_seed": 147,
+    "position_epochs_fixed": 2,
+    "wide_epochs_fixed": 2,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean1000_step1000.pt",
+    "model_prefix": "epoch2_2",
+    "target_adapter": "none",
+    "target_output_bias": false,
+    "target_untied_output": false,
+    "freeze_emb": false,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_bpe_dropout_deterministic": true,
+    "target_seeded_bpe": true,
+    "runtime": {
+      "torch": "2.15.0+cu132",
+      "tokenizers": "0.23.3"
+    },
+    "target_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "target_early_weight": 1.0,
+    "target_early_count": 0,
+    "target_frequency_alpha": 0.0,
+    "target_frequency_cap": 8.0,
+    "dialogue_repeats": 1,
+    "target_domain": "all",
+    "target_bag_fraction": 1.0,
+    "target_l2sp": 0.0,
+    "position_train_sentences": 234,
+    "position": {
+      "n": 401,
+      "hit1": 153,
+      "hit5": 192,
+      "top1": 0.38154613466334164,
+      "top5": 0.47880299251870323,
+      "ppl": 73.35664835877687
+    },
+    "wide_train_sentences": 234,
+    "wide": {
+      "n": 401,
+      "hit1": 163,
+      "hit5": 200,
+      "top1": 0.40648379052369077,
+      "top5": 0.49875311720698257,
+      "ppl": 69.94796389610634
+    },
+    "ensemble": {
+      "n": 401,
+      "hit1": 163,
+      "hit5": 200,
+      "top1": 0.40648379052369077,
+      "top5": 0.49875311720698257,
+      "ppl": 66.58943913426086
+    },
+    "seconds": 8.330467334000332
+  },
+  {
+    "fold": 2,
+    "position_seed": 149,
+    "wide_seed": 147,
+    "position_epochs_fixed": 2,
+    "wide_epochs_fixed": 2,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean1000_step1000.pt",
+    "model_prefix": "epoch2_2",
+    "target_adapter": "none",
+    "target_output_bias": false,
+    "target_untied_output": false,
+    "freeze_emb": false,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_bpe_dropout_deterministic": true,
+    "target_seeded_bpe": true,
+    "runtime": {
+      "torch": "2.15.0+cu132",
+      "tokenizers": "0.23.3"
+    },
+    "target_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "target_early_weight": 1.0,
+    "target_early_count": 0,
+    "target_frequency_alpha": 0.0,
+    "target_frequency_cap": 8.0,
+    "dialogue_repeats": 1,
+    "target_domain": "all",
+    "target_bag_fraction": 1.0,
+    "target_l2sp": 0.0,
+    "position_train_sentences": 234,
+    "position": {
+      "n": 419,
+      "hit1": 160,
+      "hit5": 198,
+      "top1": 0.3818615751789976,
+      "top5": 0.47255369928400953,
+      "ppl": 93.2050030659304
+    },
+    "wide_train_sentences": 234,
+    "wide": {
+      "n": 419,
+      "hit1": 170,
+      "hit5": 202,
+      "top1": 0.40572792362768495,
+      "top5": 0.4821002386634845,
+      "ppl": 87.80588607737909
+    },
+    "ensemble": {
+      "n": 419,
+      "hit1": 171,
+      "hit5": 206,
+      "top1": 0.4081145584725537,
+      "top5": 0.4916467780429594,
+      "ppl": 84.14560770399395
+    },
+    "seconds": 7.086402795999675
+  }
+]
