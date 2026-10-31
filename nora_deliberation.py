@@ -133,7 +133,7 @@ class DeliberativeMind:
         countermodel = self._philosophy_countermodel()
         low = tr_lower(raw)
         self_focus = topic == "bilinç" and (
-            bool(re.search(r"(?<![\wçğıöşü])(sen|kendi|kendin|nora|benim)(?![\wçğıöşü])", low))
+            bool(re.search(r"(?<![\wçğıöşü])(sen|senin|sana|sende|senden|kendi|kendin|nora|benim)(?![\wçğıöşü])", low))
             or bool(re.search(r"bilin[cç][\wçğıöşü]*\s+m[ıi](?:sin|yim)\b", low))
         )
         performance_focus = topic == "anlama" or "doğru cevap" in low or "yeterli kanıt" in low
