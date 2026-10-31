@@ -306,8 +306,9 @@ class ChemMushroomBody:
         idx = x_or_idx if (x_or_idx.ndim == 1 and np.issubdtype(x_or_idx.dtype, np.integer)) else self.encode_kc(x_or_idx)
         if len(idx) == 0:
             return np.zeros(self.n_out, np.float32)
-        W_eff = self.W_slow + self.W_fast
-        return W_eff[:, idx].sum(axis=1) / max(1.0, float(len(idx)))
+        # Yalnız aktif KC sütunlarını birleştir; bütün W_eff matrisini her çağrıda
+        # kopyalamak hem gereksiz bellek hem de tek-atış çıkarımında darboğazdır.
+        return (self.W_slow[:, idx] + self.W_fast[:, idx]).sum(axis=1) / max(1.0, float(len(idx)))
 
     def predict(self, x: np.ndarray) -> tuple[int, float, float]:
         """(en_iyi_bölme, güven_marjı, yenilik) döndürür."""

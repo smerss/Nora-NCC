@@ -1,0 +1,117 @@
+{
+  "protocol": "frozen retention-safe development recipe; one target and fresh external presentation each; independent full retention audit",
+  "results": [
+    {
+      "fold": 1,
+      "held": {
+        "n": 401,
+        "hit1": 158,
+        "hit5": 197,
+        "top1": 0.3940149625935162,
+        "top5": 0.4912718204488778,
+        "ppl": 74.02105647099594
+      },
+      "chatbot_before": {
+        "n": 154678,
+        "hit1": 37466,
+        "hit5": 59978,
+        "top1": 0.2422193201360245,
+        "top5": 0.3877603796273549,
+        "ppl": 192.31815888276645
+      },
+      "chatbot_after": {
+        "n": 154678,
+        "hit1": 36897,
+        "hit5": 59109,
+        "top1": 0.23854071037898086,
+        "top5": 0.3821422568173884,
+        "ppl": 207.58396231189246
+      },
+      "chatbot_hit1_delta": -569,
+      "chatbot_ppl_delta": 15.26580342912601,
+      "xquad_before": {
+        "n": 37097,
+        "hit1": 4097,
+        "hit5": 8140,
+        "top1": 0.11044019732053804,
+        "top5": 0.21942475132760061,
+        "ppl": 973.3327060153695
+      },
+      "xquad_after": {
+        "n": 37097,
+        "hit1": 4069,
+        "hit5": 8068,
+        "top1": 0.10968541930614335,
+        "top5": 0.21748389357629996,
+        "ppl": 1023.6607093195134
+      },
+      "xquad_hit1_delta": -28,
+      "xquad_ppl_delta": 50.32800330414398,
+      "target_seen": 234,
+      "external_seen": 2808,
+      "external_range": [
+        32000,
+        34808
+      ],
+      "target_cycles": 0,
+      "held_exact_skipped": 0,
+      "model": "runs/models/retention_candidate_uniform_fold1.pt"
+    },
+    {
+      "fold": 2,
+      "held": {
+        "n": 419,
+        "hit1": 160,
+        "hit5": 200,
+        "top1": 0.3818615751789976,
+        "top5": 0.477326968973747,
+        "ppl": 100.3593620644648
+      },
+      "chatbot_before": {
+        "n": 154678,
+        "hit1": 37466,
+        "hit5": 59978,
+        "top1": 0.2422193201360245,
+        "top5": 0.3877603796273549,
+        "ppl": 192.31815888276645
+      },
+      "chatbot_after": {
+        "n": 154678,
+        "hit1": 36891,
+        "hit5": 59087,
+        "top1": 0.2385019201179224,
+        "top5": 0.38200002586017406,
+        "ppl": 207.5416211281279
+      },
+      "chatbot_hit1_delta": -575,
+      "chatbot_ppl_delta": 15.223462245361446,
+      "xquad_before": {
+        "n": 37097,
+        "hit1": 4097,
+        "hit5": 8140,
+        "top1": 0.11044019732053804,
+        "top5": 0.21942475132760061,
+        "ppl": 973.3327060153695
+      },
+      "xquad_after": {
+        "n": 37097,
+        "hit1": 4048,
+        "hit5": 8035,
+        "top1": 0.10911933579534733,
+        "top5": 0.2165943337736205,
+        "ppl": 1036.1026013905864
+      },
+      "xquad_hit1_delta": -49,
+      "xquad_ppl_delta": 62.76989537521695,
+      "target_seen": 234,
+      "external_seen": 2808,
+      "external_range": [
+        32000,
+        34808
+      ],
+      "target_cycles": 0,
+      "held_exact_skipped": 0,
+      "model": "runs/models/retention_candidate_uniform_fold2.pt"
+    }
+  ]
+}
