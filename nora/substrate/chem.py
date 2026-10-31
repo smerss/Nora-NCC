@@ -261,13 +261,15 @@ class ChemMushroomBody:
         """Yeni sınıf/kavram eklendiğinde çıkış bölmelerini mevcut sinapsları bozmadan genişletir."""
         if min_out <= self.n_out:
             return
-        extra = int(min_out - self.n_out)
+        # Amortize reallocation: grow by at least 256 or 50% to prevent frequent vstack overhead
+        target_out = max(min_out, self.n_out + 256, int(self.n_out * 1.5))
+        extra = int(target_out - self.n_out)
         z = lambda: np.zeros((extra, self.n_kc), np.float32)
         self.W_fast = np.vstack([self.W_fast, z()])
         self.W_slow = np.vstack([self.W_slow, z()])
         self.stiff = np.vstack([self.stiff, z()])
         self.tags = np.vstack([self.tags, z()])
-        self.n_out = int(min_out)
+        self.n_out = int(target_out)
 
     def grow_neurogenesis(self, add_kc: int = 512):
         """Yapısal nörogenez: mevcut tüm sinapsları koruyarak yeni Kenyon hücreleri ekler."""
@@ -710,7 +712,8 @@ class HDCMushroomBody:
         self.bound_slots.add(slot)
         self._activate_slot(slot)
         self.presentations += 1
-        self._db.commit()
+        if getattr(self, "_auto_commit", True):
+            self._db.commit()
 
     def _recall(self, cue: np.ndarray, cue_kind: str) -> list[tuple[int, float]]:
         idx = self.mb.encode_kc(cue)

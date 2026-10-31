@@ -74,6 +74,11 @@ def parse_args() -> argparse.Namespace:
         default=True,
         help="Run background biological life loop ticks (default: True)",
     )
+    parser.add_argument(
+        "--broca",
+        default="",
+        help="Optional Broca articulation model path (default: data/broca_tr.pt if exists)",
+    )
     return parser.parse_args()
 
 
@@ -92,8 +97,10 @@ def main() -> None:
     from nora.cognition.agi import NoraAGI
     from nora.cognition.mind import I_E, I_I, I_W
 
+    default_ckpt = repo / "state" / "nora_brain"
     checkpoint = (
-        Path(args.checkpoint).expanduser().resolve() if args.checkpoint else None
+        Path(args.checkpoint).expanduser().resolve() if args.checkpoint
+        else ((repo / "state" / "nora_sozcu") if (repo / "state" / "nora_sozcu.agi.json").is_file() else default_ckpt)
     )
     journal = Path(args.journal).expanduser().resolve() if args.journal else None
 
@@ -123,19 +130,21 @@ def main() -> None:
         )
 
     # Initialize Nora
+    if args.broca:
+        broca_target = Path(args.broca).expanduser().resolve()
+    elif (repo / "data" / "broca_tr_sozcu.pt").is_file():
+        broca_target = repo / "data" / "broca_tr_sozcu.pt"
+    else:
+        broca_target = repo / "data" / "broca_tr.pt"
+    broca_str = str(broca_target) if broca_target.is_file() else None
+
     if checkpoint and Path(str(checkpoint) + ".agi.json").is_file():
-        emit(f"[Nora] Checkpoint yükleniyor: {checkpoint}")
-        agi = NoraAGI.load(str(checkpoint))
+        emit(f"[Nora] Kalıcı zihin yükleniyor: {checkpoint.name}")
+        agi = NoraAGI.load(str(checkpoint), attach_broca_async=True)
+        if broca_str and not getattr(agi.life.voice, "organ", None) and not getattr(agi, "_broca_thread", None):
+            agi.attach_broca_async(broca_str)
     else:
         emit("[Nora] Bilişsel ve biyolojik sistemler başlatılıyor...")
-        broca_path = repo / "data" / "broca_tr.pt"
-        broca_str = None
-        if broca_path.is_file():
-            try:
-                import torch  # noqa: F401
-                broca_str = str(broca_path)
-            except ImportError:
-                broca_str = None
 
         agi = NoraAGI(
             name="Nora",
@@ -148,8 +157,7 @@ def main() -> None:
             code_pretrain=True,
         )
 
-    if checkpoint:
-        checkpoint.parent.mkdir(parents=True, exist_ok=True)
+    checkpoint.parent.mkdir(parents=True, exist_ok=True)
 
     if journal:
         journal.parent.mkdir(parents=True, exist_ok=True)
@@ -207,6 +215,8 @@ def main() -> None:
 ===================================================================
  Herhangi bir hazır komut dosyası olmadan doğrudan sohbet edebilirsiniz.
  Komutlar:
+   /teach <cümle> - Canlı hafızaya anında 1-shot olgu/tanım ekler
+   /absorb <dosya>- Dosyadaki metinleri doğrudan semantik hafızaya okur
    /status  - Beden, enerji, su ve zihin durumunu gösterir
    /sleep   - Bakım uykusuna geçirir
    /save    - Durumu checkpoint'e kaydeder
@@ -259,6 +269,32 @@ def main() -> None:
                     )
                     continue
 
+                if command.startswith("/teach ") or command.startswith("/öğret "):
+                    fact = line.split(" ", 1)[1].strip()
+                    try:
+                        edges = agi.lang.teach_sentence(fact, speaker="insan")
+                        agi._modified_in_session = True
+                        save_checkpoint()
+                        emit(f"[Öğrenildi ve Kaydedildi] '{fact}' -> {len(edges)} bağlantı hafızaya işlendi.")
+                    except Exception as e:
+                        emit(f"[Hata] Öğrenilemedi: {e}")
+                    continue
+
+                if command.startswith("/absorb ") or command.startswith("/oku "):
+                    target_file = line.split(" ", 1)[1].strip()
+                    p = Path(target_file).expanduser().resolve()
+                    if not p.is_file():
+                        emit(f"[Hata] Dosya bulunamadı: {target_file}")
+                    else:
+                        emit(f"[Nora] Dosya okunuyor ve semantik hafızaya işleniyor: {p}")
+                        try:
+                            stats = agi.read_corpus(str(p))
+                            save_checkpoint()
+                            emit(f"[Hafıza] Tamamlandı ve kalıcı kaydedildi: {stats}")
+                        except Exception as e:
+                            emit(f"[Hata] Okuma sırasında hata: {e}")
+                    continue
+
                 if command == "/save":
                     if not checkpoint:
                         emit(
@@ -287,10 +323,11 @@ def main() -> None:
         if worker is not None:
             worker.join(timeout=3.0)
 
-        try:
-            save_checkpoint()
-        except Exception as exc:
-            emit(f"[Kayıt hatası] {type(exc).__name__}: {exc}")
+        if getattr(agi, "_modified_in_session", False):
+            try:
+                save_checkpoint()
+            except Exception as exc:
+                emit(f"[Kayıt hatası] {type(exc).__name__}: {exc}")
 
         with lock:
             if getattr(agi, "journal", None) is not None:

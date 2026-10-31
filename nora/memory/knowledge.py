@@ -452,11 +452,24 @@ FOUNDATIONAL_PROPOSITIONS: list[tuple[str, str, str]] = [
     ("elektrik", "USED_FOR", "enerji ve sinyal iletimi"),
     ("manyetizma", "CAUSES", "yüklü parçacıklar üzerinde kuvvet"),
     ("sıcaklık", "ISA", "taneciklerin ortalama kinetik enerjisi"),
-    ("basınç", "ISA", "birim yüzeye uygulanan dik kuvvet"),
-    ("kimya", "ISA", "maddenin bağ ve dönüşüm bilimi"),
-    ("molekül", "ISA", "atomların bağ kurduğu yapı"),
     ("oksijen", "USED_FOR", "hücresel solunum ve yanma"),
     ("karbon", "ISA", "organik yaşamın temel elementi"),
+    # Toplum, Devlet, Ekonomi ve Yurttaşlık (Sözcü / Haber & Genel Kültür Temeli)
+    ("türkiye", "ISA", "cumhuriyet"),
+    ("cumhuriyet", "ISA", "demokratik yönetim biçimi"),
+    ("hükümet", "ISA", "yürütme organı"),
+    ("hükümet", "USED_FOR", "devleti yönetme"),
+    ("meclis", "ISA", "yasama organı"),
+    ("meclis", "USED_FOR", "yasa çıkarma ve denetim"),
+    ("seçim", "ISA", "demokratik oylama süreci"),
+    ("seçim", "USED_FOR", "yöneticileri belirleme"),
+    ("ekonomi", "ISA", "üretim ve ticaret düzeni"),
+    ("enflasyon", "ISA", "fiyatlar genel düzeyindeki artış"),
+    ("anayasa", "ISA", "devletin temel kanunu"),
+    ("yargı", "ISA", "bağımsız adalet organı"),
+    ("vatandaş", "ISA", "devletin yurttaşı"),
+    ("demokrasi", "USED_FOR", "halkın kendi geleceğini belirlemesi"),
+    ("hukuk", "USED_FOR", "toplumsal adaleti ve düzeni sağlama"),
 ]
 
 
