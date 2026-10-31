@@ -2240,6 +2240,11 @@ class GroundedConceptGraph:
             "active_kc": reads[-1].get("active_kc", 0) if reads else 0,
             "actual_sparsity": reads[-1].get("actual_sparsity", 0.0) if reads else 0.0,
             "target_sparsity": 0.06,
+            "working_set_size": reads[-1].get("working_set_size", 0) if reads else 0,
+            "active_slots": reads[-1].get("active_slots", 0) if reads else 0,
+            "passive_slots": reads[-1].get("passive_slots", 0) if reads else 0,
+            "passive_reactivations": reads[-1].get("passive_reactivations", 0) if reads else 0,
+            "scanned_slots": reads[-1].get("scanned_slots", 0) if reads else 0,
         }
         return results
 

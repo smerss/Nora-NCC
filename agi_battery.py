@@ -6296,12 +6296,13 @@ def a140_ogrenilen_turkce_uretim_yarismasina_ulasir():
     agi.life.voice.hear("\n".join(online) + "\n", state_vector(agi))
     online_delta = organ.seen_tokens - seen
     ok["canli-sekiz"] = online_delta == expected_tokens(eligible(online)[:8])
+    online_scores = agi.broca_organ._learned_surface_scores(agi, probe_texts)[1]["logprob"]
 
     with tempfile.TemporaryDirectory(prefix="nora-a140-") as td:
         corpus_path = Path(td) / "genel.txt"
         corpus_path.write_text("\n".join(offline) + "\n", encoding="utf-8")
         stats = agi.read_corpus(str(corpus_path))
-    ok["corpus-tam"] = stats.get("organ_seen") == expected_tokens(offline)
+    ok["corpus-broca-yok"] = stats.get("organ_seen") == 0 and stats.get("heard_tokens") == 0
     ok["corpus-sekiz-ustu"] = stats.get("sentences") == len(offline) and stats.get("sentences", 0) > 8
     ok["yapi-sema"] = (
         stats.get("frames") == len(offline) and stats.get("schemas") == len(offline)
@@ -6309,8 +6310,12 @@ def a140_ogrenilen_turkce_uretim_yarismasina_ulasir():
     ok["corpus-hatasiz"] = stats.get("errors") == 0
     after_scores = agi.broca_organ._learned_surface_scores(agi, probe_texts)[1]["logprob"]
     ok["egitim-puan"] = (
-        len(before_scores) == len(after_scores) and bool(before_scores)
-        and max(abs(float(a) - float(b)) for a, b in zip(before_scores, after_scores)) > 1e-7
+        len(before_scores) == len(online_scores) and bool(before_scores)
+        and max(abs(float(a) - float(b)) for a, b in zip(before_scores, online_scores)) > 1e-7
+    )
+    ok["corpus-puan-sabit"] = (
+        len(online_scores) == len(after_scores)
+        and max((abs(float(a) - float(b)) for a, b in zip(online_scores, after_scores)), default=0.0) < 1e-12
     )
     ok["heldout-ezber-yok"] = (
         "Kendini nasıl hissediyorsun?" not in set(online + offline)
@@ -6327,20 +6332,26 @@ def a140_ogrenilen_turkce_uretim_yarismasina_ulasir():
     # Soru biçimi kalite kapısını atlatamaz: aynı kavramla bozuk kısa aday ver.
     concept = "zirkon"
     degenerate = f"{concept} mi?"
-    agi.speak_from_state = lambda **_kw: degenerate
+    unknown_neural_calls = []
+
+    def forbidden_unknown_generation(**_kw):
+        unknown_neural_calls.append(_kw)
+        return degenerate
+
+    agi.speak_from_state = forbidden_unknown_generation
     try:
         gated = agi.speak_unknown(concept)
     finally:
         del agi.speak_from_state
-    ok["bozuk-soru-kapisi"] = (
-        gated.rstrip().endswith("?") and concept in tr_lower(gated)
-        and degenerate not in tr_lower(gated)
+    ok["bilinmezlik-noralsiz"] = (
+        not unknown_neural_calls and "bilgim yok" in tr_lower(gated)
+        and concept in tr_lower(gated) and degenerate not in tr_lower(gated)
     )
 
     detail = (
         f"{sum(bool(v) for v in ok.values())}/{len(ok)} — "
         f"ablasyon-değişimi={changed}/{len(interventions)} | canlı-parça={online_delta} | "
-        f"corpus={stats.get('organ_seen')}/{expected_tokens(offline)} | "
+        f"corpus_organ={stats.get('organ_seen')} graph={stats.get('graph_edges')} | "
         f"yapı/şema={stats.get('frames')}/{stats.get('schemas')}"
     )
     return all(ok.values()), detail + (" | " + str(ok) if not all(ok.values()) else "")

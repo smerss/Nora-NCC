@@ -581,7 +581,26 @@ class BackgroundLife:
         st = state_vector(agi, conf=agi.chem.trust_of(speaker))
         valence = float(agi.chem.oxy - self.prev_oxy) + (0.5 if self.unanswered > 0 else 0.0)
         self.voice.reinforce(valence, st)
-        self.voice.hear(raw, st)
+        # Dünya bilgisi Broca'nın ağırlıklarına genel kültür olarak yazılmaz.
+        # Bildirimler ileride Graph/HDC'ye gider; kanıtsız anlam sorularında ise
+        # nöral organı dinlemek/öğretmek yerine epistemik kapı konuşur.
+        hear_parts = []
+        parts = [p.strip() for p in re.split(r"(?<=[.!?…])\s+|\n+", raw) if p.strip()] or [raw]
+        for part in parts:
+            try:
+                frame = agi.lang.wernicke.parse(part)
+                if frame.kind in {"teach_fact", "teach_val", "invent_relation"}:
+                    continue
+                if frame.kind in {"wh_query", "yn_query", "analogy_query"}:
+                    concept = tr_lower(str(getattr(frame, "subj", "") or "")).strip()
+                    if concept and concept not in {"ben", "sen", "nora", "kendin", "kendim"} \
+                            and not agi.lang.graph.query(concept, None):
+                        continue
+            except Exception:
+                pass
+            hear_parts.append(part)
+        if hear_parts:
+            self.voice.hear("\n".join(hear_parts) + "\n", st)
         self.prev_oxy = float(agi.chem.oxy)
         self.unanswered = 0
         self.hab[R_REACH] *= 0.25          # biri konuştu: seslenme alışkanlığı sıfırlanır
@@ -670,7 +689,8 @@ class BackgroundLife:
         if not rec.get("ok"):
             return rec
         text = str(rec.pop("text", ""))
-        self.voice.hear(text, state_vector(agi))
+        # Araştırma bilgisinin kaynağı doğrulama havuzu + Graph/HDC'dir;
+        # genel kültürü artikülasyon organına gradyanla ezberletmeyiz.
         staged = self.pool.ingest(agi, text, "web:github.com", str(rec.get("area", "general")))
         promoted = self.pool.promote_ready(agi)
         for item in promoted:
@@ -693,9 +713,9 @@ class BackgroundLife:
                     intent = max(sc, key=sc.get)
                     self.repertoire.learn(intent, reply, sid)
             else:
-                # Dil deneyimi ile bilgi kabulü ayrıdır: metin ses organına gidebilir;
-                # kavram ağına yalnız çapraz doğrulamadan geçen iddialar terfi eder.
-                self.voice.hear(text, state_vector(agi))
+                # Bilgi kabulü ile artikülasyon ayrıdır: kavram ağına yalnız
+                # çapraz doğrulamadan geçen iddialar terfi eder. Doğrulanmamış
+                # genel kültür Broca'ya da öğretilmez.
                 self.pool.ingest(agi, text, sid, g.topic)
         promoted = self.pool.promote_ready(agi)
         for p in promoted:

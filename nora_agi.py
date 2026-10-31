@@ -713,13 +713,13 @@ class NoraAGI:
             self.workspace = None
 
     def read_corpus(self, path: str):
-        """Bir metni ses, cümle iskeleti ve söylem şeması düzeyinde öğren.
+        """Corpusu tek geçişte yapı ve doğrulanabilir anlam olarak öğren.
 
-        Önceki yol yalnız ``life.voice``ı besliyordu; ana cevap yarışındaki yapı
-        öğrenicileri corpusu hiç görmüyordu. Hazır cevap çıkarılmaz; her uygun
-        cümle her öğrenme kanalında bir kez işlenir (epoch yok) ve mevcut
-        yapı/şema kortekslerine gözlem olarak verilir. Dönen sayaçlar eğitimin
-        gerçekten aktığını kanıtlar.
+        Genel kültür artık ``voice.hear_file`` ile Broca'ya ezberletilmez.
+        Her cümlenin anlamı Wernicke → Graph/HDC tek-sunum hattından geçer;
+        cümle iskeleti ve söylem şeması kendi yapısal kortekslerinde kalır.
+        ``organ_seen=0`` bir eksik değil, bilginin nöral artikülatöre bilgi
+        kaynağı olarak yazılmadığının ölçümüdür.
         """
         voice = self.life.voice
         organ = getattr(voice, "organ", None)
@@ -729,8 +729,9 @@ class NoraAGI:
             "organ_seen": int(getattr(organ, "seen_tokens", 0) or 0),
             "frames": int(frames.memory.learned_count) if frames is not None else 0,
             "schemas": int(sum(self.schema_cortex.observed_human_styles.values())),
+            "edges": len(self.lang.graph.edges),
+            "presentations": int(self.lang.graph.relation_mb.presentations),
         }
-        voice.hear_file(path, state_vector(self))
         observed = 0
         errors = 0
         with open(path, "r", encoding="utf-8", errors="ignore") as f:
@@ -741,9 +742,12 @@ class NoraAGI:
                 chunk += f.readline()
                 for sentence in re.split(r"(?<=[.!?…])\s+|\n+", chunk):
                     words = re.findall(r"[\wçğıöşü]+", tr_lower(sentence))
-                    if not 3 <= len(words) <= 60:
+                    if not 2 <= len(words) <= 60:
                         continue
                     try:
+                        # Epoch/replay yok: cümle bir kez çözümlenir, çıkan
+                        # önermeler ayrı HDC olayları olarak hemen kullanılabilir.
+                        self.lang.teach_sentence(sentence)
                         if getattr(self, "frames", None) is not None:
                             self.frames.observe(sentence)
                         self.schema_cortex.observe_human_schema(
@@ -760,6 +764,8 @@ class NoraAGI:
             "frames": int(self.frames.memory.learned_count) - before["frames"]
             if getattr(self, "frames", None) is not None else 0,
             "schemas": int(sum(self.schema_cortex.observed_human_styles.values())) - before["schemas"],
+            "graph_edges": len(self.lang.graph.edges) - before["edges"],
+            "mb_presentations": int(self.lang.graph.relation_mb.presentations) - before["presentations"],
             "errors": errors,
         }
         self.last_corpus_learning = stats
@@ -791,9 +797,23 @@ class NoraAGI:
 
     def speak_from_state(self, anchors: list[str] | None = None, nov: float = 0.5, fam: float = 0.5,
                          conf: float = 0.5, tension: float = 0.0, facts: list[str] | None = None) -> str:
-        """Tüm 'kendi sözü' üretimi: iç durum + çapa kavramlar -> öğrenilmiş söz organı. Dil yoksa dürüstçe '…'."""
+        """İç durum + doğrulanmış çapalar → öğrenilmiş söz organı.
+
+        Kavram çapalı üretimde Graph/HDC kanıtı zorunludur. Pasif kayıt bu
+        sorguyla uyanabilir; hiç önerme yoksa Broca bilgi kaynağı yapılmaz.
+        Çapasız iç-durum artikülasyonu bu kuralın dışındadır.
+        """
         if not self.voice_ready():
             return "…"
+        if anchors and not facts:
+            grounded = False
+            for anchor in anchors:
+                concept = tr_lower(str(anchor or "")).strip()
+                if concept and self.lang.graph.query(concept, None):
+                    grounded = True
+                    break
+            if not grounded:
+                return "…"
         st = state_vector(self, nov=nov, fam=fam, conf=conf, tension=tension)
         return self.life.voice.speak(st, anchors, extra_allowed=facts) or "…"
 
@@ -948,19 +968,33 @@ class NoraAGI:
         self.last_deliberation = result
         return result
 
-    def speak_unknown(self, concept: str, fallback: str = "") -> str:
-        """Bilmediği şeyle karşılaşma: uydurmaz; boşluğu gerilim defterine yazar, elinde yarım iz (hipotez) varsa
-        kesinliği söze yansır. Söz, öğrenilmiş söz organından çıkar."""
+    def speak_unknown(self, concept: str, fallback: str = "", *,
+                      allow_neural: bool = False) -> str:
+        """Bilgi boşluğunu nöral uydurma üretmeden söyle.
+
+        Bilinmezlikte varsayılan yol hızlı ve semboliktir. Nöral organ ancak
+        açıkça istenen, anlam taşımayan bir merak biçimi için kullanılabilir;
+        dünya sorusunun cevabını Broca'dan istemek burada yoktur.
+        """
         custom_fallback = bool(fallback)
         self.life.note_unknown_concept(self, concept)
         node = self.auto_net.assemblies.get(concept)
+        if node is not None:
+            node.uncertainty = max(float(getattr(node, "uncertainty", 0.0)), 0.85)
+        # Hızlı epistemik kapı da aynı canlı merak/öğrenme defterini besler;
+        # bilinmezlik cevabı kavramı yalnız söyleyip unutmaz.
+        for queue in (getattr(self.auto_net, "curiosity_queue", None),
+                      getattr(self, "pending_research", None),
+                      getattr(getattr(self, "frames", None), "pending", None)):
+            if queue is not None and hasattr(queue, "append") and concept not in queue:
+                queue.append(concept)
         fam = 0.0 if node is None else min(1.0, node.familiarity / 6.0)
         trace = self.life.pool.trace_for(self, concept)
         g = self.life.ledger.gaps.get(f"c:{concept}")
         if not fallback:
             fallback = (f"{tr_capitalize(concept)} hakkında henüz bilgim yok; merak listeme aldım, "
                         f"istersen tek bir cümleyle bana öğretebilirsin.")
-        if not self.voice_ready():
+        if not allow_neural or not self.voice_ready():
             return fallback
         out = self.speak_from_state(anchors=[concept], nov=1.0 - fam, fam=fam,
                                     conf=0.0 if trace is None else trace[0],
@@ -982,6 +1016,128 @@ class NoraAGI:
             ))
             fallback = f"{fallback} {tr_capitalize(query)}?"
         return fallback
+
+    def _epistemic_gate(self, raw: str) -> str:
+        """Anlam sorusunu Broca'dan ÖNCE Graph/HDC kanıtıyla karşılaştır.
+
+        ``query`` pasif HDC kayıtlarını da uyandırır; yalnız aktif çalışma
+        kümesine bakıp bilinmezlik ilan etmez. Çok cümleli öğreti+soru burada
+        erken reddedilmez: önceki cümlelerin tek-sunum öğretimi işlendikten
+        sonra soru, ``_handle_single_sentence`` içindeki aynı kapıya gelir.
+        """
+        text = str(raw or "").strip()
+        if not text or "?" not in text:
+            return ""
+        # Aktif öğretim oturumundaki birleşik/takip soruları tek-sözcüklü
+        # sözlük sorusu değildir. Tutor hattı odağı konuşma durumundan çıkarır
+        # ve kendi grafik kanıtı/nöral-validator kapısını uygular.
+        if bool(getattr(self.deliberation, "tutorial", {}).get("active")):
+            return ""
+        parts = [p for p in re.split(r"(?<=[.!?…])\s+|\n+", text) if p.strip()]
+        if len(parts) != 1:
+            return ""
+        # Tek-sözcüklü tanım sorularında genel söylem/valans çözümlemesi
+        # gereksizdir. Bu dilbilgisel kısa yol yeni sözcükte fiil-kök indeksini
+        # genişletmeden aynı Graph/HDC kapısına gelir; bütün kavramlara açıktır.
+        low = tr_lower(text).strip()
+        # Açık görüş/deliberasyon isteği sözlük tanımı değildir; iç nedensel
+        # model ve tartım organları cevaplar. Nesnel bilgi kapısı bunu gasp etmez.
+        if any(marker in low for marker in ("sence", "sana göre", "senin için")):
+            return ""
+        simple = re.fullmatch(
+            r"([\wçğıöşüâîû]+)\s+(?:nedir|neydir|ne\s+demek(?:tir)?)\s*\?", low)
+        if not simple:
+            # Matematik, fizik, kişisel bellek, operatör ve birleşik takip
+            # soruları kendi uzman organlarına ulaşır. Onların bilinmezlik
+            # yedeği speak_unknown'dur; o da varsayılan olarak nöral üretmez.
+            return ""
+        frame_kind = "wh_query"
+        frame_rel = "ALL"
+        concept = simple.group(1)
+        # Tanım sorusunun öznesi yalın durumdadır. SVO nesnesindeki belirtme
+        # eki heuristiği burada kullanılmaz; yalnız açık çoğul eki gövdeye
+        # indirilir ('mitokondri' → 'mitokondr' olmaz).
+        for suffix in ("ları", "leri", "lar", "ler"):
+            if concept.endswith(suffix) and len(concept) > len(suffix) + 1:
+                concept = concept[:-len(suffix)]
+                break
+        if not concept or concept in {"ben", "sen", "nora", "kendin", "kendim"}:
+            return ""
+        started = time.perf_counter()
+        try:
+            evidence = self.lang.graph.query(concept, None)
+        except Exception:
+            evidence = []
+        self.last_epistemic_gate = {
+            "concept": concept, "kind": frame_kind,
+            "known": bool(evidence), "evidence": len(evidence),
+            "engine": "hdc_mb+graph", "neural_broca": False,
+            "latency_ms": (time.perf_counter() - started) * 1000.0,
+        }
+        if evidence:
+            # Basit, yeni öğrenilmiş tanım tam diyalog yarışına girmek zorunda
+            # değildir. Aynı MB-doğrulanmış kenarlar sembolik Broca ile çekimlenir.
+            # Parça/konum genişletmeli zengin kavramlar kapsamlı anlatım yoluna gider.
+            direct = [edge for edge, path in evidence if edge.subj == concept and not path]
+            complex_incoming = any(
+                edge.rel in {"PART_OF", "LOCATED_AT"}
+                for edge in self.lang.graph._in_edges.get(concept, ())
+            )
+            if 0 < len(direct) <= 2 and not complex_incoming:
+                priority = {"ISA": 0, "HAS_PROP": 1, "HAS_PART": 2, "CAN_DO": 3,
+                            "USED_FOR": 4, "LOCATED_AT": 5, "CAUSES": 6, "CANNOT_DO": 7}
+                direct.sort(key=lambda edge: (priority.get(edge.rel, 9), -edge.weight))
+                clauses = []
+                for edge in direct[:2]:
+                    proposition = Proposition(
+                        subj=self.lang.graph.surface_name(concept), rel=edge.rel,
+                        obj=self.lang.graph.surface_name(edge.obj), verb=edge.verb,
+                        obj_surface=edge.obj_surface, obj_case=edge.obj_case,
+                        obj_plural=edge.obj_plural,
+                    )
+                    surface = self.lang.broca.realize_prop(proposition).strip()
+                    if surface:
+                        clauses.append(tr_capitalize(surface.rstrip(".!?")) + ".")
+                if clauses:
+                    answer = " ".join(clauses)
+                    self.last_epistemic_gate["fast_answer"] = True
+                    self._turn_path = "epistemic_gate"
+                    self._intent_locked = True
+                    self.last_gw_trace = {
+                        "winner": "hippocampal_concept", "confidence": 1.0,
+                        "trace": f"wh_fast:{concept}:{len(clauses)}",
+                        "bids": {"hippocampal_concept": 1.0},
+                    }
+                    self.broca_organ.last_speech_plan = {
+                        "volition_acts": ["HIPPOCAMPAL_CONCEPT"], "surface_tr": answer,
+                        "epistemic": "known", "concept": concept,
+                        "evidence": [[edge.subj, edge.rel, edge.obj] for edge in direct[:2]],
+                    }
+                    return answer
+            return ""
+        is_definition = frame_kind == "wh_query" and frame_rel == "ALL"
+        if is_definition:
+            fallback = (
+                f"{tr_capitalize(concept)} kelimesini tanıyorum ama kavram olarak henüz bilgim yok; "
+                f"doğrulanmış bir tanımım yok. Bana {concept} hakkında tek cümleyle öğretebilirsin."
+            )
+        else:
+            fallback = (
+                f"{tr_capitalize(concept)} hakkında bu soruyu yanıtlayacak doğrulanmış bilgim yok. "
+                f"Bana {concept} hakkında tek cümleyle öğretebilirsin."
+            )
+        answer = self.speak_unknown(concept, fallback=fallback, allow_neural=False)
+        self._turn_path = "epistemic_gate"
+        self._intent_locked = True
+        self.last_gw_trace = {
+            "winner": "epistemic_gate", "confidence": 1.0,
+            "trace": f"unknown:{concept}", "bids": {"epistemic_gate": 1.0},
+        }
+        self.broca_organ.last_speech_plan = {
+            "volition_acts": ["EPISTEMIC_UNKNOWN"], "surface_tr": answer,
+            "epistemic": "unknown", "concept": concept,
+        }
+        return answer
 
     def proactive_line(self, kind: str = "", topic: str = "", tension: float = 0.0,
                        idle: float = 0.0, unanswered: int = 0) -> dict | None:
@@ -1689,6 +1845,13 @@ class NoraAGI:
             self.last_real_time = now
         except Exception:
             pass
+        # Hızlı bilinmezlik yanıtı, genel söylem çözümleyicisinin soğuk
+        # biçimbilim indeksinden ve bütün üretim organlarından önce tamamlanır.
+        _preflight_t0 = time.perf_counter()
+        _preflight_unknown = self._epistemic_gate(raw)
+        if _preflight_unknown:
+            self._log_turn(speaker, raw, _preflight_unknown, _preflight_t0)
+            return _preflight_unknown
         _meta = None
         if self.acc is not None and raw:
             try:
@@ -1926,6 +2089,12 @@ class NoraAGI:
         self._repeat_locked = False
         self._translation_output = False
         self._structured_output = False
+        # ZORUNLU EPİSTEMİK KAPI: anlam kanıtı yoksa yaşam/dil organlarına
+        # nöral öğretim veya üretim için gitmeden dürüst, hızlı bilinmezlik.
+        _unknown = self._epistemic_gate(raw)
+        if _unknown:
+            self._log_turn(speaker, raw, _unknown, t0)
+            return _unknown
         # --- TÜRKÇE EDİNİMİ: duyulan bilinmeyen fiil biçimleri, kendi çekim üreticisiyle
         #     yeniden üretilebiliyorsa kök olarak öğrenilir (kalıcı, sözlüğe yazılır).
         try:
@@ -2492,7 +2661,11 @@ class NoraAGI:
         if len(self.dialogue_log) >= 200:
             self.dialogue_log.pop(0)
         self.dialogue_log.append((speaker, user_txt, reply))
-        self.broca_organ.record_turn_episode(speaker, user_txt, reply, self)
+        _fast_topic = ""
+        if self._turn_path == "epistemic_gate":
+            _fast_topic = str(getattr(self, "last_epistemic_gate", {}).get("concept", ""))
+        self.broca_organ.record_turn_episode(
+            speaker, user_txt, reply, self, fast_topic=_fast_topic)
         self.monologue.current_turn_thought = None
 
     def _try_sequence_or_mapping_query(self, raw: str) -> str | None:
@@ -2620,6 +2793,11 @@ class NoraAGI:
         broca = self.lang.broca
         morph = self.lang.morph
         graph = self.lang.graph
+        # Çok cümleli öğreti+soru akışında son soru da aynı zorunlu kapıdan
+        # geçer. Önceki cümleler artık Graph/HDC'ye yazılmıştır.
+        _unknown = self._epistemic_gate(raw)
+        if _unknown:
+            return _unknown
         s_low = tr_lower(raw)
         bids: list[CorticalBid] = []
         # Anlam çerçevesi sosyal sınıflandırmadan ÖNCE çözülür. Üçüncü şahıs

@@ -593,6 +593,162 @@ def mb_multiple_relation_inventions() -> tuple[bool, str]:
     return not failures, detail
 
 
+def epistemic_gate_zero_broca() -> tuple[bool, str]:
+    """Bilinmeyen anlam Broca'ya gitmez; soğuk tanım yanıtı 20 ms altındadır."""
+    from nora_agi import NoraAGI
+
+    agi = NoraAGI(seed=1501, boot_thinker=False, code_pretrain=False,
+                  broca="data/broca_tr.pt",
+                  world_kwargs={"metabolism": False, "wind": False, "n_food": 1})
+    agi.life.enabled = False
+    organ = agi.life.voice.organ
+    calls = {"generate": 0, "learn_online": 0}
+    original_generate = organ.generate
+    original_learn = organ.learn_online
+
+    def counted_generate(*args, **kwargs):
+        calls["generate"] += 1
+        return original_generate(*args, **kwargs)
+
+    def counted_learn(*args, **kwargs):
+        calls["learn_online"] += 1
+        return original_learn(*args, **kwargs)
+
+    organ.generate = counted_generate
+    organ.learn_online = counted_learn
+    times, answers = [], []
+    for question in ("Kuş nedir?", "Nivara nedir?", "Tormek nedir?"):
+        started = time.perf_counter()
+        answers.append(agi.converse(question))
+        times.append(time.perf_counter() - started)
+    honest = all("bilgim yok" in answer.casefold() and "tanımım yok" in answer.casefold()
+                 and "ne olduğunu biliyorum" not in answer.casefold()
+                 for answer in answers)
+    traces = agi.last_gw_trace.get("winner") == "epistemic_gate" and \
+        agi.last_epistemic_gate.get("known") is False
+    # Hızlı tanım dışındaki bilinmeyen ilişkide de ortak çapa kapısı nöral
+    # üretimi/öğretimi açmamalı; uzman yollar erken reddedilmez.
+    dynamic_unknown = agi.converse("Torp kumları vorlar mı?")
+    dynamic_honest = "henüz" in dynamic_unknown.casefold() or "bilgim yok" in dynamic_unknown.casefold()
+    ok = (honest and traces and dynamic_honest and max(times) < 0.020
+          and calls["generate"] == 0 and calls["learn_online"] == 0)
+    return ok, (f"ms={[round(x * 1000, 2) for x in times]} | neural={calls} | "
+                f"dürüst={honest and dynamic_honest} | anı={len(agi.broca_organ.episodic.episodes)}")
+
+
+def graph_corpus_single_pass() -> tuple[bool, str]:
+    """Corpus önermesi Broca'ya değil Graph/HDC'ye yazılır ve hemen kullanılır."""
+    import tempfile
+    from pathlib import Path
+    from nora_agi import NoraAGI
+    from nora_style import strip_prefixes
+
+    agi = NoraAGI(seed=1502, boot_thinker=False, code_pretrain=False,
+                  broca="data/broca_tr.pt",
+                  world_kwargs={"metabolism": False, "wind": False, "n_food": 1})
+    agi.life.enabled = False
+    sleep_calls = []
+    agi.sleep = lambda *a, **k: sleep_calls.append((a, k))
+    organ = agi.life.voice.organ
+    calls = {"generate": 0, "learn_online": 0}
+    original_generate = organ.generate
+    original_learn = organ.learn_online
+
+    def counted_generate(*args, **kwargs):
+        calls["generate"] += 1
+        return original_generate(*args, **kwargs)
+
+    def counted_learn(*args, **kwargs):
+        calls["learn_online"] += 1
+        return original_learn(*args, **kwargs)
+
+    organ.generate = counted_generate
+    organ.learn_online = counted_learn
+    with tempfile.TemporaryDirectory(prefix="nora-graph-corpus-") as td:
+        path = Path(td) / "corpus.txt"
+        path.write_text("Kuşlar uçar.\nKuş bir hayvandır.\n", encoding="utf-8")
+        stats = agi.read_corpus(str(path))
+    presentations = int(agi.lang.graph.relation_mb.presentations)
+    direct = agi.lang.graph.check_relation("kuş", "uçar").get("answer") is True
+    started = time.perf_counter()
+    definitions = agi.converse("Kuş nedir?")
+    definition_seconds = time.perf_counter() - started
+    neural_definition = dict(calls)
+    yes_no = strip_prefixes(agi.converse("Kuşlar uçar mı?"))
+    neural_after = dict(calls)
+    # Sorular yeni sunum/replay değildir; yalnız okuma yapar.
+    presentations_after = int(agi.lang.graph.relation_mb.presentations)
+    ok = (stats.get("sentences") == 2 and stats.get("errors") == 0
+          and stats.get("organ_seen") == 0 and stats.get("heard_tokens") == 0
+          and stats.get("graph_edges", 0) >= 2
+          and stats.get("mb_presentations") == stats.get("graph_edges")
+          and direct and "hayvan" in definitions.casefold() and "uç" in definitions.casefold()
+          and definition_seconds <= 0.020
+          and neural_definition == {"generate": 0, "learn_online": 0}
+          and yes_no.casefold().startswith("evet") and not sleep_calls
+          and presentations_after == presentations)
+    return ok, (f"corpus={stats} | doğrudan={direct} | tanım={definitions} | "
+                f"tanım_s={definition_seconds:.4f} | tanım_nöral={neural_definition} | tüm_nöral={neural_after} | "
+                f"evet-hayır={yes_no} | uyku={len(sleep_calls)}")
+
+
+def passive_hdc_reactivation() -> tuple[bool, str]:
+    """Diskteki pasif olay HDC ipucuyla RAM'e gelir; graf yine doğrular."""
+    import pickle
+    import sqlite3
+    from nora_chem import NeuroChemistry
+    from nora_lang import NoraLanguage, tr_lower
+
+    lang = NoraLanguage(chem=NeuroChemistry(), seed=1503)
+    graph = lang.graph
+    mb = graph.relation_mb
+    mb.set_working_set_size(4)
+    lang.teach_sentence("Nivara bir varlıktır.")
+    slot = next(i for i, edge in enumerate(graph.edges)
+                if edge.subj == "nivara" and edge.rel == "ISA" and edge.obj == "varlık")
+    others = [f"Kalıcı{i}" for i in range(24)]
+    for subject in others:
+        lang.teach_sentence(f"{subject} bir varlıktır.")
+    was_passive = slot not in mb.active_slots and slot in mb.passive_slots
+    storage = mb.passive_storage_info()
+    with sqlite3.connect(storage["path"]) as independent_db:
+        disk_row = independent_db.execute(
+            "SELECT fast, slow FROM passive WHERE slot=?", (slot,)).fetchone()
+    disk_proved = bool(storage["file_exists"] and storage["backend"] == "sqlite"
+                       and storage["ram_passive_weight_rows"] == 0
+                       and disk_row is not None and len(disk_row[0]) > 0 and len(disk_row[1]) > 0)
+    before_presentations = int(mb.presentations)
+    before_reactivations = int(mb.passive_reactivations)
+    hits = graph.query("nivara", ("ISA",))
+    recalled = any(edge.subj == "nivara" and edge.obj == "varlık" for edge, _path in hits)
+    retained = all(any(edge.subj == tr_lower(subject) and edge.obj == "varlık"
+                       for edge, _path in graph.query(subject, ("ISA",))) for subject in others)
+    # Aynı pasif sinapslar bağımsız bir serileştirme turundan sonra da okunur.
+    restored = pickle.loads(pickle.dumps(mb))
+    restored_storage = restored.passive_storage_info()
+    graph.relation_mb = restored
+    restored_hits = graph.query("nivara", ("ISA",))
+    restored_ok = any(edge.subj == "nivara" and edge.obj == "varlık"
+                      for edge, _path in restored_hits)
+    # Kopya farklı SQLite dosyası kullanır; onun okuması ilk nesnenin pasif
+    # satırını silmez. İki nesneyi art arda bağımsız olarak doğrula.
+    graph.relation_mb = mb
+    original_after = graph.query("nivara", ("ISA",))
+    original_ok = any(edge.subj == "nivara" and edge.obj == "varlık"
+                      for edge, _path in original_after)
+    independent_stores = (restored_storage["path"] != storage["path"]
+                          and restored_storage["file_exists"] and storage["file_exists"])
+    ok = (was_passive and disk_proved and recalled and retained and restored_ok and original_ok
+          and independent_stores and len(mb.active_slots) <= 4 and len(restored.active_slots) <= 4
+          and mb.passive_reactivations > before_reactivations
+          and mb.presentations == before_presentations
+          and restored.presentations == before_presentations)
+    return ok, (f"pasif={was_passive} disk={disk_proved} | geri={recalled}/{restored_ok}/{original_ok} | "
+                f"24_kayıt={retained} | aktif={len(mb.active_slots)}/4 | "
+                f"uyandırma={mb.passive_reactivations - before_reactivations} | "
+                f"sunum={mb.presentations - before_presentations} | depo=sqlite")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--repeat", type=int, default=1)
@@ -607,7 +763,10 @@ def main():
              ("C7 probation ilişki icadı + held-out alan transferi", mb_relation_invention_transfer),
              ("C8 MB ablasyonu + çoklu tohum + unutmama", mb_ablation_retention_multiseed),
              ("C9 replay'siz uyku + operatör kalıcılığı", mb_sleep_and_persistence),
-             ("C10 çok-köklü ilişki icadı + kontroller", mb_multiple_relation_inventions)]
+             ("C10 çok-köklü ilişki icadı + kontroller", mb_multiple_relation_inventions),
+             ("C11 epistemik kapı + sıfır Broca + 20ms", epistemic_gate_zero_broca),
+             ("C12 graph-corpus tek geçiş + uyanık kullanım", graph_corpus_single_pass),
+             ("C13 pasif HDC bellek + sınırlı çalışma kümesi", passive_hdc_reactivation)]
     if args.only:
         tests = [(name, fn) for name, fn in tests if args.only.casefold() in name.casefold()]
     if not tests:
