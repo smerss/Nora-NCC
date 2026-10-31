@@ -1,0 +1,32 @@
+{
+  "seed": 140,
+  "prefix": 3,
+  "router_train_loss": 0.0011128385085612535,
+  "router_train_accuracy": 1.0,
+  "development": {
+    "n": 393,
+    "top1": 0.45038167938931295,
+    "top5": 0.5114503816793893,
+    "ppl": 76.37692519456638,
+    "target_fraction": 0.9338422391857506,
+    "ood_sentences": 0,
+    "sentences": 55,
+    "ood_threshold": 0.00045012382906861603,
+    "token_confidence_ratio": 0.75
+  },
+  "xquad": {
+    "n": 37086,
+    "top1": 0.09149005015369681,
+    "top5": 0.17572668931672328,
+    "ppl": 3227.063775997549,
+    "target_fraction": 0.722240198457639,
+    "ood_sentences": 255,
+    "sentences": 1229,
+    "ood_threshold": 0.00045012382906861603,
+    "token_confidence_ratio": 0.75
+  },
+  "target_ensemble": {
+    "position": 0.75,
+    "wide143": 0.25
+  }
+}

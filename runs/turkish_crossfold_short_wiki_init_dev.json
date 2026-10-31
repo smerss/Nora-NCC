@@ -1,0 +1,90 @@
+[
+  {
+    "fold": 1,
+    "position_seed": 149,
+    "wide_seed": 147,
+    "position_epochs_fixed": 12,
+    "wide_epochs_fixed": 9,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean_short_wiki1000_step1000.pt",
+    "freeze_emb": false,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "dialogue_repeats": 1,
+    "target_domain": "all",
+    "target_l2sp": 0.0,
+    "target_top1_margin": 0.0,
+    "position": {
+      "n": 401,
+      "hit1": 167,
+      "hit5": 200,
+      "top1": 0.4164588528678304,
+      "top5": 0.49875311720698257,
+      "ppl": 100.75445554185663
+    },
+    "wide": {
+      "n": 401,
+      "hit1": 156,
+      "hit5": 192,
+      "top1": 0.38902743142144636,
+      "top5": 0.47880299251870323,
+      "ppl": 106.46116995164462
+    },
+    "ensemble": {
+      "n": 401,
+      "hit1": 168,
+      "hit5": 195,
+      "top1": 0.41895261845386533,
+      "top5": 0.486284289276808,
+      "ppl": 87.78556215168206
+    },
+    "seconds": 36.60552376799933
+  },
+  {
+    "fold": 2,
+    "position_seed": 149,
+    "wide_seed": 147,
+    "position_epochs_fixed": 12,
+    "wide_epochs_fixed": 9,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean_short_wiki1000_step1000.pt",
+    "freeze_emb": false,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "dialogue_repeats": 1,
+    "target_domain": "all",
+    "target_l2sp": 0.0,
+    "target_top1_margin": 0.0,
+    "position": {
+      "n": 419,
+      "hit1": 159,
+      "hit5": 196,
+      "top1": 0.3794749403341289,
+      "top5": 0.4677804295942721,
+      "ppl": 164.6676703774906
+    },
+    "wide": {
+      "n": 419,
+      "hit1": 159,
+      "hit5": 194,
+      "top1": 0.3794749403341289,
+      "top5": 0.4630071599045346,
+      "ppl": 165.86868822891438
+    },
+    "ensemble": {
+      "n": 419,
+      "hit1": 162,
+      "hit5": 198,
+      "top1": 0.38663484486873506,
+      "top5": 0.47255369928400953,
+      "ppl": 141.23923932252157
+    },
+    "seconds": 35.425569622000694
+  }
+]

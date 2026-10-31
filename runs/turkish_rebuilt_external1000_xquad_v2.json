@@ -1,0 +1,23 @@
+{
+  "mode": "base",
+  "corpus": ".cache/corpora/processed/xquad_rebuilt_v2.jsonl",
+  "corpus_sha256": "c6a3fdac5f70bf6454671d767ffebd196bebd70f73048536ec6b69037c696201",
+  "input_sentences": 1230,
+  "models": [
+    "data/checkpoints/turkish_external.pt"
+  ],
+  "model_sha256": {
+    "data/checkpoints/turkish_external.pt": "5ad24f8b88064d5e94d03f34cdc837813652afdb56b3b7c06b8996a12f1f3823"
+  },
+  "position_weight": 0.65,
+  "seconds": 13.531501719000062,
+  "max_rss_mib": 1349.8125,
+  "metrics": {
+    "n": 37097,
+    "hit1": 4197,
+    "hit5": 8067,
+    "top1": 0.11313583308623339,
+    "top5": 0.217456937218643,
+    "ppl": 978.2862400811267
+  }
+}

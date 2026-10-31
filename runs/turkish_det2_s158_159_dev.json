@@ -1,0 +1,102 @@
+[
+  {
+    "fold": 1,
+    "position_seed": 158,
+    "wide_seed": 159,
+    "position_epochs_fixed": 12,
+    "wide_epochs_fixed": 9,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean1000_step1000.pt",
+    "model_prefix": "det2_s158_159",
+    "freeze_emb": false,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_bpe_dropout_deterministic": true,
+    "target_seeded_bpe": true,
+    "runtime": {
+      "torch": "2.15.0+cu132",
+      "tokenizers": "0.23.3"
+    },
+    "target_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "dialogue_repeats": 1,
+    "target_domain": "all",
+    "target_l2sp": 0.0,
+    "position": {
+      "n": 401,
+      "hit1": 173,
+      "hit5": 214,
+      "top1": 0.4314214463840399,
+      "top5": 0.5336658354114713,
+      "ppl": 74.60233753033074
+    },
+    "wide": {
+      "n": 401,
+      "hit1": 166,
+      "hit5": 208,
+      "top1": 0.4139650872817955,
+      "top5": 0.5187032418952618,
+      "ppl": 88.8536408706614
+    },
+    "ensemble": {
+      "n": 401,
+      "hit1": 174,
+      "hit5": 216,
+      "top1": 0.4339152119700748,
+      "top5": 0.5386533665835411,
+      "ppl": 70.00125975506862
+    },
+    "seconds": 30.307542526000134
+  },
+  {
+    "fold": 2,
+    "position_seed": 158,
+    "wide_seed": 159,
+    "position_epochs_fixed": 12,
+    "wide_epochs_fixed": 9,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean1000_step1000.pt",
+    "model_prefix": "det2_s158_159",
+    "freeze_emb": false,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_bpe_dropout_deterministic": true,
+    "target_seeded_bpe": true,
+    "runtime": {
+      "torch": "2.15.0+cu132",
+      "tokenizers": "0.23.3"
+    },
+    "target_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "dialogue_repeats": 1,
+    "target_domain": "all",
+    "target_l2sp": 0.0,
+    "position": {
+      "n": 419,
+      "hit1": 162,
+      "hit5": 207,
+      "top1": 0.38663484486873506,
+      "top5": 0.49403341288782815,
+      "ppl": 134.46190862346276
+    },
+    "wide": {
+      "n": 419,
+      "hit1": 161,
+      "hit5": 201,
+      "top1": 0.38424821002386633,
+      "top5": 0.4797136038186158,
+      "ppl": 147.85798281023173
+    },
+    "ensemble": {
+      "n": 419,
+      "hit1": 164,
+      "hit5": 206,
+      "top1": 0.3914081145584726,
+      "top5": 0.4916467780429594,
+      "ppl": 120.5657502768204
+    },
+    "seconds": 28.571271512000067
+  }
+]

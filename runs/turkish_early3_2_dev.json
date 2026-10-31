@@ -1,0 +1,106 @@
+[
+  {
+    "fold": 1,
+    "position_seed": 149,
+    "wide_seed": 147,
+    "position_epochs_fixed": 12,
+    "wide_epochs_fixed": 9,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean1000_step1000.pt",
+    "model_prefix": "early3_2",
+    "freeze_emb": false,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_bpe_dropout_deterministic": true,
+    "target_seeded_bpe": true,
+    "runtime": {
+      "torch": "2.15.0+cu132",
+      "tokenizers": "0.23.3"
+    },
+    "target_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "target_early_weight": 2.0,
+    "target_early_count": 3,
+    "dialogue_repeats": 1,
+    "target_domain": "all",
+    "target_l2sp": 0.0,
+    "position": {
+      "n": 401,
+      "hit1": 168,
+      "hit5": 212,
+      "top1": 0.41895261845386533,
+      "top5": 0.5286783042394015,
+      "ppl": 80.8612642059088
+    },
+    "wide": {
+      "n": 401,
+      "hit1": 168,
+      "hit5": 204,
+      "top1": 0.41895261845386533,
+      "top5": 0.5087281795511222,
+      "ppl": 84.4415441219082
+    },
+    "ensemble": {
+      "n": 401,
+      "hit1": 175,
+      "hit5": 214,
+      "top1": 0.43640897755610975,
+      "top5": 0.5336658354114713,
+      "ppl": 70.60876982877701
+    },
+    "seconds": 31.640873346000035
+  },
+  {
+    "fold": 2,
+    "position_seed": 149,
+    "wide_seed": 147,
+    "position_epochs_fixed": 12,
+    "wide_epochs_fixed": 9,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean1000_step1000.pt",
+    "model_prefix": "early3_2",
+    "freeze_emb": false,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_bpe_dropout_deterministic": true,
+    "target_seeded_bpe": true,
+    "runtime": {
+      "torch": "2.15.0+cu132",
+      "tokenizers": "0.23.3"
+    },
+    "target_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "target_early_weight": 2.0,
+    "target_early_count": 3,
+    "dialogue_repeats": 1,
+    "target_domain": "all",
+    "target_l2sp": 0.0,
+    "position": {
+      "n": 419,
+      "hit1": 165,
+      "hit5": 203,
+      "top1": 0.3937947494033413,
+      "top5": 0.48448687350835323,
+      "ppl": 136.783016682678
+    },
+    "wide": {
+      "n": 419,
+      "hit1": 167,
+      "hit5": 198,
+      "top1": 0.39856801909307876,
+      "top5": 0.47255369928400953,
+      "ppl": 161.12377201460566
+    },
+    "ensemble": {
+      "n": 419,
+      "hit1": 166,
+      "hit5": 206,
+      "top1": 0.39618138424821003,
+      "top5": 0.4916467780429594,
+      "ppl": 124.85827814453921
+    },
+    "seconds": 28.94737614299993
+  }
+]

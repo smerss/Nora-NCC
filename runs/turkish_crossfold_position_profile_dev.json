@@ -1,0 +1,6306 @@
+[
+  {
+    "fold": 1,
+    "variant": "op",
+    "positions": {
+      "0": [
+        2,
+        55,
+        3
+      ],
+      "1": [
+        17,
+        55,
+        20
+      ],
+      "2": [
+        9,
+        55,
+        15
+      ],
+      "3": [
+        17,
+        55,
+        28
+      ],
+      "4": [
+        34,
+        55,
+        39
+      ],
+      "5": [
+        34,
+        50,
+        39
+      ],
+      "6": [
+        21,
+        32,
+        22
+      ],
+      "7": [
+        11,
+        20,
+        15
+      ],
+      "8+": [
+        22,
+        24,
+        22
+      ]
+    },
+    "sentences": [
+      {
+        "text": "Köpek evcil bir hayvandır.",
+        "hit1": 5,
+        "n": 7,
+        "top1": 0.7142857142857143
+      },
+      {
+        "text": "Kivi bir kuştur ama uçamaz.",
+        "hit1": 6,
+        "n": 11,
+        "top1": 0.5454545454545454
+      },
+      {
+        "text": "Ağaç bir bitkidir.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Beyin bir organdır ve düşünmeyi sağlar.",
+        "hit1": 4,
+        "n": 10,
+        "top1": 0.4
+      },
+      {
+        "text": "Kemik bir dokudur.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Matematik bir bilimdir.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Yerçekimi cisimlerin düşmesine yol açar.",
+        "hit1": 3,
+        "n": 10,
+        "top1": 0.3
+      },
+      {
+        "text": "Su sıvı bir maddedir ve çözer.",
+        "hit1": 4,
+        "n": 10,
+        "top1": 0.4
+      },
+      {
+        "text": "Fotosentez oksijen salınımına yol açar.",
+        "hit1": 6,
+        "n": 12,
+        "top1": 0.5
+      },
+      {
+        "text": "Aşı hastalıktan korunmak için kullanılır.",
+        "hit1": 4,
+        "n": 9,
+        "top1": 0.4444444444444444
+      },
+      {
+        "text": "Jüpiter en büyük gezegendir.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Mevsimler dünyanın eğik ekseninden kaynaklanır.",
+        "hit1": 2,
+        "n": 10,
+        "top1": 0.2
+      },
+      {
+        "text": "Kar bir su biçimidir.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Ankara Türkiye'nin başkentidir.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Kızılırmak bir nehirdir.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Telefon iletişim için kullanılır.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Elektrik enerji taşır.",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Peynir bir yiyecektir.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Akşam yemeği bir öğündür.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Yatak uyumak için kullanılır.",
+        "hit1": 4,
+        "n": 7,
+        "top1": 0.5714285714285714
+      },
+      {
+        "text": "Resim bir sanattır.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Kardeş bir aile üyesidir.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Yalnızlık bir duygudur.",
+        "hit1": 4,
+        "n": 7,
+        "top1": 0.5714285714285714
+      },
+      {
+        "text": "Yemek beslenmek için kullanılır.",
+        "hit1": 4,
+        "n": 7,
+        "top1": 0.5714285714285714
+      },
+      {
+        "text": "Bölme bir işlemdir.",
+        "hit1": 5,
+        "n": 7,
+        "top1": 0.7142857142857143
+      },
+      {
+        "text": "İvme bir niceliktir.",
+        "hit1": 5,
+        "n": 8,
+        "top1": 0.625
+      },
+      {
+        "text": "Kuantum bir fizik alanıdır.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Günaydın, bugün nasılsın?",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Bugün çok yoruldum, erken yatacağım.",
+        "hit1": 4,
+        "n": 11,
+        "top1": 0.36363636363636365
+      },
+      {
+        "text": "Hangi kitabı okuyorsun?",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yarın erken kalkmam gerekiyor.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Birlikte bir şeyler düşünelim.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Orada neler yapardın?",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yürüyüşe çıkmak iyi geliyor.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Yapay zekâ öğrenen bir yazılımdır.",
+        "hit1": 5,
+        "n": 9,
+        "top1": 0.5555555555555556
+      },
+      {
+        "text": "Uyku neden önemli?",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Sırayla yaparsan kolaylaşır.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Yeni bir işe başladım.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Bazen hiçbir şey yapmamak da iyi gelir.",
+        "hit1": 3,
+        "n": 10,
+        "top1": 0.3
+      },
+      {
+        "text": "Kendimi özledim.",
+        "hit1": 1,
+        "n": 5,
+        "top1": 0.2
+      },
+      {
+        "text": "Ne vardı sofrada?",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Bugün bir arkadaşıma yardım ettim.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Çok sevindim, teşekkür ederim.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Benim için de iyi.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yarın sınav var, çok korkuyorum.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Kediler gerçekten sevimli.",
+        "hit1": 1,
+        "n": 5,
+        "top1": 0.2
+      },
+      {
+        "text": "Ne yemek yapsam?",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Sessizlik bazen iyi, bazen ağır.",
+        "hit1": 1,
+        "n": 9,
+        "top1": 0.1111111111111111
+      },
+      {
+        "text": "Bir gün dünyayı gezmek istiyorum.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Neye güldün?",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Yarın görüşür müyüz?",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Seni bekledim ve düşündüm.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Çok fazla işim var.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Ne yapmayı seversin?",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Bilmiyorum, ama pencereye bakabiliriz.",
+        "hit1": 3,
+        "n": 9,
+        "top1": 0.3333333333333333
+      }
+    ],
+    "hit1": 167,
+    "n": 401
+  },
+  {
+    "fold": 1,
+    "variant": "ow",
+    "positions": {
+      "0": [
+        2,
+        55,
+        3
+      ],
+      "1": [
+        13,
+        55,
+        16
+      ],
+      "2": [
+        8,
+        55,
+        13
+      ],
+      "3": [
+        18,
+        55,
+        27
+      ],
+      "4": [
+        32,
+        55,
+        36
+      ],
+      "5": [
+        33,
+        50,
+        37
+      ],
+      "6": [
+        22,
+        32,
+        24
+      ],
+      "7": [
+        13,
+        20,
+        15
+      ],
+      "8+": [
+        22,
+        24,
+        22
+      ]
+    },
+    "sentences": [
+      {
+        "text": "Köpek evcil bir hayvandır.",
+        "hit1": 5,
+        "n": 7,
+        "top1": 0.7142857142857143
+      },
+      {
+        "text": "Kivi bir kuştur ama uçamaz.",
+        "hit1": 6,
+        "n": 11,
+        "top1": 0.5454545454545454
+      },
+      {
+        "text": "Ağaç bir bitkidir.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Beyin bir organdır ve düşünmeyi sağlar.",
+        "hit1": 5,
+        "n": 10,
+        "top1": 0.5
+      },
+      {
+        "text": "Kemik bir dokudur.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Matematik bir bilimdir.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Yerçekimi cisimlerin düşmesine yol açar.",
+        "hit1": 3,
+        "n": 10,
+        "top1": 0.3
+      },
+      {
+        "text": "Su sıvı bir maddedir ve çözer.",
+        "hit1": 4,
+        "n": 10,
+        "top1": 0.4
+      },
+      {
+        "text": "Fotosentez oksijen salınımına yol açar.",
+        "hit1": 6,
+        "n": 12,
+        "top1": 0.5
+      },
+      {
+        "text": "Aşı hastalıktan korunmak için kullanılır.",
+        "hit1": 4,
+        "n": 9,
+        "top1": 0.4444444444444444
+      },
+      {
+        "text": "Jüpiter en büyük gezegendir.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Mevsimler dünyanın eğik ekseninden kaynaklanır.",
+        "hit1": 2,
+        "n": 10,
+        "top1": 0.2
+      },
+      {
+        "text": "Kar bir su biçimidir.",
+        "hit1": 1,
+        "n": 6,
+        "top1": 0.16666666666666666
+      },
+      {
+        "text": "Ankara Türkiye'nin başkentidir.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Kızılırmak bir nehirdir.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Telefon iletişim için kullanılır.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Elektrik enerji taşır.",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Peynir bir yiyecektir.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Akşam yemeği bir öğündür.",
+        "hit1": 4,
+        "n": 8,
+        "top1": 0.5
+      },
+      {
+        "text": "Yatak uyumak için kullanılır.",
+        "hit1": 4,
+        "n": 7,
+        "top1": 0.5714285714285714
+      },
+      {
+        "text": "Resim bir sanattır.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Kardeş bir aile üyesidir.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Yalnızlık bir duygudur.",
+        "hit1": 4,
+        "n": 7,
+        "top1": 0.5714285714285714
+      },
+      {
+        "text": "Yemek beslenmek için kullanılır.",
+        "hit1": 4,
+        "n": 7,
+        "top1": 0.5714285714285714
+      },
+      {
+        "text": "Bölme bir işlemdir.",
+        "hit1": 5,
+        "n": 7,
+        "top1": 0.7142857142857143
+      },
+      {
+        "text": "İvme bir niceliktir.",
+        "hit1": 5,
+        "n": 8,
+        "top1": 0.625
+      },
+      {
+        "text": "Kuantum bir fizik alanıdır.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Günaydın, bugün nasılsın?",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Bugün çok yoruldum, erken yatacağım.",
+        "hit1": 4,
+        "n": 11,
+        "top1": 0.36363636363636365
+      },
+      {
+        "text": "Hangi kitabı okuyorsun?",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yarın erken kalkmam gerekiyor.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Birlikte bir şeyler düşünelim.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Orada neler yapardın?",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yürüyüşe çıkmak iyi geliyor.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yapay zekâ öğrenen bir yazılımdır.",
+        "hit1": 4,
+        "n": 9,
+        "top1": 0.4444444444444444
+      },
+      {
+        "text": "Uyku neden önemli?",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Sırayla yaparsan kolaylaşır.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Yeni bir işe başladım.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Bazen hiçbir şey yapmamak da iyi gelir.",
+        "hit1": 4,
+        "n": 10,
+        "top1": 0.4
+      },
+      {
+        "text": "Kendimi özledim.",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Ne vardı sofrada?",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Bugün bir arkadaşıma yardım ettim.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Çok sevindim, teşekkür ederim.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Benim için de iyi.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yarın sınav var, çok korkuyorum.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Kediler gerçekten sevimli.",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Ne yemek yapsam?",
+        "hit1": 1,
+        "n": 6,
+        "top1": 0.16666666666666666
+      },
+      {
+        "text": "Sessizlik bazen iyi, bazen ağır.",
+        "hit1": 1,
+        "n": 9,
+        "top1": 0.1111111111111111
+      },
+      {
+        "text": "Bir gün dünyayı gezmek istiyorum.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Neye güldün?",
+        "hit1": 1,
+        "n": 5,
+        "top1": 0.2
+      },
+      {
+        "text": "Yarın görüşür müyüz?",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Seni bekledim ve düşündüm.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Çok fazla işim var.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Ne yapmayı seversin?",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Bilmiyorum, ama pencereye bakabiliriz.",
+        "hit1": 3,
+        "n": 9,
+        "top1": 0.3333333333333333
+      }
+    ],
+    "hit1": 163,
+    "n": 401
+  },
+  {
+    "fold": 1,
+    "variant": "cp",
+    "positions": {
+      "0": [
+        2,
+        55,
+        3
+      ],
+      "1": [
+        14,
+        55,
+        22
+      ],
+      "2": [
+        11,
+        55,
+        17
+      ],
+      "3": [
+        21,
+        55,
+        30
+      ],
+      "4": [
+        33,
+        55,
+        40
+      ],
+      "5": [
+        35,
+        50,
+        40
+      ],
+      "6": [
+        21,
+        32,
+        23
+      ],
+      "7": [
+        13,
+        20,
+        15
+      ],
+      "8+": [
+        21,
+        24,
+        22
+      ]
+    },
+    "sentences": [
+      {
+        "text": "Köpek evcil bir hayvandır.",
+        "hit1": 5,
+        "n": 7,
+        "top1": 0.7142857142857143
+      },
+      {
+        "text": "Kivi bir kuştur ama uçamaz.",
+        "hit1": 6,
+        "n": 11,
+        "top1": 0.5454545454545454
+      },
+      {
+        "text": "Ağaç bir bitkidir.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Beyin bir organdır ve düşünmeyi sağlar.",
+        "hit1": 5,
+        "n": 10,
+        "top1": 0.5
+      },
+      {
+        "text": "Kemik bir dokudur.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Matematik bir bilimdir.",
+        "hit1": 5,
+        "n": 6,
+        "top1": 0.8333333333333334
+      },
+      {
+        "text": "Yerçekimi cisimlerin düşmesine yol açar.",
+        "hit1": 3,
+        "n": 10,
+        "top1": 0.3
+      },
+      {
+        "text": "Su sıvı bir maddedir ve çözer.",
+        "hit1": 4,
+        "n": 10,
+        "top1": 0.4
+      },
+      {
+        "text": "Fotosentez oksijen salınımına yol açar.",
+        "hit1": 6,
+        "n": 12,
+        "top1": 0.5
+      },
+      {
+        "text": "Aşı hastalıktan korunmak için kullanılır.",
+        "hit1": 4,
+        "n": 9,
+        "top1": 0.4444444444444444
+      },
+      {
+        "text": "Jüpiter en büyük gezegendir.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Mevsimler dünyanın eğik ekseninden kaynaklanır.",
+        "hit1": 2,
+        "n": 10,
+        "top1": 0.2
+      },
+      {
+        "text": "Kar bir su biçimidir.",
+        "hit1": 1,
+        "n": 6,
+        "top1": 0.16666666666666666
+      },
+      {
+        "text": "Ankara Türkiye'nin başkentidir.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Kızılırmak bir nehirdir.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Telefon iletişim için kullanılır.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Elektrik enerji taşır.",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Peynir bir yiyecektir.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Akşam yemeği bir öğündür.",
+        "hit1": 4,
+        "n": 8,
+        "top1": 0.5
+      },
+      {
+        "text": "Yatak uyumak için kullanılır.",
+        "hit1": 5,
+        "n": 7,
+        "top1": 0.7142857142857143
+      },
+      {
+        "text": "Resim bir sanattır.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Kardeş bir aile üyesidir.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Yalnızlık bir duygudur.",
+        "hit1": 5,
+        "n": 7,
+        "top1": 0.7142857142857143
+      },
+      {
+        "text": "Yemek beslenmek için kullanılır.",
+        "hit1": 5,
+        "n": 7,
+        "top1": 0.7142857142857143
+      },
+      {
+        "text": "Bölme bir işlemdir.",
+        "hit1": 5,
+        "n": 7,
+        "top1": 0.7142857142857143
+      },
+      {
+        "text": "İvme bir niceliktir.",
+        "hit1": 5,
+        "n": 8,
+        "top1": 0.625
+      },
+      {
+        "text": "Kuantum bir fizik alanıdır.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Günaydın, bugün nasılsın?",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Bugün çok yoruldum, erken yatacağım.",
+        "hit1": 4,
+        "n": 11,
+        "top1": 0.36363636363636365
+      },
+      {
+        "text": "Hangi kitabı okuyorsun?",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yarın erken kalkmam gerekiyor.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Birlikte bir şeyler düşünelim.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Orada neler yapardın?",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yürüyüşe çıkmak iyi geliyor.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yapay zekâ öğrenen bir yazılımdır.",
+        "hit1": 5,
+        "n": 9,
+        "top1": 0.5555555555555556
+      },
+      {
+        "text": "Uyku neden önemli?",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Sırayla yaparsan kolaylaşır.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Yeni bir işe başladım.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Bazen hiçbir şey yapmamak da iyi gelir.",
+        "hit1": 3,
+        "n": 10,
+        "top1": 0.3
+      },
+      {
+        "text": "Kendimi özledim.",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Ne vardı sofrada?",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Bugün bir arkadaşıma yardım ettim.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Çok sevindim, teşekkür ederim.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Benim için de iyi.",
+        "hit1": 1,
+        "n": 6,
+        "top1": 0.16666666666666666
+      },
+      {
+        "text": "Yarın sınav var, çok korkuyorum.",
+        "hit1": 4,
+        "n": 8,
+        "top1": 0.5
+      },
+      {
+        "text": "Kediler gerçekten sevimli.",
+        "hit1": 1,
+        "n": 5,
+        "top1": 0.2
+      },
+      {
+        "text": "Ne yemek yapsam?",
+        "hit1": 1,
+        "n": 6,
+        "top1": 0.16666666666666666
+      },
+      {
+        "text": "Sessizlik bazen iyi, bazen ağır.",
+        "hit1": 1,
+        "n": 9,
+        "top1": 0.1111111111111111
+      },
+      {
+        "text": "Bir gün dünyayı gezmek istiyorum.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Neye güldün?",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Yarın görüşür müyüz?",
+        "hit1": 1,
+        "n": 8,
+        "top1": 0.125
+      },
+      {
+        "text": "Seni bekledim ve düşündüm.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Çok fazla işim var.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Ne yapmayı seversin?",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Bilmiyorum, ama pencereye bakabiliriz.",
+        "hit1": 3,
+        "n": 9,
+        "top1": 0.3333333333333333
+      }
+    ],
+    "hit1": 171,
+    "n": 401
+  },
+  {
+    "fold": 1,
+    "variant": "cw",
+    "positions": {
+      "0": [
+        2,
+        55,
+        3
+      ],
+      "1": [
+        15,
+        55,
+        22
+      ],
+      "2": [
+        9,
+        55,
+        16
+      ],
+      "3": [
+        21,
+        55,
+        29
+      ],
+      "4": [
+        34,
+        55,
+        41
+      ],
+      "5": [
+        32,
+        50,
+        37
+      ],
+      "6": [
+        22,
+        32,
+        23
+      ],
+      "7": [
+        13,
+        20,
+        15
+      ],
+      "8+": [
+        22,
+        24,
+        22
+      ]
+    },
+    "sentences": [
+      {
+        "text": "Köpek evcil bir hayvandır.",
+        "hit1": 4,
+        "n": 7,
+        "top1": 0.5714285714285714
+      },
+      {
+        "text": "Kivi bir kuştur ama uçamaz.",
+        "hit1": 7,
+        "n": 11,
+        "top1": 0.6363636363636364
+      },
+      {
+        "text": "Ağaç bir bitkidir.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Beyin bir organdır ve düşünmeyi sağlar.",
+        "hit1": 5,
+        "n": 10,
+        "top1": 0.5
+      },
+      {
+        "text": "Kemik bir dokudur.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Matematik bir bilimdir.",
+        "hit1": 5,
+        "n": 6,
+        "top1": 0.8333333333333334
+      },
+      {
+        "text": "Yerçekimi cisimlerin düşmesine yol açar.",
+        "hit1": 3,
+        "n": 10,
+        "top1": 0.3
+      },
+      {
+        "text": "Su sıvı bir maddedir ve çözer.",
+        "hit1": 4,
+        "n": 10,
+        "top1": 0.4
+      },
+      {
+        "text": "Fotosentez oksijen salınımına yol açar.",
+        "hit1": 6,
+        "n": 12,
+        "top1": 0.5
+      },
+      {
+        "text": "Aşı hastalıktan korunmak için kullanılır.",
+        "hit1": 4,
+        "n": 9,
+        "top1": 0.4444444444444444
+      },
+      {
+        "text": "Jüpiter en büyük gezegendir.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Mevsimler dünyanın eğik ekseninden kaynaklanır.",
+        "hit1": 2,
+        "n": 10,
+        "top1": 0.2
+      },
+      {
+        "text": "Kar bir su biçimidir.",
+        "hit1": 1,
+        "n": 6,
+        "top1": 0.16666666666666666
+      },
+      {
+        "text": "Ankara Türkiye'nin başkentidir.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Kızılırmak bir nehirdir.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Telefon iletişim için kullanılır.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Elektrik enerji taşır.",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Peynir bir yiyecektir.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Akşam yemeği bir öğündür.",
+        "hit1": 4,
+        "n": 8,
+        "top1": 0.5
+      },
+      {
+        "text": "Yatak uyumak için kullanılır.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Resim bir sanattır.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Kardeş bir aile üyesidir.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Yalnızlık bir duygudur.",
+        "hit1": 5,
+        "n": 7,
+        "top1": 0.7142857142857143
+      },
+      {
+        "text": "Yemek beslenmek için kullanılır.",
+        "hit1": 4,
+        "n": 7,
+        "top1": 0.5714285714285714
+      },
+      {
+        "text": "Bölme bir işlemdir.",
+        "hit1": 5,
+        "n": 7,
+        "top1": 0.7142857142857143
+      },
+      {
+        "text": "İvme bir niceliktir.",
+        "hit1": 5,
+        "n": 8,
+        "top1": 0.625
+      },
+      {
+        "text": "Kuantum bir fizik alanıdır.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Günaydın, bugün nasılsın?",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Bugün çok yoruldum, erken yatacağım.",
+        "hit1": 6,
+        "n": 11,
+        "top1": 0.5454545454545454
+      },
+      {
+        "text": "Hangi kitabı okuyorsun?",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yarın erken kalkmam gerekiyor.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Birlikte bir şeyler düşünelim.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Orada neler yapardın?",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yürüyüşe çıkmak iyi geliyor.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yapay zekâ öğrenen bir yazılımdır.",
+        "hit1": 4,
+        "n": 9,
+        "top1": 0.4444444444444444
+      },
+      {
+        "text": "Uyku neden önemli?",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Sırayla yaparsan kolaylaşır.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Yeni bir işe başladım.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Bazen hiçbir şey yapmamak da iyi gelir.",
+        "hit1": 3,
+        "n": 10,
+        "top1": 0.3
+      },
+      {
+        "text": "Kendimi özledim.",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Ne vardı sofrada?",
+        "hit1": 1,
+        "n": 7,
+        "top1": 0.14285714285714285
+      },
+      {
+        "text": "Bugün bir arkadaşıma yardım ettim.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Çok sevindim, teşekkür ederim.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Benim için de iyi.",
+        "hit1": 1,
+        "n": 6,
+        "top1": 0.16666666666666666
+      },
+      {
+        "text": "Yarın sınav var, çok korkuyorum.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Kediler gerçekten sevimli.",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Ne yemek yapsam?",
+        "hit1": 1,
+        "n": 6,
+        "top1": 0.16666666666666666
+      },
+      {
+        "text": "Sessizlik bazen iyi, bazen ağır.",
+        "hit1": 1,
+        "n": 9,
+        "top1": 0.1111111111111111
+      },
+      {
+        "text": "Bir gün dünyayı gezmek istiyorum.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Neye güldün?",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Yarın görüşür müyüz?",
+        "hit1": 1,
+        "n": 8,
+        "top1": 0.125
+      },
+      {
+        "text": "Seni bekledim ve düşündüm.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Çok fazla işim var.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Ne yapmayı seversin?",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Bilmiyorum, ama pencereye bakabiliriz.",
+        "hit1": 2,
+        "n": 9,
+        "top1": 0.2222222222222222
+      }
+    ],
+    "hit1": 170,
+    "n": 401
+  },
+  {
+    "fold": 1,
+    "variant": "e",
+    "positions": {
+      "0": [
+        0,
+        55,
+        1
+      ],
+      "1": [
+        7,
+        55,
+        15
+      ],
+      "2": [
+        3,
+        55,
+        10
+      ],
+      "3": [
+        6,
+        55,
+        16
+      ],
+      "4": [
+        26,
+        55,
+        32
+      ],
+      "5": [
+        32,
+        50,
+        36
+      ],
+      "6": [
+        19,
+        32,
+        20
+      ],
+      "7": [
+        12,
+        20,
+        13
+      ],
+      "8+": [
+        21,
+        24,
+        22
+      ]
+    },
+    "sentences": [
+      {
+        "text": "Köpek evcil bir hayvandır.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Kivi bir kuştur ama uçamaz.",
+        "hit1": 2,
+        "n": 11,
+        "top1": 0.18181818181818182
+      },
+      {
+        "text": "Ağaç bir bitkidir.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Beyin bir organdır ve düşünmeyi sağlar.",
+        "hit1": 2,
+        "n": 10,
+        "top1": 0.2
+      },
+      {
+        "text": "Kemik bir dokudur.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Matematik bir bilimdir.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yerçekimi cisimlerin düşmesine yol açar.",
+        "hit1": 4,
+        "n": 10,
+        "top1": 0.4
+      },
+      {
+        "text": "Su sıvı bir maddedir ve çözer.",
+        "hit1": 2,
+        "n": 10,
+        "top1": 0.2
+      },
+      {
+        "text": "Fotosentez oksijen salınımına yol açar.",
+        "hit1": 3,
+        "n": 12,
+        "top1": 0.25
+      },
+      {
+        "text": "Aşı hastalıktan korunmak için kullanılır.",
+        "hit1": 3,
+        "n": 9,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Jüpiter en büyük gezegendir.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Mevsimler dünyanın eğik ekseninden kaynaklanır.",
+        "hit1": 2,
+        "n": 10,
+        "top1": 0.2
+      },
+      {
+        "text": "Kar bir su biçimidir.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Ankara Türkiye'nin başkentidir.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Kızılırmak bir nehirdir.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Telefon iletişim için kullanılır.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Elektrik enerji taşır.",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Peynir bir yiyecektir.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Akşam yemeği bir öğündür.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Yatak uyumak için kullanılır.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Resim bir sanattır.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Kardeş bir aile üyesidir.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yalnızlık bir duygudur.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Yemek beslenmek için kullanılır.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Bölme bir işlemdir.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "İvme bir niceliktir.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Kuantum bir fizik alanıdır.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Günaydın, bugün nasılsın?",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Bugün çok yoruldum, erken yatacağım.",
+        "hit1": 4,
+        "n": 11,
+        "top1": 0.36363636363636365
+      },
+      {
+        "text": "Hangi kitabı okuyorsun?",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yarın erken kalkmam gerekiyor.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Birlikte bir şeyler düşünelim.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Orada neler yapardın?",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yürüyüşe çıkmak iyi geliyor.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yapay zekâ öğrenen bir yazılımdır.",
+        "hit1": 3,
+        "n": 9,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Uyku neden önemli?",
+        "hit1": 1,
+        "n": 5,
+        "top1": 0.2
+      },
+      {
+        "text": "Sırayla yaparsan kolaylaşır.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Yeni bir işe başladım.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Bazen hiçbir şey yapmamak da iyi gelir.",
+        "hit1": 3,
+        "n": 10,
+        "top1": 0.3
+      },
+      {
+        "text": "Kendimi özledim.",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Ne vardı sofrada?",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Bugün bir arkadaşıma yardım ettim.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Çok sevindim, teşekkür ederim.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Benim için de iyi.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yarın sınav var, çok korkuyorum.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Kediler gerçekten sevimli.",
+        "hit1": 1,
+        "n": 5,
+        "top1": 0.2
+      },
+      {
+        "text": "Ne yemek yapsam?",
+        "hit1": 1,
+        "n": 6,
+        "top1": 0.16666666666666666
+      },
+      {
+        "text": "Sessizlik bazen iyi, bazen ağır.",
+        "hit1": 1,
+        "n": 9,
+        "top1": 0.1111111111111111
+      },
+      {
+        "text": "Bir gün dünyayı gezmek istiyorum.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Neye güldün?",
+        "hit1": 1,
+        "n": 5,
+        "top1": 0.2
+      },
+      {
+        "text": "Yarın görüşür müyüz?",
+        "hit1": 1,
+        "n": 8,
+        "top1": 0.125
+      },
+      {
+        "text": "Seni bekledim ve düşündüm.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Çok fazla işim var.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Ne yapmayı seversin?",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Bilmiyorum, ama pencereye bakabiliriz.",
+        "hit1": 2,
+        "n": 9,
+        "top1": 0.2222222222222222
+      }
+    ],
+    "hit1": 126,
+    "n": 401
+  },
+  {
+    "fold": 1,
+    "variant": "b",
+    "positions": {
+      "0": [
+        0,
+        55,
+        1
+      ],
+      "1": [
+        2,
+        55,
+        8
+      ],
+      "2": [
+        3,
+        55,
+        7
+      ],
+      "3": [
+        4,
+        55,
+        13
+      ],
+      "4": [
+        25,
+        55,
+        30
+      ],
+      "5": [
+        30,
+        50,
+        33
+      ],
+      "6": [
+        20,
+        32,
+        21
+      ],
+      "7": [
+        12,
+        20,
+        12
+      ],
+      "8+": [
+        20,
+        24,
+        20
+      ]
+    },
+    "sentences": [
+      {
+        "text": "Köpek evcil bir hayvandır.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Kivi bir kuştur ama uçamaz.",
+        "hit1": 2,
+        "n": 11,
+        "top1": 0.18181818181818182
+      },
+      {
+        "text": "Ağaç bir bitkidir.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Beyin bir organdır ve düşünmeyi sağlar.",
+        "hit1": 2,
+        "n": 10,
+        "top1": 0.2
+      },
+      {
+        "text": "Kemik bir dokudur.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Matematik bir bilimdir.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yerçekimi cisimlerin düşmesine yol açar.",
+        "hit1": 2,
+        "n": 10,
+        "top1": 0.2
+      },
+      {
+        "text": "Su sıvı bir maddedir ve çözer.",
+        "hit1": 2,
+        "n": 10,
+        "top1": 0.2
+      },
+      {
+        "text": "Fotosentez oksijen salınımına yol açar.",
+        "hit1": 2,
+        "n": 12,
+        "top1": 0.16666666666666666
+      },
+      {
+        "text": "Aşı hastalıktan korunmak için kullanılır.",
+        "hit1": 2,
+        "n": 9,
+        "top1": 0.2222222222222222
+      },
+      {
+        "text": "Jüpiter en büyük gezegendir.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Mevsimler dünyanın eğik ekseninden kaynaklanır.",
+        "hit1": 2,
+        "n": 10,
+        "top1": 0.2
+      },
+      {
+        "text": "Kar bir su biçimidir.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Ankara Türkiye'nin başkentidir.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Kızılırmak bir nehirdir.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Telefon iletişim için kullanılır.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Elektrik enerji taşır.",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Peynir bir yiyecektir.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Akşam yemeği bir öğündür.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Yatak uyumak için kullanılır.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Resim bir sanattır.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Kardeş bir aile üyesidir.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yalnızlık bir duygudur.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Yemek beslenmek için kullanılır.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Bölme bir işlemdir.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "İvme bir niceliktir.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Kuantum bir fizik alanıdır.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Günaydın, bugün nasılsın?",
+        "hit1": 4,
+        "n": 8,
+        "top1": 0.5
+      },
+      {
+        "text": "Bugün çok yoruldum, erken yatacağım.",
+        "hit1": 2,
+        "n": 11,
+        "top1": 0.18181818181818182
+      },
+      {
+        "text": "Hangi kitabı okuyorsun?",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yarın erken kalkmam gerekiyor.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Birlikte bir şeyler düşünelim.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Orada neler yapardın?",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yürüyüşe çıkmak iyi geliyor.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yapay zekâ öğrenen bir yazılımdır.",
+        "hit1": 3,
+        "n": 9,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Uyku neden önemli?",
+        "hit1": 1,
+        "n": 5,
+        "top1": 0.2
+      },
+      {
+        "text": "Sırayla yaparsan kolaylaşır.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Yeni bir işe başladım.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Bazen hiçbir şey yapmamak da iyi gelir.",
+        "hit1": 3,
+        "n": 10,
+        "top1": 0.3
+      },
+      {
+        "text": "Kendimi özledim.",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Ne vardı sofrada?",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Bugün bir arkadaşıma yardım ettim.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Çok sevindim, teşekkür ederim.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Benim için de iyi.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yarın sınav var, çok korkuyorum.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Kediler gerçekten sevimli.",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Ne yemek yapsam?",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Sessizlik bazen iyi, bazen ağır.",
+        "hit1": 2,
+        "n": 9,
+        "top1": 0.2222222222222222
+      },
+      {
+        "text": "Bir gün dünyayı gezmek istiyorum.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Neye güldün?",
+        "hit1": 1,
+        "n": 5,
+        "top1": 0.2
+      },
+      {
+        "text": "Yarın görüşür müyüz?",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Seni bekledim ve düşündüm.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Çok fazla işim var.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Ne yapmayı seversin?",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Bilmiyorum, ama pencereye bakabiliriz.",
+        "hit1": 2,
+        "n": 9,
+        "top1": 0.2222222222222222
+      }
+    ],
+    "hit1": 116,
+    "n": 401
+  },
+  {
+    "fold": 1,
+    "variant": "four_external10",
+    "positions": {
+      "0": [
+        2,
+        55,
+        3
+      ],
+      "1": [
+        16,
+        55,
+        21
+      ],
+      "2": [
+        9,
+        55,
+        17
+      ],
+      "3": [
+        20,
+        55,
+        29
+      ],
+      "4": [
+        34,
+        55,
+        43
+      ],
+      "5": [
+        35,
+        50,
+        40
+      ],
+      "6": [
+        21,
+        32,
+        23
+      ],
+      "7": [
+        13,
+        20,
+        16
+      ],
+      "8+": [
+        22,
+        24,
+        22
+      ]
+    },
+    "sentences": [
+      {
+        "text": "Köpek evcil bir hayvandır.",
+        "hit1": 5,
+        "n": 7,
+        "top1": 0.7142857142857143
+      },
+      {
+        "text": "Kivi bir kuştur ama uçamaz.",
+        "hit1": 7,
+        "n": 11,
+        "top1": 0.6363636363636364
+      },
+      {
+        "text": "Ağaç bir bitkidir.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Beyin bir organdır ve düşünmeyi sağlar.",
+        "hit1": 5,
+        "n": 10,
+        "top1": 0.5
+      },
+      {
+        "text": "Kemik bir dokudur.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Matematik bir bilimdir.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Yerçekimi cisimlerin düşmesine yol açar.",
+        "hit1": 3,
+        "n": 10,
+        "top1": 0.3
+      },
+      {
+        "text": "Su sıvı bir maddedir ve çözer.",
+        "hit1": 4,
+        "n": 10,
+        "top1": 0.4
+      },
+      {
+        "text": "Fotosentez oksijen salınımına yol açar.",
+        "hit1": 6,
+        "n": 12,
+        "top1": 0.5
+      },
+      {
+        "text": "Aşı hastalıktan korunmak için kullanılır.",
+        "hit1": 4,
+        "n": 9,
+        "top1": 0.4444444444444444
+      },
+      {
+        "text": "Jüpiter en büyük gezegendir.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Mevsimler dünyanın eğik ekseninden kaynaklanır.",
+        "hit1": 2,
+        "n": 10,
+        "top1": 0.2
+      },
+      {
+        "text": "Kar bir su biçimidir.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Ankara Türkiye'nin başkentidir.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Kızılırmak bir nehirdir.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Telefon iletişim için kullanılır.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Elektrik enerji taşır.",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Peynir bir yiyecektir.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Akşam yemeği bir öğündür.",
+        "hit1": 4,
+        "n": 8,
+        "top1": 0.5
+      },
+      {
+        "text": "Yatak uyumak için kullanılır.",
+        "hit1": 4,
+        "n": 7,
+        "top1": 0.5714285714285714
+      },
+      {
+        "text": "Resim bir sanattır.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Kardeş bir aile üyesidir.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Yalnızlık bir duygudur.",
+        "hit1": 5,
+        "n": 7,
+        "top1": 0.7142857142857143
+      },
+      {
+        "text": "Yemek beslenmek için kullanılır.",
+        "hit1": 5,
+        "n": 7,
+        "top1": 0.7142857142857143
+      },
+      {
+        "text": "Bölme bir işlemdir.",
+        "hit1": 5,
+        "n": 7,
+        "top1": 0.7142857142857143
+      },
+      {
+        "text": "İvme bir niceliktir.",
+        "hit1": 5,
+        "n": 8,
+        "top1": 0.625
+      },
+      {
+        "text": "Kuantum bir fizik alanıdır.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Günaydın, bugün nasılsın?",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Bugün çok yoruldum, erken yatacağım.",
+        "hit1": 6,
+        "n": 11,
+        "top1": 0.5454545454545454
+      },
+      {
+        "text": "Hangi kitabı okuyorsun?",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yarın erken kalkmam gerekiyor.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Birlikte bir şeyler düşünelim.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Orada neler yapardın?",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yürüyüşe çıkmak iyi geliyor.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yapay zekâ öğrenen bir yazılımdır.",
+        "hit1": 5,
+        "n": 9,
+        "top1": 0.5555555555555556
+      },
+      {
+        "text": "Uyku neden önemli?",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Sırayla yaparsan kolaylaşır.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Yeni bir işe başladım.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Bazen hiçbir şey yapmamak da iyi gelir.",
+        "hit1": 3,
+        "n": 10,
+        "top1": 0.3
+      },
+      {
+        "text": "Kendimi özledim.",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Ne vardı sofrada?",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Bugün bir arkadaşıma yardım ettim.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Çok sevindim, teşekkür ederim.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Benim için de iyi.",
+        "hit1": 1,
+        "n": 6,
+        "top1": 0.16666666666666666
+      },
+      {
+        "text": "Yarın sınav var, çok korkuyorum.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Kediler gerçekten sevimli.",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Ne yemek yapsam?",
+        "hit1": 1,
+        "n": 6,
+        "top1": 0.16666666666666666
+      },
+      {
+        "text": "Sessizlik bazen iyi, bazen ağır.",
+        "hit1": 1,
+        "n": 9,
+        "top1": 0.1111111111111111
+      },
+      {
+        "text": "Bir gün dünyayı gezmek istiyorum.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Neye güldün?",
+        "hit1": 1,
+        "n": 5,
+        "top1": 0.2
+      },
+      {
+        "text": "Yarın görüşür müyüz?",
+        "hit1": 1,
+        "n": 8,
+        "top1": 0.125
+      },
+      {
+        "text": "Seni bekledim ve düşündüm.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Çok fazla işim var.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Ne yapmayı seversin?",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Bilmiyorum, ama pencereye bakabiliriz.",
+        "hit1": 3,
+        "n": 9,
+        "top1": 0.3333333333333333
+      }
+    ],
+    "hit1": 172,
+    "n": 401
+  },
+  {
+    "fold": 1,
+    "variant": "clean_external20",
+    "positions": {
+      "0": [
+        2,
+        55,
+        3
+      ],
+      "1": [
+        15,
+        55,
+        21
+      ],
+      "2": [
+        12,
+        55,
+        16
+      ],
+      "3": [
+        23,
+        55,
+        31
+      ],
+      "4": [
+        35,
+        55,
+        42
+      ],
+      "5": [
+        35,
+        50,
+        39
+      ],
+      "6": [
+        22,
+        32,
+        24
+      ],
+      "7": [
+        13,
+        20,
+        15
+      ],
+      "8+": [
+        22,
+        24,
+        22
+      ]
+    },
+    "sentences": [
+      {
+        "text": "Köpek evcil bir hayvandır.",
+        "hit1": 5,
+        "n": 7,
+        "top1": 0.7142857142857143
+      },
+      {
+        "text": "Kivi bir kuştur ama uçamaz.",
+        "hit1": 8,
+        "n": 11,
+        "top1": 0.7272727272727273
+      },
+      {
+        "text": "Ağaç bir bitkidir.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Beyin bir organdır ve düşünmeyi sağlar.",
+        "hit1": 5,
+        "n": 10,
+        "top1": 0.5
+      },
+      {
+        "text": "Kemik bir dokudur.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Matematik bir bilimdir.",
+        "hit1": 5,
+        "n": 6,
+        "top1": 0.8333333333333334
+      },
+      {
+        "text": "Yerçekimi cisimlerin düşmesine yol açar.",
+        "hit1": 3,
+        "n": 10,
+        "top1": 0.3
+      },
+      {
+        "text": "Su sıvı bir maddedir ve çözer.",
+        "hit1": 4,
+        "n": 10,
+        "top1": 0.4
+      },
+      {
+        "text": "Fotosentez oksijen salınımına yol açar.",
+        "hit1": 6,
+        "n": 12,
+        "top1": 0.5
+      },
+      {
+        "text": "Aşı hastalıktan korunmak için kullanılır.",
+        "hit1": 4,
+        "n": 9,
+        "top1": 0.4444444444444444
+      },
+      {
+        "text": "Jüpiter en büyük gezegendir.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Mevsimler dünyanın eğik ekseninden kaynaklanır.",
+        "hit1": 2,
+        "n": 10,
+        "top1": 0.2
+      },
+      {
+        "text": "Kar bir su biçimidir.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Ankara Türkiye'nin başkentidir.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Kızılırmak bir nehirdir.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Telefon iletişim için kullanılır.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Elektrik enerji taşır.",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Peynir bir yiyecektir.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Akşam yemeği bir öğündür.",
+        "hit1": 4,
+        "n": 8,
+        "top1": 0.5
+      },
+      {
+        "text": "Yatak uyumak için kullanılır.",
+        "hit1": 4,
+        "n": 7,
+        "top1": 0.5714285714285714
+      },
+      {
+        "text": "Resim bir sanattır.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Kardeş bir aile üyesidir.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Yalnızlık bir duygudur.",
+        "hit1": 5,
+        "n": 7,
+        "top1": 0.7142857142857143
+      },
+      {
+        "text": "Yemek beslenmek için kullanılır.",
+        "hit1": 5,
+        "n": 7,
+        "top1": 0.7142857142857143
+      },
+      {
+        "text": "Bölme bir işlemdir.",
+        "hit1": 6,
+        "n": 7,
+        "top1": 0.8571428571428571
+      },
+      {
+        "text": "İvme bir niceliktir.",
+        "hit1": 5,
+        "n": 8,
+        "top1": 0.625
+      },
+      {
+        "text": "Kuantum bir fizik alanıdır.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Günaydın, bugün nasılsın?",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Bugün çok yoruldum, erken yatacağım.",
+        "hit1": 6,
+        "n": 11,
+        "top1": 0.5454545454545454
+      },
+      {
+        "text": "Hangi kitabı okuyorsun?",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yarın erken kalkmam gerekiyor.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Birlikte bir şeyler düşünelim.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Orada neler yapardın?",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yürüyüşe çıkmak iyi geliyor.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yapay zekâ öğrenen bir yazılımdır.",
+        "hit1": 4,
+        "n": 9,
+        "top1": 0.4444444444444444
+      },
+      {
+        "text": "Uyku neden önemli?",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Sırayla yaparsan kolaylaşır.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Yeni bir işe başladım.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Bazen hiçbir şey yapmamak da iyi gelir.",
+        "hit1": 3,
+        "n": 10,
+        "top1": 0.3
+      },
+      {
+        "text": "Kendimi özledim.",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Ne vardı sofrada?",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Bugün bir arkadaşıma yardım ettim.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Çok sevindim, teşekkür ederim.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Benim için de iyi.",
+        "hit1": 1,
+        "n": 6,
+        "top1": 0.16666666666666666
+      },
+      {
+        "text": "Yarın sınav var, çok korkuyorum.",
+        "hit1": 4,
+        "n": 8,
+        "top1": 0.5
+      },
+      {
+        "text": "Kediler gerçekten sevimli.",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Ne yemek yapsam?",
+        "hit1": 1,
+        "n": 6,
+        "top1": 0.16666666666666666
+      },
+      {
+        "text": "Sessizlik bazen iyi, bazen ağır.",
+        "hit1": 1,
+        "n": 9,
+        "top1": 0.1111111111111111
+      },
+      {
+        "text": "Bir gün dünyayı gezmek istiyorum.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Neye güldün?",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Yarın görüşür müyüz?",
+        "hit1": 1,
+        "n": 8,
+        "top1": 0.125
+      },
+      {
+        "text": "Seni bekledim ve düşündüm.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Çok fazla işim var.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Ne yapmayı seversin?",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Bilmiyorum, ama pencereye bakabiliriz.",
+        "hit1": 3,
+        "n": 9,
+        "top1": 0.3333333333333333
+      }
+    ],
+    "hit1": 179,
+    "n": 401
+  },
+  {
+    "fold": 2,
+    "variant": "op",
+    "positions": {
+      "0": [
+        2,
+        58,
+        5
+      ],
+      "1": [
+        12,
+        58,
+        19
+      ],
+      "2": [
+        6,
+        58,
+        12
+      ],
+      "3": [
+        18,
+        58,
+        27
+      ],
+      "4": [
+        32,
+        58,
+        34
+      ],
+      "5": [
+        35,
+        54,
+        39
+      ],
+      "6": [
+        21,
+        31,
+        25
+      ],
+      "7": [
+        20,
+        23,
+        21
+      ],
+      "8+": [
+        18,
+        21,
+        18
+      ]
+    },
+    "sentences": [
+      {
+        "text": "Zürafa uzun boyunlu bir hayvandır.",
+        "hit1": 4,
+        "n": 10,
+        "top1": 0.4
+      },
+      {
+        "text": "Yunus bir hayvandır ve yüzer.",
+        "hit1": 4,
+        "n": 9,
+        "top1": 0.4444444444444444
+      },
+      {
+        "text": "Gül bir çiçektir.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Akciğer nefes almamızı sağlar.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Uyku belleği pekiştirir.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Biyoloji bir bilimdir.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Ses boşlukta yayılmaz.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Oksijen bir gazdır.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "DNA kalıtımı taşır.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Antibiyotik bakteri enfeksiyonu için kullanılır.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Satürn'ün halkası vardır.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Deniz suyu tuzludur.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Deprem yer kabuğunun kırılmasıyla olur.",
+        "hit1": 2,
+        "n": 9,
+        "top1": 0.2222222222222222
+      },
+      {
+        "text": "İstanbul bir şehirdir ve boğazı vardır.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Van Gölü bir göldür.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Yazılım bir programdır.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Pil enerji depolamak için kullanılır.",
+        "hit1": 4,
+        "n": 8,
+        "top1": 0.5
+      },
+      {
+        "text": "Çay bir içecektir.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Mutfak bir odadır.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Kitap okumak için kullanılır.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Dostluk güven demektir.",
+        "hit1": 1,
+        "n": 5,
+        "top1": 0.2
+      },
+      {
+        "text": "Mutluluk bir duygudur.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Merak bir duygudur.",
+        "hit1": 5,
+        "n": 6,
+        "top1": 0.8333333333333334
+      },
+      {
+        "text": "Temizlik sağlık için kullanılır.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Üçgen bir geometrik şekildir.",
+        "hit1": 5,
+        "n": 7,
+        "top1": 0.7142857142857143
+      },
+      {
+        "text": "Kuvvet bir niceliktir.",
+        "hit1": 5,
+        "n": 7,
+        "top1": 0.7142857142857143
+      },
+      {
+        "text": "Görelilik bir fizik kuramıdır.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "İyiyim, sen nasılsın?",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Dinlenmek iyi gelir.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Bu akşam film izleyelim mi?",
+        "hit1": 4,
+        "n": 9,
+        "top1": 0.4444444444444444
+      },
+      {
+        "text": "O zaman erken yatalım.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Sınavım var, çok heyecanlıyım.",
+        "hit1": 5,
+        "n": 9,
+        "top1": 0.5555555555555556
+      },
+      {
+        "text": "Biraz karanlıkta uzan, iyi gelir.",
+        "hit1": 2,
+        "n": 9,
+        "top1": 0.2222222222222222
+      },
+      {
+        "text": "Bugün çok güzel bir gün geçirdim.",
+        "hit1": 4,
+        "n": 8,
+        "top1": 0.5
+      },
+      {
+        "text": "Ben de yürümeyi severim.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Deniz neden tuzlu?",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Uyku belleği güçlendirir ve bedeni onarır.",
+        "hit1": 4,
+        "n": 12,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Bir sorunum var, dinler misin?",
+        "hit1": 4,
+        "n": 8,
+        "top1": 0.5
+      },
+      {
+        "text": "Hayırlı olsun, nasıl gidiyor?",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Bana bir hikâye anlat.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Bu cümleyi ilk kez duyuyorum, anlat.",
+        "hit1": 2,
+        "n": 9,
+        "top1": 0.2222222222222222
+      },
+      {
+        "text": "Yarın tatile çıkıyorum.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Ona iyi gelmiş olmalı.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Ödevi yarına yetiştirmem lazım.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Bir şey sormak istiyorum.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Korku çalışmanın gölgesi, nefes al.",
+        "hit1": 3,
+        "n": 9,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Bana bir şaka yap.",
+        "hit1": 1,
+        "n": 6,
+        "top1": 0.16666666666666666
+      },
+      {
+        "text": "Elinin altında ne varsa onunla başla.",
+        "hit1": 3,
+        "n": 10,
+        "top1": 0.3
+      },
+      {
+        "text": "Sana bir sır vereceğim.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Nereden başlardın?",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Kendimi çok şanslı hissediyorum.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Tabii, yarın görüşürüz.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Kafam karışık.",
+        "hit1": 1,
+        "n": 5,
+        "top1": 0.2
+      },
+      {
+        "text": "En önemlisini seç, gerisi bekleyebilir.",
+        "hit1": 2,
+        "n": 12,
+        "top1": 0.16666666666666666
+      },
+      {
+        "text": "Senin adın ne?",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Konuşmayı ve öğrenmeyi severim.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Bugün bir hata yaptım.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Bunu duymak güzel, ben de seni seviyorum.",
+        "hit1": 2,
+        "n": 10,
+        "top1": 0.2
+      }
+    ],
+    "hit1": 164,
+    "n": 419
+  },
+  {
+    "fold": 2,
+    "variant": "ow",
+    "positions": {
+      "0": [
+        2,
+        58,
+        5
+      ],
+      "1": [
+        14,
+        58,
+        21
+      ],
+      "2": [
+        9,
+        58,
+        16
+      ],
+      "3": [
+        20,
+        58,
+        25
+      ],
+      "4": [
+        27,
+        58,
+        33
+      ],
+      "5": [
+        35,
+        54,
+        39
+      ],
+      "6": [
+        22,
+        31,
+        25
+      ],
+      "7": [
+        20,
+        23,
+        21
+      ],
+      "8+": [
+        17,
+        21,
+        18
+      ]
+    },
+    "sentences": [
+      {
+        "text": "Zürafa uzun boyunlu bir hayvandır.",
+        "hit1": 4,
+        "n": 10,
+        "top1": 0.4
+      },
+      {
+        "text": "Yunus bir hayvandır ve yüzer.",
+        "hit1": 5,
+        "n": 9,
+        "top1": 0.5555555555555556
+      },
+      {
+        "text": "Gül bir çiçektir.",
+        "hit1": 1,
+        "n": 6,
+        "top1": 0.16666666666666666
+      },
+      {
+        "text": "Akciğer nefes almamızı sağlar.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Uyku belleği pekiştirir.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Biyoloji bir bilimdir.",
+        "hit1": 5,
+        "n": 6,
+        "top1": 0.8333333333333334
+      },
+      {
+        "text": "Ses boşlukta yayılmaz.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Oksijen bir gazdır.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "DNA kalıtımı taşır.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Antibiyotik bakteri enfeksiyonu için kullanılır.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Satürn'ün halkası vardır.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Deniz suyu tuzludur.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Deprem yer kabuğunun kırılmasıyla olur.",
+        "hit1": 2,
+        "n": 9,
+        "top1": 0.2222222222222222
+      },
+      {
+        "text": "İstanbul bir şehirdir ve boğazı vardır.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Van Gölü bir göldür.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Yazılım bir programdır.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Pil enerji depolamak için kullanılır.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Çay bir içecektir.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Mutfak bir odadır.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Kitap okumak için kullanılır.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Dostluk güven demektir.",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Mutluluk bir duygudur.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Merak bir duygudur.",
+        "hit1": 5,
+        "n": 6,
+        "top1": 0.8333333333333334
+      },
+      {
+        "text": "Temizlik sağlık için kullanılır.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Üçgen bir geometrik şekildir.",
+        "hit1": 5,
+        "n": 7,
+        "top1": 0.7142857142857143
+      },
+      {
+        "text": "Kuvvet bir niceliktir.",
+        "hit1": 6,
+        "n": 7,
+        "top1": 0.8571428571428571
+      },
+      {
+        "text": "Görelilik bir fizik kuramıdır.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "İyiyim, sen nasılsın?",
+        "hit1": 4,
+        "n": 8,
+        "top1": 0.5
+      },
+      {
+        "text": "Dinlenmek iyi gelir.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Bu akşam film izleyelim mi?",
+        "hit1": 4,
+        "n": 9,
+        "top1": 0.4444444444444444
+      },
+      {
+        "text": "O zaman erken yatalım.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Sınavım var, çok heyecanlıyım.",
+        "hit1": 4,
+        "n": 9,
+        "top1": 0.4444444444444444
+      },
+      {
+        "text": "Biraz karanlıkta uzan, iyi gelir.",
+        "hit1": 2,
+        "n": 9,
+        "top1": 0.2222222222222222
+      },
+      {
+        "text": "Bugün çok güzel bir gün geçirdim.",
+        "hit1": 5,
+        "n": 8,
+        "top1": 0.625
+      },
+      {
+        "text": "Ben de yürümeyi severim.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Deniz neden tuzlu?",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Uyku belleği güçlendirir ve bedeni onarır.",
+        "hit1": 2,
+        "n": 12,
+        "top1": 0.16666666666666666
+      },
+      {
+        "text": "Bir sorunum var, dinler misin?",
+        "hit1": 4,
+        "n": 8,
+        "top1": 0.5
+      },
+      {
+        "text": "Hayırlı olsun, nasıl gidiyor?",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Bana bir hikâye anlat.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Bu cümleyi ilk kez duyuyorum, anlat.",
+        "hit1": 2,
+        "n": 9,
+        "top1": 0.2222222222222222
+      },
+      {
+        "text": "Yarın tatile çıkıyorum.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Ona iyi gelmiş olmalı.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Ödevi yarına yetiştirmem lazım.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Bir şey sormak istiyorum.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Korku çalışmanın gölgesi, nefes al.",
+        "hit1": 3,
+        "n": 9,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Bana bir şaka yap.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Elinin altında ne varsa onunla başla.",
+        "hit1": 3,
+        "n": 10,
+        "top1": 0.3
+      },
+      {
+        "text": "Sana bir sır vereceğim.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Nereden başlardın?",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Kendimi çok şanslı hissediyorum.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Tabii, yarın görüşürüz.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Kafam karışık.",
+        "hit1": 1,
+        "n": 5,
+        "top1": 0.2
+      },
+      {
+        "text": "En önemlisini seç, gerisi bekleyebilir.",
+        "hit1": 2,
+        "n": 12,
+        "top1": 0.16666666666666666
+      },
+      {
+        "text": "Senin adın ne?",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Konuşmayı ve öğrenmeyi severim.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Bugün bir hata yaptım.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Bunu duymak güzel, ben de seni seviyorum.",
+        "hit1": 2,
+        "n": 10,
+        "top1": 0.2
+      }
+    ],
+    "hit1": 166,
+    "n": 419
+  },
+  {
+    "fold": 2,
+    "variant": "cp",
+    "positions": {
+      "0": [
+        2,
+        58,
+        5
+      ],
+      "1": [
+        12,
+        58,
+        23
+      ],
+      "2": [
+        7,
+        58,
+        13
+      ],
+      "3": [
+        20,
+        58,
+        28
+      ],
+      "4": [
+        30,
+        58,
+        36
+      ],
+      "5": [
+        36,
+        54,
+        40
+      ],
+      "6": [
+        21,
+        31,
+        22
+      ],
+      "7": [
+        20,
+        23,
+        21
+      ],
+      "8+": [
+        17,
+        21,
+        18
+      ]
+    },
+    "sentences": [
+      {
+        "text": "Zürafa uzun boyunlu bir hayvandır.",
+        "hit1": 4,
+        "n": 10,
+        "top1": 0.4
+      },
+      {
+        "text": "Yunus bir hayvandır ve yüzer.",
+        "hit1": 5,
+        "n": 9,
+        "top1": 0.5555555555555556
+      },
+      {
+        "text": "Gül bir çiçektir.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Akciğer nefes almamızı sağlar.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Uyku belleği pekiştirir.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Biyoloji bir bilimdir.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Ses boşlukta yayılmaz.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Oksijen bir gazdır.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "DNA kalıtımı taşır.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Antibiyotik bakteri enfeksiyonu için kullanılır.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Satürn'ün halkası vardır.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Deniz suyu tuzludur.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Deprem yer kabuğunun kırılmasıyla olur.",
+        "hit1": 2,
+        "n": 9,
+        "top1": 0.2222222222222222
+      },
+      {
+        "text": "İstanbul bir şehirdir ve boğazı vardır.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Van Gölü bir göldür.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Yazılım bir programdır.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Pil enerji depolamak için kullanılır.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Çay bir içecektir.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Mutfak bir odadır.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Kitap okumak için kullanılır.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Dostluk güven demektir.",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Mutluluk bir duygudur.",
+        "hit1": 5,
+        "n": 6,
+        "top1": 0.8333333333333334
+      },
+      {
+        "text": "Merak bir duygudur.",
+        "hit1": 5,
+        "n": 6,
+        "top1": 0.8333333333333334
+      },
+      {
+        "text": "Temizlik sağlık için kullanılır.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Üçgen bir geometrik şekildir.",
+        "hit1": 5,
+        "n": 7,
+        "top1": 0.7142857142857143
+      },
+      {
+        "text": "Kuvvet bir niceliktir.",
+        "hit1": 5,
+        "n": 7,
+        "top1": 0.7142857142857143
+      },
+      {
+        "text": "Görelilik bir fizik kuramıdır.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "İyiyim, sen nasılsın?",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Dinlenmek iyi gelir.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Bu akşam film izleyelim mi?",
+        "hit1": 3,
+        "n": 9,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "O zaman erken yatalım.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Sınavım var, çok heyecanlıyım.",
+        "hit1": 4,
+        "n": 9,
+        "top1": 0.4444444444444444
+      },
+      {
+        "text": "Biraz karanlıkta uzan, iyi gelir.",
+        "hit1": 2,
+        "n": 9,
+        "top1": 0.2222222222222222
+      },
+      {
+        "text": "Bugün çok güzel bir gün geçirdim.",
+        "hit1": 5,
+        "n": 8,
+        "top1": 0.625
+      },
+      {
+        "text": "Ben de yürümeyi severim.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Deniz neden tuzlu?",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Uyku belleği güçlendirir ve bedeni onarır.",
+        "hit1": 3,
+        "n": 12,
+        "top1": 0.25
+      },
+      {
+        "text": "Bir sorunum var, dinler misin?",
+        "hit1": 4,
+        "n": 8,
+        "top1": 0.5
+      },
+      {
+        "text": "Hayırlı olsun, nasıl gidiyor?",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Bana bir hikâye anlat.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Bu cümleyi ilk kez duyuyorum, anlat.",
+        "hit1": 2,
+        "n": 9,
+        "top1": 0.2222222222222222
+      },
+      {
+        "text": "Yarın tatile çıkıyorum.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Ona iyi gelmiş olmalı.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Ödevi yarına yetiştirmem lazım.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Bir şey sormak istiyorum.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Korku çalışmanın gölgesi, nefes al.",
+        "hit1": 3,
+        "n": 9,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Bana bir şaka yap.",
+        "hit1": 1,
+        "n": 6,
+        "top1": 0.16666666666666666
+      },
+      {
+        "text": "Elinin altında ne varsa onunla başla.",
+        "hit1": 3,
+        "n": 10,
+        "top1": 0.3
+      },
+      {
+        "text": "Sana bir sır vereceğim.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Nereden başlardın?",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Kendimi çok şanslı hissediyorum.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Tabii, yarın görüşürüz.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Kafam karışık.",
+        "hit1": 1,
+        "n": 5,
+        "top1": 0.2
+      },
+      {
+        "text": "En önemlisini seç, gerisi bekleyebilir.",
+        "hit1": 2,
+        "n": 12,
+        "top1": 0.16666666666666666
+      },
+      {
+        "text": "Senin adın ne?",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Konuşmayı ve öğrenmeyi severim.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Bugün bir hata yaptım.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Bunu duymak güzel, ben de seni seviyorum.",
+        "hit1": 2,
+        "n": 10,
+        "top1": 0.2
+      }
+    ],
+    "hit1": 165,
+    "n": 419
+  },
+  {
+    "fold": 2,
+    "variant": "cw",
+    "positions": {
+      "0": [
+        2,
+        58,
+        5
+      ],
+      "1": [
+        11,
+        58,
+        18
+      ],
+      "2": [
+        8,
+        58,
+        17
+      ],
+      "3": [
+        20,
+        58,
+        27
+      ],
+      "4": [
+        26,
+        58,
+        31
+      ],
+      "5": [
+        36,
+        54,
+        38
+      ],
+      "6": [
+        20,
+        31,
+        24
+      ],
+      "7": [
+        19,
+        23,
+        21
+      ],
+      "8+": [
+        16,
+        21,
+        17
+      ]
+    },
+    "sentences": [
+      {
+        "text": "Zürafa uzun boyunlu bir hayvandır.",
+        "hit1": 4,
+        "n": 10,
+        "top1": 0.4
+      },
+      {
+        "text": "Yunus bir hayvandır ve yüzer.",
+        "hit1": 4,
+        "n": 9,
+        "top1": 0.4444444444444444
+      },
+      {
+        "text": "Gül bir çiçektir.",
+        "hit1": 1,
+        "n": 6,
+        "top1": 0.16666666666666666
+      },
+      {
+        "text": "Akciğer nefes almamızı sağlar.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Uyku belleği pekiştirir.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Biyoloji bir bilimdir.",
+        "hit1": 5,
+        "n": 6,
+        "top1": 0.8333333333333334
+      },
+      {
+        "text": "Ses boşlukta yayılmaz.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Oksijen bir gazdır.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "DNA kalıtımı taşır.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Antibiyotik bakteri enfeksiyonu için kullanılır.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Satürn'ün halkası vardır.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Deniz suyu tuzludur.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Deprem yer kabuğunun kırılmasıyla olur.",
+        "hit1": 2,
+        "n": 9,
+        "top1": 0.2222222222222222
+      },
+      {
+        "text": "İstanbul bir şehirdir ve boğazı vardır.",
+        "hit1": 4,
+        "n": 8,
+        "top1": 0.5
+      },
+      {
+        "text": "Van Gölü bir göldür.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Yazılım bir programdır.",
+        "hit1": 1,
+        "n": 6,
+        "top1": 0.16666666666666666
+      },
+      {
+        "text": "Pil enerji depolamak için kullanılır.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Çay bir içecektir.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Mutfak bir odadır.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Kitap okumak için kullanılır.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Dostluk güven demektir.",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Mutluluk bir duygudur.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Merak bir duygudur.",
+        "hit1": 5,
+        "n": 6,
+        "top1": 0.8333333333333334
+      },
+      {
+        "text": "Temizlik sağlık için kullanılır.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Üçgen bir geometrik şekildir.",
+        "hit1": 5,
+        "n": 7,
+        "top1": 0.7142857142857143
+      },
+      {
+        "text": "Kuvvet bir niceliktir.",
+        "hit1": 5,
+        "n": 7,
+        "top1": 0.7142857142857143
+      },
+      {
+        "text": "Görelilik bir fizik kuramıdır.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "İyiyim, sen nasılsın?",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Dinlenmek iyi gelir.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Bu akşam film izleyelim mi?",
+        "hit1": 4,
+        "n": 9,
+        "top1": 0.4444444444444444
+      },
+      {
+        "text": "O zaman erken yatalım.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Sınavım var, çok heyecanlıyım.",
+        "hit1": 4,
+        "n": 9,
+        "top1": 0.4444444444444444
+      },
+      {
+        "text": "Biraz karanlıkta uzan, iyi gelir.",
+        "hit1": 2,
+        "n": 9,
+        "top1": 0.2222222222222222
+      },
+      {
+        "text": "Bugün çok güzel bir gün geçirdim.",
+        "hit1": 4,
+        "n": 8,
+        "top1": 0.5
+      },
+      {
+        "text": "Ben de yürümeyi severim.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Deniz neden tuzlu?",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Uyku belleği güçlendirir ve bedeni onarır.",
+        "hit1": 2,
+        "n": 12,
+        "top1": 0.16666666666666666
+      },
+      {
+        "text": "Bir sorunum var, dinler misin?",
+        "hit1": 4,
+        "n": 8,
+        "top1": 0.5
+      },
+      {
+        "text": "Hayırlı olsun, nasıl gidiyor?",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Bana bir hikâye anlat.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Bu cümleyi ilk kez duyuyorum, anlat.",
+        "hit1": 2,
+        "n": 9,
+        "top1": 0.2222222222222222
+      },
+      {
+        "text": "Yarın tatile çıkıyorum.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Ona iyi gelmiş olmalı.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Ödevi yarına yetiştirmem lazım.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Bir şey sormak istiyorum.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Korku çalışmanın gölgesi, nefes al.",
+        "hit1": 3,
+        "n": 9,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Bana bir şaka yap.",
+        "hit1": 1,
+        "n": 6,
+        "top1": 0.16666666666666666
+      },
+      {
+        "text": "Elinin altında ne varsa onunla başla.",
+        "hit1": 2,
+        "n": 10,
+        "top1": 0.2
+      },
+      {
+        "text": "Sana bir sır vereceğim.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Nereden başlardın?",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Kendimi çok şanslı hissediyorum.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Tabii, yarın görüşürüz.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Kafam karışık.",
+        "hit1": 1,
+        "n": 5,
+        "top1": 0.2
+      },
+      {
+        "text": "En önemlisini seç, gerisi bekleyebilir.",
+        "hit1": 1,
+        "n": 12,
+        "top1": 0.08333333333333333
+      },
+      {
+        "text": "Senin adın ne?",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Konuşmayı ve öğrenmeyi severim.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Bugün bir hata yaptım.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Bunu duymak güzel, ben de seni seviyorum.",
+        "hit1": 2,
+        "n": 10,
+        "top1": 0.2
+      }
+    ],
+    "hit1": 158,
+    "n": 419
+  },
+  {
+    "fold": 2,
+    "variant": "e",
+    "positions": {
+      "0": [
+        2,
+        58,
+        5
+      ],
+      "1": [
+        9,
+        58,
+        17
+      ],
+      "2": [
+        3,
+        58,
+        4
+      ],
+      "3": [
+        5,
+        58,
+        18
+      ],
+      "4": [
+        27,
+        58,
+        30
+      ],
+      "5": [
+        33,
+        54,
+        37
+      ],
+      "6": [
+        20,
+        31,
+        20
+      ],
+      "7": [
+        18,
+        23,
+        18
+      ],
+      "8+": [
+        15,
+        21,
+        18
+      ]
+    },
+    "sentences": [
+      {
+        "text": "Zürafa uzun boyunlu bir hayvandır.",
+        "hit1": 3,
+        "n": 10,
+        "top1": 0.3
+      },
+      {
+        "text": "Yunus bir hayvandır ve yüzer.",
+        "hit1": 2,
+        "n": 9,
+        "top1": 0.2222222222222222
+      },
+      {
+        "text": "Gül bir çiçektir.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Akciğer nefes almamızı sağlar.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Uyku belleği pekiştirir.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Biyoloji bir bilimdir.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Ses boşlukta yayılmaz.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Oksijen bir gazdır.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "DNA kalıtımı taşır.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Antibiyotik bakteri enfeksiyonu için kullanılır.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Satürn'ün halkası vardır.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Deniz suyu tuzludur.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Deprem yer kabuğunun kırılmasıyla olur.",
+        "hit1": 3,
+        "n": 9,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "İstanbul bir şehirdir ve boğazı vardır.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Van Gölü bir göldür.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Yazılım bir programdır.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Pil enerji depolamak için kullanılır.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Çay bir içecektir.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Mutfak bir odadır.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Kitap okumak için kullanılır.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Dostluk güven demektir.",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Mutluluk bir duygudur.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Merak bir duygudur.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Temizlik sağlık için kullanılır.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Üçgen bir geometrik şekildir.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Kuvvet bir niceliktir.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Görelilik bir fizik kuramıdır.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "İyiyim, sen nasılsın?",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Dinlenmek iyi gelir.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Bu akşam film izleyelim mi?",
+        "hit1": 4,
+        "n": 9,
+        "top1": 0.4444444444444444
+      },
+      {
+        "text": "O zaman erken yatalım.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Sınavım var, çok heyecanlıyım.",
+        "hit1": 2,
+        "n": 9,
+        "top1": 0.2222222222222222
+      },
+      {
+        "text": "Biraz karanlıkta uzan, iyi gelir.",
+        "hit1": 2,
+        "n": 9,
+        "top1": 0.2222222222222222
+      },
+      {
+        "text": "Bugün çok güzel bir gün geçirdim.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Ben de yürümeyi severim.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Deniz neden tuzlu?",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Uyku belleği güçlendirir ve bedeni onarır.",
+        "hit1": 3,
+        "n": 12,
+        "top1": 0.25
+      },
+      {
+        "text": "Bir sorunum var, dinler misin?",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Hayırlı olsun, nasıl gidiyor?",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Bana bir hikâye anlat.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Bu cümleyi ilk kez duyuyorum, anlat.",
+        "hit1": 3,
+        "n": 9,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yarın tatile çıkıyorum.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Ona iyi gelmiş olmalı.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Ödevi yarına yetiştirmem lazım.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Bir şey sormak istiyorum.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Korku çalışmanın gölgesi, nefes al.",
+        "hit1": 2,
+        "n": 9,
+        "top1": 0.2222222222222222
+      },
+      {
+        "text": "Bana bir şaka yap.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Elinin altında ne varsa onunla başla.",
+        "hit1": 1,
+        "n": 10,
+        "top1": 0.1
+      },
+      {
+        "text": "Sana bir sır vereceğim.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Nereden başlardın?",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Kendimi çok şanslı hissediyorum.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Tabii, yarın görüşürüz.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Kafam karışık.",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "En önemlisini seç, gerisi bekleyebilir.",
+        "hit1": 1,
+        "n": 12,
+        "top1": 0.08333333333333333
+      },
+      {
+        "text": "Senin adın ne?",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Konuşmayı ve öğrenmeyi severim.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Bugün bir hata yaptım.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Bunu duymak güzel, ben de seni seviyorum.",
+        "hit1": 3,
+        "n": 10,
+        "top1": 0.3
+      }
+    ],
+    "hit1": 132,
+    "n": 419
+  },
+  {
+    "fold": 2,
+    "variant": "b",
+    "positions": {
+      "0": [
+        2,
+        58,
+        5
+      ],
+      "1": [
+        5,
+        58,
+        6
+      ],
+      "2": [
+        2,
+        58,
+        6
+      ],
+      "3": [
+        6,
+        58,
+        15
+      ],
+      "4": [
+        27,
+        58,
+        31
+      ],
+      "5": [
+        32,
+        54,
+        35
+      ],
+      "6": [
+        19,
+        31,
+        20
+      ],
+      "7": [
+        18,
+        23,
+        20
+      ],
+      "8+": [
+        17,
+        21,
+        17
+      ]
+    },
+    "sentences": [
+      {
+        "text": "Zürafa uzun boyunlu bir hayvandır.",
+        "hit1": 2,
+        "n": 10,
+        "top1": 0.2
+      },
+      {
+        "text": "Yunus bir hayvandır ve yüzer.",
+        "hit1": 2,
+        "n": 9,
+        "top1": 0.2222222222222222
+      },
+      {
+        "text": "Gül bir çiçektir.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Akciğer nefes almamızı sağlar.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Uyku belleği pekiştirir.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Biyoloji bir bilimdir.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Ses boşlukta yayılmaz.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Oksijen bir gazdır.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "DNA kalıtımı taşır.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Antibiyotik bakteri enfeksiyonu için kullanılır.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Satürn'ün halkası vardır.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Deniz suyu tuzludur.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Deprem yer kabuğunun kırılmasıyla olur.",
+        "hit1": 2,
+        "n": 9,
+        "top1": 0.2222222222222222
+      },
+      {
+        "text": "İstanbul bir şehirdir ve boğazı vardır.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Van Gölü bir göldür.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Yazılım bir programdır.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Pil enerji depolamak için kullanılır.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Çay bir içecektir.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Mutfak bir odadır.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Kitap okumak için kullanılır.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Dostluk güven demektir.",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Mutluluk bir duygudur.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Merak bir duygudur.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Temizlik sağlık için kullanılır.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Üçgen bir geometrik şekildir.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Kuvvet bir niceliktir.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Görelilik bir fizik kuramıdır.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "İyiyim, sen nasılsın?",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Dinlenmek iyi gelir.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Bu akşam film izleyelim mi?",
+        "hit1": 4,
+        "n": 9,
+        "top1": 0.4444444444444444
+      },
+      {
+        "text": "O zaman erken yatalım.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Sınavım var, çok heyecanlıyım.",
+        "hit1": 3,
+        "n": 9,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Biraz karanlıkta uzan, iyi gelir.",
+        "hit1": 2,
+        "n": 9,
+        "top1": 0.2222222222222222
+      },
+      {
+        "text": "Bugün çok güzel bir gün geçirdim.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Ben de yürümeyi severim.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Deniz neden tuzlu?",
+        "hit1": 1,
+        "n": 5,
+        "top1": 0.2
+      },
+      {
+        "text": "Uyku belleği güçlendirir ve bedeni onarır.",
+        "hit1": 2,
+        "n": 12,
+        "top1": 0.16666666666666666
+      },
+      {
+        "text": "Bir sorunum var, dinler misin?",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Hayırlı olsun, nasıl gidiyor?",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Bana bir hikâye anlat.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Bu cümleyi ilk kez duyuyorum, anlat.",
+        "hit1": 3,
+        "n": 9,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Yarın tatile çıkıyorum.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Ona iyi gelmiş olmalı.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Ödevi yarına yetiştirmem lazım.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Bir şey sormak istiyorum.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Korku çalışmanın gölgesi, nefes al.",
+        "hit1": 2,
+        "n": 9,
+        "top1": 0.2222222222222222
+      },
+      {
+        "text": "Bana bir şaka yap.",
+        "hit1": 1,
+        "n": 6,
+        "top1": 0.16666666666666666
+      },
+      {
+        "text": "Elinin altında ne varsa onunla başla.",
+        "hit1": 2,
+        "n": 10,
+        "top1": 0.2
+      },
+      {
+        "text": "Sana bir sır vereceğim.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Nereden başlardın?",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Kendimi çok şanslı hissediyorum.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Tabii, yarın görüşürüz.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Kafam karışık.",
+        "hit1": 3,
+        "n": 5,
+        "top1": 0.6
+      },
+      {
+        "text": "En önemlisini seç, gerisi bekleyebilir.",
+        "hit1": 2,
+        "n": 12,
+        "top1": 0.16666666666666666
+      },
+      {
+        "text": "Senin adın ne?",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Konuşmayı ve öğrenmeyi severim.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Bugün bir hata yaptım.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Bunu duymak güzel, ben de seni seviyorum.",
+        "hit1": 2,
+        "n": 10,
+        "top1": 0.2
+      }
+    ],
+    "hit1": 128,
+    "n": 419
+  },
+  {
+    "fold": 2,
+    "variant": "four_external10",
+    "positions": {
+      "0": [
+        2,
+        58,
+        6
+      ],
+      "1": [
+        14,
+        58,
+        24
+      ],
+      "2": [
+        10,
+        58,
+        15
+      ],
+      "3": [
+        21,
+        58,
+        29
+      ],
+      "4": [
+        32,
+        58,
+        34
+      ],
+      "5": [
+        35,
+        54,
+        39
+      ],
+      "6": [
+        22,
+        31,
+        25
+      ],
+      "7": [
+        20,
+        23,
+        21
+      ],
+      "8+": [
+        17,
+        21,
+        18
+      ]
+    },
+    "sentences": [
+      {
+        "text": "Zürafa uzun boyunlu bir hayvandır.",
+        "hit1": 4,
+        "n": 10,
+        "top1": 0.4
+      },
+      {
+        "text": "Yunus bir hayvandır ve yüzer.",
+        "hit1": 5,
+        "n": 9,
+        "top1": 0.5555555555555556
+      },
+      {
+        "text": "Gül bir çiçektir.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Akciğer nefes almamızı sağlar.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Uyku belleği pekiştirir.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Biyoloji bir bilimdir.",
+        "hit1": 5,
+        "n": 6,
+        "top1": 0.8333333333333334
+      },
+      {
+        "text": "Ses boşlukta yayılmaz.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Oksijen bir gazdır.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "DNA kalıtımı taşır.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Antibiyotik bakteri enfeksiyonu için kullanılır.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Satürn'ün halkası vardır.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Deniz suyu tuzludur.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Deprem yer kabuğunun kırılmasıyla olur.",
+        "hit1": 3,
+        "n": 9,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "İstanbul bir şehirdir ve boğazı vardır.",
+        "hit1": 4,
+        "n": 8,
+        "top1": 0.5
+      },
+      {
+        "text": "Van Gölü bir göldür.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Yazılım bir programdır.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Pil enerji depolamak için kullanılır.",
+        "hit1": 4,
+        "n": 8,
+        "top1": 0.5
+      },
+      {
+        "text": "Çay bir içecektir.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Mutfak bir odadır.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Kitap okumak için kullanılır.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Dostluk güven demektir.",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Mutluluk bir duygudur.",
+        "hit1": 5,
+        "n": 6,
+        "top1": 0.8333333333333334
+      },
+      {
+        "text": "Merak bir duygudur.",
+        "hit1": 5,
+        "n": 6,
+        "top1": 0.8333333333333334
+      },
+      {
+        "text": "Temizlik sağlık için kullanılır.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Üçgen bir geometrik şekildir.",
+        "hit1": 5,
+        "n": 7,
+        "top1": 0.7142857142857143
+      },
+      {
+        "text": "Kuvvet bir niceliktir.",
+        "hit1": 5,
+        "n": 7,
+        "top1": 0.7142857142857143
+      },
+      {
+        "text": "Görelilik bir fizik kuramıdır.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "İyiyim, sen nasılsın?",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Dinlenmek iyi gelir.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Bu akşam film izleyelim mi?",
+        "hit1": 4,
+        "n": 9,
+        "top1": 0.4444444444444444
+      },
+      {
+        "text": "O zaman erken yatalım.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Sınavım var, çok heyecanlıyım.",
+        "hit1": 4,
+        "n": 9,
+        "top1": 0.4444444444444444
+      },
+      {
+        "text": "Biraz karanlıkta uzan, iyi gelir.",
+        "hit1": 2,
+        "n": 9,
+        "top1": 0.2222222222222222
+      },
+      {
+        "text": "Bugün çok güzel bir gün geçirdim.",
+        "hit1": 5,
+        "n": 8,
+        "top1": 0.625
+      },
+      {
+        "text": "Ben de yürümeyi severim.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Deniz neden tuzlu?",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Uyku belleği güçlendirir ve bedeni onarır.",
+        "hit1": 3,
+        "n": 12,
+        "top1": 0.25
+      },
+      {
+        "text": "Bir sorunum var, dinler misin?",
+        "hit1": 4,
+        "n": 8,
+        "top1": 0.5
+      },
+      {
+        "text": "Hayırlı olsun, nasıl gidiyor?",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Bana bir hikâye anlat.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Bu cümleyi ilk kez duyuyorum, anlat.",
+        "hit1": 2,
+        "n": 9,
+        "top1": 0.2222222222222222
+      },
+      {
+        "text": "Yarın tatile çıkıyorum.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Ona iyi gelmiş olmalı.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Ödevi yarına yetiştirmem lazım.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Bir şey sormak istiyorum.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Korku çalışmanın gölgesi, nefes al.",
+        "hit1": 3,
+        "n": 9,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Bana bir şaka yap.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Elinin altında ne varsa onunla başla.",
+        "hit1": 3,
+        "n": 10,
+        "top1": 0.3
+      },
+      {
+        "text": "Sana bir sır vereceğim.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Nereden başlardın?",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Kendimi çok şanslı hissediyorum.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Tabii, yarın görüşürüz.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Kafam karışık.",
+        "hit1": 1,
+        "n": 5,
+        "top1": 0.2
+      },
+      {
+        "text": "En önemlisini seç, gerisi bekleyebilir.",
+        "hit1": 2,
+        "n": 12,
+        "top1": 0.16666666666666666
+      },
+      {
+        "text": "Senin adın ne?",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Konuşmayı ve öğrenmeyi severim.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Bugün bir hata yaptım.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Bunu duymak güzel, ben de seni seviyorum.",
+        "hit1": 2,
+        "n": 10,
+        "top1": 0.2
+      }
+    ],
+    "hit1": 173,
+    "n": 419
+  },
+  {
+    "fold": 2,
+    "variant": "clean_external20",
+    "positions": {
+      "0": [
+        2,
+        58,
+        6
+      ],
+      "1": [
+        12,
+        58,
+        23
+      ],
+      "2": [
+        8,
+        58,
+        13
+      ],
+      "3": [
+        21,
+        58,
+        28
+      ],
+      "4": [
+        31,
+        58,
+        35
+      ],
+      "5": [
+        36,
+        54,
+        39
+      ],
+      "6": [
+        21,
+        31,
+        23
+      ],
+      "7": [
+        20,
+        23,
+        21
+      ],
+      "8+": [
+        16,
+        21,
+        18
+      ]
+    },
+    "sentences": [
+      {
+        "text": "Zürafa uzun boyunlu bir hayvandır.",
+        "hit1": 4,
+        "n": 10,
+        "top1": 0.4
+      },
+      {
+        "text": "Yunus bir hayvandır ve yüzer.",
+        "hit1": 5,
+        "n": 9,
+        "top1": 0.5555555555555556
+      },
+      {
+        "text": "Gül bir çiçektir.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Akciğer nefes almamızı sağlar.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Uyku belleği pekiştirir.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Biyoloji bir bilimdir.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Ses boşlukta yayılmaz.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Oksijen bir gazdır.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "DNA kalıtımı taşır.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Antibiyotik bakteri enfeksiyonu için kullanılır.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Satürn'ün halkası vardır.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Deniz suyu tuzludur.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Deprem yer kabuğunun kırılmasıyla olur.",
+        "hit1": 2,
+        "n": 9,
+        "top1": 0.2222222222222222
+      },
+      {
+        "text": "İstanbul bir şehirdir ve boğazı vardır.",
+        "hit1": 4,
+        "n": 8,
+        "top1": 0.5
+      },
+      {
+        "text": "Van Gölü bir göldür.",
+        "hit1": 3,
+        "n": 7,
+        "top1": 0.42857142857142855
+      },
+      {
+        "text": "Yazılım bir programdır.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Pil enerji depolamak için kullanılır.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Çay bir içecektir.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Mutfak bir odadır.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Kitap okumak için kullanılır.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Dostluk güven demektir.",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Mutluluk bir duygudur.",
+        "hit1": 5,
+        "n": 6,
+        "top1": 0.8333333333333334
+      },
+      {
+        "text": "Merak bir duygudur.",
+        "hit1": 5,
+        "n": 6,
+        "top1": 0.8333333333333334
+      },
+      {
+        "text": "Temizlik sağlık için kullanılır.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Üçgen bir geometrik şekildir.",
+        "hit1": 5,
+        "n": 7,
+        "top1": 0.7142857142857143
+      },
+      {
+        "text": "Kuvvet bir niceliktir.",
+        "hit1": 5,
+        "n": 7,
+        "top1": 0.7142857142857143
+      },
+      {
+        "text": "Görelilik bir fizik kuramıdır.",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "İyiyim, sen nasılsın?",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Dinlenmek iyi gelir.",
+        "hit1": 4,
+        "n": 6,
+        "top1": 0.6666666666666666
+      },
+      {
+        "text": "Bu akşam film izleyelim mi?",
+        "hit1": 4,
+        "n": 9,
+        "top1": 0.4444444444444444
+      },
+      {
+        "text": "O zaman erken yatalım.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Sınavım var, çok heyecanlıyım.",
+        "hit1": 4,
+        "n": 9,
+        "top1": 0.4444444444444444
+      },
+      {
+        "text": "Biraz karanlıkta uzan, iyi gelir.",
+        "hit1": 2,
+        "n": 9,
+        "top1": 0.2222222222222222
+      },
+      {
+        "text": "Bugün çok güzel bir gün geçirdim.",
+        "hit1": 5,
+        "n": 8,
+        "top1": 0.625
+      },
+      {
+        "text": "Ben de yürümeyi severim.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Deniz neden tuzlu?",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Uyku belleği güçlendirir ve bedeni onarır.",
+        "hit1": 3,
+        "n": 12,
+        "top1": 0.25
+      },
+      {
+        "text": "Bir sorunum var, dinler misin?",
+        "hit1": 4,
+        "n": 8,
+        "top1": 0.5
+      },
+      {
+        "text": "Hayırlı olsun, nasıl gidiyor?",
+        "hit1": 3,
+        "n": 8,
+        "top1": 0.375
+      },
+      {
+        "text": "Bana bir hikâye anlat.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Bu cümleyi ilk kez duyuyorum, anlat.",
+        "hit1": 2,
+        "n": 9,
+        "top1": 0.2222222222222222
+      },
+      {
+        "text": "Yarın tatile çıkıyorum.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Ona iyi gelmiş olmalı.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Ödevi yarına yetiştirmem lazım.",
+        "hit1": 2,
+        "n": 8,
+        "top1": 0.25
+      },
+      {
+        "text": "Bir şey sormak istiyorum.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Korku çalışmanın gölgesi, nefes al.",
+        "hit1": 3,
+        "n": 9,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Bana bir şaka yap.",
+        "hit1": 1,
+        "n": 6,
+        "top1": 0.16666666666666666
+      },
+      {
+        "text": "Elinin altında ne varsa onunla başla.",
+        "hit1": 3,
+        "n": 10,
+        "top1": 0.3
+      },
+      {
+        "text": "Sana bir sır vereceğim.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Nereden başlardın?",
+        "hit1": 2,
+        "n": 5,
+        "top1": 0.4
+      },
+      {
+        "text": "Kendimi çok şanslı hissediyorum.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Tabii, yarın görüşürüz.",
+        "hit1": 2,
+        "n": 6,
+        "top1": 0.3333333333333333
+      },
+      {
+        "text": "Kafam karışık.",
+        "hit1": 1,
+        "n": 5,
+        "top1": 0.2
+      },
+      {
+        "text": "En önemlisini seç, gerisi bekleyebilir.",
+        "hit1": 1,
+        "n": 12,
+        "top1": 0.08333333333333333
+      },
+      {
+        "text": "Senin adın ne?",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Konuşmayı ve öğrenmeyi severim.",
+        "hit1": 2,
+        "n": 7,
+        "top1": 0.2857142857142857
+      },
+      {
+        "text": "Bugün bir hata yaptım.",
+        "hit1": 3,
+        "n": 6,
+        "top1": 0.5
+      },
+      {
+        "text": "Bunu duymak güzel, ben de seni seviyorum.",
+        "hit1": 2,
+        "n": 10,
+        "top1": 0.2
+      }
+    ],
+    "hit1": 167,
+    "n": 419
+  }
+]

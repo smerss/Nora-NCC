@@ -1403,9 +1403,75 @@ def a42_cross_verification_hypothesis_pool():
     agi.autonomous_research(fetchers=[("web:tdk.gov.tr", f)])
     in_graph_2 = bool(agi.lang.graph._out_edges.get("magnetar"))
     water_poisoned = any(e.obj in ("zararlı",) for e in agi.lang.graph._out_edges.get("su", []))
-    ok = (not in_graph_1) and trace1 is not None and (not in_graph_same_domain) and in_graph_2 and (not water_poisoned)
+
+    # Gerçek ağ gerektirmeyen kaynak akışı: alan dengesi, Türkçe filtre, yeni
+    # bölüme ilerleme, disk cache ve sayaç kalıcılığı birlikte denetlenir.
+    import json
+    from nora_life import TurkishResearchStream
+    tr_chunks = [
+        "Bilgisayar bilimi verileri işlemek için algoritmalar ve veri yapıları kullanır.",
+        "Kuantum bilgisayarlar kübitlerle hesaplama yapar ve dolanıklık kullanır.",
+        "Bu kaynak Türkçe öğrenme için yeni bir açıklama ve ek ayrıntı içerir.",
+        "Araştırma sırasında elde edilen bilgiler bağımsız kaynaklarla doğrulanmalıdır.",
+        "Yazılım ve donanım birlikte çalışarak bilgisayarın temel işlevlerini oluşturur.",
+        "Dolanıklık ve süperpozisyon kuantum sistemlerinin önemli özellikleri arasındadır.",
+        "Fizik ve enerji araştırmaları doğadaki kuvvetleri ve atomları anlamaya yardımcı olur.",
+        "Matematik ve geometri derslerinde sayı, denklem ve teorem kavramları birlikte öğrenilir.",
+        "Tarih araştırmalarında imparatorluk, savaş ve yüzyıl kavramları kaynaklarla incelenir.",
+        "Coğrafya derslerinde ülke, şehir, iklim, nehir ve dağ kavramları birlikte ele alınır.",
+    ]
+
+    def fake_source(url):
+        if "lessons.json" in url:
+            titles = ("Bilgisayar ve Yazılım", "Kuantum Hesaplama", "Biyoloji ve Genom",
+                      "Fizik ve Enerji", "Matematik", "Tarih", "Coğrafya")
+            modules = [{"title_tr": title, "desc_tr": title + " için temel bilgiler ve açıklamalar.",
+                        "lessons": [{"title_tr": title, "eli5_tr": "\n".join(tr_chunks),
+                                     "deep_tr": "Bu alan için ek açıklamalar ve yeni örnekler vardır."}]}
+                       for title in titles]
+            return json.dumps({"modules": modules})
+        if ".ipynb" in url:
+            return json.dumps({"cells": [{"cell_type": "markdown", "source": "\n".join(tr_chunks)
+                                           + "\n$$|\\Psi\\rangle = |00\\rangle + |11\\rangle$$"
+                                           + "\nKuantum açıklaması denklem sonrasında da Türkçe ve okunabilir kalmalıdır."
+                                           + "\nThis is only an English sentence and must be filtered."}]})
+        return "\n".join(tr_chunks)
+
+    with tempfile.TemporaryDirectory(prefix="nora-research-stream-") as td:
+        stream = TurkishResearchStream(cache_dir=td, fetcher=fake_source)
+        chunks = []
+        for _ in range(21):
+            rec = stream.read_balanced(max_sentences=2)
+            chunks.append(str(rec.get("text", "")))
+        coverage = dict(stream.coverage)
+        state = stream.state_dict()
+        offline = TurkishResearchStream(
+            cache_dir=td, fetcher=lambda _url: (_ for _ in ()).throw(RuntimeError("ağ yasak")))
+        cached = offline.read(topic="bilgisayar", max_sentences=2)
+        offline.load_state_dict(state)
+        persistence_ok = offline.coverage == stream.coverage and offline.offsets == stream.offsets
+        agi.life.research_stream = stream
+        heard_before = agi.life.voice.heard_tokens
+        life_rec = agi.life.research_balanced(agi, max_sentences=2)
+        life_ok = (life_rec.get("ok") and life_rec.get("epistemic_status") == "provisional"
+                   and life_rec.get("promoted") == 0 and agi.life.voice.heard_tokens > heard_before)
+        research_ok = (
+            len(chunks) == 21 and all(chunks) and len(set(chunks)) > 7
+            and coverage.get("computer", 0) > 0 and coverage.get("quantum", 0) > 0
+            and len([a for a, n in coverage.items() if n > 0]) >= 7
+            and all("English sentence" not in text for text in chunks)
+            and all("rangle" not in text and "$$" not in text for text in chunks)
+            and any(n > 2 for n in stream.offsets.values())
+            and cached.get("ok") and cached.get("cached")
+            and persistence_ok and life_ok
+            and all(x.get("archive_url", "").startswith("https://codeload.github.com/")
+                    and "api.github.com" not in x.get("url", "") for x in stream.sources)
+        )
+    ok = ((not in_graph_1) and trace1 is not None and (not in_graph_same_domain) and in_graph_2
+          and (not water_poisoned) and research_ok)
     return ok, (f"tek-kaynak-ağda={in_graph_1} iz={trace1} | aynı-alan-ağda={in_graph_same_domain} | "
-                f"2.bağımsız-kaynak-ağda={in_graph_2} | yalan-reddedildi={not water_poisoned}")
+                f"2.bağımsız-kaynak-ağda={in_graph_2} | yalan-reddedildi={not water_poisoned} | "
+                f"Türkçe-akış={research_ok} yaşam-akışı={life_ok} kapsama={coverage}")
 
 
 def a43_self_completion_drive_social_gap():
@@ -2986,6 +3052,12 @@ def a75_uygulama_operatoru_bind_apply_transfer():
     r_plan = tr_lower(agi.converse("Yedi adımlık bir hedef belirle ve planla."))
     ok["tek-plan"] = (r_plan.count("1.durum") == 1 and "7 adım" in r_plan
                       and "10 adım" not in r_plan)
+
+    # "şu sıralar" bir zaman ifadesidir; "sırala" alt dizgesi komut üretmemeli.
+    small_talk = "Peki şu sıralar aklını en çok ne meşgul ediyor?"
+    ok["sohbet-komut-ayrimi"] = agi._handle_apply_ops(small_talk) is None
+    ordered = agi._handle_apply_ops("3, 1, 2 sayılarını küçükten büyüğe sırala") or ""
+    ok["siralama-komutu-korunur"] = re.findall(r"\d+", ordered) == ["1", "2", "3"]
 
     passed = sum(1 for v in ok.values() if v)
     detail = " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in ok.items())
@@ -5848,6 +5920,8 @@ def a139_bireysel_ve_tekrarda_degisen_oz_durum_soylemi():
     heldout_routes = (
         ("Moralin nasıl?", True),
         ("Bugün kendini iyi hissediyor musun?", True),
+        ("Sen beni dinlerken ne hissediyorsun?", True),
+        ("Beni hissettin mi?", False),
         ("Benim keyfim yerinde mi?", False),
         ("Onun keyfi yerinde mi?", False),
     )
@@ -5977,6 +6051,130 @@ def a139_bireysel_ve_tekrarda_degisen_oz_durum_soylemi():
     )
     mutters = [infer.style._own_mutter(infer) for _ in range(12)]
     ok["mirildanma-cercevesiz"] = all("içimden" not in tr_lower(m) for m in mutters)
+
+    # Zamirli takip, önceki söz edimine bağlanır; bilinmeyen nesne veya sıralama
+    # komutu olarak yeniden yorumlanmaz.
+    context = fixture(781, "context-followup")
+    thought = context.converse("Peki şu sıralar aklını en çok ne meşgul ediyor?", speaker="ses-1")
+    followup = context.converse("Bunu biraz açar mısın? Sana bunu düşündüren ne oldu?", speaker="ses-1")
+    acts = [str(h.get("act", "")) for h in context.deliberation.history]
+    ok["sohbet-baglam-takibi"] = (
+        acts == ["thought", "meta", "meta"]
+        and "sıra şu" not in tr_lower(thought)
+        and "bilmiyorum" not in tr_lower(followup)
+        and "merak" in tr_lower(followup)
+    )
+
+    # Karşıtlıklı yaşantı iki ayrı olaydır; sonraki öz-durum sorusu ilk cümleyi yutamaz.
+    experience = fixture(782, "experience-recall")
+    lived = experience.converse(
+        "Bugün biraz yorucu geçti ama seninle konuşmak iyi geldi. "
+        "Sen beni dinlerken ne hissediyorsun?", speaker="ses-1"
+    )
+    lived_low = tr_lower(lived)
+    role_u = experience.broca_organ.comprehend_discourse(
+        "Bugün biraz yorucu geçti ama seninle konuşmak iyi geldi.",
+        "bugün biraz yorucu geçti ama seninle konuşmak iyi geldi.",
+        experience.lang.morph, experience.lang.graph.lexicon,
+    )
+    role_ev = next(ev for ev in role_u["affect_events"] if ev.get("kind") == "relief")
+    ok["karsit-yasanti-anlami"] = (
+        "yorucu" in lived_low and "benimle konuşmanın" in lived_low
+        and "seninle konuşmanın" not in lived_low
+        and role_ev.get("cause_roles", {}).get("seninle") == "addressee"
+        and role_ev.get("deictic_scope") == "direct_dialogue"
+        and "SELF_STATE" in (experience.broca_organ.last_speech_plan.get("volition_acts", []) or [])
+    )
+    day = tr_lower(experience.converse("Günüm nasıl geçmişti?", speaker="ses-1"))
+    day_trace = dict(getattr(experience.broca_organ, "last_experience_recall", {}) or {})
+    effect = tr_lower(experience.converse(
+        "Seninle konuşmak bana nasıl hissettirdi?", speaker="ses-1"
+    ))
+    effect_trace = dict(getattr(experience.broca_organ, "last_experience_recall", {}) or {})
+    ok["yasanti-bellek-geri-cagirma"] = (
+        all(x in day for x in ("günün", "yorucu", "geçti"))
+        and "benimle konuşman sana iyi geldi" in effect
+        and "seninle konuşma" not in effect
+        and day_trace.get("kind") == "past_state" and day_trace.get("found")
+        and effect_trace.get("kind") == "felt_effect" and effect_trace.get("found")
+        and day_trace.get("turn_id") == effect_trace.get("turn_id")
+        and len(experience.broca_organ.episodic.episodes) == 1
+    )
+    natural_memory = tr_lower(experience.converse(
+        "Biraz önce sana ne anlatmıştım?", speaker="ses-1"
+    ))
+    ok["dogal-ve-rolu-dogru-yasanti-anisi"] = (
+        all(x in natural_memory for x in (
+            "az önce", "günün yorucu geçtiğini", "benimle konuşmanın", "anlatmışsın",
+        ))
+        and "seninle konuşmanın" not in natural_memory
+        and "turda" not in natural_memory and "1." not in natural_memory
+        and len(experience.broca_organ.episodic.episodes) == 1
+    )
+    # Hedef cümlede bulunmayan duygu, zaman ve neden öbeğiyle bağımsız parafraz.
+    paraphrase = fixture(785, "experience-paraphrase")
+    para_lived = tr_lower(paraphrase.converse(
+        "Dün gecem gergin geçti fakat sohbetimiz çok iyi geldi. "
+        "Sen beni dinlerken ne hissediyorsun?", speaker="ses-1"
+    ))
+    para_day = tr_lower(paraphrase.converse("Gecem nasıl geçmişti?", speaker="ses-1"))
+    para_day_trace = dict(getattr(paraphrase.broca_organ, "last_experience_recall", {}) or {})
+    para_effect = tr_lower(paraphrase.converse(
+        "Seninle konuşmak bana nasıl hissettirdi?", speaker="ses-1"
+    ))
+    ok["parafraz-yasanti-genellemesi"] = (
+        "gergin" in para_lived and "sohbetimizin sana iyi geldiğine" in para_lived
+        and all(x in para_day for x in ("gecen", "gergin", "geçti"))
+        and "sohbetimiz sana iyi geldi" in para_effect
+        and para_day_trace.get("cue") == "gergin"
+        and para_day_trace.get("kind") == "past_state"
+    )
+    article = fixture(786, "reference-scope")
+    article_name = tr_lower(article.converse("Makale Nora’dan bahsetmiyor.", speaker="ses-1"))
+    article_pronoun = tr_lower(article.converse("Makalede senden bahsedilmiyor.", speaker="ses-1"))
+    article_positive = tr_lower(article.converse("Makalede senden bahsediliyor.", speaker="ses-1"))
+    article_other = tr_lower(article.converse("Makalede insanlardan bahsediliyor.", speaker="ses-1"))
+    quoted_raw = "Makalede 'seninle konuşmak iyi geldi' yazıyor."
+    article_quoted = tr_lower(article.converse(quoted_raw, speaker="ses-1"))
+    quoted_u = article.broca_organ.comprehend_discourse(
+        quoted_raw, tr_lower(quoted_raw), article.lang.morph, article.lang.graph.lexicon
+    )
+    quoted_acts = list(article.broca_organ.last_speech_plan.get("volition_acts", []) or [])
+    writing_raw = "Makale yazıyorum."
+    article.converse(writing_raw, speaker="ses-1")
+    writing_u = article.broca_organ.comprehend_discourse(
+        writing_raw, tr_lower(writing_raw), article.lang.morph, article.lang.graph.lexicon
+    )
+    writing_acts = list(article.broca_organ.last_speech_plan.get("volition_acts", []) or [])
+    ok["makale-ve-alinti-gonderge-kapsami"] = (
+        "makalenin benden bahsetmediğini" in article_name
+        and "makalenin benden bahsetmediğini" in article_pronoun
+        and "makalenin benden bahsettiğini" in article_positive
+        and "bu anlatımı kendimle ilişkilendirmiyorum" in article_other
+        and "bu anlatımı kendimle ilişkilendirmiyorum" in article_quoted
+        and "iyi geliyor" not in article_quoted and "içim açıldı" not in article_quoted
+        and quoted_u.get("reference_scope", {}).get("quoted")
+        and not quoted_u.get("affect_events")
+        and "REFERENCE_SCOPE" in quoted_acts
+        and not writing_u.get("reference_scope")
+        and "REFERENCE_SCOPE" not in writing_acts
+    )
+    blank = fixture(783, "experience-empty")
+    blank_day = tr_lower(blank.converse("Günüm nasıl geçmişti?", speaker="ses-1"))
+    blank_effect = tr_lower(blank.converse(
+        "Seninle konuşmak bana nasıl hissettirdi?", speaker="ses-1"
+    ))
+    negative_only = fixture(784, "experience-without-relief")
+    negative_only.converse("Bugün yorucu geçti.", speaker="ses-1")
+    missing_relief = tr_lower(negative_only.converse(
+        "Seninle konuşmak bana nasıl hissettirdi?", speaker="ses-1"
+    ))
+    ok["yasanti-bellek-yoksa-uydurma-yok"] = (
+        "hatırlamıyorum" in blank_day and "hatırlamıyorum" in blank_effect
+        and "yorucu" not in blank_day and "iyi geldi" not in blank_effect
+        and not blank.broca_organ.episodic.episodes
+        and "hatırlamıyorum" in missing_relief and "iyi geldi" not in missing_relief
+    )
 
     passed = sum(bool(v) for v in ok.values())
     detail = (
@@ -6552,6 +6750,143 @@ def a143_otonom_hedef_yasam_dongusu_1000_adim():
                                            if not all(ok.values()) else "")
 
 
+def a144_durumlu_ogretici_diyalog():
+    """Öğrenilmiş bilgiyle kesintisiz öğretmen oturumu; cevap ezberi değil durum+grafik."""
+    from nora_besle import besle
+    agi = NoraAGI(seed=0, boot_thinker=False, code_pretrain=False)
+    besle(agi, verbose=False)
+    prompts = [
+        "Bir konu çalışıyorum. Bana bilgisayarın ne olduğunu öğretir misin?",
+        "Peki algoritma bunun neresinde?",
+        "Bunu 8 ile 9 üzerinden bir örnekle açıklar mısın?",
+        "Algoritma ile yazılım aynı şey mi?",
+        "Bilgisayar algoritmayı nasıl kullanır?",
+        "Veri neden gerekli?",
+        "Yapay zekâ ile normal bir program arasındaki fark ne?",
+        "Bunu kısa bir örnekle karşılaştırır mısın?",
+        "Az önce anlattıklarını unutmadan devam edelim: internet bu sistemin neresinde?",
+        "Bilgisayar tek başına öğrenebilir mi, yoksa veri mi gerekir?",
+        "Bu cevabın önceki veri bilginle tutarlı mı?",
+        "Şimdi bana iki soru sor; bilgimi ölç.",
+        "Cevabım: yapay zekâ öğrenir; internet bilgi paylaşımı ve araştırma için kullanılır. Doğru mu?",
+        "Ben özetleyeyim: bilgisayar hesaplar, algoritma çözüm adımlarını verir, veri öğrenmeyi destekler. Eksik var mı?",
+        "Öğrendiklerimizi üç maddede özetler misin?",
+        "Son olarak kuantum bilgisayarla normal bilgisayar arasındaki ilişkiyi anlatır mısın?",
+        "Bunu yalnız kesin bildiğin kısımlarla anlat; emin olmadığın yerde dur.",
+        "Peki internet ve veri bu sistemde ne için kullanılır?",
+        "Algoritmayı bu kez 4 ile 7 üzerinden kısa bir örnekle açıklar mısın?",
+        "Bence algoritma ile yazılım aynı şey; sence bu öğrendiklerimizle çelişiyor mu?",
+        "Yeni bir soruyla devam edelim: yazılım ne yapar?",
+        "Bunu yapay zekâyla karşılaştırınca temel fark ne oluyor?",
+        "Şimdi bana iki soru sor; bu kez öğrendiklerimi ölç.",
+        "Cevabım: algoritma problemi adım adım çözer; veri öğrenmek için kullanılır. Doğru mu?",
+        "Ben de dört bağ kuruyorum: bilgisayar hesaplar, algoritma çözüm verir, veri öğrenmeyi destekler, yapay zekâ öğrenir. Özetimde eksik var mı?",
+        "Bugün öğrendiklerimizi dört maddede özetler misin?",
+        "Bugünkü çalışmamızı doğal bir sonla toparla.",
+    ]
+    replies, traces = [], []
+    for prompt in prompts:
+        replies.append(tr_lower(agi.converse(prompt)))
+        traces.append(dict(agi.broca_organ.last_speech_plan.get("tutorial_trace", {}) or {}))
+    ok = {}
+    ok["butun-turlar-izli"] = all(
+        trace.get("session_turn") == index for index, trace in enumerate(traces, 1))
+    ok["temel-kavram"] = all(word in replies[0] for word in ("bilgisayar", "makine", "hesaplama"))
+    ok["baglam-takip"] = all(word in replies[1] for word in ("algoritma", "bilgisayar", "adım"))
+    ok["yeni-aritmetik-oracle"] = "17" in replies[2] and "8" in replies[2] and "9" in replies[2]
+    ok["kavram-ayrimi"] = "aynı kavram değil" in replies[3] and "yazılım" in replies[3]
+    ok["veri-ogrenme"] = "veri" in replies[5] and "öğren" in replies[5]
+    ok["yetenek-genelleme-yok"] = "öğrenebilir" in replies[6] and "sınırl" in replies[6]
+    ok["quiz-bir"] = traces[11].get("quiz_pending") and "yapay zekâ" in replies[11] and "internet" in replies[11]
+    ok["quiz-degerlendirme"] = replies[12].startswith("evet") and "uyumlu" in replies[12]
+    ok["ogrenci-ozeti"] = "çelişmiyor" in replies[13]
+    ok["nora-ozeti"] = len(replies[14].splitlines()) == 3 and "veri" in replies[14]
+    ok["kuantum-siniri"] = "kuantum bilgisayar bir bilgisayardır" in replies[15] and "kanıt yok" in replies[15]
+    ok["ikinci-aritmetik"] = "11" in replies[18] and "4" in replies[18] and "7" in replies[18]
+    ok["yanilgi-duzeltme"] = "aynı kavram değil" in replies[19]
+    ok["birlesik-ekli-odak"] = traces[21].get("topic") == "yapay zekâ" and "öğrenebilir" in replies[21]
+    first_quiz = {tuple(fact) for fact in traces[11].get("facts", [])}
+    second_quiz = {tuple(fact) for fact in traces[22].get("facts", [])}
+    ok["quiz-iki-yeni-kazanim"] = bool(second_quiz) and not (first_quiz & second_quiz) and "algoritma" in replies[22] and "veri" in replies[22]
+    ok["ikici-degerlendirme"] = replies[23].startswith("evet")
+    ok["dort-madde"] = len(replies[25].splitlines()) == 4 and "öğrenebilir" in replies[25]
+    ok["dogal-kapanis"] = "çalıştık" in replies[26] and agi.deliberation.tutorial.get("active") is False
+    forbidden = ("madde kütledir", "olduk anlatabilirim", "bilgisayar bir gün", "operatör raporu")
+    ok["kopuk-fallback-yok"] = not any(any(bad in reply for bad in forbidden) for reply in replies)
+    ok["meta-govde-konu-degil"] = agi.deliberation._tutorial_topics(
+        agi, "Yapay zekâ ile yazılım aynı şey midir?")[:2] == ["yapay zekâ", "yazılım"]
+    agi.deliberation.tutorial = {
+        "active": True, "speaker": "insan", "topic": "bilgisayar", "focus": "bilgisayar",
+        "covered": [("bilgisayar", "USED_FOR", "veri işleme ve hesaplama")],
+        "history": [], "turns": 0, "last_facts": [], "quiz": [],
+        "awaiting_quiz": False, "asked_quiz": [],
+    }
+    context_reply = tr_lower(agi.deliberation.handle_tutorial(
+        agi, "Veri öğrenmek için neden gereklidir?", speaker="insan") or "")
+    ok["ogrenen-baglam-sicramasi-yok"] = (
+        "veri" in context_reply and "öğren" in context_reply and "beyin" not in context_reply)
+    certainty_reply = tr_lower(agi.deliberation.handle_tutorial(
+        agi, "Kuantum bilgisayar hakkında yalnız kesin bildiklerini anlat.", speaker="insan") or "")
+    ok["kesinlik-parafrazi"] = (
+        agi.deliberation.last_tutorial_trace.get("intent") == "certainty"
+        and "kanıt" in certainty_reply and "yok" in certainty_reply)
+    agi.deliberation.tutorial["covered"] = [
+        ("bilgisayar", "USED_FOR", "veri işleme ve hesaplama"),
+        ("algoritma", "USED_FOR", "problemi adım adım çözme"),
+        ("veri", "USED_FOR", "öğrenmek"),
+    ]
+    summary_reply = tr_lower(agi.deliberation.handle_tutorial(
+        agi, "Özetleyeyim: bilgisayar veri işler, algoritma problem çözer. Özetimde eksik var mı?",
+        speaker="insan") or "")
+    ok["ozet-nesnesi-ayri-konu-degil"] = "çelişmiyor" in summary_reply and "kısmen" not in summary_reply
+
+    class StubOrgan:
+        sequences = []
+        def generate(self, *args, **kwargs):
+            return list(self.sequences)
+        def detok(self, sequence):
+            return sequence
+
+    original_organ = agi.life.voice.organ
+    stub = StubOrgan()
+    try:
+        agi.life.voice.organ = stub
+        agi.deliberation.tutorial["neural_cache"] = {}
+        agi.deliberation.tutorial["neural_stats"] = {
+            "generated": 0, "accepted": 0, "rejected": 0, "cache_hits": 0,
+        }
+        agi.deliberation.tutorial["turn_neural"] = 0
+        stub.sequences = [
+            "Makine bir bilgisayardır.",
+            "Bilgisayar bir makinedir ve b'in -.",
+            "Bilgisayar bir makinedir.",
+        ]
+        computer = agi.deliberation._tutorial_neural_fact(
+            agi, ("bilgisayar", "ISA", "makine"))
+        stub.sequences = ["Yapay zekâ yazılımdır ve b'in -."]
+        rejected = agi.deliberation._tutorial_neural_fact(
+            agi, ("yapay zekâ", "ISA", "yazılım"))
+        stub.sequences = ["Kuantum bilgisayar birdır."]
+        quantum = agi.deliberation._tutorial_neural_fact(
+            agi, ("kuantum bilgisayar", "ISA", "bilgisayar"))
+        stub.sequences = ["Yazılım bir programdur."]
+        harmony = agi.deliberation._tutorial_neural_fact(
+            agi, ("yazılım", "ISA", "program"))
+        stub.sequences = ["Algoritma problem çözmek için kullanılır."]
+        algorithm = agi.deliberation._tutorial_neural_fact(
+            agi, ("algoritma", "USED_FOR", "problemi adım adım çözme"))
+        stats = agi.deliberation.tutorial["neural_stats"]
+        ok["noral-gecerli-aday"] = computer == "Bilgisayar bir makinedir." and algorithm.startswith("Algoritma")
+        ok["noral-ters-ve-gurultu-red"] = (rejected == quantum == harmony == ""
+                                               and stats["rejected"] == 5)
+        ok["noral-uretim-sayaci"] = stats["generated"] == 7 and stats["accepted"] == 2
+    finally:
+        agi.life.voice.organ = original_organ
+    return all(ok.values()), (f"{sum(bool(v) for v in ok.values())}/{len(ok)} — "
+                              f"{len(replies)} tur, iki farklı quiz, iki aritmetik oracle" +
+                              ("" if all(ok.values()) else " | " + str([k for k, v in ok.items() if not v])))
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -6691,6 +7026,7 @@ TESTS = {
     "A141": ("derin kavram öğrenme, Aves taksonomisi ve merak kapanışı", a141_derin_kavram_ogrenme_taksonomi_ve_merak),
     "A142": ("nöral top-5 öneri, sembolik kanıt ve kalıcı yeni biyoloji sentezi", a142_noral_oneri_sembolik_kanit_ve_yeni_sentez),
     "A143": ("insan hedefi vermeden 1000 adımda hedef yaşam döngüsü", a143_otonom_hedef_yasam_dongusu_1000_adim),
+    "A144": ("durumlu öğretici diyalog: takip, örnek, quiz, düzeltme ve özet", a144_durumlu_ogretici_diyalog),
     "A111": ("icadın şeması: görülmemiş parametre icat gerektirmez", a111_icadin_semasi),
     "A110": ("dil: buyruk sarmalayıcısı ve X mi Y mi seçim sorusu", a110_sarmalayici_ve_secim_sorusu),
     "A108": ("şema: delikli makro görülmemiş parametreyi kapsar", a108_sema_delikli_makro),

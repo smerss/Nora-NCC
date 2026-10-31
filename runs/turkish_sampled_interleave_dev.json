@@ -1,0 +1,233 @@
+{
+  "protocol": "one-pass sampled target alternating with fresh external full-loss stream; no replay",
+  "results": [
+    {
+      "distribution": "freq",
+      "negative_samples": 512,
+      "target_lr": 0.0005,
+      "external_per_target": 12,
+      "external_lr": 0.0001,
+      "fold": 1,
+      "target_seen": 234,
+      "external_seen": 2808,
+      "target_cycles": 0,
+      "held_exact_skipped": 0,
+      "held": {
+        "n": 401,
+        "hit1": 150,
+        "hit5": 197,
+        "top1": 0.3740648379052369,
+        "top5": 0.4912718204488778,
+        "ppl": 73.47478423021735
+      },
+      "probe_hit1_delta": -2,
+      "probe_ppl_delta": 23.278798465139346,
+      "probe_before": {
+        "n": 1461,
+        "hit1": 358,
+        "hit5": 566,
+        "top1": 0.24503764544832307,
+        "top5": 0.3874058863791923,
+        "ppl": 190.87215821622186
+      },
+      "probe_after": {
+        "n": 1461,
+        "hit1": 356,
+        "hit5": 559,
+        "top1": 0.243668720054757,
+        "top5": 0.38261464750171115,
+        "ppl": 214.1509566813612
+      }
+    },
+    {
+      "distribution": "freq",
+      "negative_samples": 512,
+      "target_lr": 0.0005,
+      "external_per_target": 12,
+      "external_lr": 0.0001,
+      "fold": 2,
+      "target_seen": 234,
+      "external_seen": 2808,
+      "target_cycles": 0,
+      "held_exact_skipped": 0,
+      "held": {
+        "n": 419,
+        "hit1": 161,
+        "hit5": 203,
+        "top1": 0.38424821002386633,
+        "top5": 0.48448687350835323,
+        "ppl": 98.42245129337117
+      },
+      "probe_hit1_delta": 0,
+      "probe_ppl_delta": 20.084683791494484,
+      "probe_before": {
+        "n": 1461,
+        "hit1": 358,
+        "hit5": 566,
+        "top1": 0.24503764544832307,
+        "top5": 0.3874058863791923,
+        "ppl": 190.87215821622186
+      },
+      "probe_after": {
+        "n": 1461,
+        "hit1": 358,
+        "hit5": 556,
+        "top1": 0.24503764544832307,
+        "top5": 0.3805612594113621,
+        "ppl": 210.95684200771635
+      }
+    },
+    {
+      "distribution": "uniform",
+      "negative_samples": 2048,
+      "target_lr": 0.0005,
+      "external_per_target": 12,
+      "external_lr": 0.0001,
+      "fold": 1,
+      "target_seen": 234,
+      "external_seen": 2808,
+      "target_cycles": 0,
+      "held_exact_skipped": 0,
+      "held": {
+        "n": 401,
+        "hit1": 158,
+        "hit5": 197,
+        "top1": 0.3940149625935162,
+        "top5": 0.4912718204488778,
+        "ppl": 74.02105647099594
+      },
+      "probe_hit1_delta": -2,
+      "probe_ppl_delta": 20.920821209722675,
+      "probe_before": {
+        "n": 1461,
+        "hit1": 358,
+        "hit5": 566,
+        "top1": 0.24503764544832307,
+        "top5": 0.3874058863791923,
+        "ppl": 190.87215821622186
+      },
+      "probe_after": {
+        "n": 1461,
+        "hit1": 356,
+        "hit5": 558,
+        "top1": 0.243668720054757,
+        "top5": 0.38193018480492813,
+        "ppl": 211.79297942594454
+      }
+    },
+    {
+      "distribution": "uniform",
+      "negative_samples": 2048,
+      "target_lr": 0.0005,
+      "external_per_target": 12,
+      "external_lr": 0.0001,
+      "fold": 2,
+      "target_seen": 234,
+      "external_seen": 2808,
+      "target_cycles": 0,
+      "held_exact_skipped": 0,
+      "held": {
+        "n": 419,
+        "hit1": 160,
+        "hit5": 200,
+        "top1": 0.3818615751789976,
+        "top5": 0.477326968973747,
+        "ppl": 100.3593620644648
+      },
+      "probe_hit1_delta": -1,
+      "probe_ppl_delta": 18.43618409354019,
+      "probe_before": {
+        "n": 1461,
+        "hit1": 358,
+        "hit5": 566,
+        "top1": 0.24503764544832307,
+        "top5": 0.3874058863791923,
+        "ppl": 190.87215821622186
+      },
+      "probe_after": {
+        "n": 1461,
+        "hit1": 357,
+        "hit5": 559,
+        "top1": 0.24435318275154005,
+        "top5": 0.38261464750171115,
+        "ppl": 209.30834230976205
+      }
+    },
+    {
+      "distribution": "uniform",
+      "negative_samples": 2048,
+      "target_lr": 0.001,
+      "external_per_target": 12,
+      "external_lr": 0.0001,
+      "fold": 1,
+      "target_seen": 234,
+      "external_seen": 2808,
+      "target_cycles": 0,
+      "held_exact_skipped": 0,
+      "held": {
+        "n": 401,
+        "hit1": 155,
+        "hit5": 203,
+        "top1": 0.3865336658354115,
+        "top5": 0.5062344139650873,
+        "ppl": 70.60997352267151
+      },
+      "probe_hit1_delta": -23,
+      "probe_ppl_delta": 44.768992900571135,
+      "probe_before": {
+        "n": 1461,
+        "hit1": 358,
+        "hit5": 566,
+        "top1": 0.24503764544832307,
+        "top5": 0.3874058863791923,
+        "ppl": 190.87215821622186
+      },
+      "probe_after": {
+        "n": 1461,
+        "hit1": 335,
+        "hit5": 540,
+        "top1": 0.2292950034223135,
+        "top5": 0.36960985626283366,
+        "ppl": 235.641151116793
+      }
+    },
+    {
+      "distribution": "uniform",
+      "negative_samples": 2048,
+      "target_lr": 0.001,
+      "external_per_target": 12,
+      "external_lr": 0.0001,
+      "fold": 2,
+      "target_seen": 234,
+      "external_seen": 2808,
+      "target_cycles": 0,
+      "held_exact_skipped": 0,
+      "held": {
+        "n": 419,
+        "hit1": 165,
+        "hit5": 201,
+        "top1": 0.3937947494033413,
+        "top5": 0.4797136038186158,
+        "ppl": 102.94380345517632
+      },
+      "probe_hit1_delta": -16,
+      "probe_ppl_delta": 41.850180293696724,
+      "probe_before": {
+        "n": 1461,
+        "hit1": 358,
+        "hit5": 566,
+        "top1": 0.24503764544832307,
+        "top5": 0.3874058863791923,
+        "ppl": 190.87215821622186
+      },
+      "probe_after": {
+        "n": 1461,
+        "hit1": 342,
+        "hit5": 535,
+        "top1": 0.23408624229979466,
+        "top5": 0.3661875427789186,
+        "ppl": 232.7223385099186
+      }
+    }
+  ]
+}

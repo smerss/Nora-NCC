@@ -1,0 +1,158 @@
+{
+  "feed": {
+    "triples": 324,
+    "triples_added": 302,
+    "vocab": 703,
+    "sentence_edges": 169,
+    "hearsay": 2,
+    "words_heard": 1114,
+    "concepts": 1395,
+    "graph_edges": 504,
+    "voice_maturity": 0.369,
+    "seconds": 0.5
+  },
+  "turns": [
+    {
+      "turn": 1,
+      "student": "Bir konu çalışıyorum. Bana bilgisayarın ne olduğunu öğretir misin?",
+      "nora": "Olduk anlatabilirim. Senin için en önemli yanı hangisi?",
+      "plan": []
+    },
+    {
+      "turn": 2,
+      "student": "Peki algoritma bunun neresinde?",
+      "nora": "Algoritma problemi adım adım çözmek için kullanılır ve algoritma problem çözmek için kullanılır.",
+      "plan": [
+        "ASSOCIATIVE_SPREAD"
+      ]
+    },
+    {
+      "turn": 3,
+      "student": "Bunu günlük hayattan bir örnekle açıklar mısın?",
+      "nora": "Anlatırım; bir nereden başlayayım? algoritma için kullanılır.",
+      "plan": [
+        "ASSOCIATIVE_SPREAD"
+      ]
+    },
+    {
+      "turn": 4,
+      "student": "Algoritma ile yazılım aynı şey mi?",
+      "nora": "Algoritma problemi adım adım çözmek için kullanılır ve algoritma problem çözmek için kullanılır.",
+      "plan": [
+        "ASSOCIATIVE_SPREAD"
+      ]
+    },
+    {
+      "turn": 5,
+      "student": "Bilgisayar algoritmayı nasıl kullanır?",
+      "nora": "Bilgisayar veri işleme ve hesaplamak için kullanılır. Bilgisayarın nasıl algoritmayı kullandığını bilmiyorum. Bana bilgisayarın nasıl algoritmayı kullandığını anlatır mısın? bilgisayar bir gün.",
+      "plan": [
+        "HIPPOCAMPAL_CONCEPT"
+      ]
+    },
+    {
+      "turn": 6,
+      "student": "Veri neden gerekli?",
+      "nora": "Veri öğrenmek için kullanılır.",
+      "plan": [
+        "HIPPOCAMPAL_CONCEPT"
+      ]
+    },
+    {
+      "turn": 7,
+      "student": "Yapay zekâ ile normal bir program arasındaki fark ne?",
+      "nora": "Yapay zekâ bir yazılımdır. Yapay zekâ bir programdır. Yazılım bir programdır. Yapay zekâ öğrenir.",
+      "plan": [
+        "HIPPOCAMPAL_CONCEPT"
+      ]
+    },
+    {
+      "turn": 8,
+      "student": "Bunu kısa bir örnekle karşılaştırır mısın?",
+      "nora": "Buradayım, dinliyorum. yapay zekâ bir programdır.",
+      "plan": [
+        "OPEN_REFLECTION"
+      ]
+    },
+    {
+      "turn": 9,
+      "student": "Az önce anlattıklarını unutmadan devam edelim: internet bu sistemin neresinde?",
+      "nora": "İnternet bilgi paylaşımı için kullanılır; bir ağdır.",
+      "plan": [
+        "INSULAR_SELF"
+      ]
+    },
+    {
+      "turn": 10,
+      "student": "Bilgisayar tek başına öğrenebilir mi, yoksa veri mi gerekir?",
+      "nora": "Öğren ve veri tanımıyorum. Bana öğren ve veri anlatır mısın? bilgisayar bir bilgisayardır.",
+      "plan": [
+        "PREFRONTAL_AUTONOMOUS_LOGIC"
+      ]
+    },
+    {
+      "turn": 11,
+      "student": "Bu cevabın önceki veri bilginle tutarlı mı?",
+      "nora": "Az önce “Bilgisayar tek başına öğrenebilir mi, yoksa veri mi gerekir?” demiştin, şimdi tersini söylüyorsun. İkisi aynı anda doğru olamaz; hangisi geçerli?",
+      "plan": [
+        "PREFRONTAL_AUTONOMOUS_LOGIC"
+      ]
+    },
+    {
+      "turn": 12,
+      "student": "Şimdi bana iki soru sor; bilgimi ölç.",
+      "nora": "İsteği adımlara ayırdım: 'iki soru sor' -> 'bilgimi ölç'. Hiçbirini yürütecek operatörüm yok; tek tek söylüyorum ki neyi yapamadığım görünsün.",
+      "plan": [
+        "PREFRONTAL_VOLITION"
+      ]
+    },
+    {
+      "turn": 13,
+      "student": "Cevabım: algoritma adımlardır, veri de öğrenmeyi besler. Doğru mu?",
+      "nora": "Doğru yanlışın zıttıdır.",
+      "plan": [
+        "HIPPOCAMPAL_CONCEPT"
+      ]
+    },
+    {
+      "turn": 14,
+      "student": "Ben özetleyeyim: bilgisayar hesaplar, algoritma çözüm adımlarını verir, veri öğrenmeyi destekler. Eksik var mı?",
+      "nora": "Eksik hakkında 'var' bilgisini henüz deneyimlemedim veya duymadım; tek cümleyle öğretebilirsin.",
+      "plan": [
+        "HIPPOCAMPAL_CONCEPT"
+      ]
+    },
+    {
+      "turn": 15,
+      "student": "Öğrendiklerimizi üç maddede özetler misin?",
+      "nora": "Madde kütledir.",
+      "plan": [
+        "ASSOCIATIVE_SPREAD"
+      ]
+    },
+    {
+      "turn": 16,
+      "student": "Son olarak kuantum bilgisayarla normal bilgisayar arasındaki ilişkiyi anlatır mısın?",
+      "nora": "Anlatırım; ilişki nereden başlayayım? kuantum bilgisayar bir bilgisayardır.",
+      "plan": [
+        "ASSOCIATIVE_SPREAD"
+      ]
+    },
+    {
+      "turn": 17,
+      "student": "Bunu yalnız kesin bildiğin kısımlarla anlat; emin olmadığın yerde dur.",
+      "nora": "İsteği adımlara ayırdım: 'bunu yalnız kesin bildiğin kısımlarla anlat' -> 'emin olmadığın yerde dur'. Hiçbir adım için elimde yürütülecek operatör yok; uydurmak yerine söylüyorum.",
+      "plan": [
+        "PREFRONTAL_VOLITION"
+      ]
+    },
+    {
+      "turn": 18,
+      "student": "Bugünkü çalışmamızı doğal bir sonla toparla.",
+      "nora": "Bugünkü çalışmamızı doğal bir sonla toparladır.",
+      "plan": [
+        "HIPPOCAMPAL_CONCEPT"
+      ]
+    }
+  ]
+}

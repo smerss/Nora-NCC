@@ -1,0 +1,65 @@
+{
+  "protocol": "diagnostic only; target-train-only output-bias optimization on frozen neural representation; no heldout labels in fitting",
+  "results": [
+    {
+      "fold": 1,
+      "kind": "position",
+      "bias_lr": 0.01,
+      "epochs": 8,
+      "metrics": {
+        "n": 417,
+        "hit1": 176,
+        "hit5": 220,
+        "top1": 0.42206235011990406,
+        "top5": 0.5275779376498801,
+        "ppl": 81.00541690467651
+      },
+      "bias_norm": 67.326171875
+    },
+    {
+      "fold": 1,
+      "kind": "wide",
+      "bias_lr": 0.01,
+      "epochs": 8,
+      "metrics": {
+        "n": 417,
+        "hit1": 174,
+        "hit5": 210,
+        "top1": 0.4172661870503597,
+        "top5": 0.5035971223021583,
+        "ppl": 84.18273381139394
+      },
+      "bias_norm": 69.47293090820312
+    },
+    {
+      "fold": 2,
+      "kind": "position",
+      "bias_lr": 0.01,
+      "epochs": 8,
+      "metrics": {
+        "n": 423,
+        "hit1": 167,
+        "hit5": 206,
+        "top1": 0.3947990543735225,
+        "top5": 0.48699763593380613,
+        "ppl": 141.9358741013753
+      },
+      "bias_norm": 67.02482604980469
+    },
+    {
+      "fold": 2,
+      "kind": "wide",
+      "bias_lr": 0.01,
+      "epochs": 8,
+      "metrics": {
+        "n": 423,
+        "hit1": 168,
+        "hit5": 202,
+        "top1": 0.3971631205673759,
+        "top5": 0.47754137115839246,
+        "ppl": 165.2937690384684
+      },
+      "bias_norm": 68.63557434082031
+    }
+  ]
+}

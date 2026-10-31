@@ -1,0 +1,78 @@
+[
+  {
+    "step": 250,
+    "seen_delta": 99018,
+    "loss250": 5.334033760070801,
+    "lr": 0.0009516619028617729,
+    "seconds": 76.11307870400015,
+    "held_exact_skipped": 0,
+    "dropout": 0.0,
+    "bpe_dropout": 0.0,
+    "batch": 32,
+    "sources": [
+      "chatbot_gpl3"
+    ],
+    "stream_sentences": 116199,
+    "n": 393,
+    "top1": 0.30025445292620867,
+    "top5": 0.3791348600508906,
+    "ppl": 249.74120204115619
+  },
+  {
+    "step": 500,
+    "seen_delta": 199852,
+    "loss250": 5.103325141906739,
+    "lr": 0.0009097176522946842,
+    "seconds": 150.42523149199997,
+    "held_exact_skipped": 0,
+    "dropout": 0.0,
+    "bpe_dropout": 0.0,
+    "batch": 32,
+    "sources": [
+      "chatbot_gpl3"
+    ],
+    "stream_sentences": 116199,
+    "n": 393,
+    "top1": 0.29770992366412213,
+    "top5": 0.39185750636132316,
+    "ppl": 262.1175293885322
+  },
+  {
+    "step": 750,
+    "seen_delta": 299320,
+    "loss250": 5.033283754348755,
+    "lr": 0.0008728715609439695,
+    "seconds": 223.87046588900012,
+    "held_exact_skipped": 0,
+    "dropout": 0.0,
+    "bpe_dropout": 0.0,
+    "batch": 32,
+    "sources": [
+      "chatbot_gpl3"
+    ],
+    "stream_sentences": 116199,
+    "n": 393,
+    "top1": 0.3104325699745547,
+    "top5": 0.3791348600508906,
+    "ppl": 242.64599013566504
+  },
+  {
+    "step": 1000,
+    "seen_delta": 400234,
+    "loss250": 4.979743705749511,
+    "lr": 0.0008401680504168059,
+    "seconds": 298.5792918010002,
+    "held_exact_skipped": 0,
+    "dropout": 0.0,
+    "bpe_dropout": 0.0,
+    "batch": 32,
+    "sources": [
+      "chatbot_gpl3"
+    ],
+    "stream_sentences": 116199,
+    "n": 393,
+    "top1": 0.30788804071246817,
+    "top5": 0.3791348600508906,
+    "ppl": 236.4430202954131
+  }
+]

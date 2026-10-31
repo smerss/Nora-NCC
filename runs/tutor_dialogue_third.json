@@ -1,0 +1,447 @@
+{
+  "turns": [
+    {
+      "turn": 1,
+      "student": "Bir konu çalışıyorum. Bana bilgisayarın ne olduğunu öğretir misin?",
+      "nora": "Temel tanımla başlayalım. Bilgisayar bir makinedir ve veri işleme ve hesaplamak için kullanılır.",
+      "trace": {
+        "intent": "explain",
+        "topic": "bilgisayar",
+        "session_turn": 1,
+        "facts": [
+          [
+            "bilgisayar",
+            "ISA",
+            "makine"
+          ],
+          [
+            "bilgisayar",
+            "USED_FOR",
+            "veri işleme ve hesaplama"
+          ]
+        ],
+        "quiz_pending": false
+      }
+    },
+    {
+      "turn": 2,
+      "student": "Peki algoritma bunun neresinde?",
+      "nora": "Bağlantıyı temel kayıtlarla kuralım. Algoritma problemi adım adım çözmek için kullanılır ve problem çözmek için kullanılır. Bilgisayar bir makinedir ve veri işleme ve hesaplamak için kullanılır.",
+      "trace": {
+        "intent": "relate",
+        "topic": "algoritma",
+        "session_turn": 2,
+        "facts": [
+          [
+            "algoritma",
+            "USED_FOR",
+            "problemi adım adım çözme"
+          ],
+          [
+            "algoritma",
+            "USED_FOR",
+            "problem çözmek"
+          ],
+          [
+            "bilgisayar",
+            "ISA",
+            "makine"
+          ],
+          [
+            "bilgisayar",
+            "USED_FOR",
+            "veri işleme ve hesaplama"
+          ]
+        ],
+        "quiz_pending": false
+      }
+    },
+    {
+      "turn": 3,
+      "student": "Bunu günlük hayattan bir örnekle açıklar mısın?",
+      "nora": "Basit bir hesap örneği vereyim: 2 ile 3 sayısını alıp toplama işlemini uyguladığında sonuç 5 olur. Bu sıralı işlem küçük bir algoritmadır.",
+      "trace": {
+        "intent": "example",
+        "topic": "algoritma",
+        "session_turn": 3,
+        "facts": [
+          [
+            "algoritma",
+            "USED_FOR",
+            "problemi adım adım çözme"
+          ]
+        ],
+        "quiz_pending": false
+      }
+    },
+    {
+      "turn": 4,
+      "student": "Algoritma ile yazılım aynı şey mi?",
+      "nora": "Algoritma ile yazılım aynı kavram değil. Algoritma problemi adım adım çözmek için kullanılır. Algoritma problem çözmek için kullanılır.",
+      "trace": {
+        "intent": "compare",
+        "topic": "algoritma",
+        "session_turn": 4,
+        "facts": [
+          [
+            "algoritma",
+            "USED_FOR",
+            "problemi adım adım çözme"
+          ],
+          [
+            "algoritma",
+            "USED_FOR",
+            "problem çözmek"
+          ]
+        ],
+        "quiz_pending": false
+      }
+    },
+    {
+      "turn": 5,
+      "student": "Bilgisayar algoritmayı nasıl kullanır?",
+      "nora": "Bağlantıyı temel kayıtlarla kuralım. Bilgisayar bir makinedir ve veri işleme ve hesaplamak için kullanılır. Algoritma problemi adım adım çözmek için kullanılır ve problem çözmek için kullanılır.",
+      "trace": {
+        "intent": "relate",
+        "topic": "bilgisayar",
+        "session_turn": 5,
+        "facts": [
+          [
+            "bilgisayar",
+            "ISA",
+            "makine"
+          ],
+          [
+            "bilgisayar",
+            "USED_FOR",
+            "veri işleme ve hesaplama"
+          ],
+          [
+            "algoritma",
+            "USED_FOR",
+            "problemi adım adım çözme"
+          ],
+          [
+            "algoritma",
+            "USED_FOR",
+            "problem çözmek"
+          ]
+        ],
+        "quiz_pending": false
+      }
+    },
+    {
+      "turn": 6,
+      "student": "Veri neden gerekli?",
+      "nora": "Veri öğrenmek için kullanılır.",
+      "trace": {
+        "intent": "relate",
+        "topic": "veri",
+        "session_turn": 6,
+        "facts": [
+          [
+            "veri",
+            "USED_FOR",
+            "öğrenmek"
+          ]
+        ],
+        "quiz_pending": false
+      }
+    },
+    {
+      "turn": 7,
+      "student": "Yapay zekâ ile normal bir program arasındaki fark ne?",
+      "nora": "Yapay zekâ bir yazılımdır. Yapay zekâ öğrenir. Yapay zekâ bir programdır.",
+      "trace": {
+        "intent": "compare",
+        "topic": "yapay zekâ",
+        "session_turn": 7,
+        "facts": [
+          [
+            "yapay zekâ",
+            "ISA",
+            "yazılım"
+          ],
+          [
+            "yapay zekâ",
+            "CAN_DO",
+            "öğrenmek"
+          ],
+          [
+            "yapay zekâ",
+            "ISA",
+            "program"
+          ]
+        ],
+        "quiz_pending": false
+      }
+    },
+    {
+      "turn": 8,
+      "student": "Bunu kısa bir örnekle karşılaştırır mısın?",
+      "nora": "Sabit bir toplama işlemi 2 + 3 için 5 sonucunu üretir. Ben ise öğretilen bir ilişkiyi belleğime ekleyip sonraki soruda kullanabilirim; buradaki ayırt edici özellik öğrenme.",
+      "trace": {
+        "intent": "example",
+        "topic": "yapay zekâ",
+        "session_turn": 8,
+        "facts": [
+          [
+            "yapay zekâ",
+            "ISA",
+            "program"
+          ],
+          [
+            "yapay zekâ",
+            "ISA",
+            "yazılım"
+          ]
+        ],
+        "quiz_pending": false
+      }
+    },
+    {
+      "turn": 9,
+      "student": "Az önce anlattıklarını unutmadan devam edelim: internet bu sistemin neresinde?",
+      "nora": "Bağlantıyı temel kayıtlarla kuralım. İnternet bir ağdır ve küresel bilgi paylaşımı ve araştırma için kullanılır. Bilgisayar bir makinedir ve veri işleme ve hesaplamak için kullanılır.",
+      "trace": {
+        "intent": "relate",
+        "topic": "internet",
+        "session_turn": 9,
+        "facts": [
+          [
+            "internet",
+            "ISA",
+            "ağ"
+          ],
+          [
+            "internet",
+            "USED_FOR",
+            "küresel bilgi paylaşımı ve araştırma"
+          ],
+          [
+            "bilgisayar",
+            "ISA",
+            "makine"
+          ],
+          [
+            "bilgisayar",
+            "USED_FOR",
+            "veri işleme ve hesaplama"
+          ]
+        ],
+        "quiz_pending": false
+      }
+    },
+    {
+      "turn": 10,
+      "student": "Bilgisayar tek başına öğrenebilir mi, yoksa veri mi gerekir?",
+      "nora": "Bağlantıyı temel kayıtlarla kuralım. Bilgisayar bir makinedir ve veri işleme ve hesaplamak için kullanılır. Veri öğrenmek için kullanılır. Yapay zekâ öğrenir. Öğrenme iddiasında veri olmadan ilerlemek için elimde kanıt yok.",
+      "trace": {
+        "intent": "relate",
+        "topic": "bilgisayar",
+        "session_turn": 10,
+        "facts": [
+          [
+            "bilgisayar",
+            "ISA",
+            "makine"
+          ],
+          [
+            "bilgisayar",
+            "USED_FOR",
+            "veri işleme ve hesaplama"
+          ],
+          [
+            "veri",
+            "USED_FOR",
+            "öğrenmek"
+          ],
+          [
+            "yapay zekâ",
+            "CAN_DO",
+            "öğrenmek"
+          ]
+        ],
+        "quiz_pending": false
+      }
+    },
+    {
+      "turn": 11,
+      "student": "Bu cevabın önceki veri bilginle tutarlı mı?",
+      "nora": "Evet, önceki bilgimle tutarlı. Veri öğrenmek için kullanılır. Son cevabımda da aynı ilişkiyi korudum.",
+      "trace": {
+        "intent": "consistency",
+        "topic": "veri",
+        "session_turn": 11,
+        "facts": [
+          [
+            "veri",
+            "USED_FOR",
+            "öğrenmek"
+          ]
+        ],
+        "quiz_pending": false
+      }
+    },
+    {
+      "turn": 12,
+      "student": "Şimdi bana iki soru sor; bilgimi ölç.",
+      "nora": "İki soruyla kontrol edelim: 1. Yapay zekâ hangi genel kavramın bir türüdür? 2. İnternet ne için kullanılır?",
+      "trace": {
+        "intent": "quiz",
+        "topic": "veri",
+        "session_turn": 12,
+        "facts": [
+          [
+            "yapay zekâ",
+            "ISA",
+            "program"
+          ],
+          [
+            "internet",
+            "USED_FOR",
+            "küresel bilgi paylaşımı ve araştırma"
+          ]
+        ],
+        "quiz_pending": true
+      }
+    },
+    {
+      "turn": 13,
+      "student": "Cevabım: algoritma adımlardır, veri de öğrenmeyi besler. Doğru mu?",
+      "nora": "Henüz değil; temel bağları yeniden kuralım. Yapay zekâ için öğrendiğimiz ilişki: yapay zekâ bir programdır. İnternet için öğrendiğimiz ilişki: internet küresel bilgi paylaşımı ve araştırma için kullanılır.",
+      "trace": {
+        "intent": "evaluate",
+        "topic": "algoritma",
+        "session_turn": 13,
+        "facts": [
+          [
+            "yapay zekâ",
+            "ISA",
+            "program"
+          ],
+          [
+            "internet",
+            "USED_FOR",
+            "küresel bilgi paylaşımı ve araştırma"
+          ]
+        ],
+        "quiz_pending": false
+      }
+    },
+    {
+      "turn": 14,
+      "student": "Ben özetleyeyim: bilgisayar hesaplar, algoritma çözüm adımlarını verir, veri öğrenmeyi destekler. Eksik var mı?",
+      "nora": "Özetin kısmen doğru; eksik kalan bağı düzeltelim. Veri için öğrendiğimiz ilişki: veri öğrenmek için kullanılır.",
+      "trace": {
+        "intent": "check_summary",
+        "topic": "bilgisayar",
+        "session_turn": 14,
+        "facts": [
+          [
+            "bilgisayar",
+            "USED_FOR",
+            "veri işleme ve hesaplama"
+          ],
+          [
+            "algoritma",
+            "USED_FOR",
+            "problemi adım adım çözme"
+          ],
+          [
+            "veri",
+            "USED_FOR",
+            "öğrenmek"
+          ]
+        ],
+        "quiz_pending": false
+      }
+    },
+    {
+      "turn": 15,
+      "student": "Öğrendiklerimizi üç maddede özetler misin?",
+      "nora": "1. Bilgisayar veri işleme ve hesaplamak için kullanılır.\n2. Algoritma problemi adım adım çözmek için kullanılır.\n3. Veri öğrenmek için kullanılır.",
+      "trace": {
+        "intent": "summary",
+        "topic": "bilgisayar",
+        "session_turn": 15,
+        "facts": [
+          [
+            "bilgisayar",
+            "USED_FOR",
+            "veri işleme ve hesaplama"
+          ],
+          [
+            "algoritma",
+            "USED_FOR",
+            "problemi adım adım çözme"
+          ],
+          [
+            "veri",
+            "USED_FOR",
+            "öğrenmek"
+          ]
+        ],
+        "quiz_pending": false
+      }
+    },
+    {
+      "turn": 16,
+      "student": "Son olarak kuantum bilgisayarla normal bilgisayar arasındaki ilişkiyi anlatır mısın?",
+      "nora": "Kuantum bilgisayar bir bilgisayardır. Kuantum bilgisayar veri işleme ve hesaplamak için kullanılır. Kuantum bilgisayar bir makinedir.",
+      "trace": {
+        "intent": "compare",
+        "topic": "kuantum bilgisayar",
+        "session_turn": 16,
+        "facts": [
+          [
+            "kuantum bilgisayar",
+            "ISA",
+            "bilgisayar"
+          ],
+          [
+            "kuantum bilgisayar",
+            "USED_FOR",
+            "veri işleme ve hesaplama"
+          ],
+          [
+            "kuantum bilgisayar",
+            "ISA",
+            "makine"
+          ]
+        ],
+        "quiz_pending": false
+      }
+    },
+    {
+      "turn": 17,
+      "student": "Bunu yalnız kesin bildiğin kısımlarla anlat; emin olmadığın yerde dur.",
+      "nora": "Öğrendiğim kayıtla sınırlı olarak: Kuantum bilgisayar bir bilgisayardır. Bunun ötesindeki ayrıntı için kanıtım yok; onu eklemiyorum.",
+      "trace": {
+        "intent": "certainty",
+        "topic": "kuantum bilgisayar",
+        "session_turn": 17,
+        "facts": [
+          [
+            "kuantum bilgisayar",
+            "ISA",
+            "bilgisayar"
+          ]
+        ],
+        "quiz_pending": false
+      }
+    },
+    {
+      "turn": 18,
+      "student": "Bugünkü çalışmamızı doğal bir sonla toparla.",
+      "nora": "Bugün bilgisayar, algoritma, veri, yapay zekâ arasındaki temel bağları çalıştık. Burada iyi bir noktada bırakabiliriz.",
+      "trace": {
+        "intent": "close",
+        "topic": "kuantum bilgisayar",
+        "session_turn": 18,
+        "facts": [],
+        "quiz_pending": false
+      }
+    }
+  ]
+}

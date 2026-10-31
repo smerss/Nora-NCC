@@ -1,0 +1,46 @@
+{
+  "date": "2026-10-30",
+  "code_sha256": "62ec753c419e8dce7972e2d542a56925cce125229f39d41f3f514edac7b8f095",
+  "full_agi": {
+    "passed": 141,
+    "total": 141,
+    "seconds": 932.8,
+    "log": "runs/full_battery_tutor_final.log"
+  },
+  "law": {
+    "passed": 15,
+    "total": 15,
+    "seconds": 35.4,
+    "log": "runs/law_battery_tutor_final.log"
+  },
+  "focused": {
+    "A144": "A144 durumlu öğretici diyalog: takip, örnek, quiz, düzeltme ve özet   GEÇTİ    27/27 — 27 tur, iki farklı quiz, iki aritmetik oracle",
+    "A73": "A73  iskelet azaltma mandalı: koddaki söz sayısı yalnız düşer         GEÇTİ    8/8 — mandal=✓ | tarihsel-tavan=✓ | soylem-mandal=✓ | anlatim-temiz=✓ | bicim-altinda=✓ | veride-tasinmis=✓ | anlatim-calisiyor=✓ | cerceve-yarisi=✓ | söylem=126 toplam=1124 topluluk=332"
+  },
+  "dialogue": {
+    "turns": 30,
+    "oracle_checks": 13,
+    "oracle_passed": true,
+    "grounded_facts": 58,
+    "neural_stats": {
+      "generated": 57,
+      "accepted": 3,
+      "rejected": 54,
+      "cache_hits": 22
+    },
+    "neural_turns": 8
+  },
+  "independent_confirmation": {
+    "path": "runs/tutor_paraphrase_confirmation_v4.json",
+    "turns": 15,
+    "checks": 19,
+    "passed": true
+  },
+  "development_failures_preserved": [
+    "runs/tutor_paraphrase_confirmation_failed.json",
+    "runs/tutor_paraphrase_confirmation_recheck_failed.json",
+    "runs/tutor_paraphrase_confirmation_v2_failed.json",
+    "runs/tutor_paraphrase_confirmation_v3_failed.json"
+  ],
+  "passed": true
+}

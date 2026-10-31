@@ -1,0 +1,102 @@
+{
+  "audit_date": "2026-10-30",
+  "dialogue": "runs/tutor_dialogue_final.json",
+  "status": "passed_with_explicit_scopes",
+  "claims": [
+    {
+      "claim": "Bilgisayar bir makinedir; veri işleme ve hesaplama için kullanılır.",
+      "status": "supported",
+      "source": "https://www.britannica.com/technology/computer",
+      "evidence": "Britannica bilgisayarı bilgi saklayabilen ve işleyebilen bir makine; programlanabilir bir bilgi işleme aygıtı olarak tanımlar."
+    },
+    {
+      "claim": "Algoritma problemi adım adım çözmek için kullanılır.",
+      "status": "supported",
+      "source": "https://www.britannica.com/science/algorithm",
+      "evidence": "Britannica algoritmayı sonlu adımlarda bir sorunun yanıtını veya problemin çözümünü üreten sistematik prosedür olarak tanımlar."
+    },
+    {
+      "claim": "Yazılım bir programdır.",
+      "status": "supported_as_introductory_simplification",
+      "scope": "Tekil yazılım öğesi/AI modeli düzeyinde kullanılır; yazılımın tamamı tek bir programdır diye genellenmez.",
+      "source": "https://www.britannica.com/dictionary/software",
+      "evidence": "Britannica Dictionary yazılımı bilgisayarda belirli işlevleri yerine getiren programlar olarak tanımlar. Daha geniş teknik tanım program, yönerge ve yordamları kapsar."
+    },
+    {
+      "claim": "Yapay zekâ bir yazılımdır ve öğrenebilir.",
+      "status": "supported_with_model_scope",
+      "scope": "AI modeli ve öğrenme kaydı olan sistemler; bütün AI sistemleri öğrenir veya yalnız yazılımdır diye genelleme yok.",
+      "sources": [
+        "https://www.ibm.com/think/topics/ai-model",
+        "https://www.ibm.com/think/topics/artificial-intelligence"
+      ],
+      "evidence": "IBM, AI modelini veriyle eğitilmiş bir program olarak tanımlar; AI uygulamalarının yeni bilgi ve deneyimden öğrenebildiğini belirtir. Nora son diyalogda CAN_DO ilişkisini 'öğrenebilir' diye verir ve farkı öğrenme kaydı olan sistemlerle sınırlar."
+    },
+    {
+      "claim": "Veri öğrenmek için kullanılır.",
+      "status": "supported_with_ml_scope",
+      "scope": "Makine öğrenmesi/model eğitimi bağlamı; her insan öğrenmesi için zorunlu ve yeterli koşul iddiası değil.",
+      "source": "https://www.ibm.com/think/topics/training-data",
+      "evidence": "IBM eğitim verisini makine öğrenmesi modeline tahmin, örüntü tanıma veya içerik üretme öğretmek için kullanılan bilgi olarak tanımlar."
+    },
+    {
+      "claim": "İnternet bir ağdır; küresel bilgi paylaşımı ve araştırma için kullanılır.",
+      "status": "supported",
+      "sources": [
+        "https://www.internetsociety.org/internet/how-it-works/",
+        "https://www.internetsociety.org/internet/history-internet/brief-history-internet/"
+      ],
+      "evidence": "Internet Society küresel interneti birbirine bağlı on binlerce ağdan oluşan bir ağlar ağı ve bilgi altyapısı olarak açıklar; bilgiye erişim ve bilgi yayma işlevlerini belgeler."
+    },
+    {
+      "claim": "Kuantum bilgisayar bir bilgisayardır; ayrıntılı fark için ek kanıt yok.",
+      "status": "supported_with_high_level_scope",
+      "scope": "Üst düzey hesaplama aygıtı taksonomisi; QPU/hibrit mimari ayrıntısı iddia edilmez.",
+      "sources": [
+        "https://www.britannica.com/technology/quantum-computer",
+        "https://quantum.cloud.ibm.com/learning/en/courses/use-a-qc-today/quantum-computing-context"
+      ],
+      "evidence": "Britannica kuantum bilgisayarı kuantum mekaniğiyle hesaplama yapan aygıt olarak tanımlar. IBM modern sistemlerin klasik bilgisayar + QPU hibrit ayrıntısını açıklar; Nora bu ayrıntıyı bilmediğini açıkça söyler."
+    },
+    {
+      "claim": "2 + 3 = 5 ve 4 + 7 = 11 örnekleri.",
+      "status": "executable_oracle_passed",
+      "source": "runs/tutor_dialogue_oracle.json",
+      "evidence": "İşlenenler ve sonuçlar Nora'nın kaydından bağımsız Python toplamıyla yeniden hesaplandı; üç örnek turu da geçti."
+    }
+  ],
+  "executable_oracle": {
+    "path": "runs/tutor_dialogue_oracle.json",
+    "fact_checks": 58,
+    "fact_proof": "Nora graph.query kullanılmadan doğrudan kenar kümesi ve bağımsız ISA BFS",
+    "all_checks_passed": true
+  },
+  "notes": [
+    "Kaynaklar yalnız dış doğruluk denetimi için kullanıldı; diyalog sırasında Nora'ya yeni bilgi verilmedi.",
+    "Bu denetim 30 turun her cümlesini ansiklopedik kapsama çıkarmaz; izlenen grafik iddialarını ve sayısal örnekleri doğrular.",
+    "İlk oracle koşusundaki işlenen-çıkarma ve anahtar hatası korunarak runs/tutor_dialogue_oracle_recheck.log içinde düzeltildi."
+  ],
+  "neural_candidate_audit": {
+    "engine": "TokenMoEOrgan.generate",
+    "validation": "özne başlangıcı + yüklemde nesne kapsamı + ilişki işareti + morfolojik ek-fiil + grafik kök sınırı",
+    "generated": 57,
+    "accepted": 3,
+    "rejected": 54,
+    "cache_hits": 22,
+    "neural_turns": 8,
+    "note": "Sayılar yalnız son final koşusuna aittir; bütün diyalog metni MoE tarafından yazıldı iddiası yoktur."
+  },
+  "independent_confirmation": {
+    "path": "runs/tutor_paraphrase_confirmation_v4.json",
+    "turns": 15,
+    "checks": "19/19",
+    "arithmetic": "12+4=16",
+    "passed": true,
+    "development_sets_excluded": [
+      1,
+      2,
+      3
+    ]
+  },
+  "code_sha256": "62ec753c419e8dce7972e2d542a56925cce125229f39d41f3f514edac7b8f095"
+}

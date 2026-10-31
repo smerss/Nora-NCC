@@ -1,0 +1,33 @@
+{
+  "record": {
+    "ok": true,
+    "source": "ai-roadmap-computer",
+    "url": "https://github.com/bturkerp/ai-education-roadmap/blob/60ec909100ac9ac742ceffa768626670e7639dfe/README.md",
+    "area": "computer",
+    "topic": "",
+    "n": 8,
+    "available": 22,
+    "offset": 0,
+    "cached": true,
+    "epistemic_status": "provisional",
+    "balanced_area": "computer",
+    "staged": 8,
+    "rejected": 0,
+    "promoted": 0
+  },
+  "voice_tokens_before": 0,
+  "voice_tokens_after": 102,
+  "pending_hypotheses": 8,
+  "research_state": {
+    "coverage": {
+      "computer": 8
+    },
+    "offsets": {
+      "ai-roadmap-computer": 8
+    },
+    "reads": {
+      "ai-roadmap-computer": 1
+    }
+  },
+  "api_used": false
+}

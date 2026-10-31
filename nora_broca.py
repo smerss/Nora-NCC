@@ -941,6 +941,8 @@ class CommunicativeVolition:
             act_scores["SOCIAL_LEARN"] = 0.98
         if utter_info.get("social_query"):
             act_scores["SOCIAL_RECALL"] = 0.99
+        if utter_info.get("experience_query"):
+            act_scores["RECALL_EXPERIENCE"] = 1.00
         if utter_info.get("asks_wellbeing") or (
             utter_info.get("has_greet")
             and not concept_hits
@@ -1008,7 +1010,8 @@ class CommunicativeVolition:
             + 0.35 * self_m.traits["meraklılık"]
             + 0.30 * trust
             - 0.45 * chem.cort
-            - (0.95 if (guarded or in_acute_pain or utter_info.get("soothes_pain") or utter_info.get("is_thanks") or wants_brief or utter_info.get("is_farewell") or utter_info.get("asks_memory") or utter_info.get("social_query") or pure_social_decl) else 0.0)
+            - (0.95 if (guarded or in_acute_pain or utter_info.get("soothes_pain") or utter_info.get("is_thanks") or wants_brief or utter_info.get("is_farewell") or utter_info.get("asks_memory") or utter_info.get("social_query")
+            or utter_info.get("experience_query") or utter_info.get("contrast") or pure_social_decl) else 0.0)
         )
         ask_back = bool(curiosity_drive >= 0.46)
 
@@ -1046,6 +1049,8 @@ class GenerativeBrocaOrgan:
         "üzgün": (-0.65, "üzüntü", "üzül"),
         "sıkkın": (-0.50, "sıkıntı", "bunalt"),
         "stres": (-0.55, "baskı", "geril"),
+        "gergin": (-0.55, "gerginlik", "geril"),
+        "geril": (-0.55, "gerginlik", "geril"),
         "kaygı": (-0.55, "kaygı", "endişelen"),
         "endişe": (-0.50, "endişe", "endişelen"),
         "kork": (-0.60, "korku", "çekin"),
@@ -1202,6 +1207,36 @@ class GenerativeBrocaOrgan:
             elif an.get("case") == "LOC" and st:
                 loc_nouns.append(st)
 
+        # Belge/alıntı kapsamı doğrudan diyalogdan ayrılır. Bir makalede geçen
+        # 'sen' veya duygu sözü, konuşan ile Nora'nın yaşantısına otomatik yazılmaz.
+        unquoted = re.sub(r"'[^']*'|\"[^\"]*\"|“[^”]*”|‘[^’]*’", " ", s_low)
+        doc_match = re.search(r"\b(makale|metin|kitap)\w*\b", unquoted)
+        mention_report = re.search(r"\b(?:bahset|bahsedil|değin|değinil)\w*\b", unquoted)
+        doc_locative = re.search(r"\b(?:makale|metin|kitap)\w*(?:de|da|te|ta)\b", unquoted)
+        write_report = re.search(r"\byaz\w*\b", unquoted)
+        own_writing = re.search(
+            r"\byaz(?:ıyorum|ıyoruz|dım|dık|acağım|acağız|arım|arız|mışım|mışız)\b",
+            unquoted,
+        )
+        report_match = mention_report or (
+            write_report and (doc_locative or unquoted != s_low) and not own_writing
+        )
+        reference_scope = {}
+        if doc_match and report_match:
+            reference_scope = {
+                "document": doc_match.group(1), "external": True,
+                "quoted": unquoted != s_low,
+                "self_mention": bool(
+                    re.search(r"\bnora(?:['’][\wçğıöşü]+)?\b", unquoted)
+                    or re.search(r"\b(?:sen|seni|sana|senin|sende|senden|seninle)\b", unquoted)
+                ),
+                "negated": bool(re.search(
+                    r"\b(?:bahset|bahsedil|değin|değinil)\w*"
+                    r"(?:miyor|mıyor|muyor|müyor|medi|madı|memiş|mamış)\b", unquoted
+                )),
+            }
+        external_report = bool(reference_scope)
+
         # Çok-sözcüklü kavram bileşiklerini (ör. 'özgür irade', 'kara delik', 'yapay bilinç') O(1) sözlükten yakala!
         compound_stems: list[str] = []
         for i in range(len(words) - 1):
@@ -1271,8 +1306,52 @@ class GenerativeBrocaOrgan:
             affect_events.append({
                 "cue": cue, "value": float(value), "n_root": n_root,
                 "v_root": v_root, "state": state, "noun": noun,
-                "neg_kind": neg_kind, "index": i,
+                "predicate": cue if state and not neg_kind else state,
+                "surface": w, "neg_kind": neg_kind, "index": i,
             })
+        # 'iyi geldi' yalnız olumlu bir sıfat değil, önceki durumu değiştiren
+        # rahatlama olayıdır. Neden öbeği sözden çıkarılır; cevap hazır metin olmaz.
+        relief = re.search(r"\biyi\s+gel(?:di|miş|iyor|ir)\b", s_low)
+        if relief:
+            prefix = re.split(r"\b(?:ama|fakat|ancak)\b", s_low[:relief.start()])[-1]
+            cause_words = [
+                w for w in re.findall(r"[\wçğıöşü]+", prefix)
+                if w not in {"bana", "sana", "ona", "biraz", "çok"}
+            ]
+            cause_verbal_noun = False
+            if cause_words:
+                last = cause_words[-1]
+                if last.endswith(("mak", "mek")) and len(last) > 4:
+                    root = last[:-3]
+                    cause_words[-1] = root + ("me" if morph.vowel_e_a(root) == "e" else "ma")
+                    cause_verbal_noun = True
+            cause_text = " ".join(cause_words)
+            second_roles = {"sen", "seni", "sana", "senin", "sende", "senden", "seninle"}
+            first_roles = {"ben", "beni", "bana", "benim", "bende", "benden", "benimle"}
+            cause_roles = {
+                w: ("addressee" if w in second_roles else "speaker")
+                for w in cause_words if w in second_roles or w in first_roles
+            }
+            affect_events.append({
+                "cue": "iyi gel", "value": 0.40, "n_root": "rahatlık",
+                "v_root": "gel", "state": "", "predicate": "", "surface": "iyi",
+                "noun": "rahatlık", "neg_kind": "", "index": len(words) - 2,
+                "kind": "relief", "cause": cause_text,
+                "cause_roles": cause_roles, "cause_verbal_noun": cause_verbal_noun,
+                "deictic_scope": "external_report" if external_report else "direct_dialogue",
+            })
+        for ev in affect_events:
+            has_time = any(w in words for w in (
+                "bugün", "dün", "gün", "günüm", "gece", "gecem", "hafta", "haftam",
+            ))
+            if ev.get("kind") != "relief" and "geç" in word_stems_seq and has_time:
+                ev["frame"] = "time_passage"
+                ev["time_noun"] = (
+                    "gece" if any(w.startswith("gece") for w in words)
+                    else ("hafta" if any(w.startswith("hafta") for w in words) else "gün")
+                )
+        if external_report:
+            affect_events = []
         affect_events.sort(key=lambda e: abs(float(e["value"])), reverse=True)
         aff_tags: list[tuple[str, str]] = []
         for ev in affect_events:
@@ -1297,7 +1376,18 @@ class GenerativeBrocaOrgan:
             an.get("case") == "ACC" and w not in ("kendin", "kendini", "kendiniz", "kendinizi", "ne")
             for w, an in zip(words, word_analyses)
         )
-        if second_feeling and (reflexive or not other_object):
+        # 'Beni dinlerken ne hissediyorsun?' sorusunda birinci-kişi nesnesi
+        # alt cümleciğin fiiline bağlıdır; 'Beni hissettin mi?'den farklı olarak
+        # Nora'nın etkileşim sırasındaki kendi duyumu sorulur.
+        first_person_context = any(
+            w in ("beni", "bana", "benimle", "benim")
+            and any(
+                later.get("is_verb") and later.get("stem") not in ("hisset", "duyumsa")
+                for later in word_analyses[i + 1:]
+            )
+            for i, (w, _an) in enumerate(zip(words, word_analyses))
+        )
+        if second_feeling and (reflexive or not other_object or first_person_context):
             asks_wellbeing = True
         state_nouns = {"keyif", "moral", "hâl", "hal", "duygu"}
         second_state = any(w in ("senin", "sana") for w in words) or any(
@@ -1399,6 +1489,18 @@ class GenerativeBrocaOrgan:
 
         # En baskın duygu olayı önde; olayın değeri, durumu ve olumsuzluğu birlikte taşınır.
         dom_affect = float(affect_events[0]["value"]) if affect_events else 0.0
+        contrast = bool(
+            any(c in s_low for c in ("ama", "fakat", "ancak"))
+            and any(float(ev.get("value", 0.0)) < 0 for ev in affect_events)
+            and any(float(ev.get("value", 0.0)) > 0 for ev in affect_events)
+        )
+        experience_query = ""
+        if "?" in raw or second_q:
+            if (any(w in words for w in ("günüm", "gecem", "haftam"))
+                    and "nasıl" in words and "geç" in word_stems_seq):
+                experience_query = "past_state"
+            elif "bana" in words and any(st.startswith("hisset") for st in word_stems_seq):
+                experience_query = "felt_effect"
         social_learned, social_query = self._parse_social_autobiography(raw, s_low, morph, lexicon)
         wants_story = bool(
             any(st == "anlat" or w.startswith("anlat") for st, w in zip(word_stems_seq, words))
@@ -1413,6 +1515,9 @@ class GenerativeBrocaOrgan:
             "affect_val": dom_affect,
             "affect_tags": aff_tags,
             "affect_events": affect_events,
+            "contrast": contrast,
+            "reference_scope": reference_scope,
+            "experience_query": experience_query,
             "social_learned": social_learned,
             "social_query": social_query,
             "is_question": "?" in raw or bool(social_query),
@@ -1441,8 +1546,13 @@ class GenerativeBrocaOrgan:
     # ---------------------------------------------------------- yaşanmış bağlamdan söz
     def _affect_clause(self, ev: dict, case: str = "ACC", src_abl=None) -> str:
         """Duygu olayını karşıdakinin ağzından yan cümle yap; değer ile yüzey ayrılmaz."""
-        state = str(ev.get("state") or "")
+        state = str(ev.get("predicate") or ev.get("state") or "")
         neg_kind = str(ev.get("neg_kind") or "")
+        if ev.get("frame") == "time_passage" and state:
+            return self.syn.nominalize_dik(
+                "geç", poss=3, case=case,
+                subj=NP(str(ev.get("time_noun") or "gün"), poss=2), advs=(state,),
+            )
         if state:
             pred = self.syn.nominalize_dik(
                 "ol", poss=2, case=case, neg=(neg_kind == "değil")
@@ -1452,6 +1562,52 @@ class GenerativeBrocaOrgan:
             str(ev.get("v_root") or "hisset"), poss=2, case=case,
             neg=(neg_kind in ("değil", "verb")), abl=src_abl,
         )
+
+    def _nora_event_cause(self, ev: dict, possessive: bool = False) -> str:
+        """Olaydaki konuşan/dinleyen rollerini Nora'nın söz perspektifine taşı."""
+        cause = str(ev.get("cause") or "bu")
+        words = cause.split()
+        if ev.get("deictic_scope") == "direct_dialogue":
+            to_nora = {
+                "sen": "ben", "seni": "beni", "sana": "bana", "senin": "benim",
+                "sende": "bende", "senden": "benden", "seninle": "benimle",
+            }
+            to_user = {
+                "ben": "sen", "beni": "seni", "bana": "sana", "benim": "senin",
+                "bende": "sende", "benden": "senden", "benimle": "seninle",
+            }
+            roles = dict(ev.get("cause_roles") or {})
+            words = [
+                to_nora.get(w, w) if roles.get(w) == "addressee"
+                else (to_user.get(w, w) if roles.get(w) == "speaker" else w)
+                for w in words
+            ]
+        if possessive and ev.get("cause_verbal_noun") and words:
+            words[-1] = self.syn._inflect_full_noun(words[-1], poss=2)
+        return " ".join(words)
+
+    def _reference_scope_response(self, scope: dict) -> tuple[str, str]:
+        """Belgedeki öz-göndergeyi anla; dış anlatımı diyalog yaşantısı sayma."""
+        doc = str(scope.get("document") or "metin")
+        negated = bool(scope.get("negated"))
+        if scope.get("self_mention"):
+            content = self.syn.nominalize_dik(
+                "bahset", poss=3, case="ACC", neg=negated,
+                subj=NP(doc, case="GEN"), abl=NP("ben", case="ABL"),
+            )
+            text = self.syn.realize_verb(VerbSpec(
+                verb_root="anla", obj=content, tense="PRES", person="1SG",
+            ))
+        else:
+            text = self.syn.realize_verb(VerbSpec(
+                verb_root="ilişkilendir", obj=NP("anlatım", mods=("bu",), case="ACC"),
+                advs=("kendimle",), neg=True, tense="PRES", person="1SG",
+            ))
+        trace = (
+            f"REFERENCE_SCOPE(document={doc},self={bool(scope.get('self_mention'))},"
+            f"negated={negated},quoted={bool(scope.get('quoted'))})"
+        )
+        return tr_capitalize(text) + ".", trace
 
     def _recent_affect(self, agi, speaker: str):
         """Soru olmayan, yakın ve gerçek bir duygu paylaşımını kendi anılarından bul."""
@@ -1471,6 +1627,97 @@ class GenerativeBrocaOrgan:
             if abs(float(ev.get("value", 0.0))) >= 0.30:
                 return ep, ev
         return None, None
+
+    def _recall_experience(self, agi, speaker: str, query_kind: str) -> tuple[str, str]:
+        """Geçmiş bildirimdeki olayı bul; ham soruyu veya yeni bir olgu uydurma."""
+        found = None
+        for ep in reversed(list(self.episodic.episodes)):
+            if ep.speaker != speaker:
+                continue
+            for sent in re.split(r"(?<=[.!?])\s+", ep.user_text):
+                if not sent.strip():
+                    continue
+                try:
+                    up = self.comprehend_discourse(
+                        sent, tr_lower(sent), agi.lang.morph, agi.lang.graph.lexicon
+                    )
+                except Exception:
+                    continue
+                if up.get("is_question") or up.get("experience_query") or up.get("asks_memory"):
+                    continue
+                events = list(up.get("affect_events") or [])
+                if query_kind == "past_state":
+                    events = [ev for ev in events if ev.get("frame") == "time_passage"
+                              and ev.get("kind") != "relief"]
+                elif query_kind == "felt_effect":
+                    events = [ev for ev in events if ev.get("kind") == "relief"]
+                else:
+                    events = []
+                if events:
+                    found = (ep, events[0])
+                    break
+            if found is not None:
+                break
+        if found is None:
+            self.last_experience_recall = {"found": False, "kind": query_kind}
+            text = self.syn.realize_verb(VerbSpec(
+                verb_root="hatırla", obj=NP("bu", case="ACC"), neg=True,
+                tense="PRES", person="1SG",
+            ))
+            return tr_capitalize(text) + ".", "EXPERIENCE_RECALL(none)"
+        ep, ev = found
+        self.last_experience_recall = {
+            "found": True, "kind": query_kind, "turn_id": int(ep.turn_id),
+            "cue": str(ev.get("cue") or ""),
+        }
+        if query_kind == "past_state":
+            surface = str(ev.get("predicate") or ev.get("state") or ev.get("surface") or "")
+            text = self.syn.realize_verb(VerbSpec(
+                verb_root="geç", subj=NP(str(ev.get("time_noun") or "gün"), poss=2),
+                advs=(surface,), tense="PAST", person="3SG",
+            ))
+        else:
+            cause = self._nora_event_cause(ev, possessive=True)
+            text = self.syn.realize_verb(VerbSpec(
+                verb_root="gel", subj=NP(cause),
+                advs=("sana iyi",), tense="PAST", person="3SG",
+            ))
+        return tr_capitalize(text) + ".", f"EXPERIENCE_RECALL(turn={ep.turn_id},cue={ev.get('cue')})"
+
+    def _natural_episode_recall(self, agi, ep, temporal: str = "az önce") -> str | None:
+        """Anıyı tur numarası/alıntıyla değil, içerdiği olaylardan doğal dille kur."""
+        events = []
+        for sent in re.split(r"(?<=[.!?])\s+", ep.user_text):
+            if not sent.strip():
+                continue
+            try:
+                up = self.comprehend_discourse(
+                    sent, tr_lower(sent), agi.lang.morph, agi.lang.graph.lexicon
+                )
+            except Exception:
+                continue
+            if not up.get("is_question"):
+                events.extend(up.get("affect_events") or [])
+        time_ev = next((ev for ev in events if ev.get("frame") == "time_passage"), None)
+        relief_ev = next((ev for ev in events if ev.get("kind") == "relief"), None)
+        if time_ev is None and relief_ev is None:
+            return None
+        parts = []
+        if time_ev is not None:
+            parts.append(self._affect_clause(time_ev, "ACC"))
+        if relief_ev is not None:
+            cause = self._nora_event_cause(relief_ev)
+            parts.append(self.syn.nominalize_dik(
+                "gel", poss=3, case="ACC", subj=NP(cause, case="GEN"),
+                advs=("sana iyi",),
+            ))
+        content = " ama ".join(parts)
+        text = self.syn.realize_verb(VerbSpec(
+            verb_root="anlat", obj=content, tense="EVID", person="2SG",
+        ))
+        if temporal:
+            return f"{tr_capitalize(temporal)} {text}."
+        return tr_capitalize(text) + "."
 
     def _memory_clause(self, agi, speaker: str, u: dict) -> str:
         """Yakın anıyı bir kez söze dök; hemen arkasından aynı cümleyi yineleme."""
@@ -2370,6 +2617,20 @@ class GenerativeBrocaOrgan:
                 raw_thought_nodes.append(
                     f"EMPATİ[bağlamsal]({dik_obj} -> {v_emp};değer={u['affect_val']:+.2f})"
                 )
+                if u.get("contrast"):
+                    relief_ev = next((ev for ev in u.get("affect_events", [])
+                                      if ev.get("kind") == "relief"), None)
+                    if relief_ev is not None:
+                        cause = self._nora_event_cause(relief_ev)
+                        relief_dat = self.syn.nominalize_dik(
+                            "gel", poss=3, case="DAT", subj=NP(cause, case="GEN"),
+                            advs=("sana iyi",),
+                        )
+                        c_relief = self.syn.realize_verb(VerbSpec(
+                            verb_root="sevin", dat=relief_dat, tense="PAST", person="1SG",
+                        ))
+                        clauses_out.append(tr_capitalize(c_relief) + ".")
+                        raw_thought_nodes.append("CONTRAST_RELIEF(cause=event.cause)")
             else:
                 chem.da_phasic = float(np.clip(chem.da_phasic + 0.22, -1.0, 1.0))
                 # İnsan sözü: "mutluluğun dopamin enerjimi artırıyor" demez, "sevindim" der.
@@ -2382,6 +2643,13 @@ class GenerativeBrocaOrgan:
                     joy = _joy[int(agi.mind.age) % len(_joy)]
                 clauses_out.append(joy + ".")
                 raw_thought_nodes.append(f"SEVİNÇ_EMPATİSİ({n_root}+2SG -> dopamin+artır)")
+
+        if "RECALL_EXPERIENCE" in acts:
+            recalled_text, recalled_trace = self._recall_experience(
+                agi, speaker, str(u.get("experience_query") or "")
+            )
+            clauses_out.append(recalled_text)
+            raw_thought_nodes.append(recalled_trace)
 
         # --- EDİM 5: O(1) Epizodik Diyalog Anısı Geri Çağırma ---
         if "RECALL_EPISODE" in acts and (u["asks_memory"] or not (u["wants_story"] and concept_hits)):
@@ -2408,14 +2676,29 @@ class GenerativeBrocaOrgan:
                         if target_ep is None:
                             target_ep = self.episodic.last_episode(speaker)
                     if target_ep is not None:
-                        v_rec = self.lex_sel.pick("VERB_RECALL", chem)
-                        c_rec = self.syn.realize_verb(VerbSpec(
-                            verb_root=v_rec if v_rec != "sakla" else "hatırla",
-                            obj=self.syn.nominalize_dik("söyle", poss=2, case="ACC", obj=f"'{target_ep.user_text}'"),
-                            loc=NP(f"{target_ep.turn_id + 1}. tur", case="LOC"),
-                            tense="PRES", person="1SG",
-                        ))
-                        clauses_out.append(tr_capitalize(c_rec) + ".")
+                        temporal = (
+                            "ilk olarak" if "ilk" in s_low
+                            else ("az önce" if "önce" in s_low else "")
+                        )
+                        try:
+                            natural = self._natural_episode_recall(agi, target_ep, temporal)
+                        except Exception:
+                            natural = None
+                        if natural:
+                            clauses_out.append(natural)
+                        else:
+                            v_rec = self.lex_sel.pick("VERB_RECALL", chem)
+                            c_rec = self.syn.realize_verb(VerbSpec(
+                                verb_root=v_rec if v_rec != "sakla" else "hatırla",
+                                obj=self.syn.nominalize_dik(
+                                    "söyle", poss=2, case="ACC", obj=f"'{target_ep.user_text}'"
+                                ),
+                                tense="PRES", person="1SG",
+                            ))
+                            clauses_out.append(
+                                f"{tr_capitalize(temporal)} {c_rec}." if temporal
+                                else tr_capitalize(c_rec) + "."
+                            )
                         raw_thought_nodes.append(f"CA3_GERİ_ÇAĞIR(tur={target_ep.turn_id + 1}, '{target_ep.topic}')")
                     else:
                         c_none = self.syn.realize_verb(VerbSpec(
@@ -2545,7 +2828,7 @@ class GenerativeBrocaOrgan:
         s_low = tr_lower(raw)
         u = self.comprehend_discourse(raw, s_low, agi.lang.morph, agi.lang.graph.lexicon)
         # Bellek sorgusu turlarının kendisi bir önceki konu anısını ezmesin diye yalnızca anlamlı içerik turlarını kodla
-        if u["asks_memory"] or u["social_query"]:
+        if u["asks_memory"] or u["social_query"] or u.get("experience_query"):
             return
         topic_tag = u["phil_topic"] or (u["stems"][0] if u["stems"] else "sohbet")
         acts = self.last_speech_plan.get("volition_acts", ["COGNITIVE_TURN"])

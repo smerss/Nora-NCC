@@ -1,0 +1,82 @@
+[
+  {
+    "fold": 1,
+    "position_seed": 149,
+    "wide_seed": 147,
+    "position_epochs_fixed": 12,
+    "wide_epochs_fixed": 9,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean_wiki1000_step1000.pt",
+    "freeze_emb": false,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "dialogue_repeats": 1,
+    "position": {
+      "n": 401,
+      "hit1": 161,
+      "hit5": 203,
+      "top1": 0.4014962593516209,
+      "top5": 0.5062344139650873,
+      "ppl": 96.61156918776804
+    },
+    "wide": {
+      "n": 401,
+      "hit1": 164,
+      "hit5": 199,
+      "top1": 0.4089775561097257,
+      "top5": 0.49625935162094764,
+      "ppl": 101.33309631725412
+    },
+    "ensemble": {
+      "n": 401,
+      "hit1": 167,
+      "hit5": 207,
+      "top1": 0.4164588528678304,
+      "top5": 0.516209476309227,
+      "ppl": 81.44115462386101
+    },
+    "seconds": 45.164459567999984
+  },
+  {
+    "fold": 2,
+    "position_seed": 149,
+    "wide_seed": 147,
+    "position_epochs_fixed": 12,
+    "wide_epochs_fixed": 9,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean_wiki1000_step1000.pt",
+    "freeze_emb": false,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "dialogue_repeats": 1,
+    "position": {
+      "n": 419,
+      "hit1": 169,
+      "hit5": 200,
+      "top1": 0.4033412887828162,
+      "top5": 0.477326968973747,
+      "ppl": 126.02011202530235
+    },
+    "wide": {
+      "n": 419,
+      "hit1": 166,
+      "hit5": 195,
+      "top1": 0.39618138424821003,
+      "top5": 0.46539379474940334,
+      "ppl": 165.64394199172764
+    },
+    "ensemble": {
+      "n": 419,
+      "hit1": 171,
+      "hit5": 205,
+      "top1": 0.4081145584725537,
+      "top5": 0.4892601431980907,
+      "ppl": 121.72504899742731
+    },
+    "seconds": 44.18892548900021
+  }
+]

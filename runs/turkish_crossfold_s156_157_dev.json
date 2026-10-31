@@ -1,0 +1,86 @@
+[
+  {
+    "fold": 1,
+    "position_seed": 156,
+    "wide_seed": 157,
+    "position_epochs_fixed": 12,
+    "wide_epochs_fixed": 9,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean1000_step1000.pt",
+    "freeze_emb": false,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "dialogue_repeats": 1,
+    "target_l2sp": 0.0,
+    "target_top1_margin": 0.0,
+    "position": {
+      "n": 401,
+      "hit1": 174,
+      "hit5": 211,
+      "top1": 0.4339152119700748,
+      "top5": 0.5261845386533666,
+      "ppl": 78.65655702109753
+    },
+    "wide": {
+      "n": 401,
+      "hit1": 170,
+      "hit5": 203,
+      "top1": 0.4239401496259352,
+      "top5": 0.5062344139650873,
+      "ppl": 90.18048888736345
+    },
+    "ensemble": {
+      "n": 401,
+      "hit1": 175,
+      "hit5": 215,
+      "top1": 0.43640897755610975,
+      "top5": 0.5361596009975063,
+      "ppl": 71.95661598087077
+    },
+    "seconds": 39.2021208999995
+  },
+  {
+    "fold": 2,
+    "position_seed": 156,
+    "wide_seed": 157,
+    "position_epochs_fixed": 12,
+    "wide_epochs_fixed": 9,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean1000_step1000.pt",
+    "freeze_emb": false,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "dialogue_repeats": 1,
+    "target_l2sp": 0.0,
+    "target_top1_margin": 0.0,
+    "position": {
+      "n": 419,
+      "hit1": 170,
+      "hit5": 201,
+      "top1": 0.40572792362768495,
+      "top5": 0.4797136038186158,
+      "ppl": 121.93058881388939
+    },
+    "wide": {
+      "n": 419,
+      "hit1": 164,
+      "hit5": 203,
+      "top1": 0.3914081145584726,
+      "top5": 0.48448687350835323,
+      "ppl": 151.92886911930827
+    },
+    "ensemble": {
+      "n": 419,
+      "hit1": 167,
+      "hit5": 204,
+      "top1": 0.39856801909307876,
+      "top5": 0.48687350835322196,
+      "ppl": 114.9674793210343
+    },
+    "seconds": 40.50072423900019
+  }
+]
