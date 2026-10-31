@@ -1,12 +1,13 @@
-import sys, os
-_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if _REPO_ROOT not in sys.path:
-    sys.path.insert(0, _REPO_ROOT)
-
 #!/usr/bin/env python3
 """Tek-basamak ağırlıklı müfredat: önce P(rakam|'=') kütlesini tavan yaptır.
 %80 tek-basamak (0-9), %20 iki-basamak (öğrenilmişi koruma). İz formatı aynı:
 A OP B = [A OP B = R] R  ve  What is A OPw B? [A OP B = R] It is R."""
+
+import sys, os
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+import nora  # noqa: F401  (eski nora_xxx import'ları için uyumluluk kancası)
 import random
 import sys
 

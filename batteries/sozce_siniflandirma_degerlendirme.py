@@ -1,9 +1,10 @@
+"""Sözce öz-sınıflandırıcısının çapraz-tohum (seed) dayanıklılığını ölçer."""
+
 import sys, os
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
-
-"""Sözce öz-sınıflandırıcısının çapraz-tohum (seed) dayanıklılığını ölçer."""
+import nora  # noqa: F401  (eski nora_xxx import'ları için uyumluluk kancası)
 from nora_autonomous_logic import NeuralUtteranceCortex
 from nora_chem import NeuroChemistry
 from nora_lang import TurkishMorphology

@@ -2,6 +2,7 @@ import sys, os
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
+import nora  # noqa: F401  (eski nora_xxx import'ları için uyumluluk kancası)
 
 out, cur, n = [], [], 0
 for ln in open("D:\\NoRa_AGI\\data\\text\\turkish_ud.conllu", encoding="utf-8"):

@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 import sys, os
+import tempfile
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
+import nora  # noqa: F401  (eski nora_xxx import'ları için uyumluluk kancası)
 
 
 import argparse
@@ -116,7 +118,7 @@ def nora_induce_plan_checkpoint() -> tuple[bool, str]:
     fit = agi.induce_transition_law(["f0"], train=records(TRAIN),
                                     validation=records(VALID), audit=records(AUDIT))
     first = agi.plan_actions([-3.0], [1.0], {"f0": 0.0}, use_symbolic=True)
-    prefix = tempfile.mktemp(prefix="nora_law_live_", dir="/tmp")
+    prefix = tempfile.mktemp(prefix="nora_law_live_")
     try:
         agi.save(prefix)
         restored = NoraAGI.load(prefix)
@@ -1764,7 +1766,7 @@ def restricted_research_boundary() -> tuple[bool, str]:
 
 
 def autonomous_invention_mission(*, network: bool = True,
-                                 checkpoint: str = "/tmp/nora_autonomous_skill.json") -> dict:
+                                 checkpoint: str = os.path.join(tempfile.gettempdir(), "nora_autonomous_skill.json")) -> dict:
     """Nora'ya yalnız görev+örnekler; kural/oracle ve arama tarifi yok."""
     task = _counter_task(MISSION_MODULUS)
     train, validation, heldout = task["train"], task["validation"], task["heldout"]
@@ -2112,7 +2114,7 @@ def representation_generalization() -> dict:
     }
 
 
-def sealed_checkpoint_audit(checkpoint: str = "/tmp/nora_autonomous_skill.json") -> dict:
+def sealed_checkpoint_audit(checkpoint: str = os.path.join(tempfile.gettempdir(), "nora_autonomous_skill.json")) -> dict:
     """Terfi sonrası yeni mühür; önceki hiçbir veri bölümüyle girdi çakışmaz."""
     prior = _counter_task(MISSION_MODULUS)
     previous = {source for key in ("train", "validation", "heldout")
@@ -3184,7 +3186,7 @@ def main():
     ap.add_argument("--output", default="")
     ap.add_argument("--pretrained-checkpoint", default="",
                     help="varsa indirilen MiniGPT tiny_gpt.pt; strict yükleme ve aynı ince-ayar bütçesi")
-    ap.add_argument("--checkpoint", default="/tmp/nora_autonomous_skill.json")
+    ap.add_argument("--checkpoint", default=os.path.join(tempfile.gettempdir(), "nora_autonomous_skill.json"))
     args = ap.parse_args()
     if (args.mission or args.scaling or args.generalization or args.active_generalization
             or args.oracle_robustness or args.correlated_oracle
@@ -3194,49 +3196,49 @@ def main():
         if args.mission:
             report = autonomous_invention_mission(network=not args.offline,
                                                   checkpoint=args.checkpoint)
-            output = args.output or "/tmp/nora_autonomous_mission.json"
+            output = args.output or os.path.join(tempfile.gettempdir(), "nora_autonomous_mission.json")
             success = bool(report.get("success"))
         elif args.scaling:
             report = representation_scaling()
-            output = args.output or "/tmp/nora_representation_scaling.json"
+            output = args.output or os.path.join(tempfile.gettempdir(), "nora_representation_scaling.json")
             success = bool(report["same_task_state_budget"][-1]["exact"]
                            and all(row["exact"] for row in report["task_family_difficulty"]))
         elif args.generalization:
             report = representation_generalization()
-            output = args.output or "/tmp/nora_representation_generalization.json"
+            output = args.output or os.path.join(tempfile.gettempdir(), "nora_representation_generalization.json")
             success = bool(report["measurement_complete"])
         elif args.active_generalization:
             report = active_representation_generalization()
-            output = args.output or "/tmp/nora_active_generalization.json"
+            output = args.output or os.path.join(tempfile.gettempdir(), "nora_active_generalization.json")
             success = bool(report["measurement_complete"])
         elif args.oracle_robustness:
             report = active_oracle_robustness()
-            output = args.output or "/tmp/nora_oracle_robustness.json"
+            output = args.output or os.path.join(tempfile.gettempdir(), "nora_oracle_robustness.json")
             success = bool(report["measurement_complete"])
         elif args.correlated_oracle:
             report = correlated_oracle_robustness()
-            output = args.output or "/tmp/nora_correlated_oracle.json"
+            output = args.output or os.path.join(tempfile.gettempdir(), "nora_correlated_oracle.json")
             success = bool(report["measurement_complete"])
         elif args.adaptive_oracle:
             report = adaptive_oracle_cost_comparison()
-            output = args.output or "/tmp/nora_adaptive_oracle.json"
+            output = args.output or os.path.join(tempfile.gettempdir(), "nora_adaptive_oracle.json")
             success = bool(report["measurement_complete"])
         elif args.dual_oracle:
             report = dual_oracle_acceptance()
-            output = args.output or "/tmp/nora_dual_oracle.json"
+            output = args.output or os.path.join(tempfile.gettempdir(), "nora_dual_oracle.json")
             success = bool(report["measurement_complete"])
         elif args.continuous_comparison:
             report = continuous_representation_comparison()
-            output = args.output or "/tmp/nora_continuous_comparison.json"
+            output = args.output or os.path.join(tempfile.gettempdir(), "nora_continuous_comparison.json")
             success = bool(report["measurement_complete"])
         elif args.transformer_comparison:
             report = transformer_representation_comparison(
                 pretrained_checkpoint=args.pretrained_checkpoint)
-            output = args.output or "/tmp/nora_transformer_comparison.json"
+            output = args.output or os.path.join(tempfile.gettempdir(), "nora_transformer_comparison.json")
             success = bool(report["measurement_complete"])
         else:
             report = sealed_checkpoint_audit(args.checkpoint)
-            output = args.output or "/tmp/nora_final_sealed_audit.json"
+            output = args.output or os.path.join(tempfile.gettempdir(), "nora_final_sealed_audit.json")
             success = bool(report.get("exact") and report.get("sources_not_in_any_prior_split"))
         report["total_seconds"] = time.perf_counter() - started
         with open(output, "w", encoding="utf-8") as handle:

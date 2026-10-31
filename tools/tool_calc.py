@@ -1,8 +1,3 @@
-import sys, os
-_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if _REPO_ROOT not in sys.path:
-    sys.path.insert(0, _REPO_ROOT)
-
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """tool_calc.py — NoRa'nın otonom hesap-aracı (System-2'nin eli).
@@ -12,6 +7,12 @@ Call, Attribute, Pow, Mod, FloorDiv, Compare... Uzunluk/düğüm/derinlik tavanl
 sıfır-bölme ve inf/nan hata döner.
 Kullanım: DPY tool_calc.py "12 + 34 * 2"  -> 80
 """
+
+import sys, os
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+import nora  # noqa: F401  (eski nora_xxx import'ları için uyumluluk kancası)
 import ast
 import sys
 

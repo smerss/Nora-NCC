@@ -5426,13 +5426,15 @@ class NoraAGI:
              "hafif": ("kilo", -1), "yaşlı": ("yaş", 1), "genç": ("yaş", -1)}
 
     #: "47 ile 38'i topla" — iki sayı + işlem FİİLİ (yalnız '+' işareti zaten çözülür).
+    #: 'çarpı'/'bölü' işleç adlarıdır, fiil değil: "3 artı 4 çarpı 2" bileşik ifadesi lang'a kalır.
     _ARITH_ASK = re.compile(r"\b(\d+(?:[.,]\d+)?)\s*\D{1,16}?\s*(\d+(?:[.,]\d+)?)\D{0,16}?"
-                            r"\b(topla|çıkar|çarp|böl)", re.U)
+                            r"\b(topla|çıkar|çarp(?!ı\b)|böl(?!ü\b))", re.U)
 
     def _num_turn(self, raw: str) -> str | None:
         """Sayıyla söylenen olguları yaz; "kim daha X" sorusunu SAYIYA bakarak cevapla."""
         tl = tr_lower(raw or "")
-        _ma = self._ARITH_ASK.search(tl)
+        # İkiden fazla sayı bileşik ifadedir; iki-sayılı fiil kalıbı onu yanlış böler.
+        _ma = self._ARITH_ASK.search(tl) if len(re.findall(r"\d+(?:[.,]\d+)?", tl)) == 2 else None
         if _ma and _ma.group(3):
             try:
                 a = float(_ma.group(1).replace(",", "."))
@@ -5455,8 +5457,15 @@ class NoraAGI:
                 _txt = f"{res:g}"
                 _opv = {"topla": "topladım", "çıkar": "çıkardım",
                         "çarp": "çarptım", "böl": "böldüm"}.get(op, op)
+                # Belirtme eki sayının OKUNUŞUNA uyar: 38'i, 4'ü, 7'yi, 6'yı.
+                _b = f"{b:g}"
+                try:
+                    _w = TurkishMorphology.int_to_words(int(_b.replace("-", "").split(".")[-1])).split()[-1]
+                    _b_acc = _b + "'" + ("y" if _w[-1] in "aeıioöuü" else "") + TurkishMorphology.vowel_4(_w)
+                except Exception:
+                    _b_acc = _b + "'i"
                 return self._say("meta.reasoning",
-                                 {"a": f"{a:g}", "b": f"{b:g}", "op": op,
+                                 {"a": f"{a:g}", "b": _b, "b_acc": _b_acc, "op": op,
                                   "opv": _opv, "res": _txt},
                                  ctx={"kind": "arith"}, fallback=_txt) or _txt
         wrote = 0
@@ -7774,7 +7783,7 @@ class NoraAGI:
             disp_expr = re.sub(r"\s*\/\s*", " ÷ ", disp_expr)
             disp_expr = re.sub(r"\s*\+\s*", " + ", disp_expr)
             disp_expr = re.sub(r"\s*\-\s*", " - ", disp_expr)
-            mode_desc = "aritmik işlem önceliği hesabıyla"
+            mode_desc = "aritmetik işlem önceliği hesabıyla"
             self.self_model.record_cognitive_success(used_system2=True)
             try:
                 ans_words = morph.int_to_words(int(ans)) if isinstance(ans, (int, float)) and abs(ans - round(ans)) < 1e-9 else str(ans)

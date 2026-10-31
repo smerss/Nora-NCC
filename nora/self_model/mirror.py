@@ -1,4 +1,3 @@
-from nora._paths import REPO_ROOT
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """nora_mirror.py — AYNA / ÖZ-DIŞ AYRIMI (benlik planı, aşama 5). Duyu-motor ŞARTLILIĞI (contingency) ile 'ben mi, başkası mı, kendi kaydımın tekrarı mı'.
@@ -13,6 +12,8 @@ Karşı sınama: (a) 'papağan': yalnızca nesne izinden (efferans kopyası YOK)
 
 Kullanım:  python nora_mirror.py --trials 300
 """
+
+from nora._paths import REPO_ROOT
 import argparse, os, sys
 import numpy as np
 

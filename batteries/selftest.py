@@ -1,12 +1,14 @@
-import sys, os
-_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if _REPO_ROOT not in sys.path:
-    sys.path.insert(0, _REPO_ROOT)
-
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """selftest.py — hızlı duman testleri (birkaç dakika). Her bileşenin çalıştığını ve temel değişmezleri doğrular.
 Kullanım: python selftest.py [--bridge]   (--bridge: torch gerektirir, küçük düşünce sütununu eğitir)"""
+
+import sys, os
+import tempfile
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+import nora  # noqa: F401  (eski nora_xxx import'ları için uyumluluk kancası)
 import os, sys, time
 
 import numpy as np
@@ -43,9 +45,9 @@ def main():
     check("iç gözlem prototipleri oluştu", len(m.intro.P) >= 2)
     txt, cl = Narrator().say(m, w.observe())
     check("anlatıcı iddia üretiyor", len(cl) >= 4, txt[:90] + "...")
-    m.save("/tmp/_selftest_mind.npz")
+    m.save(os.path.join(tempfile.gettempdir(), "_selftest_mind.npz"))
     m2 = Mind(seed=123)
-    m2.load("/tmp/_selftest_mind.npz")
+    m2.load(os.path.join(tempfile.gettempdir(), "_selftest_mind.npz"))
     check("kaydet/yükle: farklı tohumla aynı beyin", np.allclose(m.h, m2.h) and m2.age == m.age)
     # kaçırılma
     rng = np.random.default_rng(0)

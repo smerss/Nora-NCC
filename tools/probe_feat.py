@@ -1,9 +1,10 @@
+"""Şaşkınlık-vektör probu: donuk omurgada A/C/M gizli-ortalama uzaklıkları."""
+
 import sys, os
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
-
-"""Şaşkınlık-vektör probu: donuk omurgada A/C/M gizli-ortalama uzaklıkları."""
+import nora  # noqa: F401  (eski nora_xxx import'ları için uyumluluk kancası)
 import sys
 sys.path.insert(0, "D:\\NoRa_AGI")
 import torch

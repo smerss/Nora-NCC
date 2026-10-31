@@ -1,11 +1,12 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""benchmark_profile.py — Detailed RAM and CPU Profiling Benchmark for Nora-NCC."""
+
 import sys, os
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
-
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""benchmark_profile.py — Detailed RAM and CPU Profiling Benchmark for Nora-NCC."""
+import nora  # noqa: F401  (eski nora_xxx import'ları için uyumluluk kancası)
 
 import os
 for _th_var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):

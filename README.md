@@ -113,7 +113,7 @@ The diagram is a responsibility map, not a claim that every module is a neural n
 
 ### World, body, and homeostasis
 
-`nora_world.py` supplies the environment in which behavior has costs. Depending on the experiment, it includes Newtonian motion, friction, momentum-preserving collisions, movable obstacles, day/night changes, wind, metabolism, food, water, hazards, and rule changes such as inverted controls or poisoned food.
+`nora/substrate/world.py` supplies the environment in which behavior has costs. Depending on the experiment, it includes Newtonian motion, friction, momentum-preserving collisions, movable obstacles, day/night changes, wind, metabolism, food, water, hazards, and rule changes such as inverted controls or poisoned food.
 
 The agent does not receive a convenient coordinate readout as a substitute for perception. The world and mind experiments use egocentric sensing, interoception, touch, proprioception, and a compass. Location confidence and uncertainty are therefore part of the problem.
 
@@ -125,11 +125,11 @@ H = Σ(1 − need)²
 
 Changes in this error contribute to valence and slower mood dynamics. Reward is consequently tied to the state of the agent rather than being only an external text label.
 
-`nora_nervous.py` and the mortality path add bodily signaling, pain-related responses, and irreversible death in single-life experiments. Death is not treated as a cosmetic reset button.
+`nora/substrate/nervous.py` and the mortality path add bodily signaling, pain-related responses, and irreversible death in single-life experiments. Death is not treated as a cosmetic reset button.
 
 ### Mushroom-body-inspired sparse learning
 
-`nora_neuron.py` and `nora_chem.py` implement the biological inspiration at the level of computation:
+`nora/substrate/neuron.py` and `nora/substrate/chem.py` implement the biological inspiration at the level of computation:
 
 - sparse Kenyon-cell-like activation, with the principal operating point around 6% active cells in the documented experiments;
 - heterogeneous thresholds and an APL-style activity ceiling;
@@ -143,7 +143,7 @@ The important claim is narrow and testable: sparse representation and local lear
 
 ### Workspace and cognitive bus
 
-`nora_workspace.py`, `nora_gw.py`, and `nora_bus.py` provide different levels of the integration problem:
+`nora/cognition/workspace.py`, `nora/cognition/gw.py`, and `nora/cognition/bus.py` provide different levels of the integration problem:
 
 - specialists compete for limited attention;
 - a selected focus can be broadcast to other components;
@@ -156,7 +156,7 @@ The workspace is not assumed to be useful merely because it exists. The evaluati
 
 ### Prediction, planning, and causal models
 
-`nora_prediction.py`, `nora_planning.py`, `nora_causal.py`, and `nora_laws.py` cover forward models and decision-making:
+`nora/reasoning/prediction.py`, `nora/reasoning/planning.py`, `nora/reasoning/causal.py`, and `nora/reasoning/laws.py` cover forward models and decision-making:
 
 - action-dependent predictions about body and world transitions;
 - imagined action sequences evaluated before commitment;
@@ -186,17 +186,17 @@ Passive storage is not treated as nonexistence. A fact outside the active set ca
 
 The language stack is split into responsibilities instead of treating a generator as the source of all knowledge:
 
-- **Comprehension and structure:** `nora_lang.py`, `nora_turkce.py`, `nora_stem.py`, and related frame/schema components analyze Turkish morphology, sentence structure, roles, and context.
+- **Comprehension and structure:** `nora/language/lang.py`, `nora/language/turkce.py`, `nora/synthesis/stem.py`, and related frame/schema components analyze Turkish morphology, sentence structure, roles, and context.
 - **Semantic candidates:** Graph/HDC/MB pathways propose concepts, relations, analogies, and causal explanations.
 - **Verification:** Graph queries, relation ledgers, acceptance states, and independent test oracles check whether a candidate is supported.
-- **Articulation:** `nora_broca.py`, `nora_broca_net.py`, and the voice/tokenizer organs turn selected meaning into fluent output.
-- **Social and auditory paths:** `nora_voice.py`, `nora_ear.py`, and discourse components handle turns, speakers, voices, and conversational context.
+- **Articulation:** `nora/language/broca.py`, `nora/language/broca_net.py`, and the voice/tokenizer organs turn selected meaning into fluent output.
+- **Social and auditory paths:** `nora/language/voice.py`, `nora/language/ear.py`, and discourse components handle turns, speakers, voices, and conversational context.
 
 The central design rule is: **Broca is not the knowledge base.** An unknown concept should be able to produce an explicit symbolic unknown-state response without forcing a large neural generation or inventing a definition.
 
 ### Self-model and volition
 
-`nora_self.py` maintains values, traits, somatic records, formative episodes, self-assessed abilities, and volition traces. The self-model is connected to lived outcomes: injuries, successful actions, unmet needs, deaths, and social experience can change subsequent decisions.
+`nora/self_model/self.py` maintains values, traits, somatic records, formative episodes, self-assessed abilities, and volition traces. The self-model is connected to lived outcomes: injuries, successful actions, unmet needs, deaths, and social experience can change subsequent decisions.
 
 The current self-belief records distinguish an internally held position from its measurement status. They include:
 
@@ -210,7 +210,7 @@ This makes self-related behavior inspectable and intervenable. It does not turn 
 
 ### Deliberation and philosophy
 
-`nora_deliberation.py` adds a structured path for questions about consciousness, understanding, knowledge, and related concepts. A deliberative trace can contain:
+`nora/reasoning/deliberation.py` adds a structured path for questions about consciousness, understanding, knowledge, and related concepts. A deliberative trace can contain:
 
 1. the concept or claim being discussed;
 2. graph facts and their acceptance status;
@@ -329,16 +329,16 @@ On Windows PowerShell, activate the environment with:
 ### Run the main demonstration
 
 ```bash
-python nora_agi.py --stage demo --seed 1 --life-steps 2500
+python -m nora.cognition.agi --stage demo --seed 1 --life-steps 2500
 ```
 
 The main CLI supports `demo`, `chat`, and `twins` stages. Useful options include:
 
 ```bash
-python nora_agi.py --stage chat --seed 1
-python nora_agi.py --stage twins --twin-steps 300
-python nora_agi.py --stage demo --corpus path/to/corpus.txt
-python nora_agi.py --stage demo --journal data/nora_life.ndjson
+python -m nora.cognition.agi --stage chat --seed 1
+python -m nora.cognition.agi --stage twins --twin-steps 300
+python -m nora.cognition.agi --stage demo --corpus path/to/corpus.txt
+python -m nora.cognition.agi --stage demo --journal data/nora_life.ndjson
 ```
 
 `--think-iters` controls the selected boot/thinking budget. `--broca` selects an articulation checkpoint. `--internet` explicitly enables background research access; it is not required for ordinary local execution.
@@ -346,7 +346,7 @@ python nora_agi.py --stage demo --journal data/nora_life.ndjson
 ### Run the local observatory
 
 ```bash
-python nora_studio.py --host 0.0.0.0 --port 8000
+python -m nora.synthesis.studio --host 0.0.0.0 --port 8000
 ```
 
 Then open the local Studio endpoint in a browser. Studio is an inspection and interaction surface for the running agent, not a replacement for the underlying cognitive runtime.
@@ -378,57 +378,57 @@ The repository is intentionally organized as a set of inspectable organs and exp
 
 | File | Responsibility |
 | --- | --- |
-| `nora_agi.py` | Main Nora-AGI composition, life loop, CLI, dialogue integration, and persistence orchestration. |
-| `nora_mind.py` | Living-mind model, prediction, planning, context, and world-model experiments. |
-| `nora_world.py` | Physical environment, resources, hazards, sensing, and rule changes. |
-| `nora_nervous.py` | Bodily signaling, nervous-system responses, and single-life mortality. |
-| `nora_drive.py` | Needs, drives, and action-relevant motivational signals. |
-| `nora_life.py` | Ongoing life activity, background behavior, and life-cycle support. |
-| `nora_studio.py` | Local observatory and interactive runtime surface. |
+| `nora/cognition/agi.py` | Main Nora-AGI composition, life loop, CLI, dialogue integration, and persistence orchestration. |
+| `nora/cognition/mind.py` | Living-mind model, prediction, planning, context, and world-model experiments. |
+| `nora/substrate/world.py` | Physical environment, resources, hazards, sensing, and rule changes. |
+| `nora/substrate/nervous.py` | Bodily signaling, nervous-system responses, and single-life mortality. |
+| `nora/self_model/drive.py` | Needs, drives, and action-relevant motivational signals. |
+| `nora/self_model/life.py` | Ongoing life activity, background behavior, and life-cycle support. |
+| `nora/synthesis/studio.py` | Local observatory and interactive runtime surface. |
 
 ### Representation and integration
 
 | File | Responsibility |
 | --- | --- |
-| `nora_neuron.py` | Sparse neural foundations and mushroom-body-inspired mechanisms. |
-| `nora_chem.py` | Chemical/neuromodulatory state, HDC/MB learning, and fast associative updates. |
-| `nora_workspace.py` | Integration workspace, explicit focus, and working-memory interactions. |
-| `nora_gw.py` | Global-workspace experiments and broadcast controls. |
-| `nora_bus.py` | Typed cognitive bus, auctions, provenance, and dynamic composition. |
-| `nora_architecture.py` | Capability-based composition and architectural test support. |
-| `nora_state.py` | Safe state capture, restoration, and serialization helpers. |
-| `nora_store.py` | Storage and persistence support. |
+| `nora/substrate/neuron.py` | Sparse neural foundations and mushroom-body-inspired mechanisms. |
+| `nora/substrate/chem.py` | Chemical/neuromodulatory state, HDC/MB learning, and fast associative updates. |
+| `nora/cognition/workspace.py` | Integration workspace, explicit focus, and working-memory interactions. |
+| `nora/cognition/gw.py` | Global-workspace experiments and broadcast controls. |
+| `nora/cognition/bus.py` | Typed cognitive bus, auctions, provenance, and dynamic composition. |
+| `nora/cognition/architecture.py` | Capability-based composition and architectural test support. |
+| `nora/substrate/state.py` | Safe state capture, restoration, and serialization helpers. |
+| `nora/memory/store.py` | Storage and persistence support. |
 
 ### Knowledge and reasoning
 
 | File | Responsibility |
 | --- | --- |
-| `nora_causal.py` | Causal graphs, interventions, and counterfactual reasoning. |
-| `nora_prediction.py` | Forward prediction and model-based action evaluation. |
-| `nora_planning.py` | Planning and action-sequence selection. |
-| `nora_laws.py` | Symbolic transition and law-related models. |
-| `nora_apply.py` | Binding and applying learned operators to new inputs. |
-| `nora_forge.py` | Learning and registering new operators from examples. |
-| `nora_episteme.py` | Knowledge state, acceptance, provenance, and epistemic control. |
-| `nora_deliberation.py` | Multi-step deliberation, countermodels, and philosophical reasoning traces. |
-| `nora_self.py` | Values, traits, somatic memory, volition, and self-beliefs. |
-| `nora_metacog.py` | Metacognitive monitoring and confidence-related behavior. |
-| `nora_speculation.py` | Controlled hypothesis generation and exploratory reasoning. |
+| `nora/reasoning/causal.py` | Causal graphs, interventions, and counterfactual reasoning. |
+| `nora/reasoning/prediction.py` | Forward prediction and model-based action evaluation. |
+| `nora/reasoning/planning.py` | Planning and action-sequence selection. |
+| `nora/reasoning/laws.py` | Symbolic transition and law-related models. |
+| `nora/synthesis/apply.py` | Binding and applying learned operators to new inputs. |
+| `nora/synthesis/forge.py` | Learning and registering new operators from examples. |
+| `nora/memory/episteme.py` | Knowledge state, acceptance, provenance, and epistemic control. |
+| `nora/reasoning/deliberation.py` | Multi-step deliberation, countermodels, and philosophical reasoning traces. |
+| `nora/self_model/self.py` | Values, traits, somatic memory, volition, and self-beliefs. |
+| `nora/self_model/metacog.py` | Metacognitive monitoring and confidence-related behavior. |
+| `nora/reasoning/speculation.py` | Controlled hypothesis generation and exploratory reasoning. |
 
 ### Language and communication
 
 | File | Responsibility |
 | --- | --- |
-| `nora_lang.py` | Language composition, semantic graph integration, and dialogue reasoning. |
-| `nora_turkce.py` | Turkish linguistic resources and analysis. |
-| `nora_stem.py` | Morphological and stem-related processing. |
-| `nora_broca.py` | Symbolic and neural articulation support. |
-| `nora_broca_net.py` | Neural articulation and relational candidate components. |
-| `nora_discourse.py` | Conversation state, discourse relations, and turn management. |
-| `nora_voice.py` | Voice, hearing, and online language-organ interaction. |
-| `nora_ear.py` | Speaker and voice-related perception. |
-| `nora_episodic.py` | Episodic and autobiographical memory. |
-| `nora_anlatim.py` | Narration and explanation support. |
+| `nora/language/lang.py` | Language composition, semantic graph integration, and dialogue reasoning. |
+| `nora/language/turkce.py` | Turkish linguistic resources and analysis. |
+| `nora/synthesis/stem.py` | Morphological and stem-related processing. |
+| `nora/language/broca.py` | Symbolic and neural articulation support. |
+| `nora/language/broca_net.py` | Neural articulation and relational candidate components. |
+| `nora/language/discourse.py` | Conversation state, discourse relations, and turn management. |
+| `nora/language/voice.py` | Voice, hearing, and online language-organ interaction. |
+| `nora/language/ear.py` | Speaker and voice-related perception. |
+| `nora/memory/episodic.py` | Episodic and autobiographical memory. |
+| `nora/language/anlatim.py` | Narration and explanation support. |
 
 ### Experiments and supporting organs
 
@@ -443,29 +443,29 @@ The `*_battery.py` files are executable evaluations, not documentation-only chec
 Run the targeted architectural and persistence protocols:
 
 ```bash
-python architecture_battery.py
-python persistence_battery.py
-python workspace_battery.py
-python consciousness_battery.py
+python batteries/architecture_battery.py
+python batteries/persistence_battery.py
+python batteries/workspace_battery.py
+python batteries/consciousness_battery.py
 ```
 
 Run selected functional tests by identifier:
 
 ```bash
-python agi_battery.py A145
-python agi_battery.py A4 A6 A9 A16 A20 A145
+python batteries/agi_battery.py A145
+python batteries/agi_battery.py A4 A6 A9 A16 A20 A145
 ```
 
 Useful variations include:
 
 ```bash
-python architecture_battery.py --repeat 3
-python architecture_battery.py --only C17
-python persistence_battery.py --repeat 2
-python agi_battery.py --shuffle=7
+python batteries/architecture_battery.py --repeat 3
+python batteries/architecture_battery.py --only C17
+python batteries/persistence_battery.py --repeat 2
+python batteries/agi_battery.py --shuffle=7
 ```
 
-The full `agi_battery.py` inventory is large. A selected green test should not be reported as a full-battery pass.
+The full `batteries/agi_battery.py` inventory is large. A selected green test should not be reported as a full-battery pass.
 
 ### What the tests are designed to measure
 

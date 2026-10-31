@@ -12,6 +12,7 @@ import sys, os
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
+import nora  # noqa: F401  (eski nora_xxx import'ları için uyumluluk kancası)
 
 
 import argparse
@@ -34,7 +35,7 @@ def _cleanup(prefix):
 
 
 def exact_continuation() -> tuple[bool, str]:
-    prefix = tempfile.mktemp(prefix="nora_p_exact_", dir="/tmp")
+    prefix = tempfile.mktemp(prefix="nora_p_exact_")
     try:
         original = NoraAGI(seed=7301, boot_thinker=False, single_life=False,
                            world_kwargs={"n_food": 5, "wind": True, "metabolism": True})
@@ -60,7 +61,7 @@ def exact_continuation() -> tuple[bool, str]:
 
 
 def world_rules_and_death() -> tuple[bool, str]:
-    prefix = tempfile.mktemp(prefix="nora_p_world_", dir="/tmp")
+    prefix = tempfile.mktemp(prefix="nora_p_world_")
     try:
         agi = NoraAGI(seed=7302, boot_thinker=False,
                       world_kwargs={"n_food": 2, "wind": False, "metabolism": False})
@@ -84,7 +85,7 @@ def world_rules_and_death() -> tuple[bool, str]:
 
 
 def goals_and_typed_memory() -> tuple[bool, str]:
-    prefix = tempfile.mktemp(prefix="nora_p_goal_", dir="/tmp")
+    prefix = tempfile.mktemp(prefix="nora_p_goal_")
     try:
         agi = NoraAGI(seed=7303, boot_thinker=False,
                       world_kwargs={"n_food": 2, "wind": False, "metabolism": False})

@@ -1,12 +1,13 @@
-import sys, os
-_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if _REPO_ROOT not in sys.path:
-    sys.path.insert(0, _REPO_ROOT)
-
 """Türkçe Vikipedi döküm dosyasını AKIŞLA okuyup düzyazı çıkarır (Nora'nın okuyarak dil öğrenmesi için ham veri).
 Tüm dosyayı indirmez: hedef karakter sayısına ulaşınca durur.
     python make_corpus_dump.py --chars 60000000 --out data/text/tr_dump.txt
 """
+
+import sys, os
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+import nora  # noqa: F401  (eski nora_xxx import'ları için uyumluluk kancası)
 import argparse
 import bz2
 import os

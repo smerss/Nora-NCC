@@ -1,12 +1,13 @@
-import sys, os
-_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if _REPO_ROOT not in sys.path:
-    sys.path.insert(0, _REPO_ROOT)
-
 #!/usr/bin/env python3
 """Düşünce-izli aritmetik korpusu: cevap ÖNCESİ iz sürmeyi öğretir.
 Format: 12 + 34 = [12 + 34 = 46] 46   ve   What is 12 plus 34? [12 + 34 = 46] It is 46.
 Köşeliler geniş alfabede var (kod sembolleri). Sayılar 0-99 (öğrenilebilir aralık)."""
+
+import sys, os
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+import nora  # noqa: F401  (eski nora_xxx import'ları için uyumluluk kancası)
 import random
 import sys
 
