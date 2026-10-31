@@ -218,17 +218,403 @@ def live_counterfactual_removal() -> tuple[bool, str]:
     return ok, detail
 
 
+def mb_single_presentation_abc() -> tuple[bool, str]:
+    """A→B→C tek-sunum sınavı; uyku, replay ve hazır cevap yolu kapalı.
+
+    Beklenenler aşağıdaki bağımsız oracle satırlarıdır. Nora'nın grafındaki
+    kenarları cevap oracle'ı olarak kullanmayız; ayrıca her sorunun gerçekten
+    HDC/MB okumasıyla ve sembolik yön doğrulamasıyla çözülmesini isteriz.
+    """
+    from nora_agi import NoraAGI
+    from nora_style import strip_prefixes
+
+    agi = NoraAGI(seed=7311, boot_thinker=False, code_pretrain=False,
+                  world_kwargs={"metabolism": False, "wind": False, "n_food": 1})
+    agi.life.enabled = False
+    forbidden_calls = []
+
+    def forbidden_sleep(*_args, **_kwargs):
+        forbidden_calls.append("sleep")
+        raise AssertionError("uyku/replay kabul sınavında kapalı")
+
+    agi.sleep = forbidden_sleep
+    # Canlı turda herhangi bir organ gizli konsolidasyon çağırırsa sınav düşer.
+    mb_organs = [agi.lang.graph.word_mb, agi.lang.wernicke.intent_mb,
+                 agi.plastic_discourse.mb, agi.schema_cortex.mb, agi.fast.mb]
+    relation_mb = getattr(getattr(agi.lang.graph, "relation_mb", None), "mb", None)
+    if relation_mb is not None:
+        mb_organs.append(relation_mb)
+    for organ in mb_organs:
+        organ.sleep_consolidate = forbidden_sleep
+
+    teachings = [
+        "Zorvath bir alet türüdür, kayaları keser.",
+        "Blorg suda yaşar.",
+        "Blorg bir Zorvath türüdür.",
+    ]
+    presentation_counts = {sentence: 0 for sentence in teachings}
+    original_teach = agi.lang.teach_sentence
+
+    def counted_teach(text, speaker="insan"):
+        if text in presentation_counts:
+            presentation_counts[text] += 1
+        return original_teach(text, speaker=speaker)
+
+    agi.lang.teach_sentence = counted_teach
+    teaching_replies = [agi.converse(sentence) for sentence in teachings]
+    # (soru, bağımsız beklenen tür, cevapta bulunması gereken yüzey)
+    oracle = [
+        ("Zorvath kayaları keser mi?", "yes", "kay"),
+        ("Blorg suda mı yaşar?", "yes", "su"),
+        ("Blorg nedir?", "contains", "zorvath"),
+    ]
+    replies, traces, failures = [], [], []
+    for question, kind, expected in oracle:
+        reply = agi.converse(question)
+        clean = strip_prefixes(reply).strip().lower()
+        replies.append(reply)
+        trace = dict(getattr(agi.lang.graph, "last_decision", {}) or {})
+        traces.append(trace)
+        if kind == "yes" and not clean.startswith("evet"):
+            failures.append(f"oracle yes değil: {question} -> {reply}")
+        if kind == "contains" and expected not in clean:
+            failures.append(f"oracle içerik yok: {question} -> {reply}")
+        if kind == "yes" and expected not in clean:
+            failures.append(f"cevap dayanağı yüzeyde yok: {question} -> {reply}")
+        if trace.get("engine") != "hdc_mb" or not trace.get("graph_validated"):
+            failures.append(f"MB+graf karar izi yok: {question} -> {trace}")
+        if not trace.get("awake") or trace.get("replay") != 0:
+            failures.append(f"uyanık/replay'siz iz yok: {question} -> {trace}")
+    if any(count != 1 for count in presentation_counts.values()):
+        failures.append(f"sunum sayıları: {presentation_counts}")
+    if forbidden_calls:
+        failures.append(f"uyku/replay çağrıları: {forbidden_calls}")
+    if relation_mb is None:
+        failures.append("merkezî ilişki MB'si yok")
+    expected_edges = {
+        ("zorvath", "CAN_DO", "kaya kes"),
+        ("blorg", "LOCATED_AT", "su"),
+        ("blorg", "ISA", "zorvath türü"),
+    }
+    actual_edges = {(edge.subj, edge.rel, edge.obj) for edge in agi.lang.graph.edges}
+    if not expected_edges <= actual_edges:
+        failures.append(f"bağımsız üçlü oracle'ı: eksik={sorted(expected_edges - actual_edges)}")
+    detail = (f"cevaplar={replies} | sunum={list(presentation_counts.values())} | "
+              f"uyku={len(forbidden_calls)} | MB_iz={len(traces)}")
+    if failures:
+        detail += " | " + " ; ".join(failures[:4])
+    return not failures, detail
+
+
+def mb_relation_invention_transfer() -> tuple[bool, str]:
+    """Bilinmeyen yüklem ISA'ya ezilmez; probation operatörü yeni alana taşınır."""
+    from nora_chem import NeuroChemistry
+    from nora_lang import NoraLanguage
+
+    lang = NoraLanguage(chem=NeuroChemistry(), seed=7312)
+    graph = lang.graph
+    failures = []
+    first = lang.teach_sentence("Narvik torpları vorlar.")
+    dynamic = [edge for edge in first if edge.rel.startswith("YENI_OPERATOR")]
+    if len(dynamic) != 1:
+        return False, f"bilinmeyen yüklem probation ilişkiye dönüşmedi: {first}"
+    edge = dynamic[0]
+    relation = edge.rel
+    if (edge.subj, edge.obj, edge.status) != ("narvik", "torp", "probation"):
+        failures.append(f"SVO/probation yanlış: {edge}")
+    if any(item.rel == "ISA" and item.subj == "narvik" for item in first):
+        failures.append("bilinmeyen yüklem ISA'ya zorlandı")
+    presentations_before_repeat = graph.relation_mb.presentations
+    lang.teach_sentence("Narvik torpları vorlar.")
+    if (graph.last_invention.get("mode") != "reobservation"
+            or graph.relation_mb.presentations != presentations_before_repeat):
+        failures.append("aynı gözlem yeni icat/sunum gibi yazıldı")
+
+    # İcat edilen ilişki doğrudan öğretilmemiş alt türe ancak ISA kanıtıyla taşınır.
+    lang.teach_sentence("Blorg bir Narvik türüdür.")
+    transferred = graph.check_relation("blorg", "torpları vorlar")
+    if transferred.get("answer") is not True or not transferred.get("isa_path"):
+        failures.append(f"yeni türe transfer yok: {transferred}")
+    proof = graph.prove_candidate("blorg", relation, "torp")
+    if proof.get("status") != "proved" or proof.get("rule") != "isa_inheritance":
+        failures.append(f"bağımsız sembolik doğrulama yok: {proof}")
+
+    # Aynı yapının başka özne/nesne alanında görülmesi keşif; ilk operatör icattır.
+    lang.teach_sentence("Derva kumları vorlar.")
+    discovery = dict(getattr(graph, "last_invention", {}) or {})
+    if discovery.get("mode") != "discovery" or discovery.get("relation") != relation:
+        failures.append(f"tekrarlanan yapı keşif sayılmadı: {discovery}")
+    lang.teach_sentence("Sena bir Derva türüdür.")
+    new_domain = graph.check_relation("sena", "kumları vorlar")
+    if new_domain.get("answer") is not True:
+        failures.append(f"yeni nesne alanına transfer yok: {new_domain}")
+    unrelated = graph.check_relation("merta", "torpları vorlar")
+    if unrelated.get("answer") is not None:
+        failures.append(f"ilişkisiz kontrol uydurma cevap verdi: {unrelated}")
+
+    # Yön çelişkisi eski bilgiyi silmeden reddedilir.
+    reverse = graph.invent_relation("torp", "narvik", "Torpları Narvik vorlar.", "vorl")
+    if reverse.get("status") != "conflict" or reverse.get("edge") is not None:
+        failures.append(f"ters yön çelişkisi yakalanmadı: {reverse}")
+    if graph._edge_map.get(("narvik", relation, "torp")) is None:
+        failures.append("çelişki denetimi eski kenarı sildi")
+
+    rules = getattr(graph.relation_interpreter, "relation_rules", {})
+    rule = next((item for item in rules.values() if item.relation == relation), None)
+    if rule is None or rule.status != "probation":
+        failures.append("uygulanabilir probation operatörü Interpreter'da yok")
+    else:
+        triple, _trace = rule.apply("sena", "kum")
+        if triple != ("sena", relation, "kum"):
+            failures.append(f"operatör yeni bağlanışa uygulanamadı: {triple}")
+        empty_triple, _empty_trace = rule.apply("", "kum")
+        if empty_triple is not None:
+            failures.append("operatör boş özneyle geçerli üçlü üretti")
+    trace = dict(getattr(graph, "last_decision", {}) or {})
+    if trace.get("engine") != "hdc_mb" or trace.get("replay") != 0:
+        failures.append(f"transfer MB'den karar vermedi: {trace}")
+    detail = (f"rel={relation} | icat+keşif={discovery.get('mode')} | "
+              f"transfer={transferred.get('answer')}/{new_domain.get('answer')} | "
+              f"kontrol={unrelated.get('answer')} | çelişki={reverse.get('status')}")
+    if failures:
+        detail += " | " + " ; ".join(failures[:4])
+    return not failures, detail
+
+
+def mb_ablation_retention_multiseed() -> tuple[bool, str]:
+    """MB kararın nedeni mi; yeni yazımlar ve bakım eski bilgiyi koruyor mu?"""
+    import numpy as np
+    from nora_chem import NeuroChemistry
+    from nora_lang import NoraLanguage
+
+    failures, seed_rows = [], []
+    for seed in (9101, 9202, 9303, 9404, 9505):
+        lang = NoraLanguage(chem=NeuroChemistry(), seed=seed)
+        graph = lang.graph
+        # Erken yazılan bütün bootstrap kenarları nörogenezden sonra da kendi
+        # olay normuyla erişilebilir olmalı; yalnız son yazılan A/B/C'yi sınamak
+        # eski kodun seyreltilmesini gözden kaçırıyordu.
+        missing_bootstrap = 0
+        for subject in sorted({edge.subj for edge in graph.edges if edge.weight > 0.25}):
+            recalled = graph.query(subject)
+            direct_ids = {id(edge) for edge, path in recalled if not path}
+            missing_bootstrap += sum(
+                1 for edge in graph.edges
+                if edge.subj == subject and edge.weight > 0.25 and id(edge) not in direct_ids)
+        if missing_bootstrap:
+            failures.append(f"{seed}: nörogenez sonrası {missing_bootstrap} eski kenar okunamadı")
+        lang.teach_sentence("Zorvath bir alet türüdür, kayaları keser.")
+        lang.teach_sentence("Blorg suda yaşar.")
+        lang.teach_sentence("Blorg bir Zorvath türüdür.")
+
+        def oracle():
+            first = graph.check_relation("zorvath", "kayaları keser").get("answer") is True
+            second = graph.check_relation("blorg", "suda").get("answer") is True
+            third = any(edge.obj == "zorvath türü"
+                        for edge, _path in graph.query("blorg", ("ISA",)))
+            return first and second and third
+
+        if not oracle():
+            failures.append(f"{seed}: başlangıç A/B/C başarısız")
+            continue
+        fast = graph.relation_mb.mb.W_fast.copy()
+        slow = graph.relation_mb.mb.W_slow.copy()
+        edge_count = len(graph.edges)
+        graph.relation_mb.mb.W_fast.fill(0.0)
+        graph.relation_mb.mb.W_slow.fill(0.0)
+        ablated = (graph.check_relation("zorvath", "kayaları keser").get("answer"),
+                   graph.check_relation("blorg", "suda").get("answer"))
+        if ablated != (None, None) or len(graph.edges) != edge_count:
+            failures.append(f"{seed}: graf varken MB ablasyonu kararı kaldırmadı: {ablated}")
+        graph.relation_mb.mb.W_fast[:, :] = fast
+        graph.relation_mb.mb.W_slow[:, :] = slow
+        if not oracle():
+            failures.append(f"{seed}: ağırlık restorasyonu öğretimsiz dönmedi")
+
+        for index in range(40):
+            lang.teach_sentence(f"Nesne{index} kayaları keser.")
+        if not oracle():
+            failures.append(f"{seed}: 40 yeni bilgi sonrası eski A/B/C kayboldu")
+        maintenance = graph.relation_mb.sleep_maintenance()
+        if maintenance.get("replayed") != 0.0 or not oracle():
+            failures.append(f"{seed}: replay'siz bakım sonucu bozuk: {maintenance}")
+        if float(np.linalg.norm(graph.relation_mb.mb.W_slow)) <= 0.0:
+            failures.append(f"{seed}: bakım W_slow yazmadı")
+        sparsity = float(graph.last_decision.get("actual_sparsity", 0.0))
+        if not 0.055 <= sparsity <= 0.065:
+            failures.append(f"{seed}: seyreklik hedefi sapması: {sparsity}")
+        if graph.relation_mb.mb.growth_events <= 0:
+            failures.append(f"{seed}: kapasite baskısında nörogenez gözlenmedi")
+        seed_rows.append(f"{seed}:{'ok' if not any(str(seed) in row for row in failures) else 'fail'}"
+                         f"/KC{graph.relation_mb.mb.n_kc}/s{sparsity:.4f}/eski-eksik{missing_bootstrap}")
+    detail = "; ".join(seed_rows)
+    if failures:
+        detail += " | " + " ; ".join(failures[:6])
+    return not failures, detail
+
+
+def mb_sleep_and_persistence() -> tuple[bool, str]:
+    """Canlı uyku replay üretmez; kayıt/yükleme probation ve transferi korur."""
+    import os
+    import tempfile
+    from nora_agi import NoraAGI
+    from nora_lang import tr_lower
+
+    agi = NoraAGI(seed=9606, boot_thinker=False, code_pretrain=False,
+                  world_kwargs={"metabolism": False, "wind": False, "n_food": 1})
+    agi.life.enabled = False
+    failures = []
+    replay_calls = []
+
+    def forbidden_replay(*_args, **_kwargs):
+        replay_calls.append("mind._sleep")
+        raise AssertionError("eski replay yolu çağrıldı")
+
+    agi.mind._sleep = forbidden_replay
+    if agi.mind.use_replay:
+        failures.append("ana zihin periyodik replay ile açıldı")
+    agi.step_life(501)  # eski otomatik 500-adım replay sınırını bağımsız aş
+    if replay_calls:
+        failures.append("500-adım yaşam döngüsü gizli replay çağırdı")
+    agi.converse("Narvik torpları vorlar.")
+    agi.converse("Blorg bir Narvik türüdür.")
+    agi.converse("Zorvath kayaları keser.")
+    relation = agi.lang.graph.relation_by_verb.get("vorl", "")
+    if not relation:
+        failures.append("canlı yeni ilişki kurulamadı")
+    if agi.lang.graph.check_relation("blorg", "torpları vorlar").get("answer") is not True:
+        failures.append("uyku öncesi transfer yok")
+    direct_reply = agi.converse("Narvik torpları vorlar mı?")
+    transfer_reply = agi.converse("Blorg torpları vorlar mı?")
+    control_reply = agi.converse("Torp kumları vorlar mı?")
+    if not tr_lower(direct_reply).startswith("evet") or not tr_lower(transfer_reply).startswith("evet"):
+        failures.append("canlı Wernicke–MB–Broca evet/çıkarım yolu başarısız")
+    if tr_lower(control_reply).startswith("evet"):
+        failures.append("canlı ilişkisiz kontrol sahte evet verdi")
+    if agi.lang.graph.last_decision.get("engine") != "hdc_mb":
+        failures.append("canlı soru MB dışında karar verdi")
+    result = agi.sleep()
+    if result.get("replay") != 0 or result.get("s2_replayed") != 0 or replay_calls:
+        failures.append(f"uyku replay içerdi: {result}, {replay_calls}")
+    if agi.lang.graph.check_relation("zorvath", "kayaları keser").get("answer") is not True:
+        failures.append("uyku eski Zorvath bilgisini kaybettirdi")
+    if agi.lang.graph.check_relation("blorg", "torpları vorlar").get("answer") is not True:
+        failures.append("uyku probation transferini kaybettirdi")
+
+    with tempfile.TemporaryDirectory(prefix="nora_mb_accept_") as folder:
+        prefix = os.path.join(folder, "mind")
+        agi.save(prefix)
+        loaded = NoraAGI.load(prefix)
+        loaded.life.enabled = False
+        if loaded.mind.use_replay:
+            failures.append("save/load periyodik replay'i yeniden açtı")
+        graph = loaded.lang.graph
+        if graph.relation_by_verb.get("vorl") != relation:
+            failures.append("yüklem→ilişki eşlemi kalıcı değil")
+        if graph.check_relation("blorg", "torpları vorlar").get("answer") is not True:
+            failures.append("yeniden yüklemede held-out transfer yok")
+        if graph.check_relation("zorvath", "kayaları keser").get("answer") is not True:
+            failures.append("yeniden yüklemede eski bilgi yok")
+        edge = graph._edge_map.get(("narvik", relation, "torp"))
+        if edge is None or edge.status != "probation":
+            failures.append("probation durumu kalıcı değil")
+        rule = graph.relation_interpreter.relation_rules.get(f"relation::{relation}")
+        if rule is None or rule.status != "probation":
+            failures.append("uygulanabilir operatör kalıcı değil")
+        loaded_reply = loaded.converse("Blorg torpları vorlar mı?")
+        if not tr_lower(loaded_reply).startswith("evet"):
+            failures.append("yeniden yüklemede canlı transfer cevabı yok")
+    detail = f"uyku_replay={result.get('replay')} | eski_replay_çağrısı={len(replay_calls)} | hata={len(failures)}"
+    if failures:
+        detail += " | " + " ; ".join(failures[:5])
+    return not failures, detail
+
+
+def mb_multiple_relation_inventions() -> tuple[bool, str]:
+    """Farklı -Ar kökleri ayrı operatör olur; bilinen fiil ve eski kökler bozulmaz."""
+    from nora_chem import NeuroChemistry
+    from nora_lang import NoraLanguage, tr_lower
+
+    cases = [
+        ("Narvik", "torpları", "torp", "vorlar", "vorl"),
+        ("Zimre", "kumları", "kum", "quresar", "qures"),
+        ("Pırna", "taşları", "taş", "pırpler", "pırpl"),
+        ("Drelm", "suları", "su", "zimrer", "zimr"),
+        ("Korvi", "buzları", "buz", "sündürür", "sündür"),
+    ]
+    failures, rows = [], []
+    for seed in (1201, 1302, 1403):
+        lang = NoraLanguage(chem=NeuroChemistry(), seed=seed)
+        graph = lang.graph
+        relation_ids, retained = [], []
+        for index, (source, obj_surface, obj, surface_verb, root) in enumerate(cases):
+            frame = lang.wernicke.parse(f"{source} {obj_surface} {surface_verb}.")
+            if (frame.kind != "invent_relation" or frame.subj != tr_lower(source)
+                    or frame.obj != obj or frame.verb != root):
+                failures.append(f"{seed}/{root}: SVO çözümleme yanlış: {frame}")
+                continue
+            lang.teach_sentence(frame.raw)
+            invented = graph.last_invention
+            expected_rel = graph._relation_id(root)
+            relation_ids.append(invented.get("relation", ""))
+            if (invented.get("relation") != expected_rel or invented.get("mode") != "invention"
+                    or invented.get("status") != "probation"):
+                failures.append(f"{seed}/{root}: icat/probation kaydı yanlış: {invented}")
+            derived = f"Aktarım{index}"
+            lang.teach_sentence(f"{derived} bir {source} türüdür.")
+            target = f"{obj_surface} {surface_verb}"
+            if graph.check_relation(source, target).get("answer") is not True:
+                failures.append(f"{seed}/{root}: doğrudan ilişki yok")
+            if graph.check_relation(derived, target).get("answer") is not True:
+                failures.append(f"{seed}/{root}: yeni türe transfer yok")
+            if graph.check_relation("yabancı", target).get("answer") is not None:
+                failures.append(f"{seed}/{root}: ilişkisiz kontrol None değil")
+            retained.append((source, derived, target))
+            for old_source, old_derived, old_target in retained:
+                if (graph.check_relation(old_source, old_target).get("answer") is not True
+                        or graph.check_relation(old_derived, old_target).get("answer") is not True):
+                    failures.append(f"{seed}/{root}: önceki ilişki unutuldu: {old_target}")
+                    break
+        if len(set(relation_ids)) != len(cases):
+            failures.append(f"{seed}: farklı kökler aynı operatöre çöktü: {relation_ids}")
+        before_known = set(graph.relation_by_verb)
+        lang.teach_sentence("Narvik kayaları keser.")
+        if set(graph.relation_by_verb) != before_known:
+            failures.append(f"{seed}: bilinen keser fiili yeni operatöre dönüştü")
+        if graph.check_relation("narvik", "kayaları keser").get("answer") is not True:
+            failures.append(f"{seed}: bilinen CAN_DO yolu geriledi")
+        lang.teach_sentence("Narvik mavidir.")
+        if set(graph.relation_by_verb) != before_known:
+            failures.append(f"{seed}: koşaçlı sıfat yeni operatöre dönüştü")
+        rows.append(f"{seed}:{len(set(relation_ids))}/5 kök")
+    detail = ", ".join(rows)
+    if failures:
+        detail += " | " + " ; ".join(failures[:7])
+    return not failures, detail
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--repeat", type=int, default=1)
+    ap.add_argument("--only", default="", help="yalnız adı bu metni içeren sınavları çalıştır")
     args = ap.parse_args()
     tests = [("C1 dinamik tip-zinciri + ablasyon", dynamic_composition),
              ("C2 genel yayın/yarışma + kaynak + ablasyon", bus_auction_and_ablation),
              ("C3 hatalı çıktı başarı sayılmaz", invalid_output_is_not_success),
              ("C4 Nora canlı yayın → beden eylemi", live_nora_integration),
-             ("C5 tekil + held-out kombine ablasyon tahmini ve doğrulama", live_counterfactual_removal)]
+             ("C5 tekil + held-out kombine ablasyon tahmini ve doğrulama", live_counterfactual_removal),
+             ("C6 MB tek-sunum A→B→C; uyku/replay kapalı", mb_single_presentation_abc),
+             ("C7 probation ilişki icadı + held-out alan transferi", mb_relation_invention_transfer),
+             ("C8 MB ablasyonu + çoklu tohum + unutmama", mb_ablation_retention_multiseed),
+             ("C9 replay'siz uyku + operatör kalıcılığı", mb_sleep_and_persistence),
+             ("C10 çok-köklü ilişki icadı + kontroller", mb_multiple_relation_inventions)]
+    if args.only:
+        tests = [(name, fn) for name, fn in tests if args.only.casefold() in name.casefold()]
+    if not tests:
+        raise SystemExit("seçime uyan sınav yok")
     t0 = time.time()
     failed = 0
+    run_count = 0
     for rep in range(max(1, args.repeat)):
         for name, fn in tests:
             try:
@@ -236,8 +622,9 @@ def main():
             except Exception as exc:
                 ok, detail = False, f"{type(exc).__name__}: {exc}"
             failed += int(not ok)
+            run_count += 1
             print(f"{name}: {'GEÇTİ' if ok else 'KALDI'} | {detail}", flush=True)
-    print(f"SONUÇ {len(tests) * max(1, args.repeat) - failed}/{len(tests) * max(1, args.repeat)} | {time.time()-t0:.1f} sn")
+    print(f"SONUÇ {run_count - failed}/{run_count} | {time.time()-t0:.1f} sn")
     raise SystemExit(1 if failed else 0)
 
 

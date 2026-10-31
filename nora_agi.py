@@ -374,7 +374,9 @@ class NoraAGI:
         w_kw = dict(world_kwargs or {})
         w_kw.setdefault("mortal", bool(single_life))
         self.world = Universe(seed=seed, **w_kw)
-        self.mind = Mind(seed=seed, arena=self.world.L)
+        # Ana zihinde periyodik 500-adım replay'i de kapalıdır. Uyku yalnız
+        # bakım olduğundan eski mind._sleep(48) yolu başka bir kapıdan dönemez.
+        self.mind = Mind(seed=seed, arena=self.world.L, replay=False)
         self.obs = self.world.observe()
         self.died = False
 
@@ -894,6 +896,10 @@ class NoraAGI:
             from nora_broca_net import NeuralRelationalProposer
             reasoner = NeuralRelationalProposer(seed=int(self.seed) + 142)
         self.relational_reasoner = reasoner
+        self.lang.graph.neural_proposer = reasoner
+        for edge in self.lang.graph.edges:
+            if edge.rel.startswith("YENI_OPERATOR_"):
+                reasoner.observe(edge.subj, edge.rel, edge.obj)
         return reasoner
 
     def deliberate(self, topic: str, *, commit: bool = True) -> dict:
@@ -1577,28 +1583,31 @@ class NoraAGI:
             "life": self.life.snapshot(),
         }
 
-    # ------------------------------------------------------------------ 2) Uyku ve konsolidasyon
+    # ------------------------------------------------------------------ 2) Uyku ve bakım
     def sleep(self) -> dict:
-        """Hipokampal-neokortikal uyku: anı tekrarı + sinaptik konsolidasyon + benlik yansıması + S2 rüyası."""
-        if not self.mind.freeze:
-            self.mind._sleep(64)
-        c_word = self.lang.graph.word_mb.sleep_consolidate(replay_steps=32)
-        c_int = self.lang.wernicke.intent_mb.sleep_consolidate(replay_steps=24)
-        c_disc = self.plastic_discourse.mb.sleep_consolidate(replay_steps=24)
-        c_schema = self.schema_cortex.mb.sleep_consolidate(replay_steps=20)
-        c_fast = self.fast.mb.sleep_consolidate(replay_steps=48)
+        """Replay'siz uyku: budama, homeostaz ve sinaptik bakım.
+
+        İlk öğrenmenin tamamı uyanık tek-sunum bağlanışında yapılır. Burada
+        ``mind._sleep``, S2 gradyan tekrarı veya MB epizodik replay'i çağrılmaz;
+        bu yollar öğrenme başarısının gizli multi-epoch kaynağı olamaz.
+        """
+        c_word = self.lang.graph.word_mb.sleep_consolidate(replay_steps=0)
+        c_int = self.lang.wernicke.intent_mb.sleep_consolidate(replay_steps=0)
+        c_disc = self.plastic_discourse.mb.sleep_consolidate(replay_steps=0)
+        c_schema = self.schema_cortex.mb.sleep_consolidate(replay_steps=0)
+        c_fast = self.fast.mb.sleep_consolidate(replay_steps=0)
+        c_rel = self.lang.graph.relation_mb.sleep_maintenance()
         traits = self.self_model.sleep_reflect()
-        s2_replayed = 0
-        if self.cognition is not None and len(self.cognition.today) > 0:
-            s2_replayed = len(self.cognition.today)
-            self.cognition.sleep()
         return {
             "sleep_cycle": self.self_model.sleep_cycles,
             "fast_consolidated": c_fast["consolidated_synapses"],
             "word_consolidated": c_word["consolidated_synapses"],
             "intent_consolidated": c_int["consolidated_synapses"],
-            "traits": traits,
-            "s2_replayed": s2_replayed,
+            "relation_consolidated": c_rel["consolidated_synapses"],
+            "discourse_consolidated": c_disc["consolidated_synapses"],
+            "schema_consolidated": c_schema["consolidated_synapses"],
+            "traits": traits, "s2_replayed": 0, "replay": 0,
+            "mode": "maintenance_only",
         }
 
     # ------------------------------------------------------------------ 3) Doğal Türkçe Diyalog & Düşünme
@@ -2620,7 +2629,8 @@ class NoraAGI:
             _fr_pre = wern.parse(raw)
         except Exception:
             _fr_pre = None
-        _world_fact_pre = bool(_fr_pre is not None and _fr_pre.kind in {"teach_fact", "teach_val"})
+        _world_fact_pre = bool(_fr_pre is not None and _fr_pre.kind in {"teach_fact", "teach_val", "invent_relation"})
+        _semantic_query_pre = bool(_fr_pre is not None and _fr_pre.kind in {"yn_query", "wh_query", "analogy_query"})
 
         # --- SÜTUN -1: KİŞİSEL ANLATI — karşıdaki kendi yaşantısını anlatıyorsa Nora ders vermez.
         # İnsan değil mi? Bir şey anlatan birine ansiklopedi maddesi okumayız; dinler, yansıtır, sorarız.
@@ -2675,7 +2685,8 @@ class NoraAGI:
         # beklemez (acı darbesi sürerken kural çıkarmak nörobiyolojik olarak da yersizdir).
         _nociceptive = (getattr(self.nervous, "adelta_pain", 0.0) > 0.25
                         or bool(getattr(self.nervous, "pending_pain_vocalization", False)))
-        if not utt_cls.get("is_question") and narration is None and not _nociceptive:
+        if (not utt_cls.get("is_question") and narration is None and not _nociceptive
+                and getattr(_fr_pre, "kind", "") != "invent_relation"):
             ing_res = self.logic.ingest_statement(raw)
         if ing_res is not None:
             self._turn_mint_label = str(ing_res["label"])
@@ -2709,7 +2720,10 @@ class NoraAGI:
                 trace=f"mint:{ing_res['label']}",
                 used_s2=True,
             ))
-        ded_res = self.logic.try_autonomous_deduction(raw, self.schema_cortex, cur_sc0, utt_cls=utt_cls)
+        # Dünya/anlam sorusunda özerk yüzey mantığı MB'nin yerine cevap veremez.
+        # Bu organ başka görevlerde çalışır; kelime anlamı ve olgu kararı MB'den çıkar.
+        ded_res = (None if _semantic_query_pre else
+                   self.logic.try_autonomous_deduction(raw, self.schema_cortex, cur_sc0, utt_cls=utt_cls))
         if ded_res is not None:
             bids.append(CorticalBid(
                 module="prefrontal_autonomous_logic",
@@ -2866,7 +2880,7 @@ class NoraAGI:
         # Emir/istek cümlesi ise çerçeve MUTLAKA ayrıştırılır: "bana bir şaka yap" gibi istekler
         # hazır bir durumsal karşılıkla geçiştirilmemeli, irade organına ulaşmalı.
         if (not bids or all(b.salience < 0.95 for b in bids) or self._looks_like_request(raw)
-                or _wh_unans or _world_fact_pre):
+                or _wh_unans or _world_fact_pre or _semantic_query_pre):
             fr = _fr_pre if _fr_pre is not None else wern.parse(raw)
 
             if fr.kind == "greeting":
@@ -2988,7 +3002,7 @@ class NoraAGI:
                 # ve türetilmiş kurallardan (0.972) DAHA YÜKSEK ses alır: kanıt, etiketten üstündür.
                 _sal = 0.985 if arb.get("conflict") else 0.97
                 bids.append(CorticalBid("hippocampal_concept", _sal, 0.96, rep_v, f"teach_val:{fr.subj}"))
-            elif (fr.kind == "teach_fact" and conv_res is None
+            elif (fr.kind in {"teach_fact", "invent_relation"} and conv_res is None
                   and sit_res is not None and float(sit_res.get("confidence", 0.0)) >= 0.95):
                 # Sosyal nezaket kalıbı olgusal bilgi değildir ('kolay gelsin, işim var'): öğrenme yok.
                 pass
@@ -3021,7 +3035,7 @@ class NoraAGI:
                 # yazılmadıysa burada ayrı bir grafik-öğrenme iddiası üretilmez.
                 # Gerçek structural ``ing_res`` için daha önce eklenen prefrontal
                 # teklif yarışta kalır; yakalanmayan özel durumla konuşma çökmez.
-            elif fr.kind == "teach_fact" and conv_res is None and (narration is None or _world_fact_pre):
+            elif fr.kind in {"teach_fact", "invent_relation"} and conv_res is None and (narration is None or _world_fact_pre):
                 edges = self._teach_sentence_and_resolve_gaps(raw, speaker=speaker)
                 if edges:
                     e0 = edges[0]
@@ -3038,7 +3052,9 @@ class NoraAGI:
                     wern.last_explanation = f"{e0.subj} ile {e0.obj} arasında {e0.rel} sinapsını epoch kullanmadan tek-atışta kurdum"
                     cur_sc = self.monologue.last_thought.schema_id if self.monologue.last_thought is not None else "S1_NEDEN_SONUC"
                     _prop_txt = broca.realize_prop(Proposition(
-                        subj=graph.surface_name(e0.subj), rel=e0.rel, obj=graph.surface_name(e0.obj)))
+                        subj=graph.surface_name(e0.subj), rel=e0.rel, obj=graph.surface_name(e0.obj),
+                        verb=e0.verb, obj_surface=e0.obj_surface,
+                        obj_case=e0.obj_case, obj_plural=e0.obj_plural))
                     # Cümle ortasında küçük harfle başlamasın; insan sözü büyük harfle kurulur.
                     _prop_txt = tr_capitalize(str(_prop_txt).strip().rstrip(".")) + "."
                     # Gerekçe: az önce kurulan önermenin kendisi. Çekirdek: öğrenme eylemi Broca'da çekimlenir.
@@ -3175,7 +3191,9 @@ class NoraAGI:
                                 continue
                         if any(edge.obj and u and (edge.obj in u or u in edge.obj) for u in used_objs if u != edge.obj):
                             continue
-                        p = Proposition(subj=fr.subj, rel=edge.rel, obj=edge.obj)
+                        p = Proposition(subj=fr.subj, rel=edge.rel, obj=edge.obj,
+                                        verb=edge.verb, obj_surface=edge.obj_surface,
+                                        obj_case=edge.obj_case, obj_plural=edge.obj_plural)
                         txt = broca.realize_prop(p)
                         if isa_path:
                             via = isa_path[0].obj
@@ -7551,6 +7569,9 @@ class NoraAGI:
         from nora_state import decode, restore_attrs, restore_rng
         self.world.load_state_dict(data.get("world") or {})
         self.mind.load_runtime_state(data.get("mind") or {})
+        # Eski snapshot'taki replay=True bayrağı yeni öğrenme sözleşmesini
+        # geçersiz kılamaz; yükleme sonrası da periyodik replay kapalıdır.
+        self.mind.use_replay = False
         self.causal.load_state_dict(data.get("causal") or {})
         if getattr(self, "objects", None) is not None:
             self.objects.load_state_dict(data.get("objects") or {})
@@ -7588,7 +7609,15 @@ class NoraAGI:
             "seed": self.seed,
             "chem": self.chem.state_dict(),
             "self_model": self.self_model.state_dict(),
-            "edges": [[e.subj, e.rel, e.obj, e.weight, e.source, e.speaker] for e in self.lang.graph.edges],
+            "edges": [[e.subj, e.rel, e.obj, e.weight, e.source, e.speaker,
+                       e.status, e.verb, e.obj_surface, e.obj_case, e.obj_plural, e.sentence]
+                      for e in self.lang.graph.edges],
+            "relation_ledger": self.lang.graph.relation_ledger,
+            "relation_by_verb": self.lang.graph.relation_by_verb,
+            "relation_rules": [rule.state_dict()
+                               for rule in self.lang.graph.relation_interpreter.relation_rules.values()],
+            "relation_synth": self.lang.graph.relation_synth.state_dict(),
+            "relation_morph_examples": [list(row) for row in self.lang.graph._relation_morph_examples],
             "display_names": dict(self.lang.graph.display_names),
             "fast_classes": self.fast.class_names,
             "user_profiles": self.user_profiles,
@@ -7686,8 +7715,31 @@ class NoraAGI:
         agi.chem.load_state_dict(meta["chem"])
         agi.self_model.load_state_dict(meta["self_model"])
         agi.lang.graph.clear_all_edges()
-        for s, r, o, w, src, spk in meta["edges"]:
-            agi.lang.graph.add_edge(s, r, o, source=src, speaker=spk, weight=float(w))
+        for row in meta["edges"]:
+            s, r, o, w, src, spk = list(row[:6])
+            extra = list(row[6:])
+            agi.lang.graph.add_edge(
+                s, r, o, source=src, speaker=spk, weight=float(w),
+                status=(extra[0] if len(extra) > 0 else "accepted"),
+                verb=(extra[1] if len(extra) > 1 else ""),
+                obj_surface=(extra[2] if len(extra) > 2 else ""),
+                obj_case=(extra[3] if len(extra) > 3 else "NOM"),
+                obj_plural=(extra[4] if len(extra) > 4 else False),
+                sentence=(extra[5] if len(extra) > 5 else ""),
+            )
+        agi.lang.graph.relation_ledger = dict(meta.get("relation_ledger") or {})
+        agi.lang.graph.relation_by_verb = {str(k): str(v) for k, v in (meta.get("relation_by_verb") or {}).items()}
+        agi.lang.graph.relation_interpreter.load_state_dict(
+            {"relation_rules": meta.get("relation_rules") or []})
+        agi.lang.graph.relation_synth.load_state_dict(meta.get("relation_synth") or {})
+        agi.lang.graph._relation_morph_examples = [tuple(row) for row in (meta.get("relation_morph_examples") or [])]
+        for rel, rec in agi.lang.graph.relation_ledger.items():
+            for obs in rec.get("observations") or []:
+                agi.lang.graph.operator_forge.relation_examples.append({
+                    "source": obs.get("source", ""), "target": obs.get("target", ""),
+                    "sentence": obs.get("sentence", ""), "verb": rec.get("verb", ""),
+                    "relation": rel, "status": obs.get("status", "probation"),
+                })
         agi.lang.graph.display_names = {tr_lower(k).strip(): str(v) for k, v in (meta.get("display_names") or {}).items()}
         agi.user_profiles = dict(meta.get("user_profiles", {}))
         agi.broca_organ.episodic.load_state_dict(meta.get("episodic_dialogue", []))
@@ -7747,6 +7799,7 @@ class NoraAGI:
                 )
                 _reasoner.load_export(_reasoner_data)
                 agi.relational_reasoner = _reasoner
+                agi.lang.graph.neural_proposer = _reasoner
             if getattr(agi, "schema", None) is not None:
                 agi.schema.load_state(meta.get("schema") or {}, agi.synth)
             # ÖZ-ÖĞRETİM DEFTERİ: kendi kendine öğrendikleri yeni oturumda da onda kalır.

@@ -8,14 +8,37 @@ Bu belge güncel ana durum dosyasıdır. Ayrıntılı tarihsel kanıtlar `runs/L
 
 ## 1. Kısa karar
 
-Nora canlı çalışan ve yeni girdileri tek sunumda işleyen bir sistemdir; ancak **“mantar cismi temelinde, tek okuyuşta genelleyen ve eski bilgiyi yıkıcı biçimde unutmayan zihin” hedefi henüz tamamlanmamıştır.**
+Nora canlı çalışan ve yeni girdileri tek sunumda işleyen bir sistemdir. **31 Ekim HDC/MB güncellemesi, dar A/B/C tek-sunum protokolünü ve dinamik ilişki icadı/transfer protokolünü geçti; genel “tek okuyuşta genelleyen ve hiç unutmayan zihin” iddiası ise hâlâ kanıtlanmış değildir.**
 
+- Anlamsal olgu ve ilişki kararları artık HDC/MB aktivasyonuyla adaylandırılıp sembolik grafça doğrulanıyor; grafın ham BFS listesi cevap motoru değildir. GRU/TokenMoE tarafındaki üretim rolü artikülasyondur.
 - Canlı öğrenme iskeleti vardır ve deneyler canlı checkpoint’in üzerine yazılmamıştır.
-- Ana konuşma motoru hâlâ önceden eğitilmiş GRU/TokenMoE uzmanlarıdır. Mantar cismi modülleri hızlı öğrenme, sözcük, niyet, söylem ve şema yollarında yardımcıdır; ana next-subword motoru değildir.
+- Yeni C6–C10 sonuçları genel next-subword dil modeli sonucu değildir; genel diyalog ve açık uçlu öğrenme için daha geniş bağımsız sınav gerekir.
 - Fold-1/fold-2 için ortak %45 top-1 ile geriye-dönük korunum aynı adayda sağlanmamıştır.
 - Fold-3/4 confirmation, ortak development adayı bulunmadığı için başlatılmamıştır.
 - Eski epoch/replay sonuçları tek-sunum başarı kabulünü karşılamaz.
 - 0,45B disk-MoE yalnız kaynak stresidir; rastgele genişletilmiş uzmanlarla kalite kanıtı değildir.
+
+### 1.1 HDC/MB ve dinamik ilişki güncellemesi
+
+Yeni çekirdek `nora_chem.py::HDCMushroomBody`, her olayı rol–dolgu HDC bağlarıyla bir kez yazar; k-WTA hedefi **%6**dır. Özne ve tam özne–ilişki–nesne erişim anahtarları `W_fast/W_slow` üzerinden okunur. Nörogenezden sonra eski kodun aktivasyonu yeni toplam KC sayısına bölünmez; her olay kendi yazım anındaki aktif-KC normunu kullanır. Bu son nokta, A16’da yakalanan erken-bilgi erişim kaybını düzeltmiştir; aktivasyon eşiği düşürülmemiştir.
+
+| Sınav | Sonuç | Kanıtlanan dar kapsam |
+|---|---:|---|
+| Mimari C1–C10 | **10/10** | Yayın/ablasyon + yeni MB ve ilişki sınavları |
+| C6 A/B/C | **1/1** | Üç öğretim birer sunum; üç soru uyanıkken; uyku ve replay sıfır; üç MB izi |
+| C7 yeni ilişki | **1/1** | Probation `YENI_OPERATOR_VORL`; iki held-out transfer; kontrol `None`; ters yön `conflict` |
+| C8 beş tohum | **5/5** | MB ablasyonunda cevap kaybı, restorasyonda öğretimsiz dönüş; 40 yeni bilgi ve bakım sonrası korunum; bütün eski bootstrap kenarlarında eksik **0** |
+| C9 uyku/kalıcılık | **1/1** | 501 yaşam adımı ve açık uykuda `replay=0`; yasak eski `mind._sleep` çağrısı **0**; save/load sonrası eski bilgi, probation, operatör ve canlı transfer |
+| C10 çok-köklü icat | **3 tohum × 5 kök** | 15/15 ayrı operatör ve transfer; bilinen fiil/koşaç yeni operatöre dönüşmedi |
+| Dış held-out H1–H9 | **9/9** | Önceki dış işlevler; H7 nedensel zincir 3/3 |
+| A142 nöral öneri + sembolik kanıt | **13/13** | Nonce top-5 18/18; dayanaklı kabul 16/17; nöral/doğrulayıcı ablasyonu `unresolved` |
+| A140 Broca/corpus | **18/18; corpus 73/73** | Öğrenilen artikülasyon yolu gerilemedi |
+
+A94 **7/7**, A95 **10/10**, A141 **25/25**, A75 **14/14** ve A16 **4/4** da yeniden çalıştırıldı. Tam `agi_battery.py` koşusu 30 dakikalık sınırda A22 sonrasında tamamlanamadı; dolayısıyla bu güncelleme için “bütün işlevsel batarya geçti” denmez.
+
+Bilinmeyen SVO yüklemi artık otomatik ISA/HAS_PROP sınıfına zorlanmaz. Wernicke özne/nesne/yüklem rollerini çıkarır; `GroundedConceptGraph.invent_relation()` yeni ilişkiyi probation olarak yazar. Aynı ilişkinin yeni bir alanda görülmesi `discovery`, daha önce bulunmayan ilişkinin açılması `invention` olarak deftere geçer. Nöral proposer yalnız aday verir; kabul yön/çelişki ve kanıt denetiminden geçer. Operatör koda gömülmez, `nora_forge.py`/`nora_apply.py` defterlerinde ve save/load meta kaydında taşınır.
+
+**Sınır:** C6–C10 belirli, bağımsız oracle’lı mimari protokolleridir. Sınırsız Türkçe ayrıştırma, her olası ilişkinin doğru icadı, bütün alanlarda genelleme veya yıkıcı unutmanın her koşulda imkânsızlığı kanıtlanmamıştır.
 
 ## 2. Hedef felsefe ve kabul ölçütleri
 
@@ -44,13 +67,16 @@ Nora canlı çalışan ve yeni girdileri tek sunumda işleyen bir sistemdir; anc
 - `TokenMoEOrgan.learn_online` her cümleyi nedensel prefix kararıyla hedef veya haricî uzmana bir kez yönlendirir.
 - `BrocaOrgan.learn_online` küçük öğrenme oranıyla (`3e-4`) tek-geçiş güncelleme yapar.
 - Mantar cismi modülleri k-WTA seyrek kod, hızlı/yavaş sinaps ve stiffness mekanizmalarını gerçekten uygular.
+- Anlamsal graf sorgusu, nedensel zincir ve analoji adayları HDC/MB’den gelir; MB ablasyonu graf kenarları yerindeyken cevabı kaldırır.
+- Yeni bilgi için `learn_oneshot()` gradyan/epoch kullanmaz; çakışan rakip sınıfın ağırlığını silen contrastive güncelleme kaldırılmıştır.
+- `sleep()` yalnız sinaptik bakım/homeostaz yapar; eski `mind._sleep(64)`, S2 ve MB replay çağrıları kaldırılmıştır. Ana Nora’da 500-adım periyodik `mind._sleep(48)` de kapalıdır ve eski save/load kaydı bunu yeniden açamaz. Pozitif `replay_steps` açık `ValueError` üretir.
 
 ### Tamamlanmamış uyum
 
-- Ana dil üretimi GRU/TokenMoE’ye dayanır; mantar cismi ana next-subword motoru değildir.
-- Canlı küçük-LR gradyan güncellemesinin eski bilgiyi koruduğu bağımsız sürekli-öğrenme testiyle henüz kanıtlanmamıştır.
-- `nora_agi.py::sleep` içinde sözcük/niyet/söylem/şema/hızlı öğrenici için 20–48 replay adımlı konsolidasyon vardır. Bu biyolojik konsolidasyon yoludur; tek-sunum skor başarısı olarak kullanılmamaktadır.
-- Dolayısıyla mevcut model canlı ve biyolojik esinlidir, fakat hedeflenen tek-okuyuş genellemesi ve unutmama kanıtı tamamlanmamıştır.
+- Genel next-subword kalitesi ve fold-1/fold-2 ortak %45 eşiği çözülmemiştir; Broca’nın gradyanlı dil öğrenmesi için bütün dış korunum iddiası hâlâ ayrı bir problemdir.
+- C6–C10 dışındaki bütün olası cümle biçimleri ve alanlar için genelleme kanıtı yoktur; intransitif, çok-öbekli ve karmaşık Türkçe yapılar daha geniş held-out sınav ister.
+- Tam `agi_battery.py` bu güncellemede sonuna kadar tamamlanmamıştır; yalnız yukarıda adı ve sonucu verilen koşular kanıt sayılır.
+- Dolayısıyla dar tek-sunum ilişki protokolü çözülmüş, genel zihin hedefi çözülmemiştir.
 
 ## 5. Güncel Türkçe tek-sunum sonucu
 

@@ -180,9 +180,12 @@ class SubwordTokenizer:
 
     @classmethod
     def from_str(cls, s: str):
-        from tokenizers import Tokenizer
         o = cls()
-        o.tk = Tokenizer.from_str(s) if s else None
+        # Boş tokenizer geçerli, paketsiz bir çalışma durumudur. İsteğe bağlı
+        # BPE bağımlılığını yalnız gerçekten yüklenecek sözlük varsa iste.
+        if s:
+            from tokenizers import Tokenizer
+            o.tk = Tokenizer.from_str(s)
         return o
 
 

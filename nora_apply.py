@@ -378,6 +378,44 @@ class Rule:
 
 
 @dataclass
+class RelationRule:
+    """Örneklerden açılan, henüz kanıtlanmamış ilişki operatörü.
+
+    Bu nesne bir cümle şablonu değildir. SVO gözleminin soyutlanmış hâlidir:
+    operatör `(özne, nesne)` bağlanışını ilişki üçlüsüne uygular. ``probation``
+    durumu sembolik grafın yön/çelişki ve transfer kanıtı olmadan kabul edilmiş
+    dünya yasası sayılmayacağını açıkça taşır.
+    """
+
+    rid: str
+    relation: str
+    verb: str
+    status: str = "probation"
+    syntax: str = "SVO"
+    examples: list[dict] = field(default_factory=list)
+    uses: int = 0
+
+    def apply(self, source: str, target: str) -> tuple[tuple[str, str, str] | None, dict]:
+        source, target = str(source).strip(), str(target).strip()
+        if self.status in {"rejected", "conflict"} or not source or not target:
+            return None, {"rule": self.rid, "status": self.status, "applied": False}
+        self.uses += 1
+        triple = (source, self.relation, target)
+        return triple, {
+            "rule": self.rid, "relation": self.relation, "verb": self.verb,
+            "source": triple[0], "target": triple[2], "status": self.status,
+            "syntax": self.syntax, "applied": bool(triple[0] and triple[2]),
+        }
+
+    def state_dict(self) -> dict:
+        return {
+            "rid": self.rid, "relation": self.relation, "verb": self.verb,
+            "status": self.status, "syntax": self.syntax,
+            "examples": [dict(row) for row in self.examples[-64:]], "uses": self.uses,
+        }
+
+
+@dataclass
 class ChainRule:
     """İKİ ADIMLI ZİNCİR: birinci kuralın ETİKETİ, ikinci kuralın GİRDİSİ olur.
 
@@ -448,6 +486,9 @@ class Interpreter:
         self.wm = wm or WorkingMemory()
         self.rules: dict[str, Rule] = {}
         self.last: Rule | None = None
+        #: Sözdiziminden öğrenilen ilişki operatörleri; metin kurallarından ayrı
+        #: defterdedir ve kabul durumları silinmeden izlenir.
+        self.relation_rules: dict[str, RelationRule] = {}
         self.trace: list[dict] = []
         self.failures: list[str] = []
         #: YAPILMAMIŞ NOTASYON: "⊕ tek demek" -> {"⊕": "tek"}. Sembol, anlamı öğretilene
@@ -496,6 +537,45 @@ class Interpreter:
         return sorted(items, key=key)
 
     # ------------------------------------------------------------------ bağlama
+    def bind_relation(self, relation: str, verb: str, *, source: str, target: str,
+                      sentence: str, status: str = "probation") -> RelationRule:
+        """Bir SVO gözlemini yeni bağlanışlara uygulanabilir operatöre soyutla.
+
+        Aynı ilişkinin yeni örneği eski operatörü ezmez; örnek defterine eklenir.
+        Operatörün kendisi kavram çiftini ezberlemez, yalnız ilişki ve fiil kökünü
+        taşır. Bu yüzden ``apply`` çağrısı öğretilmemiş özne/nesneyle de çalışır;
+        sonucun dünya bilgisi olarak kabulü ise ayrıca graf kanıtı gerektirir.
+        """
+        rel = str(relation).strip()
+        root = str(verb).strip()
+        rid = f"relation::{rel}"
+        rule = self.relation_rules.get(rid)
+        if rule is None:
+            rule = RelationRule(rid=rid, relation=rel, verb=root, status=status)
+            self.relation_rules[rid] = rule
+        observation = {
+            "source": str(source).strip(), "target": str(target).strip(),
+            "sentence": str(sentence).strip(), "status": str(status),
+        }
+        if observation not in rule.examples:
+            rule.examples.append(observation)
+            del rule.examples[:-64]
+        if status in {"rejected", "conflict"}:
+            rule.status = status
+        self._trace("bind_relation", {
+            "rule": rid, "relation": rel, "status": rule.status,
+            "examples": len(rule.examples), "invented": len(rule.examples) == 1,
+        })
+        return rule
+
+    def apply_relation(self, relation: str, source: str, target: str):
+        rule = self.relation_rules.get(f"relation::{str(relation).strip()}")
+        if rule is None:
+            return None, {"error": "no_relation_rule", "relation": relation}
+        result = rule.apply(source, target)
+        self._trace("apply_relation", result[1])
+        return result
+
     def bind(self, text: str) -> Rule | None:
         """Kullanıcının söylediği kuralı NESNEYE çevir.
 
@@ -803,6 +883,7 @@ class Interpreter:
                            "domain": r.domain, "source": r.source_text,
                            "derived_from": r.derived_from, "uses": r.uses}
                           for r in self.rules.values()],
+                "relation_rules": [rule.state_dict() for rule in self.relation_rules.values()],
                 "last": self.last.rid if self.last else "",
                 "wm": self.wm.state_dict()}
 
@@ -819,6 +900,16 @@ class Interpreter:
                          derived_from=str(rec.get("derived_from") or ""),
                          uses=int(rec.get("uses", 0) or 0))
                 self.rules[r.rid] = r
+            self.relation_rules = {}
+            for rec in (d.get("relation_rules") or []):
+                rule = RelationRule(
+                    rid=str(rec.get("rid")), relation=str(rec.get("relation")),
+                    verb=str(rec.get("verb")), status=str(rec.get("status") or "probation"),
+                    syntax=str(rec.get("syntax") or "SVO"),
+                    examples=[dict(row) for row in (rec.get("examples") or [])],
+                    uses=int(rec.get("uses", 0) or 0),
+                )
+                self.relation_rules[rule.rid] = rule
             lid = str(d.get("last") or "")
             self.last = self.rules.get(lid) or (list(self.rules.values())[-1] if self.rules else None)
             self.wm.load_state_dict(d.get("wm") or {})

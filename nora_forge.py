@@ -109,11 +109,12 @@ class OperatorForge:
     MAX_PROBE_SCAN = 4000
 
     def __init__(self, interpreter: Interpreter | None = None,
-                 ledger_path: str | pathlib.Path = "runs/operators_self.json",
+                 ledger_path: str | pathlib.Path | None = "runs/operators_self.json",
                  step: int = 0):
         self.eng = interpreter
-        self.ledger_path = pathlib.Path(ledger_path)
+        self.ledger_path = pathlib.Path(ledger_path) if ledger_path is not None else None
         self.step = int(step)
+        self.relation_examples: list[dict] = []
         self.examples: list[tuple[str, str]] = []
         self.cands: list[Hypothesis] = []
         self.adopted: Rule | None = None
@@ -187,6 +188,8 @@ class OperatorForge:
         self._save_ledger()
 
     def _save_ledger(self) -> None:
+        if self.ledger_path is None:
+            return  # salt-bellek ilişki ocağı: istenmeyen kalıcı yazım yok
         try:
             self.ledger_path.parent.mkdir(parents=True, exist_ok=True)
             blob = {"authorship": {"human": self.human_count(), "self": len(self.authored)},
@@ -273,6 +276,43 @@ class OperatorForge:
         self.cands = self._search(pool)
         self.adopted = None
         return self.decide(pool)
+
+    def observe_relation(self, *, source: str, target: str, sentence: str,
+                         verb: str, relation: str, status: str = "probation") -> dict:
+        """Tekrarlanan SVO yapısını ilişki operatörü olarak soyutla.
+
+        İlk uyumsuz yapı ``invention``; aynı operatörün yeni kavram çiftlerinde
+        yeniden görülmesi ``discovery``dir. Bu ayrım örnek sayısından ve yeni
+        bağlanıştan çıkar, hedef cümleye özel bir kuraldan değil.
+        """
+        if self.eng is None:
+            self.eng = Interpreter()
+        previous = {
+            (row["source"], row["target"])
+            for row in self.relation_examples if row["relation"] == relation
+        }
+        row = {
+            "source": str(source).strip(), "target": str(target).strip(),
+            "sentence": str(sentence).strip(), "verb": str(verb).strip(),
+            "relation": str(relation).strip(), "status": str(status),
+        }
+        binding = (row["source"], row["target"])
+        novel_binding = binding not in previous
+        if row not in self.relation_examples:
+            self.relation_examples.append(row)
+            del self.relation_examples[:-256]
+        rule = self.eng.bind_relation(
+            relation, verb, source=source, target=target,
+            sentence=sentence, status=status,
+        )
+        mode = ("reobservation" if previous and not novel_binding else
+                "discovery" if previous else "invention")
+        return {
+            "status": "observed", "mode": mode, "rule": rule,
+            "relation": relation, "new_binding": novel_binding,
+            "examples": sum(1 for item in self.relation_examples
+                            if item["relation"] == relation),
+        }
 
     @staticmethod
     def _sample(pool, n: int = 300) -> list[str]:

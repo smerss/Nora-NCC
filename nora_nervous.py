@@ -396,8 +396,8 @@ class PlasticDiscourseCortex:
             for ph in phrases:
                 vec = self.encode_utterance(ph)
                 self.mb.learn_oneshot(vec, cid, chem=self.chem, strength=0.85, contrastive=True)
-        # Tohumları kısmi konsolidasyonla neokortekse aktar
-        self.mb.sleep_consolidate(replay_steps=24)
+        # Tohumları yalnız sinaptik bakımla neokortekse aktar; örnek replay'i yok.
+        self.mb.sleep_consolidate(replay_steps=0)
 
     def infer_intents(self, s_low: str) -> dict[str, float]:
         """O(1) plastik Kenyon ateşlemesiyle tüm niyet kanallarının sürekli aktivasyonunu döndürür."""
@@ -414,8 +414,7 @@ class PlasticDiscourseCortex:
             return False
         cid = self.name_to_id[target_intent]
         vec = self.encode_utterance(tr_lower(new_phrase))
-        for _ in range(2):
-            self.mb.learn_oneshot(vec, cid, chem=self.chem, strength=strength, contrastive=True)
+        self.mb.learn_oneshot(vec, cid, chem=self.chem, strength=strength, contrastive=True)
         self.learned_aliases += 1
         return True
 
