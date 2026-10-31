@@ -203,6 +203,12 @@ class HypothesisPool:
         self.by_topic: dict[str, set[str]] = {}
         self.rejected = 0
         self.promoted_total = 0
+        # Dış kaynak hipotezlerinden ayrı: Nora'nın kendi Graph'ında bulduğu
+        # boşluklar ve zincirler için ürettiği iç sorular. Bunlar cevap ezberi
+        # değil, çalıştırılmış sorgu + kanıt + sayaç kaydıdır.
+        self.self_questions: deque[dict] = deque(maxlen=64)
+        self.self_question_keys: OrderedDict[str, dict] = OrderedDict()
+        self.self_probe_count = 0
 
     @staticmethod
     def extract_triples(agi, sentence: str) -> list[tuple[str, str, str]]:
@@ -267,6 +273,186 @@ class HypothesisPool:
                             "domains": sorted(domains), "quote": rec["raw"]})
         return out
 
+    # -------------------------------------------------- Graph'tan öz-soru
+    def _self_question_candidates(self, agi):
+        """Ortak sınıf/özellik boşluklarını ve doğrulanabilir nedensel zincirleri sırala.
+
+        Aday üretimi için Graph bir indeks olarak okunur; cevap hiçbir zaman bu
+        ham listeden kopyalanmaz. Aşağıdaki değerlendirici her adayı yeniden
+        HDC/MB + canlı Graph sorgusuyla kanıtlar.
+        """
+        g = agi.lang.graph
+        classes: OrderedDict[str, list[str]] = OrderedDict()
+        for edge in reversed(g.edges):
+            if edge.rel != "ISA" or edge.weight <= 0.25 or edge.status == "rejected":
+                continue
+            members = classes.setdefault(edge.obj, [])
+            if edge.subj not in members:
+                members.append(edge.subj)
+        n_pairs = 0
+        for klass, members in classes.items():
+            if len(members) < 2:
+                continue
+            a, b = members[0], members[1]
+            yield {"kind": "common_class", "a": a, "b": b,
+                   "key": f"common_class:{min(a, b)}:{max(a, b)}",
+                   "question": f"{a} ve {b} hangi ortak sınıfta?"}
+            yield {"kind": "comparison", "a": a, "b": b,
+                   "key": f"comparison:{min(a, b)}:{max(a, b)}",
+                   "question": f"{a} ve {b} için ortak özellik var mı?"}
+            n_pairs += 1
+            if n_pairs >= 12:
+                break
+        n_causal = 0
+        for edge in reversed(g.edges):
+            if edge.rel != "CAUSES" or edge.weight <= 0.25 or edge.status == "rejected":
+                continue
+            try:
+                chains = g.causal_chain(edge.subj, max_hops=4)
+            except Exception:
+                continue
+            for effect, path in chains:
+                if len(path) < 2:
+                    continue
+                # Doğrudan kenar varsa bu çok-adımlı öz-test değildir.
+                if g._edge_map.get((edge.subj, "CAUSES", effect)) is not None:
+                    continue
+                try:
+                    dat = agi.lang.morph.inflect_noun(effect, "DAT")
+                except Exception:
+                    dat = effect
+                yield {"kind": "causal_self_test", "a": edge.subj, "b": effect,
+                       "key": f"causal_self_test:{edge.subj}:{effect}",
+                       "question": f"{edge.subj} {dat} sebep olur mu?",
+                       "path": [[e.subj, e.rel, e.obj] for e in path]}
+                n_causal += 1
+                break
+            if n_causal >= 12:
+                break
+
+    @staticmethod
+    def _rows(graph, concept: str, rels=None):
+        try:
+            return list(graph.query(concept, rels))
+        except Exception:
+            return []
+
+    @staticmethod
+    def _direct_rows(graph, concept: str, rels=None):
+        return [(e, p) for e, p in HypothesisPool._rows(graph, concept, rels)
+                if not p and e.subj == concept]
+
+    @staticmethod
+    def _proof_rows(rows):
+        """ISA yol halkalarını ve son önermeyi kanıt sırasıyla düzleştir."""
+        proof = []
+        for edge, path in rows:
+            proof.extend([[e.subj, e.rel, e.obj] for e in list(path) + [edge]])
+        return proof
+
+    def _run_self_question(self, agi, candidate: dict) -> dict:
+        """Soruyu gerçek sorgu motorunda çalıştır; sonuç yoksa bunu açıkça işaretle."""
+        g = agi.lang.graph
+        kind = candidate["kind"]
+        a, b = candidate["a"], candidate["b"]
+        before_p = int(g.relation_mb.presentations)
+        before_e = len(g.edges)
+        proof: list[list[str]] = []
+        evidence_edges = []
+        answer = None
+        resolved = False
+        extra: dict = {}
+        if kind == "common_class":
+            a_rows = self._rows(g, a, ("ISA",))
+            b_rows = self._rows(g, b, ("ISA",))
+            a_classes = {e.obj: (e, p) for e, p in a_rows}
+            b_classes = {e.obj: (e, p) for e, p in b_rows}
+            common = sorted(set(a_classes) & set(b_classes))
+            resolved = bool(common)
+            answer = common
+            for klass in common:
+                selected = [a_classes[klass], b_classes[klass]]
+                proof.extend(self._proof_rows(selected))
+                evidence_edges.extend([edge for edge, path in selected] +
+                                      [edge for _edge, path in selected for edge in path])
+        elif kind == "comparison":
+            # ISA'yı ayrı soran common_class sorusundan ayır; burada gerçek
+            # özellik/işlev/parça/nedensellik kesişimi aranır. Kalıtım yolu da
+            # kanıtın parçasıdır: yalnız doğrudan kenar ezberi değil.
+            ar = self._rows(g, a, None)
+            br = self._rows(g, b, None)
+            amap = {(e.rel, e.obj): (e, p) for e, p in ar if e.rel != "ISA"}
+            bmap = {(e.rel, e.obj): (e, p) for e, p in br if e.rel != "ISA"}
+            shared = sorted(set(amap) & set(bmap))
+            resolved = bool(shared)
+            answer = [[rel, obj] for rel, obj in shared]
+            for rel, obj in shared:
+                selected = [amap[(rel, obj)], bmap[(rel, obj)]]
+                proof.extend(self._proof_rows(selected))
+                evidence_edges.extend([edge for edge, path in selected] +
+                                      [edge for _edge, path in selected for edge in path])
+            extra["common_classes"] = sorted(
+                {e.obj for e, _p in self._rows(g, a, ("ISA",))}
+                & {e.obj for e, _p in self._rows(g, b, ("ISA",))})
+        else:
+            check = g.check_relation(a, b)
+            path = check.get("causal_path") or []
+            intervention = g.do(a, max_hops=4)
+            resolved = bool(check.get("answer") is True and len(path) >= 2
+                            and b in (intervention.get("effects") or []))
+            answer = bool(resolved) if check.get("answer") is not None else None
+            proof = [[e.subj, e.rel, e.obj] for e in path]
+            evidence_edges.extend(path)
+            extra["intervention_effects"] = list(intervention.get("effects") or [])
+            extra["intervention_engine"] = intervention.get("engine", "")
+            extra["hdc_required"] = bool(intervention.get("hdc_required"))
+        after_p = int(g.relation_mb.presentations)
+        after_e = len(g.edges)
+        provisional = any(getattr(edge, "status", "accepted") in {"probation", "provisional"}
+                          for edge in evidence_edges)
+        epistemic_status = ("provisional" if resolved and provisional else
+                            "resolved" if resolved else
+                            "falsified" if answer is False else "unresolved")
+        return {"kind": kind, "question": candidate["question"],
+                "status": epistemic_status, "answer": answer,
+                "proof": proof, "source": "graph_self_query", "engine": "hdc_mb+graph",
+                "epistemic": "provisional" if provisional else "accepted",
+                "presentations_before": before_p, "presentations_after": after_p,
+                "presentations_delta": after_p - before_p,
+                "graph_edges_before": before_e, "graph_edges_after": after_e,
+                "graph_edges_delta": after_e - before_e, **extra}
+
+    def probe_graph(self, agi, limit: int = 3) -> list[dict]:
+        """Kendi sorularını üret ve hemen sınamadan kayıtlama.
+
+        ``resolved`` yalnız HDC/Graph kanıtı olan sonuçtur; ``unresolved`` bir
+        boşluk olarak görünür kalır. Tek-sunum HDC öğrenme sayacı ve Graph kenar
+        sayısı değişirse kayıt bunu gösterir; çıkarımı yeni olgu diye yazmayız.
+        """
+        g = agi.lang.graph
+        made: list[dict] = []
+        for candidate in self._self_question_candidates(agi):
+            if len(made) >= max(0, int(limit)):
+                break
+            key = candidate["key"]
+            previous = self.self_question_keys.get(key)
+            # Çözülen soru ezber tekrarına dönüşmez. Çözülemeyen soru ise yeni
+            # bir Graph olayı geldiğinde yeniden denenebilir (canlı öğrenme).
+            if previous and (previous.get("status") == "resolved"
+                             or int(previous.get("edge_count", -1)) == len(g.edges)):
+                continue
+            rec = self._run_self_question(agi, candidate)
+            rec["id"] = self.self_probe_count
+            rec["age"] = int(getattr(agi.mind, "age", 0))
+            self.self_probe_count += 1
+            self.self_questions.append(rec)
+            self.self_question_keys[key] = {"status": rec["status"], "edge_count": len(g.edges)}
+            self.self_question_keys.move_to_end(key)
+            while len(self.self_question_keys) > 256:
+                self.self_question_keys.popitem(last=False)
+            made.append(rec)
+        return made
+
     def trace_for(self, agi, concept: str) -> tuple[float, int] | None:
         """Bu kavram hakkında elde yarım bir iz (hipotez) var mı? (en yüksek kesinlik, bağımsız alan sayısı)"""
         best = None
@@ -280,7 +466,10 @@ class HypothesisPool:
 
     def state_dict(self) -> dict:
         return {"pending": {k: {"triple": list(v["triple"]), "topic": v["topic"], "raw": v["raw"]}
-                            for k, v in self.pending.items()}, "promoted": self.promoted_total}
+                            for k, v in self.pending.items()}, "promoted": self.promoted_total,
+                "self_questions": [dict(v) for v in self.self_questions],
+                "self_question_keys": {k: dict(v) for k, v in self.self_question_keys.items()},
+                "self_probe_count": self.self_probe_count}
 
     def load_state_dict(self, d: dict):
         self.pending = OrderedDict((k, {"triple": tuple(v["triple"]), "topic": v["topic"], "raw": v["raw"]})
@@ -289,6 +478,10 @@ class HypothesisPool:
         for k, v in self.pending.items():
             self.by_topic.setdefault(v["topic"], set()).add(k)
         self.promoted_total = int(d.get("promoted", 0))
+        self.self_questions = deque((dict(v) for v in (d.get("self_questions") or [])), maxlen=64)
+        self.self_question_keys = OrderedDict((k, dict(v)) for k, v in
+                                               (d.get("self_question_keys") or {}).items())
+        self.self_probe_count = int(d.get("self_probe_count", 0) or 0)
 
 
 # ============================================================================
@@ -800,6 +993,10 @@ class BackgroundLife:
             out["researched"] = self._research(agi, self.ledger.top())
         else:
             out["spontaneous_action"] = self._reach(agi, idle)
+        # Kendi Graph'ında merak: dış araştırma kanalı seçilmese bile belirli
+        # aralıklarla ortak sınıf/boşluk ve nedensel zincir soruları çalışır.
+        if self.t % 20 == 0:
+            out["self_questions"] = self.pool.probe_graph(agi, limit=3)
         if (self.sources and self.research_stream is not None
                 and self.balanced_research_every > 0 and self.t % self.balanced_research_every == 0):
             out["balanced_research"] = self.research_balanced(agi)
@@ -866,6 +1063,8 @@ class BackgroundLife:
     def snapshot(self) -> dict:
         return {"t": self.t, "actions": dict(self.stats), "gaps": {k: round(g.tension, 3) for k, g in self.ledger.gaps.items()},
                 "pending_hypotheses": len(self.pool.pending), "promoted": self.pool.promoted_total,
+                "self_questions": len(self.pool.self_questions),
+                "self_questions_resolved": sum(q.get("status") == "resolved" for q in self.pool.self_questions),
                 "outbox": len(self.outbox), "unanswered": self.unanswered, "voice_maturity": round(self.voice.mature, 3),
                 "research_coverage": dict(self.research_stream.coverage) if self.research_stream is not None else {},
                 "research_reads": dict(self.research_stream.reads) if self.research_stream is not None else {}}

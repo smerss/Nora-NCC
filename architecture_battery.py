@@ -942,6 +942,198 @@ def graph_system2_composition() -> tuple[bool, str]:
                 f"üç_kenar_yetersiz={limited_definition} | kapsam={scoped_definition} | yazım={write_deltas}")
 
 
+def graph_vector_context_and_intervention() -> tuple[bool, str]:
+    """C17 — bağımsız yol/vektör/bağlam oracle'ları ve MB ablasyonları."""
+    import numpy as np
+    from nora_agi import NoraAGI
+
+    agi = NoraAGI(seed=1717, boot_thinker=False, code_pretrain=False,
+                  world_kwargs={"metabolism": False, "wind": False, "n_food": 1})
+    agi.life.enabled = False
+    g = agi.lang.graph
+    checks = {}
+
+    # Geçişli yol için beklenen kanıt, Nora'nın cevap metninden değil açık
+    # öğretim çiftlerinden bağımsız kurulur.
+    agi.converse("Kedi bir memelidir.")
+    agi.converse("Memeli sıcakkanlıdır.")
+    inherited = g.check_relation("kedi", "sıcakkanlı")
+    actual_path = [(e.subj, e.rel, e.obj) for e in
+                   list(inherited.get("isa_path") or []) + ([inherited["edge"]] if inherited.get("edge") else [])]
+    expected_path = [("kedi", "ISA", "memeli"), ("memeli", "HAS_PROP", "sıcakkanlı")]
+    reply = agi.converse("Kedi sıcakkanlı mı?")
+    checks["gecisli-oracle"] = inherited.get("answer") is True and actual_path == expected_path
+    checks["gecisli-gerekce"] = "dolayısıyla" in reply.casefold() and "memeli" in reply.casefold()
+    checks["gecisli-ezber-yok"] = ("kedi", "HAS_PROP", "sıcakkanlı") not in g._edge_map
+    original_recall = g.relation_mb.recall_subject
+    try:
+        g.relation_mb.recall_subject = lambda *_args, **_kwargs: []
+        checks["gecisli-ablasyon"] = g.check_relation("kedi", "sıcakkanlı").get("answer") is None
+    finally:
+        g.relation_mb.recall_subject = original_recall
+
+    # do() oracle'ı: yalnız ileri komşuluk; X'e giren ortak neden etki değildir.
+    for s, r, o in [("kuraklık", "CAUSES", "kıtlık"), ("kıtlık", "CAUSES", "göç"),
+                    ("ortak", "CAUSES", "kuraklık")]:
+        g.add_edge(s, r, o)
+    oracle_effects = {"kıtlık", "göç"}  # A→B→C için bağımsız BFS sonucu
+    before_p = int(g.relation_mb.presentations)
+    intervention = g.do("kuraklık")
+    checks["do-oracle"] = set(intervention["effects"]) == oracle_effects
+    checks["do-giren-kesildi"] = "ortak" not in intervention["effects"] and intervention["cut_in_edges"]
+    checks["do-yazim-yok"] = int(g.relation_mb.presentations) == before_p
+    try:
+        g.relation_mb.recall_subject = lambda *_args, **_kwargs: []
+        checks["do-ablasyon"] = not g.do("kuraklık")["effects"]
+    finally:
+        g.relation_mb.recall_subject = original_recall
+    cf = g.counterfactual("kuraklık")
+    checks["karsiolgusal"] = set(cf["lost"]) == oracle_effects and not cf["effects_without"]
+    g.add_edge("alternatif", "CAUSES", "göç")
+    cf_alt = g.counterfactual("kuraklık")
+    checks["karsiolgusal-alternatif-yol"] = (cf_alt["lost"] == ["kıtlık"]
+                                               and cf_alt["kept"] == ["göç"]
+                                               and cf_alt["effects_without"] == ["göç"])
+
+    # HDC işlemi için bağımsız bipolar oracle. Graph'ta Kral→Kraliçe kenarı
+    # yoktur; hedef, aynı rol*dolgu vektörlerinin kosinüsüyle seçilmelidir.
+    for text in ("Kral bir hükümdardır.", "Kral erkektir.",
+                 "Kraliçe bir hükümdardır.", "Kraliçe kadındır."):
+        agi.converse(text)
+    mb = g.relation_mb
+
+    def oracle_term(rel, obj):
+        role = "ATTRIBUTE" if rel in {"ISA", "HAS_PROP"} else rel
+        return mb._symbol("role", role) * mb._symbol("filler", obj) + 0.20 * mb._symbol("filler", obj)
+
+    def oracle_bundle(rows):
+        return np.sum([oracle_term(rel, obj) for rel, obj in rows], axis=0, dtype=np.float32)
+
+    q_oracle = (oracle_bundle([("ISA", "hükümdar"), ("HAS_PROP", "erkek")])
+                - oracle_term("HAS_PROP", "erkek") + oracle_term("HAS_PROP", "kadın"))
+    target_oracle = oracle_bundle([("ISA", "hükümdar"), ("ISA", "kadın")])
+    expected_score = float(np.dot(q_oracle, target_oracle) /
+                           (np.linalg.norm(q_oracle) * np.linalg.norm(target_oracle)))
+    analogy = g.vector_analogy("kral", "erkek", "kadın")
+    checks["vektor-oracle"] = (analogy.get("answer") == "kraliçe"
+                                and abs(float(analogy.get("score", 0.0)) - expected_score) < 1e-5)
+    checks["vektor-yeni-kopru"] = not any(e.subj == "kral" and e.obj == "kraliçe" for e in g.edges)
+    g.last_vector_analogy = {}
+    legacy_api = g.solve_analogy("kral", "erkek", "kadın")
+    checks["vektor-eski-api"] = legacy_api[0] == "kraliçe" and g.last_vector_analogy.get("engine") == "hdc_vector_binding+mb"
+    analogy_reply = agi.converse("Kral eksi erkek artı kadın nedir?")
+    checks["vektor-diyalog"] = "kraliçe" in analogy_reply.casefold() and "hdc" in analogy_reply.casefold()
+    original_reverse = g.relation_mb.recall_relation_object
+    try:
+        g.relation_mb.recall_relation_object = lambda *_args, **_kwargs: []
+        checks["vektor-ablasyon"] = g.vector_analogy("kral", "erkek", "kadın").get("status") == "unresolved"
+    finally:
+        g.relation_mb.recall_relation_object = original_reverse
+
+    # Çoklu anlam: bağımsız oracle bağlam/alan kesişiminden organı, farklı
+    # bağlamda sayıyı bekler; MB kodunun gerçekten seyrek olduğu da ölçülür.
+    for s, r, o in [("yüz", "ISA", "organ"), ("yüz", "ISA", "sayı"),
+                    ("organ", "LOCATED_AT", "adam"), ("sayı", "USED_FOR", "matematik")]:
+        g.add_edge(s, r, o)
+    organ = g.disambiguate("yüz", "Denizde yüzen adamın yüzü hangi anlamda?")
+    number = g.disambiguate("yüz", "Matematikte yüz hangi anlamda?")
+    checks["baglam-organ-oracle"] = organ.get("sense") == "organ" and "adam" in organ["candidates"][0]["shared"]
+    checks["baglam-sayi-oracle"] = number.get("sense") == "sayı" and "matematik" in number["candidates"][0]["shared"]
+    checks["baglam-seyrek"] = 0 < organ["active_kc"] < g.relation_mb.mb.n_kc * 0.20
+    ambiguous = g.disambiguate("yüz", "Yüz hangi anlamda?")
+    checks["baglam-belirsizlik-durust"] = ambiguous.get("status") == "ambiguous"
+    try:
+        g.relation_mb.recall_subject = lambda *_args, **_kwargs: []
+        checks["baglam-ablasyon"] = g.disambiguate("yüz", "Denizde yüzen adamın yüzü hangi anlamda?").get("status") == "ambiguous"
+    finally:
+        g.relation_mb.recall_subject = original_recall
+    poly_reply = agi.converse("Denizde yüzen adamın yüzü hangi anlamda?")
+    checks["baglam-diyalog"] = "organ" in poly_reply.casefold() and "seyrek" in poly_reply.casefold()
+
+    # Tanım tek ISA dökümü değil: bağımsız ilişki listesindeki üç boyuttan
+    # en az ikisi yüzeyde görünmeli.
+    agi.converse("Kedinin bıyığı vardır.")
+    agi.converse("Kedi miyavlar.")
+    definition = agi.converse("Kedi nedir?").casefold()
+    checks["tanim-cok-boyut"] = sum(token in definition for token in ("memeli", "bıyık", "miyav")) >= 2
+    checks["tanim-yetersizlik-gizlenmez"] = "bilgim yetersiz" not in definition
+
+    passed = sum(bool(v) for v in checks.values())
+    failed = [k for k, v in checks.items() if not v]
+    return not failed, (f"{passed}/{len(checks)} | " +
+                        f"vektor={analogy.get('answer')}:{analogy.get('score', 0):.3f} "
+                        f"baglam={organ.get('sense')}/{number.get('sense')} | " +
+                        ("başarısız=" + ",".join(failed) if failed else "tüm oracle/ablasyonlar geçti"))
+
+
+def graph_self_questions_and_dynamic_causes() -> tuple[bool, str]:
+    """C18 — HypothesisPool kendi sorusunu üretir, HDC/Graph ile sınar."""
+    from nora_agi import NoraAGI
+
+    agi = NoraAGI(seed=1818, boot_thinker=False, code_pretrain=False,
+                  world_kwargs={"metabolism": False, "wind": False, "n_food": 1})
+    agi.life.enabled = False
+    g = agi.lang.graph
+    for text in ("Kedi bir memelidir.", "Köpek bir memelidir.",
+                 "Kedi sıcakkanlıdır.", "Köpek sıcakkanlıdır.",
+                 "Kuraklık kıtlığa yol açar.", "Kıtlık göçe yol açar.",
+                 "Çöl kıtlığa sebebiyet verir."):
+        agi.converse(text)
+    checks = {"dinamik-sebebiyet-causes": any(e.subj == "çöl" and e.rel == "CAUSES" and e.obj == "kıtlık"
+                                               for e in g.edges)}
+    records = []
+    # Adaylar ortak sınıflardan başlar; birkaç otonom turda nedensel adaya da
+    # ulaşılmalıdır. Her tur gerçek havuz çağrısıdır, hazır kayıt enjekte edilmez.
+    for _ in range(8):
+        records.extend(agi.life.pool.probe_graph(agi, limit=3))
+    by_kind = {}
+    for rec in records:
+        by_kind.setdefault(rec["kind"], []).append(rec)
+    common = next((r for r in by_kind.get("common_class", [])
+                   if {r["question"].split()[0], r["question"].split()[2]} >= {"kedi", "köpek"}
+                   and r["status"] == "resolved"), None)
+    # Soru sırası yüzeyden değil, kanıttaki iki özne üzerinden de doğrulanır.
+    common = next((r for r in by_kind.get("common_class", [])
+                   if r["status"] == "resolved"
+                   and {row[0] for row in r["proof"]} == {"kedi", "köpek"}), common)
+    comparison = next((r for r in by_kind.get("comparison", [])
+                       if r["status"] == "resolved"
+                       and {row[0] for row in r["proof"]} == {"kedi", "köpek"}), None)
+    causal = next((r for r in by_kind.get("causal_self_test", [])
+                   if r["status"] == "resolved" and r["question"].startswith("kuraklık")), None)
+    dynamic_causal = next((r for r in by_kind.get("causal_self_test", [])
+                           if r["status"] == "resolved" and r["question"].startswith("çöl")), None)
+    checks["ortak-sinif-sorusu"] = bool(common and common["answer"] == ["memeli"])
+    checks["ortak-ozellik-oracle"] = bool(comparison and comparison["answer"] == [["HAS_PROP", "sıcakkanlı"]])
+    expected_chain = [["kuraklık", "CAUSES", "kıtlık"], ["kıtlık", "CAUSES", "göç"]]
+    checks["nedensel-oz-test-oracle"] = bool(causal and causal["proof"] == expected_chain
+                                               and causal["answer"] is True
+                                               and "göç" in causal["intervention_effects"])
+    checks["dinamik-zincir-oz-test"] = bool(dynamic_causal and len(dynamic_causal["proof"]) >= 2)
+    checks["oz-soru-yazim-yok"] = all(r["presentations_delta"] == 0 and r["graph_edges_delta"] == 0
+                                       for r in records)
+    checks["cikari-kenar-ezber-degil"] = ("kuraklık", "CAUSES", "göç") not in g._edge_map
+    # Adayı doğrudan çalıştırılan bağımsız ablasyon: MB yoksa nedensel öz-test
+    # yeşil üretmemeli; havuzun önceki başarı kayıtları kanıt sayılmaz.
+    candidate = {"kind": "causal_self_test", "a": "kuraklık", "b": "göç",
+                 "question": "kuraklık göçe sebep olur mu?"}
+    original = g.relation_mb.recall_subject
+    try:
+        g.relation_mb.recall_subject = lambda *_args, **_kwargs: []
+        ablated = agi.life.pool._run_self_question(agi, candidate)
+        checks["oz-test-ablasyon"] = ablated["status"] == "unresolved" and not ablated["proof"]
+    finally:
+        g.relation_mb.recall_subject = original
+    # Durum snapshot'ı soruları ve çözülmemişleri de korur; pasif kayıt değildir.
+    state = agi.life.pool.state_dict()
+    checks["oz-soru-kalicilik"] = bool(state["self_questions"] and state["self_question_keys"])
+    failed = [k for k, v in checks.items() if not v]
+    return not failed, (f"{sum(bool(v) for v in checks.values())}/{len(checks)} | "
+                        f"kayıt={len(records)} ortak={bool(common)} karşılaştırma={bool(comparison)} "
+                        f"nedensel={bool(causal)} dinamik={bool(dynamic_causal)}" +
+                        (" | başarısız=" + ",".join(failed) if failed else ""))
+
+
 def bounded_retention_generalization_multiseed() -> tuple[bool, str]:
     """Üç tohumda 96 olay; bakım ve bağımsız depo sonrası bağımsız oracle."""
     import pickle
@@ -1017,7 +1209,9 @@ def main():
              ("C13 pasif HDC bellek + sınırlı çalışma kümesi", passive_hdc_reactivation),
              ("C14 epistemik olay + sembolik Broca + kalıcılık", epistemic_event_symbolic_broca),
              ("C15 System-2 birleşik anlam + HDC ablasyonu", graph_system2_composition),
-             ("C16 sınırlı tutma + genelleme + çoklu tohum", bounded_retention_generalization_multiseed)]
+             ("C16 sınırlı tutma + genelleme + çoklu tohum", bounded_retention_generalization_multiseed),
+             ("C17 HDC vektör cebiri + bağlam + do() ablasyonu", graph_vector_context_and_intervention),
+             ("C18 Graph öz-soruları + dinamik nedensel öz-test", graph_self_questions_and_dynamic_causes)]
     if args.only:
         tests = [(name, fn) for name, fn in tests if args.only.casefold() in name.casefold()]
     if not tests:

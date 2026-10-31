@@ -1039,6 +1039,113 @@ class NoraAGI:
         }
         return answer
 
+    # -------------------------------------------------- özel anlam hesapları
+    @staticmethod
+    def _vector_expression(raw: str):
+        """Genel ``A eksi B artı C`` sözdizimini sayısal aritmetikten ayır."""
+        text = str(raw or "").strip().strip(" \t\r\n")
+        if not text:
+            return None
+        # “kaç eder?” MathCortex'in sayısal alanıdır; kavram vektörü sorgusu
+        # “nedir/ne olur?” biçimini kullanır.
+        if re.search(r"\bkaç(?:\s+eder|\b)", tr_lower(text)):
+            return None
+        body = text.rstrip("?!.… ").strip()
+        # İsteğe bağlı soru/sonuç kısmı hesap girdisi değildir. Verilen sonuç
+        # cevap olarak kopyalanmaz; yalnız sol taraftaki vektör işlemi çözülür.
+        body = re.sub(r"\s+(?:nedir|ne olur|kaçtır|ne yapar)$", "", body,
+                      flags=re.IGNORECASE).strip()
+        body = body.split("=", 1)[0].strip()
+        match = re.fullmatch(r"(.+?)\s+(eksi|−|-)\s+(.+?)\s+(artı|\+)\s+(.+)",
+                             body, flags=re.IGNORECASE)
+        if not match:
+            return None
+        left, _minus, middle, _plus, right = match.groups()
+        # Sayısal MathCortex'in alanını gasp etme.
+        if all(re.fullmatch(r"[+-]?\d+(?:[.,]\d+)?", x.strip()) for x in (left, middle, right)):
+            return None
+        try:
+            if all(TurkishMorphology.words_to_int(tr_lower(x).split()) is not None
+                   for x in (left, middle, right)):
+                return None
+        except Exception:
+            pass
+        return left.strip(), middle.strip(), right.strip()
+
+    @staticmethod
+    def _disambiguation_expression(raw: str):
+        text = str(raw or "").strip()
+        low = tr_lower(text)
+        if not re.search(r"(?:hangi|ne)\s+anlam", low):
+            return None
+        # Soru gövdesindeki son ad, çoklu-anlamı sorulan yüzeydir. Ekli biçim
+        # Graph gövdesine daha sonra _graph_stem ile indirgenir.
+        match = re.search(r"([^\s?!,;]+)\s+(?:hangi|ne)\s+anlam", low)
+        return match.group(1).strip(" '’‘\"“”") if match else None
+
+    def _vector_analogy_turn(self, raw: str) -> str | None:
+        parsed = self._vector_expression(raw)
+        if parsed is None:
+            return None
+        operands = [self._graph_stem(x) for x in parsed]
+        result = self.lang.graph.vector_analogy(*operands)
+        a, b, c = operands
+        self._turn_path = "graph_reasoning"
+        self._intent_locked = True
+        self._apply_tag("cikarim", 1)
+        self.last_gw_trace = {"winner": "prefrontal_reasoning", "confidence": 0.97,
+                              "trace": "hdc_vector_analogy", "used_s2": True,
+                              "bids": {"prefrontal_reasoning": 0.97}}
+        if result.get("status") == "resolved":
+            answer = self.lang.graph.surface_name(result["answer"])
+            text = (f"{tr_capitalize(a)} − {b} + {c} = {tr_capitalize(answer)}. "
+                    f"HDC bağlı vektörlerde {result['relation']} rolü çıkarılıp "
+                    f"{c} ile yeniden bağlandı; benzerlik {result['score']:.2f}.")
+        else:
+            text = (f"{tr_capitalize(a)} − {b} + {c} işlemini çözemedim; "
+                    f"öğrenilmiş bağlı önermelerden yeterli vektör kanıtı çıkmadı. "
+                    f"{result.get('reason', '')}".strip())
+        self.broca_organ.last_speech_plan = {
+            "volition_acts": ["HDC_VECTOR_ANALOGY"], "surface_tr": text,
+            "epistemic": result.get("status"), "operation": result.get("operation"),
+        }
+        return text
+
+    def _disambiguation_turn(self, raw: str) -> str | None:
+        surface = self._disambiguation_expression(raw)
+        if not surface:
+            return None
+        concept = self._graph_stem(surface)
+        try:
+            senses = {e.obj for e, path in self.lang.graph.query(concept, ("ISA",))
+                      if not path and e.subj == concept}
+        except Exception:
+            senses = set()
+        # Tek anlamlı/bilinmeyen sözcükler olağan tanım ve epistemik kapı
+        # yolunda kalır; bu organ yalnız gerçek çoklu-anlamda yarışır.
+        if len(senses) < 2:
+            return None
+        result = self.lang.graph.disambiguate(concept, raw)
+        self._turn_path = "graph_reasoning"
+        self._intent_locked = True
+        self._apply_tag("cikarim", 1)
+        self.last_gw_trace = {"winner": "prefrontal_reasoning", "confidence": 0.96,
+                              "trace": "mb_sparse_disambiguation", "used_s2": True,
+                              "bids": {"prefrontal_reasoning": 0.96}}
+        if result.get("status") == "resolved":
+            shared = ", ".join(result.get("candidates", [{}])[0].get("shared", []))
+            text = (f"Bu bağlamda '{surface}' sözcüğünü {result['sense']} anlamıyla çözüyorum; "
+                    f"{shared or 'cümledeki'} bağlamı MB seyrek kodunda bu anlamı öne çıkardı.")
+        else:
+            senses = ", ".join(row["sense"] for row in result.get("candidates", [])) or "aday anlam"
+            text = (f"'{surface}' için {senses} adayları var; bu bağlamda MB seyrek kodu "
+                    "yeterli ve ayrıcı kanıt bulamadı, kesin bir anlam seçmiyorum.")
+        self.broca_organ.last_speech_plan = {
+            "volition_acts": ["MB_CONTEXT_DISAMBIGUATION"], "surface_tr": text,
+            "epistemic": result.get("status"), "concept": concept,
+        }
+        return text
+
     def _epistemic_gate(self, raw: str) -> str:
         """Anlam sorusunu Broca'dan ÖNCE Graph/HDC kanıtıyla karşılaştır.
 
@@ -1049,6 +1156,10 @@ class NoraAGI:
         """
         text = str(raw or "").strip()
         if not text or "?" not in text:
+            return ""
+        # Bu iki soru kendi HDC/MB hesap organına gider; kavramın ilk sözcüğünü
+        # tanım sorusu sanıp erken epistemik kapıda kesme.
+        if self._vector_expression(text) is not None or self._disambiguation_expression(text):
             return ""
         # Aktif öğretim oturumundaki birleşik/takip soruları tek-sözcüklü
         # sözlük sorusu değildir. Tutor hattı odağı konuşma durumundan çıkarır
@@ -2180,6 +2291,19 @@ class NoraAGI:
         raw = text.strip()
         if not raw:
             return "..."
+        # Bağlı vektör cebiri ve MB bağlam çözümü, genel tanım/aritmetik
+        # uzmanlarından önce kendi kanıt yolunda çalışır.
+        _special = self._vector_analogy_turn(raw)
+        if _special is None:
+            _special = self._disambiguation_turn(raw)
+        if _special is not None:
+            try:
+                self.life.on_interaction(self, raw, speaker)
+                self.initiative.on_user_reply()
+            except Exception:
+                pass
+            self._log_turn(speaker, raw, _special, t0)
+            return _special
         # NİYET KİLİDİ: konu/çelişki gibi ÖLÇÜLMÜŞ bir niyet cevaplandıysa, sonradan
         # gelen "bunu demin de sormuştun" süsü cevabı EZMEZ. Tekrar farkındalığı bir
         # süslemedir; ölçülmüş bir cevabın üstüne yazmak onu gasp etmektir.
@@ -2905,6 +3029,12 @@ class NoraAGI:
         broca = self.lang.broca
         morph = self.lang.morph
         graph = self.lang.graph
+        # Çok cümleli akışta da özel anlam hesabı tanım kapısına kurban gitmez.
+        _special = self._vector_analogy_turn(raw)
+        if _special is None:
+            _special = self._disambiguation_turn(raw)
+        if _special is not None:
+            return _special
         # Çok cümleli öğreti+soru akışında son soru da aynı zorunlu kapıdan
         # geçer. Önceki cümleler artık Graph/HDC'ye yazılmıştır.
         _unknown = self._epistemic_gate(raw)

@@ -1853,6 +1853,8 @@ class GroundedConceptGraph:
         self.relation_by_verb: dict[str, str] = {}
         self.last_decision: dict = {}
         self.last_invention: dict = {}
+        self.last_vector_analogy: dict = {}
+        self.last_disambiguation: dict = {}
         self.neural_proposer = None
         # Yeni ilişki operatörleri mevcut apply/forge/synth organlarında yaşar;
         # hedef cümlelere özel şablon tablosu değildir.
@@ -2441,28 +2443,40 @@ class GroundedConceptGraph:
                 break
         return out
 
-    def do(self, node: str, value: str | None = None, max_hops: int = 3) -> dict:
-        """Pearl'ün do() operatörü: GÖZLEM (P(Y|X)) ile MÜDAHALE (P(Y|do(X))) farkı.
+    def do(self, node: str, value: str | None = None, max_hops: int = 3,
+           _disabled: set[tuple[str, str, str]] | None = None) -> dict:
+        """Yapısal ``do(X)``: girenleri kes, yalnız HDC-doğrulamalı çıkanları izle.
 
-        Müdahalede X'e GİREN kenarlar KESİLİR (X'in nedeni artık X'i belirlemez);
-        yalnız X'ten ÇIKAN nedensel kenarlar izlenir. X'e giren nedensel kenar varsa
-        gözlemden müdahale çıkarımı yapılamaz (back-door): `identified` False döner ve
-        ortak neden adayları `confounders` içinde ADIYLA söylenir. Bu yüzden bu operatör
-        "Y artar" demez; ne ölçüldüğünü ve neyin eksik olduğunu söyler.
+        Graf indeksi tek başına cevap kaynağı değildir. Her halkada adaylar MB'nin
+        bağlı önerme kodundan gelir; ``query`` canlı kenar/yön kanıtını ayrıca
+        doğrular. Böylece MB ablasyonunda etiketleri gezip aynı cevabı üretmek
+        mümkün olmaz. ``_disabled`` yalnız karşıolgusal modelin kapattığı yapısal
+        kenarlardır; bellekten bilgi silinmez.
         """
         s = tr_lower(node).strip()
+        disabled = set(_disabled or ())
         incoming = list(self._in_edges.get(s, ()))
-        backdoor = [e for e in incoming if e.rel in ("CAUSES", "IF_THEN")]
+        backdoor = [e for e in incoming
+                    if e.rel in ("CAUSES", "IF_THEN") and e.weight > 0.25]
         effects: list[str] = []
         paths: list[list[RelationEdge]] = []
         visited = {s}
         frontier: list[tuple[str, list[RelationEdge]]] = [(s, [])]
+        reads: list[dict] = []
+        validated = 0
         for _ in range(max(1, int(max_hops))):
             nxt: list[tuple[str, list[RelationEdge]]] = []
             for cur, path in frontier:
-                for e in self._out_edges.get(cur, ()):
-                    if e.rel not in ("CAUSES", "IF_THEN") or e.weight <= 0.25:
+                # ISA üstünden miras alınan nedensellik burada yapısal bir X→Y
+                # kenarı değildir; yalnız cur'nin kendi giden kenarı izlenir.
+                candidates = self.query(cur, ("CAUSES", "IF_THEN"))
+                decision = dict(self.last_decision or {})
+                reads.extend(decision.get("reads") or [])
+                for e, isa_path in candidates:
+                    key = (e.subj, e.rel, e.obj)
+                    if isa_path or e.subj != cur or key in disabled:
                         continue
+                    validated += 1
                     if e.obj in visited:
                         continue
                     visited.add(e.obj)
@@ -2473,7 +2487,7 @@ class GroundedConceptGraph:
             frontier = nxt
             if not frontier:
                 break
-        return {
+        result = {
             "intervened": s,
             "value": value,
             "effects": effects,
@@ -2482,58 +2496,73 @@ class GroundedConceptGraph:
             "identified": not backdoor,
             "observed_edges": [e.obj for e in self._out_edges.get(s, ())],
             "in_edges": [(e.subj, e.rel) for e in incoming],
+            "cut_in_edges": [(e.subj, e.rel, e.obj) for e in backdoor],
+            "disabled_edges": sorted(disabled),
+            "engine": "hdc_mb+graph",
+            "hdc_required": True,
         }
+        self.last_decision = {
+            "engine": "hdc_mb+graph", "mode": "do", "query": s,
+            "graph_validated": True, "validated_candidates": validated,
+            "results": len(effects), "reads": reads,
+            "cut_in_edges": len(backdoor), "disabled_edges": len(disabled),
+            "active_kc": reads[-1].get("active_kc", 0) if reads else 0,
+            "actual_sparsity": reads[-1].get("actual_sparsity", 0.0) if reads else 0.0,
+        }
+        return result
 
     def counterfactual(self, node: str, max_hops: int = 3) -> dict:
-        """KARŞIOLGUSAL: "X olmasaydı ne olurdu?" — yapısal modeli X'siz yeniden koştur.
+        """X olmasaydı: X'in çıkan yapısal kenarlarını silmeden devre dışı bırak.
 
-        Müdahale (do) modeli DEĞİŞTİRİR: X'e giren kenarlar kesilir, çıkanlar izlenir.
-        Karşıolgusal ise X'i modelden ÇIKARIR: X'in çıkan kenarları da yok sayılır ve
-        etki kümesi yeniden hesaplanır. İkisinin farkı, X'in yapıdaki nedensel katkısıdır.
-
-        Dönen `lost` = yalnız X varken oluşan etkiler ("olmasaydı olmayacaktı"),
-        `kept` = X olmadan da ulaşılan etkiler ("başka yoldan da olurdu").
-        Bu bir MODEL çıkarımıdır: ölçüm değil. Bu yüzden cevapta "ölçtüm" denmez.
+        ``do`` müdahalesi X'e girenleri kesip çıkanları izler; karşıolgusal
+        karşılaştırma ise aynı HDC/Graf modelinde X'in çıkanlarını kapatır.
+        Geçici indeks ameliyatı yapılmadığı için pasif MB kayıtlarıyla canlı graf
+        arasında tutarsızlık ve bilgi kaybı oluşmaz.
         """
         s = tr_lower(node).strip()
         base = self.do(s, max_hops=max_hops)
         actual = list(base.get("effects") or [])
-        # X'i modelden çıkar: çıkan nedensel kenarları geçici olarak devre dışı bırak.
-        hidden = []
-        saved = []
-        for e in self._out_edges.get(s, ()):
-            if e.rel in ("CAUSES", "IF_THEN") and e.weight > 0.25:
-                hidden.append(e)
-        for e in hidden:
-            try:
-                self._out_edges[e.subj].remove(e)
-                saved.append(e)
-            except ValueError:
-                pass
-        try:
-            without: list[str] = []
-            visited = {s}
-            frontier = [s]
-            for _ in range(max(1, int(max_hops))):
-                nxt = []
-                for cur in frontier:
-                    for e in self._out_edges.get(cur, ()):
-                        if e.rel in ("CAUSES", "IF_THEN") and e.weight > 0.25 and e.obj not in visited:
-                            visited.add(e.obj)
-                            without.append(e.obj)
-                            nxt.append(e.obj)
-                frontier = nxt
-                if not frontier:
-                    break
-        finally:
-            for e in saved:
-                self._out_edges.setdefault(e.subj, []).append(e)
+        disabled = {(e.subj, e.rel, e.obj) for e in self._out_edges.get(s, ())
+                    if e.rel in ("CAUSES", "IF_THEN") and e.weight > 0.25}
+        # X'siz modelde alternatif köklerden erişimi tara. Yalnız X'ten başlamak
+        # “B→Y varken de olurdu” yolunu yanlışlıkla kayıp sayardı. Ham indeks
+        # yalnız kök adayı üretir; her nedensel halka yine HDC/MB + Graph ile
+        # doğrulanır ve X'e giren/yeniden X'e çıkan yol kullanılmaz.
+        causal_nodes = {e.subj for e in self.edges
+                        if e.rel in ("CAUSES", "IF_THEN") and e.weight > 0.25}
+        causal_nodes.update(e.obj for e in self.edges
+                            if e.rel in ("CAUSES", "IF_THEN") and e.weight > 0.25)
+        roots = sorted(node for node in causal_nodes if node != s and not any(
+            e.rel in ("CAUSES", "IF_THEN") and e.weight > 0.25
+            for e in self._in_edges.get(node, ())))
+        reachable: set[str] = set()
+        visited = set(roots)
+        frontier = list(roots)
+        for _ in range(max(1, int(max_hops))):
+            nxt = []
+            for cur in frontier:
+                for edge, isa_path in self.query(cur, ("CAUSES", "IF_THEN")):
+                    key = (edge.subj, edge.rel, edge.obj)
+                    if (isa_path or edge.subj != cur or key in disabled
+                            or edge.obj == s or edge.obj in visited):
+                        continue
+                    visited.add(edge.obj)
+                    reachable.add(edge.obj)
+                    nxt.append(edge.obj)
+            frontier = nxt
+            if not frontier:
+                break
+        # Rapor kapsamı X'in gerçek etkileriyle sınırlıdır; dünyadaki ilgisiz
+        # bütün kök etkileri “kept” diye şişirilmez.
+        without = [x for x in actual if x in reachable]
         lost = [x for x in actual if x not in without]
-        kept = [x for x in actual if x in without]
+        kept = list(without)
         return {"node": s, "effects": actual, "effects_without": without,
                 "lost": lost, "kept": kept, "paths": base.get("paths") or [],
                 "confounders": base.get("confounders") or [],
-                "identified": bool(base.get("identified")), "structural": True}
+                "identified": bool(base.get("identified")), "structural": True,
+                "disabled_edges": sorted(disabled), "engine": "hdc_mb+graph",
+                "counterfactual_roots": roots}
 
     def check_relation(self, subj: str, target_pred: str) -> dict:
         """'X Y yapar mı / X Y midir / X Y'ye yol açar mı?' sorusu için geçişli kanıt zinciri arar."""
@@ -2586,10 +2615,211 @@ class GroundedConceptGraph:
 
         return {"answer": None, "edge": None, "isa_path": []}
 
+    # -------------------------------------------------- HDC vektör cebiri + bağlam
+    def _hdc_role_filler(self, relation: str, obj: str) -> np.ndarray:
+        """Rol ve dolguyu gerçek bipolar bağlama ile tek vektörde birleştir."""
+        r = self.relation_mb._symbol("role", str(relation))
+        f = self.relation_mb._symbol("filler", tr_lower(obj).strip())
+        # Zayıf dolgu yolu, HDCMushroomBody.encode ile aynı kod ailesindedir;
+        # asıl anlam rol*dolgu bağlı teriminden gelir.
+        return (r * f + 0.20 * f).astype(np.float32)
+
+    @staticmethod
+    def _analogy_role(relation: str) -> str:
+        """Copula/taksonomi ile özellik önermesini aynı analoji rolünde buluştur.
+
+        ``Kral erkektir`` ve ``Kraliçe kadındır`` yüzeyde farklı ayrıştırıcı
+        dallarına düşebilir; bu, anlam vektöründe cinsiyet köprüsünü bozmamalı.
+        Özgün Graph kenarı silinmez/değiştirilmez, yalnız vektör rolü normalize
+        edilir. Nedensel ve işlevsel roller ayrı kalır.
+        """
+        return "ATTRIBUTE" if relation in {"ISA", "HAS_PROP"} else relation
+
+    def _semantic_bundle(self, concept: str) -> tuple[np.ndarray, list[RelationEdge]]:
+        """Kavramın öğrenilmiş doğrudan önermelerini bağlı vektörler olarak topla.
+
+        Düz ``concept_vecs`` veya ilişki etiketi aktarımı kullanılmaz. Önermeler
+        önce MB'den okunur ve graf yönüyle doğrulanır; vektör toplamı yalnız bu
+        kanıtlı olaylardan kurulur. Normalize etmeden döndürmek, çıkarma sırasında
+        terimlerin gerçekten birbirini götürebilmesini sağlar.
+        """
+        name = tr_lower(concept).strip()
+        terms: list[np.ndarray] = []
+        used: list[RelationEdge] = []
+        for edge, isa_path in self.query(name, None):
+            if isa_path or edge.subj != name:
+                continue
+            terms.append(self._hdc_role_filler(self._analogy_role(edge.rel), edge.obj))
+            used.append(edge)
+        if terms:
+            return np.sum(terms, axis=0, dtype=np.float32), used
+        return np.zeros(self.relation_mb.dim, dtype=np.float32), used
+
+    def vector_analogy(self, a: str, b: str, c: str) -> dict:
+        """``a - b + c`` analojisini bağlı HDC vektörleriyle çöz.
+
+        Önce A→B önermesinin *ilişki rolü* öğrenilmiş kenardan bulunur. Sonra
+        ``v(A) - bind(rol,B) + bind(rol,C)`` hesaplanır. Adaylar ortak önermelerin
+        ters HDC/MB okumasından gelir; sıralama vektör kosinüsüyle yapılır, Graph'ta
+        ``C`` ilişkisini arayıp nesneyi kopyalamak yoktur.
+        """
+        a, b, c = (tr_lower(x).strip() for x in (a, b, c))
+        empty = {"status": "unresolved", "answer": None, "a": a, "b": b, "c": c,
+                 "engine": "hdc_vector_binding+mb", "candidates": []}
+        if not a or not b or not c or len({a, b, c}) < 3:
+            empty["reason"] = "üç ayrı kavram gerekli"
+            self.last_vector_analogy = empty
+            return empty
+        a_rows = [(e, p) for e, p in self.query(a, None) if not p and e.subj == a]
+        ab = [e for e, _p in a_rows if e.obj == b]
+        if not ab:
+            empty["reason"] = "çıkarılacak rolün öğrenilmiş A→B bağı yok"
+            self.last_vector_analogy = empty
+            return empty
+        priority = {"HAS_PROP": 0, "ISA": 1, "HAS_PART": 2, "COMPOSED_OF": 3,
+                    "USED_FOR": 4, "CAN_DO": 5, "LOCATED_AT": 6}
+        ab.sort(key=lambda e: (priority.get(e.rel, 20), -e.weight))
+        chosen = ab[0]
+        role = chosen.rel
+        binding_role = self._analogy_role(role)
+        va, a_used = self._semantic_bundle(a)
+        subtract = self._hdc_role_filler(binding_role, b)
+        add = self._hdc_role_filler(binding_role, c)
+        query_vec = (va - subtract + add).astype(np.float32)
+        qnorm = float(np.linalg.norm(query_vec))
+        if qnorm < 1e-8:
+            empty["reason"] = "bağlı vektör boş"
+            self.last_vector_analogy = empty
+            return empty
+
+        # Ortak özellik, arama uzayını daraltır; cevap değildir. Örneğin aynı
+        # sınıfı taşıyan bütün kavramlar gelir, hangisinin kaldığına vektör karar verir.
+        candidate_names: set[str] = set()
+        for edge in a_used:
+            if edge is chosen:
+                continue
+            for other, _activation in self.relation_object_candidates(edge.rel, edge.obj):
+                if other.subj not in {a, b, c} and other.subj != edge.obj:
+                    candidate_names.add(other.subj)
+        scored: list[dict] = []
+        qk = set(int(x) for x in self.relation_mb.mb.encode_kc(query_vec))
+        for name in sorted(candidate_names):
+            vec, used = self._semantic_bundle(name)
+            norm = float(np.linalg.norm(vec))
+            if norm < 1e-8:
+                continue
+            cosine = float(np.dot(query_vec, vec) / (qnorm * norm))
+            tk = set(int(x) for x in self.relation_mb.mb.encode_kc(vec))
+            sparse = len(qk & tk) / max(1, min(len(qk), len(tk)))
+            scored.append({"concept": name, "score": cosine, "sparse_overlap": sparse,
+                           "evidence": [[e.subj, e.rel, e.obj] for e in used]})
+        scored.sort(key=lambda row: (-row["score"], -row["sparse_overlap"], row["concept"]))
+        top = scored[0] if scored else None
+        second = float(scored[1]["score"]) if len(scored) > 1 else -1.0
+        margin = float(top["score"] - second) if top else 0.0
+        resolved = bool(top and top["score"] >= 0.20 and margin >= 0.03)
+        result = {
+            "status": "resolved" if resolved else "unresolved",
+            "answer": top["concept"] if resolved else None,
+            "a": a, "b": b, "c": c, "relation": role,
+            "score": float(top["score"]) if top else 0.0, "margin": margin,
+            "candidates": scored[:12], "engine": "hdc_vector_binding+mb",
+            "operation": "v(A)-bind(role,B)+bind(role,C)",
+            "query_vector": query_vec, "active_kc": len(qk),
+            "reason": "" if resolved else "vektör benzerliği veya aday marjı yetersiz",
+        }
+        self.last_vector_analogy = {k: v for k, v in result.items() if k != "query_vector"}
+        self.last_decision = {
+            "engine": "hdc_vector_binding+mb", "mode": "vector_analogy",
+            "query": f"{a}-{b}+{c}", "graph_validated": True,
+            "results": int(resolved), "active_kc": len(qk),
+            "actual_sparsity": len(qk) / max(1, self.relation_mb.mb.n_kc),
+            "score": result["score"], "margin": margin,
+        }
+        return result
+
+    def disambiguate(self, concept: str, context: str) -> dict:
+        """Çoklu anlamı, bağlam ve anlam önermelerinin seyrek KC örtüşmesiyle seç.
+
+        ISA adayları ve her anlamın kanıtı MB'den okunur. Bağlam sözcükleri rol-
+        dolgu bağlamasıyla kodlanır; yalnız hazır ``yüz→organ`` kuralı yoktur.
+        Ortak bağlam kanıtı ve yeterli skor marjı yoksa seçim yapılmaz.
+        """
+        name = tr_lower(concept).strip()
+        stop = {"hangi", "anlamda", "anlamı", "anlamını", "nedir", "ne", "bir", "bu",
+                "şu", "o", "ve", "veya", "ile", "için", "çok", "daha", "mi", "mı", "mu", "mü"}
+
+        def tokens(text: str) -> list[str]:
+            out = []
+            for word in re.findall(r"[^\W\d_]+", tr_lower(text), flags=re.UNICODE):
+                an = TurkishMorphology.analyze_word(word, self.lexicon)
+                stem = tr_lower(an.get("stem") or word).strip()
+                if stem and stem not in stop and stem != name and len(stem) > 1:
+                    out.append(stem)
+            return list(dict.fromkeys(out))
+
+        context_tokens = tokens(context)
+        context_terms = [self._hdc_role_filler("context", tok) for tok in context_tokens]
+        context_vec = (np.sum(context_terms, axis=0, dtype=np.float32) if context_terms
+                       else np.zeros(self.relation_mb.dim, dtype=np.float32))
+        context_norm = float(np.linalg.norm(context_vec))
+        context_kc = set(int(x) for x in self.relation_mb.mb.encode_kc(context_vec))
+        candidates = []
+        for isa, path in self.query(name, ("ISA",)):
+            if path or isa.subj != name:
+                continue
+            sense = isa.obj
+            rows = [(e, p) for e, p in self.query(sense, None) if not p and e.subj == sense]
+            sense_tokens = [sense]
+            evidence = []
+            for edge, _p in rows:
+                edge_tokens = tokens(f"{edge.subj} {edge.obj}")
+                sense_tokens.extend(edge_tokens)
+                if set(edge_tokens) & set(context_tokens):
+                    evidence.append([edge.subj, edge.rel, edge.obj])
+            sense_tokens = list(dict.fromkeys(sense_tokens))
+            terms = [self._hdc_role_filler("context", tok) for tok in sense_tokens]
+            vec = (np.sum(terms, axis=0, dtype=np.float32) if terms
+                   else np.zeros(self.relation_mb.dim, dtype=np.float32))
+            norm = float(np.linalg.norm(vec))
+            sense_kc = set(int(x) for x in self.relation_mb.mb.encode_kc(vec))
+            cosine = (float(np.dot(context_vec, vec) / (context_norm * norm))
+                      if context_norm > 1e-8 and norm > 1e-8 else 0.0)
+            sparse = (len(context_kc & sense_kc) / max(1, min(len(context_kc), len(sense_kc)))
+                      if context_kc and sense_kc else 0.0)
+            shared = sorted(set(context_tokens) & set(sense_tokens))
+            score = 0.65 * sparse + 0.35 * cosine
+            candidates.append({"sense": sense, "score": float(score), "cosine": cosine,
+                               "sparse_overlap": float(sparse), "shared": shared,
+                               "evidence": evidence, "active_kc": len(sense_kc)})
+        candidates.sort(key=lambda row: (-row["score"], row["sense"]))
+        top = candidates[0] if candidates else None
+        second = float(candidates[1]["score"]) if len(candidates) > 1 else 0.0
+        margin = float(top["score"] - second) if top else 0.0
+        resolved = bool(top and top["shared"] and top["sparse_overlap"] > 0.0
+                        and top["score"] >= 0.15 and margin >= 0.04)
+        result = {"status": "resolved" if resolved else "ambiguous", "concept": name,
+                  "sense": top["sense"] if resolved else None, "score": float(top["score"]) if top else 0.0,
+                  "margin": margin, "context_tokens": context_tokens, "candidates": candidates,
+                  "engine": "hdc_mb_sparse_context", "active_kc": len(context_kc),
+                  "actual_sparsity": len(context_kc) / max(1, self.relation_mb.mb.n_kc)}
+        self.last_disambiguation = result
+        self.last_decision = {"engine": "hdc_mb_sparse_context", "mode": "disambiguation",
+                              "query": name, "graph_validated": True, "results": int(resolved),
+                              "active_kc": len(context_kc), "actual_sparsity": result["actual_sparsity"],
+                              "score": result["score"], "margin": margin}
+        return result
+
     def solve_analogy(self, a: str, b: str, c: str) -> tuple[str | None, str]:
-        """'a : b :: c : ?' analojisini a->b arasındaki ilişkisel sinapsı bularak c'ye uygular."""
+        """Eski ``a:b::c:?`` API'sini koru; aritmetik analojide HDC'ye düş.
+
+        Klasik ilişki aktarımı mümkünse eski çağrıların anlamı değişmez. Fakat
+        ``Kral − Erkek + Kadın`` gibi c'de aynı etiketle cevap bulunamayan
+        durumda artık ``None`` dönüp durmak yerine bağlı vektör cebiri çalışır;
+        sonuç yalnız Graph etiketi kopyalanarak üretilmez.
+        """
         a_l, b_l, c_l = tr_lower(a), tr_lower(b), tr_lower(c)
-        # 1) Doğrudan ilişki türü eşleşmesi
+        # 1) Doğrudan ilişki türü eşleşmesi (eski API'nin klasik biçimi)
         for e_ab, _ in self.query(a_l):
             if e_ab.obj == b_l:
                 for e_c, _ in self.query(c_l, (e_ab.rel,)):
@@ -2599,6 +2829,10 @@ class GroundedConceptGraph:
             if e.obj == b_l:
                 for e2, _path in self.query(c_l, ("OPPOSITE",)):
                     return e2.obj, "OPPOSITE"
+        # 3) Vektör aritmetiği: v(a)-bind(rol,b)+bind(rol,c).
+        vector = self.vector_analogy(a_l, b_l, c_l)
+        if vector.get("status") == "resolved":
+            return vector.get("answer"), vector.get("relation", "HDC_VECTOR")
         return None, ""
 
 
@@ -3469,9 +3703,11 @@ class WernickeComprehender:
             # ÖNEMLİ: sözcük listesi DÖNDÜRÜLMEZ (q_idx kayardı); özne yalnız _si'den
             # okunur, yüklem _si+1..q_idx arasıdır.
             pred_tokens = [w for w in words[_si + 1:q_idx] if w != "bir"]
-            # 'bitkinliğe / heyelana yol açar mı / neden olur mu / sebep olur mu' (+DAT yöneten nedensel fiiller!)
+            # 'bitkinliğe / heyelana yol açar mı / neden olur mu / sebep olur mu'
+            # ve 'kıtlığa sebebiyet verir mi' (+DAT yöneten nedensel fiiller!)
             if len(pred_tokens) >= 3 and (
-                pred_tokens[-2:] in (["yol", "açar"], ["neden", "olur"], ["sebep", "olur"])
+                pred_tokens[-2:] in (["yol", "açar"], ["neden", "olur"], ["sebep", "olur"],
+                                      ["sebebiyet", "verir"])
             ):
                 pred = self._strip_governed_dative(pred_tokens[0])
             else:
@@ -3925,6 +4161,22 @@ class WernickeComprehender:
             return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj, rel="USED_FOR", obj=purpose)
         if "yol" in rest_words and "gösterir" in rest_words:
             return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj, rel="USED_FOR", obj=" ".join(rest_words[:-2] + ["yol gösterme"]).strip())
+
+        # 'X, Y'ye sebebiyet verir' — bilinen nedensel yapının DAT nesneli
+        # eşdeğeri. Bilinmeyen ilişkiyi ISA'ya zorlamaz; CAUSES olarak tek-atış
+        # öğrenilir ve aynı Graph/HDC zincirine katılır.
+        if "sebebiyet" in rest_words and "verir" in rest_words:
+            cue = next((i for i, w in enumerate(words) if w == "sebebiyet"), -1)
+            if cue >= 1:
+                cause_obj = self._strip_governed_dative(words[cue - 1])
+                if cue >= 2:
+                    cause_subj = self._np_name(words[:cue - 1], self._tok(words[cue - 2])) or subj
+                else:
+                    cause_subj = subj
+                if cause_subj and cause_obj:
+                    self.last_topic = cause_subj
+                    return SemanticFrame(kind="teach_fact", raw=s_raw, subj=cause_subj,
+                                         rel="CAUSES", obj=cause_obj)
 
         # '... yol açar' / '... neden olur' / '... sebep olur' (+DAT durum eki yönetir: 'erozyona' -> 'erozyon')
         if ("yol" in rest_words and "açar" in rest_words) or ("neden" in rest_words and "olur" in rest_words) or ("sebep" in rest_words and "olur" in rest_words):
