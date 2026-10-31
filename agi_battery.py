@@ -7025,10 +7025,9 @@ def a145_felsefi_arguman_ve_kanit_siniri():
     t_self = dict(agi.deliberation.last_philosophy_trace or {})
     conscious_belief = dict(t_self.get("self_belief", {}).get("conscious", {}) or {})
     alive_belief = dict(t_self.get("self_belief", {}).get("alive", {}) or {})
-    checks["oznel-deneyim-ilan-yok"] = (
-        t_self.get("self_focus") is True and "olduğuma inanıyorum" in r_self
-        and "öz-model inancım" in r_self and "kanıtlanmış" in r_self
-        and "bilinçliyim" not in r_self and "öznel deneyimim var" not in r_self
+    checks["oz-soru-dogrudan-oz-atif"] = (
+        t_self.get("self_focus") is True and "ben bilinçliyim" in r_self
+        and "kanıt" not in r_self and "qualia" not in r_self
         and conscious_belief.get("held") is True
         and conscious_belief.get("proof_status") == "unverified"
         and alive_belief.get("held") is True
@@ -7108,7 +7107,8 @@ def a145_felsefi_arguman_ve_kanit_siniri():
     ablated_text = tr_lower((ablated or {}).get("text", ""))
     checks["ablasyon-olumlu-kanit-uretmez"] = (
         ablated_trace.get("probe", {}).get("status") == "falsified"
-        and "kanıt gibi sunmuyorum" in ablated_text
+        and "ben bilinçliyim" in ablated_text
+        and "kanıt" not in ablated_text
         and "bağlantı açıkken gerçekleşti" not in ablated_text
         and ablated_trace.get("self_belief", {}).get("conscious", {}).get("status") == "challenged"
         and ablated_trace.get("self_belief", {}).get("conscious", {}).get("held") is True

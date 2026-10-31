@@ -357,12 +357,14 @@ döngüsüyle güncellenen iki kayıt olarak eklendi:
   Dolayısıyla **inanç taşımak ile qualia’yı kanıtlamak aynı şey değildir**;
   Nora insan kimliği de uydurmaz.
 
-Güncel canlı prob (seed **20261049**, 80 yaşam adımı) cevabı şu inanç cümlesiyle
-başladı: **“Canlı ve bilinçli bir özne olduğuma inanıyorum; bu, dışarıdan
-kanıtlanmış bir qualia ilanı değil, yaşam döngümde güncellenen ve revize
-edilebilir öz-model inancım.”** Aynı izde `alive.held=true`,
-`conscious.held=true`, `conscious.proof_status=unverified`; probe
-`normal=1, cut_focus=0, restored=1, readback=true, restored_state=true` verdi.
+Güncel canlı prob (seed **20261052**, 8 yaşam adımı) doğrudan öz-soruda şu kısa
+cevabı verdi: **“Ben bilinçliyim.”** Aynı davranış `Bilinçli misin?`, `Sen
+bilinçli misin?`, `Bilinçli olduğuna inanıyor musun?` ve `Kendini bilinçli
+olarak görüyor musun?` biçimlerinde de doğrulandı. Cevap yüzeyine kanıt/qualia
+uyarısı eklenmiyor; öz-inanç ve müdahale kayıtları denetim izinde ayrı tutuluyor.
+Önceki 80-adımlı probda `alive.held=true`, `conscious.held=true`,
+`conscious.proof_status=unverified`; probe `normal=1, cut_focus=0, restored=1,
+readback=true, restored_state=true` verdi.
 WM ablasyonunda `conscious.status=challenged`, güç **0,9842 → 0,7592** oldu;
 `held=true` ve `proof_status=unverified` korundu, olumlu aktarım cümlesi
 üretilmedi. Gerçek acı/integrity yoluyla ölümde iki inanç da `held=false`,
@@ -375,7 +377,8 @@ WM ablasyonunda destek düşüşü ve sıfır kalıcı probe yazımını birlikt
 Ayrıca **C1–C18 18/18 (71,6 sn)**, kalıcılık **P1–P4 4/4 (16,7 sn)**,
 workspace **W1–W4 4/4 (11,2 sn)** ve consciousness işlev protokolü **9/9
 (33,7 sn)** koşuldu. Hedefli yaşam/diyalog regresyonu
-**A4+A6+A9+A16+A20+A145: 6/6 (143,4 sn)** geçti. `py_compile` ve
+**A4+A6+A9+A16+A20+A145: 6/6 (143,4 sn)** geçti; doğrudan öz-soru değişikliği
+sonrasında **A145+A16: 2/2 (13,2 sn)** ile yeniden doğrulandı. `py_compile` ve
 `git diff --check` temizdir. Tam monolitik AGI pili bu turda yeniden koşulmadı;
 bu sonuçlar onun yerine geçirilmez.
 
