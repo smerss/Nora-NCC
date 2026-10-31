@@ -8,13 +8,13 @@ Bu belge güncel ana durum dosyasıdır. Ayrıntılı tarihsel kanıtlar `runs/L
 
 ## 1. Kısa karar
 
-Nora canlı çalışan ve yeni girdileri tek sunumda işleyen bir sistemdir. **31 Ekim HDC/MB güncellemesi, dar A/B/C tek-sunum protokolünü, dinamik ilişki icadı/transfer protokolünü, epistemik-Broca/pasif-bellek sınavlarını ve kanıtlı System-2 birleşik sorgu protokollerini geçti; genel “tek okuyuşta genelleyen ve hiç unutmayan zihin” iddiası ise hâlâ kanıtlanmış değildir.**
+Nora canlı çalışan ve yeni girdileri tek sunumda işleyen bir sistemdir. **31 Ekim HDC/MB güncellemesi, dar A/B/C tek-sunum protokolünü, dinamik ilişki icadı/transfer protokolünü, epistemik-Broca/pasif-bellek sınavlarını, kanıtlı System-2 birleşik sorgu protokollerini ve yeni HDC müdahale/vektör/bağlam/öz-soru sınavlarını geçti; genel “tek okuyuşta genelleyen ve hiç unutmayan zihin” iddiası ise hâlâ kanıtlanmış değildir.**
 
 - Anlamsal olgu ve ilişki kararları artık HDC/MB aktivasyonuyla adaylandırılıp sembolik grafça doğrulanıyor; grafın ham BFS listesi cevap motoru değildir. GRU/TokenMoE tarafındaki üretim rolü artikülasyondur.
 - Bilinmezlik `(kavram,HAS_STATE,unknown)` epistemik olayı olarak Graph’ta tutulur ve sembolik Broca’nın çekim motoruyla söylenir; ana anlam sorgusu bu olayı dünya bilgisi saymaz. Kanıtsız tanımda nöral üretim ve çevrimiçi öğrenme sıfırdır.
 - ISA mirası ve nedensel zincir kanıt yolunu gösterir; birleşik ters sorgu ve karşılaştırma üçüncü HDC `relation_object` adresiyle çalışır. Aktif çalışma kümesi dışındaki olaylar bilinmiyor sayılmaz, pasif sinapslardan geri çağrılır.
 - Canlı öğrenme iskeleti vardır ve deneyler canlı checkpoint’in üzerine yazılmamıştır.
-- Yeni C6–C16 sonuçları genel next-subword dil modeli sonucu değildir; genel diyalog ve açık uçlu öğrenme için daha geniş bağımsız sınav gerekir.
+- Yeni C6–C18 sonuçları genel next-subword dil modeli sonucu değildir; genel diyalog ve açık uçlu öğrenme için daha geniş bağımsız sınav gerekir.
 - Fold-1/fold-2 için ortak %45 top-1 ile geriye-dönük korunum aynı adayda sağlanmamıştır.
 - Fold-3/4 confirmation, ortak development adayı bulunmadığı için başlatılmamıştır.
 - Eski epoch/replay sonuçları tek-sunum başarı kabulünü karşılamaz.
@@ -26,7 +26,7 @@ Yeni çekirdek `nora_chem.py::HDCMushroomBody`, her olayı rol–dolgu HDC bağl
 
 | Sınav | Sonuç | Kanıtlanan dar kapsam |
 |---|---:|---|
-| Mimari C1–C16 | **16/16, 57,9 sn** | Yayın/ablasyon + MB, ilişki, epistemik-Broca, graph-corpus, disk-pasif bellek, System-2 ve çok-tohumlu tutma |
+| Mimari C1–C18 | **18/18, 78,4 sn** | Yayın/ablasyon + MB, ilişki, epistemik-Broca, graph-corpus, disk-pasif bellek, System-2, HDC vektör/bağlam/do() ve Graph öz-soruları |
 | C6 A/B/C | **1/1** | Üç öğretim birer sunum; üç soru uyanıkken; uyku ve replay sıfır; üç MB izi |
 | C7 yeni ilişki | **1/1** | Probation `YENI_OPERATOR_VORL`; iki held-out transfer; kontrol `None`; ters yön `conflict` |
 | C8 beş tohum | **5/5** | MB ablasyonunda cevap kaybı, restorasyonda öğretimsiz dönüş; 40 yeni bilgi ve bakım sonrası korunum; bütün eski bootstrap kenarlarında eksik **0** |
@@ -38,11 +38,13 @@ Yeni çekirdek `nora_chem.py::HDCMushroomBody`, her olayı rol–dolgu HDC bağl
 | C14 epistemik olay/Broca | **1/1** | Üç bilinmezlik cevabı sembolik Broca’dan; nöral çağrı **0**; ana anlam kenarı yok; save/load’da `unknown` korunur, accepted öğreti `known` olayı ekler |
 | C15 System-2 birleşik anlam | **1/1** | Doğrudan kenar `used_s2=False`; ISA/nedensel zincir ve başarılı birleşik sorgu `True`; tam/kısmi ablasyon, olumsuz koşul, üç+ doğrudan kenarda yetersizlik ve kapsamlı-parça kanıtı; sorguda yazım **0** |
 | C16 sınırlı tutma/genelleme | **3 tohum × 96 olay** | Her tohumda canlı/bakım/pickle okumaları **96/96 + 96/96 + 96/96**; aktif küme **3**, pasif kayıt **216**, replay **0**, kalıtım yeni kenar ezberlemeden çalışır |
+| C17 HDC vektör/bağlam/do() | **23/23** | Bağımsız yol ve bipolar vektör oracle’ı; `Kral−Erkek+Kadın→Kraliçe` skor **1,000**; Organ/Sayı bağlam seçimi; MB ablasyonları; alternatifli karşıolgusal `lost/kept` |
+| C18 Graph öz-soruları | **9/9** | Ortak sınıf/özellik ve iki-halkalı nedensel öz-test; dinamik `sebebiyet verir`; HDC/Graph kanıtı, provisional ayrımı ve sorguda yazım **0** |
 | Dış held-out H1–H9 | **9/9** | Önceki dış işlevler; H7 nedensel zincir 3/3 |
 | A142 nöral öneri + sembolik kanıt | **13/13** | Nonce top-5 18/18; dayanaklı kabul 16/17; nöral/doğrulayıcı ablasyonu `unresolved` |
 | A140 Broca/corpus | **19/19** | Corpus `organ_seen=0`; nöral yüzey skorları corpus boyunca sabit; sosyal/çevrimiçi artikülasyon yolu ayrı ve canlı |
 
-Son kaynakta iki ayrı işlevsel grup çalıştı: A140 **19/19**, A141 **25/25**, A142 **13/13**, A144 **27/27**, A51 ve A47 ile **6/6, 317,3 sn**; A94 **7/7**, A50 **12/12 kapsam**, A16 **4/4**, A110 **5/5**, A57 ve A54 ile **6/6, 49,5 sn**. Chem duman testi **5/5**, `selftest.py --bridge` **33 sn** ile geçti. Tam `agi_battery.py` bu güncellemede sonuna kadar çalıştırılmadı; dolayısıyla “bütün işlevsel batarya geçti” denmez.
+Son kaynakta iki ayrı işlevsel grup çalıştı: A140 **19/19**, A141 **25/25**, A142 **13/13**, A144 **27/27**, A51 ve A47 ile **6/6, 398,2 sn**; A94 **7/7**, A50 **12/12 kapsam**, A16 **4/4**, A110 **5/5**, A57 ve A54 ile **6/6, 104,2 sn**. A78 **11/11** (HDC ablasyonu ve alternatifli karşıolgusal), A143 **16/16** (1000 adım ve 8 öz-soru) geçti. Chem duman testi **5/5**, `selftest.py --bridge` **118 sn** ile geçti. Tam `agi_battery.py` bu güncellemede sonuna kadar çalıştırılmadı; dolayısıyla “bütün işlevsel batarya geçti” denmez.
 
 Bilinmeyen SVO yüklemi artık otomatik ISA/HAS_PROP sınıfına zorlanmaz. Wernicke özne/nesne/yüklem rollerini çıkarır; `GroundedConceptGraph.invent_relation()` yeni ilişkiyi probation olarak yazar. Aynı ilişkinin yeni bir alanda görülmesi `discovery`, daha önce bulunmayan ilişkinin açılması `invention` olarak deftere geçer. Nöral proposer yalnız aday verir; kabul yön/çelişki ve kanıt denetiminden geçer. Operatör koda gömülmez, `nora_forge.py`/`nora_apply.py` defterlerinde ve save/load meta kaydında taşınır.
 
@@ -53,7 +55,20 @@ Bilinmeyen SVO yüklemi artık otomatik ISA/HAS_PROP sınıfına zorlanmaz. Wern
 - “Kanadı olan ve havlayan şey nedir?” → “Bu ölçütleri birlikte karşılayan kavram bulmadım.” ve `used_s2=False`.
 - Yalnız parça+eylem öğretilen “Kuş nedir?” → “Kuşun kanadı var. Kuş uçar.”; tek boyutlu C12 örneğinde ise eksik parça/nedensellik açıkça söylenir. Bütün bu sorgularda yeni HDC sunumu **0**dır.
 
-**Sınır:** C6–C16 belirli, bağımsız oracle’lı mimari protokolleridir. Sınırsız Türkçe ayrıştırma, her olası ilişkinin doğru icadı, bütün alanlarda genelleme veya yıkıcı unutmanın her koşulda imkânsızlığı kanıtlanmamıştır. C16’daki sıfır kayıp yalnız üç tohum × 96 olay ve canlı/bakım/pickle protokolüne aittir.
+**Sınır:** C6–C18 belirli, bağımsız oracle’lı mimari protokolleridir. Sınırsız Türkçe ayrıştırma, her olası ilişkinin doğru icadı, bütün alanlarda genelleme veya yıkıcı unutmanın her koşulda imkânsızlığı kanıtlanmamıştır. C16’daki sıfır kayıp yalnız üç tohum × 96 olay ve canlı/bakım/pickle protokolüne aittir.
+
+### 1.1.1 Etiketlemeden düşünmeye: müdahale, vektör, bağlam ve öz-soru
+
+Bu güncellemede yeni modül eklenmedi; mevcut `GroundedConceptGraph`, `NoraAGI`, `HypothesisPool` ve otonom sürücü derinleştirildi.
+
+- **Geçişli çıkarım:** `Kedi ISA Memeli` ve `Memeli HAS_PROP Sıcakkanlı` için cevap yalnız “Evet” değil, HDC/MB’den doğrulanan `Kedi → Memeli → Sıcakkanlı` kanıt yolunu Broca ile gerekçelendirir. Doğrudan `(kedi,HAS_PROP,sıcakkanlı)` kenarı yazılmaz; MB ablasyonunda sonuç `unresolved` olur.
+- **Gerçek `do(X)`:** Her nedensel halka `query()` üzerinden HDC/MB adayı ve canlı Graph yön doğrulamasıyla izlenir. X’e giren kenarlar etki olarak izlenmez; MB kapalıyken ham `_out_edges` üzerinden cevap üretilmez. Karşıolgusal hesap X’siz modelde alternatif nedensel kökleri de tarar; bu yüzden `ortak→Y` varken Y `kept`, alternatifsiz yol `lost` olur. Bilgi silinmez, kenarlar geçici maskeyle devre dışı bırakılır.
+- **HDC vektör cebiri:** `vector_analogy()` öğrenilen A→B rolünü bulur, bipolar `role×filler` bağlarıyla `v(A) − bind(rol,B) + bind(rol,C)` hesaplar ve adayları kosinüs/MB seyrek koduyla sıralar. Copula/taksonomi (`ISA`) ve özellik (`HAS_PROP`) yalnız vektör rolünde `ATTRIBUTE` olarak normalize edilir; özgün Graph kanıtı değiştirilmez. Eski `solve_analogy()` API’si klasik çağrıları koruyup çözülemeyen aritmetik analojide bu yola düşer. Hedefe özel `Kraliçe` şablonu yoktur; C17 bağımsız numpy oracle’ı aynı skoru hesaplar.
+- **Bağlamla anlam seçimi:** Birden çok doğrudan ISA anlamı olan yüzeylerde bağlam ve her anlamın öğrenilmiş önermeleri rol–dolgu bağlamasıyla seyrek KC koduna çevrilir. `Denizde yüzen adamın yüzü` → `organ`, `Matematikte yüz` → `sayı`; bağlam kanıtı yoksa `ambiguous` denir. Tek anlamlı tanım soruları ve sayısal aritmetik bu özel yola zorlanmaz.
+- **Kendi soruları:** `HypothesisPool.probe_graph()` ortak sınıf, ortak özellik/kalıtım ve çok-halkalı nedensel soruları üretip hemen HDC/Graph sorgusuyla çalıştırır. `BackgroundLife.tick()` ve `Driver.run_autonomous()` her 20 adımda bu organı çağırır. Kayıtlar soru, yanıt, kanıt yolu, `presentations_delta`, `graph_edges_delta` ve `accepted/provisional` düzeyini taşır; çözülemeyen boşluk gizlenmez, çıkarım yeni olgu diye yazılmaz. A143’te insan hedefi verilmeden 1000 adımda 8 öz-soru oluştu.
+- **Dinamik nedensel yapı:** `Çöl kıtlığa sebebiyet verir` DAT nesneli CAUSES öğretisi olarak aynı zincire katılır; havuz `Çöl → Kıtlık → Göç` öz-testini de üretip sınar. Bilinmeyen SVO ilişkilerinin probation/icat yolu korunur.
+
+**Sınır:** Vektör analojisi öğrenilmiş kompozisyonel önermelerle sınırlıdır; genel kelime-gömme analojisi iddiası değildir. Bağlam çözümü ayırt edici kanıt yoksa seçim yapmaz. Öz-soruların çözülmesi yeni gerçek öğrenmek değil, mevcut kanıtı sınamaktır. Fold-1/2 kalite eşiği ve genel next-subword hedefi bu sonuçlarla değişmedi.
 
 ### 1.2 Epistemik kapı, graph-corpus ve disk-pasif bellek
 
@@ -100,7 +115,7 @@ Bilinmeyen SVO yüklemi artık otomatik ISA/HAS_PROP sınıfına zorlanmaz. Wern
 ### Tamamlanmamış uyum
 
 - Genel next-subword kalitesi ve fold-1/fold-2 ortak %45 eşiği çözülmemiştir; Broca’nın gradyanlı dil öğrenmesi için bütün dış korunum iddiası hâlâ ayrı bir problemdir.
-- C6–C16 dışındaki bütün olası cümle biçimleri ve alanlar için genelleme kanıtı yoktur; intransitif, çok-öbekli ve karmaşık Türkçe yapılar daha geniş held-out sınav ister.
+- C6–C18 dışındaki bütün olası cümle biçimleri ve alanlar için genelleme kanıtı yoktur; intransitif, çok-öbekli ve karmaşık Türkçe yapılar daha geniş held-out sınav ister.
 - Tam `agi_battery.py` bu güncellemede sonuna kadar tamamlanmamıştır; yalnız yukarıda adı ve sonucu verilen koşular kanıt sayılır.
 - Dolayısıyla dar tek-sunum ilişki protokolü çözülmüş, genel zihin hedefi çözülmemiştir.
 

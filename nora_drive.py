@@ -600,6 +600,24 @@ class Driver:
             for text in incoming:
                 self.ingest(text)
             self.autonomous_step()
+            # Otonom yaşam yalnız dış hedef kovalamaz: mevcut Graph/HDC
+            # bilgisinden kendi karşılaştırma ve nedensel öz-testlerini de üretir.
+            if self.agi is not None and (step + 1) % 20 == 0:
+                try:
+                    self.agi.life.pool.probe_graph(self.agi, limit=3)
+                except Exception as exc:
+                    # Arka-plan merakı ana hedef döngüsünü düşürmez; fakat hata
+                    # da kaybolmaz. Bu kayıt resolved değildir ve sınavda yeşil
+                    # sayılmaz.
+                    try:
+                        self.agi.life.pool.self_questions.append({
+                            "kind": "graph_probe", "question": "Graph öz-sorgusu",
+                            "status": "error", "answer": None, "proof": [],
+                            "error": f"{type(exc).__name__}: {exc}",
+                            "presentations_delta": 0, "graph_edges_delta": 0,
+                        })
+                    except Exception:
+                        pass
         return self.goal_report()
 
     def goal_report(self) -> dict:

@@ -3186,7 +3186,9 @@ def a78_oz_model_ve_do():
     (3) do() gözlemden farklıdır: X'e giren kenarları KESER, çıkanları izler,
     (4) ortak neden (back-door) adıyla söylenir, `identified` False olur,
     (5) öz-rapor bu düğümleri okur (sayı metinde geçer),
-    (6) döngüsüz: do() kendi düğümüne geri dönmez.
+    (6) döngüsüz: do() kendi düğümüne geri dönmez,
+    (7) HDC/MB kapatılınca ham graf etkisi üretilmez,
+    (8) karşıolgusal model X'in çıkan etkisini kayıp olarak ayırır.
     """
     ok = {}
 
@@ -3201,6 +3203,18 @@ def a78_oz_model_ve_do():
     ok["backdoor"] = ("ortak" in d["confounders"] and d["identified"] is False)
     ok["yon"] = all(p[-1].subj != "y" for p in d["paths"])
     ok["dongu-yok"] = len(d["effects"]) == len(set(d["effects"]))
+    # MB/HDC ablasyonu: ham _out_edges üzerinden aynı cevap üretilememeli.
+    original_recall = g.relation_mb.recall_subject
+    try:
+        g.relation_mb.recall_subject = lambda *_args, **_kwargs: []
+        ok["hdc-ablasyon"] = not g.do("x")["effects"]
+    finally:
+        g.relation_mb.recall_subject = original_recall
+    cf = g.counterfactual("x")
+    # A78'de ortak→y alternatif yolu vardır; bağımsız oracle y'yi kayıp değil
+    # kept olarak bekler. (Alternatifsiz kayıp C17'de ayrıca sınanır.)
+    ok["karsiolgusal-model"] = ("y" in cf["kept"] and "y" not in cf["lost"]
+                                 and "y" in cf["effects_without"])
 
     # (1)(2)(5) Nora'nın kendi öz-modeli
     agi = NoraAGI(seed=781, boot_thinker=False)
@@ -6715,6 +6729,13 @@ def a143_otonom_hedef_yasam_dongusu_1000_adim():
     her durumun gerçek yetenek sonucu ve hedef tarihçesiyle kanıtlanması gerekir.
     """
     agi = NoraAGI(seed=4, boot_thinker=False)
+    # Bunlar insan hedefi değil, önceden duyulmuş dünya olgularıdır. Otonom
+    # döngü bunlardan kendi soru/öz-testlerini üretmek zorundadır.
+    for text in ("Kedi bir memelidir.", "Köpek bir memelidir.",
+                 "Kedi sıcakkanlıdır.", "Köpek sıcakkanlıdır.",
+                 "Kuraklık kıtlığa yol açar.", "Kıtlık göçe yol açar.",
+                 "Çöl kıtlığa sebebiyet verir."):
+        agi.converse(text)
     started = time.perf_counter()
     report = agi.driver.run_autonomous(1000, {
         6: "yeni gözlem 6", 12: "yeni gözlem 12", 24: "yeni gözlem 24",
@@ -6769,6 +6790,24 @@ def a143_otonom_hedef_yasam_dongusu_1000_adim():
         and any(by_id[parent]["status"] == "abandoned" for parent in child["parents"]
                 if parent in by_id)
         for child in goals)
+    # A143 artık yalnız hedef saymaz: otonom döngünün kendi Graph soruları
+    # ürettiği, HDC/Graph kanıtıyla çözdüğü ve çıkarımı olgu diye yazmadığı
+    # ayrı bağımsız ölçütlerdir.
+    self_questions = list(agi.life.pool.self_questions)
+    ok["kendi-sorulari"] = any(
+        q.get("kind") == "common_class" and q.get("status") == "resolved"
+        and {row[0] for row in q.get("proof", [])} == {"kedi", "köpek"}
+        for q in self_questions)
+    ok["nedensel-oz-test"] = any(
+        q.get("kind") == "causal_self_test" and q.get("status") == "resolved"
+        and len(q.get("proof", [])) >= 2 and q.get("intervention_effects")
+        for q in self_questions)
+    ok["oz-test-yazim-yok"] = bool(self_questions) and all(
+        q.get("presentations_delta") == 0 and q.get("graph_edges_delta") == 0
+        for q in self_questions)
+    ok["oz-test-kenar-ezber-degil"] = (
+        ("kuraklık", "CAUSES", "göç") not in agi.lang.graph._edge_map
+        and ("çöl", "CAUSES", "göç") not in agi.lang.graph._edge_map)
 
     state = agi.driver.state()
     restored = NoraAGI(seed=4, boot_thinker=False)
@@ -6784,7 +6823,7 @@ def a143_otonom_hedef_yasam_dongusu_1000_adim():
     detail = (f"{sum(bool(v) for v in ok.values())}/{len(ok)} — "
               f"üretildi={report['generated']} çözüldü={report['solved']} "
               f"terk={report['abandoned']} birleşti={report['merged']} "
-              f"boş={report['idle_steps']} | {seconds:.3f} sn")
+              f"boş={report['idle_steps']} öz-soru={len(self_questions)} | {seconds:.3f} sn")
     return all(ok.values()), detail + (" | " + str({k: v for k, v in ok.items() if not v})
                                            if not all(ok.values()) else "")
 
