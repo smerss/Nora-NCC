@@ -1,0 +1,258 @@
+{
+  "protocol": "one-pass PCGrad with fresh external gradient constraint; each sentence once; single optimizer step",
+  "projection_oracle": "passed [1,1],[-1,0]->[0,1]",
+  "results": [
+    {
+      "mode": "pcgrad",
+      "beta": 0.25,
+      "fold": 1,
+      "held": {
+        "n": 401,
+        "hit1": 159,
+        "hit5": 194,
+        "top1": 0.39650872817955113,
+        "top5": 0.4837905236907731,
+        "ppl": 67.41407243390796
+      },
+      "probe_hit1_delta": -19,
+      "probe_ppl_delta": 74.04417412814973,
+      "probe_before": {
+        "n": 1461,
+        "hit1": 358,
+        "hit5": 566,
+        "top1": 0.24503764544832307,
+        "top5": 0.3874058863791923,
+        "ppl": 190.87215821622186
+      },
+      "probe_after": {
+        "n": 1461,
+        "hit1": 339,
+        "hit5": 544,
+        "top1": 0.23203285420944558,
+        "top5": 0.3723477070499658,
+        "ppl": 264.9163323443716
+      },
+      "conflicts": 33,
+      "mean_dot": -0.040165200005719534,
+      "target_seen": 234,
+      "external_seen": 708,
+      "target_cycles": 0,
+      "external_range": [
+        32000,
+        32708
+      ],
+      "held_exact_skipped": 0,
+      "model": "runs/models/pcgrad_pcgrad_b0.25_fold1.pt"
+    },
+    {
+      "mode": "pcgrad",
+      "beta": 0.25,
+      "fold": 2,
+      "held": {
+        "n": 419,
+        "hit1": 161,
+        "hit5": 208,
+        "top1": 0.38424821002386633,
+        "top5": 0.4964200477326969,
+        "ppl": 86.12954494536653
+      },
+      "probe_hit1_delta": -22,
+      "probe_ppl_delta": 66.20460399583112,
+      "probe_before": {
+        "n": 1461,
+        "hit1": 358,
+        "hit5": 566,
+        "top1": 0.24503764544832307,
+        "top5": 0.3874058863791923,
+        "ppl": 190.87215821622186
+      },
+      "probe_after": {
+        "n": 1461,
+        "hit1": 336,
+        "hit5": 546,
+        "top1": 0.2299794661190965,
+        "top5": 0.3737166324435318,
+        "ppl": 257.076762212053
+      },
+      "conflicts": 27,
+      "mean_dot": 0.19124511679164843,
+      "target_seen": 234,
+      "external_seen": 708,
+      "target_cycles": 0,
+      "external_range": [
+        32000,
+        32708
+      ],
+      "held_exact_skipped": 0,
+      "model": "runs/models/pcgrad_pcgrad_b0.25_fold2.pt"
+    },
+    {
+      "mode": "pcgrad",
+      "beta": 1.0,
+      "fold": 1,
+      "held": {
+        "n": 401,
+        "hit1": 155,
+        "hit5": 199,
+        "top1": 0.3865336658354115,
+        "top5": 0.49625935162094764,
+        "ppl": 70.39451744497818
+      },
+      "probe_hit1_delta": -7,
+      "probe_ppl_delta": 38.217423319833074,
+      "probe_before": {
+        "n": 1461,
+        "hit1": 358,
+        "hit5": 566,
+        "top1": 0.24503764544832307,
+        "top5": 0.3874058863791923,
+        "ppl": 190.87215821622186
+      },
+      "probe_after": {
+        "n": 1461,
+        "hit1": 351,
+        "hit5": 558,
+        "top1": 0.2402464065708419,
+        "top5": 0.38193018480492813,
+        "ppl": 229.08958153605494
+      },
+      "conflicts": 38,
+      "mean_dot": -0.4370360084985959,
+      "target_seen": 234,
+      "external_seen": 708,
+      "target_cycles": 0,
+      "external_range": [
+        32000,
+        32708
+      ],
+      "held_exact_skipped": 0,
+      "model": "runs/models/pcgrad_pcgrad_b1_fold1.pt"
+    },
+    {
+      "mode": "pcgrad",
+      "beta": 1.0,
+      "fold": 2,
+      "held": {
+        "n": 419,
+        "hit1": 162,
+        "hit5": 206,
+        "top1": 0.38663484486873506,
+        "top5": 0.4916467780429594,
+        "ppl": 89.18374273084325
+      },
+      "probe_hit1_delta": -13,
+      "probe_ppl_delta": 33.244832615543885,
+      "probe_before": {
+        "n": 1461,
+        "hit1": 358,
+        "hit5": 566,
+        "top1": 0.24503764544832307,
+        "top5": 0.3874058863791923,
+        "ppl": 190.87215821622186
+      },
+      "probe_after": {
+        "n": 1461,
+        "hit1": 345,
+        "hit5": 559,
+        "top1": 0.23613963039014374,
+        "top5": 0.38261464750171115,
+        "ppl": 224.11699083176575
+      },
+      "conflicts": 37,
+      "mean_dot": -0.27676763978586494,
+      "target_seen": 234,
+      "external_seen": 708,
+      "target_cycles": 0,
+      "external_range": [
+        32000,
+        32708
+      ],
+      "held_exact_skipped": 0,
+      "model": "runs/models/pcgrad_pcgrad_b1_fold2.pt"
+    },
+    {
+      "mode": "combined",
+      "beta": 1.0,
+      "fold": 1,
+      "held": {
+        "n": 401,
+        "hit1": 156,
+        "hit5": 199,
+        "top1": 0.38902743142144636,
+        "top5": 0.49625935162094764,
+        "ppl": 70.16937951118555
+      },
+      "probe_hit1_delta": -7,
+      "probe_ppl_delta": 39.20730923447073,
+      "probe_before": {
+        "n": 1461,
+        "hit1": 358,
+        "hit5": 566,
+        "top1": 0.24503764544832307,
+        "top5": 0.3874058863791923,
+        "ppl": 190.87215821622186
+      },
+      "probe_after": {
+        "n": 1461,
+        "hit1": 351,
+        "hit5": 557,
+        "top1": 0.2402464065708419,
+        "top5": 0.3812457221081451,
+        "ppl": 230.0794674506926
+      },
+      "conflicts": 0,
+      "mean_dot": null,
+      "target_seen": 234,
+      "external_seen": 708,
+      "target_cycles": 0,
+      "external_range": [
+        32000,
+        32708
+      ],
+      "held_exact_skipped": 0,
+      "model": "runs/models/pcgrad_combined_b1_fold1.pt"
+    },
+    {
+      "mode": "combined",
+      "beta": 1.0,
+      "fold": 2,
+      "held": {
+        "n": 419,
+        "hit1": 162,
+        "hit5": 206,
+        "top1": 0.38663484486873506,
+        "top5": 0.4916467780429594,
+        "ppl": 88.96552290268264
+      },
+      "probe_hit1_delta": -13,
+      "probe_ppl_delta": 33.88165540068803,
+      "probe_before": {
+        "n": 1461,
+        "hit1": 358,
+        "hit5": 566,
+        "top1": 0.24503764544832307,
+        "top5": 0.3874058863791923,
+        "ppl": 190.87215821622186
+      },
+      "probe_after": {
+        "n": 1461,
+        "hit1": 345,
+        "hit5": 558,
+        "top1": 0.23613963039014374,
+        "top5": 0.38193018480492813,
+        "ppl": 224.7538136169099
+      },
+      "conflicts": 0,
+      "mean_dot": null,
+      "target_seen": 234,
+      "external_seen": 708,
+      "target_cycles": 0,
+      "external_range": [
+        32000,
+        32708
+      ],
+      "held_exact_skipped": 0,
+      "model": "runs/models/pcgrad_combined_b1_fold2.pt"
+    }
+  ]
+}
