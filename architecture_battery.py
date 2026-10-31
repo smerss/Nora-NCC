@@ -899,6 +899,13 @@ def graph_system2_composition() -> tuple[bool, str]:
     finally:
         agi.lang.graph.relation_mb.recall_relation_object = original_recall
     definition = ask("Tivara nedir?")
+    for text in ("Miva bir varlıktır.", "Miva özeldir.", "Miva ağırdır."):
+        teach(text)
+    limited_definition = ask("Miva nedir?")
+    limited_gate = dict(agi.last_epistemic_gate)
+    teach("Riva bir varlıktır.")
+    teach("Rivanın olgun alyuvarları çekirdeksizdir.")
+    scoped_definition = ask("Riva nedir?")
 
     ok = ("dolayısıyla" in inherited.casefold() and inherited_not_memorized
           and inherited_trace.get("used_s2") is True
@@ -922,11 +929,17 @@ def graph_system2_composition() -> tuple[bool, str]:
           and inverse_ablated.get("status") == "unresolved"
           and "yetersiz" not in definition.casefold()
           and "kanad" in definition.casefold() and "uç" in definition.casefold()
+          and "bilgim yetersiz" in limited_definition.casefold()
+          and "varlık" in limited_definition.casefold()
+          and limited_gate.get("insufficient") is True
+          and limited_gate.get("evidence", 0) >= 3
+          and "rivanın olgun alyuvarları çekirdeksizdir" in scoped_definition.casefold()
+          and "bilgim yetersiz" in scoped_definition.casefold()
           and all(delta == 0 for delta in write_deltas))
     return ok, (f"kalıtım={inherited} | doğrudan_S1={direct_trace.get('used_s2') is False} | "
                 f"neden={causal} | ortak={sorted(shared_keys)} | "
                 f"kısmi_ablasyon={sorted(partial_shared)} | ters={inverse} | olumsuz={negative} | tanım={definition} | "
-                f"yazım={write_deltas}")
+                f"üç_kenar_yetersiz={limited_definition} | kapsam={scoped_definition} | yazım={write_deltas}")
 
 
 def bounded_retention_generalization_multiseed() -> tuple[bool, str]:

@@ -1001,9 +1001,24 @@ class NoraAGI:
         """Bilinen önermeleri koru; eksik anlam boyutlarını tam tanımmış gibi gizleme."""
         graph = self.lang.graph
         event = graph.record_epistemic_event(concept, "insufficient", ",".join(missing))
+        # Parça-kapsamlı önerme ana kavramın ISA yayılımında görünmez. Yalnız
+        # açık ``kapsamlı_parça PART_OF kavram`` kanıtını genişlet; genel parça
+        # düğümünün özelliğini sahibine genellemek kapsam hatası olurdu.
+        expanded = list(evidence)
+        for scope_edge in list(graph._in_edges.get(concept, ())):
+            if scope_edge.rel != "PART_OF" or scope_edge.subj == concept:
+                continue
+            scope = scope_edge.subj
+            try:
+                scope_rows = graph.query(scope, None)
+            except Exception:
+                scope_rows = []
+            expanded.extend((part_edge, part_path) for part_edge, part_path in scope_rows
+                            if part_edge.subj == scope and not part_path
+                            and part_edge.rel != "PART_OF")
         propositions = []
         seen = set()
-        for edge, _path in list(evidence) + [(edge, []) for edge in (extra_proof or [])]:
+        for edge, _path in expanded + [(edge, []) for edge in (extra_proof or [])]:
             key = (edge.subj, edge.rel, edge.obj)
             if key in seen:
                 continue
@@ -1087,45 +1102,46 @@ class NoraAGI:
                 edge.rel in {"PART_OF", "LOCATED_AT"}
                 for edge in self.lang.graph._in_edges.get(concept, ())
             )
-            if 0 < len(direct) <= 2 and not complex_incoming:
-                # “X bir Y'dir” demek anlamanın sonu değildir. İşlev, parça
-                # ve nedensellik hem doğrudan hem ISA-miraslı kanıtta aranır.
-                dimensions = {
-                    "işlev": any(edge.rel in {"CAN_DO", "CANNOT_DO"} for edge, _p in evidence),
-                    "parça": any(edge.rel in {"HAS_PART", "COMPOSED_OF"} for edge, _p in evidence),
-                    "nedensellik": any(edge.rel == "CAUSES" for edge, _p in evidence),
+            # “X bir Y'dir” demek anlamanın sonu değildir. Boyut denetimi
+            # yalnız hızlı/az kenarlı tanıma değil, kapsamlı yola gidecek
+            # bütün tanım kanıtına uygulanır.
+            dimensions = {
+                "işlev": any(edge.rel in {"CAN_DO", "CANNOT_DO"} for edge, _p in evidence),
+                "parça": any(edge.rel in {"HAS_PART", "COMPOSED_OF"} for edge, _p in evidence),
+                "nedensellik": any(edge.rel == "CAUSES" for edge, _p in evidence),
+            }
+            causal_proof = []
+            if sum(dimensions.values()) < 2 and not dimensions["nedensellik"]:
+                chains = self.lang.graph.causal_chain(concept, max_hops=3)
+                multi_hop = [path for _effect, path in chains if len(path) >= 2]
+                if multi_hop:
+                    causal_proof = max(multi_hop, key=len)
+                    dimensions["nedensellik"] = True
+            missing = ([name for name, present in dimensions.items() if not present]
+                       if sum(dimensions.values()) < 2 else [])
+            if missing:
+                answer = self._speak_insufficient_definition(
+                    concept, evidence, missing, extra_proof=causal_proof,
+                )
+                self.last_epistemic_gate.update({
+                    "fast_answer": True, "insufficient": True,
+                    "semantic_dimensions": dimensions,
+                    "latency_ms": (time.perf_counter() - started) * 1000.0,
+                })
+                self._turn_path = "epistemic_gate"
+                self._intent_locked = True
+                self.last_gw_trace = {
+                    "winner": "epistemic_gate", "confidence": 0.95,
+                    "trace": f"insufficient:{concept}:{','.join(missing)}",
+                    "bids": {"epistemic_gate": 0.95}, "used_s2": bool(causal_proof),
                 }
-                causal_proof = []
-                if not dimensions["nedensellik"]:
-                    chains = self.lang.graph.causal_chain(concept, max_hops=3)
-                    multi_hop = [path for _effect, path in chains if len(path) >= 2]
-                    if multi_hop:
-                        causal_proof = max(multi_hop, key=len)
-                        dimensions["nedensellik"] = True
-                missing = ([name for name, present in dimensions.items() if not present]
-                           if sum(dimensions.values()) < 2 else [])
-                if missing:
-                    answer = self._speak_insufficient_definition(
-                        concept, evidence, missing, extra_proof=causal_proof,
-                    )
-                    self.last_epistemic_gate.update({
-                        "fast_answer": True, "insufficient": True,
-                        "semantic_dimensions": dimensions,
-                        "latency_ms": (time.perf_counter() - started) * 1000.0,
-                    })
-                    self._turn_path = "epistemic_gate"
-                    self._intent_locked = True
-                    self.last_gw_trace = {
-                        "winner": "epistemic_gate", "confidence": 0.95,
-                        "trace": f"insufficient:{concept}:{','.join(missing)}",
-                        "bids": {"epistemic_gate": 0.95}, "used_s2": bool(causal_proof),
-                    }
-                    self.broca_organ.last_speech_plan = {
-                        "volition_acts": ["EPISTEMIC_INSUFFICIENT"], "surface_tr": answer,
-                        "epistemic": "insufficient", "concept": concept,
-                        "missing_dimensions": missing,
-                    }
-                    return answer
+                self.broca_organ.last_speech_plan = {
+                    "volition_acts": ["EPISTEMIC_INSUFFICIENT"], "surface_tr": answer,
+                    "epistemic": "insufficient", "concept": concept,
+                    "missing_dimensions": missing,
+                }
+                return answer
+            if 0 < len(direct) <= 2 and not complex_incoming:
                 priority = {"ISA": 0, "HAS_PART": 1, "COMPOSED_OF": 1,
                             "CAN_DO": 2, "CANNOT_DO": 2, "CAUSES": 2,
                             "HAS_PROP": 3, "USED_FOR": 4, "LOCATED_AT": 5}
