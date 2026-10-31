@@ -8,12 +8,13 @@ Bu belge güncel ana durum dosyasıdır. Ayrıntılı tarihsel kanıtlar `runs/L
 
 ## 1. Kısa karar
 
-Nora canlı çalışan ve yeni girdileri tek sunumda işleyen bir sistemdir. **31 Ekim HDC/MB güncellemesi, dar A/B/C tek-sunum protokolünü, dinamik ilişki icadı/transfer protokolünü ve yeni epistemik-kapı/pasif-bellek sınavlarını geçti; genel “tek okuyuşta genelleyen ve hiç unutmayan zihin” iddiası ise hâlâ kanıtlanmış değildir.**
+Nora canlı çalışan ve yeni girdileri tek sunumda işleyen bir sistemdir. **31 Ekim HDC/MB güncellemesi, dar A/B/C tek-sunum protokolünü, dinamik ilişki icadı/transfer protokolünü, epistemik-Broca/pasif-bellek sınavlarını ve kanıtlı System-2 birleşik sorgu protokollerini geçti; genel “tek okuyuşta genelleyen ve hiç unutmayan zihin” iddiası ise hâlâ kanıtlanmış değildir.**
 
 - Anlamsal olgu ve ilişki kararları artık HDC/MB aktivasyonuyla adaylandırılıp sembolik grafça doğrulanıyor; grafın ham BFS listesi cevap motoru değildir. GRU/TokenMoE tarafındaki üretim rolü artikülasyondur.
-- Kanıtsız tanımda nöral Broca üretimi ve çevrimiçi öğrenmesi sıfırdır; corpus/besleme genel kültürü Graph/HDC’ye yazar. Aktif çalışma kümesi dışındaki HDC olayları bilinmiyor sayılmaz, ipucuyla pasif sinapslardan geri çağrılır.
+- Bilinmezlik `(kavram,HAS_STATE,unknown)` epistemik olayı olarak Graph’ta tutulur ve sembolik Broca’nın çekim motoruyla söylenir; ana anlam sorgusu bu olayı dünya bilgisi saymaz. Kanıtsız tanımda nöral üretim ve çevrimiçi öğrenme sıfırdır.
+- ISA mirası ve nedensel zincir kanıt yolunu gösterir; birleşik ters sorgu ve karşılaştırma üçüncü HDC `relation_object` adresiyle çalışır. Aktif çalışma kümesi dışındaki olaylar bilinmiyor sayılmaz, pasif sinapslardan geri çağrılır.
 - Canlı öğrenme iskeleti vardır ve deneyler canlı checkpoint’in üzerine yazılmamıştır.
-- Yeni C6–C13 sonuçları genel next-subword dil modeli sonucu değildir; genel diyalog ve açık uçlu öğrenme için daha geniş bağımsız sınav gerekir.
+- Yeni C6–C16 sonuçları genel next-subword dil modeli sonucu değildir; genel diyalog ve açık uçlu öğrenme için daha geniş bağımsız sınav gerekir.
 - Fold-1/fold-2 için ortak %45 top-1 ile geriye-dönük korunum aynı adayda sağlanmamıştır.
 - Fold-3/4 confirmation, ortak development adayı bulunmadığı için başlatılmamıştır.
 - Eski epoch/replay sonuçları tek-sunum başarı kabulünü karşılamaz.
@@ -21,34 +22,44 @@ Nora canlı çalışan ve yeni girdileri tek sunumda işleyen bir sistemdir. **3
 
 ### 1.1 HDC/MB ve dinamik ilişki güncellemesi
 
-Yeni çekirdek `nora_chem.py::HDCMushroomBody`, her olayı rol–dolgu HDC bağlarıyla bir kez yazar; k-WTA hedefi **%6**dır. Özne ve tam özne–ilişki–nesne erişim anahtarları `W_fast/W_slow` üzerinden okunur. Nörogenezden sonra eski kodun aktivasyonu yeni toplam KC sayısına bölünmez; her olay kendi yazım anındaki aktif-KC normunu kullanır. Bu son nokta, A16’da yakalanan erken-bilgi erişim kaybını düzeltmiştir; aktivasyon eşiği düşürülmemiştir.
+Yeni çekirdek `nora_chem.py::HDCMushroomBody`, her olayı rol–dolgu HDC bağlarıyla bir kez yazar; k-WTA hedefi **%6**dır. Aynı tek sunumun özne, tam özne–ilişki–nesne ve ters erişim için ilişki–nesne (`relation_object`) içerik adresleri `W_fast/W_slow` üzerinden okunur; üç adres üç öğretim/epoch değildir ve `presentations` yine olay başına bir artar. Nörogenezden sonra eski kodun aktivasyonu yeni toplam KC sayısına bölünmez; her olay kendi yazım anındaki aktif-KC normunu kullanır. Aktivasyon eşiği düşürülmemiştir.
 
 | Sınav | Sonuç | Kanıtlanan dar kapsam |
 |---|---:|---|
-| Mimari C1–C13 | **13/13, 45,6 sn** | Yayın/ablasyon + MB, ilişki, epistemik kapı, graph-corpus ve disk-pasif bellek |
+| Mimari C1–C16 | **16/16, 89,0 sn** | Yayın/ablasyon + MB, ilişki, epistemik-Broca, graph-corpus, disk-pasif bellek, System-2 ve çok-tohumlu tutma |
 | C6 A/B/C | **1/1** | Üç öğretim birer sunum; üç soru uyanıkken; uyku ve replay sıfır; üç MB izi |
 | C7 yeni ilişki | **1/1** | Probation `YENI_OPERATOR_VORL`; iki held-out transfer; kontrol `None`; ters yön `conflict` |
 | C8 beş tohum | **5/5** | MB ablasyonunda cevap kaybı, restorasyonda öğretimsiz dönüş; 40 yeni bilgi ve bakım sonrası korunum; bütün eski bootstrap kenarlarında eksik **0** |
 | C9 uyku/kalıcılık | **1/1** | 501 yaşam adımı ve açık uykuda `replay=0`; yasak eski `mind._sleep` çağrısı **0**; save/load sonrası eski bilgi, probation, operatör ve canlı transfer |
 | C10 çok-köklü icat | **3 tohum × 5 kök** | 15/15 ayrı operatör ve transfer; bilinen fiil/koşaç yeni operatöre dönüşmedi |
-| C11 epistemik kapı | **1/1** | Gerçek `broca_tr.pt`; üç soğuk bilinmezlik **2,75/1,87/1,47 ms**; `generate=0`, `learn_online=0`; bilinmeyen dinamik ilişkide de sıfır nöral çağrı |
-| C12 graph-corpus | **1/1** | İki cümle → iki kenar/iki HDC sunumu; bilinen tanım **4,6 ms**, tanımda `generate=0`, `learn_online=0`; uyku **0**; doğru tanım ve evet/hayır |
+| C11 epistemik kapı | **1/1** | Gerçek `broca_tr.pt`; üç soğuk bilinmezlik **2,18/1,62/1,47 ms**; `generate=0`, `learn_online=0`; bilinmeyen dinamik ilişkide de sıfır nöral çağrı |
+| C12 graph-corpus | **1/1** | İki cümle → iki kenar/iki HDC sunumu; son tam koşuda tanım **4,2 ms**, ayrı üç soğuk tekrar **9,0/8,1/7,3 ms**; tanımda nöral çağrı **0**, tek anlam boyutunda yetersizlik açık |
 | C13 disk-pasif HDC | **1/1** | Bağımsız SQLite satır kanıtı; aktif küme **4**; 24 kayıt korunur; normal/pickle/ilk-nesne okuması doğru; yeni sunum **0** |
+| C14 epistemik olay/Broca | **1/1** | Üç bilinmezlik cevabı sembolik Broca’dan; nöral çağrı **0**; ana anlam kenarı yok; save/load’da `unknown` korunur, accepted öğreti `known` olayı ekler |
+| C15 System-2 birleşik anlam | **1/1** | Doğrudan kenar `used_s2=False`; ISA/nedensel zincir ve başarılı birleşik sorgu `True`; tam ve kısmi HDC ablasyonu, olumsuz koşul, sorguda yazım **0** |
+| C16 sınırlı tutma/genelleme | **3 tohum × 96 olay** | Her tohumda canlı/bakım/pickle okumaları **96/96 + 96/96 + 96/96**; aktif küme **3**, pasif kayıt **216**, replay **0**, kalıtım yeni kenar ezberlemeden çalışır |
 | Dış held-out H1–H9 | **9/9** | Önceki dış işlevler; H7 nedensel zincir 3/3 |
 | A142 nöral öneri + sembolik kanıt | **13/13** | Nonce top-5 18/18; dayanaklı kabul 16/17; nöral/doğrulayıcı ablasyonu `unresolved` |
 | A140 Broca/corpus | **19/19** | Corpus `organ_seen=0`; nöral yüzey skorları corpus boyunca sabit; sosyal/çevrimiçi artikülasyon yolu ayrı ve canlı |
 
-A94 **7/7**, A95 **10/10**, A141 **25/25**, A144 **27/27**, A75 **14/14**, A17 **6/6**, A18 **5/5**, A19, A22, A4 **5/5**, A6, A14, A20, A54, A57 ve A110 **5/5** de hedefli olarak yeniden çalıştırıldı. A16 **4/4** ve `selftest.py --bridge` (**58 sn**) de geçti. SQLite + hızlı tanım sonrasındaki iki seçili grup sırasıyla **8/8, 326,5 sn** ve **10/10, 324,0 sn** oldu. Tam `agi_battery.py` bu güncellemede sonuna kadar çalıştırılmadı; dolayısıyla “bütün işlevsel batarya geçti” denmez.
+Son kaynakta iki ayrı işlevsel grup çalıştı: A140 **19/19**, A141 **25/25**, A142 **13/13**, A144 **27/27**, A51 ve A47 ile **6/6, 312,2 sn**; A94 **7/7**, A50 **12/12 kapsam**, A16 **4/4**, A110 **5/5**, A57 ve A54 ile **6/6, 49,9 sn**. Chem duman testi **5/5**, `selftest.py --bridge` **33 sn** ile geçti. Tam `agi_battery.py` bu güncellemede sonuna kadar çalıştırılmadı; dolayısıyla “bütün işlevsel batarya geçti” denmez.
 
 Bilinmeyen SVO yüklemi artık otomatik ISA/HAS_PROP sınıfına zorlanmaz. Wernicke özne/nesne/yüklem rollerini çıkarır; `GroundedConceptGraph.invent_relation()` yeni ilişkiyi probation olarak yazar. Aynı ilişkinin yeni bir alanda görülmesi `discovery`, daha önce bulunmayan ilişkinin açılması `invention` olarak deftere geçer. Nöral proposer yalnız aday verir; kabul yön/çelişki ve kanıt denetiminden geçer. Operatör koda gömülmez, `nora_forge.py`/`nora_apply.py` defterlerinde ve save/load meta kaydında taşınır.
 
-**Sınır:** C6–C13 belirli, bağımsız oracle’lı mimari protokolleridir. Sınırsız Türkçe ayrıştırma, her olası ilişkinin doğru icadı, bütün alanlarda genelleme veya yıkıcı unutmanın her koşulda imkânsızlığı kanıtlanmamıştır.
+**System-2 artık ölçülebilir bir hesap yolu:** `relation_object` HDC okuması ters adayları getirir, canlı Graph her iki koşuldaki kenarları ayrı ayrı doğrular ve aday kümeleri kesiştirilir. Karşılaştırmada doğrudan kenarlar farklıysa iki tarafın HDC kanıtı da zorunludur; tek taraflı aktivasyon veya yalnız sembolik küme kesişimi yeterli değildir. Başarılı sonuç `used_s2=True` olur; çözümleme hatası, eksik kavram ve boş sonuç bilişsel başarı sayılmaz. Son gerçek diyalog probunda:
+
+- “Kedi ile köpeğin ortak noktası nedir?” → “Kedi ve köpek bir hayvandır; kedi ve köpek bir evcil varlıktır; kedi ve köpek evcildir; kedi ve köpek bir canlıdır.”
+- “Kanadı olan ve uçan şey nedir?” → “Kuş; çünkü kuşun kanadı var ve kuş uçar.”
+- “Kanadı olan ve havlayan şey nedir?” → “Bu ölçütleri birlikte karşılayan kavram bulmadım.” ve `used_s2=False`.
+- Yalnız parça+eylem öğretilen “Kuş nedir?” → “Kuşun kanadı var. Kuş uçar.”; tek boyutlu C12 örneğinde ise eksik parça/nedensellik açıkça söylenir. Bütün bu sorgularda yeni HDC sunumu **0**dır.
+
+**Sınır:** C6–C16 belirli, bağımsız oracle’lı mimari protokolleridir. Sınırsız Türkçe ayrıştırma, her olası ilişkinin doğru icadı, bütün alanlarda genelleme veya yıkıcı unutmanın her koşulda imkânsızlığı kanıtlanmamıştır. C16’daki sıfır kayıp yalnız üç tohum × 96 olay ve canlı/bakım/pickle protokolüne aittir.
 
 ### 1.2 Epistemik kapı, graph-corpus ve disk-pasif bellek
 
-- **Bilinmezlik ana yoldur:** Bağımsız tek-sözcüklü “X nedir / ne demek?” sorusu önce Graph/HDC’ye gider. Kanıt yoksa `speak_unknown()` hızlı sembolik cevap verir; merak defteri ve üç araştırma kuyruğu beslenir. En fazla iki doğrudan kenarlı basit bilinen tanım da aynı MB kanıtından sembolik Broca ile hızlı yüzeye çıkar; parça/konum bakımından zengin kavramlar kapsamlı anlatım yolunda kalır. `speak_from_state()` kavram çapalı her nöral üretimde ayrıca Graph/HDC kanıtı arar. Aktif öğretici oturumu, kişisel bellek ve uzman matematik/fizik/operatör yolları erken sözlük kapısıyla kesilmez.
+- **Bilinmezlik ana yoldur:** Bağımsız tek-sözcüklü “X nedir / ne demek?” sorusu önce Graph/HDC’ye gider. Kanıt yoksa `speak_unknown()` `(kavram,HAS_STATE,unknown)` olayını ayrı epistemik deftere yazar; `BrocaGenerator.realize_epistemic()` çekimli cümleyi üretir, hazır `nora_priors` cevabı veya nöral dünya bilgisi kullanılmaz. Tekrarlanan soru kavramı “bilinen” yapmaz; accepted öğreti eski olayı silmeden `known` olayı ekler. Hızlı nesnel cevap, gerçek-zaman yaşam yakalama sırasındaki iç-konuşma/nöral üretimden önce tamamlanır. En fazla iki doğrudan kenarlı tanımda işlev/parça/nedensellikten en az ikisi aranır; yoksa mevcut kanıt korunarak yetersizlik söylenir. `speak_from_state()` kavram çapalı her nöral üretimde ayrıca Graph/HDC kanıtı arar. Aktif öğretici oturumu, kişisel bellek ve uzman yollar erken sözlük kapısıyla kesilmez.
 - **Broca bilgi kaynağı değildir:** `read_corpus()`, canlı dünya-olgusu dinleme, araştırma ve `nora_besle` genel kültürü nöral `learn_online` hattından çıkarır. Anlam Wernicke → Graph/HDC tek-sunum hattına gider; sosyal dil ve soru biçimleri sözdizimi/artikülasyon deneyimi olarak kalır. `broca_tr.pt` yeniden eğitilmemiştir; değişen, onun ana sistemde doğrulanmamış içerik kaynağı olmasını engelleyen çalışma-zamanı sözleşmesidir.
-- **Aktif olmayan bilgi yok değildir:** `HDCMushroomBody` varsayılan 64 satırlık LRU çalışma kümesi kullanır. Pasife inen `W_fast/W_slow` satırları RAM sözlüğünde değil, `.cache/nora_hdc` altındaki SQLite dosyasındadır. HDC içerik anahtarı yalnız eşleşen pasif satırı RAM’e getirir; aktivasyon eşiği ve graf yön/kenar doğrulaması yine zorunludur. Sembolik depo cevap bypass’ı değildir.
+- **Aktif olmayan bilgi yok değildir:** `HDCMushroomBody` varsayılan 64 satırlık LRU çalışma kümesi kullanır. Pasife inen `W_fast/W_slow` satırları RAM sözlüğünde değil, `.cache/nora_hdc` altındaki SQLite dosyasındadır. HDC digest’i aktif ve pasif tarafta yalnız ölçülecek sinapsları adresler; her adayın aktivasyonu yeniden ölçülür, eşik ve Graph yön/kenar doğrulaması zorunludur. Okuma yolunda karar için kullanılmayan bütün-matris enerji normları kaldırılmış, açık `weight_energy()` tanısına taşınmıştır. Sembolik depo cevap bypass’ı değildir.
 - **Kalıcılık ve temizlik:** SQLite geçici çalışma deposudur; pickle snapshot’a pasif satırlar ve erişim anahtarları eklenir, yüklenen nesne bağımsız yeni depo açar. Normal AGI save/load kenarlardan HDC bağlarını yeniden kurar. Nesne kapanınca geçici dosyalar temizlenir; `.cache` Git’e eklenmez.
 
 **Canlı besleme/checkpoint probu:** 324 üçlüden 302 yeni kenar ve cümlelerden 171 kenar çıktı; sosyal diyalogun 529 sözcüğü/126 metni artikülasyona giderken `SENTENCES` genel-kültür öğelerinin nöral öğrenmeye sızması 0’dı. Save/load sonrası 505 kenarın 501’i pasifleştirildi; `(kedi, ISA, evcil hayvan)` diskten doğru geri çağrıldı ve sorgu yeni HDC sunumu üretmedi.
@@ -89,7 +100,7 @@ Bilinmeyen SVO yüklemi artık otomatik ISA/HAS_PROP sınıfına zorlanmaz. Wern
 ### Tamamlanmamış uyum
 
 - Genel next-subword kalitesi ve fold-1/fold-2 ortak %45 eşiği çözülmemiştir; Broca’nın gradyanlı dil öğrenmesi için bütün dış korunum iddiası hâlâ ayrı bir problemdir.
-- C6–C13 dışındaki bütün olası cümle biçimleri ve alanlar için genelleme kanıtı yoktur; intransitif, çok-öbekli ve karmaşık Türkçe yapılar daha geniş held-out sınav ister.
+- C6–C16 dışındaki bütün olası cümle biçimleri ve alanlar için genelleme kanıtı yoktur; intransitif, çok-öbekli ve karmaşık Türkçe yapılar daha geniş held-out sınav ister.
 - Tam `agi_battery.py` bu güncellemede sonuna kadar tamamlanmamıştır; yalnız yukarıda adı ve sonucu verilen koşular kanıt sayılır.
 - Dolayısıyla dar tek-sunum ilişki protokolü çözülmüş, genel zihin hedefi çözülmemiştir.
 

@@ -1834,6 +1834,9 @@ class GroundedConceptGraph:
         # duyulan doğru yüzeyi ayrı tutulur ('aves' anahtarı, 'Aves' görünen ad).
         self.display_names: dict[str, str] = {}
         self.edges: list[RelationEdge] = []
+        # Bilme/bilmeme durumu dünya-olgusu değildir. Olay Graph'ta kalıcıdır
+        # fakat ``query`` bunu kavram kanıtı sayıp “artık biliyorum”a çevirmez.
+        self.epistemic_events: list[RelationEdge] = []
         # O(1) yerel sinaptik komşuluk indeksleri (veri 100.000 kenara çıksa da sorgu gecikmesi ~0.05 ms kalır!)
         self._out_edges: dict[str, list[RelationEdge]] = {}
         self._in_edges: dict[str, list[RelationEdge]] = {}
@@ -1861,6 +1864,7 @@ class GroundedConceptGraph:
 
     def clear_all_edges(self):
         self.edges.clear()
+        self.epistemic_events.clear()
         self._out_edges.clear()
         self._in_edges.clear()
         self._edge_map.clear()
@@ -1873,6 +1877,28 @@ class GroundedConceptGraph:
         self._relation_morph_examples.clear()
         self.last_decision = {}
         self.last_invention = {}
+
+    def record_epistemic_event(self, subj: str, state: str, context: str = "") -> RelationEdge:
+        """Bilme durumunu dünya-olgularından ayrı, kalıcı bir Graph olayı yap."""
+        s = tr_lower(subj).strip()
+        state = tr_lower(state).strip()
+        for event in reversed(self.epistemic_events):
+            if event.subj == s and event.obj == state and event.status == "epistemic":
+                event.weight = float(min(2.0, event.weight + 0.1))
+                if context:
+                    event.sentence = str(context)[:500]
+                return event
+        event = RelationEdge(
+            subj=s, rel="HAS_STATE", obj=state, weight=1.0,
+            source="öz-izleme", speaker="nora", status="epistemic",
+            sentence=str(context)[:500],
+        )
+        self.epistemic_events.append(event)
+        return event
+
+    def epistemic_state(self, subj: str) -> RelationEdge | None:
+        s = tr_lower(subj).strip()
+        return next((event for event in reversed(self.epistemic_events) if event.subj == s), None)
 
     def _trigram_vec(self, text: str) -> np.ndarray:
         v = np.zeros(128, dtype=np.float32)
@@ -2002,6 +2028,12 @@ class GroundedConceptGraph:
         self._out_edges.setdefault(s, []).append(edge)
         self._in_edges.setdefault(o, []).append(edge)
         self._edge_map[(s, rel, o)] = edge
+        # Eski bilinmezlik yaşantısını silme; öğrenme gerçekleştiyse güncel
+        # durumu yeni bir olayla kapat. Epistemik olay HDC sunumu değildir.
+        if (status == "accepted" and weight > 0.25
+                and any(event.subj == s and event.obj in {"unknown", "insufficient"}
+                        for event in self.epistemic_events)):
+            self.record_epistemic_event(s, "known", f"{s} {rel} {o}")
         # Tek olay -> HDC/VSA rol bağlama; gradyan ve replay yok.
         self.relation_mb.bind_relation(s, rel, o, slot)
         if source != "doğuştan" and self.chem is not None:
@@ -2247,6 +2279,142 @@ class GroundedConceptGraph:
             "scanned_slots": reads[-1].get("scanned_slots", 0) if reads else 0,
         }
         return results
+
+    def relation_object_candidates(self, relation: str, obj: str) -> list[tuple[RelationEdge, float]]:
+        """HDC ilişki+nesne okumasını canlı graf kenarlarıyla doğrula."""
+        rel = str(relation).strip()
+        obj = tr_lower(obj).strip()
+        recalled = self.relation_mb.recall_relation_object(rel, obj)
+        read = dict(self.relation_mb.last_recall)
+        validated: list[tuple[RelationEdge, float]] = []
+        rejected = 0
+        for slot, activation in recalled:
+            if not 0 <= slot < len(self.edges):
+                rejected += 1
+                continue
+            edge = self.edges[slot]
+            if (edge.rel != rel or edge.obj != obj or edge.weight <= 0.25
+                    or self._edge_map.get((edge.subj, edge.rel, edge.obj)) is not edge):
+                rejected += 1
+                continue
+            edge._last_mb_activation = float(activation)
+            validated.append((edge, float(activation)))
+        self.last_decision = {
+            "engine": "hdc_mb", "mode": "relation_object", "awake": True,
+            "replay": 0, "graph_validated": True, "query": f"{rel}:{obj}",
+            "validated_candidates": len(validated), "rejected_candidates": rejected,
+            "results": len(validated), "reads": [read],
+            "working_set_size": read.get("working_set_size", 0),
+            "active_slots": read.get("active_slots", 0),
+            "passive_slots": read.get("passive_slots", 0),
+            "passive_reactivations": read.get("passive_reactivations", 0),
+        }
+        return validated
+
+    def find_by_requirements(self, requirements: list[tuple[str, str]], *,
+                             head: str = "") -> dict:
+        """Birleşik göreli cümleyi HDC aday kümelerinin kesişimiyle çöz.
+
+        Örneğin HAS_PART(kanat) ve CAN_DO(uç) iki ayrı tek-sunum olayından
+        gelir. Hiçbir sonuç önceden ``kuş`` diye yazılmaz; her koşulun adayları
+        MB'den gelir ve kesişimdeki her kenar yeniden doğrulanır.
+        """
+        normalized = [(str(rel).strip(), tr_lower(obj).strip()) for rel, obj in requirements
+                      if str(rel).strip() and tr_lower(obj).strip()]
+        if not normalized:
+            return {"status": "invalid", "candidates": [], "requirements": []}
+        per_requirement: list[dict[str, list[tuple[RelationEdge, float]]]] = []
+        for rel, obj in normalized:
+            by_subject: dict[str, list[tuple[RelationEdge, float]]] = {}
+            for edge, activation in self.relation_object_candidates(rel, obj):
+                by_subject.setdefault(edge.subj, []).append((edge, activation))
+            per_requirement.append(by_subject)
+        common = set(per_requirement[0])
+        for rows in per_requirement[1:]:
+            common.intersection_update(rows)
+        head = tr_lower(head).strip()
+        candidates = []
+        for subject in sorted(common):
+            # Pozitif koşul, daha özgül olumsuz kanıtın üstüne çıkarılamaz.
+            blocked = False
+            for rel, obj in normalized:
+                if rel != "CAN_DO":
+                    continue
+                if any(edge.obj == obj for edge, _path in self.query(subject, ("CANNOT_DO",))):
+                    blocked = True
+                    break
+            if blocked:
+                continue
+            if head and head not in {"şey", "kavram"}:
+                if not any(edge.obj == head for edge, _path in self.query(subject, ("ISA",))):
+                    continue
+            proof = []
+            activations = []
+            for (rel, obj), rows in zip(normalized, per_requirement):
+                edge, activation = max(rows[subject], key=lambda row: row[1])
+                proof.append(edge)
+                activations.append(float(activation))
+            candidates.append({"subject": subject, "proof": proof,
+                               "score": min(activations) if activations else 0.0})
+        candidates.sort(key=lambda row: (-row["score"], row["subject"]))
+        return {
+            "status": "ok" if candidates else "unresolved",
+            "engine": "hdc_mb_relation_object_conjunction", "graph_validated": True,
+            "requirements": normalized, "head": head, "candidates": candidates,
+            "presentations": int(self.relation_mb.presentations),
+        }
+
+    def compare_concepts(self, left: str, right: str) -> dict:
+        """İki kavramın HDC önerili, graf-doğrulamalı anlam kesişimini çıkar."""
+        a, b = tr_lower(left).strip(), tr_lower(right).strip()
+        left_rows = self.query(a, None) if a else []
+        right_rows = self.query(b, None) if b else []
+        missing = [name for name, rows in ((a, left_rows), (b, right_rows)) if name and not rows]
+
+        def features(rows):
+            out = {}
+            for edge, path in rows:
+                key = (edge.rel, edge.obj)
+                old = out.get(key)
+                if old is None or (len(path), -edge.weight) < (len(old[1]), -old[0].weight):
+                    out[key] = (edge, path)
+            return out
+
+        left_features, right_features = features(left_rows), features(right_rows)
+        shared = []
+        hdc_proposals = 0
+        # Aday özellik HDC'den geri gelmezse sembolik küme kesişimi cevabı
+        # tek başına üretemez. Bu, karşılaştırmada hesaplamanın nedensel izidir.
+        for key in dict.fromkeys([*left_features, *right_features]):
+            recalled = self.relation_object_candidates(*key)
+            if not recalled:
+                continue
+            hdc_proposals += 1
+            if key not in left_features or key not in right_features:
+                continue
+            left_edge, left_path = left_features[key]
+            right_edge, right_path = right_features[key]
+            activations = {id(edge): float(activation) for edge, activation in recalled}
+            # Doğrudan kenarlar farklıysa iki tarafın da HDC okuması gerekir;
+            # tek taraflı aktivasyon + sembolik kesişim ortaklık sayılmaz.
+            # Miras alınan aynı kenar ise iki yol için de aynı kanıtı taşır.
+            if id(left_edge) not in activations or id(right_edge) not in activations:
+                continue
+            shared.append({
+                "rel": key[0], "obj": key[1],
+                "left": (left_edge, left_path), "right": (right_edge, right_path),
+                "activation": min(activations[id(left_edge)], activations[id(right_edge)]),
+            })
+        common_keys = {(row["rel"], row["obj"]) for row in shared}
+        return {
+            "status": "missing" if missing else ("ok" if shared else "unresolved"),
+            "engine": "hdc_mb_relation_object_intersection", "graph_validated": True,
+            "left": a, "right": b, "missing": missing, "shared": shared,
+            "left_only": sorted(set(left_features) - common_keys),
+            "right_only": sorted(set(right_features) - common_keys),
+            "hdc_proposals": hdc_proposals,
+            "presentations": int(self.relation_mb.presentations),
+        }
 
     def causal_chain(self, subj: str, max_hops: int = 4) -> list[tuple[str, list[RelationEdge]]]:
         """MB'den doğrulanan CAUSES/IF_THEN kenarlarıyla ileri yayılım.
@@ -2662,6 +2830,69 @@ class BrocaGenerator:
             return f"{s} {obj} {v_form}".strip()
 
         return f"{s} {o}".strip()
+
+    def realize_epistemic(self, event: RelationEdge, *, concept_surface: str = "",
+                          known: list[Proposition] | None = None,
+                          missing: list[str] | None = None) -> str:
+        """Graph epistemik olayını hazır cevap değil, çekimli düşünce olarak söyle."""
+        surface = str(concept_surface or event.subj).strip()
+        state = tr_lower(event.obj).strip()
+        knowledge = self.morph.inflect_noun("bilgi", "NOM", poss1=True)
+        definition = self.morph.inflect_noun("tanım", "NOM", poss1=True)
+        if state == "unknown":
+            word_acc = self.morph.inflect_noun("kelime", "ACC", poss3=True)
+            heard = self.morph.conjugate_verb("duy", tense="PAST", person="1SG")
+            text = (f"{surface} {word_acc} {heard}; kavram {knowledge} yok ve "
+                    f"doğrulanmış {definition} yok.")
+            return tr_capitalize(text)
+        clauses = []
+        for proposition in (known or [])[:4]:
+            realized = self.realize_prop(proposition).strip().rstrip(".!?")
+            if realized:
+                clauses.append(tr_capitalize(realized) + ".")
+        if state == "insufficient":
+            gap = ", ".join(str(item) for item in (missing or []) if str(item).strip())
+            if not gap:
+                gap = "bağlam"
+            clauses.append(f"Tanım için {gap} kanıtı eksik; {knowledge} yetersiz.")
+            return " ".join(clauses)
+        learned = self.morph.conjugate_verb("öğren", tense="PAST", person="1SG")
+        clauses.append(tr_capitalize(f"{surface} için yeni kanıt {learned}."))
+        return " ".join(clauses)
+
+    def realize_shared_features(self, left: str, right: str,
+                                shared: list[tuple[str, str]]) -> str:
+        """Ortaklık çıkarımının yalnız doğrulanmış özelliklerini çekimle."""
+        subject = f"{left} ve {right}"
+        if not shared:
+            not_found = self.morph.conjugate_verb("bul", tense="PAST", neg=True, person="1SG")
+            return tr_capitalize(f"{subject} için ortak doğrulanmış anlam özelliği {not_found}.")
+        clauses = []
+        for rel, obj in shared[:4]:
+            text = self.realize_prop(Proposition(subj=subject, rel=rel, obj=obj)).strip()
+            if text:
+                clauses.append(text.rstrip(".!?"))
+        if not clauses:
+            not_found = self.morph.conjugate_verb("bul", tense="PAST", neg=True, person="1SG")
+            return tr_capitalize(f"{subject} için ortak doğrulanmış anlam özelliği {not_found}.")
+        return tr_capitalize("; ".join(clauses)) + "."
+
+    def realize_inverse_identification(self, candidates: list[dict]) -> str:
+        """Birleşik koşul sonucunu ve onu zorunlu kılan kanıtı birlikte söyle."""
+        if not candidates:
+            not_found = self.morph.conjugate_verb("bul", tense="PAST", neg=True, person="1SG")
+            return tr_capitalize(f"Bu ölçütleri birlikte karşılayan kavram {not_found}.")
+        names = [str(row["subject"]) for row in candidates[:4]]
+        if len(candidates) > 1:
+            return tr_capitalize(f"{', '.join(names)} bu ölçütleri birlikte karşılıyor.")
+        row = candidates[0]
+        proof = []
+        for proposition in row.get("proof") or []:
+            text = self.realize_prop(proposition).strip().rstrip(".!?")
+            if text:
+                proof.append(text)
+        suffix = f"; çünkü {' ve '.join(proof)}" if proof else ""
+        return tr_capitalize(f"{row['subject']}{suffix}.")
 
     def compose(self, main: Proposition, reason: Proposition | None = None,
                 prefix: str = "", epistemic_note: str = "") -> str:
@@ -3355,8 +3586,9 @@ class WernickeComprehender:
                             known_candidates.append(option)
             if known_candidates:
                 return max(known_candidates, key=len)
-        if head != w and (head in self.graph.lexicon or an.get("plural") or an.get("poss3")
-                          or ((not force_poss and not force_case) or len(w) - len(head) >= 2)):
+        if head != w and not force_poss and (
+                head in self.graph.lexicon or an.get("plural") or an.get("poss3")
+                or (not force_case or len(w) - len(head) >= 2)):
             return head
         suffixes = (("ları", "leri", "sı", "si", "su", "sü", "ı", "i", "u", "ü")
                     if force_poss else
@@ -3529,6 +3761,7 @@ class WernickeComprehender:
         if (first_an.get("case") == "GEN" and len(words) >= 3
                 and words[0] not in {"benim", "senin", "onun", "bizim", "sizin", "onların"}
                 and re.search(r"[dt][ıiuü]r$", words[-1])
+                and words[-1] not in {"vardır", "yoktur"}
                 and not self.morph.analyze_word(words[-1], self.graph.lexicon).get("is_verb")
                 and "değil" not in words and not words[-1].startswith("değil")):
             owner = self._noun_head(words[0])
