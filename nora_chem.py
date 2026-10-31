@@ -31,6 +31,11 @@ Bileşenler:
 from __future__ import annotations
 
 import hashlib
+import os
+import sqlite3
+import tempfile
+from collections import OrderedDict
+from pathlib import Path
 
 import numpy as np
 
@@ -441,7 +446,7 @@ class HDCMushroomBody:
     """
 
     def __init__(self, dim: int = 256, n_kc: int = 2048, claws: int = 9,
-                 sparsity: float = 0.06, seed: int = 0):
+                 sparsity: float = 0.06, seed: int = 0, working_set_size: int = 64):
         self.dim = int(dim)
         self.seed = int(seed)
         self.initial_n_kc = int(n_kc)
@@ -460,10 +465,104 @@ class HDCMushroomBody:
         self.synaptic_writes = 0
         self._symbol_cache: dict[tuple[str, str], np.ndarray] = {}
         self.last_recall: dict = {}
+        # Uyanık çalışma kümesi sınırlıdır; ``bound_slots`` bütün olayların
+        # defteridir. Pasif ağırlıklar RAM sözlüğünde değil SQLite'tadır.
+        # HDC özeti diskteki erişim anahtarını bulur, yalnız eşleşen satır
+        # RAM'e taşınır; ardından aktivasyon ve graf doğrulaması yapılır.
+        self.working_set_size = max(1, int(working_set_size))
+        self.active_slots: set[int] = set()
+        self._slot_lru: OrderedDict[int, None] = OrderedDict()
+        self.passive_slots: set[int] = set()
+        self.evictions = 0
+        self.passive_reactivations = 0
+        self._db = None
+        self._disk_tmp = None
+        self.disk_path = ""
+        self._init_disk_store()
+
+    def _init_disk_store(self) -> None:
+        root = Path(os.environ.get("NORA_HDC_CACHE", ".cache/nora_hdc"))
+        root.mkdir(parents=True, exist_ok=True)
+        self._disk_tmp = tempfile.TemporaryDirectory(prefix="mb-", dir=root)
+        self.disk_path = str(Path(self._disk_tmp.name) / "passive.sqlite3")
+        self._db = sqlite3.connect(self.disk_path)
+        self._db.execute("PRAGMA journal_mode=DELETE")
+        self._db.execute("PRAGMA synchronous=NORMAL")
+        self._db.execute(
+            "CREATE TABLE cues (slot INTEGER NOT NULL, kind TEXT NOT NULL, "
+            "digest BLOB NOT NULL, PRIMARY KEY(slot, kind))")
+        self._db.execute(
+            "CREATE TABLE passive (slot INTEGER PRIMARY KEY, fast BLOB NOT NULL, "
+            "slow BLOB NOT NULL, nkc INTEGER NOT NULL)")
+        self._db.execute("CREATE INDEX cues_lookup ON cues(kind, digest)")
+        self._db.commit()
+
+    def _close_disk(self) -> None:
+        db, tmp = getattr(self, "_db", None), getattr(self, "_disk_tmp", None)
+        self._db = None
+        self._disk_tmp = None
+        if db is not None:
+            try:
+                db.close()
+            except Exception:
+                pass
+        if tmp is not None:
+            try:
+                tmp.cleanup()
+            except Exception:
+                pass
+
+    def __del__(self):
+        try:
+            self._close_disk()
+        except Exception:
+            pass
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # İki nesne aynı SQLite dosyasını paylaşmasın: pasif satırlar ve HDC
+        # erişim anahtarları snapshot'a alınır, load sırasında yeni depoya yazılır.
+        state["_pickle_passive"] = list(self._db.execute(
+            "SELECT slot, fast, slow, nkc FROM passive ORDER BY slot")) if self._db else []
+        state["_pickle_cues"] = list(self._db.execute(
+            "SELECT slot, kind, digest FROM cues ORDER BY slot, kind")) if self._db else []
+        state.pop("_db", None)
+        state.pop("_disk_tmp", None)
+        state["disk_path"] = ""
+        return state
+
+    def __setstate__(self, state):
+        passive = state.pop("_pickle_passive", [])
+        cues = state.pop("_pickle_cues", [])
+        self.__dict__.update(state)
+        # Çok eski, yalnız aktif W satırları taşıyan kayıtlar için geriye uyum.
+        if not hasattr(self, "active_slots"):
+            self.active_slots = set(self.bound_slots)
+            self._slot_lru = OrderedDict((slot, None) for slot in sorted(self.active_slots))
+        if not hasattr(self, "passive_slots"):
+            self.passive_slots = set()
+        self._init_disk_store()
+        self._db.executemany("INSERT OR REPLACE INTO cues(slot, kind, digest) VALUES(?, ?, ?)", cues)
+        self._db.executemany(
+            "INSERT OR REPLACE INTO passive(slot, fast, slow, nkc) VALUES(?, ?, ?, ?)", passive)
+        self._db.commit()
 
     def reset(self) -> None:
+        self._close_disk()
         self.__init__(dim=self.dim, n_kc=self.initial_n_kc, claws=self.mb.claws,
-                      sparsity=self.sparsity, seed=self.seed)
+                      sparsity=self.sparsity, seed=self.seed,
+                      working_set_size=self.working_set_size)
+
+    @staticmethod
+    def _cue_digest(cue: np.ndarray) -> bytes:
+        data = np.ascontiguousarray(cue, dtype=np.float32).tobytes()
+        return hashlib.blake2b(data, digest_size=16).digest()
+
+    def passive_storage_info(self) -> dict:
+        rows = int(self._db.execute("SELECT COUNT(*) FROM passive").fetchone()[0])
+        return {"backend": "sqlite", "path": self.disk_path,
+                "disk_rows": rows, "ram_passive_weight_rows": 0,
+                "file_exists": Path(self.disk_path).is_file()}
 
     def _symbol(self, namespace: str, text: str) -> np.ndarray:
         key = (str(namespace), str(text))
@@ -502,6 +601,80 @@ class HDCMushroomBody:
         norm = float(np.linalg.norm(vec))
         return vec / max(1e-6, norm)
 
+    def set_working_set_size(self, size: int) -> None:
+        """Aktif sinaps kümesini daralt/genişlet; pasif olayları diskte koru."""
+        self.working_set_size = max(1, int(size))
+        while len(self.active_slots) > self.working_set_size:
+            oldest = next(iter(self._slot_lru))
+            self._deactivate_slot(oldest)
+        self._db.commit()
+
+    @staticmethod
+    def _restore_row(saved: np.ndarray, target: np.ndarray) -> None:
+        # Nörogenez pasif olayın KC alanını da büyütebilir. Eski sinapslar
+        # aynen korunur; yeni hücreler o olay için henüz bağlanmamıştır.
+        if len(saved) < len(target):
+            padded = np.zeros_like(target)
+            padded[:len(saved)] = saved
+            saved = padded
+        target[:] = saved[:len(target)]
+
+    def _deactivate_slot(self, slot: int) -> None:
+        slot = int(slot)
+        if slot not in self.active_slots:
+            return
+        if slot < len(self.mb.W_fast):
+            fast = self.mb.W_fast[slot].copy()
+            slow = self.mb.W_slow[slot].copy()
+            self._db.execute(
+                "INSERT OR REPLACE INTO passive(slot, fast, slow, nkc) VALUES(?, ?, ?, ?)",
+                (slot, fast.tobytes(), slow.tobytes(), int(self.mb.n_kc)))
+            self.mb.W_fast[slot].fill(0.0)
+            self.mb.W_slow[slot].fill(0.0)
+            self.passive_slots.add(slot)
+        self.active_slots.discard(slot)
+        self._slot_lru.pop(slot, None)
+        self.evictions += 1
+
+    def _activate_slot(self, slot: int) -> None:
+        slot = int(slot)
+        was_passive = slot in self.passive_slots
+        if was_passive:
+            row = self._db.execute(
+                "SELECT fast, slow FROM passive WHERE slot=?", (slot,)).fetchone()
+            if row is None:
+                raise RuntimeError(f"pasif HDC satırı diskte bulunamadı: {slot}")
+            fast = np.frombuffer(row[0], dtype=np.float32)
+            slow = np.frombuffer(row[1], dtype=np.float32)
+            if slot < len(self.mb.W_fast):
+                self._restore_row(fast, self.mb.W_fast[slot])
+                self._restore_row(slow, self.mb.W_slow[slot])
+            self._db.execute("DELETE FROM passive WHERE slot=?", (slot,))
+            self.passive_slots.discard(slot)
+        self.active_slots.add(slot)
+        self._slot_lru.pop(slot, None)
+        self._slot_lru[slot] = None
+        if was_passive:
+            self.passive_reactivations += 1
+        while len(self.active_slots) > self.working_set_size:
+            oldest = next((item for item in self._slot_lru if item != slot), None)
+            if oldest is None:
+                break
+            self._deactivate_slot(oldest)
+
+    def _matching_passive_slots(self, cue: np.ndarray, cue_kind: str) -> list[int]:
+        """Diskteki HDC içerik anahtarıyla yalnız eşleşen pasif satırları bul.
+
+        Bu SQL yalnız erişim adresini çözer; cevap ya da doğruluk üretmez.
+        Satır RAM'e alındıktan sonra MB aktivasyon eşiği ve graf doğrulaması
+        aynen çalışır.
+        """
+        digest = self._cue_digest(cue)
+        rows = self._db.execute(
+            "SELECT c.slot FROM cues c JOIN passive p ON p.slot=c.slot "
+            "WHERE c.kind=? AND c.digest=? ORDER BY c.slot", (cue_kind, digest)).fetchall()
+        return [int(row[0]) for row in rows]
+
     def bind_relation(self, subject: str, relation: str, obj: str, slot: int) -> None:
         slot = int(slot)
         self.mb.ensure_outputs(slot + 1)
@@ -513,22 +686,38 @@ class HDCMushroomBody:
             self.mb.learn_oneshot(cue, slot, chem=None, strength=1.0, contrastive=False)
             self.slot_code_norm[(slot, cue_kind)] = float(
                 self.mb.last_learning.get("active_kc", self.mb.k))
+            self._db.execute(
+                "INSERT OR REPLACE INTO cues(slot, kind, digest) VALUES(?, ?, ?)",
+                (slot, cue_kind, self._cue_digest(cue)))
             self.synaptic_writes += 1
         self.bound_slots.add(slot)
+        self._activate_slot(slot)
         self.presentations += 1
+        self._db.commit()
 
     def _recall(self, cue: np.ndarray, cue_kind: str) -> list[tuple[int, float]]:
         idx = self.mb.encode_kc(cue)
         # ChemMushroomBody.scores genel sınıflandırıcı için geçerli k-WTA
         # ortalaması kullanır. Burada her olay kendi yazım kodunun normuyla
         # okunur; aksi hâlde nörogenez eski olayların aktivasyonunu seyreltir.
-        raw_scores = (self.mb.W_slow[:, idx] + self.mb.W_fast[:, idx]).sum(axis=1)
-        scored_slots = []
-        for slot in self.bound_slots:
-            if slot >= len(raw_scores):
-                continue
+        # Pasif eşleşmeler küme kapasitesinden büyükse bile bilgi kaybolmaz:
+        # her satır geri yüklenip ÖLÇÜLÜR, sonra başka bir olay yerini alabilir.
+        scores: dict[int, float] = {}
+        passive_matches = self._matching_passive_slots(cue, cue_kind)
+
+        def measure(slot: int) -> None:
+            if slot >= len(self.mb.W_fast):
+                return
             norm = max(1.0, float(self.slot_code_norm.get((slot, cue_kind), len(idx))))
-            scored_slots.append((slot, float(raw_scores[slot]) / norm))
+            value = float((self.mb.W_slow[slot, idx] + self.mb.W_fast[slot, idx]).sum()) / norm
+            scores[slot] = value
+
+        for slot in passive_matches:
+            self._activate_slot(slot)
+            measure(slot)
+        for slot in tuple(self.active_slots):
+            measure(slot)
+        scored_slots = sorted(scores.items())
         candidates = [(slot, score) for slot, score in scored_slots
                       if score >= self.activation_threshold]
         candidates.sort(key=lambda row: (-row[1], row[0]))
@@ -546,7 +735,17 @@ class HDCMushroomBody:
             "presentations": int(self.presentations),
             "synaptic_writes": int(self.synaptic_writes),
             "growth_events": int(self.mb.growth_events),
+            "working_set_size": int(self.working_set_size),
+            "active_slots": int(len(self.active_slots)),
+            "passive_slots": int(len(self.passive_slots)),
+            "passive_matches": int(len(passive_matches)),
+            "scanned_slots": int(len(scored_slots)),
+            "evictions": int(self.evictions),
+            "passive_reactivations": int(self.passive_reactivations),
+            "passive_backend": "sqlite",
+            "ram_passive_weight_rows": 0,
         }
+        self._db.commit()
         return candidates
 
     def recall_subject(self, subject: str) -> list[tuple[int, float]]:

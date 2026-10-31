@@ -2822,11 +2822,21 @@ class GenerativeBrocaOrgan:
             "speech_plan": plan_dict,
         }
 
-    def record_turn_episode(self, speaker: str, raw: str, reply: str, agi):
-        """Tüm konuşma turlarını (matematik, fizik, 1-atış bilgi, irade veya sohbet) tek merkezden
-        O(1) hipokampal epizodik belleğe kodlar."""
-        s_low = tr_lower(raw)
-        u = self.comprehend_discourse(raw, s_low, agi.lang.morph, agi.lang.graph.lexicon)
+    def record_turn_episode(self, speaker: str, raw: str, reply: str, agi,
+                            fast_topic: str = ""):
+        """Tüm konuşma turlarını tek merkezden O(1) epizodik belleğe kodlar.
+
+        Epistemik hızlı kapı kavramı zaten çözümlemiştir. ``fast_topic`` o
+        ölçümü taşır; aynı kısa soru ikinci kez pahalı söylem çözümlemesine
+        girmez, fakat konuşma anısı yine korunur.
+        """
+        if fast_topic:
+            topic = tr_lower(fast_topic).strip()
+            u = {"asks_memory": False, "social_query": False, "experience_query": False,
+                 "phil_topic": "", "stems": [topic] if topic else [], "affect_val": 0.0}
+        else:
+            s_low = tr_lower(raw)
+            u = self.comprehend_discourse(raw, s_low, agi.lang.morph, agi.lang.graph.lexicon)
         # Bellek sorgusu turlarının kendisi bir önceki konu anısını ezmesin diye yalnızca anlamlı içerik turlarını kodla
         if u["asks_memory"] or u["social_query"] or u.get("experience_query"):
             return
