@@ -83,7 +83,7 @@ def live_nora_binding() -> tuple[bool, str]:
               result["match"]["modality"] == "vision" and result["match"]["token"] == "t0")
         return ok, f"live={result.get('status')} match={result.get('match')} loaded-equal={loaded == result}"
     finally:
-        for ext in (".agi.json", ".agi_mb.npz", ".mind.npz", ".voice.pkl.gz", ".broca.pt"):
+        for ext in (".nora", ".agi.json", ".agi_mb.npz", ".mind.npz", ".voice.pkl.gz", ".broca.pt"):
             try:
                 os.remove(prefix + ext)
             except FileNotFoundError:

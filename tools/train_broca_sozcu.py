@@ -29,7 +29,7 @@ def main():
     print(f"Cümleler yükleniyor: {data_path} ...")
     sents = sentences_of([data_path])
     random.Random(42).shuffle(sents)
-    
+
     # 2000 cümleyi değerlendirme (validation) için ayıralım
     val_sents = sents[:2000]
     train_sents = sents[2000:]
@@ -39,7 +39,7 @@ def main():
     org = BrocaOrgan.load(base_broca)
     agi = NoraAGI(seed=42)
     st_info = state_vector(agi)
-    
+
     # Başlangıç değerlendirmesi
     eval_pre = org.evaluate(val_sents[:500], st_info)
     print(f"Eğitim Öncesi Doğrulama Skoru: {eval_pre}")
@@ -54,7 +54,7 @@ def main():
         batch = train_sents[i : i + B]
         if not batch:
             continue
-        
+
         # LR ısınma ve sönümleme
         org.lr = 1e-4 / (1.0 + step / 300.0) ** 0.5
         loss = org.learn_batch(batch, st_info, anchor_dropout=0.1, loss_mode="sampled", negative_samples=1024)
@@ -67,10 +67,10 @@ def main():
             print(f"Adım: {step:4d} | Görülen Token: {org.seen_tokens:7d} | Son 50 Kayıp (Loss): {avg_loss:.4f} | Süre: {elapsed:.1f}s", flush=True)
 
     print(f"\nEğitim tamamlandı! Toplam süre: {time.time() - t0:.1f}s")
-    
+
     eval_post = org.evaluate(val_sents[:500], st_info)
     print(f"Eğitim Sonrası Doğrulama Skoru: {eval_post}")
-    
+
     org.update_common()
     org.save(out_broca)
     print(f"Yeni Broca organı kaydedildi: {out_broca}")

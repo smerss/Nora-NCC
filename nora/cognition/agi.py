@@ -1066,6 +1066,27 @@ class NoraAGI:
             event, concept_surface=graph.surface_name(concept),
             known=propositions, missing=missing,
         )
+        # Aynı tanım sorusu tekrar geldiğinde epistemik hızlı kapı da
+        # Narrator'ı atlamasın. Bilinen önermeler aynı Graph kanıtından gelir;
+        # yalnız anlatım çerçevesi değişir ve eksik-bilgi uyarısı her turda
+        # aynen korunur. Farklı özneye ait kapsam/parça önermelerini ana
+        # kavramın cümlesi gibi yeniden kurmak doğru olmaz; onlar özgün
+        # epistemik gerçekleştiricide kalır.
+        narrator = getattr(self, "narrator", None)
+        if (narrator is not None and propositions
+                and all(p.subj == concept for p in propositions)
+                and " Tanım için " in answer):
+            known_text, gap_text = answer.split(" Tanım için ", 1)
+            try:
+                varied = narrator.render(
+                    self, concept, [(p.rel, p.obj) for p in propositions],
+                    known_text,
+                )
+                if varied:
+                    answer = f"{varied.rstrip()} Tanım için {gap_text}"
+            except Exception:
+                # Anlatım çeşitlendirmesi bilgi/uyarı yolunu bozamaz.
+                pass
         self.last_definition_insight = {
             "concept": concept, "status": "insufficient", "missing": list(missing),
             "known_propositions": len(propositions), "engine": "hdc_mb+symbolic_broca",
@@ -2114,6 +2135,14 @@ class NoraAGI:
         ne zaman söylendiğini, o an ne cevap verdiğini hatırlar ve bunu sözüne katar.
         """
         raw = (text or "").strip()
+        # Checkpoint'teki eski anılarla bu canlı oturumu ayır. Açık-uçlu
+        # düşünce/merak, yıllar önceki grafik ya da diyalog kuyruğundan değil,
+        # gerçekten bu konuşmada yaşanan turlardan beslenir.
+        if getattr(self, "_dialogue_episode_baseline", None) is None:
+            try:
+                self._dialogue_episode_baseline = len(self.broca_organ.episodic.episodes)
+            except Exception:
+                self._dialogue_episode_baseline = 0
         # BİRİ VAR: yalnızlık sayacı sıfırlanır (kendi kendine öğretme koşulu bunu kullanır).
         try:
             self._son_etkilesim_age = int(self.mind.age)
@@ -2163,10 +2192,15 @@ class NoraAGI:
             _reply, _why = _structured
             self.lang.wernicke.last_explanation = _why
             self._log_turn(speaker, raw, _reply, _preflight_t0)
+            self._journal("tur", g=raw, y=_reply, s="", yas=int(getattr(self.mind, "age", 0)),
+                          d=round(float(getattr(getattr(self, "entropy", None), "drift", 0.0) or 0.0), 6))
             return _reply
         _preflight_unknown = self._epistemic_gate(raw)
         if _preflight_unknown:
             self._log_turn(speaker, raw, _preflight_unknown, _preflight_t0)
+            self._journal("tur", g=raw, y=_preflight_unknown, s="",
+                          yas=int(getattr(self.mind, "age", 0)),
+                          d=round(float(getattr(getattr(self, "entropy", None), "drift", 0.0) or 0.0), 6))
             return _preflight_unknown
         now = time.time()
         # Aradan gerçek zaman geçtiyse Nora boşlukta yaşamıştır: açık olduğu sürece zaman akar.
@@ -2345,7 +2379,7 @@ class NoraAGI:
             pass
         # GÜNLÜK: turun kendisi kalıcı iz bırakır (O(1) append; kapalıysa bedava).
         self._journal(
-            "tur", g=raw[:240], y=ans[:240],
+            "tur", g=raw, y=ans,
             s=(self.monologue.stream[-1].schema_id if getattr(self.monologue, "stream", None) else ""),
             yas=int(getattr(self.mind, "age", 0)),
             d=round(float(getattr(getattr(self, "entropy", None), "drift", 0.0) or 0.0), 6),
@@ -2571,6 +2605,40 @@ class NoraAGI:
             self._apply_tag("cikarim", 1)
             self._log_turn(speaker, raw, _tutorial, t0)
             return _tutorial
+        # KURMACA / ÖNCEKİ SÖZÜ AÇMA: bunlar fiziksel işlem veya eksik
+        # operatör değildir. 'Birlikte uyduralım'ı plan motoruna, 'söylediğin
+        # şeyi aç'ı el-organı reddine düşürmeden önce söz-edimi anlamı çözülür.
+        _open_expand = ((self.deliberation.is_expansion_request(raw)
+                         or self.deliberation.is_contextual_continuation(self, raw))
+                        and not self.deliberation.expansion_is_meta(raw))
+        _open_early = (self.deliberation.is_generative_request(raw) or _open_expand)
+        if _open_early:
+            try:
+                self.life.on_interaction(self, raw, speaker)
+                self.initiative.on_user_reply()
+                self.last_utterance_class = self.utter_cortex.classify(raw)
+                self._begin_inner_monologue(raw, speaker)
+                _open_reply = self.deliberation.handle(self, raw)
+            except Exception:
+                _open_reply = None
+            if _open_reply:
+                self._intent_locked = True       # 'parça' biçimi kurmaca yayını kesmesin
+                _trace = dict(self.deliberation.last_open_trace or {})
+                self.broca_organ.last_speech_plan = {
+                    "volition_acts": ["FICTION" if _trace.get("act") == "narrate" else "OPEN_REFLECTION"],
+                    "surface_tr": _open_reply,
+                    "ask_back_chosen": "?" in _open_reply,
+                    "raw_thought_nodes": [
+                        f"OPEN_PLAN(kind={_trace.get('kind')},topic={_trace.get('topic')})",
+                        f"EVIDENCE({len(_trace.get('evidence') or [])})",
+                    ],
+                    "open_trace": _trace,
+                }
+                self._turn_path = "deliberative_open_dialogue"
+                self._apply_tag("cikarim", 1)
+                self._log_turn(speaker, raw, _open_reply, t0)
+                return _open_reply
+
         # OPERATÖR SENTEZİ: "kitap -> patik, kalem -> melak" gibi ÖRNEK verilirse
         # dönüşümü Nora kendi yazar; "dönüşümü uygula: deniz" derse yazdığını çalıştırır.
         try:
@@ -2863,6 +2931,12 @@ class NoraAGI:
                 _mq = self.frames.meta_question(raw)
             except Exception:
                 _mq = None
+            # Açık düşünce/çağrışım sorusu sözcük-mention sorusu değildir.
+            # 'Dalgalar neden dinlendirici olabilir?' veya 'Peki, aklından ne
+            # geçiyor?' içindeki ilk bilinmeyen biçim sözlük kapısını gasp etmez.
+            _open_semantic_act = self.deliberation._classify(tr_lower(raw))
+            if _open_semantic_act in {"reflection", "association", "thought", "expand"}:
+                _mq = None
             # Kişiye yönelen hâl/duyum sorusunda 'gerçekten' gibi bir zarf, sorunun
             # konusu olamaz. Sözcük korteksi yalnız gerçek mention sorularını almalı.
             if _mq is not None:
@@ -3107,6 +3181,10 @@ class NoraAGI:
         }
         if win.speech_plan is not None:
             self.broca_organ.last_speech_plan = win.speech_plan
+            if isinstance(win.speech_plan, dict) and win.speech_plan.get("open_trace"):
+                # Kazanan açık-söylem planı bütündür: rastgele iç-ses eki ya da
+                # 'parça' kısaltması kanıt/bağlam zincirini koparmaz.
+                self._intent_locked = True
         else:
             self.broca_organ.last_speech_plan = {
                 "parsed_stems": [],
@@ -3194,11 +3272,22 @@ class NoraAGI:
         # İnsan değil mi? Bir şey anlatan birine ansiklopedi maddesi okumayız; dinler, yansıtır, sorarız.
         narration = None
         _pure_state_guard = False
+        _first_person_state = False
+        _relief_narrative = any(c in s_low for c in ("iyi gel", "rahatlat", "ferahlat", "hafiflet"))
+        _social_formula = any(c in s_low for c in (
+            "kolay gelsin", "günaydın", "özür", "hasta", "başım ağr", "sınav",
+            "kazandım", "odaklan", "doğum günü", "şaka", "takılıyorum"))
         try:
             narration = self.discourse.narration_of(raw)
         except Exception:
             narration = None
-        if narration is not None and not _world_fact_pre:
+        _first_person_narration = bool(
+            narration is not None and str(narration.get("person", "")) in {"1SG", "1PL"})
+        if narration is not None and (not _world_fact_pre or _first_person_narration):
+            # Wernicke'nin genel olgu çözümleyicisi 'hüzünlüyüm; yürüyüş iyi
+            # gelmedi' gibi birinci-kişi yaşantısını tek bir CANNOT_DO önermesine
+            # indirgeyebilir. Kişi kapsamı açıkken anlatı, olgu öğretiminden
+            # önce gelir; aksi hâlde kullanıcının hâli Nora'ya mal edilir.
             try:
                 nar_res = self.discourse.respond_narration(raw, self, narration)
                 # Yalın hâl bildirimi ('kafam çok karışık') duygudaşlık ister: hazır durum karşılığından üstün.
@@ -3206,12 +3295,20 @@ class NoraAGI:
                 # durumsal korteksin somut önerisi de yarışta kalsın.
                 _pure_state = bool(narration.get("state")) and not (narration.get("rest") or narration.get("tail"))
                 _pure_state_guard = _pure_state
+                _first_person_state = bool(narration.get("state")) and str(
+                    narration.get("person", "")) in {"1SG", "1PL"}
+                _state_priority = (_pure_state or _first_person_state) and not _social_formula
                 bids.append(CorticalBid(
-                    "social_narration", 0.995 if _pure_state else 0.966, 0.95, nar_res["text"],
-                    f"narration:{nar_res['act']}",
+                    "social_narration", 0.90 if _social_formula else (0.995 if _state_priority else 0.966),
+                    0.95, nar_res["text"], f"narration:{nar_res['act']}",
                 ))
             except Exception:
                 narration = None
+        elif narration is not None:
+            # Üçüncü-kişi dünya olgusu ('Elektron ... durumundadır')
+            # kişisel anlatı değildir; özellikle mantık/olgu öğrenimini
+            # narration bayrağıyla ketleme.
+            narration = None
 
         # --- SÜTUN -1b: TOPLUMSAL OLAY (doğum günü gibi) — bilgi maddesi değil, insan karşılığı
         try:
@@ -3319,7 +3416,24 @@ class NoraAGI:
                   else self.deliberation.handle(self, raw, locals().get("fr")))
         _delib_owned = bool(_delib)
         if _delib:
-            bids.append(CorticalBid("insular_self", 0.988, 0.94, _delib, "deliberation"))
+            _open_trace = dict(self.deliberation.last_open_trace or {})
+            if _open_trace.get("raw") != raw:
+                _open_trace = {}
+            _open_plan = None
+            if _open_trace:
+                _open_plan = {
+                    "volition_acts": ["OPEN_REFLECTION"],
+                    "surface_tr": _delib,
+                    "ask_back_chosen": "?" in _delib,
+                    "raw_thought_nodes": [
+                        f"OPEN_PLAN(kind={_open_trace.get('kind')},topic={_open_trace.get('topic')})",
+                        f"CONTEXT({len(_open_trace.get('context_turns') or [])})",
+                    ],
+                    "open_trace": _open_trace,
+                }
+            bids.append(CorticalBid(
+                "insular_self", 0.988, 0.94, _delib, "deliberation",
+                used_s2=bool(_open_trace), speech_plan=_open_plan))
 
         # --- SÜTUN 0b: TERCİH SORUSU ('sence kediler mi köpekler mi daha iyi?') — ansiklopedi değil görüş
         _pref = self._answer_preference(raw, speaker=speaker)
@@ -3340,8 +3454,8 @@ class NoraAGI:
             bids.append(CorticalBid("insular_self", 0.985, 0.97, _cf_vol, "cf_volition"))
 
         sit_res = self.situational.try_respond_situation(raw, self, speaker=speaker)
-        if sit_res is not None and _pure_state_guard:
-            sit_res = None      # yalın hâl bildiriminde duygudaşlık, hazır karşılıktan üstündür
+        if sit_res is not None and not _social_formula and (_pure_state_guard or (_first_person_state and not _relief_narrative)):
+            sit_res = None      # kullanıcının hâli, genel sosyal karşılığa kurban gitmez
         if sit_res is not None:
             bids.append(CorticalBid(
                 module="social_phatic",
@@ -3434,7 +3548,10 @@ class NoraAGI:
             ))
 
         # --- SÜTUN 5: Doğal Sohbet, Empati ve Felsefi Derinlik Korteksi ---
-        conv_res = self.conv_cortex.respond_conversational(raw, s_low, self, speaker=speaker)
+        _asks_self_state = any(c in s_low for c in (
+            "nasılsın", "hisset", "keyfin", "moralin", "kendini", "iyi misin"))
+        conv_res = (None if (_first_person_state and not _asks_self_state and not _relief_narrative) else
+                    self.conv_cortex.respond_conversational(raw, s_low, self, speaker=speaker))
         if conv_res is not None and not _delib_owned and _graph_composition_answer is None:
             c_conf = float(conv_res["confidence"])
             conv_sal = 0.99 if c_conf >= 0.99 else (0.97 if c_conf >= 0.95 else 0.92)
@@ -3616,7 +3733,8 @@ class NoraAGI:
                 # yazılmadıysa burada ayrı bir grafik-öğrenme iddiası üretilmez.
                 # Gerçek structural ``ing_res`` için daha önce eklenen prefrontal
                 # teklif yarışta kalır; yakalanmayan özel durumla konuşma çökmez.
-            elif fr.kind in {"teach_fact", "invent_relation"} and conv_res is None and (narration is None or _world_fact_pre):
+            elif (fr.kind in {"teach_fact", "invent_relation"} and conv_res is None
+                  and (narration is None or (_world_fact_pre and not _first_person_narration))):
                 edges = self._teach_sentence_and_resolve_gaps(raw, speaker=speaker)
                 if edges:
                     e0 = edges[0]
@@ -8373,7 +8491,114 @@ class NoraAGI:
         # sessizlik/ölüm aralığı yaratma. Yaşam sayaçları yukarıda korunur.
         self.last_real_time = time.time()
 
-    def save(self, path_prefix: str):
+    _UNIFIED_SUFFIX = ".nora"
+    _UNIFIED_FORMAT = "nora-unified-brain"
+    _UNIFIED_VERSION = 1
+    _UNIFIED_PARTS = (
+        "brain.agi.json", "brain.agi_mb.npz", "brain.mind.npz",
+        "brain.voice.pkl.gz", "brain.broca.pt",
+    )
+
+    @classmethod
+    def unified_path(cls, path_prefix: str | os.PathLike) -> str:
+        """Tek-beyin dosyasının yolu; eski önek API'si de kabul edilir."""
+        path = os.fspath(path_prefix)
+        if path.endswith(cls._UNIFIED_SUFFIX):
+            return path
+        return path + cls._UNIFIED_SUFFIX
+
+    def save(self, path_prefix: str | os.PathLike) -> str:
+        """Bütün zihni, konuşmayı ve öğrenme organlarını TEK dosyaya kaydet.
+
+        Parçalı serileştiriciler yalnız geçici ve özel bir çalışma alanında
+        kullanılır; kullanıcıya kalan kalıcı artefakt ``.nora`` dosyasıdır.
+        ZIP içindeki her parça ayrı ayrı CRC/SHA ile doğrulanır. Hedef yazımı
+        atomiktir: yarım kalan yeni kayıt eski beynin yerine geçemez.
+        """
+        import hashlib
+        import tempfile
+        import zipfile
+
+        target = self.unified_path(path_prefix)
+        parent = os.path.dirname(os.path.abspath(target))
+        os.makedirs(parent, exist_ok=True)
+        self.ensure_broca_ready()
+        with tempfile.TemporaryDirectory(prefix="nora-brain-save-") as tmpdir:
+            prefix = os.path.join(tmpdir, "brain")
+            # Mevcut organların kayıp yaşatmayan serileştiricileri tek kaynaktır;
+            # burada yeni ve daha sığ bir checkpoint kopyası tutulmaz.
+            self._save_legacy(prefix)
+            parts: dict[str, bytes] = {}
+            for suffix in (".agi.json", ".agi_mb.npz", ".mind.npz", ".voice.pkl.gz", ".broca.pt"):
+                source = prefix + suffix
+                if not os.path.exists(source):
+                    continue
+                with open(source, "rb") as handle:
+                    parts["brain" + suffix] = handle.read()
+
+            required = {"brain.agi.json", "brain.agi_mb.npz", "brain.mind.npz", "brain.voice.pkl.gz"}
+            missing = sorted(required - set(parts))
+            if missing:
+                raise RuntimeError("Birleşik beyin için zorunlu parçalar eksik: " + ", ".join(missing))
+            episodes = list(getattr(self.broca_organ.episodic, "episodes", []) or [])
+            organ = getattr(self.life.voice, "organ", None)
+            token_memory = getattr(organ, "token_memory", None)
+            token_memory_items = (len(token_memory.get("tokens") or [])
+                                  if isinstance(token_memory, dict) else 0)
+            manifest = {
+                "format": self._UNIFIED_FORMAT,
+                "version": self._UNIFIED_VERSION,
+                "name": self.name,
+                "created_unix": time.time(),
+                "parts": {
+                    name: {"bytes": len(blob), "sha256": hashlib.sha256(blob).hexdigest()}
+                    for name, blob in sorted(parts.items())
+                },
+                # Bunlar ikinci bir veri deposu değil, tek dosyada neyin bulunduğunun
+                # denetlenebilir envanteridir. Asıl kayıtlar parçaların içindedir.
+                "training_inventory": {
+                    "dialogue_turns": len(episodes),
+                    "dialogue_characters": sum(len(ep.user_text) + len(ep.reply_text) for ep in episodes),
+                    "graph_edges": len(self.lang.graph.edges),
+                    "epistemic_events": len(self.lang.graph.epistemic_events),
+                    "relation_observations": sum(
+                        len(rec.get("observations") or [])
+                        for rec in self.lang.graph.relation_ledger.values()),
+                    "voice_heard_tokens": int(getattr(self.life.voice, "heard_tokens", 0) or 0),
+                    "broca_seen_tokens": int(getattr(organ, "seen_tokens", 0) or 0),
+                    "broca_stream_positions": dict(getattr(organ, "pos", {}) or {}),
+                    "token_memory_items": token_memory_items,
+                    "last_corpus_learning": getattr(self, "last_corpus_learning", None),
+                },
+            }
+            fd, temporary = tempfile.mkstemp(prefix=".nora-brain-", suffix=".tmp", dir=parent)
+            os.close(fd)
+            try:
+                with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_DEFLATED,
+                                     compresslevel=6, allowZip64=True) as archive:
+                    archive.writestr("manifest.json", json.dumps(
+                        manifest, ensure_ascii=False, indent=2).encode("utf-8"))
+                    for name, blob in sorted(parts.items()):
+                        archive.writestr(name, blob)
+                    # Açık yaşam günlüğü de varsa beyin dosyasından ayrı tek kalıcı
+                    # eğitim verisi olarak bırakılmaz; arşivde saklanır.
+                    journal_path = str(getattr(self, "journal_path", "") or "")
+                    if journal_path and os.path.isfile(journal_path):
+                        with open(journal_path, "rb") as handle:
+                            archive.writestr("brain.journal.ndjson", handle.read())
+                    elif getattr(self, "_embedded_journal", None) is not None:
+                        archive.writestr("brain.journal.ndjson", self._embedded_journal)
+                # Flush + fsync, ardından aynı dosya sisteminde atomik değiştirme.
+                with open(temporary, "rb") as handle:
+                    os.fsync(handle.fileno())
+                os.replace(temporary, target)
+            finally:
+                if os.path.exists(temporary):
+                    os.unlink(temporary)
+        self.brain_path = target
+        return target
+
+    def _save_legacy(self, path_prefix: str):
         # Ölüm başka bir giriş noktasında gerçekleşmiş olsa bile kalıcı
         # öz-model ile mortality aynı yaşam durumunu taşısın.
         if not self.mortality.is_alive:
@@ -8397,7 +8622,7 @@ class NoraAGI:
             "display_names": dict(self.lang.graph.display_names),
             "fast_classes": self.fast.class_names,
             "user_profiles": self.user_profiles,
-            "episodic_dialogue": self.broca_organ.episodic.state_dict(),
+            "episodic_dialogue": self.broca_organ.episodic.state_dict(max_keep=None),
             "monologue": self.monologue.state_dict(),
             "autonomous_logic": self.logic.state_dict(),
             "episteme": self.episteme.state_dict(),
@@ -8484,7 +8709,79 @@ class NoraAGI:
             self.journal.flush()
 
     @classmethod
-    def load(cls, path_prefix: str, attach_broca_async: bool = False) -> "NoraAGI":
+    def load(cls, path_prefix: str | os.PathLike, attach_broca_async: bool = False) -> "NoraAGI":
+        """Tek ``.nora`` beyni ya da eski beş-parça öneki otomatik tanı ve yükle.
+
+        Birleşik kayıtta organ yüklemesi bilinçli olarak tamamlanmış döner:
+        arka planda henüz okunmamış bir Broca ile eksik beyin kullanılmaz.
+        Eski önekler yalnız geriye dönük geçiş için okunur; yeni ``save`` her
+        zaman tek dosya üretir.
+        """
+        import hashlib
+        import tempfile
+        import zipfile
+
+        path = os.fspath(path_prefix)
+        unified = cls.unified_path(path)
+        if not os.path.isfile(unified) and os.path.isfile(path) and zipfile.is_zipfile(path):
+            unified = path
+        if not os.path.isfile(unified):
+            # Eski yol: ``prefix.agi.json`` + dört yardımcı parça.
+            agi = cls._load_legacy(path, attach_broca_async=attach_broca_async)
+            agi.brain_path = unified
+            return agi
+
+        with tempfile.TemporaryDirectory(prefix="nora-brain-load-") as tmpdir:
+            prefix = os.path.join(tmpdir, "brain")
+            with zipfile.ZipFile(unified, "r") as archive:
+                try:
+                    manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
+                except Exception as exc:
+                    raise ValueError(f"Geçersiz birleşik beyin manifestosu: {unified}") from exc
+                if manifest.get("format") != cls._UNIFIED_FORMAT:
+                    raise ValueError("Bu dosya Nora birleşik beyin biçiminde değil.")
+                if int(manifest.get("version", 0) or 0) > cls._UNIFIED_VERSION:
+                    raise ValueError("Birleşik beyin sürümü bu Nora sürümünden yeni.")
+                inventory = manifest.get("parts") or {}
+                for name in cls._UNIFIED_PARTS:
+                    if name not in archive.namelist():
+                        continue
+                    blob = archive.read(name)  # ZIP CRC burada da denetlenir.
+                    expected = inventory.get(name) or {}
+                    if expected.get("sha256") and hashlib.sha256(blob).hexdigest() != expected["sha256"]:
+                        raise ValueError(f"Beyin parçası bütünlük denetiminden geçemedi: {name}")
+                    if expected.get("bytes") is not None and len(blob) != int(expected["bytes"]):
+                        raise ValueError(f"Beyin parçası eksik ya da fazla: {name}")
+                    with open(os.path.join(tmpdir, name), "wb") as handle:
+                        handle.write(blob)
+                # Günlük yalnız arşivde varsa geçici yükleme alanına alınır. Aşağıda
+                # tekrar tek dosyaya gömülebilmesi için ham içeriği da taşınır.
+                if "brain.journal.ndjson" in archive.namelist():
+                    journal_blob = archive.read("brain.journal.ndjson")
+                    with open(prefix + ".journal.ndjson", "wb") as handle:
+                        handle.write(journal_blob)
+                    embedded_journal = journal_blob
+                else:
+                    embedded_journal = None
+            agi = cls._load_legacy(prefix, attach_broca_async=False)
+            agi._embedded_journal = embedded_journal
+            # Geçici günlük dosyası silinince açık tanıtıcıya yazmaya devam etme.
+            # Kalıcı konuşma/öğrenme zaten zihin parçalarındadır; günlük yeniden
+            # kayıtta _embedded_journal üzerinden tek dosyaya geri konur.
+            journal_in_temp = str(getattr(agi, "journal_path", "") or "").startswith(tmpdir)
+            if embedded_journal is not None and (not getattr(agi, "journal_path", "") or journal_in_temp):
+                if getattr(agi, "journal", None) is not None:
+                    try:
+                        agi.journal.close()
+                    except Exception:
+                        pass
+                agi.journal = None
+                agi.journal_path = ""
+        agi.brain_path = unified
+        return agi
+
+    @classmethod
+    def _load_legacy(cls, path_prefix: str, attach_broca_async: bool = False) -> "NoraAGI":
         with open(path_prefix + ".agi.json", "r", encoding="utf-8") as f:
             meta = json.load(f)
         agi = cls(name=meta["name"], seed=int(meta["seed"]), boot_thinker=False)
