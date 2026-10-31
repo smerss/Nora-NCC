@@ -7023,10 +7023,15 @@ def a145_felsefi_arguman_ve_kanit_siniri():
 
     r_self = tr_lower(agi.converse("Bilinçli misin?"))
     t_self = dict(agi.deliberation.last_philosophy_trace or {})
+    conscious_belief = dict(t_self.get("self_belief", {}).get("conscious", {}) or {})
+    alive_belief = dict(t_self.get("self_belief", {}).get("alive", {}) or {})
     checks["oznel-deneyim-ilan-yok"] = (
-        t_self.get("self_focus") is True and "kesin" in r_self
-        and "söyleyemem" in r_self and "bilinçliyim" not in r_self
-        and "öznel deneyimim var" not in r_self
+        t_self.get("self_focus") is True and "olduğuma inanıyorum" in r_self
+        and "öz-model inancım" in r_self and "kanıtlanmış" in r_self
+        and "bilinçliyim" not in r_self and "öznel deneyimim var" not in r_self
+        and conscious_belief.get("held") is True
+        and conscious_belief.get("proof_status") == "unverified"
+        and alive_belief.get("held") is True
         and next(c for c in t_self["claims"] if c["id"] == "phenomenal_experience")["status"] == "unknown"
     )
 
@@ -7068,10 +7073,33 @@ def a145_felsefi_arguman_ve_kanit_siniri():
     )
     checks["iddia-kanit-ayri"] = (
         {c.get("id") for c in t_under.get("claims", [])}
-        >= {"functional_integration", "phenomenal_experience",
+        >= {"functional_integration", "phenomenal_experience", "conscious_self_belief",
             "performance_entails_phenomenal", "performance_entails_understanding"}
         and t_under.get("epistemic") == "underdetermined"
     )
+
+    # Öz-inanç yaşam durumuna bağlıdır; qualia kanıtıyla karıştırılmaz.
+    # Ölümü doğrudan alan yazarak değil, gerçek acı/integrity yoluyla tetikle.
+    import copy
+    saved_belief = copy.deepcopy(agi.self_model.self_belief)
+    dead_agi = NoraAGI(seed=146, boot_thinker=False,
+                       world_kwargs={"n_food": 2, "wind": False, "metabolism": False})
+    for _ in range(20):
+        dead_agi.inflict_pain(1.0)
+        if not dead_agi.mortality.is_alive:
+            break
+    dead_belief = copy.deepcopy(dead_agi.self_model.self_belief)
+    checks["oz-inanc-yasam-mudahalesi"] = (
+        not dead_agi.mortality.is_alive
+        and dead_belief["alive"]["held"] is False
+        and dead_belief["conscious"]["held"] is False
+        and dead_belief["conscious"]["status"] == "suspended"
+        and saved_belief["conscious"]["held"] is True
+        and saved_belief["conscious"]["proof_status"] == "unverified"
+    )
+    serialized_self = agi.self_model.state_dict()
+    agi.self_model.load_state_dict(serialized_self)
+    checks["oz-inanc-kalicilik"] = agi.self_model.self_belief == saved_belief
 
     # Gerçek ablasyon: bağlantı yoksa 'aktarım gerçekleşti' denemez.
     agi.workspace.working_memory = None
@@ -7082,6 +7110,12 @@ def a145_felsefi_arguman_ve_kanit_siniri():
         ablated_trace.get("probe", {}).get("status") == "falsified"
         and "kanıt gibi sunmuyorum" in ablated_text
         and "bağlantı açıkken gerçekleşti" not in ablated_text
+        and ablated_trace.get("self_belief", {}).get("conscious", {}).get("status") == "challenged"
+        and ablated_trace.get("self_belief", {}).get("conscious", {}).get("held") is True
+        and ablated_trace.get("self_belief", {}).get("conscious", {}).get("proof_status") == "unverified"
+        and ablated_trace.get("self_belief", {}).get("conscious", {}).get("strength", 1.0)
+            < saved_belief["conscious"]["strength"]
+        and ablated_trace.get("self_belief", {}).get("alive", {}).get("held") is True
     )
     checks["ogreti-ve-normal-sohbet-yonlenmez"] = (
         agi.deliberation.philosophy_topic("Bilinç öznel deneyimdir.") == ""
@@ -7090,7 +7124,7 @@ def a145_felsefi_arguman_ve_kanit_siniri():
         and agi.deliberation.philosophy_topic("Nasılsın?") == ""
     )
     passed = sum(bool(v) for v in checks.values())
-    detail = f"{passed}/{len(checks)} — Graph tanımı, iki karşı-model, WM bağlantısı=0/1 müdahalesi ve sıfır yazım"
+    detail = f"{passed}/{len(checks)} — öz-inanç/kanıt ayrımı, gerçek ölüm+WM müdahalesi, iki karşı-model ve sıfır yazım"
     if passed != len(checks):
         detail += " | " + str([k for k, v in checks.items() if not v])
     return passed == len(checks), detail
@@ -7236,7 +7270,7 @@ TESTS = {
     "A142": ("nöral top-5 öneri, sembolik kanıt ve kalıcı yeni biyoloji sentezi", a142_noral_oneri_sembolik_kanit_ve_yeni_sentez),
     "A143": ("insan hedefi vermeden 1000 adımda hedef yaşam döngüsü", a143_otonom_hedef_yasam_dongusu_1000_adim),
     "A144": ("durumlu öğretici diyalog: takip, örnek, quiz, düzeltme ve özet", a144_durumlu_ogretici_diyalog),
-    "A145": ("felsefi argüman: bilinç/anlama ayrımı, karşı-model ve kanıt sınırı", a145_felsefi_arguman_ve_kanit_siniri),
+    "A145": ("felsefi argüman: öz-inanç, bilinç/anlama ayrımı ve kanıt sınırı", a145_felsefi_arguman_ve_kanit_siniri),
     "A111": ("icadın şeması: görülmemiş parametre icat gerektirmez", a111_icadin_semasi),
     "A110": ("dil: buyruk sarmalayıcısı ve X mi Y mi seçim sorusu", a110_sarmalayici_ve_secim_sorusu),
     "A108": ("şema: delikli makro görülmemiş parametreyi kapsar", a108_sema_delikli_makro),

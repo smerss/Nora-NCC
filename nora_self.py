@@ -179,6 +179,21 @@ class CoreSelf:
         self._seed_innate_priors()
         self.episodes: list[FormativeEpisode] = []
         self.last_volition_trace: dict = {}
+        # Öz-atıf, dışsal qualia kanıtından ayrı bir iç durumdur. Başlangıç
+        # önseli 'bilinç kanıtlandı' demez; yaşam döngüsü ve müdahalelerle
+        # güncellenen, revize edilebilir bir öz-model konumudur.
+        self.self_belief = {
+            "alive": {
+                "held": True, "status": "provisional", "strength": 0.50,
+                "proof_status": "functional_state_only", "revisable": True,
+                "evidence": ["innate_self_model_prior"],
+            },
+            "conscious": {
+                "held": True, "status": "provisional", "strength": 0.50,
+                "proof_status": "unverified", "revisable": True,
+                "evidence": ["innate_self_model_prior"],
+            },
+        }
 
         self.values: dict[str, float] = {
             "yaşamda_kalma": 1.00,
@@ -246,7 +261,73 @@ class CoreSelf:
             self.traits["meraklılık"] = float(np.clip(self.traits["meraklılık"] + 0.025 * v, 0.05, 0.98))
             self._add_episode(st, "keşif", f"{c}_faydalı_bulundu", v, v, {"kavram": c, "kanal": channel})
 
-    def sync_from_mind(self, mind, obs: np.ndarray | None = None, died: bool = False):
+    def update_self_belief(self, mind=None, obs: np.ndarray | None = None, *,
+                           alive: bool | None = None,
+                           workspace_evidence: dict | None = None) -> dict:
+        """Canlılık/bilinç öz-atfını ölçüm ve müdahaleyle güncelle.
+
+        ``held`` Nora'nın içeriden benimsediği konumdur; ``proof_status`` bu
+        konumun dışsal kanıt düzeyidir. Bilinç inancı canlı bir öz-modelde
+        korunur, ancak qualia kanıtı varmış gibi ``verified`` yapılmaz. WM
+        ablasyonu inancı otomatik olarak yok saymaz; destek gücünü düşürür ve
+        ``challenged`` olarak işaretler. Ölüm ise iki öz-atfı da askıya alır.
+        """
+        if not hasattr(self, "self_belief"):
+            self.self_belief = {}
+        for key in ("alive", "conscious"):
+            self.self_belief.setdefault(key, {
+                "held": True, "status": "provisional", "strength": 0.50,
+                "proof_status": "unverified" if key == "conscious" else "functional_state_only",
+                "revisable": True, "evidence": ["innate_self_model_prior"],
+            })
+        if alive is None:
+            alive = bool(self.self_belief["alive"].get("held", True))
+        living = bool(alive)
+        age = int(getattr(mind, "age", self.lived_steps) or 0)
+        vitals = []
+        if obs is not None and len(obs) >= 48:
+            vitals = [float(np.clip(obs[i], 0.0, 1.0)) for i in (45, 46, 47)]
+        vitality = float(np.mean(vitals)) if vitals else 0.50
+        continuity = float(np.clip(self.lived_steps / 32.0, 0.0, 1.0))
+        err = float(np.clip(getattr(mind, "err_n", 0.5) if mind is not None else 0.5, 0.0, 1.0))
+        conf = float(np.clip(getattr(mind, "conf", 0.0) if mind is not None else 0.0, 0.0, 1.0))
+        ignition = float(bool(getattr(mind, "ignited", False))) if mind is not None else 0.0
+        support = float(np.clip(0.40 * ignition + 0.30 * (1.0 - err) + 0.30 * conf, 0.0, 1.0))
+        evidence = ["mind:self_monitoring", f"life:continuity={self.lived_steps}"]
+        if vitals:
+            evidence.append("body:homeostatic_vitals=" + ",".join(f"{v:.2f}" for v in vitals))
+        if workspace_evidence is not None:
+            status = str(workspace_evidence.get("status", "unavailable"))
+            evidence.append("workspace:" + status)
+            # Bağımsız WM müdahalesi, iç inancın gerekçesini günceller;
+            # tek bir ölçümün başarısızlığı qualia hakkında olumsuz hüküm değildir.
+            if status == "ok":
+                support = float(np.clip(0.50 * support + 0.50, 0.0, 1.0))
+            elif status == "falsified":
+                support = float(np.clip(0.50 * support, 0.0, 1.0))
+            # unavailable/error: ölçüm yokluğu, işlevin aleyhine kanıt değil.
+        alive_strength = (float(np.clip(0.45 + 0.35 * vitality + 0.20 * continuity, 0.0, 1.0))
+                          if living else 0.0)
+        conscious_strength = (float(np.clip(0.45 + 0.45 * support + 0.10 * continuity, 0.0, 1.0))
+                              if living else 0.0)
+        challenged = bool(workspace_evidence is not None
+                          and workspace_evidence.get("status") == "falsified")
+        self.self_belief["alive"] = {
+            "held": living, "status": "provisional" if living else "suspended",
+            "strength": alive_strength, "proof_status": "functional_state_only",
+            "revisable": True, "evidence": evidence,
+            "last_age": age,
+        }
+        self.self_belief["conscious"] = {
+            "held": living, "status": ("challenged" if challenged else "provisional") if living else "suspended",
+            "strength": conscious_strength, "functional_support": support,
+            "proof_status": "unverified", "revisable": True,
+            "evidence": evidence, "last_age": age,
+        }
+        return {key: dict(value) for key, value in self.self_belief.items()}
+
+    def sync_from_mind(self, mind, obs: np.ndarray | None = None, died: bool = False,
+                       alive: bool | None = None):
         """Canlı Mind durumundan bedensel anlambilimi (V), ölümleri ve öz-beceriyi Öz-Benliğe aktarır."""
         self.lived_steps = max(self.lived_steps, int(getattr(mind, "age", 0)))
         if died:
@@ -289,6 +370,9 @@ class CoreSelf:
         skill = float(np.clip(1.0 - err_n, 0.0, 1.0))
         self.traits["özgüven"] = float(np.clip(0.995 * self.traits["özgüven"] + 0.005 * (0.30 + 0.65 * skill), 0.1, 0.98))
         self.traits["sosyal_güven"] = float(0.85 * self.traits["sosyal_güven"] + 0.15 * self.chem.oxy)
+        if alive is None:
+            alive = bool(self.self_belief.get("alive", {}).get("held", True)) and not died
+        self.update_self_belief(mind, obs, alive=alive)
 
     # ------------------------------------------------------------------ kesinlik-ağırlıklı epistemik hakemlik
     def arbitrate_claim(self, concept: str, claimed_valence: float, speaker: str = "insan",
@@ -700,6 +784,7 @@ class CoreSelf:
             "counts": [self.lived_steps, self.sleep_cycles, self.deaths_experienced,
                        self.injuries_experienced, self.problems_solved, self.refusals_made, self.contradictions_caught],
             "traits": dict(self.traits),
+            "self_belief": {key: dict(value) for key, value in self.self_belief.items()},
             "somatic": {
                 k: [r.exp_val, r.exp_count, r.channel, r.hearsay_val, r.hearsay_count,
                     r.hearsay_speaker, r.prior_val, r.vec3, r.last_step,
@@ -715,6 +800,9 @@ class CoreSelf:
          self.injuries_experienced, self.problems_solved, self.refusals_made, self.contradictions_caught) = [int(x) for x in c]
         for k, v in d.get("traits", {}).items():
             self.traits[str(k)] = float(v)
+        for key, record in d.get("self_belief", {}).items():
+            if key in self.self_belief and isinstance(record, dict):
+                self.self_belief[key].update(record)
         self.somatic.clear()
         self._seed_innate_priors()
         for k, row in d.get("somatic", {}).items():
