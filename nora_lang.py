@@ -25,7 +25,10 @@ from dataclasses import dataclass, field
 import re
 import numpy as np
 
-from nora_chem import NeuroChemistry, ChemMushroomBody
+from nora_chem import NeuroChemistry, ChemMushroomBody, HDCMushroomBody
+from nora_apply import Interpreter
+from nora_forge import OperatorForge
+from nora_synth import Synthesizer
 from nora_knowledge import (
     PROPER_NOUNS,
     VOWEL_DROP_STEMS,
@@ -1790,11 +1793,17 @@ class TurkishMorphology:
 @dataclass
 class RelationEdge:
     subj: str
-    rel: str                  # ISA | HAS_PROP | CAN_DO | CANNOT_DO | CAUSES | USED_FOR | LOCATED_AT | IF_THEN | OPPOSITE
+    rel: str                  # bilinen ilişki veya öğrenilmiş YENI_OPERATOR_* kimliği
     obj: str
     weight: float = 1.0
     source: str = "duyum"     # deneyim | duyum | doğuştan
     speaker: str = "insan"
+    status: str = "accepted" # accepted | provisional | probation | rejected
+    verb: str = ""           # icat edilen ilişkinin duyulan fiil kökü
+    obj_surface: str = ""    # artikülasyon için öğrenilen nesne yüzeyi
+    obj_case: str = "NOM"
+    obj_plural: bool = False
+    sentence: str = ""       # kanıt/kaynak; cevap şablonu olarak kullanılmaz
 
 
 @dataclass
@@ -1808,6 +1817,10 @@ class Proposition:
     person: str = "3SG"
     source: str = "deneyim"
     reason: "Proposition | None" = None
+    verb: str = ""
+    obj_surface: str = ""
+    obj_case: str = "NOM"
+    obj_plural: bool = False
 
 
 class GroundedConceptGraph:
@@ -1830,6 +1843,20 @@ class GroundedConceptGraph:
         self.id_concept: list[str] = []
         # Karakter-üçlüsü (trigram) -> seyrek Kenyon hücresi ile fonolojik-kavramsal çağrışım!
         self.word_mb = ChemMushroomBody(n_in=128, n_out=32, n_kc=2048, seed=seed + 11)
+        # ANLAM KARARI: önerme adayları HDC/VSA bağlı ~%6 seyrek KC kodundan ve
+        # W_fast/W_slow aktivasyonundan çıkar. Graf bu adayları sonradan doğrular.
+        self.relation_mb = HDCMushroomBody(dim=256, n_kc=2048, sparsity=0.06, seed=seed + 71)
+        self.relation_ledger: dict[str, dict] = {}
+        self.relation_by_verb: dict[str, str] = {}
+        self.last_decision: dict = {}
+        self.last_invention: dict = {}
+        self.neural_proposer = None
+        # Yeni ilişki operatörleri mevcut apply/forge/synth organlarında yaşar;
+        # hedef cümlelere özel şablon tablosu değildir.
+        self.relation_interpreter = Interpreter()
+        self.operator_forge = OperatorForge(interpreter=self.relation_interpreter, ledger_path=None)
+        self.relation_synth = Synthesizer()
+        self._relation_morph_examples: list[tuple[str, str]] = []
         self._bootstrap_embodied_primitives()
 
     def clear_all_edges(self):
@@ -1837,6 +1864,15 @@ class GroundedConceptGraph:
         self._out_edges.clear()
         self._in_edges.clear()
         self._edge_map.clear()
+        self.relation_mb.reset()
+        self.relation_ledger.clear()
+        self.relation_by_verb.clear()
+        self.relation_interpreter.relation_rules.clear()
+        self.operator_forge.relation_examples.clear()
+        self.relation_synth = Synthesizer()
+        self._relation_morph_examples.clear()
+        self.last_decision = {}
+        self.last_invention = {}
 
     def _trigram_vec(self, text: str) -> np.ndarray:
         v = np.zeros(128, dtype=np.float32)
@@ -1908,33 +1944,168 @@ class GroundedConceptGraph:
         for k_ant, v_ant in ANTONYMS.items():
             self.add_edge(k_ant, "OPPOSITE", v_ant, source="doğuştan", weight=0.85)
 
+    @staticmethod
+    def _relation_id(verb: str) -> str:
+        root = tr_lower(verb).strip()
+        surface = re.sub(r"[^\wçğıöşü]+", "_", root.upper(), flags=re.UNICODE).strip("_")
+        return f"YENI_OPERATOR_{surface}"
+
+    @staticmethod
+    def _aor_root(word: str) -> str:
+        """Sözlükte olmayan son sözcükte geniş-zaman ekini sözdizimi için ayır."""
+        w = tr_lower(word).strip().strip(".!?…")
+        for suffix in ("ar", "er", "ır", "ir", "ur", "ür"):
+            if w.endswith(suffix) and len(w) - len(suffix) >= 2:
+                return w[:-len(suffix)]
+        return ""
+
+    @staticmethod
+    def _dynamic_noun(word: str) -> str:
+        """Bilinmeyen adda yalnız açık çoğul/belirtme yüzeyini kavram gövdesine indir."""
+        w = tr_lower(word).strip().strip(".!?…")
+        for suffix in ("ları", "leri"):
+            if w.endswith(suffix) and len(w) > len(suffix) + 1:
+                return w[:-len(suffix)]
+        if w.endswith(("lar", "ler")) and len(w) > 4:
+            return w[:-3]
+        if len(w) > 3 and w.endswith(("ı", "i", "u", "ü")):
+            return w[:-1]
+        return w
+
     def add_edge(self, subj: str, rel: str, obj: str, source: str = "duyum",
-                 speaker: str = "insan", weight: float = 1.0, bind_mb: bool = True) -> RelationEdge:
+                 speaker: str = "insan", weight: float = 1.0, bind_mb: bool = True,
+                 status: str = "accepted", verb: str = "", obj_surface: str = "",
+                 obj_case: str = "NOM", obj_plural: bool = False,
+                 sentence: str = "") -> RelationEdge:
         s = tr_lower(subj).strip()
         o = tr_lower(obj).strip()
+        rel = str(rel).strip()
         self.register_concept(s, bind_mb=bind_mb)
         self.register_concept(o, bind_mb=bind_mb)
-        # O(1) mevcut sinaps kontrolü + zıt kutuplu çelişen eski 'duyum' bağını zayıflatma
         existing = self._edge_map.get((s, rel, o))
         if existing is not None:
             existing.weight = float(min(2.0, existing.weight + 0.4 * weight))
             if source == "deneyim":
                 existing.source = "deneyim"
+                existing.status = "accepted"
             return existing
-        opposite_rel = {"CAN_DO": "CANNOT_DO", "CANNOT_DO": "CAN_DO"}.get(rel)
-        if opposite_rel is not None:
-            opp_edge = self._edge_map.get((s, opposite_rel, o))
-            if opp_edge is not None and opp_edge.source != "deneyim":
-                opp_edge.weight *= 0.2
+        # Zıt kanıt eski kenarı ezmez. CAN_DO/CANNOT_DO birlikte kalır; sorguda
+        # doğrudan ve daha özgül kanıt üstün gelir. Ağırlık silmek çözüm değildir.
 
-        edge = RelationEdge(subj=s, rel=rel, obj=o, weight=float(weight), source=source, speaker=speaker)
+        edge = RelationEdge(
+            subj=s, rel=rel, obj=o, weight=float(weight), source=source, speaker=speaker,
+            status=str(status), verb=tr_lower(verb).strip(), obj_surface=str(obj_surface),
+            obj_case=str(obj_case or "NOM"), obj_plural=bool(obj_plural), sentence=str(sentence),
+        )
         self.edges.append(edge)
+        slot = len(self.edges) - 1
         self._out_edges.setdefault(s, []).append(edge)
-        self._in_edges.setdefault(o, []).append(edge)   # ters arama: "dünyanın en yüksek dağı" -> everest
+        self._in_edges.setdefault(o, []).append(edge)
         self._edge_map[(s, rel, o)] = edge
-        if source != "doğuştan":
+        # Tek olay -> HDC/VSA rol bağlama; gradyan ve replay yok.
+        self.relation_mb.bind_relation(s, rel, o, slot)
+        if source != "doğuştan" and self.chem is not None:
             self.chem.pulse_learning(novelty=0.80, valence=0.35)
         return edge
+
+    def invent_relation(self, source: str, target: str, sentence: str, verb: str,
+                        *, obj_surface: str = "", obj_case: str = "NOM",
+                        obj_plural: bool = False) -> dict:
+        """Bilinmeyen yüklemi ISA'ya çevirmeden probation ilişki olarak icat et.
+
+        Nöral önerici yalnız aday üretir. Yön/çelişki denetimi ve varsa kanıt
+        sembolik graftan gelir; hiçbir aday otomatik olarak kabul edilmiş genel
+        yasaya dönüşmez. Operatör nesnesi mevcut forge/apply hattına yazılır.
+        """
+        s, o = tr_lower(source).strip(), tr_lower(target).strip()
+        root = tr_lower(verb).strip()
+        if not s or not o or not root:
+            result = {"status": "invalid", "mode": "none", "edge": None,
+                      "relation": "", "candidates": []}
+            self.last_invention = result
+            return result
+        rel = self._relation_id(root)
+        reverse_edge = self._edge_map.get((o, rel, s))
+        if reverse_edge is not None and reverse_edge.weight > 0.25:
+            conflict = {"source": s, "target": o, "sentence": sentence,
+                        "against": [reverse_edge.subj, reverse_edge.rel, reverse_edge.obj]}
+            rec = self.relation_ledger.setdefault(rel, {
+                "relation": rel, "verb": root, "status": "probation",
+                "observations": [], "conflicts": [], "candidates": [],
+            })
+            rec.setdefault("conflicts", []).append(conflict)
+            result = {"status": "conflict", "mode": "rejected", "edge": None,
+                      "relation": rel, "verb": root, "conflict": conflict,
+                      "candidates": []}
+            self.last_invention = result
+            return result
+
+        # A142 hattı: nöral top-k aday, ardından bağımsız graf kanıtı.
+        candidate_rows = []
+        proposer = getattr(self, "neural_proposer", None)
+        if proposer is not None:
+            try:
+                proposals = proposer.propose(s, k=5)
+            except Exception as exc:
+                proposals = []
+                candidate_rows.append({"status": "proposer_error", "error": type(exc).__name__})
+            allowed = {"ISA", "CAUSES", "USED_FOR", "LOCATED_AT", "YENI_OPERATOR"}
+            for proposal in proposals:
+                if tr_lower(str(proposal.get("obj", ""))) != o:
+                    continue
+                proposed_rel = str(proposal.get("rel", ""))
+                category = "YENI_OPERATOR" if proposed_rel.startswith("YENI_OPERATOR") else proposed_rel
+                if category not in allowed:
+                    continue
+                proof = self.prove_candidate(s, proposed_rel, o)
+                candidate_rows.append({
+                    **{k: proposal.get(k) for k in ("subj", "rel", "obj", "score", "neural_pair")},
+                    "category": category, "validation": proof.get("status"),
+                    "rule": proof.get("rule"), "accepted": proof.get("status") == "proved",
+                })
+
+        edge = self.add_edge(
+            s, rel, o, source="duyum", weight=0.62, status="probation", verb=root,
+            obj_surface=obj_surface or target, obj_case=obj_case,
+            obj_plural=obj_plural, sentence=sentence,
+        )
+        if proposer is not None:
+            # Yalnız gözlem belleğine işaretçi eklenir; burada gradyan/epoch
+            # yoktur. Yeni operatör sonraki nöral top-k önerilerde de seçilebilir.
+            proposer.observe(s, rel, o)
+        forged = self.operator_forge.observe_relation(
+            source=s, target=o, sentence=sentence, verb=root, relation=rel,
+            status="probation",
+        )
+        self.relation_by_verb[root] = rel
+        surface_verb = tr_lower(sentence).strip().rstrip(".!?…").split()[-1]
+        pair = (surface_verb, root)
+        if pair not in self._relation_morph_examples:
+            self._relation_morph_examples.append(pair)
+        morphology = {"status": "insufficient", "why": "tek-biçim"}
+        if len(self._relation_morph_examples) >= 2:
+            morphology = self.relation_synth.learn(list(self._relation_morph_examples))
+            morphology = {k: v for k, v in morphology.items() if k != "program"}
+        rec = self.relation_ledger.setdefault(rel, {
+            "relation": rel, "verb": root, "status": "probation",
+            "observations": [], "conflicts": [], "candidates": [],
+        })
+        observation = {"source": s, "target": o, "sentence": sentence,
+                       "status": "probation"}
+        if observation not in rec["observations"]:
+            rec["observations"].append(observation)
+        rec["candidates"] = candidate_rows
+        rec["morphology"] = morphology
+        rec["operator"] = forged["rule"].rid
+        rec["mode"] = forged["mode"]
+        result = {
+            "status": "probation", "mode": forged["mode"], "edge": edge,
+            "relation": rel, "verb": root, "candidates": candidate_rows,
+            "operator": forged["rule"].rid, "morphology": morphology,
+            "new_binding": forged["new_binding"],
+        }
+        self.last_invention = result
+        return result
 
     def prove_candidate(self, subj: str, rel: str, obj: str) -> dict:
         """Nöral öneriyi SONRADAN denetle; aday veya dikkat zinciri üretme.
@@ -1949,6 +2120,15 @@ class GroundedConceptGraph:
         direct = self._edge_map.get((q, r, o))
         if direct is not None and direct.weight > 0.25:
             return {"status": "recall", "novel": False, "proof": [direct], "rule": "direct"}
+        # Verilen adayın çok-basamaklı ISA mirasını doğrula. Bu yol aday
+        # üretmez; yalnız dışarıdan gelen (q,r,o) üçlüsünün yönünü denetler.
+        for ancestor, isa_path in self.ancestors(q):
+            if not isa_path:
+                continue
+            inherited = self._edge_map.get((ancestor, r, o))
+            if inherited is not None and inherited.weight > 0.25:
+                return {"status": "proved", "novel": True,
+                        "proof": list(isa_path) + [inherited], "rule": "isa_inheritance"}
         edges = [edge for edge in self.edges if edge.weight > 0.25]
         transitive = {"ISA", "PART_OF", "CAUSES", "IF_THEN"}
         for first in edges:
@@ -2003,25 +2183,72 @@ class GroundedConceptGraph:
         return out
 
     def query(self, subj: str, rels: tuple[str, ...] | None = None) -> list[tuple[RelationEdge, list[RelationEdge]]]:
-        """O(k) yerel sinaps komşuluğu üzerinden doğrudan + kalıtsal özellikleri döndürür."""
-        chain = self.ancestors(subj)
+        """MB aktivasyonuyla aday getir; graf ile kenar/yön kanıtını doğrula.
+
+        ``ancestors`` burada aday üretmek için kullanılmaz. MB'den gelen ISA
+        önermesi doğrulandığında bir üst kavrama yayılınır. Böylece sembolik
+        kapanış listesini okuyup ona "nöral karar" demek mümkün değildir.
+        """
+        start = tr_lower(subj).strip()
+        frontier: list[tuple[str, list[RelationEdge]]] = [(start, [])]
+        visited: set[str] = set()
         blocked_actions: set[str] = set()
         results: list[tuple[RelationEdge, list[RelationEdge]]] = []
-        for anc, isa_path in chain:
-            for e in self._out_edges.get(anc, ()):
-                if e.weight <= 0.25:
+        reads = []
+        validated = 0
+        rejected = 0
+        for _hop in range(5):
+            next_frontier: list[tuple[str, list[RelationEdge]]] = []
+            for current, isa_path in frontier:
+                if current in visited:
                     continue
-                if e.rel == "CANNOT_DO":
-                    blocked_actions.add(e.obj)
-                if rels is not None and e.rel not in rels:
-                    continue
-                if e.rel == "CAN_DO" and e.obj in blocked_actions and len(isa_path) > 0:
-                    continue
-                results.append((e, isa_path))
+                visited.add(current)
+                recalled = self.relation_mb.recall_subject(current)
+                read = dict(self.relation_mb.last_recall)
+                read["concept"] = current
+                reads.append(read)
+                for slot, activation in recalled:
+                    if not 0 <= slot < len(self.edges):
+                        rejected += 1
+                        continue
+                    edge = self.edges[slot]
+                    # Bağımsız sembolik doğrulama: MB aktivasyonu tek başına
+                    # dünya bilgisi değildir; indeks, özne ve canlı kenar tutmalı.
+                    if (edge.subj != current or edge.weight <= 0.25
+                            or self._edge_map.get((edge.subj, edge.rel, edge.obj)) is not edge):
+                        rejected += 1
+                        continue
+                    validated += 1
+                    edge._last_mb_activation = float(activation)
+                    if edge.rel == "CANNOT_DO":
+                        blocked_actions.add(edge.obj)
+                    if edge.rel == "ISA" and edge.obj not in visited:
+                        next_frontier.append((edge.obj, list(isa_path) + [edge]))
+                    if rels is not None and edge.rel not in rels:
+                        continue
+                    if edge.rel == "CAN_DO" and edge.obj in blocked_actions and isa_path:
+                        continue
+                    results.append((edge, list(isa_path)))
+            frontier = next_frontier
+            if not frontier:
+                break
+        self.last_decision = {
+            "engine": "hdc_mb", "awake": True, "replay": 0,
+            "graph_validated": True, "query": start,
+            "validated_candidates": validated, "rejected_candidates": rejected,
+            "results": len(results), "reads": reads,
+            "active_kc": reads[-1].get("active_kc", 0) if reads else 0,
+            "actual_sparsity": reads[-1].get("actual_sparsity", 0.0) if reads else 0.0,
+            "target_sparsity": 0.06,
+        }
         return results
 
     def causal_chain(self, subj: str, max_hops: int = 4) -> list[tuple[str, list[RelationEdge]]]:
-        """O(k) yerel sinaps komşuluğu üzerinden CAUSES ve IF_THEN çok-adımlı ileri yayılımı."""
+        """MB'den doğrulanan CAUSES/IF_THEN kenarlarıyla ileri yayılım.
+
+        Doğrudan graf komşuluğu burada da cevap kaynağı değildir; her düğümün
+        giden nedensel adayı ``query`` içindeki HDC/MB okumasından gelir.
+        """
         s = tr_lower(subj).strip()
         visited = {s}
         frontier: list[tuple[str, list[RelationEdge]]] = [(s, [])]
@@ -2029,12 +2256,13 @@ class GroundedConceptGraph:
         for _ in range(max_hops):
             nxt = []
             for cur, path in frontier:
-                for e in self._out_edges.get(cur, ()):
-                    if e.rel in ("CAUSES", "IF_THEN") and e.weight > 0.25 and e.obj not in visited:
-                        visited.add(e.obj)
-                        npath = path + [e]
-                        out.append((e.obj, npath))
-                        nxt.append((e.obj, npath))
+                for e, _isa_path in self.query(cur, ("CAUSES", "IF_THEN")):
+                    if e.obj in visited:
+                        continue
+                    visited.add(e.obj)
+                    npath = path + [e]
+                    out.append((e.obj, npath))
+                    nxt.append((e.obj, npath))
             frontier = nxt
             if not frontier:
                 break
@@ -2143,6 +2371,21 @@ class GroundedConceptGraph:
         t_stem = TurkishMorphology.analyze_word(t_parts[-1], self.lexicon)["stem"] if t_parts else ""
         t_phrase_stem = (" ".join(t_parts[:-1] + [t_stem])).strip() if len(t_parts) > 1 else t_stem
 
+        # Öğrenilmiş yeni operatör: yüklem artık sözlükte olmasa bile aynı
+        # sözdizimsel rol çözümlemesiyle sorgulanır. ISA'ya veya CAN_DO'ya
+        # sessizce çevrilmez; kendi probation ilişki kimliği aranır.
+        dynamic_root = self._aor_root(t_parts[-1]) if t_parts else ""
+        dynamic_rel = self.relation_by_verb.get(dynamic_root, "")
+        if dynamic_rel:
+            obj_parts = t_parts[:-1]
+            if obj_parts:
+                dynamic_obj = " ".join(obj_parts[:-1] + [self._dynamic_noun(obj_parts[-1])]).strip()
+                for edge, isa_path in self.query(s, (dynamic_rel,)):
+                    if edge.obj == dynamic_obj:
+                        return {"answer": True, "edge": edge, "isa_path": isa_path,
+                                "invented_relation": dynamic_rel}
+            return {"answer": None, "edge": None, "isa_path": []}
+
         # 1) Doğrudan veya kalıtsal negatif istisna var mı?
         for e, isa_path in self.query(s, ("CANNOT_DO",)):
             e_last = TurkishMorphology.analyze_word(e.obj.split()[-1], self.lexicon)["stem"] if e.obj else ""
@@ -2162,7 +2405,7 @@ class GroundedConceptGraph:
                 return {"answer": True, "edge": cpath[-1], "isa_path": [], "causal_path": cpath}
 
         # 4) Zıt özellik kontrolü (ör. 'ateş soğuk mudur?' -> ateş sıcaktır, sıcak != soğuk -> Hayır!)
-        opposites = {e.obj for e in self._out_edges.get(t_stem, ()) if e.rel == "OPPOSITE"}
+        opposites = {e.obj for e, _path in self.query(t_stem, ("OPPOSITE",))}
         if opposites:
             for e, isa_path in self.query(s, ("HAS_PROP",)):
                 if e.obj in opposites:
@@ -2178,12 +2421,11 @@ class GroundedConceptGraph:
             if e_ab.obj == b_l:
                 for e_c, _ in self.query(c_l, (e_ab.rel,)):
                     return e_c.obj, e_ab.rel
-        # 2) Zıtlık ilişkisi
-        for e in self._out_edges.get(a_l, ()):
-            if e.rel == "OPPOSITE" and e.obj == b_l:
-                for e2 in self._out_edges.get(c_l, ()):
-                    if e2.rel == "OPPOSITE":
-                        return e2.obj, "OPPOSITE"
+        # 2) Zıtlık ilişkisi (adaylar da MB aktivasyonundan gelir)
+        for e, _path in self.query(a_l, ("OPPOSITE",)):
+            if e.obj == b_l:
+                for e2, _path in self.query(c_l, ("OPPOSITE",)):
+                    return e2.obj, "OPPOSITE"
         return None, ""
 
 
@@ -2404,6 +2646,16 @@ class BrocaGenerator:
             v_form = self.morph.conjugate_verb(o, tense=p.tense, neg=p.neg, person="1SG")
             return f"{s} {v_form}".strip() if s else v_form
 
+        if r.startswith("YENI_OPERATOR_"):
+            # Yeni ilişkinin operatörü koda gömülü değildir: duyulan fiil kökü
+            # ve nesne hâl/çoğul bilgisi önermeyle Broca'ya gelir.
+            root = p.verb or tr_lower(r[len("YENI_OPERATOR_"):])
+            obj = p.obj_surface
+            if not obj and o:
+                obj = self.morph.inflect_noun(o, p.obj_case, plural=p.obj_plural)
+            v_form = self.morph.conjugate_verb(root, tense=p.tense, neg=p.neg, person=p.person)
+            return f"{s} {obj} {v_form}".strip()
+
         return f"{s} {o}".strip()
 
     def compose(self, main: Proposition, reason: Proposition | None = None,
@@ -2427,8 +2679,13 @@ class BrocaGenerator:
                                 edge: RelationEdge, isa_path: list[RelationEdge]) -> str:
         """Geçişli çıkarım zincirini ('karga -> kuş -> uçar') adım adım cümleye döker."""
         if not isa_path:
-            # Doğrudan bilgi
-            main = Proposition(subj=subj, rel=edge.rel, obj=edge.obj, neg=(not answer and edge.rel != "CANNOT_DO"))
+            # Doğrudan bilgi; yeni ilişkinin fiil ve hâl bilgisi de MB'nin
+            # doğrulanmış önermesinden Broca'ya taşınır.
+            main = Proposition(
+                subj=subj, rel=edge.rel, obj=edge.obj,
+                neg=(not answer and edge.rel != "CANNOT_DO"), verb=edge.verb,
+                obj_surface=edge.obj_surface, obj_case=edge.obj_case, obj_plural=edge.obj_plural,
+            )
             prefix = "Evet" if answer else "Hayır"
             ep = "deneyimime göre" if edge.source == "deneyim" else ""
             return self.compose(main, prefix=prefix, epistemic_note=ep)
@@ -2436,9 +2693,15 @@ class BrocaGenerator:
         # Geçişli çıkarım: 'Evet, karga bir kuştur ve kuş uçar; dolayısıyla karga uçar.'
         first_isa = isa_path[0]
         p1 = self.realize_prop(Proposition(subj=first_isa.subj, rel="ISA", obj=first_isa.obj))
-        p2 = self.realize_prop(Proposition(subj=edge.subj, rel=edge.rel, obj=edge.obj))
-        concl = self.realize_prop(Proposition(subj=subj, rel=edge.rel if answer else "CANNOT_DO",
-                                              obj=edge.obj if not pred else edge.obj))
+        p2 = self.realize_prop(Proposition(
+            subj=edge.subj, rel=edge.rel, obj=edge.obj, verb=edge.verb,
+            obj_surface=edge.obj_surface, obj_case=edge.obj_case, obj_plural=edge.obj_plural,
+        ))
+        concl = self.realize_prop(Proposition(
+            subj=subj, rel=edge.rel if answer else "CANNOT_DO", obj=edge.obj,
+            verb=edge.verb, obj_surface=edge.obj_surface,
+            obj_case=edge.obj_case, obj_plural=edge.obj_plural,
+        ))
         prefix = "Evet" if answer else "Hayır"
         txt = f"{prefix}, {p1} ve {p2}; dolayısıyla {concl}"
         return tr_capitalize(txt) + "."
@@ -2457,6 +2720,9 @@ class SemanticFrame:
     sub_kind: str = ""
     wh: str = ""              # soru sözcüğü: nasıl | neden | nerede | kim | ne ...
     obj_surface: str = ""     # özel/taksonomik adın duyulan yüzeyi; anlam anahtarı obj'de kalır
+    verb: str = ""            # bilinmeyen yüklem için sözdiziminden çıkarılan kök
+    obj_case: str = "NOM"
+    obj_plural: bool = False
 
 
 class WernickeComprehender:
@@ -3122,6 +3388,48 @@ class WernickeComprehender:
                 return cand, tokens[n:]
         return self._np_from_tokens(tokens[:1]), tokens[1:]
 
+    def _parse_invented_svo(self, s_raw: str, words: list[str]) -> SemanticFrame | None:
+        """Sözlük dışı geniş-zaman yüklemde özne/nesne/yüklem rollerini çıkar.
+
+        Yüzeyin sonundaki -Ar ailesi tek başına anlam kanıtı değildir; en az bir
+        nesne/tümleç taşıyan SOV yapısı da gerekir. Böylece çoğul bir ad yüklem
+        diye yeni operatöre dönüştürülmez. Kök ve hâl bilgisi öğrenilir, ilişki
+        türü hazır ISA/CAN_DO sınıfına zorlanmaz.
+        """
+        if len(words) < 3:
+            return None
+        surface_verb = words[-1]
+        known = self.morph.analyze_word(surface_verb, self.graph.lexicon)
+        if known.get("is_verb") or known.get("copula"):
+            return None
+        root = GroundedConceptGraph._aor_root(surface_verb)
+        if not root or surface_verb in self.graph.lexicon:
+            return None
+        subject, object_tokens = self._take_leading_subject(words[:-1])
+        if not subject or not object_tokens:
+            return None
+        surface_obj = object_tokens[-1]
+        an = self.morph.analyze_word(surface_obj, self.graph.lexicon)
+        if (an.get("stem") and an.get("stem") != surface_obj
+                and (an.get("case") != "NOM" or an.get("plural"))):
+            head = str(an["stem"])
+        else:
+            head = GroundedConceptGraph._dynamic_noun(surface_obj)
+        obj = " ".join(list(object_tokens[:-1]) + [head]).strip()
+        if not obj or obj == subject:
+            return None
+        obj_case = str(an.get("case") or "NOM")
+        if obj_case == "NOM" and surface_obj.endswith(("ları", "leri")):
+            obj_case = "ACC"
+        elif obj_case == "NOM" and surface_obj.endswith(("da", "de", "ta", "te")):
+            obj_case = "LOC"
+        obj_plural = bool(an.get("plural") or surface_obj.endswith(("lar", "ler", "ları", "leri")))
+        return SemanticFrame(
+            kind="invent_relation", raw=s_raw, subj=subject, rel="YENI_OPERATOR",
+            obj=obj, verb=root, obj_surface=" ".join(object_tokens),
+            obj_case=obj_case, obj_plural=obj_plural, sub_kind="SVO",
+        )
+
     def _parse_declarative(self, s_raw: str, s: str, words: list[str]) -> SemanticFrame:
         # Söylemsel dolgu zarflarını ('bence', 'aslında', 'kesinlikle', 'bana göre') özneden ayıkla!
         s = re.sub(r"^(?:bence|aslında|kesinlikle|gerçekten|şüphesiz|bana\s+göre|biliyor\s+musun)\s+", "", s.strip())
@@ -3439,6 +3747,13 @@ class WernickeComprehender:
                 return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj,
                                      rel="ISA" if has_gen_pred else "HAS_PROP", obj=pred)
 
+        # Bilinmeyen yüklem: nominal özellik/ISA diye yazmadan önce SOV
+        # sözdizimiyle yeni ilişki adayını ayır.
+        invented = self._parse_invented_svo(s_raw, words)
+        if invented is not None:
+            self.last_topic = invented.subj
+            return invented
+
         # Fiil mi koşaçlı sıfat mı? ('kuşlar uçar', 'penguen uçmaz' vs 'ateş sıcaktır')
         last_an = dict(self.morph.analyze_word(rest_words[-1], self.graph.lexicon))
         if not last_an.get("is_verb") and not last_an.get("copula"):
@@ -3583,12 +3898,31 @@ class NoraLanguage:
                 try:
                     _pl = self.wernicke.parse(_l2)
                     _pr = self.wernicke.parse(_r2)
-                    _ok2 = (_pl.kind == "teach_fact" and _pr.kind == "teach_fact"
+                    _ok2 = (_pl.kind == "teach_fact"
+                            and _pr.kind in {"teach_fact", "invent_relation"}
                             and getattr(_pl, "obj", "") and getattr(_pr, "obj", ""))
                 except Exception:
                     _ok2 = False
                 if _ok2:
-                    clauses.extend([_l2, _r2])
+                    # "X bir Y'dir, kayaları keser"de sağ yarım yüklem
+                    # kendi öznesini düşürmüştür. Nesne hâli/çokluk-belirtme
+                    # kanıtı varsa özne soldan devralınır; "kaya" özne yapılmaz.
+                    _rw = re.findall(r"[\wçğıöşü]+", tr_lower(_r2))
+                    _an_r = self.wernicke._tok(_rw[0]) if _rw else {}
+                    _object_marked = bool(
+                        _an_r.get("case") in self.wernicke.OBLIQUE
+                        or (_rw and _rw[0].endswith(("ları", "leri")))
+                    )
+                    if _object_marked and getattr(_pl, "subj", ""):
+                        _candidate = f"{_pl.subj} {_r2}"
+                        try:
+                            _pc = self.wernicke.parse(_candidate)
+                        except Exception:
+                            _pc = None
+                        if (_pc is not None and _pc.kind in {"teach_fact", "invent_relation"}
+                                and _pc.subj == _pl.subj and getattr(_pc, "obj", "")):
+                            _r2 = _candidate
+                    _expanded.extend([_l2, _r2])
                     continue
             _expanded.append(cl)
         clauses = _expanded
@@ -3603,7 +3937,15 @@ class NoraLanguage:
                 if len(token) >= 2 and token.isupper() and any(ch.isalpha() for ch in token):
                     self.graph.register_display_name(token, token)
             fr = self.wernicke.parse(cl)
-            if fr.kind == "teach_fact":
+            if fr.kind == "invent_relation":
+                invented = self.graph.invent_relation(
+                    fr.subj, fr.obj, cl, fr.verb,
+                    obj_surface=fr.obj_surface, obj_case=fr.obj_case,
+                    obj_plural=fr.obj_plural,
+                )
+                if invented.get("edge") is not None:
+                    learned.append(invented["edge"])
+            elif fr.kind == "teach_fact":
                 if getattr(fr, "obj_surface", ""):
                     self.graph.register_display_name(fr.obj, fr.obj_surface)
                 if not self._teachable_predicate(fr.obj):
@@ -3622,6 +3964,16 @@ class NoraLanguage:
                     learned.append(self.graph.add_edge(fr.subj, "HAS_PROP", adj, source="duyum", speaker=speaker))
                 else:
                     learned.append(self.graph.add_edge(fr.subj, fr.rel, fr.obj, source="duyum", speaker=speaker))
+                    # "X bir Y türüdür" ifadesinde tür kavramı ile üst kavram
+                    # arasındaki genel köprü de öğrenilir. Böylece yüzeydeki
+                    # "türü" sözcüğü ISA zincirini koparmaz; kural bütün tür
+                    # adlarına uygulanır, belirli bir hedefe özel değildir.
+                    if fr.rel == "ISA" and fr.obj.endswith((" türü", " tür")):
+                        parent = fr.obj.rsplit(" ", 1)[0].strip()
+                        if parent and parent != fr.subj:
+                            learned.append(self.graph.add_edge(
+                                fr.obj, "ISA", parent, source="duyum", speaker=speaker,
+                            ))
             elif fr.kind == "teach_val":
                 learned.append(self.graph.add_edge(fr.subj, fr.rel, fr.obj, source="duyum", speaker=speaker))
         return learned

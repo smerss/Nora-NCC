@@ -20,14 +20,17 @@ açıp kapattığı canlı bir elektro-kimyasal süreçtir:
 
 Bileşenler:
   NeuroChemistry       6 endojen nöromodülatörün homeostatik ve bilişsel dinamikleri
-  ChemMushroomBody     Sinek mantar cismi + Tamamlayıcı Öğrenme Sistemleri (CLS):
-                       - Seyrek Kenyon hücreleri (k-WTA, ~%3.5 aktif -> sıfır girişim)
+  ChemMushroomBody     Biyolojik esinli mantar cismi + Tamamlayıcı Öğrenme Sistemleri (CLS):
+                       - Seyrek Kenyon hücreleri (k-WTA; düşük girişimli kod)
                        - Hızlı hipokampal sinapslar (W_fast: ACh x DA kapılı 1-shot öğrenme)
-                       - Yavaş neokortikal sinapslar (W_slow: uyku tekrarında sinaptik
-                         etiketleme-yakalama ve metaplofastik sertlik S ile yıkıcı unutma koruması)
+                       - Yavaş neokortikal sinapslar (W_slow: replay'siz uyku bakımında
+                         etiketleme-yakalama ve metaplofastik sertlik S ile korunum)
                        - Yapısal nörogenez (kapasite dolduğunda yeni KC grupları büyütme)
+  HDCMushroomBody      Rol–dolgu HDC/VSA bağlama, %6 k-WTA ve MB karar okuması
 """
 from __future__ import annotations
+
+import hashlib
 
 import numpy as np
 
@@ -206,7 +209,7 @@ class NeuroChemistry:
 
 
 class ChemMushroomBody:
-    """Nörokimyasal Tamamlayıcı Öğrenme Sistemi (Sinek Mantar Cismi + Sinaptik Konsolidasyon + Nörogenez).
+    """Nörokimyasal Tamamlayıcı Öğrenme Sistemi (Mantar Cismi + Sinaptik Bakım + Nörogenez).
 
     Neden epoch gerekmez ve neden yıkıcı unutma olmaz?
       1. Seyrek Ortogonal Kod (APL k-WTA, ~%3 aktif KC): Her kavram yalnızca ~60-90 nöronu ateşler;
@@ -241,6 +244,7 @@ class ChemMushroomBody:
         self.kc_usage = np.zeros(self.n_kc, np.float32)             # kapasite izleme
         self.episodic_buffer: list[tuple[np.ndarray, int, float]] = []
         self.growth_events = 0
+        self.last_learning: dict = {}
 
     def _sample_claws(self, count: int) -> np.ndarray:
         return np.stack([self.rng.choice(self.n_in, self.claws, replace=False) for _ in range(count)]).astype(np.int32)
@@ -344,24 +348,47 @@ class ChemMushroomBody:
             self.grow_neurogenesis(add_kc=512)
             idx = self.encode_kc(x)
 
-        # Yalnızca aktif KC sinapslarında yerel hata-güdümlü 3-faktörlü güncelleme (stiffness korumalı!)
+        # Yalnızca aktif KC sinapslarında yerel hata-güdümlü 3-faktörlü güncelleme.
         sc = self.scores(idx)
-        plasticity = 1.0 - 0.85 * self.stiff[target, idx]
         cur_target = float(sc[target])
         want = 1.0 if strength >= 0 else -0.6
+        # Zıt işaretli ve sertleşmiş bir bağla çakışma, eski sinapsı ezmek için
+        # gerekçe değildir: önce yeni KC kapasitesi açılır ve örnek yeni kodla yazılır.
+        conflict = bool(want * cur_target < -0.04
+                        and float(np.mean(self.stiff[target, idx])) > 0.45)
+        grew_for_conflict = False
+        if conflict and self.n_kc < 8192:
+            self.grow_neurogenesis(add_kc=512)
+            idx = self.encode_kc(x)
+            sc = self.scores(idx)
+            cur_target = float(sc[target])
+            grew_for_conflict = True
+
+        plasticity = 1.0 - 0.85 * self.stiff[target, idx]
         delta_pos = max(0.15, want - cur_target) if strength >= 0 else (want - cur_target)
         step_w = gate * delta_pos * plasticity
         self.W_fast[target, idx] = np.clip(self.W_fast[target, idx] + step_w, -2.5, 2.5)
         self.tags[target, idx] = np.maximum(self.tags[target, idx], np.abs(step_w))
+        # Uyanık öğrenilen bilgi hemen korunur; stiffness için uyku beklenmez.
+        self.stiff[target, idx] = np.maximum(
+            self.stiff[target, idx],
+            np.clip(0.08 + 0.24 * np.tanh(np.abs(self.W_fast[target, idx])), 0.0, 0.32),
+        )
 
-        # Yan-baskılama: yanlış ateşleyen rakip bölme varsa yalnızca konsolide OLMAYAN hızlı sinapsı zayıflat
+        # Yarışma skoru çıkışta okunur; rakip sınıfın eski sinapsını silmek
+        # "contrastive learning" değildir. Bu nedenle burada negatif ağırlık
+        # güncellemesi yoktur. Çakışma yalnız izlenir ve gerekirse nörogenez olur.
+        rival = -1
         if contrastive and self.n_out > 1 and strength > 0:
             sc_other = sc.copy()
             sc_other[target] = -1e9
             rival = int(np.argmax(sc_other))
-            if sc_other[rival] > 0.20:
-                riv_plast = 1.0 - 0.92 * self.stiff[rival, idx]
-                self.W_fast[rival, idx] -= 0.45 * gate * max(0.0, sc_other[rival] - 0.1) * riv_plast
+        self.last_learning = {
+            "target": int(target), "active_kc": int(len(idx)),
+            "conflict": conflict, "grew_for_conflict": grew_for_conflict,
+            "rival_observed_without_weight_erasure": rival,
+            "replay": 0, "gradient": 0,
+        }
 
         self.elig *= 0.75
         self.elig[idx] = 1.0
@@ -370,39 +397,171 @@ class ChemMushroomBody:
         self.episodic_buffer.append((idx.copy(), int(target), float(strength)))
         return nov
 
-    def sleep_consolidate(self, replay_steps: int = 32) -> dict[str, float]:
-        """Keskin-dalga dalgacığı (SWR) uykusu:
-        1) Epizodik tamponu yeniden oynatarak kenar ayrımlarını keskinleştirir.
-        2) Sinaptik etiketli (tags) hızlı hipokampal ağırlıkları yavaş neokortikal W_slow'a aktarır.
-        3) Konsolide sinapsların sertliğini (stiff) artırarak gelecekteki yıkıcı unutmayı kilitler."""
-        replayed = 0
-        if self.episodic_buffer:
-            n_rep = min(int(replay_steps), len(self.episodic_buffer))
-            order = self.rng.choice(len(self.episodic_buffer), size=n_rep, replace=False)
-            for bi in order:
-                idx, tgt, strg = self.episodic_buffer[int(bi)]
-                if tgt >= self.n_out or len(idx) == 0:
-                    continue
-                # Nörogenez sonrası eski indeksler her zaman geçerlidir (append-only KC büyümesi!)
-                sc = self.scores(idx)
-                err = max(0.0, 1.05 - float(sc[tgt])) if strg > 0 else 0.0
-                if err > 0.02:
-                    self.W_fast[tgt, idx] += 0.35 * err
-                    self.tags[tgt, idx] = np.maximum(self.tags[tgt, idx], 0.35 * err)
-                replayed += 1
+    def sleep_consolidate(self, replay_steps: int = 0) -> dict[str, float]:
+        """Uyku bakımı: örnek replay'i olmadan etiket yakalama ve homeostaz.
 
-        # Sinaptik yakalama (Synaptic Tagging & Capture): W_fast -> W_slow
+        İlk öğrenme uyanıkken ``learn_oneshot`` ile tamamlanır. Uyku artık
+        epizodik tampondan gradyan veya ek sunum üretmez; yalnız zaten yazılmış
+        sinapsları W_slow'a aktarır, stiffness'i artırır ve etiketsiz geçici
+        gürültüyü budar. Pozitif ``replay_steps`` istemek açıkça hata verir;
+        böylece eski gizli multi-epoch yolu geri dönemez.
+        """
+        if int(replay_steps) != 0:
+            raise ValueError("uyku replay'i kaldırıldı; replay_steps=0 olmalı")
+
+        # Sinaptik yakalama (Synaptic Tagging & Capture): W_fast -> W_slow.
+        # Bu işlem yeni bir örnek sunumu değil, mevcut sinapsın bakımıdır.
         tagged = self.tags > 0.05
         n_cons = int(tagged.sum())
         if n_cons > 0:
             transfer = 0.65 * self.W_fast[tagged]
             self.W_slow[tagged] = np.clip(self.W_slow[tagged] + transfer, -3.5, 3.5)
             self.W_fast[tagged] *= 0.35
-            self.stiff[tagged] = np.clip(self.stiff[tagged] + 0.35 * np.tanh(np.abs(self.W_slow[tagged])), 0.0, 0.98)
+            self.stiff[tagged] = np.clip(
+                self.stiff[tagged] + 0.35 * np.tanh(np.abs(self.W_slow[tagged])), 0.0, 0.98,
+            )
             self.tags[tagged] *= 0.2
-        # Etiketlenmemiş geçici gürültü sönümlenir (sinaptik homeostaz, Tononi & Cirelli SHY)
+        # Etiketlenmemiş geçici gürültü sönümlenir (sinaptik homeostaz).
         self.W_fast[~tagged] *= 0.95
-        return {"replayed": float(replayed), "consolidated_synapses": float(n_cons), "n_kc": float(self.n_kc)}
+        return {
+            "replayed": 0.0, "consolidated_synapses": float(n_cons),
+            "n_kc": float(self.n_kc), "mode": "maintenance_only",
+        }
+
+
+class HDCMushroomBody:
+    """HDC/VSA rol–dolgu bağlamasıyla çalışan içerik adresli mantar cismi.
+
+    Bir önerme yalnız bir kez dışarıdan sunulur. Olayın özne erişim anahtarı ve
+    tam ``özne–ilişki–nesne`` anahtarı, aynı çıkış hücresine iki ayrı seyrek
+    sinaptik bağla yazılır; ikinci yazım aynı örneği yeniden göstermek değildir.
+    Her önermenin ayrı çıkış bölmesi olduğundan yeni bilgi eski çıkış ağırlıklarını
+    ezmez. Okuma yalnız ``W_fast + W_slow`` aktivasyonlarından yapılır; sembolik
+    graf bu sınıfın içinde yoktur ve sonradan bağımsız doğrulayıcı olarak kalır.
+    """
+
+    def __init__(self, dim: int = 256, n_kc: int = 2048, claws: int = 9,
+                 sparsity: float = 0.06, seed: int = 0):
+        self.dim = int(dim)
+        self.seed = int(seed)
+        self.initial_n_kc = int(n_kc)
+        self.sparsity = float(sparsity)
+        self.mb = ChemMushroomBody(
+            n_in=self.dim, n_out=1, n_kc=n_kc, claws=claws,
+            sparsity=sparsity, seed=seed + 503,
+        )
+        self.activation_threshold = 0.32
+        self.bound_slots: set[int] = set()
+        # Her erişim anahtarının yazıldığı andaki aktif KC sayısı. Nörogenez
+        # k-WTA koduna yeni hücreler ekler; eski olayı yeni toplam k'ya bölmek
+        # aktivasyonu yapay olarak seyreltir. Olay-kendi normu bunu önler.
+        self.slot_code_norm: dict[tuple[int, str], float] = {}
+        self.presentations = 0
+        self.synaptic_writes = 0
+        self._symbol_cache: dict[tuple[str, str], np.ndarray] = {}
+        self.last_recall: dict = {}
+
+    def reset(self) -> None:
+        self.__init__(dim=self.dim, n_kc=self.initial_n_kc, claws=self.mb.claws,
+                      sparsity=self.sparsity, seed=self.seed)
+
+    def _symbol(self, namespace: str, text: str) -> np.ndarray:
+        key = (str(namespace), str(text))
+        cached = self._symbol_cache.get(key)
+        if cached is not None:
+            return cached
+        digest = hashlib.blake2b(
+            f"{self.seed}|{key[0]}|{key[1]}".encode("utf-8"), digest_size=16,
+        ).digest()
+        rng = np.random.default_rng(int.from_bytes(digest, "little"))
+        vec = rng.choice(np.array([-1.0, 1.0], dtype=np.float32), size=self.dim)
+        self._symbol_cache[key] = vec
+        return vec
+
+    def encode(self, **roles: str) -> np.ndarray:
+        """Rol ve dolguyu elementwise-binding ile bağla, katkıları bundle et."""
+        terms = []
+        for role, filler in sorted(roles.items()):
+            if not str(filler).strip():
+                continue
+            f = self._symbol("filler", str(filler))
+            r = self._symbol("role", str(role))
+            # Bağlı rol–dolgu ana temsil; zayıf dolgu yolu kısmi ipucuyla
+            # içerik adresli erişimi korur. Normalizasyon k-WTA öncesindedir.
+            terms.append(r * f + 0.20 * f)
+        if not terms:
+            return np.zeros(self.dim, dtype=np.float32)
+        # Tam önermede çapraz bağlar, yalnız kavram listesi ezberlenmesini
+        # engeller: aynı sözcükler başka rol/ilişkide başka KC kodu üretir.
+        if {"subject", "relation", "object"} <= set(roles):
+            s = self._symbol("filler", str(roles["subject"]))
+            r = self._symbol("filler", str(roles["relation"]))
+            o = self._symbol("filler", str(roles["object"]))
+            terms.extend([s * r, r * o, s * o, s * r * o])
+        vec = np.sum(terms, axis=0, dtype=np.float32)
+        norm = float(np.linalg.norm(vec))
+        return vec / max(1e-6, norm)
+
+    def bind_relation(self, subject: str, relation: str, obj: str, slot: int) -> None:
+        slot = int(slot)
+        self.mb.ensure_outputs(slot + 1)
+        cues = (
+            ("subject", self.encode(subject=subject)),
+            ("full_relation", self.encode(subject=subject, relation=relation, object=obj)),
+        )
+        for cue_kind, cue in cues:
+            self.mb.learn_oneshot(cue, slot, chem=None, strength=1.0, contrastive=False)
+            self.slot_code_norm[(slot, cue_kind)] = float(
+                self.mb.last_learning.get("active_kc", self.mb.k))
+            self.synaptic_writes += 1
+        self.bound_slots.add(slot)
+        self.presentations += 1
+
+    def _recall(self, cue: np.ndarray, cue_kind: str) -> list[tuple[int, float]]:
+        idx = self.mb.encode_kc(cue)
+        # ChemMushroomBody.scores genel sınıflandırıcı için geçerli k-WTA
+        # ortalaması kullanır. Burada her olay kendi yazım kodunun normuyla
+        # okunur; aksi hâlde nörogenez eski olayların aktivasyonunu seyreltir.
+        raw_scores = (self.mb.W_slow[:, idx] + self.mb.W_fast[:, idx]).sum(axis=1)
+        scored_slots = []
+        for slot in self.bound_slots:
+            if slot >= len(raw_scores):
+                continue
+            norm = max(1.0, float(self.slot_code_norm.get((slot, cue_kind), len(idx))))
+            scored_slots.append((slot, float(raw_scores[slot]) / norm))
+        candidates = [(slot, score) for slot, score in scored_slots
+                      if score >= self.activation_threshold]
+        candidates.sort(key=lambda row: (-row[1], row[0]))
+        top = max((score for _slot, score in scored_slots), default=0.0)
+        self.last_recall = {
+            "engine": "hdc_mb", "cue": cue_kind, "awake": True, "replay": 0,
+            "active_kc": int(len(idx)), "n_kc": int(self.mb.n_kc),
+            "actual_sparsity": float(len(idx) / max(1, self.mb.n_kc)),
+            "target_sparsity": float(self.sparsity),
+            "candidates": [{"slot": slot, "activation": score}
+                           for slot, score in candidates[:24]],
+            "top_activation": top, "threshold": float(self.activation_threshold),
+            "fast_energy": float(np.linalg.norm(self.mb.W_fast)),
+            "slow_energy": float(np.linalg.norm(self.mb.W_slow)),
+            "presentations": int(self.presentations),
+            "synaptic_writes": int(self.synaptic_writes),
+            "growth_events": int(self.mb.growth_events),
+        }
+        return candidates
+
+    def recall_subject(self, subject: str) -> list[tuple[int, float]]:
+        return self._recall(self.encode(subject=subject), "subject")
+
+    def recall_relation(self, subject: str, relation: str, obj: str) -> list[tuple[int, float]]:
+        return self._recall(
+            self.encode(subject=subject, relation=relation, object=obj), "full_relation",
+        )
+
+    def sleep_maintenance(self) -> dict[str, float]:
+        """Uyku yalnız bakım yapar; örnek tamponunu yeniden oynatmaz."""
+        result = self.mb.sleep_consolidate(replay_steps=0)
+        result["replayed"] = 0.0
+        return result
 
 
 if __name__ == "__main__":
