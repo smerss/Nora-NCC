@@ -1,0 +1,65 @@
+{
+  "protocol": "development fold1/2; arithmetic weight averaging within each architecture; fold3/4 untouched",
+  "results": [
+    {
+      "fold": 1,
+      "variant": "position4_soup",
+      "n": 401,
+      "hit1": 173,
+      "hit5": 215,
+      "top1": 0.4314214463840399,
+      "top5": 0.5361596009975063,
+      "ppl": 70.37926155847096
+    },
+    {
+      "fold": 1,
+      "variant": "wide4_soup",
+      "n": 401,
+      "hit1": 165,
+      "hit5": 211,
+      "top1": 0.4114713216957606,
+      "top5": 0.5261845386533666,
+      "ppl": 56.75052652793898
+    },
+    {
+      "fold": 1,
+      "variant": "position_wide_soups",
+      "n": 401,
+      "hit1": 174,
+      "hit5": 214,
+      "top1": 0.4339152119700748,
+      "top5": 0.5336658354114713,
+      "ppl": 54.80905473733346
+    },
+    {
+      "fold": 2,
+      "variant": "position4_soup",
+      "n": 419,
+      "hit1": 168,
+      "hit5": 206,
+      "top1": 0.4009546539379475,
+      "top5": 0.4916467780429594,
+      "ppl": 127.76581803032255
+    },
+    {
+      "fold": 2,
+      "variant": "wide4_soup",
+      "n": 419,
+      "hit1": 164,
+      "hit5": 199,
+      "top1": 0.3914081145584726,
+      "top5": 0.47494033412887826,
+      "ppl": 88.62557285262365
+    },
+    {
+      "fold": 2,
+      "variant": "position_wide_soups",
+      "n": 419,
+      "hit1": 172,
+      "hit5": 206,
+      "top1": 0.4105011933174224,
+      "top5": 0.4916467780429594,
+      "ppl": 89.52197372536686
+    }
+  ]
+}

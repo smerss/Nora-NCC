@@ -1,0 +1,154 @@
+[
+  {
+    "fold": 1,
+    "position_seed": 149,
+    "wide_seed": 147,
+    "position_epochs_fixed": 8,
+    "wide_epochs_fixed": 7,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean1000_step1000.pt",
+    "model_prefix": "replay28",
+    "target_adapter": "none",
+    "target_output_bias": false,
+    "target_untied_output": false,
+    "freeze_emb": false,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_bpe_dropout_deterministic": true,
+    "target_seeded_bpe": true,
+    "runtime": {
+      "torch": "2.15.0+cu132",
+      "tokenizers": "0.23.3"
+    },
+    "target_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "target_early_weight": 1.0,
+    "target_early_count": 0,
+    "target_frequency_alpha": 0.0,
+    "target_frequency_cap": 8.0,
+    "dialogue_repeats": 1,
+    "target_domain": "all",
+    "target_bag_fraction": 1.0,
+    "target_l2sp": 0.0,
+    "position_train_sentences": 234,
+    "position_joint": {
+      "steps": 100,
+      "target_per_batch": 28,
+      "external_per_batch": 4,
+      "external_path": ".cache/corpora/processed/external_train.jsonl",
+      "target_cycles": 12,
+      "held_exact_skipped": 0
+    },
+    "position": {
+      "n": 401,
+      "hit1": 175,
+      "hit5": 215,
+      "top1": 0.43640897755610975,
+      "top5": 0.5361596009975063,
+      "ppl": 63.059836714134214
+    },
+    "wide_train_sentences": 234,
+    "wide_joint": {
+      "steps": 100,
+      "target_per_batch": 28,
+      "external_per_batch": 4,
+      "external_path": ".cache/corpora/processed/external_train.jsonl",
+      "target_cycles": 12,
+      "held_exact_skipped": 0
+    },
+    "wide": {
+      "n": 401,
+      "hit1": 169,
+      "hit5": 204,
+      "top1": 0.42144638403990026,
+      "top5": 0.5087281795511222,
+      "ppl": 75.5033284538934
+    },
+    "ensemble": {
+      "n": 401,
+      "hit1": 174,
+      "hit5": 215,
+      "top1": 0.4339152119700748,
+      "top5": 0.5361596009975063,
+      "ppl": 60.15770257528444
+    },
+    "seconds": 55.02685519400029
+  },
+  {
+    "fold": 2,
+    "position_seed": 149,
+    "wide_seed": 147,
+    "position_epochs_fixed": 8,
+    "wide_epochs_fixed": 7,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean1000_step1000.pt",
+    "model_prefix": "replay28",
+    "target_adapter": "none",
+    "target_output_bias": false,
+    "target_untied_output": false,
+    "freeze_emb": false,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_bpe_dropout_deterministic": true,
+    "target_seeded_bpe": true,
+    "runtime": {
+      "torch": "2.15.0+cu132",
+      "tokenizers": "0.23.3"
+    },
+    "target_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "target_early_weight": 1.0,
+    "target_early_count": 0,
+    "target_frequency_alpha": 0.0,
+    "target_frequency_cap": 8.0,
+    "dialogue_repeats": 1,
+    "target_domain": "all",
+    "target_bag_fraction": 1.0,
+    "target_l2sp": 0.0,
+    "position_train_sentences": 234,
+    "position_joint": {
+      "steps": 100,
+      "target_per_batch": 28,
+      "external_per_batch": 4,
+      "external_path": ".cache/corpora/processed/external_train.jsonl",
+      "target_cycles": 12,
+      "held_exact_skipped": 0
+    },
+    "position": {
+      "n": 419,
+      "hit1": 171,
+      "hit5": 201,
+      "top1": 0.4081145584725537,
+      "top5": 0.4797136038186158,
+      "ppl": 103.32344266776252
+    },
+    "wide_train_sentences": 234,
+    "wide_joint": {
+      "steps": 100,
+      "target_per_batch": 28,
+      "external_per_batch": 4,
+      "external_path": ".cache/corpora/processed/external_train.jsonl",
+      "target_cycles": 12,
+      "held_exact_skipped": 0
+    },
+    "wide": {
+      "n": 419,
+      "hit1": 163,
+      "hit5": 202,
+      "top1": 0.38902147971360385,
+      "top5": 0.4821002386634845,
+      "ppl": 124.95729612558252
+    },
+    "ensemble": {
+      "n": 419,
+      "hit1": 172,
+      "hit5": 202,
+      "top1": 0.4105011933174224,
+      "top5": 0.4821002386634845,
+      "ppl": 100.05574268045855
+    },
+    "seconds": 53.573398390999955
+  }
+]

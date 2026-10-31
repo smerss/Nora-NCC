@@ -1,0 +1,160 @@
+[
+  {
+    "fold": 1,
+    "position_seed": 149,
+    "wide_seed": 147,
+    "position_epochs_fixed": 12,
+    "wide_epochs_fixed": 9,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean1000_step1000.pt",
+    "model_prefix": "wordreplay",
+    "target_adapter": "none",
+    "target_output_bias": false,
+    "target_untied_output": false,
+    "freeze_emb": false,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_bpe_dropout_deterministic": true,
+    "target_seeded_bpe": true,
+    "runtime": {
+      "torch": "2.15.0+cu132",
+      "tokenizers": "0.23.3"
+    },
+    "target_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "target_early_weight": 1.0,
+    "target_early_count": 0,
+    "target_frequency_alpha": 0.0,
+    "target_frequency_cap": 8.0,
+    "target_word_start_weight": 2.0,
+    "dialogue_repeats": 1,
+    "target_domain": "all",
+    "target_bag_fraction": 1.0,
+    "target_l2sp": 0.0,
+    "position_train_sentences": 234,
+    "position_joint": {
+      "steps": 100,
+      "target_per_batch": 28,
+      "external_per_batch": 4,
+      "external_path": ".cache/corpora/processed/external_train.jsonl",
+      "source": "all",
+      "target_cycles": 12,
+      "held_exact_skipped": 0
+    },
+    "position": {
+      "n": 401,
+      "hit1": 174,
+      "hit5": 215,
+      "top1": 0.4339152119700748,
+      "top5": 0.5361596009975063,
+      "ppl": 66.68029400426548
+    },
+    "wide_train_sentences": 234,
+    "wide_joint": {
+      "steps": 100,
+      "target_per_batch": 28,
+      "external_per_batch": 4,
+      "external_path": ".cache/corpora/processed/external_train.jsonl",
+      "source": "all",
+      "target_cycles": 12,
+      "held_exact_skipped": 0
+    },
+    "wide": {
+      "n": 401,
+      "hit1": 168,
+      "hit5": 201,
+      "top1": 0.41895261845386533,
+      "top5": 0.5012468827930174,
+      "ppl": 78.23152643262985
+    },
+    "ensemble": {
+      "n": 401,
+      "hit1": 175,
+      "hit5": 212,
+      "top1": 0.43640897755610975,
+      "top5": 0.5286783042394015,
+      "ppl": 63.111342331713175
+    },
+    "seconds": 55.31964037200032
+  },
+  {
+    "fold": 2,
+    "position_seed": 149,
+    "wide_seed": 147,
+    "position_epochs_fixed": 12,
+    "wide_epochs_fixed": 9,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean1000_step1000.pt",
+    "model_prefix": "wordreplay",
+    "target_adapter": "none",
+    "target_output_bias": false,
+    "target_untied_output": false,
+    "freeze_emb": false,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_bpe_dropout_deterministic": true,
+    "target_seeded_bpe": true,
+    "runtime": {
+      "torch": "2.15.0+cu132",
+      "tokenizers": "0.23.3"
+    },
+    "target_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "target_early_weight": 1.0,
+    "target_early_count": 0,
+    "target_frequency_alpha": 0.0,
+    "target_frequency_cap": 8.0,
+    "target_word_start_weight": 2.0,
+    "dialogue_repeats": 1,
+    "target_domain": "all",
+    "target_bag_fraction": 1.0,
+    "target_l2sp": 0.0,
+    "position_train_sentences": 234,
+    "position_joint": {
+      "steps": 100,
+      "target_per_batch": 28,
+      "external_per_batch": 4,
+      "external_path": ".cache/corpora/processed/external_train.jsonl",
+      "source": "all",
+      "target_cycles": 12,
+      "held_exact_skipped": 0
+    },
+    "position": {
+      "n": 419,
+      "hit1": 170,
+      "hit5": 204,
+      "top1": 0.40572792362768495,
+      "top5": 0.48687350835322196,
+      "ppl": 106.60070307058763
+    },
+    "wide_train_sentences": 234,
+    "wide_joint": {
+      "steps": 100,
+      "target_per_batch": 28,
+      "external_per_batch": 4,
+      "external_path": ".cache/corpora/processed/external_train.jsonl",
+      "source": "all",
+      "target_cycles": 12,
+      "held_exact_skipped": 0
+    },
+    "wide": {
+      "n": 419,
+      "hit1": 169,
+      "hit5": 202,
+      "top1": 0.4033412887828162,
+      "top5": 0.4821002386634845,
+      "ppl": 125.01956369984148
+    },
+    "ensemble": {
+      "n": 419,
+      "hit1": 170,
+      "hit5": 199,
+      "top1": 0.40572792362768495,
+      "top5": 0.47494033412887826,
+      "ppl": 102.22631277482336
+    },
+    "seconds": 52.96590738000032
+  }
+]

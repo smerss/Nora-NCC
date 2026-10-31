@@ -1,0 +1,53 @@
+{
+  "oracle": "independent manual Rust-queue expectations: skipped entries are reinserted on the next non-dropped queue pop; random<dropout means skip",
+  "cases": [
+    {
+      "case": "reinsert_skipped",
+      "random": [
+        0.1,
+        0.8,
+        0.8,
+        0.8
+      ],
+      "expected": [
+        "abcd"
+      ],
+      "actual": [
+        "abcd"
+      ],
+      "pass": true
+    },
+    {
+      "case": "skip_all",
+      "random": [
+        0.1,
+        0.1
+      ],
+      "expected": [
+        "a",
+        "b",
+        "c",
+        "d"
+      ],
+      "actual": [
+        "a",
+        "b",
+        "c",
+        "d"
+      ],
+      "pass": true
+    },
+    {
+      "case": "no_dropout",
+      "random": [],
+      "expected": [
+        "abcd"
+      ],
+      "actual": [
+        "abcd"
+      ],
+      "pass": true
+    }
+  ],
+  "passed": true
+}

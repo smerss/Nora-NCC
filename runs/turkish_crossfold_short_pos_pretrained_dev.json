@@ -1,0 +1,90 @@
+[
+  {
+    "fold": 1,
+    "position_seed": 149,
+    "wide_seed": 147,
+    "position_epochs_fixed": 12,
+    "wide_epochs_fixed": 9,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean_short_pos1000_step1000.pt",
+    "freeze_emb": false,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "dialogue_repeats": 1,
+    "target_domain": "all",
+    "target_l2sp": 0.0,
+    "target_top1_margin": 0.0,
+    "position": {
+      "n": 401,
+      "hit1": 174,
+      "hit5": 208,
+      "top1": 0.4339152119700748,
+      "top5": 0.5187032418952618,
+      "ppl": 90.17724957762746
+    },
+    "wide": {
+      "n": 401,
+      "hit1": 167,
+      "hit5": 196,
+      "top1": 0.4164588528678304,
+      "top5": 0.48877805486284287,
+      "ppl": 95.58928427996642
+    },
+    "ensemble": {
+      "n": 401,
+      "hit1": 175,
+      "hit5": 204,
+      "top1": 0.43640897755610975,
+      "top5": 0.5087281795511222,
+      "ppl": 78.48561373548416
+    },
+    "seconds": 35.96702563799954
+  },
+  {
+    "fold": 2,
+    "position_seed": 149,
+    "wide_seed": 147,
+    "position_epochs_fixed": 12,
+    "wide_epochs_fixed": 9,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean_short_pos1000_step1000.pt",
+    "freeze_emb": false,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "dialogue_repeats": 1,
+    "target_domain": "all",
+    "target_l2sp": 0.0,
+    "target_top1_margin": 0.0,
+    "position": {
+      "n": 419,
+      "hit1": 164,
+      "hit5": 197,
+      "top1": 0.3914081145584726,
+      "top5": 0.4701670644391408,
+      "ppl": 165.88792218829226
+    },
+    "wide": {
+      "n": 419,
+      "hit1": 165,
+      "hit5": 195,
+      "top1": 0.3937947494033413,
+      "top5": 0.46539379474940334,
+      "ppl": 176.51455812614378
+    },
+    "ensemble": {
+      "n": 419,
+      "hit1": 165,
+      "hit5": 198,
+      "top1": 0.3937947494033413,
+      "top5": 0.47255369928400953,
+      "ppl": 145.71815395015713
+    },
+    "seconds": 34.586698560000514
+  }
+]

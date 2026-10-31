@@ -1,0 +1,130 @@
+[
+  {
+    "fold": 1,
+    "domain": "dialogue",
+    "position": "0-2",
+    "static16": 9,
+    "dynamic": 9,
+    "oracle16": 9
+  },
+  {
+    "fold": 1,
+    "domain": "dialogue",
+    "position": "3-5",
+    "static16": 37,
+    "dynamic": 36,
+    "oracle16": 36
+  },
+  {
+    "fold": 1,
+    "domain": "dialogue",
+    "position": "6+",
+    "static16": 27,
+    "dynamic": 27,
+    "oracle16": 27
+  },
+  {
+    "fold": 1,
+    "domain": "facts",
+    "position": "0-2",
+    "static16": 19,
+    "dynamic": 19,
+    "oracle16": 19
+  },
+  {
+    "fold": 1,
+    "domain": "facts",
+    "position": "3-5",
+    "static16": 59,
+    "dynamic": 56,
+    "oracle16": 60
+  },
+  {
+    "fold": 1,
+    "domain": "facts",
+    "position": "6+",
+    "static16": 30,
+    "dynamic": 30,
+    "oracle16": 31
+  },
+  {
+    "fold": 1,
+    "domain": "facts",
+    "position": "all",
+    "static16": 108,
+    "dynamic": 105,
+    "oracle16": 110
+  },
+  {
+    "fold": 1,
+    "domain": "dialogue",
+    "position": "all",
+    "static16": 73,
+    "dynamic": 72,
+    "oracle16": 72
+  },
+  {
+    "fold": 2,
+    "domain": "dialogue",
+    "position": "0-2",
+    "static16": 6,
+    "dynamic": 10,
+    "oracle16": 8
+  },
+  {
+    "fold": 2,
+    "domain": "dialogue",
+    "position": "3-5",
+    "static16": 40,
+    "dynamic": 39,
+    "oracle16": 38
+  },
+  {
+    "fold": 2,
+    "domain": "dialogue",
+    "position": "6+",
+    "static16": 33,
+    "dynamic": 35,
+    "oracle16": 33
+  },
+  {
+    "fold": 2,
+    "domain": "facts",
+    "position": "0-2",
+    "static16": 17,
+    "dynamic": 18,
+    "oracle16": 17
+  },
+  {
+    "fold": 2,
+    "domain": "facts",
+    "position": "3-5",
+    "static16": 49,
+    "dynamic": 48,
+    "oracle16": 48
+  },
+  {
+    "fold": 2,
+    "domain": "facts",
+    "position": "6+",
+    "static16": 25,
+    "dynamic": 25,
+    "oracle16": 24
+  },
+  {
+    "fold": 2,
+    "domain": "facts",
+    "position": "all",
+    "static16": 91,
+    "dynamic": 91,
+    "oracle16": 89
+  },
+  {
+    "fold": 2,
+    "domain": "dialogue",
+    "position": "all",
+    "static16": 79,
+    "dynamic": 84,
+    "oracle16": 79
+  }
+]

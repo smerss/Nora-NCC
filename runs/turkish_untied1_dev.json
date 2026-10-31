@@ -1,0 +1,112 @@
+[
+  {
+    "fold": 1,
+    "position_seed": 149,
+    "wide_seed": 147,
+    "position_epochs_fixed": 12,
+    "wide_epochs_fixed": 9,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean1000_step1000.pt",
+    "model_prefix": "untied1",
+    "target_adapter": "none",
+    "target_output_bias": false,
+    "target_untied_output": true,
+    "freeze_emb": true,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_bpe_dropout_deterministic": true,
+    "target_seeded_bpe": true,
+    "runtime": {
+      "torch": "2.15.0+cu132",
+      "tokenizers": "0.23.3"
+    },
+    "target_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "target_early_weight": 1.0,
+    "target_early_count": 0,
+    "dialogue_repeats": 1,
+    "target_domain": "all",
+    "target_l2sp": 0.0,
+    "position": {
+      "n": 401,
+      "hit1": 173,
+      "hit5": 212,
+      "top1": 0.4314214463840399,
+      "top5": 0.5286783042394015,
+      "ppl": 79.18729123766178
+    },
+    "wide": {
+      "n": 401,
+      "hit1": 168,
+      "hit5": 205,
+      "top1": 0.41895261845386533,
+      "top5": 0.5112219451371571,
+      "ppl": 82.32165379436883
+    },
+    "ensemble": {
+      "n": 401,
+      "hit1": 175,
+      "hit5": 214,
+      "top1": 0.43640897755610975,
+      "top5": 0.5336658354114713,
+      "ppl": 68.57953472112297
+    },
+    "seconds": 32.57190913300019
+  },
+  {
+    "fold": 2,
+    "position_seed": 149,
+    "wide_seed": 147,
+    "position_epochs_fixed": 12,
+    "wide_epochs_fixed": 9,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean1000_step1000.pt",
+    "model_prefix": "untied1",
+    "target_adapter": "none",
+    "target_output_bias": false,
+    "target_untied_output": true,
+    "freeze_emb": true,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_bpe_dropout_deterministic": true,
+    "target_seeded_bpe": true,
+    "runtime": {
+      "torch": "2.15.0+cu132",
+      "tokenizers": "0.23.3"
+    },
+    "target_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "target_early_weight": 1.0,
+    "target_early_count": 0,
+    "dialogue_repeats": 1,
+    "target_domain": "all",
+    "target_l2sp": 0.0,
+    "position": {
+      "n": 419,
+      "hit1": 165,
+      "hit5": 204,
+      "top1": 0.3937947494033413,
+      "top5": 0.48687350835322196,
+      "ppl": 134.25491724382076
+    },
+    "wide": {
+      "n": 419,
+      "hit1": 167,
+      "hit5": 200,
+      "top1": 0.39856801909307876,
+      "top5": 0.477326968973747,
+      "ppl": 156.01190106540128
+    },
+    "ensemble": {
+      "n": 419,
+      "hit1": 167,
+      "hit5": 204,
+      "top1": 0.39856801909307876,
+      "top5": 0.48687350835322196,
+      "ppl": 121.74608039824857
+    },
+    "seconds": 29.059579748000033
+  }
+]

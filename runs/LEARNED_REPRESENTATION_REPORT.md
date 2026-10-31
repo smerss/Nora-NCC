@@ -177,3 +177,9 @@ A142 için `NeuralRelationalProposer(seed=..., object_similarity=False/True)`, `
 - Hedefli regresyon: A73, A137, A140, A141, A142, A143 geçti.
 - Tam `law_battery.py`: **15/15, 35,2 sn** (`runs/law_battery_after_learning.log`).
 - Tam `agi_battery.py`: **140/140, 1610,6 sn** (`runs/full_battery_after_learning.log`).
+
+## 9. Güncel kapsam notu (2026-10-31)
+
+Bu rapordaki CCG, scratch/pretrained Transformer ve A142 sonuçları kendi görevlerinin kanıtıdır; Türkçe next-subword fold-1/2 %45 eşiğinin kanıtı değildir. Güncel tek-sunum ve geriye-dönük unutma sonuçları **`NORA_GUNCEL_DURUM.md`** ve `runs/TURKISH_ONEPASS_CONTINUATION_REPORT.md` içindedir.
+
+Weighted pozitif genellemesi ve çoklu-tohum varyansı açık teknik sorunlar olarak korunur.

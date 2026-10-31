@@ -80,3 +80,9 @@ Eğitilmiş organ bağlıyken bilinmeyen kavramda iki parçalı dürüst duruş 
 - A143 **12/12**: 1000 adımda 20 hedef üretildi, 9 çözüldü, 10 terk edildi, 1 ortak alt-hedef birleşmesi.
 - CCG confirmation-2: counter16 **64/64**, counter24 **62/64 (P16)**. Confirmation-1'in counter24 başarısızlığı kayıtlıdır; weighted P0 ve FST candidate-limit/bütçe patlaması açık sorunlardır. Kanıtlar `runs/ccg_auto_fresh_confirmation*.json` ve `runs/continuous_auto_v2.json`.
 - B2'de sıfır-unutmanın yararı yalnız nadir kaynaklı büyük arenada gösterildi; uzun yaşamda konum belirsizliği artışı (0,14→0,51) hâlâ açık.
+
+## Canlı öğrenme ve ölçüm snapshot’ı (2026-10-31)
+
+Canlı model öğrenmeye devam eder. Araştırmadaki “dondurma”, canlı sistemi durdurmak değil, test sırasında değişmeyen bir ağırlık kopyasını ölçmektir. “Adım”, yeni veriyle yapılan bir güncellemedir; epoch veya öğrenmenin bitirilmesi değildir.
+
+Güncel felsefe uyum denetimi ve bütün kanıtlar için **`NORA_GUNCEL_DURUM.md`** dosyasına bakın. Deney checkpoint’leri canlı modelin üzerine yazılmamıştır.

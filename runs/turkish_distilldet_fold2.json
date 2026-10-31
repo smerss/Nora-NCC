@@ -1,0 +1,25 @@
+{
+  "fold": 2,
+  "teachers": [
+    "det2_s149_147_position",
+    "det2_s149_147_wide"
+  ],
+  "alpha": 0.5,
+  "temperature": 2.0,
+  "epochs": 12,
+  "lr": 0.0005,
+  "seed": 149,
+  "base": "runs/models/external_clean1000_step1000.pt",
+  "model": "runs/models/distilldet_fold2.pt",
+  "metrics": {
+    "n": 419,
+    "hit1": 167,
+    "hit5": 204,
+    "top1": 0.39856801909307876,
+    "top5": 0.48687350835322196,
+    "ppl": 119.25071787964197
+  },
+  "seconds": 34.996800593000444,
+  "train_sentences": 234,
+  "loss_last": 1.6990031003952026
+}

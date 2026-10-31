@@ -21,6 +21,9 @@ import re
 import gzip
 import os
 import pickle
+import heapq
+import json
+import random
 from collections import Counter, deque
 
 import numpy as np
@@ -36,6 +39,68 @@ BOS, EOS = "<s>", "</s>"
 
 def _clip01(x: float) -> float:
     return float(np.clip(x, 0.0, 1.0))
+
+
+def _seeded_bpe_word(word, merge_ranks, dropout, rng):
+    """BPE merge kuyruğu; dropout kararları yalnız verilen RNG'den gelir."""
+    values = list(word)
+    count = len(values)
+    if count < 2:
+        return values
+    previous = list(range(-1, count - 1))
+    following = list(range(1, count + 1))
+    following[-1] = -1
+    alive = [True] * count
+    heap = []
+    order = 0
+
+    def offer(left):
+        nonlocal order
+        if left < 0:
+            return
+        right = following[left]
+        if right < 0:
+            return
+        rank = merge_ranks.get((values[left], values[right]))
+        if rank is not None:
+            heapq.heappush(heap, (rank, order, left, right,
+                                  values[left] + values[right]))
+            order += 1
+
+    for index in range(count - 1):
+        offer(index)
+    skipped = []
+    while heap:
+        entry = heapq.heappop(heap)
+        # Rust tokenizers önce dropout kararını verir; atlanan adayları
+        # sonraki dropout'suz adayda kuyruğa geri koyar. Geçersiz/eski
+        # kayıtlar da bu RNG kararını tüketir.
+        if dropout and rng.random() < dropout:
+            skipped.append(entry)
+            continue
+        if skipped:
+            for skipped_entry in skipped:
+                heapq.heappush(heap, skipped_entry)
+            skipped.clear()
+        _, _, left, right, merged = entry
+        if (not alive[left] or not alive[right] or following[left] != right
+                or values[left] + values[right] != merged):
+            continue
+        values[left] = merged
+        alive[right] = False
+        new_right = following[right]
+        following[left] = new_right
+        if new_right >= 0:
+            previous[new_right] = left
+        offer(previous[left])
+        offer(left)
+    result = []
+    index = 0
+    while index >= 0:
+        if alive[index]:
+            result.append(values[index])
+        index = following[index]
+    return result
 
 
 class SubwordTokenizer:
@@ -65,6 +130,50 @@ class SubwordTokenizer:
     def decode(self, pieces: list[str]) -> str:
         return self.tk.decode_tokens(pieces) if hasattr(self.tk, "decode_tokens") else \
             "".join(pieces).replace("\u2581", " ").strip()
+
+    def _seeded_bpe_spec(self):
+        cached = getattr(self, "_seeded_bpe_spec_cache", None)
+        if cached is not None:
+            return cached
+        model = json.loads(self.to_str())["model"]
+        if model.get("type") != "BPE" or model.get("byte_fallback"):
+            raise ValueError("tohumlu subword dropout yalnız BPE/byte_fallback=False destekler")
+        if model.get("continuing_subword_prefix") or model.get("end_of_word_suffix"):
+            raise ValueError("tohumlu subword dropout için affix'siz BPE gerekli")
+        ranks = {}
+        if not model.get("ignore_merges"):
+            for rank, merge in enumerate(model["merges"]):
+                left, right = merge.split(" ", 1) if isinstance(merge, str) else merge
+                ranks[(left, right)] = rank
+        vocab = model["vocab"]
+        unknown = vocab[model["unk_token"]]
+        fuse_unknown = bool(model.get("fuse_unk"))
+        cached = (vocab, ranks, unknown, fuse_unknown)
+        self._seeded_bpe_spec_cache = cached
+        return cached
+
+    def encode_batch_bpe_dropout(self, texts, dropout: float, seed: int):
+        """Aynı BPE sözlüğüyle (ids, tokens); sonuç yalnız metin/tohum/p'ye bağlıdır."""
+        dropout = float(dropout)
+        if not 0.0 <= dropout < 1.0:
+            raise ValueError("BPE dropout [0,1) aralığında olmalı")
+        vocab, ranks, unknown, fuse_unknown = self._seeded_bpe_spec()
+        rng = random.Random(int(seed))
+        encoded = []
+        for text in texts:
+            normalized = self.tk.normalizer.normalize_str(text)
+            pieces = self.tk.pre_tokenizer.pre_tokenize_str(normalized)
+            ids, tokens = [], []
+            for piece, _ in pieces:
+                current = _seeded_bpe_word(piece, ranks, dropout, rng)
+                for token in current:
+                    token_id = vocab.get(token, unknown)
+                    if fuse_unknown and token_id == unknown and ids and ids[-1] == unknown:
+                        continue
+                    tokens.append(token)
+                    ids.append(token_id)
+            encoded.append((ids, tokens))
+        return encoded
 
     def to_str(self) -> str:
         return self.tk.to_str() if self.tk is not None else ""

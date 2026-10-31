@@ -1,0 +1,1679 @@
+{
+  "protocol": "one-pass frozen-base kNN-LM; no gradient/epoch/replay; train-only memory",
+  "results": [
+    {
+      "fold": 1,
+      "k": 1,
+      "temperature": 0.05,
+      "weight": 0.1,
+      "held": {
+        "n": 401,
+        "top1": 0.3765586034912718,
+        "top5": 0.4688279301745636,
+        "ppl": 106.17881460116742
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23682409308692676,
+        "top5": 0.3867214236824093,
+        "ppl": 193.15308213218862
+      },
+      "held_hit1": 151,
+      "probe_hit1_delta": -12,
+      "probe_ppl_delta": 2.2808282287806207,
+      "memory": {
+        "records": 1624,
+        "source_sentences": 234,
+        "source_sha256": "2d9e672b1d4455f33d2b9dff23b4e98868a7057020ebeeebc886ca35af6ad1e7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9404202699661255
+      }
+    },
+    {
+      "fold": 1,
+      "k": 1,
+      "temperature": 0.05,
+      "weight": 0.5,
+      "held": {
+        "n": 401,
+        "top1": 0.3865336658354115,
+        "top5": 0.4688279301745636,
+        "ppl": 108.97719819124684
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23477070499657768,
+        "top5": 0.3867214236824093,
+        "ppl": 210.62182677150858
+      },
+      "held_hit1": 155,
+      "probe_hit1_delta": -15,
+      "probe_ppl_delta": 19.749572868100586,
+      "memory": {
+        "records": 1624,
+        "source_sentences": 234,
+        "source_sha256": "2d9e672b1d4455f33d2b9dff23b4e98868a7057020ebeeebc886ca35af6ad1e7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9404202699661255
+      }
+    },
+    {
+      "fold": 1,
+      "k": 1,
+      "temperature": 0.05,
+      "weight": 1.0,
+      "held": {
+        "n": 401,
+        "top1": 0.3865336658354115,
+        "top5": 0.4463840399002494,
+        "ppl": 2706970135.3795724
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23477070499657768,
+        "top5": 0.3600273785078713,
+        "ppl": 5809603.371558134
+      },
+      "held_hit1": 155,
+      "probe_hit1_delta": -15,
+      "probe_ppl_delta": 5809412.499304231,
+      "memory": {
+        "records": 1624,
+        "source_sentences": 234,
+        "source_sha256": "2d9e672b1d4455f33d2b9dff23b4e98868a7057020ebeeebc886ca35af6ad1e7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9404202699661255
+      }
+    },
+    {
+      "fold": 1,
+      "k": 1,
+      "temperature": 0.1,
+      "weight": 0.1,
+      "held": {
+        "n": 401,
+        "top1": 0.3765586034912718,
+        "top5": 0.4688279301745636,
+        "ppl": 106.17881460116742
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23682409308692676,
+        "top5": 0.3867214236824093,
+        "ppl": 193.15308213218862
+      },
+      "held_hit1": 151,
+      "probe_hit1_delta": -12,
+      "probe_ppl_delta": 2.2808282287806207,
+      "memory": {
+        "records": 1624,
+        "source_sentences": 234,
+        "source_sha256": "2d9e672b1d4455f33d2b9dff23b4e98868a7057020ebeeebc886ca35af6ad1e7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9404202699661255
+      }
+    },
+    {
+      "fold": 1,
+      "k": 1,
+      "temperature": 0.1,
+      "weight": 0.5,
+      "held": {
+        "n": 401,
+        "top1": 0.3865336658354115,
+        "top5": 0.4688279301745636,
+        "ppl": 108.97719819124684
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23477070499657768,
+        "top5": 0.3867214236824093,
+        "ppl": 210.62182677150858
+      },
+      "held_hit1": 155,
+      "probe_hit1_delta": -15,
+      "probe_ppl_delta": 19.749572868100586,
+      "memory": {
+        "records": 1624,
+        "source_sentences": 234,
+        "source_sha256": "2d9e672b1d4455f33d2b9dff23b4e98868a7057020ebeeebc886ca35af6ad1e7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9404202699661255
+      }
+    },
+    {
+      "fold": 1,
+      "k": 1,
+      "temperature": 0.1,
+      "weight": 1.0,
+      "held": {
+        "n": 401,
+        "top1": 0.3865336658354115,
+        "top5": 0.4463840399002494,
+        "ppl": 2706970135.3795724
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23477070499657768,
+        "top5": 0.3600273785078713,
+        "ppl": 5809603.371558134
+      },
+      "held_hit1": 155,
+      "probe_hit1_delta": -15,
+      "probe_ppl_delta": 5809412.499304231,
+      "memory": {
+        "records": 1624,
+        "source_sentences": 234,
+        "source_sha256": "2d9e672b1d4455f33d2b9dff23b4e98868a7057020ebeeebc886ca35af6ad1e7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9404202699661255
+      }
+    },
+    {
+      "fold": 1,
+      "k": 1,
+      "temperature": 0.2,
+      "weight": 0.1,
+      "held": {
+        "n": 401,
+        "top1": 0.3765586034912718,
+        "top5": 0.4688279301745636,
+        "ppl": 106.17881460116742
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23682409308692676,
+        "top5": 0.3867214236824093,
+        "ppl": 193.15308213218862
+      },
+      "held_hit1": 151,
+      "probe_hit1_delta": -12,
+      "probe_ppl_delta": 2.2808282287806207,
+      "memory": {
+        "records": 1624,
+        "source_sentences": 234,
+        "source_sha256": "2d9e672b1d4455f33d2b9dff23b4e98868a7057020ebeeebc886ca35af6ad1e7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9404202699661255
+      }
+    },
+    {
+      "fold": 1,
+      "k": 1,
+      "temperature": 0.2,
+      "weight": 0.5,
+      "held": {
+        "n": 401,
+        "top1": 0.3865336658354115,
+        "top5": 0.4688279301745636,
+        "ppl": 108.97719819124684
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23477070499657768,
+        "top5": 0.3867214236824093,
+        "ppl": 210.62182677150858
+      },
+      "held_hit1": 155,
+      "probe_hit1_delta": -15,
+      "probe_ppl_delta": 19.749572868100586,
+      "memory": {
+        "records": 1624,
+        "source_sentences": 234,
+        "source_sha256": "2d9e672b1d4455f33d2b9dff23b4e98868a7057020ebeeebc886ca35af6ad1e7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9404202699661255
+      }
+    },
+    {
+      "fold": 1,
+      "k": 1,
+      "temperature": 0.2,
+      "weight": 1.0,
+      "held": {
+        "n": 401,
+        "top1": 0.3865336658354115,
+        "top5": 0.4463840399002494,
+        "ppl": 2706970135.3795724
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23477070499657768,
+        "top5": 0.3600273785078713,
+        "ppl": 5809603.371558134
+      },
+      "held_hit1": 155,
+      "probe_hit1_delta": -15,
+      "probe_ppl_delta": 5809412.499304231,
+      "memory": {
+        "records": 1624,
+        "source_sentences": 234,
+        "source_sha256": "2d9e672b1d4455f33d2b9dff23b4e98868a7057020ebeeebc886ca35af6ad1e7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9404202699661255
+      }
+    },
+    {
+      "fold": 1,
+      "k": 4,
+      "temperature": 0.05,
+      "weight": 0.1,
+      "held": {
+        "n": 401,
+        "top1": 0.3790523690773067,
+        "top5": 0.4713216957605985,
+        "ppl": 104.98703898719695
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.243668720054757,
+        "top5": 0.38193018480492813,
+        "ppl": 193.14904756496657
+      },
+      "held_hit1": 152,
+      "probe_hit1_delta": -2,
+      "probe_ppl_delta": 2.276793661558571,
+      "memory": {
+        "records": 1624,
+        "source_sentences": 234,
+        "source_sha256": "2d9e672b1d4455f33d2b9dff23b4e98868a7057020ebeeebc886ca35af6ad1e7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9404202699661255
+      }
+    },
+    {
+      "fold": 1,
+      "k": 4,
+      "temperature": 0.05,
+      "weight": 0.5,
+      "held": {
+        "n": 401,
+        "top1": 0.3865336658354115,
+        "top5": 0.46633416458852867,
+        "ppl": 105.7757455704764
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23477070499657768,
+        "top5": 0.379192334017796,
+        "ppl": 210.36153739736758
+      },
+      "held_hit1": 155,
+      "probe_hit1_delta": -15,
+      "probe_ppl_delta": 19.48928349395959,
+      "memory": {
+        "records": 1624,
+        "source_sentences": 234,
+        "source_sha256": "2d9e672b1d4455f33d2b9dff23b4e98868a7057020ebeeebc886ca35af6ad1e7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9404202699661255
+      }
+    },
+    {
+      "fold": 1,
+      "k": 4,
+      "temperature": 0.05,
+      "weight": 1.0,
+      "held": {
+        "n": 401,
+        "top1": 0.3915211970074813,
+        "top5": 0.45885286783042395,
+        "ppl": 1188601903.6077669
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23477070499657768,
+        "top5": 0.36344969199178645,
+        "ppl": 4649926.314251156
+      },
+      "held_hit1": 157,
+      "probe_hit1_delta": -15,
+      "probe_ppl_delta": 4649735.441997252,
+      "memory": {
+        "records": 1624,
+        "source_sentences": 234,
+        "source_sha256": "2d9e672b1d4455f33d2b9dff23b4e98868a7057020ebeeebc886ca35af6ad1e7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9404202699661255
+      }
+    },
+    {
+      "fold": 1,
+      "k": 4,
+      "temperature": 0.1,
+      "weight": 0.1,
+      "held": {
+        "n": 401,
+        "top1": 0.3765586034912718,
+        "top5": 0.4713216957605985,
+        "ppl": 106.06597247378934
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.243668720054757,
+        "top5": 0.38193018480492813,
+        "ppl": 193.1576332251617
+      },
+      "held_hit1": 151,
+      "probe_hit1_delta": -2,
+      "probe_ppl_delta": 2.285379321753709,
+      "memory": {
+        "records": 1624,
+        "source_sentences": 234,
+        "source_sha256": "2d9e672b1d4455f33d2b9dff23b4e98868a7057020ebeeebc886ca35af6ad1e7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9404202699661255
+      }
+    },
+    {
+      "fold": 1,
+      "k": 4,
+      "temperature": 0.1,
+      "weight": 0.5,
+      "held": {
+        "n": 401,
+        "top1": 0.38403990024937656,
+        "top5": 0.46633416458852867,
+        "ppl": 107.10417354108023
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23477070499657768,
+        "top5": 0.378507871321013,
+        "ppl": 210.24746333511973
+      },
+      "held_hit1": 154,
+      "probe_hit1_delta": -15,
+      "probe_ppl_delta": 19.37520943171174,
+      "memory": {
+        "records": 1624,
+        "source_sentences": 234,
+        "source_sha256": "2d9e672b1d4455f33d2b9dff23b4e98868a7057020ebeeebc886ca35af6ad1e7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9404202699661255
+      }
+    },
+    {
+      "fold": 1,
+      "k": 4,
+      "temperature": 0.1,
+      "weight": 1.0,
+      "held": {
+        "n": 401,
+        "top1": 0.3865336658354115,
+        "top5": 0.45885286783042395,
+        "ppl": 1205236851.7221963
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23477070499657768,
+        "top5": 0.36344969199178645,
+        "ppl": 4622210.339788663
+      },
+      "held_hit1": 155,
+      "probe_hit1_delta": -15,
+      "probe_ppl_delta": 4622019.46753476,
+      "memory": {
+        "records": 1624,
+        "source_sentences": 234,
+        "source_sha256": "2d9e672b1d4455f33d2b9dff23b4e98868a7057020ebeeebc886ca35af6ad1e7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9404202699661255
+      }
+    },
+    {
+      "fold": 1,
+      "k": 4,
+      "temperature": 0.2,
+      "weight": 0.1,
+      "held": {
+        "n": 401,
+        "top1": 0.3740648379052369,
+        "top5": 0.4713216957605985,
+        "ppl": 107.24296118252462
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.243668720054757,
+        "top5": 0.38193018480492813,
+        "ppl": 193.16476671430203
+      },
+      "held_hit1": 150,
+      "probe_hit1_delta": -2,
+      "probe_ppl_delta": 2.2925128108940385,
+      "memory": {
+        "records": 1624,
+        "source_sentences": 234,
+        "source_sha256": "2d9e672b1d4455f33d2b9dff23b4e98868a7057020ebeeebc886ca35af6ad1e7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9404202699661255
+      }
+    },
+    {
+      "fold": 1,
+      "k": 4,
+      "temperature": 0.2,
+      "weight": 0.5,
+      "held": {
+        "n": 401,
+        "top1": 0.38403990024937656,
+        "top5": 0.46633416458852867,
+        "ppl": 108.52524289697932
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23682409308692676,
+        "top5": 0.378507871321013,
+        "ppl": 210.12460249457396
+      },
+      "held_hit1": 154,
+      "probe_hit1_delta": -12,
+      "probe_ppl_delta": 19.25234859116597,
+      "memory": {
+        "records": 1624,
+        "source_sentences": 234,
+        "source_sha256": "2d9e672b1d4455f33d2b9dff23b4e98868a7057020ebeeebc886ca35af6ad1e7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9404202699661255
+      }
+    },
+    {
+      "fold": 1,
+      "k": 4,
+      "temperature": 0.2,
+      "weight": 1.0,
+      "held": {
+        "n": 401,
+        "top1": 0.38403990024937656,
+        "top5": 0.45885286783042395,
+        "ppl": 1222979932.467794
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23477070499657768,
+        "top5": 0.36344969199178645,
+        "ppl": 4612540.812019469
+      },
+      "held_hit1": 154,
+      "probe_hit1_delta": -15,
+      "probe_ppl_delta": 4612349.939765566,
+      "memory": {
+        "records": 1624,
+        "source_sentences": 234,
+        "source_sha256": "2d9e672b1d4455f33d2b9dff23b4e98868a7057020ebeeebc886ca35af6ad1e7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9404202699661255
+      }
+    },
+    {
+      "fold": 1,
+      "k": 16,
+      "temperature": 0.05,
+      "weight": 0.1,
+      "held": {
+        "n": 401,
+        "top1": 0.3690773067331671,
+        "top5": 0.4688279301745636,
+        "ppl": 103.23735711693806
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.24435318275154005,
+        "top5": 0.3874058863791923,
+        "ppl": 193.2083157608378
+      },
+      "held_hit1": 148,
+      "probe_hit1_delta": -1,
+      "probe_ppl_delta": 2.3360618574297973,
+      "memory": {
+        "records": 1624,
+        "source_sentences": 234,
+        "source_sha256": "2d9e672b1d4455f33d2b9dff23b4e98868a7057020ebeeebc886ca35af6ad1e7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9404202699661255
+      }
+    },
+    {
+      "fold": 1,
+      "k": 16,
+      "temperature": 0.05,
+      "weight": 0.5,
+      "held": {
+        "n": 401,
+        "top1": 0.38154613466334164,
+        "top5": 0.4688279301745636,
+        "ppl": 101.80994164555597
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23887748117727584,
+        "top5": 0.3750855578370979,
+        "ppl": 210.4070648060988
+      },
+      "held_hit1": 153,
+      "probe_hit1_delta": -9,
+      "probe_ppl_delta": 19.534810902690793,
+      "memory": {
+        "records": 1624,
+        "source_sentences": 234,
+        "source_sha256": "2d9e672b1d4455f33d2b9dff23b4e98868a7057020ebeeebc886ca35af6ad1e7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9404202699661255
+      }
+    },
+    {
+      "fold": 1,
+      "k": 16,
+      "temperature": 0.05,
+      "weight": 1.0,
+      "held": {
+        "n": 401,
+        "top1": 0.38403990024937656,
+        "top5": 0.4613466334164589,
+        "ppl": 454509152.17015314
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23477070499657768,
+        "top5": 0.36344969199178645,
+        "ppl": 4256597.479273872
+      },
+      "held_hit1": 154,
+      "probe_hit1_delta": -15,
+      "probe_ppl_delta": 4256406.607019969,
+      "memory": {
+        "records": 1624,
+        "source_sentences": 234,
+        "source_sha256": "2d9e672b1d4455f33d2b9dff23b4e98868a7057020ebeeebc886ca35af6ad1e7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9404202699661255
+      }
+    },
+    {
+      "fold": 1,
+      "k": 16,
+      "temperature": 0.1,
+      "weight": 0.1,
+      "held": {
+        "n": 401,
+        "top1": 0.36159600997506236,
+        "top5": 0.4613466334164589,
+        "ppl": 106.08114894102197
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.24503764544832307,
+        "top5": 0.3874058863791923,
+        "ppl": 193.31282184904873
+      },
+      "held_hit1": 145,
+      "probe_hit1_delta": 0,
+      "probe_ppl_delta": 2.440567945640737,
+      "memory": {
+        "records": 1624,
+        "source_sentences": 234,
+        "source_sha256": "2d9e672b1d4455f33d2b9dff23b4e98868a7057020ebeeebc886ca35af6ad1e7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9404202699661255
+      }
+    },
+    {
+      "fold": 1,
+      "k": 16,
+      "temperature": 0.1,
+      "weight": 0.5,
+      "held": {
+        "n": 401,
+        "top1": 0.3790523690773067,
+        "top5": 0.46633416458852867,
+        "ppl": 105.05990019282417
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23887748117727584,
+        "top5": 0.37440109514031483,
+        "ppl": 210.43361235944863
+      },
+      "held_hit1": 152,
+      "probe_hit1_delta": -9,
+      "probe_ppl_delta": 19.561358456040637,
+      "memory": {
+        "records": 1624,
+        "source_sentences": 234,
+        "source_sha256": "2d9e672b1d4455f33d2b9dff23b4e98868a7057020ebeeebc886ca35af6ad1e7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9404202699661255
+      }
+    },
+    {
+      "fold": 1,
+      "k": 16,
+      "temperature": 0.1,
+      "weight": 1.0,
+      "held": {
+        "n": 401,
+        "top1": 0.3790523690773067,
+        "top5": 0.4613466334164589,
+        "ppl": 469449864.45107234
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23477070499657768,
+        "top5": 0.36344969199178645,
+        "ppl": 4232029.244837031
+      },
+      "held_hit1": 152,
+      "probe_hit1_delta": -15,
+      "probe_ppl_delta": 4231838.372583128,
+      "memory": {
+        "records": 1624,
+        "source_sentences": 234,
+        "source_sha256": "2d9e672b1d4455f33d2b9dff23b4e98868a7057020ebeeebc886ca35af6ad1e7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9404202699661255
+      }
+    },
+    {
+      "fold": 1,
+      "k": 16,
+      "temperature": 0.2,
+      "weight": 0.1,
+      "held": {
+        "n": 401,
+        "top1": 0.34413965087281795,
+        "top5": 0.4538653366583541,
+        "ppl": 108.9761034459699
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.24503764544832307,
+        "top5": 0.38809034907597534,
+        "ppl": 193.38516307059197
+      },
+      "held_hit1": 138,
+      "probe_hit1_delta": 0,
+      "probe_ppl_delta": 2.5129091671839774,
+      "memory": {
+        "records": 1624,
+        "source_sentences": 234,
+        "source_sha256": "2d9e672b1d4455f33d2b9dff23b4e98868a7057020ebeeebc886ca35af6ad1e7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9404202699661255
+      }
+    },
+    {
+      "fold": 1,
+      "k": 16,
+      "temperature": 0.2,
+      "weight": 0.5,
+      "held": {
+        "n": 401,
+        "top1": 0.36658354114713215,
+        "top5": 0.4688279301745636,
+        "ppl": 108.51159960411366
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23887748117727584,
+        "top5": 0.37440109514031483,
+        "ppl": 210.51257156271652
+      },
+      "held_hit1": 147,
+      "probe_hit1_delta": -9,
+      "probe_ppl_delta": 19.640317659308522,
+      "memory": {
+        "records": 1624,
+        "source_sentences": 234,
+        "source_sha256": "2d9e672b1d4455f33d2b9dff23b4e98868a7057020ebeeebc886ca35af6ad1e7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9404202699661255
+      }
+    },
+    {
+      "fold": 1,
+      "k": 16,
+      "temperature": 0.2,
+      "weight": 1.0,
+      "held": {
+        "n": 401,
+        "top1": 0.3640897755610973,
+        "top5": 0.4613466334164589,
+        "ppl": 486088257.73925513
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23477070499657768,
+        "top5": 0.36344969199178645,
+        "ppl": 4229354.06905971
+      },
+      "held_hit1": 146,
+      "probe_hit1_delta": -15,
+      "probe_ppl_delta": 4229163.196805807,
+      "memory": {
+        "records": 1624,
+        "source_sentences": 234,
+        "source_sha256": "2d9e672b1d4455f33d2b9dff23b4e98868a7057020ebeeebc886ca35af6ad1e7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9404202699661255
+      }
+    },
+    {
+      "fold": 2,
+      "k": 1,
+      "temperature": 0.05,
+      "weight": 0.1,
+      "held": {
+        "n": 419,
+        "top1": 0.3341288782816229,
+        "top5": 0.42720763723150357,
+        "ppl": 151.5644065896211
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23682409308692676,
+        "top5": 0.3860369609856263,
+        "ppl": 193.36034623866323
+      },
+      "held_hit1": 140,
+      "probe_hit1_delta": -12,
+      "probe_ppl_delta": 2.4880923352552315,
+      "memory": {
+        "records": 1618,
+        "source_sentences": 234,
+        "source_sha256": "21fc27af434c5d6ca3ad19a3120d64ec93f470adc9c3558a7f1bd00bb5fc2fb7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9449911117553711
+      }
+    },
+    {
+      "fold": 2,
+      "k": 1,
+      "temperature": 0.05,
+      "weight": 0.5,
+      "held": {
+        "n": 419,
+        "top1": 0.33651551312649164,
+        "top5": 0.42720763723150357,
+        "ppl": 164.37337437125342
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23545516769336072,
+        "top5": 0.3860369609856263,
+        "ppl": 209.2666894408698
+      },
+      "held_hit1": 141,
+      "probe_hit1_delta": -14,
+      "probe_ppl_delta": 18.394435537461817,
+      "memory": {
+        "records": 1618,
+        "source_sentences": 234,
+        "source_sha256": "21fc27af434c5d6ca3ad19a3120d64ec93f470adc9c3558a7f1bd00bb5fc2fb7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9449911117553711
+      }
+    },
+    {
+      "fold": 2,
+      "k": 1,
+      "temperature": 0.05,
+      "weight": 1.0,
+      "held": {
+        "n": 419,
+        "top1": 0.33651551312649164,
+        "top5": 0.3937947494033413,
+        "ppl": 978408250.143392
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23545516769336072,
+        "top5": 0.36413415468856947,
+        "ppl": 1836591.0578224843
+      },
+      "held_hit1": 141,
+      "probe_hit1_delta": -14,
+      "probe_ppl_delta": 1836400.1855685809,
+      "memory": {
+        "records": 1618,
+        "source_sentences": 234,
+        "source_sha256": "21fc27af434c5d6ca3ad19a3120d64ec93f470adc9c3558a7f1bd00bb5fc2fb7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9449911117553711
+      }
+    },
+    {
+      "fold": 2,
+      "k": 1,
+      "temperature": 0.1,
+      "weight": 0.1,
+      "held": {
+        "n": 419,
+        "top1": 0.3341288782816229,
+        "top5": 0.42720763723150357,
+        "ppl": 151.5644065896211
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23682409308692676,
+        "top5": 0.3860369609856263,
+        "ppl": 193.36034623866323
+      },
+      "held_hit1": 140,
+      "probe_hit1_delta": -12,
+      "probe_ppl_delta": 2.4880923352552315,
+      "memory": {
+        "records": 1618,
+        "source_sentences": 234,
+        "source_sha256": "21fc27af434c5d6ca3ad19a3120d64ec93f470adc9c3558a7f1bd00bb5fc2fb7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9449911117553711
+      }
+    },
+    {
+      "fold": 2,
+      "k": 1,
+      "temperature": 0.1,
+      "weight": 0.5,
+      "held": {
+        "n": 419,
+        "top1": 0.33651551312649164,
+        "top5": 0.42720763723150357,
+        "ppl": 164.37337437125342
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23545516769336072,
+        "top5": 0.3860369609856263,
+        "ppl": 209.2666894408698
+      },
+      "held_hit1": 141,
+      "probe_hit1_delta": -14,
+      "probe_ppl_delta": 18.394435537461817,
+      "memory": {
+        "records": 1618,
+        "source_sentences": 234,
+        "source_sha256": "21fc27af434c5d6ca3ad19a3120d64ec93f470adc9c3558a7f1bd00bb5fc2fb7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9449911117553711
+      }
+    },
+    {
+      "fold": 2,
+      "k": 1,
+      "temperature": 0.1,
+      "weight": 1.0,
+      "held": {
+        "n": 419,
+        "top1": 0.33651551312649164,
+        "top5": 0.3937947494033413,
+        "ppl": 978408250.143392
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23545516769336072,
+        "top5": 0.36413415468856947,
+        "ppl": 1836591.0578224843
+      },
+      "held_hit1": 141,
+      "probe_hit1_delta": -14,
+      "probe_ppl_delta": 1836400.1855685809,
+      "memory": {
+        "records": 1618,
+        "source_sentences": 234,
+        "source_sha256": "21fc27af434c5d6ca3ad19a3120d64ec93f470adc9c3558a7f1bd00bb5fc2fb7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9449911117553711
+      }
+    },
+    {
+      "fold": 2,
+      "k": 1,
+      "temperature": 0.2,
+      "weight": 0.1,
+      "held": {
+        "n": 419,
+        "top1": 0.3341288782816229,
+        "top5": 0.42720763723150357,
+        "ppl": 151.5644065896211
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23682409308692676,
+        "top5": 0.3860369609856263,
+        "ppl": 193.36034623866323
+      },
+      "held_hit1": 140,
+      "probe_hit1_delta": -12,
+      "probe_ppl_delta": 2.4880923352552315,
+      "memory": {
+        "records": 1618,
+        "source_sentences": 234,
+        "source_sha256": "21fc27af434c5d6ca3ad19a3120d64ec93f470adc9c3558a7f1bd00bb5fc2fb7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9449911117553711
+      }
+    },
+    {
+      "fold": 2,
+      "k": 1,
+      "temperature": 0.2,
+      "weight": 0.5,
+      "held": {
+        "n": 419,
+        "top1": 0.33651551312649164,
+        "top5": 0.42720763723150357,
+        "ppl": 164.37337437125342
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23545516769336072,
+        "top5": 0.3860369609856263,
+        "ppl": 209.2666894408698
+      },
+      "held_hit1": 141,
+      "probe_hit1_delta": -14,
+      "probe_ppl_delta": 18.394435537461817,
+      "memory": {
+        "records": 1618,
+        "source_sentences": 234,
+        "source_sha256": "21fc27af434c5d6ca3ad19a3120d64ec93f470adc9c3558a7f1bd00bb5fc2fb7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9449911117553711
+      }
+    },
+    {
+      "fold": 2,
+      "k": 1,
+      "temperature": 0.2,
+      "weight": 1.0,
+      "held": {
+        "n": 419,
+        "top1": 0.33651551312649164,
+        "top5": 0.3937947494033413,
+        "ppl": 978408250.143392
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23545516769336072,
+        "top5": 0.36413415468856947,
+        "ppl": 1836591.0578224843
+      },
+      "held_hit1": 141,
+      "probe_hit1_delta": -14,
+      "probe_ppl_delta": 1836400.1855685809,
+      "memory": {
+        "records": 1618,
+        "source_sentences": 234,
+        "source_sha256": "21fc27af434c5d6ca3ad19a3120d64ec93f470adc9c3558a7f1bd00bb5fc2fb7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9449911117553711
+      }
+    },
+    {
+      "fold": 2,
+      "k": 4,
+      "temperature": 0.05,
+      "weight": 0.1,
+      "held": {
+        "n": 419,
+        "top1": 0.3460620525059666,
+        "top5": 0.4343675417661098,
+        "ppl": 140.61852797634083
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.243668720054757,
+        "top5": 0.3812457221081451,
+        "ppl": 193.34690511778703
+      },
+      "held_hit1": 145,
+      "probe_hit1_delta": -2,
+      "probe_ppl_delta": 2.474651214379037,
+      "memory": {
+        "records": 1618,
+        "source_sentences": 234,
+        "source_sha256": "21fc27af434c5d6ca3ad19a3120d64ec93f470adc9c3558a7f1bd00bb5fc2fb7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9449911117553711
+      }
+    },
+    {
+      "fold": 2,
+      "k": 4,
+      "temperature": 0.05,
+      "weight": 0.5,
+      "held": {
+        "n": 419,
+        "top1": 0.3436754176610978,
+        "top5": 0.431980906921241,
+        "ppl": 146.36615162932657
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23545516769336072,
+        "top5": 0.378507871321013,
+        "ppl": 209.1655470067505
+      },
+      "held_hit1": 144,
+      "probe_hit1_delta": -14,
+      "probe_ppl_delta": 18.293293103342506,
+      "memory": {
+        "records": 1618,
+        "source_sentences": 234,
+        "source_sha256": "21fc27af434c5d6ca3ad19a3120d64ec93f470adc9c3558a7f1bd00bb5fc2fb7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9449911117553711
+      }
+    },
+    {
+      "fold": 2,
+      "k": 4,
+      "temperature": 0.05,
+      "weight": 1.0,
+      "held": {
+        "n": 419,
+        "top1": 0.33890214797136037,
+        "top5": 0.41766109785202865,
+        "ppl": 197807012.97128245
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23545516769336072,
+        "top5": 0.3655030800821355,
+        "ppl": 1680512.47291202
+      },
+      "held_hit1": 142,
+      "probe_hit1_delta": -14,
+      "probe_ppl_delta": 1680321.6006581166,
+      "memory": {
+        "records": 1618,
+        "source_sentences": 234,
+        "source_sha256": "21fc27af434c5d6ca3ad19a3120d64ec93f470adc9c3558a7f1bd00bb5fc2fb7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9449911117553711
+      }
+    },
+    {
+      "fold": 2,
+      "k": 4,
+      "temperature": 0.1,
+      "weight": 0.1,
+      "held": {
+        "n": 419,
+        "top1": 0.3460620525059666,
+        "top5": 0.431980906921241,
+        "ppl": 140.44067808201493
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.243668720054757,
+        "top5": 0.3812457221081451,
+        "ppl": 193.32887738915355
+      },
+      "held_hit1": 145,
+      "probe_hit1_delta": -2,
+      "probe_ppl_delta": 2.4566234857455527,
+      "memory": {
+        "records": 1618,
+        "source_sentences": 234,
+        "source_sha256": "21fc27af434c5d6ca3ad19a3120d64ec93f470adc9c3558a7f1bd00bb5fc2fb7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9449911117553711
+      }
+    },
+    {
+      "fold": 2,
+      "k": 4,
+      "temperature": 0.1,
+      "weight": 0.5,
+      "held": {
+        "n": 419,
+        "top1": 0.3436754176610978,
+        "top5": 0.431980906921241,
+        "ppl": 145.95557523646877
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23545516769336072,
+        "top5": 0.37782340862423,
+        "ppl": 209.06364993599067
+      },
+      "held_hit1": 144,
+      "probe_hit1_delta": -14,
+      "probe_ppl_delta": 18.191396032582674,
+      "memory": {
+        "records": 1618,
+        "source_sentences": 234,
+        "source_sha256": "21fc27af434c5d6ca3ad19a3120d64ec93f470adc9c3558a7f1bd00bb5fc2fb7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9449911117553711
+      }
+    },
+    {
+      "fold": 2,
+      "k": 4,
+      "temperature": 0.1,
+      "weight": 1.0,
+      "held": {
+        "n": 419,
+        "top1": 0.33890214797136037,
+        "top5": 0.41766109785202865,
+        "ppl": 196678420.08841175
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23545516769336072,
+        "top5": 0.3655030800821355,
+        "ppl": 1677246.8784482235
+      },
+      "held_hit1": 142,
+      "probe_hit1_delta": -14,
+      "probe_ppl_delta": 1677056.00619432,
+      "memory": {
+        "records": 1618,
+        "source_sentences": 234,
+        "source_sha256": "21fc27af434c5d6ca3ad19a3120d64ec93f470adc9c3558a7f1bd00bb5fc2fb7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9449911117553711
+      }
+    },
+    {
+      "fold": 2,
+      "k": 4,
+      "temperature": 0.2,
+      "weight": 0.1,
+      "held": {
+        "n": 419,
+        "top1": 0.3460620525059666,
+        "top5": 0.43675417661097854,
+        "ppl": 140.56806517558695
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.24435318275154005,
+        "top5": 0.3812457221081451,
+        "ppl": 193.31479237675242
+      },
+      "held_hit1": 145,
+      "probe_hit1_delta": -1,
+      "probe_ppl_delta": 2.4425384733444275,
+      "memory": {
+        "records": 1618,
+        "source_sentences": 234,
+        "source_sha256": "21fc27af434c5d6ca3ad19a3120d64ec93f470adc9c3558a7f1bd00bb5fc2fb7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9449911117553711
+      }
+    },
+    {
+      "fold": 2,
+      "k": 4,
+      "temperature": 0.2,
+      "weight": 0.5,
+      "held": {
+        "n": 419,
+        "top1": 0.3436754176610978,
+        "top5": 0.431980906921241,
+        "ppl": 145.98764057057343
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23545516769336072,
+        "top5": 0.37782340862423,
+        "ppl": 209.0027660301318
+      },
+      "held_hit1": 144,
+      "probe_hit1_delta": -14,
+      "probe_ppl_delta": 18.1305121267238,
+      "memory": {
+        "records": 1618,
+        "source_sentences": 234,
+        "source_sha256": "21fc27af434c5d6ca3ad19a3120d64ec93f470adc9c3558a7f1bd00bb5fc2fb7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9449911117553711
+      }
+    },
+    {
+      "fold": 2,
+      "k": 4,
+      "temperature": 0.2,
+      "weight": 1.0,
+      "held": {
+        "n": 419,
+        "top1": 0.33890214797136037,
+        "top5": 0.41766109785202865,
+        "ppl": 196663064.35428578
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23545516769336072,
+        "top5": 0.3655030800821355,
+        "ppl": 1676151.9150961023
+      },
+      "held_hit1": 142,
+      "probe_hit1_delta": -14,
+      "probe_ppl_delta": 1675961.0428421989,
+      "memory": {
+        "records": 1618,
+        "source_sentences": 234,
+        "source_sha256": "21fc27af434c5d6ca3ad19a3120d64ec93f470adc9c3558a7f1bd00bb5fc2fb7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9449911117553711
+      }
+    },
+    {
+      "fold": 2,
+      "k": 16,
+      "temperature": 0.05,
+      "weight": 0.1,
+      "held": {
+        "n": 419,
+        "top1": 0.3460620525059666,
+        "top5": 0.4439140811455847,
+        "ppl": 139.7637702989578
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.24503764544832307,
+        "top5": 0.3867214236824093,
+        "ppl": 193.10267223287173
+      },
+      "held_hit1": 145,
+      "probe_hit1_delta": 0,
+      "probe_ppl_delta": 2.230418329463731,
+      "memory": {
+        "records": 1618,
+        "source_sentences": 234,
+        "source_sha256": "21fc27af434c5d6ca3ad19a3120d64ec93f470adc9c3558a7f1bd00bb5fc2fb7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9449911117553711
+      }
+    },
+    {
+      "fold": 2,
+      "k": 16,
+      "temperature": 0.05,
+      "weight": 0.5,
+      "held": {
+        "n": 419,
+        "top1": 0.35083532219570407,
+        "top5": 0.43675417661097854,
+        "ppl": 141.46812657679968
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23887748117727584,
+        "top5": 0.37440109514031483,
+        "ppl": 208.6028337811025
+      },
+      "held_hit1": 147,
+      "probe_hit1_delta": -9,
+      "probe_ppl_delta": 17.73057987769451,
+      "memory": {
+        "records": 1618,
+        "source_sentences": 234,
+        "source_sha256": "21fc27af434c5d6ca3ad19a3120d64ec93f470adc9c3558a7f1bd00bb5fc2fb7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9449911117553711
+      }
+    },
+    {
+      "fold": 2,
+      "k": 16,
+      "temperature": 0.05,
+      "weight": 1.0,
+      "held": {
+        "n": 419,
+        "top1": 0.35083532219570407,
+        "top5": 0.42720763723150357,
+        "ppl": 48826426.7915667
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23545516769336072,
+        "top5": 0.3655030800821355,
+        "ppl": 1477262.2372845574
+      },
+      "held_hit1": 147,
+      "probe_hit1_delta": -14,
+      "probe_ppl_delta": 1477071.365030654,
+      "memory": {
+        "records": 1618,
+        "source_sentences": 234,
+        "source_sha256": "21fc27af434c5d6ca3ad19a3120d64ec93f470adc9c3558a7f1bd00bb5fc2fb7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9449911117553711
+      }
+    },
+    {
+      "fold": 2,
+      "k": 16,
+      "temperature": 0.1,
+      "weight": 0.1,
+      "held": {
+        "n": 419,
+        "top1": 0.3460620525059666,
+        "top5": 0.4439140811455847,
+        "ppl": 139.96628729897742
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.24503764544832307,
+        "top5": 0.3867214236824093,
+        "ppl": 192.98876594037384
+      },
+      "held_hit1": 145,
+      "probe_hit1_delta": 0,
+      "probe_ppl_delta": 2.116512036965844,
+      "memory": {
+        "records": 1618,
+        "source_sentences": 234,
+        "source_sha256": "21fc27af434c5d6ca3ad19a3120d64ec93f470adc9c3558a7f1bd00bb5fc2fb7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9449911117553711
+      }
+    },
+    {
+      "fold": 2,
+      "k": 16,
+      "temperature": 0.1,
+      "weight": 0.5,
+      "held": {
+        "n": 419,
+        "top1": 0.3532219570405728,
+        "top5": 0.43675417661097854,
+        "ppl": 141.33350026247564
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23887748117727584,
+        "top5": 0.3737166324435318,
+        "ppl": 208.33501287536038
+      },
+      "held_hit1": 148,
+      "probe_hit1_delta": -9,
+      "probe_ppl_delta": 17.462758971952383,
+      "memory": {
+        "records": 1618,
+        "source_sentences": 234,
+        "source_sha256": "21fc27af434c5d6ca3ad19a3120d64ec93f470adc9c3558a7f1bd00bb5fc2fb7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9449911117553711
+      }
+    },
+    {
+      "fold": 2,
+      "k": 16,
+      "temperature": 0.1,
+      "weight": 1.0,
+      "held": {
+        "n": 419,
+        "top1": 0.34844868735083534,
+        "top5": 0.42720763723150357,
+        "ppl": 48602755.34585967
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23545516769336072,
+        "top5": 0.3655030800821355,
+        "ppl": 1469576.3774540634
+      },
+      "held_hit1": 146,
+      "probe_hit1_delta": -14,
+      "probe_ppl_delta": 1469385.50520016,
+      "memory": {
+        "records": 1618,
+        "source_sentences": 234,
+        "source_sha256": "21fc27af434c5d6ca3ad19a3120d64ec93f470adc9c3558a7f1bd00bb5fc2fb7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9449911117553711
+      }
+    },
+    {
+      "fold": 2,
+      "k": 16,
+      "temperature": 0.2,
+      "weight": 0.1,
+      "held": {
+        "n": 419,
+        "top1": 0.33890214797136037,
+        "top5": 0.4439140811455847,
+        "ppl": 141.0537003776461
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.24503764544832307,
+        "top5": 0.3874058863791923,
+        "ppl": 192.92856567050958
+      },
+      "held_hit1": 142,
+      "probe_hit1_delta": 0,
+      "probe_ppl_delta": 2.0563117671015902,
+      "memory": {
+        "records": 1618,
+        "source_sentences": 234,
+        "source_sha256": "21fc27af434c5d6ca3ad19a3120d64ec93f470adc9c3558a7f1bd00bb5fc2fb7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9449911117553711
+      }
+    },
+    {
+      "fold": 2,
+      "k": 16,
+      "temperature": 0.2,
+      "weight": 0.5,
+      "held": {
+        "n": 419,
+        "top1": 0.3556085918854415,
+        "top5": 0.43914081145584727,
+        "ppl": 142.51471685441683
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23887748117727584,
+        "top5": 0.3737166324435318,
+        "ppl": 208.1540246833453
+      },
+      "held_hit1": 149,
+      "probe_hit1_delta": -9,
+      "probe_ppl_delta": 17.281770779937318,
+      "memory": {
+        "records": 1618,
+        "source_sentences": 234,
+        "source_sha256": "21fc27af434c5d6ca3ad19a3120d64ec93f470adc9c3558a7f1bd00bb5fc2fb7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9449911117553711
+      }
+    },
+    {
+      "fold": 2,
+      "k": 16,
+      "temperature": 0.2,
+      "weight": 1.0,
+      "held": {
+        "n": 419,
+        "top1": 0.34844868735083534,
+        "top5": 0.42720763723150357,
+        "ppl": 49007932.377203934
+      },
+      "probe": {
+        "n": 1461,
+        "top1": 0.23545516769336072,
+        "top5": 0.3655030800821355,
+        "ppl": 1467343.3543005686
+      },
+      "held_hit1": 146,
+      "probe_hit1_delta": -14,
+      "probe_ppl_delta": 1467152.4820466652,
+      "memory": {
+        "records": 1618,
+        "source_sentences": 234,
+        "source_sha256": "21fc27af434c5d6ca3ad19a3120d64ec93f470adc9c3558a7f1bd00bb5fc2fb7",
+        "k": 16,
+        "temperature": 0.1,
+        "weight": 0.5,
+        "domain_gate": true,
+        "gate_threshold": 0.9449911117553711
+      }
+    }
+  ]
+}

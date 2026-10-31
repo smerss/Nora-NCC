@@ -543,3 +543,7 @@ Bu turda ayrıca üç yerde dil/ölçüm hatası düzeldi:
 Yeni modül `nora_register.py` söylem kümesine eklendi; mandal artık onu da kapsıyor.
 A73 ayrıca **tarihsel tavan** taşıyor (≤1125 / ≤133), böylece baseline güncellense bile
 iskelet o seviyeyi aşamaz.
+
+## Güncel araştırma durumu bağlantısı (2026-10-31)
+
+Canlı öğrenme, tek-sunum genelleme, geriye-dönük unutma ve kaynak sınırlarının güncel kanıtları **`NORA_GUNCEL_DURUM.md`** içinde toplanmıştır. Bu dosyadaki yaşam/bütünlük anlatısı, tek-sunum dil modeli eşiğinin çözüldüğü biçiminde yorumlanmamalıdır.

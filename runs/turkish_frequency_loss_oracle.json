@@ -1,0 +1,8 @@
+{
+  "actual": 9.431706428527832,
+  "expected": 9.431706428527832,
+  "absolute_error": 0.0,
+  "alpha": 0.5,
+  "cap": 8.0,
+  "passed": true
+}

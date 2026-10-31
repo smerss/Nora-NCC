@@ -1,0 +1,90 @@
+[
+  {
+    "fold": 1,
+    "position_seed": 149,
+    "wide_seed": 147,
+    "position_epochs_fixed": 12,
+    "wide_epochs_fixed": 9,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean_fullpass8958_step8958.pt",
+    "freeze_emb": false,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_bpe_dropout_deterministic": false,
+    "target_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "dialogue_repeats": 1,
+    "target_domain": "all",
+    "target_l2sp": 0.0,
+    "position": {
+      "n": 401,
+      "hit1": 171,
+      "hit5": 215,
+      "top1": 0.42643391521197005,
+      "top5": 0.5361596009975063,
+      "ppl": 64.57550193989412
+    },
+    "wide": {
+      "n": 401,
+      "hit1": 172,
+      "hit5": 207,
+      "top1": 0.428927680798005,
+      "top5": 0.516209476309227,
+      "ppl": 72.51219281773437
+    },
+    "ensemble": {
+      "n": 401,
+      "hit1": 172,
+      "hit5": 217,
+      "top1": 0.428927680798005,
+      "top5": 0.5411471321695761,
+      "ppl": 58.59272382324223
+    },
+    "seconds": 36.4990430050002
+  },
+  {
+    "fold": 2,
+    "position_seed": 149,
+    "wide_seed": 147,
+    "position_epochs_fixed": 12,
+    "wide_epochs_fixed": 9,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean_fullpass8958_step8958.pt",
+    "freeze_emb": false,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_bpe_dropout_deterministic": false,
+    "target_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "dialogue_repeats": 1,
+    "target_domain": "all",
+    "target_l2sp": 0.0,
+    "position": {
+      "n": 419,
+      "hit1": 163,
+      "hit5": 208,
+      "top1": 0.38902147971360385,
+      "top5": 0.4964200477326969,
+      "ppl": 118.45290410530198
+    },
+    "wide": {
+      "n": 419,
+      "hit1": 164,
+      "hit5": 200,
+      "top1": 0.3914081145584726,
+      "top5": 0.477326968973747,
+      "ppl": 132.26890409350108
+    },
+    "ensemble": {
+      "n": 419,
+      "hit1": 158,
+      "hit5": 215,
+      "top1": 0.37708830548926014,
+      "top5": 0.513126491646778,
+      "ppl": 104.11179536881646
+    },
+    "seconds": 34.41588159500134
+  }
+]

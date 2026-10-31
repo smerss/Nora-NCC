@@ -55,6 +55,13 @@ def main():
     train = ([{"text": x, "source": "wiki_cc0"} for x in wiki if len(x) >= 4]
              + [{"text": x["text"], "source": "chatbot_gpl3", "film": x["film"]}
                 for x in train_chat])
+    # Cross-fold dış eğitimde başka bir fold'un held-out cümlesi bulunamaz.
+    # Yalnız fold-0'ı ayırmak, fold-1..4 sınavlarına veri sızdırır.
+    normalize = lambda text: re.sub(r"\s+", " ", text).strip().casefold()
+    target_texts = {normalize(x) for x in target_rows if isinstance(x, str)}
+    before_exclusion = len(train)
+    train = [row for row in train if normalize(row["text"]) not in target_texts]
+    target_exclusions = before_exclusion - len(train)
     random.Random(140).shuffle(train)
     write_jsonl(f"{OUT}/external_train.jsonl", train)
     write_jsonl(f"{OUT}/chatbot_confirmation.jsonl", held_chat)
@@ -101,6 +108,9 @@ def main():
                   "exact_overlap_external_train": sum(x["text"] in train_texts for x in faq)}
     metadata = {
         "train_sentences": len(train), "chatbot_confirmation_lines": len(held_chat),
+        "target_sentences_excluded_from_external": len(target_texts),
+        "target_exact_normalized_exclusions": target_exclusions,
+        "target_exclusion_rule": "all SENTENCES + DIALOGUE; whitespace-normalized casefold exact match",
         "chatbot_confirmation_films": len(held_films), "chatbot_split_seed": 51,
         "train_shuffle_seed": 140, "xquad_rebuilt_v2_sentences": len(sentences),
         "xquad_preprocessing": "split .!?… whitespace; parentheses -> space; >=4 alphabetic words",

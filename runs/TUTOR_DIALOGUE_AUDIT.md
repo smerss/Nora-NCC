@@ -79,3 +79,7 @@ Hiçbir kırmızı paraphrase turu başarı sayılmadı:
 ## Sonraki eşik
 
 Öğretici diyalog ve nöral-aday doğrulama eşiği kapandı. Sıradaki teknik eşik, aynı görev/split/bütçe ve çoklu tohumla Transformer karşılaştırmasını koruyarak **fold-1/fold-2 top-1 sonuçlarını %45 üzerine taşımak** ve **0,45B disk-MoE ölçeğini gerçek eğitilmiş uzmanlarla birleştirmek**tir.
+
+## Güncel kapsam notu (2026-10-31)
+
+Bu rapordaki diyalog, yaşantı, parafraz ve öğretici kanıtları geçerlidir; ancak akıcı diyalog tek-sunum next-subword genellemesinin veya unutmamanın kanıtı değildir. Canlı model felsefe denetimi ve güncel Türkçe/korunum sonuçları **`NORA_GUNCEL_DURUM.md`** içindedir.
