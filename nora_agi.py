@@ -1146,6 +1146,58 @@ class NoraAGI:
         }
         return text
 
+    def _philosophy_turn(self, raw: str) -> str | None:
+        """Felsefi soruyu erken tanım/sohbet kanalından önce argümana bağla.
+
+        Erken dönüş, sıradan tanım sorusunu değiştirmez; DeliberativeMind
+        yalnız açık bilinç/anlama sorusunda sonuç döndürür. Cevabın içindeki
+        işlevsel kanıt ile öznel deneyim iddiası ayrı izlerde tutulur.
+        """
+        try:
+            result = self.deliberation.handle_philosophy(self, raw)
+        except Exception as exc:
+            # Felsefe organındaki hata, başka bir konuşma kanalının sahte
+            # cevap üretmesine gerekçe olmasın; izde görünür kalsın.
+            trace = {
+                "kind": "philosophical_argument", "status": "error",
+                "epistemic": "unknown", "question": str(raw),
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+            is_followup = self.deliberation.is_philosophy_followup(self, raw)
+            is_philosophy = self.deliberation.is_philosophical_query(raw)
+            self.deliberation.last_philosophy_trace = trace
+            if not (is_philosophy or is_followup):
+                return None
+            result = {
+                "text": ("Felsefi argümanı bu turda güvenilir biçimde kuramadım; "
+                         f"{type(exc).__name__} hatası oluştu. Uydurmak yerine sonucu "
+                         "bilinmezlikte bırakıyorum."),
+                "trace": trace, "topic": "bilinç",
+            }
+        if result is None:
+            return None
+        text = str(result.get("text", "")).strip()
+        if not text:
+            return None
+        trace = dict(result.get("trace", {}) or {})
+        self._turn_path = "philosophical_argument"
+        self._intent_locked = True
+        self._apply_tag("cikarim", 1)
+        self.last_gw_trace = {
+            "winner": "prefrontal_reasoning", "confidence": 0.94,
+            "trace": "philosophical_argument", "used_s2": True,
+            "bids": {"prefrontal_reasoning": 0.94},
+            "argument": trace,
+        }
+        self.broca_organ.last_speech_plan = {
+            "volition_acts": ["PHILOSOPHICAL_ARGUMENT"],
+            "surface_tr": text,
+            "epistemic": trace.get("epistemic", "underdetermined"),
+            "philosophy_trace": trace,
+            "thought_tree": list(trace.get("reasoning_steps", []) or []),
+        }
+        return text
+
     def _epistemic_gate(self, raw: str) -> str:
         """Anlam sorusunu Broca'dan ÖNCE Graph/HDC kanıtıyla karşılaştır.
 
@@ -1160,6 +1212,11 @@ class NoraAGI:
         # Bu iki soru kendi HDC/MB hesap organına gider; kavramın ilk sözcüğünü
         # tanım sorusu sanıp erken epistemik kapıda kesme.
         if self._vector_expression(text) is not None or self._disambiguation_expression(text):
+            return ""
+        # Felsefi argüman yolu kendi Graph kanıtını ve epistemik sınırını
+        # üretir; burada tek-kenar tanım kapısı onu önceden kesmemeli.
+        if (self.deliberation.is_philosophical_query(text)
+                or self.deliberation.is_philosophy_followup(self, text)):
             return ""
         # Aktif öğretim oturumundaki birleşik/takip soruları tek-sözcüklü
         # sözlük sorusu değildir. Tutor hattı odağı konuşma durumundan çıkarır
@@ -2304,6 +2361,17 @@ class NoraAGI:
                 pass
             self._log_turn(speaker, raw, _special, t0)
             return _special
+        # Felsefe sorusu artık 'bilinç = zıtlık' veya 'nedir?' kapısına
+        # düşmez; önce iddia/kanıt/karşı-model zinciri kurulur.
+        _philosophy = self._philosophy_turn(raw)
+        if _philosophy is not None:
+            try:
+                self.life.on_interaction(self, raw, speaker)
+                self.initiative.on_user_reply()
+            except Exception:
+                pass
+            self._log_turn(speaker, raw, _philosophy, t0)
+            return _philosophy
         # NİYET KİLİDİ: konu/çelişki gibi ÖLÇÜLMÜŞ bir niyet cevaplandıysa, sonradan
         # gelen "bunu demin de sormuştun" süsü cevabı EZMEZ. Tekrar farkındalığı bir
         # süslemedir; ölçülmüş bir cevabın üstüne yazmak onu gasp etmektir.
@@ -3035,6 +3103,9 @@ class NoraAGI:
             _special = self._disambiguation_turn(raw)
         if _special is not None:
             return _special
+        _philosophy = self._philosophy_turn(raw)
+        if _philosophy is not None:
+            return _philosophy
         # Çok cümleli öğreti+soru akışında son soru da aynı zorunlu kapıdan
         # geçer. Önceki cümleler artık Graph/HDC'ye yazılmıştır.
         _unknown = self._epistemic_gate(raw)

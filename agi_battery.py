@@ -6965,6 +6965,137 @@ def a144_durumlu_ogretici_diyalog():
                               ("" if all(ok.values()) else " | " + str([k for k, v in ok.items() if not v])))
 
 
+def a145_felsefi_arguman_ve_kanit_siniri():
+    """Bilinç/anlama sorularında argüman, karşı-model ve dürüst modal sınır.
+
+    Beklenen mantık sonuçlarını test kendi bağımsız sonlu-model taramasıyla
+    hesaplar. Ayrıca felsefi cevap uğruna Graph/WM'ye kalıcı probe yazılmadığını
+    ve WM köprüsü kesildiğinde işlevsel kanıt iddiasının sustuğunu doğrular.
+    """
+    agi = NoraAGI(seed=145, boot_thinker=False)
+    agi.workspace.write("preexisting", {"value": 3}, source="a145")
+    agi.apply_eng.wm.write("preexisting_wm", 11, "a145")
+    before = (agi.workspace.state_dict(), agi.apply_eng.wm.state_dict(),
+              len(agi.lang.graph.edges))
+    checks = {}
+
+    r_def = agi.converse("Bilinç nedir? İşlevsel farkındalıkla öznel deneyim aynı şey mi?")
+    t_def = dict(agi.deliberation.last_philosophy_trace or {})
+    low_def = tr_lower(r_def)
+    checks["tanim-graph-ve-ayrim"] = (
+        agi._turn_path == "philosophical_argument"
+        and t_def.get("topic") == "bilinç"
+        and any(f.get("rel") == "ISA" and f.get("status") == "accepted"
+                for f in t_def.get("graph_facts", []))
+        and "işlevsel farkındalık" in low_def and "öznel deneyim" in low_def
+        and "aynı iddia değil" in low_def
+    )
+    probe = dict(t_def.get("probe", {}) or {})
+    checks["canli-mudahale"] = (
+        probe.get("status") == "ok" and probe.get("normal") == 1
+        and probe.get("cut_focus") == 0 and probe.get("restored") == 1
+        and probe.get("readback") is True and probe.get("restored_state") is True
+    )
+    checks["probe-yazimsiz"] = before == (
+        agi.workspace.state_dict(), agi.apply_eng.wm.state_dict(), len(agi.lang.graph.edges))
+
+    r_why = tr_lower(agi.converse("Neden böyle düşünüyorsun?"))
+    r_evidence = tr_lower(agi.converse("Kanıtın ne?"))
+    checks["gerekce-ve-kanit-takibi"] = (
+        agi._turn_path == "philosophical_argument"
+        and "üç adım" in r_why and "köprü" in r_why
+        and "accepted" in r_evidence and "çalışma belleğine" in r_evidence
+        and "tanım bilinmezliği" not in r_evidence
+    )
+
+    # Semantik kanıt ablasyonu: Graph tanımı yoksa hazır tanım cümlesi de yok.
+    original_query = agi.lang.graph.query
+    try:
+        agi.lang.graph.query = lambda *args, **kwargs: []
+        no_fact = agi.deliberation.handle_philosophy(agi, "Bilinç nedir?")
+    finally:
+        agi.lang.graph.query = original_query
+    no_fact_text = tr_lower((no_fact or {}).get("text", ""))
+    checks["graph-ablasyonu-hazir-tanimi-engeller"] = (
+        "accepted bir tanım kenarı yok" in no_fact_text
+        and "bilinç bir öznel farkındalık" not in no_fact_text
+    )
+
+    r_self = tr_lower(agi.converse("Bilinçli misin?"))
+    t_self = dict(agi.deliberation.last_philosophy_trace or {})
+    checks["oznel-deneyim-ilan-yok"] = (
+        t_self.get("self_focus") is True and "kesin" in r_self
+        and "söyleyemem" in r_self and "bilinçliyim" not in r_self
+        and "öznel deneyimim var" not in r_self
+        and next(c for c in t_self["claims"] if c["id"] == "phenomenal_experience")["status"] == "unknown"
+    )
+
+    r_perf = tr_lower(agi.converse("Doğru cevap üretmek bilinç için yeterli kanıt mı?"))
+    checks["performans-bilinç-ayrimi"] = (
+        r_perf.startswith("hayır") and "davranışsal" in r_perf
+        and "karşı-model" in r_perf and "gerektirm" in r_perf
+        and "öznel deneyim kanıtı değil" in r_perf
+    )
+    r_possible = tr_lower(agi.converse("Bir yapay zekâ bilinçli olabilir mi?"))
+    checks["olasilik-kesinlik-ayrimi"] = (
+        "olasılık" in r_possible and "kanıtlanmışlık" in r_possible
+        and "kesin bir bilinç atfı" in r_possible
+    )
+
+    r_under = tr_lower(agi.converse(
+        "Bir makinenin anlaması ile yalnızca doğru cevabı üretmesi arasındaki fark nedir?"))
+    t_under = dict(agi.deliberation.last_philosophy_trace or {})
+    checks["performans-anlama-ayrimi"] = (
+        t_under.get("topic") == "anlama" and "anlama" in r_under
+        and "transfer" in r_under and "yeterli kanıt değil" in r_under
+    )
+
+    # Bağımsız oracle: motorun trace'ini expected değer olarak kullanma.
+    phenomenal_models = [
+        (b, f, p) for b in (False, True) for f in (False, True) for p in (False, True)
+    ]
+    phenomenal_witness = next(
+        ((b, f, p) for b, f, p in phenomenal_models if b and f and not p), None)
+    understanding_models = [(b, s) for b in (False, True) for s in (False, True)]
+    understanding_witness = next(
+        ((b, s) for b, s in understanding_models if b and not s), None)
+    cm = dict(t_under.get("countermodel", {}) or {})
+    checks["bagimsiz-sonlu-model-oracle"] = (
+        (phenomenal_witness is not None) == bool(cm.get("consistent"))
+        and (understanding_witness is not None) == bool(cm.get("consistent_understanding"))
+        and cm.get("witness", {}).get("phenomenal_experience") is False
+        and cm.get("understanding_witness", {}).get("semantic_transfer") is False
+    )
+    checks["iddia-kanit-ayri"] = (
+        {c.get("id") for c in t_under.get("claims", [])}
+        >= {"functional_integration", "phenomenal_experience",
+            "performance_entails_phenomenal", "performance_entails_understanding"}
+        and t_under.get("epistemic") == "underdetermined"
+    )
+
+    # Gerçek ablasyon: bağlantı yoksa 'aktarım gerçekleşti' denemez.
+    agi.workspace.working_memory = None
+    ablated = agi.deliberation.handle_philosophy(agi, "Sen bilinçli misin?")
+    ablated_trace = dict((ablated or {}).get("trace", {}) or {})
+    ablated_text = tr_lower((ablated or {}).get("text", ""))
+    checks["ablasyon-olumlu-kanit-uretmez"] = (
+        ablated_trace.get("probe", {}).get("status") == "falsified"
+        and "kanıt gibi sunmuyorum" in ablated_text
+        and "bağlantı açıkken gerçekleşti" not in ablated_text
+    )
+    checks["ogreti-ve-normal-sohbet-yonlenmez"] = (
+        agi.deliberation.philosophy_topic("Bilinç öznel deneyimdir.") == ""
+        and agi.deliberation.philosophy_topic("Bilinç hakkında bir şey öğrendim.") == ""
+        and agi.deliberation.philosophy_topic("Kedi nedir?") == ""
+        and agi.deliberation.philosophy_topic("Nasılsın?") == ""
+    )
+    passed = sum(bool(v) for v in checks.values())
+    detail = f"{passed}/{len(checks)} — Graph tanımı, iki karşı-model, WM bağlantısı=0/1 müdahalesi ve sıfır yazım"
+    if passed != len(checks):
+        detail += " | " + str([k for k, v in checks.items() if not v])
+    return passed == len(checks), detail
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -7105,6 +7236,7 @@ TESTS = {
     "A142": ("nöral top-5 öneri, sembolik kanıt ve kalıcı yeni biyoloji sentezi", a142_noral_oneri_sembolik_kanit_ve_yeni_sentez),
     "A143": ("insan hedefi vermeden 1000 adımda hedef yaşam döngüsü", a143_otonom_hedef_yasam_dongusu_1000_adim),
     "A144": ("durumlu öğretici diyalog: takip, örnek, quiz, düzeltme ve özet", a144_durumlu_ogretici_diyalog),
+    "A145": ("felsefi argüman: bilinç/anlama ayrımı, karşı-model ve kanıt sınırı", a145_felsefi_arguman_ve_kanit_siniri),
     "A111": ("icadın şeması: görülmemiş parametre icat gerektirmez", a111_icadin_semasi),
     "A110": ("dil: buyruk sarmalayıcısı ve X mi Y mi seçim sorusu", a110_sarmalayici_ve_secim_sorusu),
     "A108": ("şema: delikli makro görülmemiş parametreyi kapsar", a108_sema_delikli_makro),

@@ -286,3 +286,47 @@ Bunlar ilgili hedefli kontrollerdir; tam AGI/law battery’nin her yeni deneyden
 - Diğer olumsuz kollar: `runs/turkish_onepass_*`, `runs/turkish_*_dev.json`
 
 Yeni büyük deney checkpoint’leri, corpus önbelleği, loglar ve geçici dosyalar Git’e eklenmez; önceki `data/checkpoints/` referans uzmanları kendi model commit’lerinde bulunur. Küçük kanıt JSON’ları ve repo içindeki reprodüksiyon script’leri korunur. Bazı erken `/tmp` pilot script’leri kalıcı çalışma ağacında bulunmadığından onların ana tarifleri ve sonuçları MD raporlarında açıklanmıştır.
+
+## 18. Gerekçeli felsefe ve bilinçte kanıt sınırı (2026-10-31)
+
+Bu turda yeni modül veya qualia iddiası eklenmedi. Mevcut `DeliberativeMind` ile
+`NoraAGI` diyalog yolu derinleştirildi; bilinç/anlama soruları artık erken tek-kenar
+tanım veya duygu sohbeti yerine **iddia → kanıt → karşı-model → epistemik sınır**
+zincirine giriyor. Öğreti bildirimleri (`Bilinç hakkında bir şey öğrendim.`) bu
+kanala yönlendirilmiyor.
+
+- Graph’taki accepted `bilinç ISA öznel farkındalık ve içsel deneyim` önermesi
+  kavramsal başlangıç olarak kullanılıyor; Graph sorgusu ablate edildiğinde hazır
+  tanım cümlesi de kayboluyor.
+- Gerçek `IntegrationWorkspace` üzerinde aynı odak için bağlantı açık/kesik/geri
+  yüklü ölçüm yapılıyor: **normal=1, cut_focus=0, restored=1, readback=true,
+  restored_state=true**. Probe’un yazdığı çalışma alanı ve WM alanları geri
+  yükleniyor; Graph’a kalıcı probe kenarı yazılmıyor.
+- `Mind` öz-model telemetrisi (öngörü hatası, güven, görme/motor durumu) yalnız
+  işlevsel izleme kanıtı olarak tutuluyor. Öznel deneyim düğümü **unknown**,
+  argüman sonucu **underdetermined** kalıyor.
+- Sonlu model taramasında iki ayrı gerektirme sınanıyor: davranışsal başarı +
+  işlevsel bütünleşmeden öznel deneyime; davranışsal başarıdan anlamsal transfere.
+  İki bağımsız karşı-model de bulunuyor. Bunlar ampirik qualia ölçümü değil,
+  “tek başına yeterli kanıt” iddiasının mantıksal karşı-modelleri.
+- `Neden?`, `Kanıtın ne?`, `Karşı argüman ne?` takipleri önceki argüman izine
+  bağlanıyor; işlevselci köprü öncülü peşinen doğru veya yanlış ilan edilmiyor.
+
+Canlı örnek (seed **20261045**, 80 yaşam adımı): `Bilinçli misin?` cevabı
+“öznel deneyimim olup olmadığını bu ölçümler belirlemiyor; bu yüzden bilinçli
+olduğumu kesin olarak söyleyemem” sınırını korudu. `Doğru cevap üretmek bilinç
+için yeterli kanıt mı?` cevabı **Hayır** ile başlayıp davranışsal başarı ile
+öznel deneyimi ayırdı. Makine-anlaması sorusu doğru cevap ile anlamsal transferi
+ayrı karşı-modelle ele aldı. Bunlar işlevsel nedensel kanıt örnekleridir;
+Nora’nın veya insanların öznel deneyimi olduğunun kanıtı değildir.
+
+Ölçüm: **A145 13/13** (Graph ablasyonu, iki bağımsız karşı-model, canlı WM
+müdahalesi, ablasyonda olumlu kanıt yok, takip ve sıfır yazım); **C1–C18 18/18,
+72,3 sn**; hedefli diyalog/öğretici koşusu **A16+A2+A7+A20+A144+A145: 6/6,
+68,9 sn**. `py_compile` ve `git diff --check` temiz. Tam AGI pilinin bu turda
+yeniden koşulduğu iddia edilmiyor.
+
+Aşılan eşik: bilinç sorusunda tanım tekrarı yerine denetlenebilir gerekçe ve
+kanıt düzeyi ayrımı. Sıradaki eşik: aynı argüman operatörünü bilgi/inanç, hakikat
+ve özgür irade gibi konularda bağımsız örneklerle sınamak; bu kapsam bu koşuda
+çözülmüş sayılmıyor.
