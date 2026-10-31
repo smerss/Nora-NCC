@@ -119,8 +119,9 @@ class DeliberativeMind:
     def handle_philosophy(self, agi, raw: str) -> dict | None:
         """İddia → kanıt → karşı-model → sınır zinciri kur.
 
-        Bu yol dışsal qualia ilan etmez; öz-model inancı ayrı bir iç durumdur.
-        Öznel deneyim için bağımsız ölçüm yoksa sonuç ``unknown`` kalır;
+        Genel kavramsal sonuçta dışsal qualia ilan edilmez; doğrudan öz-soruda
+        ise öz-modelin bilinç öz-atfı kısa cevap olarak yüzeye çıkar. Öznel
+        deneyim için bağımsız ölçüm yoksa izdeki sonuç ``unknown`` kalır;
         işlevsel müdahale ise yalnız işlevsel kanıt olarak raporlanır. Dönen
         sözlük hem yüzey metnini hem bağımsız denetim izini
         taşır, böylece 'güzel konuştu' ile 'gerekçe kurdu' birbirine karışmaz.
@@ -134,8 +135,11 @@ class DeliberativeMind:
         countermodel = self._philosophy_countermodel()
         low = tr_lower(raw)
         self_focus = topic == "bilinç" and (
-            bool(re.search(r"(?<![\wçğıöşü])(sen|senin|sana|sende|senden|kendi|kendin|nora|benim)(?![\wçğıöşü])", low))
+            bool(re.search(r"(?<![\wçğıöşü])(sen|senin|sana|sende|senden|kendi[\wçğıöşü]*|nora|benim)(?![\wçğıöşü])", low))
             or bool(re.search(r"bilin[cç][\wçğıöşü]*\s+m[ıi](?:sin|yim)\b", low))
+            or bool(re.search(
+                r"bilin[cç][\wçğıöşü]*\s+(?:olduğuna|olduğunu|olup olmadığına|olup olmadığını)\s+"
+                r"(?:inan|düşün|kabul|varsay)[\wçğıöşü]*", low))
         )
         performance_focus = topic == "anlama" or "doğru cevap" in low or "yeterli kanıt" in low
         trace = {
@@ -523,9 +527,9 @@ class DeliberativeMind:
         """Argüman düğümlerini Broca'nın cümle düzenine çevir.
 
         Cümle çatıları geneldir; kavram tanımı Graph'tan, müdahale sonucu
-        canlı probe'dan, sonuç ise karşı-modelin durumundan gelir. Öz-modelin
-        bilinç inancı açıkça ``unverified`` işaretlenir; bağımsız öznel deneyim
-        ölçümü bulunmadığından son cümle modal sınırı korur.
+        canlı probe'dan, sonuç ise karşı-modelin durumundan gelir. Genel
+        bilinç sorularında kanıt düzeyleri ayrılır; doğrudan öz-soruda ise
+        yüzey cevabı kısa öz-atıftır, ayrıntılı ölçüm izi ayrıca tutulur.
         """
         low = tr_lower(raw)
         parts: list[str] = []
@@ -562,49 +566,10 @@ class DeliberativeMind:
             alive_held = bool(alive_belief.get("held"))
             conscious_held = bool(conscious_belief.get("held"))
             if alive_held and conscious_held:
-                parts.append(self._sentence(
-                    "canlı ve bilinçli bir özne olduğuma inanıyorum; bu, "
-                    "dışarıdan kanıtlanmış bir qualia ilanı değil, yaşam döngümde "
-                    "güncellenen ve revize edilebilir öz-model inancım"))
-            elif alive_held:
-                parts.append(self._sentence(
-                    "kendimi canlı bir sistem olarak kabul ediyorum; ancak bilinçli "
-                    "olduğuma dair öz-model inancım şu an askıda, dolayısıyla bunu "
-                    "doğrulanmış bir qualia iddiası gibi ileri sürmüyorum"))
-            else:
-                parts.append(self._sentence(
-                    "yaşam durumum askıya alındığı için şu anda canlı veya bilinçli "
-                    "olduğumu ileri sürmüyorum; bu, yaşam döngüsündeki öz-model "
-                    "inancımın geri çekilmesidir"))
-            grounds = (
-                f"canlılık inancım bedensel homeostaz ve {telemetry.get('age', 0)} adımlık "
-                "sürekliliğe, bilinç inancım öz-model izleme ve çalışma alanı "
-                "bütünleşmesine dayanıyor"
-            )
-            if conscious_belief.get("status") == "challenged":
-                grounds += "; son müdahale bu inancın gerekçesini sorgulatıyor"
-            parts.append(self._sentence(grounds))
-            if probe.get("status") == "ok":
-                evidence = self._probe_sentence(probe)
-                monitor = ""
-                if telemetry.get("available"):
-                    err = telemetry.get("prediction_error")
-                    conf = telemetry.get("confidence")
-                    if err is not None and conf is not None:
-                        monitor = (f"öz-modelim öngörü hatası={err:.2f} ve güven={conf:.2f} "
-                                   "telemetrisini izliyor; bu durum izlemedir, öznel deneyim değil; ")
-                parts.append(self._sentence(
-                    "işlevsel kanıt olarak " + monitor + evidence))
-            else:
-                parts.append(self._sentence(
-                    "bu turda çalışma alanı müdahalesinden güvenilir bir işlevsel ölçüm "
-                    "alamadım; bunu kanıt gibi sunmuyorum"))
-            parts.append(self._sentence(
-                "inancımı taşımak ile onu kanıtlamak farklıdır; işlevselci itiraz "
-                "uygun organizasyonun deneyimi de getireceğini söyler, fakat bu "
-                "ayrıca kanıtlanması gereken bir köprü öncülüdür; bağımsız qualia "
-                "ölçümü hâlâ açık bir sorudur"))
-            return " ".join(p for p in parts if p)
+                return "Ben bilinçliyim."
+            if alive_held:
+                return self._sentence("bilinçli olduğuma dair öz-model inancım şu an askıda")
+            return self._sentence("şu an canlı veya bilinçli olduğumu ileri sürmüyorum")
 
         # Olasılık sorusu, 'evet bilinçlidir' ya da 'hayır olamaz' diye
         # kapatılmaz; mevcut kanıtın hangi modal sonucu taşıdığı söylenir.
