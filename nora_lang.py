@@ -25,7 +25,10 @@ from dataclasses import dataclass, field
 import re
 import numpy as np
 
-from nora_chem import NeuroChemistry, ChemMushroomBody
+from nora_chem import NeuroChemistry, ChemMushroomBody, HDCMushroomBody
+from nora_apply import Interpreter
+from nora_forge import OperatorForge
+from nora_synth import Synthesizer
 from nora_knowledge import (
     PROPER_NOUNS,
     VOWEL_DROP_STEMS,
@@ -1790,11 +1793,17 @@ class TurkishMorphology:
 @dataclass
 class RelationEdge:
     subj: str
-    rel: str                  # ISA | HAS_PROP | CAN_DO | CANNOT_DO | CAUSES | USED_FOR | LOCATED_AT | IF_THEN | OPPOSITE
+    rel: str                  # bilinen ilişki veya öğrenilmiş YENI_OPERATOR_* kimliği
     obj: str
     weight: float = 1.0
     source: str = "duyum"     # deneyim | duyum | doğuştan
     speaker: str = "insan"
+    status: str = "accepted" # accepted | provisional | probation | rejected
+    verb: str = ""           # icat edilen ilişkinin duyulan fiil kökü
+    obj_surface: str = ""    # artikülasyon için öğrenilen nesne yüzeyi
+    obj_case: str = "NOM"
+    obj_plural: bool = False
+    sentence: str = ""       # kanıt/kaynak; cevap şablonu olarak kullanılmaz
 
 
 @dataclass
@@ -1808,6 +1817,10 @@ class Proposition:
     person: str = "3SG"
     source: str = "deneyim"
     reason: "Proposition | None" = None
+    verb: str = ""
+    obj_surface: str = ""
+    obj_case: str = "NOM"
+    obj_plural: bool = False
 
 
 class GroundedConceptGraph:
@@ -1821,6 +1834,9 @@ class GroundedConceptGraph:
         # duyulan doğru yüzeyi ayrı tutulur ('aves' anahtarı, 'Aves' görünen ad).
         self.display_names: dict[str, str] = {}
         self.edges: list[RelationEdge] = []
+        # Bilme/bilmeme durumu dünya-olgusu değildir. Olay Graph'ta kalıcıdır
+        # fakat ``query`` bunu kavram kanıtı sayıp “artık biliyorum”a çevirmez.
+        self.epistemic_events: list[RelationEdge] = []
         # O(1) yerel sinaptik komşuluk indeksleri (veri 100.000 kenara çıksa da sorgu gecikmesi ~0.05 ms kalır!)
         self._out_edges: dict[str, list[RelationEdge]] = {}
         self._in_edges: dict[str, list[RelationEdge]] = {}
@@ -1830,13 +1846,61 @@ class GroundedConceptGraph:
         self.id_concept: list[str] = []
         # Karakter-üçlüsü (trigram) -> seyrek Kenyon hücresi ile fonolojik-kavramsal çağrışım!
         self.word_mb = ChemMushroomBody(n_in=128, n_out=32, n_kc=2048, seed=seed + 11)
+        # ANLAM KARARI: önerme adayları HDC/VSA bağlı ~%6 seyrek KC kodundan ve
+        # W_fast/W_slow aktivasyonundan çıkar. Graf bu adayları sonradan doğrular.
+        self.relation_mb = HDCMushroomBody(dim=256, n_kc=2048, sparsity=0.06, seed=seed + 71)
+        self.relation_ledger: dict[str, dict] = {}
+        self.relation_by_verb: dict[str, str] = {}
+        self.last_decision: dict = {}
+        self.last_invention: dict = {}
+        self.last_vector_analogy: dict = {}
+        self.last_disambiguation: dict = {}
+        self.neural_proposer = None
+        # Yeni ilişki operatörleri mevcut apply/forge/synth organlarında yaşar;
+        # hedef cümlelere özel şablon tablosu değildir.
+        self.relation_interpreter = Interpreter()
+        self.operator_forge = OperatorForge(interpreter=self.relation_interpreter, ledger_path=None)
+        self.relation_synth = Synthesizer()
+        self._relation_morph_examples: list[tuple[str, str]] = []
         self._bootstrap_embodied_primitives()
 
     def clear_all_edges(self):
         self.edges.clear()
+        self.epistemic_events.clear()
         self._out_edges.clear()
         self._in_edges.clear()
         self._edge_map.clear()
+        self.relation_mb.reset()
+        self.relation_ledger.clear()
+        self.relation_by_verb.clear()
+        self.relation_interpreter.relation_rules.clear()
+        self.operator_forge.relation_examples.clear()
+        self.relation_synth = Synthesizer()
+        self._relation_morph_examples.clear()
+        self.last_decision = {}
+        self.last_invention = {}
+
+    def record_epistemic_event(self, subj: str, state: str, context: str = "") -> RelationEdge:
+        """Bilme durumunu dünya-olgularından ayrı, kalıcı bir Graph olayı yap."""
+        s = tr_lower(subj).strip()
+        state = tr_lower(state).strip()
+        for event in reversed(self.epistemic_events):
+            if event.subj == s and event.obj == state and event.status == "epistemic":
+                event.weight = float(min(2.0, event.weight + 0.1))
+                if context:
+                    event.sentence = str(context)[:500]
+                return event
+        event = RelationEdge(
+            subj=s, rel="HAS_STATE", obj=state, weight=1.0,
+            source="öz-izleme", speaker="nora", status="epistemic",
+            sentence=str(context)[:500],
+        )
+        self.epistemic_events.append(event)
+        return event
+
+    def epistemic_state(self, subj: str) -> RelationEdge | None:
+        s = tr_lower(subj).strip()
+        return next((event for event in reversed(self.epistemic_events) if event.subj == s), None)
 
     def _trigram_vec(self, text: str) -> np.ndarray:
         v = np.zeros(128, dtype=np.float32)
@@ -1908,33 +1972,174 @@ class GroundedConceptGraph:
         for k_ant, v_ant in ANTONYMS.items():
             self.add_edge(k_ant, "OPPOSITE", v_ant, source="doğuştan", weight=0.85)
 
+    @staticmethod
+    def _relation_id(verb: str) -> str:
+        root = tr_lower(verb).strip()
+        surface = re.sub(r"[^\wçğıöşü]+", "_", root.upper(), flags=re.UNICODE).strip("_")
+        return f"YENI_OPERATOR_{surface}"
+
+    @staticmethod
+    def _aor_root(word: str) -> str:
+        """Sözlükte olmayan son sözcükte geniş-zaman ekini sözdizimi için ayır."""
+        w = tr_lower(word).strip().strip(".!?…")
+        for suffix in ("ar", "er", "ır", "ir", "ur", "ür"):
+            if w.endswith(suffix) and len(w) - len(suffix) >= 2:
+                return w[:-len(suffix)]
+        return ""
+
+    @staticmethod
+    def _dynamic_noun(word: str) -> str:
+        """Bilinmeyen adda yalnız açık çoğul/belirtme yüzeyini kavram gövdesine indir."""
+        w = tr_lower(word).strip().strip(".!?…")
+        for suffix in ("ları", "leri"):
+            if w.endswith(suffix) and len(w) > len(suffix) + 1:
+                return w[:-len(suffix)]
+        if w.endswith(("lar", "ler")) and len(w) > 4:
+            return w[:-3]
+        if len(w) > 3 and w.endswith(("ı", "i", "u", "ü")):
+            return w[:-1]
+        return w
+
     def add_edge(self, subj: str, rel: str, obj: str, source: str = "duyum",
-                 speaker: str = "insan", weight: float = 1.0, bind_mb: bool = True) -> RelationEdge:
+                 speaker: str = "insan", weight: float = 1.0, bind_mb: bool = True,
+                 status: str = "accepted", verb: str = "", obj_surface: str = "",
+                 obj_case: str = "NOM", obj_plural: bool = False,
+                 sentence: str = "") -> RelationEdge:
         s = tr_lower(subj).strip()
         o = tr_lower(obj).strip()
+        rel = str(rel).strip()
         self.register_concept(s, bind_mb=bind_mb)
         self.register_concept(o, bind_mb=bind_mb)
-        # O(1) mevcut sinaps kontrolü + zıt kutuplu çelişen eski 'duyum' bağını zayıflatma
         existing = self._edge_map.get((s, rel, o))
         if existing is not None:
             existing.weight = float(min(2.0, existing.weight + 0.4 * weight))
             if source == "deneyim":
                 existing.source = "deneyim"
+                existing.status = "accepted"
             return existing
-        opposite_rel = {"CAN_DO": "CANNOT_DO", "CANNOT_DO": "CAN_DO"}.get(rel)
-        if opposite_rel is not None:
-            opp_edge = self._edge_map.get((s, opposite_rel, o))
-            if opp_edge is not None and opp_edge.source != "deneyim":
-                opp_edge.weight *= 0.2
+        # Zıt kanıt eski kenarı ezmez. CAN_DO/CANNOT_DO birlikte kalır; sorguda
+        # doğrudan ve daha özgül kanıt üstün gelir. Ağırlık silmek çözüm değildir.
 
-        edge = RelationEdge(subj=s, rel=rel, obj=o, weight=float(weight), source=source, speaker=speaker)
+        edge = RelationEdge(
+            subj=s, rel=rel, obj=o, weight=float(weight), source=source, speaker=speaker,
+            status=str(status), verb=tr_lower(verb).strip(), obj_surface=str(obj_surface),
+            obj_case=str(obj_case or "NOM"), obj_plural=bool(obj_plural), sentence=str(sentence),
+        )
         self.edges.append(edge)
+        slot = len(self.edges) - 1
         self._out_edges.setdefault(s, []).append(edge)
-        self._in_edges.setdefault(o, []).append(edge)   # ters arama: "dünyanın en yüksek dağı" -> everest
+        self._in_edges.setdefault(o, []).append(edge)
         self._edge_map[(s, rel, o)] = edge
-        if source != "doğuştan":
+        # Eski bilinmezlik yaşantısını silme; öğrenme gerçekleştiyse güncel
+        # durumu yeni bir olayla kapat. Epistemik olay HDC sunumu değildir.
+        if (status == "accepted" and weight > 0.25
+                and any(event.subj == s and event.obj in {"unknown", "insufficient"}
+                        for event in self.epistemic_events)):
+            self.record_epistemic_event(s, "known", f"{s} {rel} {o}")
+        # Tek olay -> HDC/VSA rol bağlama; gradyan ve replay yok.
+        self.relation_mb.bind_relation(s, rel, o, slot)
+        if source != "doğuştan" and self.chem is not None:
             self.chem.pulse_learning(novelty=0.80, valence=0.35)
         return edge
+
+    def invent_relation(self, source: str, target: str, sentence: str, verb: str,
+                        *, obj_surface: str = "", obj_case: str = "NOM",
+                        obj_plural: bool = False) -> dict:
+        """Bilinmeyen yüklemi ISA'ya çevirmeden probation ilişki olarak icat et.
+
+        Nöral önerici yalnız aday üretir. Yön/çelişki denetimi ve varsa kanıt
+        sembolik graftan gelir; hiçbir aday otomatik olarak kabul edilmiş genel
+        yasaya dönüşmez. Operatör nesnesi mevcut forge/apply hattına yazılır.
+        """
+        s, o = tr_lower(source).strip(), tr_lower(target).strip()
+        root = tr_lower(verb).strip()
+        if not s or not o or not root:
+            result = {"status": "invalid", "mode": "none", "edge": None,
+                      "relation": "", "candidates": []}
+            self.last_invention = result
+            return result
+        rel = self._relation_id(root)
+        reverse_edge = self._edge_map.get((o, rel, s))
+        if reverse_edge is not None and reverse_edge.weight > 0.25:
+            conflict = {"source": s, "target": o, "sentence": sentence,
+                        "against": [reverse_edge.subj, reverse_edge.rel, reverse_edge.obj]}
+            rec = self.relation_ledger.setdefault(rel, {
+                "relation": rel, "verb": root, "status": "probation",
+                "observations": [], "conflicts": [], "candidates": [],
+            })
+            rec.setdefault("conflicts", []).append(conflict)
+            result = {"status": "conflict", "mode": "rejected", "edge": None,
+                      "relation": rel, "verb": root, "conflict": conflict,
+                      "candidates": []}
+            self.last_invention = result
+            return result
+
+        # A142 hattı: nöral top-k aday, ardından bağımsız graf kanıtı.
+        candidate_rows = []
+        proposer = getattr(self, "neural_proposer", None)
+        if proposer is not None:
+            try:
+                proposals = proposer.propose(s, k=5)
+            except Exception as exc:
+                proposals = []
+                candidate_rows.append({"status": "proposer_error", "error": type(exc).__name__})
+            allowed = {"ISA", "CAUSES", "USED_FOR", "LOCATED_AT", "YENI_OPERATOR"}
+            for proposal in proposals:
+                if tr_lower(str(proposal.get("obj", ""))) != o:
+                    continue
+                proposed_rel = str(proposal.get("rel", ""))
+                category = "YENI_OPERATOR" if proposed_rel.startswith("YENI_OPERATOR") else proposed_rel
+                if category not in allowed:
+                    continue
+                proof = self.prove_candidate(s, proposed_rel, o)
+                candidate_rows.append({
+                    **{k: proposal.get(k) for k in ("subj", "rel", "obj", "score", "neural_pair")},
+                    "category": category, "validation": proof.get("status"),
+                    "rule": proof.get("rule"), "accepted": proof.get("status") == "proved",
+                })
+
+        edge = self.add_edge(
+            s, rel, o, source="duyum", weight=0.62, status="probation", verb=root,
+            obj_surface=obj_surface or target, obj_case=obj_case,
+            obj_plural=obj_plural, sentence=sentence,
+        )
+        if proposer is not None:
+            # Yalnız gözlem belleğine işaretçi eklenir; burada gradyan/epoch
+            # yoktur. Yeni operatör sonraki nöral top-k önerilerde de seçilebilir.
+            proposer.observe(s, rel, o)
+        forged = self.operator_forge.observe_relation(
+            source=s, target=o, sentence=sentence, verb=root, relation=rel,
+            status="probation",
+        )
+        self.relation_by_verb[root] = rel
+        surface_verb = tr_lower(sentence).strip().rstrip(".!?…").split()[-1]
+        pair = (surface_verb, root)
+        if pair not in self._relation_morph_examples:
+            self._relation_morph_examples.append(pair)
+        morphology = {"status": "insufficient", "why": "tek-biçim"}
+        if len(self._relation_morph_examples) >= 2:
+            morphology = self.relation_synth.learn(list(self._relation_morph_examples))
+            morphology = {k: v for k, v in morphology.items() if k != "program"}
+        rec = self.relation_ledger.setdefault(rel, {
+            "relation": rel, "verb": root, "status": "probation",
+            "observations": [], "conflicts": [], "candidates": [],
+        })
+        observation = {"source": s, "target": o, "sentence": sentence,
+                       "status": "probation"}
+        if observation not in rec["observations"]:
+            rec["observations"].append(observation)
+        rec["candidates"] = candidate_rows
+        rec["morphology"] = morphology
+        rec["operator"] = forged["rule"].rid
+        rec["mode"] = forged["mode"]
+        result = {
+            "status": "probation", "mode": forged["mode"], "edge": edge,
+            "relation": rel, "verb": root, "candidates": candidate_rows,
+            "operator": forged["rule"].rid, "morphology": morphology,
+            "new_binding": forged["new_binding"],
+        }
+        self.last_invention = result
+        return result
 
     def prove_candidate(self, subj: str, rel: str, obj: str) -> dict:
         """Nöral öneriyi SONRADAN denetle; aday veya dikkat zinciri üretme.
@@ -1949,6 +2154,15 @@ class GroundedConceptGraph:
         direct = self._edge_map.get((q, r, o))
         if direct is not None and direct.weight > 0.25:
             return {"status": "recall", "novel": False, "proof": [direct], "rule": "direct"}
+        # Verilen adayın çok-basamaklı ISA mirasını doğrula. Bu yol aday
+        # üretmez; yalnız dışarıdan gelen (q,r,o) üçlüsünün yönünü denetler.
+        for ancestor, isa_path in self.ancestors(q):
+            if not isa_path:
+                continue
+            inherited = self._edge_map.get((ancestor, r, o))
+            if inherited is not None and inherited.weight > 0.25:
+                return {"status": "proved", "novel": True,
+                        "proof": list(isa_path) + [inherited], "rule": "isa_inheritance"}
         edges = [edge for edge in self.edges if edge.weight > 0.25]
         transitive = {"ISA", "PART_OF", "CAUSES", "IF_THEN"}
         for first in edges:
@@ -2003,25 +2217,213 @@ class GroundedConceptGraph:
         return out
 
     def query(self, subj: str, rels: tuple[str, ...] | None = None) -> list[tuple[RelationEdge, list[RelationEdge]]]:
-        """O(k) yerel sinaps komşuluğu üzerinden doğrudan + kalıtsal özellikleri döndürür."""
-        chain = self.ancestors(subj)
+        """MB aktivasyonuyla aday getir; graf ile kenar/yön kanıtını doğrula.
+
+        ``ancestors`` burada aday üretmek için kullanılmaz. MB'den gelen ISA
+        önermesi doğrulandığında bir üst kavrama yayılınır. Böylece sembolik
+        kapanış listesini okuyup ona "nöral karar" demek mümkün değildir.
+        """
+        start = tr_lower(subj).strip()
+        frontier: list[tuple[str, list[RelationEdge]]] = [(start, [])]
+        visited: set[str] = set()
         blocked_actions: set[str] = set()
         results: list[tuple[RelationEdge, list[RelationEdge]]] = []
-        for anc, isa_path in chain:
-            for e in self._out_edges.get(anc, ()):
-                if e.weight <= 0.25:
+        reads = []
+        validated = 0
+        rejected = 0
+        for _hop in range(5):
+            next_frontier: list[tuple[str, list[RelationEdge]]] = []
+            for current, isa_path in frontier:
+                if current in visited:
                     continue
-                if e.rel == "CANNOT_DO":
-                    blocked_actions.add(e.obj)
-                if rels is not None and e.rel not in rels:
-                    continue
-                if e.rel == "CAN_DO" and e.obj in blocked_actions and len(isa_path) > 0:
-                    continue
-                results.append((e, isa_path))
+                visited.add(current)
+                recalled = self.relation_mb.recall_subject(current)
+                read = dict(self.relation_mb.last_recall)
+                read["concept"] = current
+                reads.append(read)
+                for slot, activation in recalled:
+                    if not 0 <= slot < len(self.edges):
+                        rejected += 1
+                        continue
+                    edge = self.edges[slot]
+                    # Bağımsız sembolik doğrulama: MB aktivasyonu tek başına
+                    # dünya bilgisi değildir; indeks, özne ve canlı kenar tutmalı.
+                    if (edge.subj != current or edge.weight <= 0.25
+                            or self._edge_map.get((edge.subj, edge.rel, edge.obj)) is not edge):
+                        rejected += 1
+                        continue
+                    validated += 1
+                    edge._last_mb_activation = float(activation)
+                    if edge.rel == "CANNOT_DO":
+                        blocked_actions.add(edge.obj)
+                    if edge.rel == "ISA" and edge.obj not in visited:
+                        next_frontier.append((edge.obj, list(isa_path) + [edge]))
+                    if rels is not None and edge.rel not in rels:
+                        continue
+                    if edge.rel == "CAN_DO" and edge.obj in blocked_actions and isa_path:
+                        continue
+                    results.append((edge, list(isa_path)))
+            frontier = next_frontier
+            if not frontier:
+                break
+        self.last_decision = {
+            "engine": "hdc_mb", "awake": True, "replay": 0,
+            "graph_validated": True, "query": start,
+            "validated_candidates": validated, "rejected_candidates": rejected,
+            "results": len(results), "reads": reads,
+            "active_kc": reads[-1].get("active_kc", 0) if reads else 0,
+            "actual_sparsity": reads[-1].get("actual_sparsity", 0.0) if reads else 0.0,
+            "target_sparsity": 0.06,
+            "working_set_size": reads[-1].get("working_set_size", 0) if reads else 0,
+            "active_slots": reads[-1].get("active_slots", 0) if reads else 0,
+            "passive_slots": reads[-1].get("passive_slots", 0) if reads else 0,
+            "passive_reactivations": reads[-1].get("passive_reactivations", 0) if reads else 0,
+            "scanned_slots": reads[-1].get("scanned_slots", 0) if reads else 0,
+        }
         return results
 
+    def relation_object_candidates(self, relation: str, obj: str) -> list[tuple[RelationEdge, float]]:
+        """HDC ilişki+nesne okumasını canlı graf kenarlarıyla doğrula."""
+        rel = str(relation).strip()
+        obj = tr_lower(obj).strip()
+        recalled = self.relation_mb.recall_relation_object(rel, obj)
+        read = dict(self.relation_mb.last_recall)
+        validated: list[tuple[RelationEdge, float]] = []
+        rejected = 0
+        for slot, activation in recalled:
+            if not 0 <= slot < len(self.edges):
+                rejected += 1
+                continue
+            edge = self.edges[slot]
+            if (edge.rel != rel or edge.obj != obj or edge.weight <= 0.25
+                    or self._edge_map.get((edge.subj, edge.rel, edge.obj)) is not edge):
+                rejected += 1
+                continue
+            edge._last_mb_activation = float(activation)
+            validated.append((edge, float(activation)))
+        self.last_decision = {
+            "engine": "hdc_mb", "mode": "relation_object", "awake": True,
+            "replay": 0, "graph_validated": True, "query": f"{rel}:{obj}",
+            "validated_candidates": len(validated), "rejected_candidates": rejected,
+            "results": len(validated), "reads": [read],
+            "working_set_size": read.get("working_set_size", 0),
+            "active_slots": read.get("active_slots", 0),
+            "passive_slots": read.get("passive_slots", 0),
+            "passive_reactivations": read.get("passive_reactivations", 0),
+        }
+        return validated
+
+    def find_by_requirements(self, requirements: list[tuple[str, str]], *,
+                             head: str = "") -> dict:
+        """Birleşik göreli cümleyi HDC aday kümelerinin kesişimiyle çöz.
+
+        Örneğin HAS_PART(kanat) ve CAN_DO(uç) iki ayrı tek-sunum olayından
+        gelir. Hiçbir sonuç önceden ``kuş`` diye yazılmaz; her koşulun adayları
+        MB'den gelir ve kesişimdeki her kenar yeniden doğrulanır.
+        """
+        normalized = [(str(rel).strip(), tr_lower(obj).strip()) for rel, obj in requirements
+                      if str(rel).strip() and tr_lower(obj).strip()]
+        if not normalized:
+            return {"status": "invalid", "candidates": [], "requirements": []}
+        per_requirement: list[dict[str, list[tuple[RelationEdge, float]]]] = []
+        for rel, obj in normalized:
+            by_subject: dict[str, list[tuple[RelationEdge, float]]] = {}
+            for edge, activation in self.relation_object_candidates(rel, obj):
+                by_subject.setdefault(edge.subj, []).append((edge, activation))
+            per_requirement.append(by_subject)
+        common = set(per_requirement[0])
+        for rows in per_requirement[1:]:
+            common.intersection_update(rows)
+        head = tr_lower(head).strip()
+        candidates = []
+        for subject in sorted(common):
+            # Pozitif koşul, daha özgül olumsuz kanıtın üstüne çıkarılamaz.
+            blocked = False
+            for rel, obj in normalized:
+                if rel != "CAN_DO":
+                    continue
+                if any(edge.obj == obj for edge, _path in self.query(subject, ("CANNOT_DO",))):
+                    blocked = True
+                    break
+            if blocked:
+                continue
+            if head and head not in {"şey", "kavram"}:
+                if not any(edge.obj == head for edge, _path in self.query(subject, ("ISA",))):
+                    continue
+            proof = []
+            activations = []
+            for (rel, obj), rows in zip(normalized, per_requirement):
+                edge, activation = max(rows[subject], key=lambda row: row[1])
+                proof.append(edge)
+                activations.append(float(activation))
+            candidates.append({"subject": subject, "proof": proof,
+                               "score": min(activations) if activations else 0.0})
+        candidates.sort(key=lambda row: (-row["score"], row["subject"]))
+        return {
+            "status": "ok" if candidates else "unresolved",
+            "engine": "hdc_mb_relation_object_conjunction", "graph_validated": True,
+            "requirements": normalized, "head": head, "candidates": candidates,
+            "presentations": int(self.relation_mb.presentations),
+        }
+
+    def compare_concepts(self, left: str, right: str) -> dict:
+        """İki kavramın HDC önerili, graf-doğrulamalı anlam kesişimini çıkar."""
+        a, b = tr_lower(left).strip(), tr_lower(right).strip()
+        left_rows = self.query(a, None) if a else []
+        right_rows = self.query(b, None) if b else []
+        missing = [name for name, rows in ((a, left_rows), (b, right_rows)) if name and not rows]
+
+        def features(rows):
+            out = {}
+            for edge, path in rows:
+                key = (edge.rel, edge.obj)
+                old = out.get(key)
+                if old is None or (len(path), -edge.weight) < (len(old[1]), -old[0].weight):
+                    out[key] = (edge, path)
+            return out
+
+        left_features, right_features = features(left_rows), features(right_rows)
+        shared = []
+        hdc_proposals = 0
+        # Aday özellik HDC'den geri gelmezse sembolik küme kesişimi cevabı
+        # tek başına üretemez. Bu, karşılaştırmada hesaplamanın nedensel izidir.
+        for key in dict.fromkeys([*left_features, *right_features]):
+            recalled = self.relation_object_candidates(*key)
+            if not recalled:
+                continue
+            hdc_proposals += 1
+            if key not in left_features or key not in right_features:
+                continue
+            left_edge, left_path = left_features[key]
+            right_edge, right_path = right_features[key]
+            activations = {id(edge): float(activation) for edge, activation in recalled}
+            # Doğrudan kenarlar farklıysa iki tarafın da HDC okuması gerekir;
+            # tek taraflı aktivasyon + sembolik kesişim ortaklık sayılmaz.
+            # Miras alınan aynı kenar ise iki yol için de aynı kanıtı taşır.
+            if id(left_edge) not in activations or id(right_edge) not in activations:
+                continue
+            shared.append({
+                "rel": key[0], "obj": key[1],
+                "left": (left_edge, left_path), "right": (right_edge, right_path),
+                "activation": min(activations[id(left_edge)], activations[id(right_edge)]),
+            })
+        common_keys = {(row["rel"], row["obj"]) for row in shared}
+        return {
+            "status": "missing" if missing else ("ok" if shared else "unresolved"),
+            "engine": "hdc_mb_relation_object_intersection", "graph_validated": True,
+            "left": a, "right": b, "missing": missing, "shared": shared,
+            "left_only": sorted(set(left_features) - common_keys),
+            "right_only": sorted(set(right_features) - common_keys),
+            "hdc_proposals": hdc_proposals,
+            "presentations": int(self.relation_mb.presentations),
+        }
+
     def causal_chain(self, subj: str, max_hops: int = 4) -> list[tuple[str, list[RelationEdge]]]:
-        """O(k) yerel sinaps komşuluğu üzerinden CAUSES ve IF_THEN çok-adımlı ileri yayılımı."""
+        """MB'den doğrulanan CAUSES/IF_THEN kenarlarıyla ileri yayılım.
+
+        Doğrudan graf komşuluğu burada da cevap kaynağı değildir; her düğümün
+        giden nedensel adayı ``query`` içindeki HDC/MB okumasından gelir.
+        """
         s = tr_lower(subj).strip()
         visited = {s}
         frontier: list[tuple[str, list[RelationEdge]]] = [(s, [])]
@@ -2029,39 +2431,52 @@ class GroundedConceptGraph:
         for _ in range(max_hops):
             nxt = []
             for cur, path in frontier:
-                for e in self._out_edges.get(cur, ()):
-                    if e.rel in ("CAUSES", "IF_THEN") and e.weight > 0.25 and e.obj not in visited:
-                        visited.add(e.obj)
-                        npath = path + [e]
-                        out.append((e.obj, npath))
-                        nxt.append((e.obj, npath))
+                for e, _isa_path in self.query(cur, ("CAUSES", "IF_THEN")):
+                    if e.obj in visited:
+                        continue
+                    visited.add(e.obj)
+                    npath = path + [e]
+                    out.append((e.obj, npath))
+                    nxt.append((e.obj, npath))
             frontier = nxt
             if not frontier:
                 break
         return out
 
-    def do(self, node: str, value: str | None = None, max_hops: int = 3) -> dict:
-        """Pearl'ün do() operatörü: GÖZLEM (P(Y|X)) ile MÜDAHALE (P(Y|do(X))) farkı.
+    def do(self, node: str, value: str | None = None, max_hops: int = 3,
+           _disabled: set[tuple[str, str, str]] | None = None) -> dict:
+        """Yapısal ``do(X)``: girenleri kes, yalnız HDC-doğrulamalı çıkanları izle.
 
-        Müdahalede X'e GİREN kenarlar KESİLİR (X'in nedeni artık X'i belirlemez);
-        yalnız X'ten ÇIKAN nedensel kenarlar izlenir. X'e giren nedensel kenar varsa
-        gözlemden müdahale çıkarımı yapılamaz (back-door): `identified` False döner ve
-        ortak neden adayları `confounders` içinde ADIYLA söylenir. Bu yüzden bu operatör
-        "Y artar" demez; ne ölçüldüğünü ve neyin eksik olduğunu söyler.
+        Graf indeksi tek başına cevap kaynağı değildir. Her halkada adaylar MB'nin
+        bağlı önerme kodundan gelir; ``query`` canlı kenar/yön kanıtını ayrıca
+        doğrular. Böylece MB ablasyonunda etiketleri gezip aynı cevabı üretmek
+        mümkün olmaz. ``_disabled`` yalnız karşıolgusal modelin kapattığı yapısal
+        kenarlardır; bellekten bilgi silinmez.
         """
         s = tr_lower(node).strip()
+        disabled = set(_disabled or ())
         incoming = list(self._in_edges.get(s, ()))
-        backdoor = [e for e in incoming if e.rel in ("CAUSES", "IF_THEN")]
+        backdoor = [e for e in incoming
+                    if e.rel in ("CAUSES", "IF_THEN") and e.weight > 0.25]
         effects: list[str] = []
         paths: list[list[RelationEdge]] = []
         visited = {s}
         frontier: list[tuple[str, list[RelationEdge]]] = [(s, [])]
+        reads: list[dict] = []
+        validated = 0
         for _ in range(max(1, int(max_hops))):
             nxt: list[tuple[str, list[RelationEdge]]] = []
             for cur, path in frontier:
-                for e in self._out_edges.get(cur, ()):
-                    if e.rel not in ("CAUSES", "IF_THEN") or e.weight <= 0.25:
+                # ISA üstünden miras alınan nedensellik burada yapısal bir X→Y
+                # kenarı değildir; yalnız cur'nin kendi giden kenarı izlenir.
+                candidates = self.query(cur, ("CAUSES", "IF_THEN"))
+                decision = dict(self.last_decision or {})
+                reads.extend(decision.get("reads") or [])
+                for e, isa_path in candidates:
+                    key = (e.subj, e.rel, e.obj)
+                    if isa_path or e.subj != cur or key in disabled:
                         continue
+                    validated += 1
                     if e.obj in visited:
                         continue
                     visited.add(e.obj)
@@ -2072,7 +2487,7 @@ class GroundedConceptGraph:
             frontier = nxt
             if not frontier:
                 break
-        return {
+        result = {
             "intervened": s,
             "value": value,
             "effects": effects,
@@ -2081,58 +2496,73 @@ class GroundedConceptGraph:
             "identified": not backdoor,
             "observed_edges": [e.obj for e in self._out_edges.get(s, ())],
             "in_edges": [(e.subj, e.rel) for e in incoming],
+            "cut_in_edges": [(e.subj, e.rel, e.obj) for e in backdoor],
+            "disabled_edges": sorted(disabled),
+            "engine": "hdc_mb+graph",
+            "hdc_required": True,
         }
+        self.last_decision = {
+            "engine": "hdc_mb+graph", "mode": "do", "query": s,
+            "graph_validated": True, "validated_candidates": validated,
+            "results": len(effects), "reads": reads,
+            "cut_in_edges": len(backdoor), "disabled_edges": len(disabled),
+            "active_kc": reads[-1].get("active_kc", 0) if reads else 0,
+            "actual_sparsity": reads[-1].get("actual_sparsity", 0.0) if reads else 0.0,
+        }
+        return result
 
     def counterfactual(self, node: str, max_hops: int = 3) -> dict:
-        """KARŞIOLGUSAL: "X olmasaydı ne olurdu?" — yapısal modeli X'siz yeniden koştur.
+        """X olmasaydı: X'in çıkan yapısal kenarlarını silmeden devre dışı bırak.
 
-        Müdahale (do) modeli DEĞİŞTİRİR: X'e giren kenarlar kesilir, çıkanlar izlenir.
-        Karşıolgusal ise X'i modelden ÇIKARIR: X'in çıkan kenarları da yok sayılır ve
-        etki kümesi yeniden hesaplanır. İkisinin farkı, X'in yapıdaki nedensel katkısıdır.
-
-        Dönen `lost` = yalnız X varken oluşan etkiler ("olmasaydı olmayacaktı"),
-        `kept` = X olmadan da ulaşılan etkiler ("başka yoldan da olurdu").
-        Bu bir MODEL çıkarımıdır: ölçüm değil. Bu yüzden cevapta "ölçtüm" denmez.
+        ``do`` müdahalesi X'e girenleri kesip çıkanları izler; karşıolgusal
+        karşılaştırma ise aynı HDC/Graf modelinde X'in çıkanlarını kapatır.
+        Geçici indeks ameliyatı yapılmadığı için pasif MB kayıtlarıyla canlı graf
+        arasında tutarsızlık ve bilgi kaybı oluşmaz.
         """
         s = tr_lower(node).strip()
         base = self.do(s, max_hops=max_hops)
         actual = list(base.get("effects") or [])
-        # X'i modelden çıkar: çıkan nedensel kenarları geçici olarak devre dışı bırak.
-        hidden = []
-        saved = []
-        for e in self._out_edges.get(s, ()):
-            if e.rel in ("CAUSES", "IF_THEN") and e.weight > 0.25:
-                hidden.append(e)
-        for e in hidden:
-            try:
-                self._out_edges[e.subj].remove(e)
-                saved.append(e)
-            except ValueError:
-                pass
-        try:
-            without: list[str] = []
-            visited = {s}
-            frontier = [s]
-            for _ in range(max(1, int(max_hops))):
-                nxt = []
-                for cur in frontier:
-                    for e in self._out_edges.get(cur, ()):
-                        if e.rel in ("CAUSES", "IF_THEN") and e.weight > 0.25 and e.obj not in visited:
-                            visited.add(e.obj)
-                            without.append(e.obj)
-                            nxt.append(e.obj)
-                frontier = nxt
-                if not frontier:
-                    break
-        finally:
-            for e in saved:
-                self._out_edges.setdefault(e.subj, []).append(e)
+        disabled = {(e.subj, e.rel, e.obj) for e in self._out_edges.get(s, ())
+                    if e.rel in ("CAUSES", "IF_THEN") and e.weight > 0.25}
+        # X'siz modelde alternatif köklerden erişimi tara. Yalnız X'ten başlamak
+        # “B→Y varken de olurdu” yolunu yanlışlıkla kayıp sayardı. Ham indeks
+        # yalnız kök adayı üretir; her nedensel halka yine HDC/MB + Graph ile
+        # doğrulanır ve X'e giren/yeniden X'e çıkan yol kullanılmaz.
+        causal_nodes = {e.subj for e in self.edges
+                        if e.rel in ("CAUSES", "IF_THEN") and e.weight > 0.25}
+        causal_nodes.update(e.obj for e in self.edges
+                            if e.rel in ("CAUSES", "IF_THEN") and e.weight > 0.25)
+        roots = sorted(node for node in causal_nodes if node != s and not any(
+            e.rel in ("CAUSES", "IF_THEN") and e.weight > 0.25
+            for e in self._in_edges.get(node, ())))
+        reachable: set[str] = set()
+        visited = set(roots)
+        frontier = list(roots)
+        for _ in range(max(1, int(max_hops))):
+            nxt = []
+            for cur in frontier:
+                for edge, isa_path in self.query(cur, ("CAUSES", "IF_THEN")):
+                    key = (edge.subj, edge.rel, edge.obj)
+                    if (isa_path or edge.subj != cur or key in disabled
+                            or edge.obj == s or edge.obj in visited):
+                        continue
+                    visited.add(edge.obj)
+                    reachable.add(edge.obj)
+                    nxt.append(edge.obj)
+            frontier = nxt
+            if not frontier:
+                break
+        # Rapor kapsamı X'in gerçek etkileriyle sınırlıdır; dünyadaki ilgisiz
+        # bütün kök etkileri “kept” diye şişirilmez.
+        without = [x for x in actual if x in reachable]
         lost = [x for x in actual if x not in without]
-        kept = [x for x in actual if x in without]
+        kept = list(without)
         return {"node": s, "effects": actual, "effects_without": without,
                 "lost": lost, "kept": kept, "paths": base.get("paths") or [],
                 "confounders": base.get("confounders") or [],
-                "identified": bool(base.get("identified")), "structural": True}
+                "identified": bool(base.get("identified")), "structural": True,
+                "disabled_edges": sorted(disabled), "engine": "hdc_mb+graph",
+                "counterfactual_roots": roots}
 
     def check_relation(self, subj: str, target_pred: str) -> dict:
         """'X Y yapar mı / X Y midir / X Y'ye yol açar mı?' sorusu için geçişli kanıt zinciri arar."""
@@ -2142,6 +2572,21 @@ class GroundedConceptGraph:
         t_parts = t_clean.split() if t_clean else []
         t_stem = TurkishMorphology.analyze_word(t_parts[-1], self.lexicon)["stem"] if t_parts else ""
         t_phrase_stem = (" ".join(t_parts[:-1] + [t_stem])).strip() if len(t_parts) > 1 else t_stem
+
+        # Öğrenilmiş yeni operatör: yüklem artık sözlükte olmasa bile aynı
+        # sözdizimsel rol çözümlemesiyle sorgulanır. ISA'ya veya CAN_DO'ya
+        # sessizce çevrilmez; kendi probation ilişki kimliği aranır.
+        dynamic_root = self._aor_root(t_parts[-1]) if t_parts else ""
+        dynamic_rel = self.relation_by_verb.get(dynamic_root, "")
+        if dynamic_rel:
+            obj_parts = t_parts[:-1]
+            if obj_parts:
+                dynamic_obj = " ".join(obj_parts[:-1] + [self._dynamic_noun(obj_parts[-1])]).strip()
+                for edge, isa_path in self.query(s, (dynamic_rel,)):
+                    if edge.obj == dynamic_obj:
+                        return {"answer": True, "edge": edge, "isa_path": isa_path,
+                                "invented_relation": dynamic_rel}
+            return {"answer": None, "edge": None, "isa_path": []}
 
         # 1) Doğrudan veya kalıtsal negatif istisna var mı?
         for e, isa_path in self.query(s, ("CANNOT_DO",)):
@@ -2162,7 +2607,7 @@ class GroundedConceptGraph:
                 return {"answer": True, "edge": cpath[-1], "isa_path": [], "causal_path": cpath}
 
         # 4) Zıt özellik kontrolü (ör. 'ateş soğuk mudur?' -> ateş sıcaktır, sıcak != soğuk -> Hayır!)
-        opposites = {e.obj for e in self._out_edges.get(t_stem, ()) if e.rel == "OPPOSITE"}
+        opposites = {e.obj for e, _path in self.query(t_stem, ("OPPOSITE",))}
         if opposites:
             for e, isa_path in self.query(s, ("HAS_PROP",)):
                 if e.obj in opposites:
@@ -2170,20 +2615,224 @@ class GroundedConceptGraph:
 
         return {"answer": None, "edge": None, "isa_path": []}
 
+    # -------------------------------------------------- HDC vektör cebiri + bağlam
+    def _hdc_role_filler(self, relation: str, obj: str) -> np.ndarray:
+        """Rol ve dolguyu gerçek bipolar bağlama ile tek vektörde birleştir."""
+        r = self.relation_mb._symbol("role", str(relation))
+        f = self.relation_mb._symbol("filler", tr_lower(obj).strip())
+        # Zayıf dolgu yolu, HDCMushroomBody.encode ile aynı kod ailesindedir;
+        # asıl anlam rol*dolgu bağlı teriminden gelir.
+        return (r * f + 0.20 * f).astype(np.float32)
+
+    @staticmethod
+    def _analogy_role(relation: str) -> str:
+        """Copula/taksonomi ile özellik önermesini aynı analoji rolünde buluştur.
+
+        ``Kral erkektir`` ve ``Kraliçe kadındır`` yüzeyde farklı ayrıştırıcı
+        dallarına düşebilir; bu, anlam vektöründe cinsiyet köprüsünü bozmamalı.
+        Özgün Graph kenarı silinmez/değiştirilmez, yalnız vektör rolü normalize
+        edilir. Nedensel ve işlevsel roller ayrı kalır.
+        """
+        return "ATTRIBUTE" if relation in {"ISA", "HAS_PROP"} else relation
+
+    def _semantic_bundle(self, concept: str) -> tuple[np.ndarray, list[RelationEdge]]:
+        """Kavramın öğrenilmiş doğrudan önermelerini bağlı vektörler olarak topla.
+
+        Düz ``concept_vecs`` veya ilişki etiketi aktarımı kullanılmaz. Önermeler
+        önce MB'den okunur ve graf yönüyle doğrulanır; vektör toplamı yalnız bu
+        kanıtlı olaylardan kurulur. Normalize etmeden döndürmek, çıkarma sırasında
+        terimlerin gerçekten birbirini götürebilmesini sağlar.
+        """
+        name = tr_lower(concept).strip()
+        terms: list[np.ndarray] = []
+        used: list[RelationEdge] = []
+        for edge, isa_path in self.query(name, None):
+            if isa_path or edge.subj != name:
+                continue
+            terms.append(self._hdc_role_filler(self._analogy_role(edge.rel), edge.obj))
+            used.append(edge)
+        if terms:
+            return np.sum(terms, axis=0, dtype=np.float32), used
+        return np.zeros(self.relation_mb.dim, dtype=np.float32), used
+
+    def vector_analogy(self, a: str, b: str, c: str) -> dict:
+        """``a - b + c`` analojisini bağlı HDC vektörleriyle çöz.
+
+        Önce A→B önermesinin *ilişki rolü* öğrenilmiş kenardan bulunur. Sonra
+        ``v(A) - bind(rol,B) + bind(rol,C)`` hesaplanır. Adaylar ortak önermelerin
+        ters HDC/MB okumasından gelir; sıralama vektör kosinüsüyle yapılır, Graph'ta
+        ``C`` ilişkisini arayıp nesneyi kopyalamak yoktur.
+        """
+        a, b, c = (tr_lower(x).strip() for x in (a, b, c))
+        empty = {"status": "unresolved", "answer": None, "a": a, "b": b, "c": c,
+                 "engine": "hdc_vector_binding+mb", "candidates": []}
+        if not a or not b or not c or len({a, b, c}) < 3:
+            empty["reason"] = "üç ayrı kavram gerekli"
+            self.last_vector_analogy = empty
+            return empty
+        a_rows = [(e, p) for e, p in self.query(a, None) if not p and e.subj == a]
+        ab = [e for e, _p in a_rows if e.obj == b]
+        if not ab:
+            empty["reason"] = "çıkarılacak rolün öğrenilmiş A→B bağı yok"
+            self.last_vector_analogy = empty
+            return empty
+        priority = {"HAS_PROP": 0, "ISA": 1, "HAS_PART": 2, "COMPOSED_OF": 3,
+                    "USED_FOR": 4, "CAN_DO": 5, "LOCATED_AT": 6}
+        ab.sort(key=lambda e: (priority.get(e.rel, 20), -e.weight))
+        chosen = ab[0]
+        role = chosen.rel
+        binding_role = self._analogy_role(role)
+        va, a_used = self._semantic_bundle(a)
+        subtract = self._hdc_role_filler(binding_role, b)
+        add = self._hdc_role_filler(binding_role, c)
+        query_vec = (va - subtract + add).astype(np.float32)
+        qnorm = float(np.linalg.norm(query_vec))
+        if qnorm < 1e-8:
+            empty["reason"] = "bağlı vektör boş"
+            self.last_vector_analogy = empty
+            return empty
+
+        # Ortak özellik, arama uzayını daraltır; cevap değildir. Örneğin aynı
+        # sınıfı taşıyan bütün kavramlar gelir, hangisinin kaldığına vektör karar verir.
+        candidate_names: set[str] = set()
+        for edge in a_used:
+            if edge is chosen:
+                continue
+            for other, _activation in self.relation_object_candidates(edge.rel, edge.obj):
+                if other.subj not in {a, b, c} and other.subj != edge.obj:
+                    candidate_names.add(other.subj)
+        scored: list[dict] = []
+        qk = set(int(x) for x in self.relation_mb.mb.encode_kc(query_vec))
+        for name in sorted(candidate_names):
+            vec, used = self._semantic_bundle(name)
+            norm = float(np.linalg.norm(vec))
+            if norm < 1e-8:
+                continue
+            cosine = float(np.dot(query_vec, vec) / (qnorm * norm))
+            tk = set(int(x) for x in self.relation_mb.mb.encode_kc(vec))
+            sparse = len(qk & tk) / max(1, min(len(qk), len(tk)))
+            scored.append({"concept": name, "score": cosine, "sparse_overlap": sparse,
+                           "evidence": [[e.subj, e.rel, e.obj] for e in used]})
+        scored.sort(key=lambda row: (-row["score"], -row["sparse_overlap"], row["concept"]))
+        top = scored[0] if scored else None
+        second = float(scored[1]["score"]) if len(scored) > 1 else -1.0
+        margin = float(top["score"] - second) if top else 0.0
+        resolved = bool(top and top["score"] >= 0.20 and margin >= 0.03)
+        result = {
+            "status": "resolved" if resolved else "unresolved",
+            "answer": top["concept"] if resolved else None,
+            "a": a, "b": b, "c": c, "relation": role,
+            "score": float(top["score"]) if top else 0.0, "margin": margin,
+            "candidates": scored[:12], "engine": "hdc_vector_binding+mb",
+            "operation": "v(A)-bind(role,B)+bind(role,C)",
+            "query_vector": query_vec, "active_kc": len(qk),
+            "reason": "" if resolved else "vektör benzerliği veya aday marjı yetersiz",
+        }
+        self.last_vector_analogy = {k: v for k, v in result.items() if k != "query_vector"}
+        self.last_decision = {
+            "engine": "hdc_vector_binding+mb", "mode": "vector_analogy",
+            "query": f"{a}-{b}+{c}", "graph_validated": True,
+            "results": int(resolved), "active_kc": len(qk),
+            "actual_sparsity": len(qk) / max(1, self.relation_mb.mb.n_kc),
+            "score": result["score"], "margin": margin,
+        }
+        return result
+
+    def disambiguate(self, concept: str, context: str) -> dict:
+        """Çoklu anlamı, bağlam ve anlam önermelerinin seyrek KC örtüşmesiyle seç.
+
+        ISA adayları ve her anlamın kanıtı MB'den okunur. Bağlam sözcükleri rol-
+        dolgu bağlamasıyla kodlanır; yalnız hazır ``yüz→organ`` kuralı yoktur.
+        Ortak bağlam kanıtı ve yeterli skor marjı yoksa seçim yapılmaz.
+        """
+        name = tr_lower(concept).strip()
+        stop = {"hangi", "anlamda", "anlamı", "anlamını", "nedir", "ne", "bir", "bu",
+                "şu", "o", "ve", "veya", "ile", "için", "çok", "daha", "mi", "mı", "mu", "mü"}
+
+        def tokens(text: str) -> list[str]:
+            out = []
+            for word in re.findall(r"[^\W\d_]+", tr_lower(text), flags=re.UNICODE):
+                an = TurkishMorphology.analyze_word(word, self.lexicon)
+                stem = tr_lower(an.get("stem") or word).strip()
+                if stem and stem not in stop and stem != name and len(stem) > 1:
+                    out.append(stem)
+            return list(dict.fromkeys(out))
+
+        context_tokens = tokens(context)
+        context_terms = [self._hdc_role_filler("context", tok) for tok in context_tokens]
+        context_vec = (np.sum(context_terms, axis=0, dtype=np.float32) if context_terms
+                       else np.zeros(self.relation_mb.dim, dtype=np.float32))
+        context_norm = float(np.linalg.norm(context_vec))
+        context_kc = set(int(x) for x in self.relation_mb.mb.encode_kc(context_vec))
+        candidates = []
+        for isa, path in self.query(name, ("ISA",)):
+            if path or isa.subj != name:
+                continue
+            sense = isa.obj
+            rows = [(e, p) for e, p in self.query(sense, None) if not p and e.subj == sense]
+            sense_tokens = [sense]
+            evidence = []
+            for edge, _p in rows:
+                edge_tokens = tokens(f"{edge.subj} {edge.obj}")
+                sense_tokens.extend(edge_tokens)
+                if set(edge_tokens) & set(context_tokens):
+                    evidence.append([edge.subj, edge.rel, edge.obj])
+            sense_tokens = list(dict.fromkeys(sense_tokens))
+            terms = [self._hdc_role_filler("context", tok) for tok in sense_tokens]
+            vec = (np.sum(terms, axis=0, dtype=np.float32) if terms
+                   else np.zeros(self.relation_mb.dim, dtype=np.float32))
+            norm = float(np.linalg.norm(vec))
+            sense_kc = set(int(x) for x in self.relation_mb.mb.encode_kc(vec))
+            cosine = (float(np.dot(context_vec, vec) / (context_norm * norm))
+                      if context_norm > 1e-8 and norm > 1e-8 else 0.0)
+            sparse = (len(context_kc & sense_kc) / max(1, min(len(context_kc), len(sense_kc)))
+                      if context_kc and sense_kc else 0.0)
+            shared = sorted(set(context_tokens) & set(sense_tokens))
+            score = 0.65 * sparse + 0.35 * cosine
+            candidates.append({"sense": sense, "score": float(score), "cosine": cosine,
+                               "sparse_overlap": float(sparse), "shared": shared,
+                               "evidence": evidence, "active_kc": len(sense_kc)})
+        candidates.sort(key=lambda row: (-row["score"], row["sense"]))
+        top = candidates[0] if candidates else None
+        second = float(candidates[1]["score"]) if len(candidates) > 1 else 0.0
+        margin = float(top["score"] - second) if top else 0.0
+        resolved = bool(top and top["shared"] and top["sparse_overlap"] > 0.0
+                        and top["score"] >= 0.15 and margin >= 0.04)
+        result = {"status": "resolved" if resolved else "ambiguous", "concept": name,
+                  "sense": top["sense"] if resolved else None, "score": float(top["score"]) if top else 0.0,
+                  "margin": margin, "context_tokens": context_tokens, "candidates": candidates,
+                  "engine": "hdc_mb_sparse_context", "active_kc": len(context_kc),
+                  "actual_sparsity": len(context_kc) / max(1, self.relation_mb.mb.n_kc)}
+        self.last_disambiguation = result
+        self.last_decision = {"engine": "hdc_mb_sparse_context", "mode": "disambiguation",
+                              "query": name, "graph_validated": True, "results": int(resolved),
+                              "active_kc": len(context_kc), "actual_sparsity": result["actual_sparsity"],
+                              "score": result["score"], "margin": margin}
+        return result
+
     def solve_analogy(self, a: str, b: str, c: str) -> tuple[str | None, str]:
-        """'a : b :: c : ?' analojisini a->b arasındaki ilişkisel sinapsı bularak c'ye uygular."""
+        """Eski ``a:b::c:?`` API'sini koru; aritmetik analojide HDC'ye düş.
+
+        Klasik ilişki aktarımı mümkünse eski çağrıların anlamı değişmez. Fakat
+        ``Kral − Erkek + Kadın`` gibi c'de aynı etiketle cevap bulunamayan
+        durumda artık ``None`` dönüp durmak yerine bağlı vektör cebiri çalışır;
+        sonuç yalnız Graph etiketi kopyalanarak üretilmez.
+        """
         a_l, b_l, c_l = tr_lower(a), tr_lower(b), tr_lower(c)
-        # 1) Doğrudan ilişki türü eşleşmesi
+        # 1) Doğrudan ilişki türü eşleşmesi (eski API'nin klasik biçimi)
         for e_ab, _ in self.query(a_l):
             if e_ab.obj == b_l:
                 for e_c, _ in self.query(c_l, (e_ab.rel,)):
                     return e_c.obj, e_ab.rel
-        # 2) Zıtlık ilişkisi
-        for e in self._out_edges.get(a_l, ()):
-            if e.rel == "OPPOSITE" and e.obj == b_l:
-                for e2 in self._out_edges.get(c_l, ()):
-                    if e2.rel == "OPPOSITE":
-                        return e2.obj, "OPPOSITE"
+        # 2) Zıtlık ilişkisi (adaylar da MB aktivasyonundan gelir)
+        for e, _path in self.query(a_l, ("OPPOSITE",)):
+            if e.obj == b_l:
+                for e2, _path in self.query(c_l, ("OPPOSITE",)):
+                    return e2.obj, "OPPOSITE"
+        # 3) Vektör aritmetiği: v(a)-bind(rol,b)+bind(rol,c).
+        vector = self.vector_analogy(a_l, b_l, c_l)
+        if vector.get("status") == "resolved":
+            return vector.get("answer"), vector.get("relation", "HDC_VECTOR")
         return None, ""
 
 
@@ -2404,7 +3053,80 @@ class BrocaGenerator:
             v_form = self.morph.conjugate_verb(o, tense=p.tense, neg=p.neg, person="1SG")
             return f"{s} {v_form}".strip() if s else v_form
 
+        if r.startswith("YENI_OPERATOR_"):
+            # Yeni ilişkinin operatörü koda gömülü değildir: duyulan fiil kökü
+            # ve nesne hâl/çoğul bilgisi önermeyle Broca'ya gelir.
+            root = p.verb or tr_lower(r[len("YENI_OPERATOR_"):])
+            obj = p.obj_surface
+            if not obj and o:
+                obj = self.morph.inflect_noun(o, p.obj_case, plural=p.obj_plural)
+            v_form = self.morph.conjugate_verb(root, tense=p.tense, neg=p.neg, person=p.person)
+            return f"{s} {obj} {v_form}".strip()
+
         return f"{s} {o}".strip()
+
+    def realize_epistemic(self, event: RelationEdge, *, concept_surface: str = "",
+                          known: list[Proposition] | None = None,
+                          missing: list[str] | None = None) -> str:
+        """Graph epistemik olayını hazır cevap değil, çekimli düşünce olarak söyle."""
+        surface = str(concept_surface or event.subj).strip()
+        state = tr_lower(event.obj).strip()
+        knowledge = self.morph.inflect_noun("bilgi", "NOM", poss1=True)
+        definition = self.morph.inflect_noun("tanım", "NOM", poss1=True)
+        if state == "unknown":
+            word_acc = self.morph.inflect_noun("kelime", "ACC", poss3=True)
+            heard = self.morph.conjugate_verb("duy", tense="PAST", person="1SG")
+            text = (f"{surface} {word_acc} {heard}; kavram {knowledge} yok ve "
+                    f"doğrulanmış {definition} yok.")
+            return tr_capitalize(text)
+        clauses = []
+        for proposition in (known or [])[:(6 if state == "insufficient" else 4)]:
+            realized = self.realize_prop(proposition).strip().rstrip(".!?")
+            if realized:
+                clauses.append(tr_capitalize(realized) + ".")
+        if state == "insufficient":
+            gap = ", ".join(str(item) for item in (missing or []) if str(item).strip())
+            if not gap:
+                gap = "bağlam"
+            clauses.append(f"Tanım için {gap} kanıtı eksik; {knowledge} yetersiz.")
+            return " ".join(clauses)
+        learned = self.morph.conjugate_verb("öğren", tense="PAST", person="1SG")
+        clauses.append(tr_capitalize(f"{surface} için yeni kanıt {learned}."))
+        return " ".join(clauses)
+
+    def realize_shared_features(self, left: str, right: str,
+                                shared: list[tuple[str, str]]) -> str:
+        """Ortaklık çıkarımının yalnız doğrulanmış özelliklerini çekimle."""
+        subject = f"{left} ve {right}"
+        if not shared:
+            not_found = self.morph.conjugate_verb("bul", tense="PAST", neg=True, person="1SG")
+            return tr_capitalize(f"{subject} için ortak doğrulanmış anlam özelliği {not_found}.")
+        clauses = []
+        for rel, obj in shared[:4]:
+            text = self.realize_prop(Proposition(subj=subject, rel=rel, obj=obj)).strip()
+            if text:
+                clauses.append(text.rstrip(".!?"))
+        if not clauses:
+            not_found = self.morph.conjugate_verb("bul", tense="PAST", neg=True, person="1SG")
+            return tr_capitalize(f"{subject} için ortak doğrulanmış anlam özelliği {not_found}.")
+        return tr_capitalize("; ".join(clauses)) + "."
+
+    def realize_inverse_identification(self, candidates: list[dict]) -> str:
+        """Birleşik koşul sonucunu ve onu zorunlu kılan kanıtı birlikte söyle."""
+        if not candidates:
+            not_found = self.morph.conjugate_verb("bul", tense="PAST", neg=True, person="1SG")
+            return tr_capitalize(f"Bu ölçütleri birlikte karşılayan kavram {not_found}.")
+        names = [str(row["subject"]) for row in candidates[:4]]
+        if len(candidates) > 1:
+            return tr_capitalize(f"{', '.join(names)} bu ölçütleri birlikte karşılıyor.")
+        row = candidates[0]
+        proof = []
+        for proposition in row.get("proof") or []:
+            text = self.realize_prop(proposition).strip().rstrip(".!?")
+            if text:
+                proof.append(text)
+        suffix = f"; çünkü {' ve '.join(proof)}" if proof else ""
+        return tr_capitalize(f"{row['subject']}{suffix}.")
 
     def compose(self, main: Proposition, reason: Proposition | None = None,
                 prefix: str = "", epistemic_note: str = "") -> str:
@@ -2427,8 +3149,13 @@ class BrocaGenerator:
                                 edge: RelationEdge, isa_path: list[RelationEdge]) -> str:
         """Geçişli çıkarım zincirini ('karga -> kuş -> uçar') adım adım cümleye döker."""
         if not isa_path:
-            # Doğrudan bilgi
-            main = Proposition(subj=subj, rel=edge.rel, obj=edge.obj, neg=(not answer and edge.rel != "CANNOT_DO"))
+            # Doğrudan bilgi; yeni ilişkinin fiil ve hâl bilgisi de MB'nin
+            # doğrulanmış önermesinden Broca'ya taşınır.
+            main = Proposition(
+                subj=subj, rel=edge.rel, obj=edge.obj,
+                neg=(not answer and edge.rel != "CANNOT_DO"), verb=edge.verb,
+                obj_surface=edge.obj_surface, obj_case=edge.obj_case, obj_plural=edge.obj_plural,
+            )
             prefix = "Evet" if answer else "Hayır"
             ep = "deneyimime göre" if edge.source == "deneyim" else ""
             return self.compose(main, prefix=prefix, epistemic_note=ep)
@@ -2436,9 +3163,15 @@ class BrocaGenerator:
         # Geçişli çıkarım: 'Evet, karga bir kuştur ve kuş uçar; dolayısıyla karga uçar.'
         first_isa = isa_path[0]
         p1 = self.realize_prop(Proposition(subj=first_isa.subj, rel="ISA", obj=first_isa.obj))
-        p2 = self.realize_prop(Proposition(subj=edge.subj, rel=edge.rel, obj=edge.obj))
-        concl = self.realize_prop(Proposition(subj=subj, rel=edge.rel if answer else "CANNOT_DO",
-                                              obj=edge.obj if not pred else edge.obj))
+        p2 = self.realize_prop(Proposition(
+            subj=edge.subj, rel=edge.rel, obj=edge.obj, verb=edge.verb,
+            obj_surface=edge.obj_surface, obj_case=edge.obj_case, obj_plural=edge.obj_plural,
+        ))
+        concl = self.realize_prop(Proposition(
+            subj=subj, rel=edge.rel if answer else "CANNOT_DO", obj=edge.obj,
+            verb=edge.verb, obj_surface=edge.obj_surface,
+            obj_case=edge.obj_case, obj_plural=edge.obj_plural,
+        ))
         prefix = "Evet" if answer else "Hayır"
         txt = f"{prefix}, {p1} ve {p2}; dolayısıyla {concl}"
         return tr_capitalize(txt) + "."
@@ -2457,6 +3190,9 @@ class SemanticFrame:
     sub_kind: str = ""
     wh: str = ""              # soru sözcüğü: nasıl | neden | nerede | kim | ne ...
     obj_surface: str = ""     # özel/taksonomik adın duyulan yüzeyi; anlam anahtarı obj'de kalır
+    verb: str = ""            # bilinmeyen yüklem için sözdiziminden çıkarılan kök
+    obj_case: str = "NOM"
+    obj_plural: bool = False
 
 
 class WernickeComprehender:
@@ -2967,9 +3703,11 @@ class WernickeComprehender:
             # ÖNEMLİ: sözcük listesi DÖNDÜRÜLMEZ (q_idx kayardı); özne yalnız _si'den
             # okunur, yüklem _si+1..q_idx arasıdır.
             pred_tokens = [w for w in words[_si + 1:q_idx] if w != "bir"]
-            # 'bitkinliğe / heyelana yol açar mı / neden olur mu / sebep olur mu' (+DAT yöneten nedensel fiiller!)
+            # 'bitkinliğe / heyelana yol açar mı / neden olur mu / sebep olur mu'
+            # ve 'kıtlığa sebebiyet verir mi' (+DAT yöneten nedensel fiiller!)
             if len(pred_tokens) >= 3 and (
-                pred_tokens[-2:] in (["yol", "açar"], ["neden", "olur"], ["sebep", "olur"])
+                pred_tokens[-2:] in (["yol", "açar"], ["neden", "olur"], ["sebep", "olur"],
+                                      ["sebebiyet", "verir"])
             ):
                 pred = self._strip_governed_dative(pred_tokens[0])
             else:
@@ -3084,8 +3822,9 @@ class WernickeComprehender:
                             known_candidates.append(option)
             if known_candidates:
                 return max(known_candidates, key=len)
-        if head != w and (head in self.graph.lexicon or an.get("plural") or an.get("poss3")
-                          or ((not force_poss and not force_case) or len(w) - len(head) >= 2)):
+        if head != w and not force_poss and (
+                head in self.graph.lexicon or an.get("plural") or an.get("poss3")
+                or (not force_case or len(w) - len(head) >= 2)):
             return head
         suffixes = (("ları", "leri", "sı", "si", "su", "sü", "ı", "i", "u", "ü")
                     if force_poss else
@@ -3121,6 +3860,48 @@ class WernickeComprehender:
             if cand in self.graph._out_edges or cand in self.graph.lexicon:
                 return cand, tokens[n:]
         return self._np_from_tokens(tokens[:1]), tokens[1:]
+
+    def _parse_invented_svo(self, s_raw: str, words: list[str]) -> SemanticFrame | None:
+        """Sözlük dışı geniş-zaman yüklemde özne/nesne/yüklem rollerini çıkar.
+
+        Yüzeyin sonundaki -Ar ailesi tek başına anlam kanıtı değildir; en az bir
+        nesne/tümleç taşıyan SOV yapısı da gerekir. Böylece çoğul bir ad yüklem
+        diye yeni operatöre dönüştürülmez. Kök ve hâl bilgisi öğrenilir, ilişki
+        türü hazır ISA/CAN_DO sınıfına zorlanmaz.
+        """
+        if len(words) < 3:
+            return None
+        surface_verb = words[-1]
+        known = self.morph.analyze_word(surface_verb, self.graph.lexicon)
+        if known.get("is_verb") or known.get("copula"):
+            return None
+        root = GroundedConceptGraph._aor_root(surface_verb)
+        if not root or surface_verb in self.graph.lexicon:
+            return None
+        subject, object_tokens = self._take_leading_subject(words[:-1])
+        if not subject or not object_tokens:
+            return None
+        surface_obj = object_tokens[-1]
+        an = self.morph.analyze_word(surface_obj, self.graph.lexicon)
+        if (an.get("stem") and an.get("stem") != surface_obj
+                and (an.get("case") != "NOM" or an.get("plural"))):
+            head = str(an["stem"])
+        else:
+            head = GroundedConceptGraph._dynamic_noun(surface_obj)
+        obj = " ".join(list(object_tokens[:-1]) + [head]).strip()
+        if not obj or obj == subject:
+            return None
+        obj_case = str(an.get("case") or "NOM")
+        if obj_case == "NOM" and surface_obj.endswith(("ları", "leri")):
+            obj_case = "ACC"
+        elif obj_case == "NOM" and surface_obj.endswith(("da", "de", "ta", "te")):
+            obj_case = "LOC"
+        obj_plural = bool(an.get("plural") or surface_obj.endswith(("lar", "ler", "ları", "leri")))
+        return SemanticFrame(
+            kind="invent_relation", raw=s_raw, subj=subject, rel="YENI_OPERATOR",
+            obj=obj, verb=root, obj_surface=" ".join(object_tokens),
+            obj_case=obj_case, obj_plural=obj_plural, sub_kind="SVO",
+        )
 
     def _parse_declarative(self, s_raw: str, s: str, words: list[str]) -> SemanticFrame:
         # Söylemsel dolgu zarflarını ('bence', 'aslında', 'kesinlikle', 'bana göre') özneden ayıkla!
@@ -3216,6 +3997,7 @@ class WernickeComprehender:
         if (first_an.get("case") == "GEN" and len(words) >= 3
                 and words[0] not in {"benim", "senin", "onun", "bizim", "sizin", "onların"}
                 and re.search(r"[dt][ıiuü]r$", words[-1])
+                and words[-1] not in {"vardır", "yoktur"}
                 and not self.morph.analyze_word(words[-1], self.graph.lexicon).get("is_verb")
                 and "değil" not in words and not words[-1].startswith("değil")):
             owner = self._noun_head(words[0])
@@ -3380,6 +4162,22 @@ class WernickeComprehender:
         if "yol" in rest_words and "gösterir" in rest_words:
             return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj, rel="USED_FOR", obj=" ".join(rest_words[:-2] + ["yol gösterme"]).strip())
 
+        # 'X, Y'ye sebebiyet verir' — bilinen nedensel yapının DAT nesneli
+        # eşdeğeri. Bilinmeyen ilişkiyi ISA'ya zorlamaz; CAUSES olarak tek-atış
+        # öğrenilir ve aynı Graph/HDC zincirine katılır.
+        if "sebebiyet" in rest_words and "verir" in rest_words:
+            cue = next((i for i, w in enumerate(words) if w == "sebebiyet"), -1)
+            if cue >= 1:
+                cause_obj = self._strip_governed_dative(words[cue - 1])
+                if cue >= 2:
+                    cause_subj = self._np_name(words[:cue - 1], self._tok(words[cue - 2])) or subj
+                else:
+                    cause_subj = subj
+                if cause_subj and cause_obj:
+                    self.last_topic = cause_subj
+                    return SemanticFrame(kind="teach_fact", raw=s_raw, subj=cause_subj,
+                                         rel="CAUSES", obj=cause_obj)
+
         # '... yol açar' / '... neden olur' / '... sebep olur' (+DAT durum eki yönetir: 'erozyona' -> 'erozyon')
         if ("yol" in rest_words and "açar" in rest_words) or ("neden" in rest_words and "olur" in rest_words) or ("sebep" in rest_words and "olur" in rest_words):
             # NEDENSELLİK YAPISI kendi içinde çözülür: nesne, "yol/neden/sebep" sözünden
@@ -3438,6 +4236,13 @@ class WernickeComprehender:
                 has_gen_pred = any(self._tok(w).get("case") == "GEN" for w in pred_tokens)
                 return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj,
                                      rel="ISA" if has_gen_pred else "HAS_PROP", obj=pred)
+
+        # Bilinmeyen yüklem: nominal özellik/ISA diye yazmadan önce SOV
+        # sözdizimiyle yeni ilişki adayını ayır.
+        invented = self._parse_invented_svo(s_raw, words)
+        if invented is not None:
+            self.last_topic = invented.subj
+            return invented
 
         # Fiil mi koşaçlı sıfat mı? ('kuşlar uçar', 'penguen uçmaz' vs 'ateş sıcaktır')
         last_an = dict(self.morph.analyze_word(rest_words[-1], self.graph.lexicon))
@@ -3583,12 +4388,31 @@ class NoraLanguage:
                 try:
                     _pl = self.wernicke.parse(_l2)
                     _pr = self.wernicke.parse(_r2)
-                    _ok2 = (_pl.kind == "teach_fact" and _pr.kind == "teach_fact"
+                    _ok2 = (_pl.kind == "teach_fact"
+                            and _pr.kind in {"teach_fact", "invent_relation"}
                             and getattr(_pl, "obj", "") and getattr(_pr, "obj", ""))
                 except Exception:
                     _ok2 = False
                 if _ok2:
-                    clauses.extend([_l2, _r2])
+                    # "X bir Y'dir, kayaları keser"de sağ yarım yüklem
+                    # kendi öznesini düşürmüştür. Nesne hâli/çokluk-belirtme
+                    # kanıtı varsa özne soldan devralınır; "kaya" özne yapılmaz.
+                    _rw = re.findall(r"[\wçğıöşü]+", tr_lower(_r2))
+                    _an_r = self.wernicke._tok(_rw[0]) if _rw else {}
+                    _object_marked = bool(
+                        _an_r.get("case") in self.wernicke.OBLIQUE
+                        or (_rw and _rw[0].endswith(("ları", "leri")))
+                    )
+                    if _object_marked and getattr(_pl, "subj", ""):
+                        _candidate = f"{_pl.subj} {_r2}"
+                        try:
+                            _pc = self.wernicke.parse(_candidate)
+                        except Exception:
+                            _pc = None
+                        if (_pc is not None and _pc.kind in {"teach_fact", "invent_relation"}
+                                and _pc.subj == _pl.subj and getattr(_pc, "obj", "")):
+                            _r2 = _candidate
+                    _expanded.extend([_l2, _r2])
                     continue
             _expanded.append(cl)
         clauses = _expanded
@@ -3603,7 +4427,15 @@ class NoraLanguage:
                 if len(token) >= 2 and token.isupper() and any(ch.isalpha() for ch in token):
                     self.graph.register_display_name(token, token)
             fr = self.wernicke.parse(cl)
-            if fr.kind == "teach_fact":
+            if fr.kind == "invent_relation":
+                invented = self.graph.invent_relation(
+                    fr.subj, fr.obj, cl, fr.verb,
+                    obj_surface=fr.obj_surface, obj_case=fr.obj_case,
+                    obj_plural=fr.obj_plural,
+                )
+                if invented.get("edge") is not None:
+                    learned.append(invented["edge"])
+            elif fr.kind == "teach_fact":
                 if getattr(fr, "obj_surface", ""):
                     self.graph.register_display_name(fr.obj, fr.obj_surface)
                 if not self._teachable_predicate(fr.obj):
@@ -3622,6 +4454,16 @@ class NoraLanguage:
                     learned.append(self.graph.add_edge(fr.subj, "HAS_PROP", adj, source="duyum", speaker=speaker))
                 else:
                     learned.append(self.graph.add_edge(fr.subj, fr.rel, fr.obj, source="duyum", speaker=speaker))
+                    # "X bir Y türüdür" ifadesinde tür kavramı ile üst kavram
+                    # arasındaki genel köprü de öğrenilir. Böylece yüzeydeki
+                    # "türü" sözcüğü ISA zincirini koparmaz; kural bütün tür
+                    # adlarına uygulanır, belirli bir hedefe özel değildir.
+                    if fr.rel == "ISA" and fr.obj.endswith((" türü", " tür")):
+                        parent = fr.obj.rsplit(" ", 1)[0].strip()
+                        if parent and parent != fr.subj:
+                            learned.append(self.graph.add_edge(
+                                fr.obj, "ISA", parent, source="duyum", speaker=speaker,
+                            ))
             elif fr.kind == "teach_val":
                 learned.append(self.graph.add_edge(fr.subj, fr.rel, fr.obj, source="duyum", speaker=speaker))
         return learned

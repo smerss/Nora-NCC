@@ -789,15 +789,15 @@ class ConstructionCortex:
                     v_pass = morph.conjugate_verb(self._passive_of(mq.verb), "PRES", person="3SG")
                 except Exception:
                     v_pass = ""
-                lead = (f"{gen} ne olduğunu biliyorum ama nasıl {nom} bilmiyorum"
-                        if nom else f"{gen} ne olduğunu biliyorum ama nasıl yapıldığını bilmiyorum")
+                lead = (f"{acc} kelime olarak tanıyorum ama nasıl {nom} bilmiyorum"
+                        if nom else f"{acc} kelime olarak tanıyorum ama nasıl yapıldığını bilmiyorum")
                 ask = self.rng.choice(("Bana tarif eder misin?", "Bir kez anlatsan öğrenirim.",
                                        "Nereden başlanır?"))
                 return f"{lead}. {ask}"
         if quote:
             return f"{tr_capitalize(target)} geçen bir anım var: “{quote}”. Devamını merak ediyorum."
-        return (f"{gen} ne olduğunu biliyorum ama ayrıntısını bilmiyorum; "
-                f"anlatsan iyi olur.")
+        return (f"{acc} kelime olarak tanıyorum ama doğrulanmış bir tanımım yok; "
+                f"bir cümleyle öğretirsen kullanabilirim.")
 
     def _no_target(self, mq: MetaQuestion) -> str:
         return self.rng.choice((

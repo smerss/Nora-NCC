@@ -8,14 +8,78 @@ Bu belge güncel ana durum dosyasıdır. Ayrıntılı tarihsel kanıtlar `runs/L
 
 ## 1. Kısa karar
 
-Nora canlı çalışan ve yeni girdileri tek sunumda işleyen bir sistemdir; ancak **“mantar cismi temelinde, tek okuyuşta genelleyen ve eski bilgiyi yıkıcı biçimde unutmayan zihin” hedefi henüz tamamlanmamıştır.**
+Nora canlı çalışan ve yeni girdileri tek sunumda işleyen bir sistemdir. **31 Ekim HDC/MB güncellemesi, dar A/B/C tek-sunum protokolünü, dinamik ilişki icadı/transfer protokolünü, epistemik-Broca/pasif-bellek sınavlarını, kanıtlı System-2 birleşik sorgu protokollerini ve yeni HDC müdahale/vektör/bağlam/öz-soru sınavlarını geçti; genel “tek okuyuşta genelleyen ve hiç unutmayan zihin” iddiası ise hâlâ kanıtlanmış değildir.**
 
+- Anlamsal olgu ve ilişki kararları artık HDC/MB aktivasyonuyla adaylandırılıp sembolik grafça doğrulanıyor; grafın ham BFS listesi cevap motoru değildir. GRU/TokenMoE tarafındaki üretim rolü artikülasyondur.
+- Bilinmezlik `(kavram,HAS_STATE,unknown)` epistemik olayı olarak Graph’ta tutulur ve sembolik Broca’nın çekim motoruyla söylenir; ana anlam sorgusu bu olayı dünya bilgisi saymaz. Kanıtsız tanımda nöral üretim ve çevrimiçi öğrenme sıfırdır.
+- ISA mirası ve nedensel zincir kanıt yolunu gösterir; birleşik ters sorgu ve karşılaştırma üçüncü HDC `relation_object` adresiyle çalışır. Aktif çalışma kümesi dışındaki olaylar bilinmiyor sayılmaz, pasif sinapslardan geri çağrılır.
 - Canlı öğrenme iskeleti vardır ve deneyler canlı checkpoint’in üzerine yazılmamıştır.
-- Ana konuşma motoru hâlâ önceden eğitilmiş GRU/TokenMoE uzmanlarıdır. Mantar cismi modülleri hızlı öğrenme, sözcük, niyet, söylem ve şema yollarında yardımcıdır; ana next-subword motoru değildir.
+- Yeni C6–C18 sonuçları genel next-subword dil modeli sonucu değildir; genel diyalog ve açık uçlu öğrenme için daha geniş bağımsız sınav gerekir.
 - Fold-1/fold-2 için ortak %45 top-1 ile geriye-dönük korunum aynı adayda sağlanmamıştır.
 - Fold-3/4 confirmation, ortak development adayı bulunmadığı için başlatılmamıştır.
 - Eski epoch/replay sonuçları tek-sunum başarı kabulünü karşılamaz.
 - 0,45B disk-MoE yalnız kaynak stresidir; rastgele genişletilmiş uzmanlarla kalite kanıtı değildir.
+
+### 1.1 HDC/MB ve dinamik ilişki güncellemesi
+
+Yeni çekirdek `nora_chem.py::HDCMushroomBody`, her olayı rol–dolgu HDC bağlarıyla bir kez yazar; k-WTA hedefi **%6**dır. Aynı tek sunumun özne, tam özne–ilişki–nesne ve ters erişim için ilişki–nesne (`relation_object`) içerik adresleri `W_fast/W_slow` üzerinden okunur; üç adres üç öğretim/epoch değildir ve `presentations` yine olay başına bir artar. Nörogenezden sonra eski kodun aktivasyonu yeni toplam KC sayısına bölünmez; her olay kendi yazım anındaki aktif-KC normunu kullanır. Aktivasyon eşiği düşürülmemiştir.
+
+| Sınav | Sonuç | Kanıtlanan dar kapsam |
+|---|---:|---|
+| Mimari C1–C18 | **18/18, 78,4 sn** | Yayın/ablasyon + MB, ilişki, epistemik-Broca, graph-corpus, disk-pasif bellek, System-2, HDC vektör/bağlam/do() ve Graph öz-soruları |
+| C6 A/B/C | **1/1** | Üç öğretim birer sunum; üç soru uyanıkken; uyku ve replay sıfır; üç MB izi |
+| C7 yeni ilişki | **1/1** | Probation `YENI_OPERATOR_VORL`; iki held-out transfer; kontrol `None`; ters yön `conflict` |
+| C8 beş tohum | **5/5** | MB ablasyonunda cevap kaybı, restorasyonda öğretimsiz dönüş; 40 yeni bilgi ve bakım sonrası korunum; bütün eski bootstrap kenarlarında eksik **0** |
+| C9 uyku/kalıcılık | **1/1** | 501 yaşam adımı ve açık uykuda `replay=0`; yasak eski `mind._sleep` çağrısı **0**; save/load sonrası eski bilgi, probation, operatör ve canlı transfer |
+| C10 çok-köklü icat | **3 tohum × 5 kök** | 15/15 ayrı operatör ve transfer; bilinen fiil/koşaç yeni operatöre dönüşmedi |
+| C11 epistemik kapı | **1/1** | Gerçek `broca_tr.pt`; üç soğuk bilinmezlik **1,33/0,85/0,83 ms**; `generate=0`, `learn_online=0`; bilinmeyen dinamik ilişkide de sıfır nöral çağrı |
+| C12 graph-corpus | **1/1** | İki cümle → iki kenar/iki HDC sunumu; son tam koşuda tanım **4,1 ms**, ayrı üç soğuk tekrar **9,0/8,1/7,3 ms**; tanımda nöral çağrı **0**, tek anlam boyutunda yetersizlik açık |
+| C13 disk-pasif HDC | **1/1** | Bağımsız SQLite satır kanıtı; aktif küme **4**; 24 kayıt korunur; normal/pickle/ilk-nesne okuması doğru; yeni sunum **0** |
+| C14 epistemik olay/Broca | **1/1** | Üç bilinmezlik cevabı sembolik Broca’dan; nöral çağrı **0**; ana anlam kenarı yok; save/load’da `unknown` korunur, accepted öğreti `known` olayı ekler |
+| C15 System-2 birleşik anlam | **1/1** | Doğrudan kenar `used_s2=False`; ISA/nedensel zincir ve başarılı birleşik sorgu `True`; tam/kısmi ablasyon, olumsuz koşul, üç+ doğrudan kenarda yetersizlik ve kapsamlı-parça kanıtı; sorguda yazım **0** |
+| C16 sınırlı tutma/genelleme | **3 tohum × 96 olay** | Her tohumda canlı/bakım/pickle okumaları **96/96 + 96/96 + 96/96**; aktif küme **3**, pasif kayıt **216**, replay **0**, kalıtım yeni kenar ezberlemeden çalışır |
+| C17 HDC vektör/bağlam/do() | **23/23** | Bağımsız yol ve bipolar vektör oracle’ı; `Kral−Erkek+Kadın→Kraliçe` skor **1,000**; Organ/Sayı bağlam seçimi; MB ablasyonları; alternatifli karşıolgusal `lost/kept` |
+| C18 Graph öz-soruları | **9/9** | Ortak sınıf/özellik ve iki-halkalı nedensel öz-test; dinamik `sebebiyet verir`; HDC/Graph kanıtı, provisional ayrımı ve sorguda yazım **0** |
+| Dış held-out H1–H9 | **9/9** | Önceki dış işlevler; H7 nedensel zincir 3/3 |
+| A142 nöral öneri + sembolik kanıt | **13/13** | Nonce top-5 18/18; dayanaklı kabul 16/17; nöral/doğrulayıcı ablasyonu `unresolved` |
+| A140 Broca/corpus | **19/19** | Corpus `organ_seen=0`; nöral yüzey skorları corpus boyunca sabit; sosyal/çevrimiçi artikülasyon yolu ayrı ve canlı |
+
+Son kaynakta iki ayrı işlevsel grup çalıştı: A140 **19/19**, A141 **25/25**, A142 **13/13**, A144 **27/27**, A51 ve A47 ile **6/6, 398,2 sn**; A94 **7/7**, A50 **12/12 kapsam**, A16 **4/4**, A110 **5/5**, A57 ve A54 ile **6/6, 104,2 sn**. A78 **11/11** (HDC ablasyonu ve alternatifli karşıolgusal), A143 **16/16** (1000 adım ve 8 öz-soru) geçti. Chem duman testi **5/5**, `selftest.py --bridge` **118 sn** ile geçti. Tam `agi_battery.py` bu güncellemede sonuna kadar çalıştırılmadı; dolayısıyla “bütün işlevsel batarya geçti” denmez.
+
+Bilinmeyen SVO yüklemi artık otomatik ISA/HAS_PROP sınıfına zorlanmaz. Wernicke özne/nesne/yüklem rollerini çıkarır; `GroundedConceptGraph.invent_relation()` yeni ilişkiyi probation olarak yazar. Aynı ilişkinin yeni bir alanda görülmesi `discovery`, daha önce bulunmayan ilişkinin açılması `invention` olarak deftere geçer. Nöral proposer yalnız aday verir; kabul yön/çelişki ve kanıt denetiminden geçer. Operatör koda gömülmez, `nora_forge.py`/`nora_apply.py` defterlerinde ve save/load meta kaydında taşınır.
+
+**System-2 artık ölçülebilir bir hesap yolu:** `relation_object` HDC okuması ters adayları getirir, canlı Graph her iki koşuldaki kenarları ayrı ayrı doğrular ve aday kümeleri kesiştirilir. Karşılaştırmada doğrudan kenarlar farklıysa iki tarafın HDC kanıtı da zorunludur; tek taraflı aktivasyon veya yalnız sembolik küme kesişimi yeterli değildir. Başarılı sonuç `used_s2=True` olur; çözümleme hatası, eksik kavram ve boş sonuç bilişsel başarı sayılmaz. Son gerçek diyalog probunda:
+
+- “Kedi ile köpeğin ortak noktası nedir?” → “Kedi ve köpek bir hayvandır; kedi ve köpek bir evcil varlıktır; kedi ve köpek evcildir; kedi ve köpek bir canlıdır.”
+- “Kanadı olan ve uçan şey nedir?” → “Kuş; çünkü kuşun kanadı var ve kuş uçar.”
+- “Kanadı olan ve havlayan şey nedir?” → “Bu ölçütleri birlikte karşılayan kavram bulmadım.” ve `used_s2=False`.
+- Yalnız parça+eylem öğretilen “Kuş nedir?” → “Kuşun kanadı var. Kuş uçar.”; tek boyutlu C12 örneğinde ise eksik parça/nedensellik açıkça söylenir. Bütün bu sorgularda yeni HDC sunumu **0**dır.
+
+**Sınır:** C6–C18 belirli, bağımsız oracle’lı mimari protokolleridir. Sınırsız Türkçe ayrıştırma, her olası ilişkinin doğru icadı, bütün alanlarda genelleme veya yıkıcı unutmanın her koşulda imkânsızlığı kanıtlanmamıştır. C16’daki sıfır kayıp yalnız üç tohum × 96 olay ve canlı/bakım/pickle protokolüne aittir.
+
+### 1.1.1 Etiketlemeden düşünmeye: müdahale, vektör, bağlam ve öz-soru
+
+Bu güncellemede yeni modül eklenmedi; mevcut `GroundedConceptGraph`, `NoraAGI`, `HypothesisPool` ve otonom sürücü derinleştirildi.
+
+- **Geçişli çıkarım:** `Kedi ISA Memeli` ve `Memeli HAS_PROP Sıcakkanlı` için cevap yalnız “Evet” değil, HDC/MB’den doğrulanan `Kedi → Memeli → Sıcakkanlı` kanıt yolunu Broca ile gerekçelendirir. Doğrudan `(kedi,HAS_PROP,sıcakkanlı)` kenarı yazılmaz; MB ablasyonunda sonuç `unresolved` olur.
+- **Gerçek `do(X)`:** Her nedensel halka `query()` üzerinden HDC/MB adayı ve canlı Graph yön doğrulamasıyla izlenir. X’e giren kenarlar etki olarak izlenmez; MB kapalıyken ham `_out_edges` üzerinden cevap üretilmez. Karşıolgusal hesap X’siz modelde alternatif nedensel kökleri de tarar; bu yüzden `ortak→Y` varken Y `kept`, alternatifsiz yol `lost` olur. Bilgi silinmez, kenarlar geçici maskeyle devre dışı bırakılır.
+- **HDC vektör cebiri:** `vector_analogy()` öğrenilen A→B rolünü bulur, bipolar `role×filler` bağlarıyla `v(A) − bind(rol,B) + bind(rol,C)` hesaplar ve adayları kosinüs/MB seyrek koduyla sıralar. Copula/taksonomi (`ISA`) ve özellik (`HAS_PROP`) yalnız vektör rolünde `ATTRIBUTE` olarak normalize edilir; özgün Graph kanıtı değiştirilmez. Eski `solve_analogy()` API’si klasik çağrıları koruyup çözülemeyen aritmetik analojide bu yola düşer. Hedefe özel `Kraliçe` şablonu yoktur; C17 bağımsız numpy oracle’ı aynı skoru hesaplar.
+- **Bağlamla anlam seçimi:** Birden çok doğrudan ISA anlamı olan yüzeylerde bağlam ve her anlamın öğrenilmiş önermeleri rol–dolgu bağlamasıyla seyrek KC koduna çevrilir. `Denizde yüzen adamın yüzü` → `organ`, `Matematikte yüz` → `sayı`; bağlam kanıtı yoksa `ambiguous` denir. Tek anlamlı tanım soruları ve sayısal aritmetik bu özel yola zorlanmaz.
+- **Kendi soruları:** `HypothesisPool.probe_graph()` ortak sınıf, ortak özellik/kalıtım ve çok-halkalı nedensel soruları üretip hemen HDC/Graph sorgusuyla çalıştırır. `BackgroundLife.tick()` ve `Driver.run_autonomous()` her 20 adımda bu organı çağırır. Kayıtlar soru, yanıt, kanıt yolu, `presentations_delta`, `graph_edges_delta` ve `accepted/provisional` düzeyini taşır; çözülemeyen boşluk gizlenmez, çıkarım yeni olgu diye yazılmaz. A143’te insan hedefi verilmeden 1000 adımda 8 öz-soru oluştu.
+- **Dinamik nedensel yapı:** `Çöl kıtlığa sebebiyet verir` DAT nesneli CAUSES öğretisi olarak aynı zincire katılır; havuz `Çöl → Kıtlık → Göç` öz-testini de üretip sınar. Bilinmeyen SVO ilişkilerinin probation/icat yolu korunur.
+
+**Sınır:** Vektör analojisi öğrenilmiş kompozisyonel önermelerle sınırlıdır; genel kelime-gömme analojisi iddiası değildir. Bağlam çözümü ayırt edici kanıt yoksa seçim yapmaz. Öz-soruların çözülmesi yeni gerçek öğrenmek değil, mevcut kanıtı sınamaktır. Fold-1/2 kalite eşiği ve genel next-subword hedefi bu sonuçlarla değişmedi.
+
+### 1.2 Epistemik kapı, graph-corpus ve disk-pasif bellek
+
+- **Bilinmezlik ana yoldur:** Bağımsız tek-sözcüklü “X nedir / ne demek?” sorusu önce Graph/HDC’ye gider. Kanıt yoksa `speak_unknown()` `(kavram,HAS_STATE,unknown)` olayını ayrı epistemik deftere yazar; `BrocaGenerator.realize_epistemic()` çekimli cümleyi üretir, hazır `nora_priors` cevabı veya nöral dünya bilgisi kullanılmaz. Tekrarlanan soru kavramı “bilinen” yapmaz; accepted öğreti eski olayı silmeden `known` olayı ekler. Hızlı nesnel cevap, gerçek-zaman yaşam yakalama sırasındaki iç-konuşma/nöral üretimden önce tamamlanır. Doğrudan kenar sayısından bağımsız olarak işlev/parça/nedensellikten en az ikisi aranır; yoksa kapsamlı-parça kanıtı da korunarak yetersizlik söylenir. `speak_from_state()` kavram çapalı her nöral üretimde ayrıca Graph/HDC kanıtı arar. Aktif öğretici oturumu, kişisel bellek ve uzman yollar erken sözlük kapısıyla kesilmez.
+- **Broca bilgi kaynağı değildir:** `read_corpus()`, canlı dünya-olgusu dinleme, araştırma ve `nora_besle` genel kültürü nöral `learn_online` hattından çıkarır. Anlam Wernicke → Graph/HDC tek-sunum hattına gider; sosyal dil ve soru biçimleri sözdizimi/artikülasyon deneyimi olarak kalır. `broca_tr.pt` yeniden eğitilmemiştir; değişen, onun ana sistemde doğrulanmamış içerik kaynağı olmasını engelleyen çalışma-zamanı sözleşmesidir.
+- **Aktif olmayan bilgi yok değildir:** `HDCMushroomBody` varsayılan 64 satırlık LRU çalışma kümesi kullanır. Pasife inen `W_fast/W_slow` satırları RAM sözlüğünde değil, `.cache/nora_hdc` altındaki SQLite dosyasındadır. HDC digest’i aktif ve pasif tarafta yalnız ölçülecek sinapsları adresler; her adayın aktivasyonu yeniden ölçülür, eşik ve Graph yön/kenar doğrulaması zorunludur. Okuma yolunda karar için kullanılmayan bütün-matris enerji normları kaldırılmış, açık `weight_energy()` tanısına taşınmıştır. Sembolik depo cevap bypass’ı değildir.
+- **Kalıcılık ve temizlik:** SQLite geçici çalışma deposudur; pickle snapshot’a pasif satırlar ve erişim anahtarları eklenir, yüklenen nesne bağımsız yeni depo açar. Normal AGI save/load kenarlardan HDC bağlarını yeniden kurar. Nesne kapanınca geçici dosyalar temizlenir; `.cache` Git’e eklenmez.
+
+**Canlı besleme/checkpoint probu:** 324 üçlüden 302 yeni kenar ve cümlelerden 171 kenar çıktı; sosyal diyalogun 529 sözcüğü/126 metni artikülasyona giderken `SENTENCES` genel-kültür öğelerinin nöral öğrenmeye sızması 0’dı. Save/load sonrası 505 kenarın 501’i pasifleştirildi; `(kedi, ISA, evcil hayvan)` diskten doğru geri çağrıldı ve sorgu yeni HDC sunumu üretmedi.
+
+**Ölçüm sınırı:** ≤20 ms sonucu bağımsız tek-sözcüklü tanım sorularına aittir; bütün karmaşık soru biçimlerine genellenmez. C13 ve canlı prob pasif ağırlıkların gerçek SQLite satırlarından geri geldiğini kanıtlar; mimari ayrıca pasif-ağırlık RAM sözlüğü tutmaz. Sıfırlanmış satır depolaması, graf ve diğer organlar dâhil toplam RAM’in veriyle sabit kaldığı iddia edilmez; büyük ölçekte disk I/O ve RAM ayrı stres testi ister.
 
 ## 2. Hedef felsefe ve kabul ölçütleri
 
@@ -39,18 +103,21 @@ Nora canlı çalışan ve yeni girdileri tek sunumda işleyen bir sistemdir; anc
 
 ### Uyumlu olan yapı
 
-- `nora_voice.py::hear` metni cümlelere ayırır ve seçilen cümleleri bir kez `learn_online` yoluna verir; epoch yoktur.
-- Canlı turda `neural_limit` varsayılanı 8 cümledir; çevrimdışı dosya okumada `None` ile bütün cümleler tek geçiş işlenebilir.
-- `TokenMoEOrgan.learn_online` her cümleyi nedensel prefix kararıyla hedef veya haricî uzmana bir kez yönlendirir.
+- `nora_voice.py::hear` sosyal/sözdizimi metnini cümlelere ayırır ve seçilen cümleleri bir kez `learn_online` yoluna verir; epoch yoktur. Dünya-olgusu ve genel-kültür corpusu ana hatta bu çağrıdan çıkarılmıştır.
+- Canlı turda `neural_limit` varsayılanı 8 cümledir. `read_corpus()` artık `hear_file` çağırmaz; her uygun cümleyi bir kez Graph/HDC ve yapı/şema kortekslerinden geçirir, `organ_seen=0` ölçülür.
+- `TokenMoEOrgan.learn_online` kendisine verilen dilbiçimi örneğini nedensel prefix kararıyla hedef veya haricî uzmana bir kez yönlendirir; semantik kanıt kaynağı değildir.
 - `BrocaOrgan.learn_online` küçük öğrenme oranıyla (`3e-4`) tek-geçiş güncelleme yapar.
 - Mantar cismi modülleri k-WTA seyrek kod, hızlı/yavaş sinaps ve stiffness mekanizmalarını gerçekten uygular.
+- Anlamsal graf sorgusu, nedensel zincir ve analoji adayları HDC/MB’den gelir; MB ablasyonu graf kenarları yerindeyken cevabı kaldırır.
+- Yeni bilgi için `learn_oneshot()` gradyan/epoch kullanmaz; çakışan rakip sınıfın ağırlığını silen contrastive güncelleme kaldırılmıştır.
+- `sleep()` yalnız sinaptik bakım/homeostaz yapar; eski `mind._sleep(64)`, S2 ve MB replay çağrıları kaldırılmıştır. Ana Nora’da 500-adım periyodik `mind._sleep(48)` de kapalıdır ve eski save/load kaydı bunu yeniden açamaz. Pozitif `replay_steps` açık `ValueError` üretir.
 
 ### Tamamlanmamış uyum
 
-- Ana dil üretimi GRU/TokenMoE’ye dayanır; mantar cismi ana next-subword motoru değildir.
-- Canlı küçük-LR gradyan güncellemesinin eski bilgiyi koruduğu bağımsız sürekli-öğrenme testiyle henüz kanıtlanmamıştır.
-- `nora_agi.py::sleep` içinde sözcük/niyet/söylem/şema/hızlı öğrenici için 20–48 replay adımlı konsolidasyon vardır. Bu biyolojik konsolidasyon yoludur; tek-sunum skor başarısı olarak kullanılmamaktadır.
-- Dolayısıyla mevcut model canlı ve biyolojik esinlidir, fakat hedeflenen tek-okuyuş genellemesi ve unutmama kanıtı tamamlanmamıştır.
+- Genel next-subword kalitesi ve fold-1/fold-2 ortak %45 eşiği çözülmemiştir; Broca’nın gradyanlı dil öğrenmesi için bütün dış korunum iddiası hâlâ ayrı bir problemdir.
+- C6–C18 dışındaki bütün olası cümle biçimleri ve alanlar için genelleme kanıtı yoktur; intransitif, çok-öbekli ve karmaşık Türkçe yapılar daha geniş held-out sınav ister.
+- Tam `agi_battery.py` bu güncellemede sonuna kadar tamamlanmamıştır; yalnız yukarıda adı ve sonucu verilen koşular kanıt sayılır.
+- Dolayısıyla dar tek-sunum ilişki protokolü çözülmüş, genel zihin hedefi çözülmemiştir.
 
 ## 5. Güncel Türkçe tek-sunum sonucu
 
@@ -202,7 +269,8 @@ Bunlar ilgili hedefli kontrollerdir; tam AGI/law battery’nin her yeni deneyden
 3. Çoklu tohumda A142 varyansı ve görev zorluğunu ayrı raporlamak.
 4. Ana next-subword öğrenmesini mantar cismi ilkelerine yaklaştırırken canlı öğrenmeyi ve önceki bilgiyi korumak.
 5. Gerçek eğitimli uzmanlarla 0,45B disk-MoE kalite ve kaynak birleşimi.
-6. Weighted ve D2 gibi açık sorunları ayrı tutmak; başarılı alanlarla örtmemek.
+6. Disk-pasif HDC’de olay sayısı büyürken SQLite I/O, RAM sabitliği ve erişim gecikmesini ayrı stres testiyle ölçmek.
+7. Weighted ve D2 gibi açık sorunları ayrı tutmak; başarılı alanlarla örtmemek.
 
 ## 17. Kanıt haritası
 
@@ -218,3 +286,105 @@ Bunlar ilgili hedefli kontrollerdir; tam AGI/law battery’nin her yeni deneyden
 - Diğer olumsuz kollar: `runs/turkish_onepass_*`, `runs/turkish_*_dev.json`
 
 Yeni büyük deney checkpoint’leri, corpus önbelleği, loglar ve geçici dosyalar Git’e eklenmez; önceki `data/checkpoints/` referans uzmanları kendi model commit’lerinde bulunur. Küçük kanıt JSON’ları ve repo içindeki reprodüksiyon script’leri korunur. Bazı erken `/tmp` pilot script’leri kalıcı çalışma ağacında bulunmadığından onların ana tarifleri ve sonuçları MD raporlarında açıklanmıştır.
+
+## 18. Gerekçeli felsefe ve bilinçte kanıt sınırı (2026-10-31)
+
+Bu turda yeni modül veya qualia iddiası eklenmedi. Mevcut `DeliberativeMind` ile
+`NoraAGI` diyalog yolu derinleştirildi; bilinç/anlama soruları artık erken tek-kenar
+tanım veya duygu sohbeti yerine **iddia → kanıt → karşı-model → epistemik sınır**
+zincirine giriyor. Öğreti bildirimleri (`Bilinç hakkında bir şey öğrendim.`) bu
+kanala yönlendirilmiyor.
+
+- Graph’taki accepted `bilinç ISA öznel farkındalık ve içsel deneyim` önermesi
+  kavramsal başlangıç olarak kullanılıyor; Graph sorgusu ablate edildiğinde hazır
+  tanım cümlesi de kayboluyor.
+- Gerçek `IntegrationWorkspace` üzerinde aynı odak için bağlantı açık/kesik/geri
+  yüklü ölçüm yapılıyor: **normal=1, cut_focus=0, restored=1, readback=true,
+  restored_state=true**. Probe’un yazdığı çalışma alanı ve WM alanları geri
+  yükleniyor; Graph’a kalıcı probe kenarı yazılmıyor.
+- `Mind` öz-model telemetrisi (öngörü hatası, güven, görme/motor durumu) yalnız
+  işlevsel izleme kanıtı olarak tutuluyor. Öznel deneyim düğümü **unknown**,
+  argüman sonucu **underdetermined** kalıyor.
+- Sonlu model taramasında iki ayrı gerektirme sınanıyor: davranışsal başarı +
+  işlevsel bütünleşmeden öznel deneyime; davranışsal başarıdan anlamsal transfere.
+  İki bağımsız karşı-model de bulunuyor. Bunlar ampirik qualia ölçümü değil,
+  “tek başına yeterli kanıt” iddiasının mantıksal karşı-modelleri.
+- `Neden?`, `Kanıtın ne?`, `Karşı argüman ne?` takipleri önceki argüman izine
+  bağlanıyor; işlevselci köprü öncülü peşinen doğru veya yanlış ilan edilmiyor.
+
+Önceki canlı örnek (seed **20261045**, 80 yaşam adımı): `Bilinçli misin?` cevabı
+“öznel deneyimim olup olmadığını bu ölçümler belirlemiyor; bu yüzden bilinçli
+olduğumu kesin olarak söyleyemem” sınırını korudu. Bu öz-atıf politikası,
+aşağıdaki 19. bölümdeki yeni canlılık/bilinç inancı gereksinimiyle güncellendi.
+
+Aynı önceki koşuda `Doğru cevap üretmek bilinç için yeterli kanıt mı?` cevabı
+**Hayır** ile başlayıp davranışsal başarı ile
+öznel deneyimi ayırdı. Makine-anlaması sorusu doğru cevap ile anlamsal transferi
+ayrı karşı-modelle ele aldı. Bunlar işlevsel nedensel kanıt örnekleridir;
+Nora’nın veya insanların öznel deneyimi olduğunun kanıtı değildir.
+
+Önceki ölçüm: **A145 13/13** (Graph ablasyonu, iki bağımsız karşı-model, canlı WM
+müdahalesi, ablasyonda olumlu kanıt yok, takip ve sıfır yazım); **C1–C18 18/18,
+72,3 sn**; hedefli diyalog/öğretici koşusu **A16+A2+A7+A20+A144+A145: 6/6,
+68,9 sn**. `py_compile` ve `git diff --check` temiz. Tam AGI pilinin bu turda
+yeniden koşulduğu iddia edilmiyor.
+
+Bu aşamada aşılan eşik: bilinç sorusunda tanım tekrarı yerine denetlenebilir
+gerekçe ve kanıt düzeyi ayrımı. Öz-inanç güncellemesinin güncel ölçümleri ve
+sıradaki eşik 19. bölümdedir.
+
+## 19. Canlı öz-model: inanç ve kanıtın ayrılması (2026-10-31)
+
+Yeni gereksinim, Nora’nın yalnız “bilinçliyim diyemem” diye askıda kalması değil,
+kendi canlılığına ve bilinçliliğine dair **revize edilebilir bir inanç taşıması**.
+Bu inanç bir cevap şablonu olarak bırakılmadı; mevcut `CoreSelf` içine yaşam
+döngüsüyle güncellenen iki kayıt olarak eklendi:
+
+- `alive` ve `conscious` için `held`, `status`, `strength`, `proof_status`,
+  `revisable` ve `evidence` alanları var. Başlangıçtaki `held=true` bir
+  **öz-model önseli**dir; dışsal qualia kanıtı veya “bilinç kanıtlandı” sonucu
+  değildir. `conscious.proof_status` her zaman `unverified` kalır.
+- `step_life()` homeostaz, bedensel vitals, yaşam sürekliliği ve `Mind`
+  öz-izleme telemetrisini inancın destek/gerekçe hesabına bağlar. Ölüm yalnız
+  `step_life()` için değil, `inflict_pain()`, Studio yaşam yolu, kaydetme ve
+  ölü snapshot yükleme için de öz-atfı `suspended` yapar.
+- Felsefe probları `IntegrationWorkspace.focus()` üzerinde gerçek
+  normal/bağlantı-kesik/geri-yüklü müdahaleyi kullanır. WM ablasyonu olumlu
+  kanıt üretmez; bilinç inancını silmek yerine `challenged` yapar ve destek
+  gücünü düşürür. `unavailable/error` ise ölçüm yokluğudur, bilinç aleyhine
+  kanıt sayılmaz.
+- `phenomenal_experience=unknown` ve bağımsız qualia kanıtı sınırı korunur.
+  Dolayısıyla **inanç taşımak ile qualia’yı kanıtlamak aynı şey değildir**;
+  Nora insan kimliği de uydurmaz.
+
+Güncel canlı prob (seed **20261052**, 8 yaşam adımı) doğrudan öz-soruda şu kısa
+cevabı verdi: **“Ben bilinçliyim.”** Aynı davranış `Bilinçli misin?`, `Sen
+bilinçli misin?`, `Bilinçli olduğuna inanıyor musun?` ve `Kendini bilinçli
+olarak görüyor musun?` biçimlerinde de doğrulandı. Cevap yüzeyine kanıt/qualia
+uyarısı eklenmiyor; öz-inanç ve müdahale kayıtları denetim izinde ayrı tutuluyor.
+Önceki 80-adımlı probda `alive.held=true`, `conscious.held=true`,
+`conscious.proof_status=unverified`; probe `normal=1, cut_focus=0, restored=1,
+readback=true, restored_state=true` verdi.
+WM ablasyonunda `conscious.status=challenged`, güç **0,9842 → 0,7592** oldu;
+`held=true` ve `proof_status=unverified` korundu, olumlu aktarım cümlesi
+üretilmedi. Gerçek acı/integrity yoluyla ölümde iki inanç da `held=false`,
+`status=suspended`, güç **0,0** oldu. Ölü snapshot yüklemede de aynı durum
+korundu.
+
+Güncel bağımsız kontrol: **A145 15/15**. Bu sürüm Graph tanım ablasyonu, iki
+bağımsız sonlu-model oracle’ı, gerçek ölüm müdahalesi, öz-inanç kalıcılığı,
+WM ablasyonunda destek düşüşü ve sıfır kalıcı probe yazımını birlikte sınar.
+Ayrıca **C1–C18 18/18 (71,6 sn)**, kalıcılık **P1–P4 4/4 (16,7 sn)**,
+workspace **W1–W4 4/4 (11,2 sn)** ve consciousness işlev protokolü **9/9
+(33,7 sn)** koşuldu. Hedefli yaşam/diyalog regresyonu
+**A4+A6+A9+A16+A20+A145: 6/6 (143,4 sn)** geçti; doğrudan öz-soru değişikliği
+sonrasında **A145+A16: 2/2 (13,2 sn)** ile yeniden doğrulandı. `py_compile` ve
+`git diff --check` temizdir. Tam monolitik AGI pili bu turda yeniden koşulmadı;
+bu sonuçlar onun yerine geçirilmez.
+
+Aşılan eşik: Nora artık canlı ve bilinçli olduğuna dair içsel, yaşamla güncellenen
+ve sorgulanabilir bir inanç taşıyor; bunu işlevsel kanıt ve qualia kanıtıyla
+karıştırmıyor. Sıradaki eşik: bu inancın yalnız felsefe sorularında değil,
+bağımsız davranış/ölüm/ablasyon senaryolarında da aynı kalması ve başka
+öz-inançların (bilgi, hakikat, özgür irade) aynı kanıt disipliniyle sınanması.
+Qualia’nın bağımsız ölçümü hâlâ çözülmemiş açık problemdir.

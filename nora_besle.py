@@ -11,8 +11,8 @@ motoruna verilir. Model eğitimi (epoch) YOKTUR; her bilgi tek geçişte yerleş
 İçerik üç katmandır:
   1. TRIPLES    : dünya bilgisi üçlüleri (ISA / CAN_DO / USED_FOR / CAUSES / HAS_PROP / LOCATED_AT / OPPOSITE).
                   Bunlar kavram ağına doğrudan girer; Nora bunlarla soruları yanıtlar.
-  2. SENTENCES  : aynı bilginin doğal Türkçe karşılıkları (dil örneği; sözdizimi ve söz organı bunları duyar).
-  3. DIALOGUE   : günlük konuşma örnekleri (insan–Nora). Söz organı buradan Türkçenin ritmini öğrenir.
+  2. SENTENCES  : aynı bilginin doğal Türkçe karşılıkları; Wernicke/morfoloji çözümler, anlam Graph/HDC'ye yazılır.
+  3. DIALOGUE   : günlük konuşma örnekleri (insan–Nora). Söz organı sosyal ritmi öğrenir; açık bilgi cevapları nöral beslemeden çıkarılır.
 
 Kullanım:
     python nora_besle.py --out data/nora_besin --epochs 1
@@ -432,7 +432,11 @@ def _teach(agi, sent: str) -> bool:
 
 
 def _feed(agi, triples: list[tuple[str, str, str]], sentences: list[str], dialogue: list[str]) -> dict:
-    """Tek geçişte besleme: kavram ağı + sözdizimi + söz organı. Epoch yok, öğretmen yok."""
+    """Tek geçişte besleme: anlam Graph/HDC'ye, sosyal biçim söz organına.
+
+    Genel kültür cümleleri nöral Broca'ya öğretilmez; Wernicke/morfoloji onları
+    çözümler, önermeler tek-sunum ilişki belleğine yazılır. Epoch/replay yok.
+    """
     g = agi.lang.graph
     for w in VOCAB:
         try:
@@ -462,11 +466,37 @@ def _feed(agi, triples: list[tuple[str, str, str]], sentences: list[str], dialog
         except Exception:
             arb.append(False)
     edges_txt += sum(1 for sent in HEARSAY_SENTENCES if _teach(agi, sent))
+    # Kavram sorusunu izleyen açık olgu cevapları nöral artikülatöre genel
+    # kültür corpusu olarak verilmez. Güvenilir anlam SENTENCES/TRIPLES veya
+    # read_corpus kanalından gelir; burada sorular ve sosyal biçim duyulur.
+    semantic_dialogue: set[str] = set()
+    previous_semantic_question = False
+    for sent in dialogue:
+        try:
+            frame = agi.lang.wernicke.parse(sent)
+            # Sosyal 'teach_fact' benzeri anlatıyı dünya bilgisi yapma. Yalnız
+            # gerçek bir kavram sorusunun açık cevabı anlam corpusudur.
+            if (previous_semantic_question
+                    and frame.kind in {"teach_fact", "teach_val", "invent_relation"}):
+                # DIALOGUE sosyal-biçim corpusudur; buradaki olgu cevabını
+                # Graph'a yeniden yazmak yerine yalnız nöral beslemeden çıkar.
+                # Güvenilir anlam SENTENCES/TRIPLES veya read_corpus'tan gelir.
+                semantic_dialogue.add(sent)
+            previous_semantic_question = bool(
+                frame.kind in {"wh_query", "yn_query"}
+                and str(getattr(frame, "subj", "") or "")
+                and str(frame.subj) not in {"ben", "sen", "nora"}
+            )
+        except Exception:
+            previous_semantic_question = False
+            continue
     heard = 0
     try:
         from nora_voice import state_vector
         st = state_vector(agi, nov=0.3, fam=0.7, conf=0.8)
-        for sent in sentences + dialogue + HEARSAY_SENTENCES:
+        for sent in dialogue:
+            if sent in semantic_dialogue:
+                continue
             agi.life.voice.hear(sent, st)
             heard += len(sent.split())
     except Exception:

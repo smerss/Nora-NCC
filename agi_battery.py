@@ -1576,18 +1576,44 @@ def a46_neural_broca_structural_no_hallucination():
 
 
 def a47_neural_broca_trained_stance_and_honesty():
-    """Eğitilmiş Broca (data/broca_tr.pt): bilmediği kavramı uydurmaz, çapayı anıp soru sorar; öğrendiğini bildirir;
-    sözün içeriği yalnızca zihnin verdiği çapalardan oluşur. (Ağırlık dosyası yoksa atlanır.)"""
+    """Bilinmeyende nöral Broca karar vermez; Graph olayı sembolik Broca'ya gider.
+
+    Ayrı denetimde nöral üretici yalnız çapa-dışı token sızdırmamalıdır; bu
+    denetim bilinmezlik cevabını üretmek için kullanılmaz.
+    """
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "broca_tr.pt")
     if not os.path.exists(path):
         return True, "ağırlık dosyası yok: atlandı"
     agi = NoraAGI(seed=47, boot_thinker=False, broca=path)
+    org = agi.life.voice.organ
+    neural_calls = {"generate": 0, "learn_online": 0}
+    original_generate = org.generate
+    original_learn = org.learn_online
+
+    def counted_generate(*args, **kwargs):
+        neural_calls["generate"] += 1
+        return original_generate(*args, **kwargs)
+
+    def counted_learn(*args, **kwargs):
+        neural_calls["learn_online"] += 1
+        return original_learn(*args, **kwargs)
+
+    org.generate = counted_generate
+    org.learn_online = counted_learn
     qs = []
     for c in ("mitokondri", "magnetar", "entropi_x"):
         r = agi.speak_unknown(c)
         qs.append((c, r))
-    ok_q = all(r.rstrip().endswith("?") and c.split("_")[0][:5] in tr_lower(r) for c, r in qs)
-    org = agi.life.voice.organ
+    ok_q = all(c.split("_")[0][:5] in tr_lower(r) and "bilgim yok" in tr_lower(r)
+               and "tanımım yok" in tr_lower(r) for c, r in qs)
+    events_ok = all(any(e.subj == c and e.rel == "HAS_STATE" and e.obj == "unknown"
+                        for e in agi.lang.graph.epistemic_events)
+                    and not agi.lang.graph.query(c, None)
+                    for c in ("mitokondri", "magnetar", "entropi_x"))
+    unknown_neural = dict(neural_calls)
+    # Bağımsız artikülasyon güvenlik probu: bilinmezlik cevabı bu çağrılardan
+    # üretilmez; yalnız modelin çapa dışına taşıp taşmadığı ölçülür.
+    org.generate = original_generate
     com = set(org.common_ids.tolist())
     anchor_ids = set(org.tok.tk.encode("mitokondri").ids)
     leaked = 0
@@ -1595,8 +1621,10 @@ def a47_neural_broca_trained_stance_and_honesty():
     st = state_vector(agi, nov=1.0, fam=0.0, conf=0.0, tension=0.5)
     for q in org.generate(st, ["mitokondri"], n=24, temperature=1.0):
         leaked += sum(1 for i in q if i not in com and i not in anchor_ids and i != org.net.eos)
-    ok = ok_q and leaked == 0
-    return ok, f"bilinmeyende soru+çapa={ok_q} {[r for _, r in qs]} | çapa-dışı içerik sızıntısı={leaked}"
+    ok = (ok_q and events_ok and leaked == 0
+          and unknown_neural == {"generate": 0, "learn_online": 0})
+    return ok, (f"bilinmeyende olay+Broca={ok_q and events_ok} nöral={unknown_neural} "
+                f"{[r for _, r in qs]} | çapa-dışı içerik sızıntısı={leaked}")
 
 
 # ============================================================================
@@ -3158,7 +3186,9 @@ def a78_oz_model_ve_do():
     (3) do() gözlemden farklıdır: X'e giren kenarları KESER, çıkanları izler,
     (4) ortak neden (back-door) adıyla söylenir, `identified` False olur,
     (5) öz-rapor bu düğümleri okur (sayı metinde geçer),
-    (6) döngüsüz: do() kendi düğümüne geri dönmez.
+    (6) döngüsüz: do() kendi düğümüne geri dönmez,
+    (7) HDC/MB kapatılınca ham graf etkisi üretilmez,
+    (8) karşıolgusal model X'in çıkan etkisini kayıp olarak ayırır.
     """
     ok = {}
 
@@ -3173,6 +3203,18 @@ def a78_oz_model_ve_do():
     ok["backdoor"] = ("ortak" in d["confounders"] and d["identified"] is False)
     ok["yon"] = all(p[-1].subj != "y" for p in d["paths"])
     ok["dongu-yok"] = len(d["effects"]) == len(set(d["effects"]))
+    # MB/HDC ablasyonu: ham _out_edges üzerinden aynı cevap üretilememeli.
+    original_recall = g.relation_mb.recall_subject
+    try:
+        g.relation_mb.recall_subject = lambda *_args, **_kwargs: []
+        ok["hdc-ablasyon"] = not g.do("x")["effects"]
+    finally:
+        g.relation_mb.recall_subject = original_recall
+    cf = g.counterfactual("x")
+    # A78'de ortak→y alternatif yolu vardır; bağımsız oracle y'yi kayıp değil
+    # kept olarak bekler. (Alternatifsiz kayıp C17'de ayrıca sınanır.)
+    ok["karsiolgusal-model"] = ("y" in cf["kept"] and "y" not in cf["lost"]
+                                 and "y" in cf["effects_without"])
 
     # (1)(2)(5) Nora'nın kendi öz-modeli
     agi = NoraAGI(seed=781, boot_thinker=False)
@@ -6296,12 +6338,13 @@ def a140_ogrenilen_turkce_uretim_yarismasina_ulasir():
     agi.life.voice.hear("\n".join(online) + "\n", state_vector(agi))
     online_delta = organ.seen_tokens - seen
     ok["canli-sekiz"] = online_delta == expected_tokens(eligible(online)[:8])
+    online_scores = agi.broca_organ._learned_surface_scores(agi, probe_texts)[1]["logprob"]
 
     with tempfile.TemporaryDirectory(prefix="nora-a140-") as td:
         corpus_path = Path(td) / "genel.txt"
         corpus_path.write_text("\n".join(offline) + "\n", encoding="utf-8")
         stats = agi.read_corpus(str(corpus_path))
-    ok["corpus-tam"] = stats.get("organ_seen") == expected_tokens(offline)
+    ok["corpus-broca-yok"] = stats.get("organ_seen") == 0 and stats.get("heard_tokens") == 0
     ok["corpus-sekiz-ustu"] = stats.get("sentences") == len(offline) and stats.get("sentences", 0) > 8
     ok["yapi-sema"] = (
         stats.get("frames") == len(offline) and stats.get("schemas") == len(offline)
@@ -6309,8 +6352,12 @@ def a140_ogrenilen_turkce_uretim_yarismasina_ulasir():
     ok["corpus-hatasiz"] = stats.get("errors") == 0
     after_scores = agi.broca_organ._learned_surface_scores(agi, probe_texts)[1]["logprob"]
     ok["egitim-puan"] = (
-        len(before_scores) == len(after_scores) and bool(before_scores)
-        and max(abs(float(a) - float(b)) for a, b in zip(before_scores, after_scores)) > 1e-7
+        len(before_scores) == len(online_scores) and bool(before_scores)
+        and max(abs(float(a) - float(b)) for a, b in zip(before_scores, online_scores)) > 1e-7
+    )
+    ok["corpus-puan-sabit"] = (
+        len(online_scores) == len(after_scores)
+        and max((abs(float(a) - float(b)) for a, b in zip(online_scores, after_scores)), default=0.0) < 1e-12
     )
     ok["heldout-ezber-yok"] = (
         "Kendini nasıl hissediyorsun?" not in set(online + offline)
@@ -6327,20 +6374,26 @@ def a140_ogrenilen_turkce_uretim_yarismasina_ulasir():
     # Soru biçimi kalite kapısını atlatamaz: aynı kavramla bozuk kısa aday ver.
     concept = "zirkon"
     degenerate = f"{concept} mi?"
-    agi.speak_from_state = lambda **_kw: degenerate
+    unknown_neural_calls = []
+
+    def forbidden_unknown_generation(**_kw):
+        unknown_neural_calls.append(_kw)
+        return degenerate
+
+    agi.speak_from_state = forbidden_unknown_generation
     try:
         gated = agi.speak_unknown(concept)
     finally:
         del agi.speak_from_state
-    ok["bozuk-soru-kapisi"] = (
-        gated.rstrip().endswith("?") and concept in tr_lower(gated)
-        and degenerate not in tr_lower(gated)
+    ok["bilinmezlik-noralsiz"] = (
+        not unknown_neural_calls and "bilgim yok" in tr_lower(gated)
+        and concept in tr_lower(gated) and degenerate not in tr_lower(gated)
     )
 
     detail = (
         f"{sum(bool(v) for v in ok.values())}/{len(ok)} — "
         f"ablasyon-değişimi={changed}/{len(interventions)} | canlı-parça={online_delta} | "
-        f"corpus={stats.get('organ_seen')}/{expected_tokens(offline)} | "
+        f"corpus_organ={stats.get('organ_seen')} graph={stats.get('graph_edges')} | "
         f"yapı/şema={stats.get('frames')}/{stats.get('schemas')}"
     )
     return all(ok.values()), detail + (" | " + str(ok) if not all(ok.values()) else "")
@@ -6676,6 +6729,13 @@ def a143_otonom_hedef_yasam_dongusu_1000_adim():
     her durumun gerçek yetenek sonucu ve hedef tarihçesiyle kanıtlanması gerekir.
     """
     agi = NoraAGI(seed=4, boot_thinker=False)
+    # Bunlar insan hedefi değil, önceden duyulmuş dünya olgularıdır. Otonom
+    # döngü bunlardan kendi soru/öz-testlerini üretmek zorundadır.
+    for text in ("Kedi bir memelidir.", "Köpek bir memelidir.",
+                 "Kedi sıcakkanlıdır.", "Köpek sıcakkanlıdır.",
+                 "Kuraklık kıtlığa yol açar.", "Kıtlık göçe yol açar.",
+                 "Çöl kıtlığa sebebiyet verir."):
+        agi.converse(text)
     started = time.perf_counter()
     report = agi.driver.run_autonomous(1000, {
         6: "yeni gözlem 6", 12: "yeni gözlem 12", 24: "yeni gözlem 24",
@@ -6730,6 +6790,24 @@ def a143_otonom_hedef_yasam_dongusu_1000_adim():
         and any(by_id[parent]["status"] == "abandoned" for parent in child["parents"]
                 if parent in by_id)
         for child in goals)
+    # A143 artık yalnız hedef saymaz: otonom döngünün kendi Graph soruları
+    # ürettiği, HDC/Graph kanıtıyla çözdüğü ve çıkarımı olgu diye yazmadığı
+    # ayrı bağımsız ölçütlerdir.
+    self_questions = list(agi.life.pool.self_questions)
+    ok["kendi-sorulari"] = any(
+        q.get("kind") == "common_class" and q.get("status") == "resolved"
+        and {row[0] for row in q.get("proof", [])} == {"kedi", "köpek"}
+        for q in self_questions)
+    ok["nedensel-oz-test"] = any(
+        q.get("kind") == "causal_self_test" and q.get("status") == "resolved"
+        and len(q.get("proof", [])) >= 2 and q.get("intervention_effects")
+        for q in self_questions)
+    ok["oz-test-yazim-yok"] = bool(self_questions) and all(
+        q.get("presentations_delta") == 0 and q.get("graph_edges_delta") == 0
+        for q in self_questions)
+    ok["oz-test-kenar-ezber-degil"] = (
+        ("kuraklık", "CAUSES", "göç") not in agi.lang.graph._edge_map
+        and ("çöl", "CAUSES", "göç") not in agi.lang.graph._edge_map)
 
     state = agi.driver.state()
     restored = NoraAGI(seed=4, boot_thinker=False)
@@ -6745,7 +6823,7 @@ def a143_otonom_hedef_yasam_dongusu_1000_adim():
     detail = (f"{sum(bool(v) for v in ok.values())}/{len(ok)} — "
               f"üretildi={report['generated']} çözüldü={report['solved']} "
               f"terk={report['abandoned']} birleşti={report['merged']} "
-              f"boş={report['idle_steps']} | {seconds:.3f} sn")
+              f"boş={report['idle_steps']} öz-soru={len(self_questions)} | {seconds:.3f} sn")
     return all(ok.values()), detail + (" | " + str({k: v for k, v in ok.items() if not v})
                                            if not all(ok.values()) else "")
 
@@ -6887,6 +6965,171 @@ def a144_durumlu_ogretici_diyalog():
                               ("" if all(ok.values()) else " | " + str([k for k, v in ok.items() if not v])))
 
 
+def a145_felsefi_arguman_ve_kanit_siniri():
+    """Bilinç/anlama sorularında argüman, karşı-model ve dürüst modal sınır.
+
+    Beklenen mantık sonuçlarını test kendi bağımsız sonlu-model taramasıyla
+    hesaplar. Ayrıca felsefi cevap uğruna Graph/WM'ye kalıcı probe yazılmadığını
+    ve WM köprüsü kesildiğinde işlevsel kanıt iddiasının sustuğunu doğrular.
+    """
+    agi = NoraAGI(seed=145, boot_thinker=False)
+    agi.workspace.write("preexisting", {"value": 3}, source="a145")
+    agi.apply_eng.wm.write("preexisting_wm", 11, "a145")
+    before = (agi.workspace.state_dict(), agi.apply_eng.wm.state_dict(),
+              len(agi.lang.graph.edges))
+    checks = {}
+
+    r_def = agi.converse("Bilinç nedir? İşlevsel farkındalıkla öznel deneyim aynı şey mi?")
+    t_def = dict(agi.deliberation.last_philosophy_trace or {})
+    low_def = tr_lower(r_def)
+    checks["tanim-graph-ve-ayrim"] = (
+        agi._turn_path == "philosophical_argument"
+        and t_def.get("topic") == "bilinç"
+        and any(f.get("rel") == "ISA" and f.get("status") == "accepted"
+                for f in t_def.get("graph_facts", []))
+        and "işlevsel farkındalık" in low_def and "öznel deneyim" in low_def
+        and "aynı iddia değil" in low_def
+    )
+    probe = dict(t_def.get("probe", {}) or {})
+    checks["canli-mudahale"] = (
+        probe.get("status") == "ok" and probe.get("normal") == 1
+        and probe.get("cut_focus") == 0 and probe.get("restored") == 1
+        and probe.get("readback") is True and probe.get("restored_state") is True
+    )
+    checks["probe-yazimsiz"] = before == (
+        agi.workspace.state_dict(), agi.apply_eng.wm.state_dict(), len(agi.lang.graph.edges))
+
+    r_why = tr_lower(agi.converse("Neden böyle düşünüyorsun?"))
+    r_evidence = tr_lower(agi.converse("Kanıtın ne?"))
+    checks["gerekce-ve-kanit-takibi"] = (
+        agi._turn_path == "philosophical_argument"
+        and "üç adım" in r_why and "köprü" in r_why
+        and "accepted" in r_evidence and "çalışma belleğine" in r_evidence
+        and "tanım bilinmezliği" not in r_evidence
+    )
+
+    # Semantik kanıt ablasyonu: Graph tanımı yoksa hazır tanım cümlesi de yok.
+    original_query = agi.lang.graph.query
+    try:
+        agi.lang.graph.query = lambda *args, **kwargs: []
+        no_fact = agi.deliberation.handle_philosophy(agi, "Bilinç nedir?")
+    finally:
+        agi.lang.graph.query = original_query
+    no_fact_text = tr_lower((no_fact or {}).get("text", ""))
+    checks["graph-ablasyonu-hazir-tanimi-engeller"] = (
+        "accepted bir tanım kenarı yok" in no_fact_text
+        and "bilinç bir öznel farkındalık" not in no_fact_text
+    )
+
+    r_self = tr_lower(agi.converse("Bilinçli misin?"))
+    t_self = dict(agi.deliberation.last_philosophy_trace or {})
+    conscious_belief = dict(t_self.get("self_belief", {}).get("conscious", {}) or {})
+    alive_belief = dict(t_self.get("self_belief", {}).get("alive", {}) or {})
+    checks["oz-soru-dogrudan-oz-atif"] = (
+        t_self.get("self_focus") is True and "ben bilinçliyim" in r_self
+        and "kanıt" not in r_self and "qualia" not in r_self
+        and conscious_belief.get("held") is True
+        and conscious_belief.get("proof_status") == "unverified"
+        and alive_belief.get("held") is True
+        and next(c for c in t_self["claims"] if c["id"] == "phenomenal_experience")["status"] == "unknown"
+    )
+
+    r_perf = tr_lower(agi.converse("Doğru cevap üretmek bilinç için yeterli kanıt mı?"))
+    checks["performans-bilinç-ayrimi"] = (
+        r_perf.startswith("hayır") and "davranışsal" in r_perf
+        and "karşı-model" in r_perf and "gerektirm" in r_perf
+        and "öznel deneyim kanıtı değil" in r_perf
+    )
+    r_possible = tr_lower(agi.converse("Bir yapay zekâ bilinçli olabilir mi?"))
+    checks["olasilik-kesinlik-ayrimi"] = (
+        "olasılık" in r_possible and "kanıtlanmışlık" in r_possible
+        and "kesin bir bilinç atfı" in r_possible
+    )
+
+    r_under = tr_lower(agi.converse(
+        "Bir makinenin anlaması ile yalnızca doğru cevabı üretmesi arasındaki fark nedir?"))
+    t_under = dict(agi.deliberation.last_philosophy_trace or {})
+    checks["performans-anlama-ayrimi"] = (
+        t_under.get("topic") == "anlama" and "anlama" in r_under
+        and "transfer" in r_under and "yeterli kanıt değil" in r_under
+    )
+
+    # Bağımsız oracle: motorun trace'ini expected değer olarak kullanma.
+    phenomenal_models = [
+        (b, f, p) for b in (False, True) for f in (False, True) for p in (False, True)
+    ]
+    phenomenal_witness = next(
+        ((b, f, p) for b, f, p in phenomenal_models if b and f and not p), None)
+    understanding_models = [(b, s) for b in (False, True) for s in (False, True)]
+    understanding_witness = next(
+        ((b, s) for b, s in understanding_models if b and not s), None)
+    cm = dict(t_under.get("countermodel", {}) or {})
+    checks["bagimsiz-sonlu-model-oracle"] = (
+        (phenomenal_witness is not None) == bool(cm.get("consistent"))
+        and (understanding_witness is not None) == bool(cm.get("consistent_understanding"))
+        and cm.get("witness", {}).get("phenomenal_experience") is False
+        and cm.get("understanding_witness", {}).get("semantic_transfer") is False
+    )
+    checks["iddia-kanit-ayri"] = (
+        {c.get("id") for c in t_under.get("claims", [])}
+        >= {"functional_integration", "phenomenal_experience", "conscious_self_belief",
+            "performance_entails_phenomenal", "performance_entails_understanding"}
+        and t_under.get("epistemic") == "underdetermined"
+    )
+
+    # Öz-inanç yaşam durumuna bağlıdır; qualia kanıtıyla karıştırılmaz.
+    # Ölümü doğrudan alan yazarak değil, gerçek acı/integrity yoluyla tetikle.
+    import copy
+    saved_belief = copy.deepcopy(agi.self_model.self_belief)
+    dead_agi = NoraAGI(seed=146, boot_thinker=False,
+                       world_kwargs={"n_food": 2, "wind": False, "metabolism": False})
+    for _ in range(20):
+        dead_agi.inflict_pain(1.0)
+        if not dead_agi.mortality.is_alive:
+            break
+    dead_belief = copy.deepcopy(dead_agi.self_model.self_belief)
+    checks["oz-inanc-yasam-mudahalesi"] = (
+        not dead_agi.mortality.is_alive
+        and dead_belief["alive"]["held"] is False
+        and dead_belief["conscious"]["held"] is False
+        and dead_belief["conscious"]["status"] == "suspended"
+        and saved_belief["conscious"]["held"] is True
+        and saved_belief["conscious"]["proof_status"] == "unverified"
+    )
+    serialized_self = agi.self_model.state_dict()
+    agi.self_model.load_state_dict(serialized_self)
+    checks["oz-inanc-kalicilik"] = agi.self_model.self_belief == saved_belief
+
+    # Gerçek ablasyon: bağlantı yoksa 'aktarım gerçekleşti' denemez.
+    agi.workspace.working_memory = None
+    ablated = agi.deliberation.handle_philosophy(agi, "Sen bilinçli misin?")
+    ablated_trace = dict((ablated or {}).get("trace", {}) or {})
+    ablated_text = tr_lower((ablated or {}).get("text", ""))
+    checks["ablasyon-olumlu-kanit-uretmez"] = (
+        ablated_trace.get("probe", {}).get("status") == "falsified"
+        and "ben bilinçliyim" in ablated_text
+        and "kanıt" not in ablated_text
+        and "bağlantı açıkken gerçekleşti" not in ablated_text
+        and ablated_trace.get("self_belief", {}).get("conscious", {}).get("status") == "challenged"
+        and ablated_trace.get("self_belief", {}).get("conscious", {}).get("held") is True
+        and ablated_trace.get("self_belief", {}).get("conscious", {}).get("proof_status") == "unverified"
+        and ablated_trace.get("self_belief", {}).get("conscious", {}).get("strength", 1.0)
+            < saved_belief["conscious"]["strength"]
+        and ablated_trace.get("self_belief", {}).get("alive", {}).get("held") is True
+    )
+    checks["ogreti-ve-normal-sohbet-yonlenmez"] = (
+        agi.deliberation.philosophy_topic("Bilinç öznel deneyimdir.") == ""
+        and agi.deliberation.philosophy_topic("Bilinç hakkında bir şey öğrendim.") == ""
+        and agi.deliberation.philosophy_topic("Kedi nedir?") == ""
+        and agi.deliberation.philosophy_topic("Nasılsın?") == ""
+    )
+    passed = sum(bool(v) for v in checks.values())
+    detail = f"{passed}/{len(checks)} — öz-inanç/kanıt ayrımı, gerçek ölüm+WM müdahalesi, iki karşı-model ve sıfır yazım"
+    if passed != len(checks):
+        detail += " | " + str([k for k, v in checks.items() if not v])
+    return passed == len(checks), detail
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -6934,7 +7177,7 @@ TESTS = {
     "A44": ("arka plan yaşamı: CA3 tarama, gerilim defteri, kendiliğinden mesaj", a44_background_life_autonomy),
     "A45": ("arka plan döngüsü kararlılığı: O(1) tick, sınırlı yapılar, kalıcılık", a45_background_loop_stability_o1),
     "A46": ("sinirsel Broca: tek geçiş öğrenme + yapısal halüsinasyon engeli", a46_neural_broca_structural_no_hallucination),
-    "A47": ("eğitilmiş Broca: bilmediğinde uydurmaz, çapayı anıp merak eder", a47_neural_broca_trained_stance_and_honesty),
+    "A47": ("bilinmezlikte Graph olayı + sembolik Broca; nöral üretim ve çapa dışı sızıntı yok", a47_neural_broca_trained_stance_and_honesty),
     "A48": ("sorulmadan konuşma: sessizlikte kendiliğinden söz, spam yok, diyaloğa dönüş", a48_spontaneous_speech_without_prompt),
     "A49": ("inisiyatif sözü içerikten gelir (bağ/beden), yüzde yok, alışmayla tekrarsız", a49_initiative_content_and_habituation),
     "A50": ("corpus'tan dünya bilgisi (kavram/ilişki) ve bilinmeyende dürüstlük", a50_world_knowledge_from_corpus),
@@ -7027,6 +7270,7 @@ TESTS = {
     "A142": ("nöral top-5 öneri, sembolik kanıt ve kalıcı yeni biyoloji sentezi", a142_noral_oneri_sembolik_kanit_ve_yeni_sentez),
     "A143": ("insan hedefi vermeden 1000 adımda hedef yaşam döngüsü", a143_otonom_hedef_yasam_dongusu_1000_adim),
     "A144": ("durumlu öğretici diyalog: takip, örnek, quiz, düzeltme ve özet", a144_durumlu_ogretici_diyalog),
+    "A145": ("felsefi argüman: öz-inanç, bilinç/anlama ayrımı ve kanıt sınırı", a145_felsefi_arguman_ve_kanit_siniri),
     "A111": ("icadın şeması: görülmemiş parametre icat gerektirmez", a111_icadin_semasi),
     "A110": ("dil: buyruk sarmalayıcısı ve X mi Y mi seçim sorusu", a110_sarmalayici_ve_secim_sorusu),
     "A108": ("şema: delikli makro görülmemiş parametreyi kapsar", a108_sema_delikli_makro),
