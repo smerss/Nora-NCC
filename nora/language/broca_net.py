@@ -23,6 +23,7 @@ import re
 import json
 import hashlib
 from collections import Counter
+from difflib import SequenceMatcher
 
 import numpy as np
 import torch
@@ -32,6 +33,13 @@ import torch.nn.functional as F
 from nora_voice import NF, SubwordTokenizer
 
 N_SPECIAL = 3          # PAD, BOS, EOS (sözlüğün sonuna eklenir)
+
+# Bunlar cevap/şablon değil, yalnız açıkça yarım kalmış yüzeyleri elemek için
+# kullanılan Türkçe bağlaç/ilgeç sonu denetimidir. Anlam kapsamı plandan gelir.
+_ARTICULATION_NONFINAL = frozenset({
+    "ve", "veya", "ile", "ama", "fakat", "ancak", "çünkü", "için",
+    "gibi", "kadar", "de", "da", "ki", "bir", "bu", "şu", "o",
+})
 
 
 class NeuralRelationalProposer(nn.Module):
@@ -666,6 +674,10 @@ class BrocaOrgan:
                  output_bias: bool = False, untied_output: bool = False):
         torch.manual_seed(seed)
         self.rng = np.random.default_rng(seed + 90_001)
+        # Üretim ve sampled-loss rastgeleliği global torch RNG'sini tüketmesin;
+        # bu sayede organın devam durumu tek checkpoint içinde taşınabilir.
+        self.torch_rng = torch.Generator()
+        self.torch_rng.manual_seed(int(seed) + 190_001)
         self.tok = tokenizer
         V = self.tok.tk.get_vocab_size()
         self.net = BrocaNet(V, d, h, dropout=dropout, temporal=temporal, positional=positional,
@@ -886,7 +898,7 @@ class BrocaOrgan:
         q = (self.freq + 1.0) ** 0.75
         q_full[: self.V] = q / q.sum()
         q_full = q_full / q_full.sum()
-        neg = torch.multinomial(q_full, K, replacement=True)
+        neg = torch.multinomial(q_full, K, replacement=True, generator=self.torch_rng)
         cand = torch.unique(neg)
         output_weight = net.output_weight()
         W = output_weight[cand]
@@ -1078,7 +1090,7 @@ class BrocaOrgan:
                     lg[b, t] -= (3.0 if t in starts else 1.5) * out[b].count(t)
             kth = lg.topk(min(top_k, net.V), dim=-1).values[:, -1:]
             lg[lg < kth] = -1e9
-            nxt = torch.multinomial(F.softmax(lg, dim=-1), 1)
+            nxt = torch.multinomial(F.softmax(lg, dim=-1), 1, generator=self.torch_rng)
             for b in range(n):
                 if queue[b]:                          # sürmekte olan sözcüğün kalan parçaları
                     nxt[b, 0] = queue[b].pop(0)
@@ -1097,6 +1109,215 @@ class BrocaOrgan:
             cur = nxt
         net.train()
         return out
+
+    # ------------------------------------------------------------ anlam-koşullu artikülasyon
+    @staticmethod
+    def _articulation_terms(value) -> list[str]:
+        """Plan alanındaki terimleri güvenli, tekrarsız yüzey listesine çevir."""
+        if value is None:
+            return []
+        if isinstance(value, str):
+            value = [value]
+        try:
+            iterator = iter(value)
+        except TypeError:
+            iterator = iter([value])
+        terms: list[str] = []
+        for item in iterator:
+            text = str(item or "").strip()
+            if text and text not in terms:
+                terms.append(text)
+        return terms
+
+    @staticmethod
+    def _articulation_words(text: str) -> list[str]:
+        normalized = str(text or "").casefold().replace("\u0307", "")
+        return [w for w in re.findall(r"[\wçğıöşü]+", normalized, flags=re.UNICODE)
+                if any(ch.isalpha() for ch in w)]
+
+    @classmethod
+    def _articulation_contains(cls, text: str, term: str) -> bool:
+        """Çekimli yüzeyde plan terimini ara; kısa ekleri sınırlı tut."""
+        words = cls._articulation_words(text)
+        wanted = cls._articulation_words(term)
+        if not words or not wanted:
+            return False
+        if len(wanted) > 1:
+            return " ".join(wanted) in " ".join(words)
+        needle = wanted[0]
+        return any(
+            word == needle
+            or (len(needle) >= 4 and word.startswith(needle))
+            # Kısa Türkçe çapaların yaygın çekimleri (su→suyu/suya)
+            # yüzey denetiminde kaybolmasın; uzak birleşik sözcükler alınmaz.
+            or (len(needle) >= 2 and word.startswith(needle)
+                and 0 < len(word) - len(needle) <= 3)
+            for word in words
+        )
+
+    @classmethod
+    def _articulation_similarity(cls, left: str, right: str) -> float:
+        a, b = cls._articulation_words(left), cls._articulation_words(right)
+        if not a or not b:
+            return 0.0
+        return float(SequenceMatcher(None, a, b).ratio())
+
+    @classmethod
+    def _articulation_ngram_overlap(cls, left: str, right: str, n: int = 3) -> float:
+        a, b = cls._articulation_words(left), cls._articulation_words(right)
+        if len(a) < n or len(b) < n:
+            return 0.0
+        aa = {tuple(a[i:i + n]) for i in range(len(a) - n + 1)}
+        bb = {tuple(b[i:i + n]) for i in range(len(b) - n + 1)}
+        return len(aa & bb) / max(1, len(aa))
+
+    @classmethod
+    def _articulation_surface_valid(cls, text: str, words: list[str]) -> bool:
+        """Öğrenilmiş adayın açık yüzey bozukluklarını ele; olgu denetimi yapmaz."""
+        stripped = str(text or "").strip()
+        if not stripped or len(words) < 2:
+            return False
+        if stripped.startswith((",", ";", ":", ".", "!", "?")):
+            return False
+        if stripped.endswith((",", ";", ":")):
+            return False
+        # ``…`` ve ``...`` meşru; diğer ardışık noktalama üretim artığıdır.
+        normalized = stripped.replace("…", ".").replace("...", ".")
+        if re.search(r"[,;:!?]\s*[\.,;:!?]|\.\s*[\.,;:!?]", normalized):
+            return False
+        if any(words[i] == words[i - 1] for i in range(1, len(words))):
+            return False
+        if len(words) >= 4 and max(words.count(w) for w in set(words)) > 2:
+            return False
+        if not stripped.endswith("?") and words[-1] in _ARTICULATION_NONFINAL:
+            return False
+        return True
+
+    @torch.no_grad()
+    def articulate(self, state: np.ndarray, anchors: list[str] | None = None,
+                   extra_allowed: list[str] | None = None, *, speech_plan: dict | None = None,
+                   recent_surfaces=(), n: int = 8, explore: float = 1.0,
+                   temperature: float | None = None, top_k: int = 30,
+                   max_len: int = 28) -> dict:
+        """Zihin planını koruyarak öğrenilmiş dağılımdan bir yüzey seç.
+
+        Bu katman yeni anlam üretmez. Adaylar planın zorunlu/yasaklı terimleri
+        ve önceki yüzeylerle benzerlik bakımından yarışır. Zorunlu terimler
+        karşılanmıyorsa ``text=None`` döner; üst katman sembolik yedeğe düşer.
+        Plan alanları: ``anchors``/``preferred``, ``required``, ``allowed``,
+        ``forbidden``, ``avoid``, ``strict`` ve ``temperature``.
+        """
+        plan = dict(speech_plan or {})
+        base_anchors = self._articulation_terms(
+            plan.get("anchors", anchors if anchors is not None else []))
+        preferred = self._articulation_terms(plan.get("preferred", base_anchors))
+        required = self._articulation_terms(
+            plan.get("required", plan.get("required_anchors", [])))
+        forbidden = self._articulation_terms(plan.get("forbidden", []))
+        strict = bool(plan.get("strict", bool(required)))
+        # Tercih edilen veya zorunlu bir terim çapa listesinde yoksa bile
+        # yalnızca zihnin verdiği bu plan kapsamında üretilebilsin. Bunları
+        # ``anchors``a katmayız: tercih edilen terimler zorla tüketilmez.
+        extra = (self._articulation_terms(extra_allowed)
+                 + self._articulation_terms(plan.get("allowed"))
+                 + preferred + required)
+        extra = list(dict.fromkeys(extra))
+        temp = float(temperature if temperature is not None
+                     else plan.get("temperature", 0.7) * max(0.05, float(explore)))
+        temp = max(0.05, temp)
+        count = max(8, min(24, int(n) + 4))
+        sequences = [list(q) for q in self.generate(
+            state, base_anchors, extra, temperature=temp, top_k=top_k,
+            max_len=max_len, n=count,
+        ) if len(q) >= 2]
+        rejected = {"empty": 0, "surface": 0, "required": 0, "forbidden": 0}
+        rows: list[dict] = []
+        for sequence in sequences:
+            text = str(self.detok(sequence) or "").strip()
+            words = self._articulation_words(text)
+            if len(words) < 2:
+                rejected["empty"] += 1
+                continue
+            if not self._articulation_surface_valid(text, words):
+                rejected["surface"] += 1
+                continue
+            coverage = (sum(self._articulation_contains(text, term) for term in required)
+                        / max(1, len(required)))
+            if strict and required and coverage < 1.0:
+                rejected["required"] += 1
+                continue
+            if any(self._articulation_contains(text, term) for term in forbidden):
+                rejected["forbidden"] += 1
+                continue
+            rows.append({"sequence": sequence, "text": text, "words": words,
+                         "required_coverage": float(coverage)})
+        result = {
+            "text": None, "sequence": [], "grounded": False,
+            "coverage": 0.0, "novelty": 0.0, "fluency": None,
+            "candidate_count": len(sequences), "accepted_count": len(rows),
+            "rejected": rejected,
+            "plan": {"act": str(plan.get("act", "")), "required": required,
+                     "preferred": preferred, "strict": strict},
+            "model_seen": int(getattr(self, "seen_tokens", 0) or 0),
+        }
+        if not rows:
+            return result
+
+        try:
+            raw_fluency = np.asarray(
+                self.logprob([row["sequence"] for row in rows], state, base_anchors),
+                dtype=np.float64,
+            )
+            if raw_fluency.shape != (len(rows),) or not np.isfinite(raw_fluency).all():
+                raise ValueError("nonfinite articulation fluency")
+            fluency = np.clip((raw_fluency - raw_fluency.mean()) /
+                              (raw_fluency.std() + 1e-6), -2.0, 2.0)
+        except Exception:
+            raw_fluency = np.zeros(len(rows), dtype=np.float64)
+            fluency = raw_fluency.copy()
+
+        recent = [str(x) for x in list(recent_surfaces) + self._articulation_terms(plan.get("avoid"))
+                  if str(x).strip()]
+        best = None
+        for index, row in enumerate(rows):
+            text = row["text"]
+            words = row["words"]
+            preferred_coverage = (sum(self._articulation_contains(text, term) for term in preferred)
+                                  / max(1, len(preferred)))
+            similarity = max((self._articulation_similarity(text, old) for old in recent),
+                             default=0.0)
+            overlap = max((self._articulation_ngram_overlap(text, old) for old in recent),
+                          default=0.0)
+            exact = any(" ".join(words) == " ".join(self._articulation_words(old))
+                        for old in recent)
+            unique = len(set(words)) / max(1, len(words))
+            ending = float(text.rstrip().endswith((".", "!", "?", "…")))
+            novelty = 1.0 - similarity
+            # Akıcılık birincil ölçüt; çeşitlilik yalnız yakın yüzey
+            # tekrarını cezalandırır. Unique/novelty uğruna düşük olasılıklı,
+            # bozuk bir yüzeyi ödüllendirmek anlam-artikülasyon ayrımını bozar.
+            score = (2.0 * preferred_coverage + 0.35 * unique + 0.6 * ending
+                     + 1.05 * float(fluency[index]) + 0.025 * min(len(words), 12)
+                     + 0.60 * novelty - 1.0 * overlap - (2.0 if exact else 0.0)
+                     + 0.05 * float(self.rng.gumbel()))
+            if required:
+                score += 2.0 * row["required_coverage"]
+            row.update({"score": float(score), "preferred_coverage": float(preferred_coverage),
+                        "novelty": float(novelty), "fluency": float(raw_fluency[index]),
+                        "exact_repeat": bool(exact)})
+            if best is None or row["score"] > best["score"]:
+                best = row
+        assert best is not None
+        result.update({
+            "text": best["text"], "sequence": best["sequence"], "grounded": True,
+            "coverage": (best["required_coverage"] if required else best["preferred_coverage"]),
+            "novelty": best["novelty"], "fluency": best["fluency"],
+            "accepted_count": len(rows),
+            "candidate_texts": [row["text"] for row in rows],
+            "fluency_values": [float(x) for x in raw_fluency],
+            "selected_score": best["score"],
+        })
+        return result
 
     @torch.no_grad()
     def logprob(self, sequences: list[list[int]], state: np.ndarray, anchors: list[str]) -> list[float]:
@@ -1276,13 +1497,20 @@ class BrocaOrgan:
 
     def save(self, path: str):
         tmp = path + ".tmp"
+        # Ağırlıklar kadar tek-geçiş öğrenmenin nereden süreceği de önemlidir.
+        # Optimizer ve RNG, ayrı checkpoint istemeden aynı organ yükünün içinde
+        # taşınır; eski kayıtlarda alan yoksa load geriye uyumlu kalır.
+        optimizer = self._opt.state_dict() if self._opt is not None else None
         torch.save({"net": self.net.state_dict(), "freq": self.freq, "seen": self.seen_tokens,
                     "tok": self.tok.to_str(), "pos": self.pos, "dims": (self.net.emb.embedding_dim, self.net.h),
                     "dropout": float(self.net.drop.p), "temporal": len(self.net.temporal),
                     "positional": self.net.pos_emb is not None,
                     "output_bias": self.net.out_bias is not None,
                     "untied_output": self.net.out_weight is not None,
-                    "token_memory": self.token_memory}, tmp)
+                    "token_memory": self.token_memory,
+                    "optimizer": optimizer,
+                    "rng": self.rng.bit_generator.state,
+                    "torch_rng": self.torch_rng.get_state()}, tmp)
         os.replace(tmp, path)
 
     @classmethod
@@ -1298,6 +1526,14 @@ class BrocaOrgan:
         o.seen_tokens = int(d["seen"])
         o.pos = d.get("pos", {"wiki": 0, "chat": 0})
         o.token_memory = d.get("token_memory")
+        if d.get("rng"):
+            o.rng.bit_generator.state = d["rng"]
+        if d.get("torch_rng") is not None:
+            o.torch_rng.set_state(d["torch_rng"].cpu())
+        if d.get("optimizer") is not None:
+            # opt özelliği burada mevcut parametrelerle kurulur; state_dict
+            # içindeki momentler ve adım sayısı da geri yüklenir.
+            o.opt.load_state_dict(d["optimizer"])
         o.update_common()
         return o
 
@@ -1332,6 +1568,10 @@ class TokenMoEOrgan(BrocaOrgan):
         self.nll_threshold = float(nll_threshold)
         self.tok = position.tok
         self.V = position.V
+        # Artikülasyon sıralamasındaki küçük keşif gürültüsü de uzmanın
+        # öğrenme RNG'siyle aynı kayıt içinde geri yüklenir.
+        self.rng = position.rng
+        self.torch_rng = position.torch_rng
         self.common_ids = position.common_ids
         self.token_memory = None
 
@@ -1481,7 +1721,7 @@ class TokenMoEOrgan(BrocaOrgan):
                     lg[b, token] -= (3.0 if token in starts else 1.5) * out[b].count(token)
             kth = lg.topk(min(top_k, net.V), dim=-1).values[:, -1:]
             lg[lg < kth] = -1e9
-            nxt = torch.multinomial(F.softmax(lg, dim=-1), 1)
+            nxt = torch.multinomial(F.softmax(lg, dim=-1), 1, generator=self.torch_rng)
             for b in range(n):
                 if queue[b]:
                     nxt[b, 0] = queue[b].pop(0)

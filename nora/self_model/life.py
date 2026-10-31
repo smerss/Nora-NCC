@@ -1042,9 +1042,24 @@ class BackgroundLife:
         except Exception:
             text = ""
         if not text:
-            st = state_vector(agi, nov=0.5, fam=0.5, conf=0.5, tension=T, idle=idle)
-            text = self.voice.speak(st, anchors=[topic] if topic else None) or ""
-            move = "voice"
+            # Nöral artikülasyon bilgi kaynağı değildir. Konulu inisiyatifte
+            # Graph/HDC sorgusu hiç önerme uyandırmıyorsa sus; çapasız iç-durum
+            # sözü ise olgu iddiası taşımadığı için denenebilir.
+            grounded = True
+            if topic:
+                try:
+                    grounded = bool(agi.lang.graph.query(topic, None))
+                except Exception:
+                    grounded = False
+            if grounded:
+                st = state_vector(agi, nov=0.5, fam=0.5, conf=0.5, tension=T, idle=idle)
+                plan = ({"act": kind or "SPONTANEOUS", "anchors": [topic],
+                         "preferred": [topic], "required": [topic]} if topic else
+                        {"act": kind or "SPONTANEOUS"})
+                text = self.voice.speak(
+                    st, anchors=[topic] if topic else None, speech_plan=plan,
+                ) or ""
+                move = "voice"
         if quote:
             text = f"{text} {quote}".strip() if text else quote
         if not text:
