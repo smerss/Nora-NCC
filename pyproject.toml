@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nora-ncc"
+version = "0.1.0"
+description = "A living, continually learning, biologically inspired cognitive architecture."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Nora Team"}
+]
+dependencies = [
+    "numpy>=1.24",
+    "torch>=2.0",
+    "pandas>=2.0",
+    "pyarrow>=14.0",
+    "tokenizers>=0.14"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0"
+]
+
+[project.scripts]
+nora-chat = "nora.chat:main"
+nora-test = "batteries.selftest:main"
+nora-battery = "batteries.__main__:main"
+nora-tool = "tools.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["nora*", "batteries*", "tools*"]
