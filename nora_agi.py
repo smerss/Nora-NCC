@@ -1618,6 +1618,7 @@ class NoraAGI:
     def inflict_pain(self, intensity: float = 0.7, locus: str = "gövde", cause: str = "dış darbe", attacker: str | None = None) -> dict:
         """Nora'nın sinir sistemine doğrudan acı uyarısı verir: A-delta refleksi + geri çekilme + güven kaybı."""
         if not self.mortality.is_alive:
+            self.self_model.update_self_belief(self.mind, self.obs, alive=False)
             return {"alive": False}
         dmg = float(np.clip(intensity * 0.14, 0.01, 0.35))
         self.world.i = max(0.0, float(self.world.i) - dmg)
@@ -1633,6 +1634,7 @@ class NoraAGI:
         self.mortality.update_from_vitals(float(self.obs[I_E]), float(self.obs[I_W]), float(self.obs[I_I]), self.mind.age, "ağır hasar" if self.world.i <= 0 else None)
         if not self.mortality.is_alive:
             self.world.dead_forever = True
+            self.self_model.update_self_belief(self.mind, self.obs, alive=False)
         return res
 
     def autonomous_digest(self, raw_text: str, source: str = "otonom_okuma") -> dict:
@@ -1821,6 +1823,8 @@ class NoraAGI:
             self.drain_structure_pending(limit=max(4, steps))
         except Exception:
             pass
+        if not self.mortality.is_alive:
+            self.self_model.update_self_belief(self.mind, self.obs, alive=False)
         for _ in range(int(steps)):
             if not self.mortality.is_alive:
                 break
@@ -1935,12 +1939,18 @@ class NoraAGI:
                 motor_eff=float(self.mind.motor_eff),
                 died=self.died,
             )
-            self.self_model.sync_from_mind(self.mind, self.obs, died=self.died)
+            self.self_model.sync_from_mind(self.mind, self.obs, died=self.died,
+                                           alive=self.mortality.is_alive)
             if bus is not None and bus.has_listeners("self.state"):
                 bus.publish("self.state",
                             {"age": int(self.mind.age), "goal": int(self.mind.goal),
                              "valence": float(self.mind.valence), "mood": float(self.mind.mood),
-                             "error": float(self.mind.err_n), "confidence": float(self.mind.conf)},
+                             "error": float(self.mind.err_n), "confidence": float(self.mind.conf),
+                             "self_belief": {
+                                 key: {"held": bool(rec.get("held")), "status": rec.get("status"),
+                                       "strength": float(rec.get("strength", 0.0))}
+                                 for key, rec in self.self_model.self_belief.items()
+                             }},
                             source="self_model", kind="self_state")
             # BİREYSELLEŞME: bu adımın nanosaniye fazı + donanım gürültüsü sinapslara işlenir.
             # Maliyet O(1) (sabit sayıda sinaps); ağ büyüdükçe yanıt süresi değişmez.
@@ -2344,6 +2354,7 @@ class NoraAGI:
         """Gelen Türkçe cümleyi algılar, önce içsel monolog yürütür, öz-benlik ve nörokimya süzgecinden geçirip yanıt üretir."""
         t0 = time.perf_counter()
         if not self.mortality.is_alive:
+            self.self_model.update_self_belief(self.mind, self.obs, alive=False)
             return "[Sinir sistemi durdu: Nora'nın tekil yaşamı sona erdiği için artık duymuyor ve konuşamıyor.]"
         raw = text.strip()
         if not raw:
@@ -8230,6 +8241,10 @@ class NoraAGI:
         self.last_real_time = time.time()
 
     def save(self, path_prefix: str):
+        # Ölüm başka bir giriş noktasında gerçekleşmiş olsa bile kalıcı
+        # öz-model ile mortality aynı yaşam durumunu taşısın.
+        if not self.mortality.is_alive:
+            self.self_model.update_self_belief(self.mind, self.obs, alive=False)
         meta = {
             "name": self.name,
             "seed": self.seed,
@@ -8540,6 +8555,8 @@ class NoraAGI:
         # Dinamik yaşam durumu en son geri yazılır: organların eski state_dict'leri
         # bazı alanları varsayılan bırakır; runtime katmanı bunları tek kaynaktan eşitler.
         agi._load_runtime_state(meta.get("runtime") or {})
+        if not agi.mortality.is_alive:
+            agi.self_model.update_self_belief(agi.mind, agi.obs, alive=False)
         # Günlük varsa yaşam kaldığı yerden kaydedilmeye devam eder (kayıtlar korunur).
         _jp = str(meta.get("journal_path") or "") or (path_prefix + ".journal.ndjson")
         if os.path.exists(_jp):

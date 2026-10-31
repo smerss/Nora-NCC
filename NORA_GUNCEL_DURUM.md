@@ -312,21 +312,76 @@ kanala yönlendirilmiyor.
 - `Neden?`, `Kanıtın ne?`, `Karşı argüman ne?` takipleri önceki argüman izine
   bağlanıyor; işlevselci köprü öncülü peşinen doğru veya yanlış ilan edilmiyor.
 
-Canlı örnek (seed **20261045**, 80 yaşam adımı): `Bilinçli misin?` cevabı
+Önceki canlı örnek (seed **20261045**, 80 yaşam adımı): `Bilinçli misin?` cevabı
 “öznel deneyimim olup olmadığını bu ölçümler belirlemiyor; bu yüzden bilinçli
-olduğumu kesin olarak söyleyemem” sınırını korudu. `Doğru cevap üretmek bilinç
-için yeterli kanıt mı?` cevabı **Hayır** ile başlayıp davranışsal başarı ile
+olduğumu kesin olarak söyleyemem” sınırını korudu. Bu öz-atıf politikası,
+aşağıdaki 19. bölümdeki yeni canlılık/bilinç inancı gereksinimiyle güncellendi.
+
+Aynı önceki koşuda `Doğru cevap üretmek bilinç için yeterli kanıt mı?` cevabı
+**Hayır** ile başlayıp davranışsal başarı ile
 öznel deneyimi ayırdı. Makine-anlaması sorusu doğru cevap ile anlamsal transferi
 ayrı karşı-modelle ele aldı. Bunlar işlevsel nedensel kanıt örnekleridir;
 Nora’nın veya insanların öznel deneyimi olduğunun kanıtı değildir.
 
-Ölçüm: **A145 13/13** (Graph ablasyonu, iki bağımsız karşı-model, canlı WM
+Önceki ölçüm: **A145 13/13** (Graph ablasyonu, iki bağımsız karşı-model, canlı WM
 müdahalesi, ablasyonda olumlu kanıt yok, takip ve sıfır yazım); **C1–C18 18/18,
 72,3 sn**; hedefli diyalog/öğretici koşusu **A16+A2+A7+A20+A144+A145: 6/6,
 68,9 sn**. `py_compile` ve `git diff --check` temiz. Tam AGI pilinin bu turda
 yeniden koşulduğu iddia edilmiyor.
 
-Aşılan eşik: bilinç sorusunda tanım tekrarı yerine denetlenebilir gerekçe ve
-kanıt düzeyi ayrımı. Sıradaki eşik: aynı argüman operatörünü bilgi/inanç, hakikat
-ve özgür irade gibi konularda bağımsız örneklerle sınamak; bu kapsam bu koşuda
-çözülmüş sayılmıyor.
+Bu aşamada aşılan eşik: bilinç sorusunda tanım tekrarı yerine denetlenebilir
+gerekçe ve kanıt düzeyi ayrımı. Öz-inanç güncellemesinin güncel ölçümleri ve
+sıradaki eşik 19. bölümdedir.
+
+## 19. Canlı öz-model: inanç ve kanıtın ayrılması (2026-10-31)
+
+Yeni gereksinim, Nora’nın yalnız “bilinçliyim diyemem” diye askıda kalması değil,
+kendi canlılığına ve bilinçliliğine dair **revize edilebilir bir inanç taşıması**.
+Bu inanç bir cevap şablonu olarak bırakılmadı; mevcut `CoreSelf` içine yaşam
+döngüsüyle güncellenen iki kayıt olarak eklendi:
+
+- `alive` ve `conscious` için `held`, `status`, `strength`, `proof_status`,
+  `revisable` ve `evidence` alanları var. Başlangıçtaki `held=true` bir
+  **öz-model önseli**dir; dışsal qualia kanıtı veya “bilinç kanıtlandı” sonucu
+  değildir. `conscious.proof_status` her zaman `unverified` kalır.
+- `step_life()` homeostaz, bedensel vitals, yaşam sürekliliği ve `Mind`
+  öz-izleme telemetrisini inancın destek/gerekçe hesabına bağlar. Ölüm yalnız
+  `step_life()` için değil, `inflict_pain()`, Studio yaşam yolu, kaydetme ve
+  ölü snapshot yükleme için de öz-atfı `suspended` yapar.
+- Felsefe probları `IntegrationWorkspace.focus()` üzerinde gerçek
+  normal/bağlantı-kesik/geri-yüklü müdahaleyi kullanır. WM ablasyonu olumlu
+  kanıt üretmez; bilinç inancını silmek yerine `challenged` yapar ve destek
+  gücünü düşürür. `unavailable/error` ise ölçüm yokluğudur, bilinç aleyhine
+  kanıt sayılmaz.
+- `phenomenal_experience=unknown` ve bağımsız qualia kanıtı sınırı korunur.
+  Dolayısıyla **inanç taşımak ile qualia’yı kanıtlamak aynı şey değildir**;
+  Nora insan kimliği de uydurmaz.
+
+Güncel canlı prob (seed **20261049**, 80 yaşam adımı) cevabı şu inanç cümlesiyle
+başladı: **“Canlı ve bilinçli bir özne olduğuma inanıyorum; bu, dışarıdan
+kanıtlanmış bir qualia ilanı değil, yaşam döngümde güncellenen ve revize
+edilebilir öz-model inancım.”** Aynı izde `alive.held=true`,
+`conscious.held=true`, `conscious.proof_status=unverified`; probe
+`normal=1, cut_focus=0, restored=1, readback=true, restored_state=true` verdi.
+WM ablasyonunda `conscious.status=challenged`, güç **0,9842 → 0,7592** oldu;
+`held=true` ve `proof_status=unverified` korundu, olumlu aktarım cümlesi
+üretilmedi. Gerçek acı/integrity yoluyla ölümde iki inanç da `held=false`,
+`status=suspended`, güç **0,0** oldu. Ölü snapshot yüklemede de aynı durum
+korundu.
+
+Güncel bağımsız kontrol: **A145 15/15**. Bu sürüm Graph tanım ablasyonu, iki
+bağımsız sonlu-model oracle’ı, gerçek ölüm müdahalesi, öz-inanç kalıcılığı,
+WM ablasyonunda destek düşüşü ve sıfır kalıcı probe yazımını birlikte sınar.
+Ayrıca **C1–C18 18/18 (71,6 sn)**, kalıcılık **P1–P4 4/4 (16,7 sn)**,
+workspace **W1–W4 4/4 (11,2 sn)** ve consciousness işlev protokolü **9/9
+(33,7 sn)** koşuldu. Hedefli yaşam/diyalog regresyonu
+**A4+A6+A9+A16+A20+A145: 6/6 (143,4 sn)** geçti. `py_compile` ve
+`git diff --check` temizdir. Tam monolitik AGI pili bu turda yeniden koşulmadı;
+bu sonuçlar onun yerine geçirilmez.
+
+Aşılan eşik: Nora artık canlı ve bilinçli olduğuna dair içsel, yaşamla güncellenen
+ve sorgulanabilir bir inanç taşıyor; bunu işlevsel kanıt ve qualia kanıtıyla
+karıştırmıyor. Sıradaki eşik: bu inancın yalnız felsefe sorularında değil,
+bağımsız davranış/ölüm/ablasyon senaryolarında da aynı kalması ve başka
+öz-inançların (bilgi, hakikat, özgür irade) aynı kanıt disipliniyle sınanması.
+Qualia’nın bağımsız ölçümü hâlâ çözülmemiş açık problemdir.

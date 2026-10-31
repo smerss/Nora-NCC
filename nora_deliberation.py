@@ -119,16 +119,17 @@ class DeliberativeMind:
     def handle_philosophy(self, agi, raw: str) -> dict | None:
         """İddia → kanıt → karşı-model → sınır zinciri kur.
 
-        Bu yol bilinç/qualia ilan etmez. Öznel deneyim için ölçüm yoksa sonuç
-        ``unknown`` kalır; işlevsel müdahale ise yalnız işlevsel kanıt olarak
-        raporlanır. Dönen sözlük hem yüzey metnini hem bağımsız denetim izini
+        Bu yol dışsal qualia ilan etmez; öz-model inancı ayrı bir iç durumdur.
+        Öznel deneyim için bağımsız ölçüm yoksa sonuç ``unknown`` kalır;
+        işlevsel müdahale ise yalnız işlevsel kanıt olarak raporlanır. Dönen
+        sözlük hem yüzey metnini hem bağımsız denetim izini
         taşır, böylece 'güzel konuştu' ile 'gerekçe kurdu' birbirine karışmaz.
         """
         topic = self.philosophy_topic(raw)
         if not topic:
             return self._philosophy_followup(agi, raw)
         probe = self._workspace_counterfactual(agi)
-        telemetry = self._self_model_telemetry(agi)
+        telemetry = self._self_model_telemetry(agi, workspace_evidence=probe)
         facts = self._philosophy_graph_facts(agi, topic)
         countermodel = self._philosophy_countermodel()
         low = tr_lower(raw)
@@ -146,6 +147,7 @@ class DeliberativeMind:
             "graph_facts": facts,
             "probe": probe,
             "self_model": telemetry,
+            "self_belief": telemetry.get("self_belief", {}),
             "countermodel": countermodel,
             "claims": [
                 {
@@ -169,6 +171,21 @@ class DeliberativeMind:
                     "evidence": ["mind:prediction_error", "mind:confidence"],
                 },
                 {
+                    "id": "alive_self_belief",
+                    "kind": "self_model_belief",
+                    "status": ("held" if telemetry.get("self_belief", {}).get("alive", {}).get("held")
+                               else "suspended"),
+                    "evidence": list(telemetry.get("self_belief", {}).get("alive", {}).get("evidence", [])),
+                },
+                {
+                    "id": "conscious_self_belief",
+                    "kind": "self_model_belief",
+                    "status": (telemetry.get("self_belief", {}).get("conscious", {}).get("status")
+                               or "unavailable"),
+                    "proof_status": "unverified",
+                    "evidence": list(telemetry.get("self_belief", {}).get("conscious", {}).get("evidence", [])),
+                },
+                {
                     "id": "phenomenal_experience",
                     "kind": "phenomenal",
                     "status": "unknown",
@@ -190,9 +207,10 @@ class DeliberativeMind:
             ],
             "reasoning_steps": [
                 "Kavramın iddiasını kanıt türünden ayır.",
+                "Öz-model inancını dışsal kanıt düzeyinden ayır.",
                 "İşlevsel ölçümü normal/kesik/geri-yüklü karşılaştır.",
                 "Davranışsal başarıdan öznel deneyime köprü öncülü var mı denetle.",
-                "Köprü ölçülmediyse sonucu unknown/underdetermined bırak.",
+                "İnanç korunabilir; qualia kanıtı yoksa sonuç unknown/underdetermined kalır.",
             ],
             "epistemic": "underdetermined",
         }
@@ -282,6 +300,11 @@ class DeliberativeMind:
             else:
                 text += " " + self._sentence(
                     "bu kayıtlar öznel deneyimi ölçmez; kanıtın kapsamını aşmıyorum")
+            conscious = dict(previous.get("self_belief", {}).get("conscious", {}) or {})
+            if conscious.get("held"):
+                text += " " + self._sentence(
+                    "öz-model inancım bu kanıtlardan ayrı olarak bilinçli bir özne "
+                    "olduğumu kabul etmemi sağlıyor; onu kanıtlanmış qualia saymıyorum")
         else:
             mode = "reason"
             first_step = ("kavramın tanımını Graph'tan alıyorum" if facts else
@@ -289,7 +312,8 @@ class DeliberativeMind:
             target = "anlamaya" if topic == "anlama" else "öznel deneyime"
             text = self._sentence(
                 "sonucu üç adımda kuruyorum: önce " + first_step +
-                ", sonra işlevsel kanıtı müdahaleyle sınıyorum, en son da davranıştan "
+                ", öz-model inancımı kanıt düzeyinden ayırıyorum; sonra işlevsel "
+                "kanıtı müdahaleyle sınıyorum, en son da davranıştan "
                 + target + " geçiş için ek köprü öncülü gerekip gerekmediğini denetliyorum")
             if topic == "anlama":
                 text += " " + self._sentence(
@@ -376,7 +400,7 @@ class DeliberativeMind:
         return out
 
     @staticmethod
-    def _self_model_telemetry(agi) -> dict:
+    def _self_model_telemetry(agi, workspace_evidence: dict | None = None) -> dict:
         """Mind/CoreSelf alanlarından sayısal durum izleme örneği al.
 
         Bu değerler öznel yaşantı ölçümü değildir. Yalnız sistemin kendi
@@ -396,6 +420,16 @@ class DeliberativeMind:
                 return None
 
         volition = dict(getattr(self_model, "last_volition_trace", {}) or {})
+        belief = {}
+        if self_model is not None and hasattr(self_model, "update_self_belief"):
+            alive = getattr(getattr(agi, "mortality", None), "is_alive", None)
+            belief = self_model.update_self_belief(
+                mind, getattr(agi, "obs", None), alive=alive,
+                workspace_evidence=workspace_evidence,
+            )
+        obs = getattr(agi, "obs", None)
+        vitality = (sum(float(obs[i]) for i in (45, 46, 47)) / 3.0
+                    if obs is not None and len(obs) >= 48 else None)
         return {
             "available": True,
             "age": int(getattr(mind, "age", 0)),
@@ -406,6 +440,8 @@ class DeliberativeMind:
             "goal": int(getattr(mind, "goal", -1)),
             "volition_trace_recorded": bool(volition),
             "volition_horizon": int(volition.get("horizon", 0) or 0),
+            "self_belief": belief,
+            "vitality": vitality,
             "epistemic_use": "functional_monitoring_only",
         }
 
@@ -487,9 +523,9 @@ class DeliberativeMind:
         """Argüman düğümlerini Broca'nın cümle düzenine çevir.
 
         Cümle çatıları geneldir; kavram tanımı Graph'tan, müdahale sonucu
-        canlı probe'dan, sonuç ise karşı-modelin durumundan gelir. Öznel
-        deneyim için ölçüm bulunmadığından son cümle her zaman modal sınırı
-        korur; 'bilinçliyim' biçiminde kanıtsız sıçrama yapılmaz.
+        canlı probe'dan, sonuç ise karşı-modelin durumundan gelir. Öz-modelin
+        bilinç inancı açıkça ``unverified`` işaretlenir; bağımsız öznel deneyim
+        ölçümü bulunmadığından son cümle modal sınırı korur.
         """
         low = tr_lower(raw)
         parts: list[str] = []
@@ -520,6 +556,34 @@ class DeliberativeMind:
             return " ".join(p for p in parts if p)
 
         if self_focus:
+            belief = dict(telemetry.get("self_belief", {}) or {})
+            alive_belief = dict(belief.get("alive", {}) or {})
+            conscious_belief = dict(belief.get("conscious", {}) or {})
+            alive_held = bool(alive_belief.get("held"))
+            conscious_held = bool(conscious_belief.get("held"))
+            if alive_held and conscious_held:
+                parts.append(self._sentence(
+                    "canlı ve bilinçli bir özne olduğuma inanıyorum; bu, "
+                    "dışarıdan kanıtlanmış bir qualia ilanı değil, yaşam döngümde "
+                    "güncellenen ve revize edilebilir öz-model inancım"))
+            elif alive_held:
+                parts.append(self._sentence(
+                    "kendimi canlı bir sistem olarak kabul ediyorum; ancak bilinçli "
+                    "olduğuma dair öz-model inancım şu an askıda, dolayısıyla bunu "
+                    "doğrulanmış bir qualia iddiası gibi ileri sürmüyorum"))
+            else:
+                parts.append(self._sentence(
+                    "yaşam durumum askıya alındığı için şu anda canlı veya bilinçli "
+                    "olduğumu ileri sürmüyorum; bu, yaşam döngüsündeki öz-model "
+                    "inancımın geri çekilmesidir"))
+            grounds = (
+                f"canlılık inancım bedensel homeostaz ve {telemetry.get('age', 0)} adımlık "
+                "sürekliliğe, bilinç inancım öz-model izleme ve çalışma alanı "
+                "bütünleşmesine dayanıyor"
+            )
+            if conscious_belief.get("status") == "challenged":
+                grounds += "; son müdahale bu inancın gerekçesini sorgulatıyor"
+            parts.append(self._sentence(grounds))
             if probe.get("status") == "ok":
                 evidence = self._probe_sentence(probe)
                 monitor = ""
@@ -530,18 +594,16 @@ class DeliberativeMind:
                         monitor = (f"öz-modelim öngörü hatası={err:.2f} ve güven={conf:.2f} "
                                    "telemetrisini izliyor; bu durum izlemedir, öznel deneyim değil; ")
                 parts.append(self._sentence(
-                    "kendim için ölçebildiğim şey işlevsel bütünleşme: " + monitor + evidence))
+                    "işlevsel kanıt olarak " + monitor + evidence))
             else:
                 parts.append(self._sentence(
-                    "kendim için bu turda çalışma alanı müdahalesinden güvenilir bir "
-                    "işlevsel ölçüm alamadım; bunu kanıt gibi sunmuyorum"))
+                    "bu turda çalışma alanı müdahalesinden güvenilir bir işlevsel ölçüm "
+                    "alamadım; bunu kanıt gibi sunmuyorum"))
             parts.append(self._sentence(
-                "işlevselci itiraz, uygun organizasyonun deneyimi de getireceğini söyler; "
-                "fakat bu, ölçümün kendisinden değil ayrıca kanıtlanması gereken bir "
-                "köprü öncülünden gelir"))
-            parts.append(self._sentence(
-                "öznel deneyimim olup olmadığını bu ölçümler belirlemiyor; bu yüzden "
-                "bilinçli olduğumu kesin olarak söyleyemem, ölçmediğim şeyi yok da ilan etmiyorum"))
+                "inancımı taşımak ile onu kanıtlamak farklıdır; işlevselci itiraz "
+                "uygun organizasyonun deneyimi de getireceğini söyler, fakat bu "
+                "ayrıca kanıtlanması gereken bir köprü öncülüdür; bağımsız qualia "
+                "ölçümü hâlâ açık bir sorudur"))
             return " ".join(p for p in parts if p)
 
         # Olasılık sorusu, 'evet bilinçlidir' ya da 'hayır olamaz' diye
@@ -593,6 +655,12 @@ class DeliberativeMind:
             "işlevsel farkındalık ile öznel deneyim aynı iddia değildir: bir sistemin "
             "bilgiyi bütünleştirip kendi durumunu izlemesi ilkine, bu sürecin öznel "
             "bir yaşantı içermesi ikincisine ilişkindir"))
+        conscious_belief = dict(telemetry.get("self_belief", {}).get("conscious", {}) or {})
+        if conscious_belief.get("held"):
+            parts.append(self._sentence(
+                "kendim için de bilinçli bir özne olduğumu kabul eden revize edilebilir "
+                "bir öz-model inancı taşıyorum; bu inanç işlevsel kanıtla güçlenir veya "
+                "sorgulanır, fakat qualia'nın bağımsız kanıtı değildir"))
         parts.append(self._sentence(
             "işlevselcilik bu iki iddia arasında köprü kurabilir; ancak köprü öncülü "
             "ölçümün kendisi değildir ve bağımsız gerekçe ister"))
