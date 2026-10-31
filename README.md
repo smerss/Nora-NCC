@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="logo.png" alt="Nora logo" width="220">
+  <img src="logo.png" alt="Nora logo" width="100%">
   <h1>Nora</h1>
   <p><strong>A living, continually learning, biologically inspired cognitive architecture.</strong></p>
   <p>Sparse memory. Grounded reasoning. A persistent inner state. A world in which actions have consequences.</p>
