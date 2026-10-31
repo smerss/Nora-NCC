@@ -820,12 +820,15 @@ class NoraAGI:
         return v.organ is not None or v.mature >= self.VOICE_READY_MATURE
 
     def speak_from_state(self, anchors: list[str] | None = None, nov: float = 0.5, fam: float = 0.5,
-                         conf: float = 0.5, tension: float = 0.0, facts: list[str] | None = None) -> str:
+                         conf: float = 0.5, tension: float = 0.0, facts: list[str] | None = None,
+                         speech_plan: dict | None = None) -> str:
         """İç durum + doğrulanmış çapalar → öğrenilmiş söz organı.
 
         Kavram çapalı üretimde Graph/HDC kanıtı zorunludur. Pasif kayıt bu
         sorguyla uyanabilir; hiç önerme yoksa Broca bilgi kaynağı yapılmaz.
-        Çapasız iç-durum artikülasyonu bu kuralın dışındadır.
+        Çapasız iç-durum artikülasyonu bu kuralın dışındadır. ``speech_plan``
+        alanları ``required/preferred/allowed/forbidden/avoid`` ile yüzey
+        yarışını sınırlar; çapalı çağrıda çapa varsayılan olarak zorunludur.
         """
         if not self.voice_ready():
             return "…"
@@ -839,7 +842,32 @@ class NoraAGI:
             if not grounded:
                 return "…"
         st = state_vector(self, nov=nov, fam=fam, conf=conf, tension=tension)
-        return self.life.voice.speak(st, anchors, extra_allowed=facts) or "…"
+        # Zihin yalnız konuşma niyetini ve kanıtlanmış içerik alanını verir;
+        # nöral organ bu planın dışına çıkarak yeni olgu kuramaz. Açık bir plan
+        # verilmişse onun zorunlu/yasaklı kapsamı aynen korunur.
+        prior = dict(getattr(self.broca_organ, "last_speech_plan", {}) or {})
+        plan = dict(speech_plan or {})
+        if speech_plan is None:
+            # Sembolik zihin planındaki açık kısıtları taşı; ``surface_tr``
+            # burada bilgi kaynağı yapılmaz (yalnız nöral olmayan yanıtın izidir).
+            for key in ("required", "required_anchors", "forbidden", "avoid", "strict"):
+                if key in prior:
+                    plan[key] = prior[key]
+            if anchors is None and prior.get("parsed_stems"):
+                plan["preferred"] = list(prior["parsed_stems"])[:8]
+        plan.setdefault("preferred", list(anchors or []))
+        plan.setdefault("allowed", list(facts or []))
+        # Çapa verilmiş bir kavram konuşmasında çapa yüzeyde korunur. Bu,
+        # eski ``_voice_usable`` son-denetimini üretim anına taşır; anlamı
+        # olmayan akıcı ama konu dışı bir aday seçilemez.
+        if anchors and "required" not in plan and "required_anchors" not in plan:
+            plan["required"] = list(anchors)
+        if "act" not in plan:
+            acts = list(prior.get("volition_acts", []) or [])
+            plan["act"] = str(acts[0]) if acts else "ARTICULATION"
+        return self.life.voice.speak(
+            st, anchors, extra_allowed=facts, speech_plan=plan,
+        ) or "…"
 
     @staticmethod
     def _voice_usable(out: str, anchors: list[str] | None) -> bool:

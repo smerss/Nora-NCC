@@ -236,6 +236,11 @@ class LearnedVoice:
         self._memo: dict = {}
         self.organ = None            # nora_broca_net.BrocaOrgan (varsa söz bununla kurulur; n-gram yedek)
         self._last_organ = None
+        # Yalnız yüzey tekrarını izler; anlam/bilgi deposu değildir. Son sözler
+        # kaydedilip yeniden yüklendiğinde aynı üretim kuyruğuna geri dönülmez.
+        self.recent_organ_surfaces = deque(maxlen=16)
+        self.last_articulation: dict = {}
+        self._last_organ_fluency: dict = {}
 
     def _tokens(self, text: str) -> list[str]:
         return self.tok.encode(text) if self.tok.tk is not None else tokenize(text)
@@ -385,46 +390,49 @@ class LearnedVoice:
         return list(reversed(out))
 
     def speak_organ(self, state: np.ndarray, anchors: list[str] | None, extra_allowed: list[str] | None = None,
-                    n: int = 8, explore: float = 1.0) -> str | None:
-        """Sinirsel Broca ile söz: içerik yalnızca çapa/bilgi sözcüklerinden (yapısal halüsinasyon engeli)."""
+                    n: int = 8, explore: float = 1.0, speech_plan: dict | None = None) -> str | None:
+        """Zihin planını bozmadan nöral adayları akıcılık ve yenilikle yarıştır."""
         org = self.organ
+        if org is None or not hasattr(org, "articulate"):
+            return None
         temp = explore * (0.55 + 0.35 * float(state[F_IDX["ne"]]))
-        seqs = [q for q in org.generate(state, anchors or [], extra_allowed, temperature=temp, n=n)
-                if len(q) >= 2]
-        if not seqs:
-            return None
-        # Üretilen adayları yalnız çapa kapsamıyla değil, aynı öğrenilmiş modelin
-        # dizi olasılığıyla da sırala. İçerik maskesi ve anlam çapaları korunur.
+        if not hasattr(self, "recent_organ_surfaces"):
+            self.recent_organ_surfaces = deque(maxlen=16)
         try:
-            raw_fluency = np.asarray(org.logprob(seqs, state, anchors or []), dtype=np.float64)
-            fluency = np.clip((raw_fluency - raw_fluency.mean()) / (raw_fluency.std() + 1e-6), -2.0, 2.0)
-            self._last_organ_fluency = {
-                "active": True, "logprob": [float(x) for x in raw_fluency],
-            }
+            result = org.articulate(
+                state, anchors or [], extra_allowed,
+                speech_plan=speech_plan,
+                recent_surfaces=list(self.recent_organ_surfaces),
+                n=max(6, n), explore=explore, temperature=temp,
+            )
         except Exception as exc:
-            fluency = np.zeros(len(seqs), dtype=np.float64)
-            self._last_organ_fluency = {"active": False, "error": type(exc).__name__}
-        best, best_sc = None, -1e18
-        anchor_ids = set()
-        for a in anchors or []:
-            anchor_ids |= set(org.tok.tk.encode(a).ids)
-        for q, learned in zip(seqs, fluency):
-            cover = len(anchor_ids & set(q)) / max(1, len(anchor_ids))
-            rep = len(set(q)) / len(q)
-            ends = float(org.tok.tk.id_to_token(q[-1]) in END_MARKS)
-            sc = (2.0 * cover + 1.0 * rep + 0.6 * ends + 0.45 * float(learned)
-                  + 0.02 * min(len(q), 12) + 0.1 * self.rng.gumbel())
-            if sc > best_sc:
-                best, best_sc = q, sc
-        if best is None:
+            # Yüzey organındaki arıza zihnin sembolik/dürüst yedeğini
+            # engellemesin; hata görünür telemetride kalsın.
+            self.last_articulation = {"text": None, "grounded": False,
+                                      "error": f"{type(exc).__name__}: {exc}"}
+            self._last_organ_fluency = {"active": False,
+                                        "error": type(exc).__name__}
             return None
-        self._last_organ = (best, list(anchors or []), state.copy())
-        return org.detok(best)
+        result = dict(result or {})
+        self.last_articulation = result
+        fluency_values = result.get("fluency_values") or []
+        self._last_organ_fluency = {
+            "active": bool(fluency_values),
+            "logprob": [float(x) for x in fluency_values],
+        }
+        text = result.get("text")
+        if not text:
+            return None
+        self._last_organ = (list(result.get("sequence") or []), list(anchors or []), state.copy())
+        self.recent_organ_surfaces.append(str(text))
+        return str(text)
 
     def speak(self, state: np.ndarray, anchors: list[str] | None = None, n_candidates: int = 6,
-              n_free: int = 2, explore: float = 1.0, return_all: bool = False, extra_allowed: list[str] | None = None):
+              n_free: int = 2, explore: float = 1.0, return_all: bool = False,
+              extra_allowed: list[str] | None = None, speech_plan: dict | None = None):
         if self.organ is not None and not return_all:
-            return self.speak_organ(state, anchors, extra_allowed, n=max(6, n_candidates), explore=explore)
+            return self.speak_organ(state, anchors, extra_allowed, n=max(6, n_candidates),
+                                    explore=explore, speech_plan=speech_plan)
         return self._speak_ngram(state, anchors, n_candidates, n_free, explore, return_all)
 
     def _speak_ngram(self, state: np.ndarray, anchors: list[str] | None = None, n_candidates: int = 6,
@@ -570,8 +578,14 @@ class LearnedVoice:
     def save_file(self, path: str):
         tmp = path + ".tmp"          # atomik yazım: yarım kalan kayıt eskisini bozmaz
         with gzip.open(tmp, "wb") as f:
-            pickle.dump({"tok": self.tok.to_str(), "heard": self.heard_tokens, "count": dict(self.count), "mean": self.mean_state,
-                         "fwd": self.fwd, "bwd": self.bwd, "suf_fwd": self.suf_fwd, "suf_bwd": self.suf_bwd}, f, protocol=4)
+            pickle.dump({"tok": self.tok.to_str(), "heard": self.heard_tokens,
+                         "count": dict(self.count), "mean": self.mean_state,
+                         "fwd": self.fwd, "bwd": self.bwd,
+                         "suf_fwd": self.suf_fwd, "suf_bwd": self.suf_bwd,
+                         "rng": self.rng.bit_generator.state,
+                         "recent_organ_surfaces": list(getattr(self, "recent_organ_surfaces", [])),
+                         "last_articulation": dict(getattr(self, "last_articulation", {}) or {})},
+                        f, protocol=4)
         os.replace(tmp, path)
 
     def load_file(self, path: str):
@@ -582,9 +596,18 @@ class LearnedVoice:
         self.count = Counter(d["count"])
         self.mean_state = d["mean"]
         self.fwd, self.bwd, self.suf_fwd, self.suf_bwd = d["fwd"], d["bwd"], d["suf_fwd"], d["suf_bwd"]
+        if d.get("rng"):
+            self.rng.bit_generator.state = d["rng"]
+        self.recent_organ_surfaces = deque(
+            [str(x) for x in (d.get("recent_organ_surfaces") or [])], maxlen=16)
+        self.last_articulation = dict(d.get("last_articulation") or {})
+        self._last_organ_fluency = {}
 
     def state_dict(self) -> dict:       # hafif özet (ana belleğe ayrı dosyada yazılır)
-        return {"heard": self.heard_tokens}
+        return {"heard": self.heard_tokens,
+                "recent_organ_surfaces": list(getattr(self, "recent_organ_surfaces", []))}
 
     def load_state_dict(self, d: dict):
-        pass
+        recent = (d or {}).get("recent_organ_surfaces")
+        if recent is not None:
+            self.recent_organ_surfaces = deque([str(x) for x in recent], maxlen=16)
