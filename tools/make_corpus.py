@@ -1,10 +1,11 @@
+#!/usr/bin/env python3
+"""Korpus kurucu: kod (yerel sympy) + matematik (sentetik). Tümü D'de."""
+
 import sys, os
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
-
-#!/usr/bin/env python3
-"""Korpus kurucu: kod (yerel sympy) + matematik (sentetik). Tümü D'de."""
+import nora  # noqa: F401  (eski nora_xxx import'ları için uyumluluk kancası)
 import glob
 import random
 

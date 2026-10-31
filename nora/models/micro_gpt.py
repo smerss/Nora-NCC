@@ -1,4 +1,3 @@
-from nora._paths import REPO_ROOT
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """micro_gpt.py — Bu PC'de (2 çekirdek CPU, 16GB) eğitilebilir minik karakter-GPT.
@@ -8,6 +7,8 @@ Tüm yollar D diskinde. Kullanım:
   DPY D:\\NoRa_AGI\\micro_gpt.py --train --data D:\\NoRa_AGI\\data\\text\\tiny_slice.txt --n_embd 256 --iters 3000
   DPY D:\\NoRa_AGI\\micro_gpt.py --gen --prompt "Once upon a " --n 300
 """
+
+from nora._paths import REPO_ROOT
 import argparse, math, os, sys, time, urllib.request
 
 PROJECT_ROOT = os.path.join("D:" + os.sep, "NoRa_AGI") if os.name == "nt" else os.path.join(os.path.expanduser("~"), "NoRa_AGI")

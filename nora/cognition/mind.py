@@ -1,4 +1,3 @@
-from nora._paths import REPO_ROOT
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """nora_mind.py — NoRa'nın yaşayan zihni: nöronsal temel + global çalışma alanı + değer + öz-model.
@@ -30,6 +29,8 @@ Kullanım:
   DPY nora_mind.py --stage run --steps 60000 --mode full [--save beyin_mind.npz] [--resume beyin_mind.npz]
   DPY nora_mind.py --stage compare --steps 60000          # random | flat (çalışma alanı yok) | full
 """
+
+from nora._paths import REPO_ROOT
 import argparse, os, sys, time
 
 import numpy as np

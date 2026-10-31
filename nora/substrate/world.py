@@ -1,4 +1,3 @@
-from nora._paths import REPO_ROOT
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """nora_world.py — NoRa'nın evreni: küçük, deterministik, fizik yasalı, kapalı döngü bir dünya.
@@ -18,6 +17,8 @@ Duyular: 9 ışınlık egosantrik görme x 5 kanal (duvar, yiyecek, su, tehlike,
 
 Kullanım:  DPY nora_world.py --stage test      # fizik ve görme öz-sınaması
 """
+
+from nora._paths import REPO_ROOT
 import argparse, sys
 import numpy as np
 

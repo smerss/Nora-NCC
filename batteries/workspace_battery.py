@@ -7,6 +7,7 @@ import sys, os
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
+import nora  # noqa: F401  (eski nora_xxx import'ları için uyumluluk kancası)
 
 
 import argparse
@@ -72,7 +73,7 @@ def live_events_and_policy_ablation() -> tuple[bool, str]:
 
 def checkpoint_workspace() -> tuple[bool, str]:
     from nora_agi import NoraAGI
-    prefix = tempfile.mktemp(prefix="nora_workspace_", dir="/tmp")
+    prefix = tempfile.mktemp(prefix="nora_workspace_")
     try:
         agi = NoraAGI(seed=9392, boot_thinker=False,
                       world_kwargs={"metabolism": False, "wind": False, "n_food": 3})

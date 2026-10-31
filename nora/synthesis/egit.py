@@ -1,4 +1,3 @@
-from nora._paths import REPO_ROOT
 """Nora'yı metinle baş başa bırakır (okuyarak dil öğrenme). Kodda cümle yoktur; yalnızca okuma + ölçüm.
 
 Paralel eğitim (aynı alt-sözcük ayrıştırıcıyla, sonra birleştirme):
@@ -7,6 +6,8 @@ Paralel eğitim (aynı alt-sözcük ayrıştırıcıyla, sonra birleştirme):
     python nora_egit.py birlestir --voices runs/ses_a.pkl.gz runs/ses_b.pkl.gz --save runs/nora_egitim
 Ölçü: ayrılmış (görülmemiş) metinde bir sonraki parçayı tahmin (top-1/top-5) + örnek konuşmalar.
 """
+
+from nora._paths import REPO_ROOT
 import argparse
 import os
 import time

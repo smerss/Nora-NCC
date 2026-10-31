@@ -1,4 +1,3 @@
-from nora._paths import REPO_ROOT
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
@@ -41,6 +40,8 @@ KULLANIM (D diskinde):
     python D:\\NoRa_AGI\\growing_net.py --tasks "0,1;2,3;4,5" --save D:\\NoRa_AGI\\beyin.npz
     python D:\\NoRa_AGI\\growing_net.py --resume D:\\NoRa_AGI\\beyin.npz --tasks "6,7;8,9" --save D:\\NoRa_AGI\\beyin.npz
 """
+
+from nora._paths import REPO_ROOT
 
 import argparse
 import gzip

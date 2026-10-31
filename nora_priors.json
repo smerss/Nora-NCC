@@ -3155,7 +3155,7 @@
         },
         {
           "id": "mr.ar1",
-          "text": "{a} ile {b}'yi {opv}: {res}. Hesabı yaptım, tahmin değil.",
+          "text": "{a} ile {b_acc} {opv}: {res}. Hesabı yaptım, tahmin değil.",
           "when": {
             "eq": {
               "kind": "arith"
@@ -3164,7 +3164,7 @@
         },
         {
           "id": "mr.ar2",
-          "text": "Sonuç {res} — {a} ile {b}'yi {opv}.",
+          "text": "Sonuç {res} — {a} ile {b_acc} {opv}.",
           "when": {
             "eq": {
               "kind": "arith"

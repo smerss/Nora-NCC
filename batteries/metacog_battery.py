@@ -7,6 +7,7 @@ import sys, os
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
+import nora  # noqa: F401  (eski nora_xxx import'ları için uyumluluk kancası)
 
 
 import argparse
@@ -56,7 +57,7 @@ def live_nora_monitor() -> tuple[bool, str]:
 
 def persistence() -> tuple[bool, str]:
     from nora_agi import NoraAGI
-    prefix = tempfile.mktemp(prefix="nora_meta_", dir="/tmp")
+    prefix = tempfile.mktemp(prefix="nora_meta_")
     try:
         agi = NoraAGI(seed=8822, boot_thinker=False,
                       world_kwargs={"metabolism": False, "wind": False, "n_food": 3})

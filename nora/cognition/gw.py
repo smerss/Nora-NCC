@@ -1,4 +1,3 @@
-from nora._paths import REPO_ROOT
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """nora_gw.py — ÇALIŞMA ALANI GEREKLİ Mİ? Küresel çalışma alanı kuramının kontrollü sınama tezgâhı.
@@ -23,6 +22,8 @@ Toplamsal ayrık uzmanlar bunu temsil edemez; yayınla alıcı uzman (tehlike) '
 
 Kullanım:  python nora_gw.py --seeds 4 --steps 60000
 """
+
+from nora._paths import REPO_ROOT
 import argparse, os, sys, time
 import numpy as np
 

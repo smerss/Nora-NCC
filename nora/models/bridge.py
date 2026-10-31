@@ -1,4 +1,3 @@
-from nora._paths import REPO_ROOT
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """nora_bridge.py — Eski hat (nora_think: düşün → doğrula → uyu → sezgi) ile yeni hat (yaşayan zihin) köprüsü.
@@ -13,6 +12,8 @@ Doğrulanmış düşünceler periyodik 'uykuda' sezgiye damıtılır. Akıl yür
 
 Kullanım:  python nora_bridge.py --steps 40000 --seed 0
 """
+
+from nora._paths import REPO_ROOT
 import argparse, math, os, random, sys, time
 
 import numpy as np

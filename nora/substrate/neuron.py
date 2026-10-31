@@ -1,4 +1,3 @@
-from nora._paths import REPO_ROOT
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """nora_neuron.py — NoRa Nöron Temeli (sinek beyni örnek alındı).
@@ -33,6 +32,8 @@ Kullanım:
   DPY nora_neuron.py --stage mb                            # mantar cismi: koku→ödül/ceza, yenilik
   DPY nora_neuron.py --stage mbcl --dataset fashion        # mantar cismiyle sürekli öğrenme (5 görev)
 """
+
+from nora._paths import REPO_ROOT
 import argparse, os, sys, time
 
 import numpy as np

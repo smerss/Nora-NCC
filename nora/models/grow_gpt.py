@@ -1,4 +1,3 @@
-from nora._paths import REPO_ROOT
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """grow_gpt.py — GrowingNet'in transformer karşılığı: omurga DONUK, bilgi EKLEMEYLE gelir.
@@ -9,6 +8,8 @@ Tümü D diskinde. Kullanim (DPY = D venv python):
   DPY grow_gpt.py --stage adapt --iters 200
   DPY grow_gpt.py --stage full --iters 200
 """
+
+from nora._paths import REPO_ROOT
 import argparse, os, re, sys, time
 sys.path.insert(0, os.path.join("D:" + os.sep, "NoRa_AGI") if os.name == "nt" else os.path.join(os.path.expanduser("~"), "NoRa_AGI"))
 from micro_gpt import MicroGPT, batchify

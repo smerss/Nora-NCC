@@ -7,6 +7,7 @@ import sys, os
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
+import nora  # noqa: F401  (eski nora_xxx import'ları için uyumluluk kancası)
 
 
 import argparse
@@ -73,7 +74,7 @@ def live_nora_binding() -> tuple[bool, str]:
         features["position"] = [0.0, 0.0]
         agi.perceive_objects([features])
     result = agi.crossmodal.query("sound", vid)
-    prefix = tempfile.mktemp(prefix="nora_crossmodal_", dir="/tmp")
+    prefix = tempfile.mktemp(prefix="nora_crossmodal_")
     try:
         agi.save(prefix)
         restored = NoraAGI.load(prefix)

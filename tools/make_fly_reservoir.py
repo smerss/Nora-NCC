@@ -1,13 +1,14 @@
-import sys, os
-_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if _REPO_ROOT not in sys.path:
-    sys.path.insert(0, _REPO_ROOT)
-
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """make_fly_reservoir.py — FlyWire konektomundan 96 nöronluk yoğun bir alt çizge çıkarır (süreklilik durumunun yinelemeli ağırlıkları).
 Kaynak: nora_neuron.py --stage convert ile üretilen flywire npz. Çıktı: data/fly_reservoir_96.npz (işaretli sinaps sayıları, post×pre).
 Seçim: en yüksek toplam bağlantıya sahip çekirdekten başlayıp, kümeye en güçlü bağlı nöronu ekleyerek büyütür (kümenin aynı bölgeden olması için)."""
+
+import sys, os
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+import nora  # noqa: F401  (eski nora_xxx import'ları için uyumluluk kancası)
 import sys, numpy as np
 sys.path.insert(0, '.')
 from nora_neuron import Connectome

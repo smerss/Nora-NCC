@@ -1,4 +1,3 @@
-from nora._paths import REPO_ROOT
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """nora_think.py — NoRa Düşünce Motoru: düşün → doğrula → uyu → sezgi.
@@ -22,6 +21,8 @@ Kullanım (DPY = D venv python):
   DPY nora_think.py --days 3 --resume              # kaldığı yerden
   DPY nora_think.py --watch "347 + 589"            # düşünceyi canlı izle
 """
+
+from nora._paths import REPO_ROOT
 import argparse, json, math, os, random, re, sys, time
 
 PROJECT_ROOT = os.path.join("D:" + os.sep, "NoRa_AGI") if os.name == "nt" else os.path.join(os.path.expanduser("~"), "NoRa_AGI")

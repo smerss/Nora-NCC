@@ -1,11 +1,12 @@
+"""Türkçe Vikipedi'den düzyazı toplar (Nora'nın okuyarak dil öğrenmesi için ham veri; kod hiçbir cümle içermez).
+    python make_corpus_tr.py --pages 3000 --out data/text/tr_wiki.txt
+"""
+
 import sys, os
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
-
-"""Türkçe Vikipedi'den düzyazı toplar (Nora'nın okuyarak dil öğrenmesi için ham veri; kod hiçbir cümle içermez).
-    python make_corpus_tr.py --pages 3000 --out data/text/tr_wiki.txt
-"""
+import nora  # noqa: F401  (eski nora_xxx import'ları için uyumluluk kancası)
 import argparse, json, re, threading, time, urllib.parse, urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
