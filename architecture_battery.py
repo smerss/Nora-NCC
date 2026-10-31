@@ -673,6 +673,7 @@ def graph_corpus_single_pass() -> tuple[bool, str]:
     started = time.perf_counter()
     definitions = agi.converse("Kuş nedir?")
     definition_seconds = time.perf_counter() - started
+    definition_gate = dict(agi.last_epistemic_gate)
     neural_definition = dict(calls)
     yes_no = strip_prefixes(agi.converse("Kuşlar uçar mı?"))
     neural_after = dict(calls)
@@ -683,12 +684,18 @@ def graph_corpus_single_pass() -> tuple[bool, str]:
           and stats.get("graph_edges", 0) >= 2
           and stats.get("mb_presentations") == stats.get("graph_edges")
           and direct and "hayvan" in definitions.casefold() and "uç" in definitions.casefold()
+          and "bilgim yetersiz" in definitions.casefold()
+          and definition_gate.get("insufficient") is True
+          and definition_gate.get("semantic_dimensions", {}).get("işlev") is True
+          and definition_gate.get("semantic_dimensions", {}).get("parça") is False
+          and definition_gate.get("semantic_dimensions", {}).get("nedensellik") is False
           and definition_seconds <= 0.020
           and neural_definition == {"generate": 0, "learn_online": 0}
           and yes_no.casefold().startswith("evet") and not sleep_calls
           and presentations_after == presentations)
     return ok, (f"corpus={stats} | doğrudan={direct} | tanım={definitions} | "
-                f"tanım_s={definition_seconds:.4f} | tanım_nöral={neural_definition} | tüm_nöral={neural_after} | "
+                f"tanım_s={definition_seconds:.4f} | boyut={definition_gate.get('semantic_dimensions')} | "
+                f"tanım_nöral={neural_definition} | tüm_nöral={neural_after} | "
                 f"evet-hayır={yes_no} | uyku={len(sleep_calls)}")
 
 
@@ -749,6 +756,234 @@ def passive_hdc_reactivation() -> tuple[bool, str]:
                 f"sunum={mb.presentations - before_presentations} | depo=sqlite")
 
 
+def epistemic_event_symbolic_broca() -> tuple[bool, str]:
+    """Bilinmezlik Graph olayından Broca'ya gider; dünya kanıtına dönüşmez."""
+    import tempfile
+    from pathlib import Path
+    from nora_agi import NoraAGI
+
+    agi = NoraAGI(seed=1504, boot_thinker=False, code_pretrain=False,
+                  broca="data/broca_tr.pt",
+                  world_kwargs={"metabolism": False, "wind": False, "n_food": 1})
+    agi.life.enabled = False
+    calls = {"generate": 0, "learn_online": 0, "symbolic_broca": 0}
+
+    def instrument(current):
+        organ = current.life.voice.organ
+        if organ is not None:
+            original_generate = organ.generate
+            original_learn = organ.learn_online
+
+            def counted_generate(*args, **kwargs):
+                calls["generate"] += 1
+                return original_generate(*args, **kwargs)
+
+            def counted_learn(*args, **kwargs):
+                calls["learn_online"] += 1
+                return original_learn(*args, **kwargs)
+
+            organ.generate = counted_generate
+            organ.learn_online = counted_learn
+        original_realize = current.lang.broca.realize_epistemic
+
+        def counted_realize(*args, **kwargs):
+            calls["symbolic_broca"] += 1
+            return original_realize(*args, **kwargs)
+
+        current.lang.broca.realize_epistemic = counted_realize
+
+    instrument(agi)
+    answers = [agi.converse("Nivara nedir?"), agi.converse("Nivara nedir?")]
+    semantic_before = agi.lang.graph.query("nivara", None)
+    unknown_events = [e for e in agi.lang.graph.epistemic_events
+                      if e.subj == "nivara" and e.rel == "HAS_STATE" and e.obj == "unknown"]
+    before_presentations = int(agi.lang.graph.relation_mb.presentations)
+    with tempfile.TemporaryDirectory(prefix="nora-epistemic-event-") as td:
+        prefix = str(Path(td) / "state")
+        agi.save(prefix)
+        restored = NoraAGI.load(prefix)
+        restored.life.enabled = False
+        instrument(restored)
+        answers.append(restored.converse("Nivara nedir?"))
+        loaded_unknown = [e for e in restored.lang.graph.epistemic_events
+                          if e.subj == "nivara" and e.obj == "unknown"]
+        still_semantic_empty = not restored.lang.graph.query("nivara", None)
+        restored.lang.teach_sentence("Nivara bir varlıktır.")
+        state = restored.lang.graph.epistemic_state("nivara")
+        unknown_retained = any(e.subj == "nivara" and e.obj == "unknown"
+                               for e in restored.lang.graph.epistemic_events)
+        learned = any(e.subj == "nivara" and e.rel == "ISA" and e.obj == "varlık"
+                      for e, _path in restored.lang.graph.query("nivara", ("ISA",)))
+        restored_presentations = int(restored.lang.graph.relation_mb.presentations)
+    honest = all("nivara" in answer.casefold() and "bilgim yok" in answer.casefold()
+                 and "tanımım yok" in answer.casefold() for answer in answers)
+    ok = (honest and not semantic_before and still_semantic_empty
+          and unknown_events and loaded_unknown and unknown_retained
+          and state is not None and state.obj == "known" and learned
+          and restored_presentations == before_presentations + 1
+          and calls["generate"] == 0 and calls["learn_online"] == 0
+          and calls["symbolic_broca"] >= 3)
+    return ok, (f"yanıt={answers[-1]} | olay={len(unknown_events)}/{len(loaded_unknown)} "
+                f"durum={state.obj if state else None} | öğrenme={learned} | çağrı={calls}")
+
+
+def graph_system2_composition() -> tuple[bool, str]:
+    """Çok-adım, karşılaştırma ve birleşik ters sorgu; HDC ablasyonuyla."""
+    from nora_agi import NoraAGI
+
+    agi = NoraAGI(seed=1505, boot_thinker=False, code_pretrain=False,
+                  world_kwargs={"metabolism": False, "wind": False, "n_food": 1})
+    agi.life.enabled = False
+    write_deltas = []
+
+    def teach(text):
+        return agi.converse(text)
+
+    def ask(text):
+        before = int(agi.lang.graph.relation_mb.presentations)
+        answer = agi.converse(text)
+        write_deltas.append(int(agi.lang.graph.relation_mb.presentations) - before)
+        return answer
+
+    teach("Zorvath bir memelidir.")
+    teach("Memeli sıcakkanlıdır.")
+    inherited = ask("Zorvath sıcakkanlı mıdır?")
+    inherited_trace = dict(agi.last_gw_trace)
+    inherited_not_memorized = ("zorvath", "HAS_PROP", "sıcakkanlı") not in agi.lang.graph._edge_map
+    direct = ask("Zorvath memeli midir?")
+    direct_trace = dict(agi.last_gw_trace)
+    teach("Tera, kivaya yol açar.")
+    teach("Kiva, nivaya yol açar.")
+    causal = ask("Tera nivaya yol açar mı?")
+    causal_trace = dict(agi.last_gw_trace)
+    causal_not_memorized = ("tera", "CAUSES", "niva") not in agi.lang.graph._edge_map
+
+    for text in ("Mira bir hayvandır.", "Mira evcil bir varlıktır.", "Mira miyavlar.",
+                 "Dora bir hayvandır.", "Dora evcil bir varlıktır.", "Dora havlar."):
+        teach(text)
+    comparison = ask("Mira ile Doranın ortak noktası nedir?")
+    comparison_result = dict(agi.last_graph_reasoning)
+    comparison_trace = dict(agi.last_gw_trace)
+    shared_keys = {(row["rel"], row["obj"]) for row in comparison_result.get("shared") or []}
+    original_recall = agi.lang.graph.relation_mb.recall_relation_object
+    try:
+        agi.lang.graph.relation_mb.recall_relation_object = lambda *_args, **_kwargs: []
+        comparison_ablated = agi.lang.graph.compare_concepts("mira", "dora")
+    finally:
+        agi.lang.graph.relation_mb.recall_relation_object = original_recall
+    try:
+        def without_dora(relation, obj):
+            return [(slot, activation) for slot, activation in original_recall(relation, obj)
+                    if agi.lang.graph.edges[slot].subj != "dora"]
+
+        agi.lang.graph.relation_mb.recall_relation_object = without_dora
+        comparison_partial = agi.lang.graph.compare_concepts("mira", "dora")
+    finally:
+        agi.lang.graph.relation_mb.recall_relation_object = original_recall
+    partial_shared = {(row["rel"], row["obj"])
+                      for row in comparison_partial.get("shared") or []}
+
+    teach("Tivaranın kanadı vardır.")
+    teach("Tivara uçar.")
+    inverse = ask("Kanadı olan ve uçan şey nedir?")
+    inverse_result = dict(agi.last_graph_reasoning)
+    inverse_trace = dict(agi.last_gw_trace)
+    inverse_subjects = [row["subject"] for row in inverse_result.get("candidates") or []]
+    negative = ask("Kanadı olan ve havlayan şey nedir?")
+    negative_result = dict(agi.last_graph_reasoning)
+    negative_trace = dict(agi.last_gw_trace)
+    try:
+        agi.lang.graph.relation_mb.recall_relation_object = lambda *_args, **_kwargs: []
+        inverse_ablated = agi.lang.graph.find_by_requirements(
+            [("HAS_PART", "kanat"), ("CAN_DO", "uç")])
+    finally:
+        agi.lang.graph.relation_mb.recall_relation_object = original_recall
+    definition = ask("Tivara nedir?")
+
+    ok = ("dolayısıyla" in inherited.casefold() and inherited_not_memorized
+          and inherited_trace.get("used_s2") is True
+          and direct_trace.get("used_s2") is False
+          and "dolayısıyla" in causal.casefold() and causal_not_memorized
+          and causal_trace.get("used_s2") is True
+          and ("ISA", "hayvan") in shared_keys and ("HAS_PROP", "evcil") in shared_keys
+          and "miyav" not in comparison.casefold() and "havla" not in comparison.casefold()
+          and comparison_trace.get("used_s2") is True
+          and comparison_ablated.get("status") == "unresolved"
+          and not comparison_ablated.get("shared")
+          and ("ISA", "hayvan") not in partial_shared
+          and ("HAS_PROP", "evcil") not in partial_shared
+          and inverse_subjects == ["tivara"] and "tivara" in inverse.casefold()
+          and "kanad" in inverse.casefold() and "uç" in inverse.casefold()
+          and inverse_trace.get("used_s2") is True
+          and negative_result.get("status") == "unresolved"
+          and not negative_result.get("candidates")
+          and negative_trace.get("used_s2") is False
+          and "bul" in negative.casefold()
+          and inverse_ablated.get("status") == "unresolved"
+          and "yetersiz" not in definition.casefold()
+          and "kanad" in definition.casefold() and "uç" in definition.casefold()
+          and all(delta == 0 for delta in write_deltas))
+    return ok, (f"kalıtım={inherited} | doğrudan_S1={direct_trace.get('used_s2') is False} | "
+                f"neden={causal} | ortak={sorted(shared_keys)} | "
+                f"kısmi_ablasyon={sorted(partial_shared)} | ters={inverse} | olumsuz={negative} | tanım={definition} | "
+                f"yazım={write_deltas}")
+
+
+def bounded_retention_generalization_multiseed() -> tuple[bool, str]:
+    """Üç tohumda 96 olay; bakım ve bağımsız depo sonrası bağımsız oracle."""
+    import pickle
+    from nora_chem import NeuroChemistry
+    from nora_lang import NoraLanguage
+
+    failures, rows = [], []
+    for seed, base in ((1601, "miraf"), (1702, "tovik"), (1803, "selvara")):
+        lang = NoraLanguage(chem=NeuroChemistry(), seed=seed)
+        graph = lang.graph
+        mb = graph.relation_mb
+        mb.set_working_set_size(3)
+        lang.teach_sentence(f"{base} bir memelidir.")
+        lang.teach_sentence("Memeli sıcakkanlıdır.")
+        expected = [f"nesne{i}" for i in range(96)]
+        for concept in expected:
+            lang.teach_sentence(f"{concept} bir varlıktır.")
+        before = int(mb.presentations)
+
+        def missing_items():
+            missing = []
+            for concept in expected:
+                hits = graph.query(concept, ("ISA",))
+                if not any(edge.subj == concept and edge.rel == "ISA" and edge.obj == "varlık"
+                           for edge, _path in hits):
+                    missing.append(concept)
+            return missing
+
+        live_missing = missing_items()
+        inherited = graph.check_relation(base, "sıcakkanlı")
+        maintenance = mb.sleep_maintenance()
+        sleep_missing = missing_items()
+        sleep_inherited = graph.check_relation(base, "sıcakkanlı")
+        passive_before = len(mb.passive_slots)
+        active_live = len(mb.active_slots)
+        restored = pickle.loads(pickle.dumps(mb))
+        graph.relation_mb = restored
+        restored_missing = missing_items()
+        restored_inherited = graph.check_relation(base, "sıcakkanlı")
+        not_memorized = (base, "HAS_PROP", "sıcakkanlı") not in graph._edge_map
+        counts = (96 - len(live_missing), 96 - len(sleep_missing), 96 - len(restored_missing))
+        seed_ok = (counts == (96, 96, 96) and passive_before >= 96
+                   and active_live <= 3 and len(restored.active_slots) <= 3
+                   and inherited.get("answer") is True and inherited.get("isa_path")
+                   and sleep_inherited.get("answer") is True
+                   and restored_inherited.get("answer") is True and restored_inherited.get("isa_path")
+                   and maintenance.get("replayed") == 0.0 and not_memorized
+                   and int(mb.presentations) == before and int(restored.presentations) == before)
+        if not seed_ok:
+            failures.append(f"{seed}: sayı={counts}, pasif={passive_before}, "
+                            f"kalıtım={inherited.get('answer')}/{restored_inherited.get('answer')}")
+        rows.append(f"{seed}:{counts}/96 aktif{active_live}/3 pasif{passive_before}")
+    return not failures, " | ".join(rows) + (" | " + " ; ".join(failures) if failures else "")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--repeat", type=int, default=1)
@@ -766,7 +1001,10 @@ def main():
              ("C10 çok-köklü ilişki icadı + kontroller", mb_multiple_relation_inventions),
              ("C11 epistemik kapı + sıfır Broca + 20ms", epistemic_gate_zero_broca),
              ("C12 graph-corpus tek geçiş + uyanık kullanım", graph_corpus_single_pass),
-             ("C13 pasif HDC bellek + sınırlı çalışma kümesi", passive_hdc_reactivation)]
+             ("C13 pasif HDC bellek + sınırlı çalışma kümesi", passive_hdc_reactivation),
+             ("C14 epistemik olay + sembolik Broca + kalıcılık", epistemic_event_symbolic_broca),
+             ("C15 System-2 birleşik anlam + HDC ablasyonu", graph_system2_composition),
+             ("C16 sınırlı tutma + genelleme + çoklu tohum", bounded_retention_generalization_multiseed)]
     if args.only:
         tests = [(name, fn) for name, fn in tests if args.only.casefold() in name.casefold()]
     if not tests:

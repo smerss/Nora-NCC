@@ -662,18 +662,28 @@ class HDCMushroomBody:
                 break
             self._deactivate_slot(oldest)
 
-    def _matching_passive_slots(self, cue: np.ndarray, cue_kind: str) -> list[int]:
-        """Diskteki HDC içerik anahtarıyla yalnız eşleşen pasif satırları bul.
+    def _matching_cue_slots(self, cue: np.ndarray, cue_kind: str) -> list[int]:
+        """HDC içerik adresiyle ölçülecek sinapsları daralt; cevap üretme.
 
-        Bu SQL yalnız erişim adresini çözer; cevap ya da doğruluk üretmez.
-        Satır RAM'e alındıktan sonra MB aktivasyon eşiği ve graf doğrulaması
-        aynen çalışır.
+        Aktif ve pasif olaylar aynı digest defterini kullanır. Bu yalnız
+        erişim adresidir: her adayın ağırlığı aşağıda yeniden ölçülür, eşik
+        ve bağımsız graf doğrulaması değişmez.
         """
         digest = self._cue_digest(cue)
         rows = self._db.execute(
-            "SELECT c.slot FROM cues c JOIN passive p ON p.slot=c.slot "
-            "WHERE c.kind=? AND c.digest=? ORDER BY c.slot", (cue_kind, digest)).fetchall()
+            "SELECT slot FROM cues WHERE kind=? AND digest=? ORDER BY slot",
+            (cue_kind, digest)).fetchall()
         return [int(row[0]) for row in rows]
+
+    def _matching_passive_slots(self, cue: np.ndarray, cue_kind: str) -> list[int]:
+        """Diskteki HDC içerik anahtarıyla yalnız eşleşen pasif satırları bul."""
+        return [slot for slot in self._matching_cue_slots(cue, cue_kind)
+                if slot in self.passive_slots]
+
+    def weight_energy(self) -> dict[str, float]:
+        """Pahalı bütün-matris enerjisini yalnız açık tanı isteğinde ölç."""
+        return {"fast": float(np.linalg.norm(self.mb.W_fast)),
+                "slow": float(np.linalg.norm(self.mb.W_slow))}
 
     def bind_relation(self, subject: str, relation: str, obj: str, slot: int) -> None:
         slot = int(slot)
@@ -681,6 +691,10 @@ class HDCMushroomBody:
         cues = (
             ("subject", self.encode(subject=subject)),
             ("full_relation", self.encode(subject=subject, relation=relation, object=obj)),
+            # Aynı tek sunumun ters erişim anahtarı: “kim?” yerine “bu
+            # ilişki+nesneyi kimler taşır?” sorusu da MB'den aday bulur.
+            # Yeni örnek/epoch değil, aynı olayın üçüncü içerik adresidir.
+            ("relation_object", self.encode(relation=relation, object=obj)),
         )
         for cue_kind, cue in cues:
             self.mb.learn_oneshot(cue, slot, chem=None, strength=1.0, contrastive=False)
@@ -703,7 +717,8 @@ class HDCMushroomBody:
         # Pasif eşleşmeler küme kapasitesinden büyükse bile bilgi kaybolmaz:
         # her satır geri yüklenip ÖLÇÜLÜR, sonra başka bir olay yerini alabilir.
         scores: dict[int, float] = {}
-        passive_matches = self._matching_passive_slots(cue, cue_kind)
+        addressed_slots = self._matching_cue_slots(cue, cue_kind)
+        passive_matches = [slot for slot in addressed_slots if slot in self.passive_slots]
 
         def measure(slot: int) -> None:
             if slot >= len(self.mb.W_fast):
@@ -712,10 +727,12 @@ class HDCMushroomBody:
             value = float((self.mb.W_slow[slot, idx] + self.mb.W_fast[slot, idx]).sum()) / norm
             scores[slot] = value
 
-        for slot in passive_matches:
-            self._activate_slot(slot)
-            measure(slot)
-        for slot in tuple(self.active_slots):
+        # Adres yalnız aday kümesini daraltır. Her olayın sinapsı yine ölçülür;
+        # LRU baskısı bir adayı pasife taşırsa kendi sırasında geri yüklenir.
+        # Böylece çalışma kümesi sınırlıyken de hiçbir adreslenmiş olay atlanmaz.
+        for slot in addressed_slots:
+            if slot not in self.active_slots:
+                self._activate_slot(slot)
             measure(slot)
         scored_slots = sorted(scores.items())
         candidates = [(slot, score) for slot, score in scored_slots
@@ -730,8 +747,7 @@ class HDCMushroomBody:
             "candidates": [{"slot": slot, "activation": score}
                            for slot, score in candidates[:24]],
             "top_activation": top, "threshold": float(self.activation_threshold),
-            "fast_energy": float(np.linalg.norm(self.mb.W_fast)),
-            "slow_energy": float(np.linalg.norm(self.mb.W_slow)),
+            "addressed_slots": int(len(addressed_slots)),
             "presentations": int(self.presentations),
             "synaptic_writes": int(self.synaptic_writes),
             "growth_events": int(self.mb.growth_events),
@@ -755,6 +771,10 @@ class HDCMushroomBody:
         return self._recall(
             self.encode(subject=subject, relation=relation, object=obj), "full_relation",
         )
+
+    def recall_relation_object(self, relation: str, obj: str) -> list[tuple[int, float]]:
+        """İlişki+nesne HDC ipucuyla ters adayları getir; graf yönü sonra doğrular."""
+        return self._recall(self.encode(relation=relation, object=obj), "relation_object")
 
     def sleep_maintenance(self) -> dict[str, float]:
         """Uyku yalnız bakım yapar; örnek tamponunu yeniden oynatmaz."""
