@@ -69,7 +69,7 @@ def persistence() -> tuple[bool, str]:
         same = a == b and agi.meta_monitor.state_dict()["stats"] == restored.meta_monitor.state_dict()["stats"]
         return same, f"rapor-eşit={a == b} kalibrasyon-eşit={same}"
     finally:
-        for ext in (".agi.json", ".agi_mb.npz", ".mind.npz", ".voice.pkl.gz", ".broca.pt"):
+        for ext in (".nora", ".agi.json", ".agi_mb.npz", ".mind.npz", ".voice.pkl.gz", ".broca.pt"):
             try:
                 os.remove(prefix + ext)
             except FileNotFoundError:

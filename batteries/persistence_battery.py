@@ -16,9 +16,11 @@ import nora  # noqa: F401  (eski nora_xxx import'ları için uyumluluk kancası)
 
 
 import argparse
+import json
 import os
 import tempfile
 import time
+import zipfile
 
 import numpy as np
 
@@ -27,7 +29,7 @@ from nora_state import StateError, encode
 
 
 def _cleanup(prefix):
-    for ext in (".agi.json", ".agi_mb.npz", ".mind.npz", ".voice.pkl.gz", ".broca.pt"):
+    for ext in (".nora", ".agi.json", ".agi_mb.npz", ".mind.npz", ".voice.pkl.gz", ".broca.pt"):
         try:
             os.remove(prefix + ext)
         except FileNotFoundError:
@@ -111,6 +113,40 @@ def goals_and_typed_memory() -> tuple[bool, str]:
         _cleanup(prefix)
 
 
+def unified_single_file_dialogue() -> tuple[bool, str]:
+    """Tek .nora: tam konuşma/öğrenme envanteri ve yeni süreçte devam."""
+    prefix = tempfile.mktemp(prefix="nora_p_unified_")
+    try:
+        agi = NoraAGI(seed=7304, boot_thinker=False)
+        for i in range(530):
+            agi.broca_organ.episodic.store(
+                age=i, speaker="insan", user_text=f"eğitim konuşması {i}",
+                stems=[f"eğitim_{i}"], topic="sürekli öğrenme", affect_val=0.0,
+                chosen_acts=["COGNITIVE_TURN"], reply_text=f"yanıt {i}")
+        agi.converse("Benim adım Ege.")
+        target = agi.save(prefix)
+        restored = NoraAGI.load(target)
+        episodes = restored.broca_organ.episodic.episodes
+        with zipfile.ZipFile(target) as archive:
+            crc_ok = archive.testzip() is None
+            manifest = json.loads(archive.read("manifest.json"))
+        sidecars = [prefix + ext for ext in
+                    (".agi.json", ".agi_mb.npz", ".mind.npz", ".voice.pkl.gz", ".broca.pt")]
+        recall = restored.converse("Benim adım neydi?")
+        checks = {
+            "tek-dosya": target.endswith(".nora") and os.path.isfile(target),
+            "yan-dosya-yok": not any(os.path.exists(path) for path in sidecars),
+            "bütünlük": crc_ok and manifest.get("format") == "nora-unified-brain",
+            "tam-episode": len(episodes) == 531 and episodes[0].user_text == "eğitim konuşması 0"
+                           and episodes[-1].user_text == "Benim adım Ege.",
+            "manifest-envanteri": manifest.get("training_inventory", {}).get("dialogue_turns") == 531,
+            "yeni-süreç-devam": "Ege" in recall,
+        }
+        return all(checks.values()), " | ".join(f"{k}={'✓' if v else '✗'}" for k, v in checks.items())
+    finally:
+        _cleanup(prefix)
+
+
 def unsupported_is_explicit() -> tuple[bool, str]:
     try:
         encode(object())
@@ -126,7 +162,8 @@ def main():
     tests = [("P1 birebir yaşam devamı", exact_continuation),
              ("P2 dünya kuralları ve geri-dönüşsüz ölüm", world_rules_and_death),
              ("P3 hedef ve tipli çalışma belleği", goals_and_typed_memory),
-             ("P4 desteklenmeyen durum açık ret", unsupported_is_explicit)]
+             ("P4 desteklenmeyen durum açık ret", unsupported_is_explicit),
+             ("P5 tek .nora tam konuşma ve devam", unified_single_file_dialogue)]
     failed = 0
     t0 = time.time()
     for _ in range(max(1, args.repeat)):

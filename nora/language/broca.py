@@ -777,8 +777,8 @@ class EpisodicDialogueCortex:
             return self.episodes[tid] if tid is not None else None
         return self.episodes[0]
 
-    def state_dict(self, max_keep: int = 512) -> list[dict]:
-        tail = self.episodes[-max_keep:]
+    def state_dict(self, max_keep: int | None = 512) -> list[dict]:
+        tail = self.episodes if max_keep is None else self.episodes[-max_keep:]
         return [
             {
                 "age": ep.age,
@@ -1486,6 +1486,15 @@ class GenerativeBrocaOrgan:
                     or re.search(r"(?:sence|sana göre|senin için)\s+.*" + kw, s_low)
                     or re.search(kw + r".*\b(?:sen|farkın|farkı|gibi misin|mısın)\b", s_low)
                 )
+                # 'Sence insan neden ...?' insan davranışına ilişkin açık bir
+                # sorudur; Nora'nın kendi insan/AI kimliği sorulmuyorsa felsefi
+                # öz-model kanalını gasp etmez.
+                if p_cand == "insan" and "sence" in s_low:
+                    self_scope = bool(re.search(
+                        r"(?<![\wçğıöşü])(sen|sana|senin|sende|senden|yapay zeka)(?![\wçğıöşü])", s_low))
+                    direct_definition = bool(re.search(kw + r"\s+(?:nedir|ne demek|ne anlama)", s_low))
+                    if not self_scope and not direct_definition:
+                        asks_about_it = False
                 if asks_about_it and ("?" in raw or any(q in s_low for q in ("sence", "nedir", "nasıl", "ne düşün", "var mı", "kork", "fark", "son"))):
                     phil_topic = p_cand
                     break
@@ -1506,8 +1515,10 @@ class GenerativeBrocaOrgan:
                 experience_query = "felt_effect"
         social_learned, social_query = self._parse_social_autobiography(raw, s_low, morph, lexicon)
         wants_story = bool(
-            any(st == "anlat" or w.startswith("anlat") for st, w in zip(word_stems_seq, words))
-            and any(w in ("şey", "şeyler", "hikâye", "hikaye", "anı", "masal") for w in words)
+            (any(st == "anlat" or w.startswith("anlat") for st, w in zip(word_stems_seq, words))
+             and any(w in ("şey", "şeyler", "hikâye", "hikaye", "anı", "masal") for w in words))
+            or any(k in s_low for k in ("uydur", "kurgula", "kurmaca", "hayal edelim"))
+            or ("sen başla" in s_low and any(k in s_low for k in ("birlikte", "beraber", "şey")))
         )
 
         return {

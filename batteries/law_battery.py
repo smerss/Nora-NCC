@@ -127,7 +127,7 @@ def nora_induce_plan_checkpoint() -> tuple[bool, str]:
               second["status"] == "ok" and first["actions"] == second["actions"])
         return ok, f"fit={fit['status']} plan={first['status']} loaded={second['status']} path={second.get('actions')}"
     finally:
-        for ext in (".agi.json", ".agi_mb.npz", ".mind.npz", ".voice.pkl.gz", ".broca.pt"):
+        for ext in (".nora", ".agi.json", ".agi_mb.npz", ".mind.npz", ".voice.pkl.gz", ".broca.pt"):
             try:
                 os.remove(prefix + ext)
             except FileNotFoundError:

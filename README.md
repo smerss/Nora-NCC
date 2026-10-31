@@ -263,9 +263,9 @@ This separation is important: a plausible completion is not the same thing as a 
 
 ### Persistence
 
-Nora can save and restore runtime state, including the mind, graph, self-model, mortality, workspace, and relevant organ state. The exact artifacts depend on the enabled components and the selected checkpoint path; JSON, NumPy, and compressed organ/checkpoint files are used by the persistence paths.
+Nora can save and restore runtime state, including the mind, graph, self-model, mortality, workspace, conversation episodes, learning records, and relevant organ state. The public `NoraAGI.save()` / `NoraAGI.load()` contract is one **`.nora` file**: its ZIP container holds the organ payloads, manifest, integrity hashes, and (when enabled) the journal. The five legacy sidecar files are accepted only for migration; they are not required from the user and new saves do not create them.
 
-A persistence claim must include more than “the file exists.” The tests check continuation of actions and observations, retention of relations, working-memory contents, mortality, and subsequent behavior after restoration.
+A persistence claim must include more than “the file exists.” The tests check continuation of actions and observations, retention of relations, full dialogue history, working-memory contents, mortality, cross-modal bindings, and subsequent behavior after restoration.
 
 ## Language, reasoning, and action
 
@@ -326,6 +326,16 @@ On Windows PowerShell, activate the environment with:
 .venv\Scripts\Activate.ps1
 ```
 
+### Run the single-file chat launcher
+
+For ordinary conversation, open just one Python file:
+
+```bash
+python chat.py
+```
+
+The launcher automatically loads `state/nora_brain.nora`, creates it on first use, and saves the complete brain on `/save` and exit. A different brain can be selected with `--checkpoint path/to/another.nora`; an old five-part prefix is migrated automatically. No separate `.pt`, voice, or tokenizer file has to be selected. Conversation turns and learning state are included in the same brain file.
+
 ### Run the main demonstration
 
 ```bash
@@ -341,7 +351,7 @@ python -m nora.cognition.agi --stage demo --corpus path/to/corpus.txt
 python -m nora.cognition.agi --stage demo --journal data/nora_life.ndjson
 ```
 
-`--think-iters` controls the selected boot/thinking budget. `--broca` selects an articulation checkpoint. `--internet` explicitly enables background research access; it is not required for ordinary local execution.
+`--think-iters` controls the selected boot/thinking budget. The research/demo CLI still exposes `--broca` for articulation experiments; the ordinary `chat.py` launcher does not ask for one. `--internet` explicitly enables background research access; it is not required for ordinary local execution.
 
 ### Run the local observatory
 

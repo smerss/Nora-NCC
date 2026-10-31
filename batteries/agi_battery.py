@@ -2361,12 +2361,14 @@ def a63_life_journal_continuity():
         ok["nabız"] = (len(beats) >= 1 and beats[-1].get("ad", 0) > 0
                        and "can" in beats[-1] and "d" in beats[-1])
 
-        # 5) Atomik kayıt: .tmp kalmaz, dosyalar bütün
+        # 5) Atomik kayıt: .tmp kalmaz; bütün organlar tek .nora dosyasındadır.
         agi.save(os.path.join(root, "beyin"))
         leftovers = [f for f in os.listdir(root) if f.endswith(".tmp")]
-        ok["atomik-kayıt"] = (not leftovers
-                              and os.path.exists(os.path.join(root, "beyin.agi.json"))
-                              and os.path.exists(os.path.join(root, "beyin.agi_mb.npz")))
+        unified = os.path.join(root, "beyin.nora")
+        split_parts = [os.path.join(root, "beyin" + ext) for ext in
+                       (".agi.json", ".agi_mb.npz", ".mind.npz", ".voice.pkl.gz", ".broca.pt")]
+        ok["atomik-kayıt"] = (not leftovers and os.path.exists(unified)
+                              and not any(os.path.exists(path) for path in split_parts))
 
         # 6) Çökme toleransı: yarım satır günlüğü bozmuyor, iyi kayıtlar okunuyor
         good = sum(1 for _ in Journal(jp).replay())

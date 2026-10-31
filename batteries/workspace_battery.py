@@ -84,7 +84,7 @@ def checkpoint_workspace() -> tuple[bool, str]:
         same = same and agi.workspace.provenance("body.transition") == restored.workspace.provenance("body.transition")
         return same, f"alanlar/kaynak-eşit={same}"
     finally:
-        for ext in (".agi.json", ".agi_mb.npz", ".mind.npz", ".voice.pkl.gz", ".broca.pt"):
+        for ext in (".nora", ".agi.json", ".agi_mb.npz", ".mind.npz", ".voice.pkl.gz", ".broca.pt"):
             try:
                 os.remove(prefix + ext)
             except FileNotFoundError:

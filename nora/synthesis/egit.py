@@ -343,7 +343,7 @@ def main():
         return
 
     # birleştir
-    agi = NoraAGI.load(a.save) if os.path.exists(a.save + ".agi.json") else NoraAGI(seed=a.seed)
+    agi = NoraAGI.load(a.save) if (os.path.exists(a.save + ".nora") or os.path.exists(a.save + ".agi.json")) else NoraAGI(seed=a.seed)
     v = LearnedVoice(a.seed)
     for i, path in enumerate(a.voices):
         w = LearnedVoice(a.seed)

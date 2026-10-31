@@ -106,6 +106,7 @@ STATE_ADJECTIVES: set[str] = {
     "yaşlı", "genç", "hasta", "sağlıklı", "uykulu", "uykusuz", "dalgın", "şaşkın", "meraklı",
     "bozuk", "karışık", "sıkkın", "dargın", "keyifsiz", "dolu", "tuhaf", "bitkin", "mutsuz",
     "hevesli", "isteksiz", "kırılgan", "duygusal", "sakin", "yorgun", "kırık", "dağınık",
+    "hüzünlü", "kederli", "neşeli", "dingin", "rahatlamış",
 }
 
 COMMON_ADJECTIVES: set[str] = {
@@ -121,6 +122,7 @@ COMMON_ADJECTIVES: set[str] = {
     "güler yüzlü", "asık suratlı", "meraklı", "ilgisiz", "sakin", "telaşlı", "düzenli",
     "dağınık", "hazır", "meşgul", "yorgun", "dinç", "uykulu", "aç", "tok", "susuz",
     "üzgün", "sevinçli", "mutlu", "mutsuz", "kızgın", "sakin", "endişeli", "rahat",
+    "hüzünlü", "kederli", "neşeli", "rahatlamış",
     "gerekli", "gereksiz", "önemli", "önemsiz", "doğru", "yanlış", "gerçek", "sahte",
     "aynı", "farklı", "benzer", "tek", "çok", "az", "bol", "nadir", "sık", "yakın", "uzak",
     "erken", "geç", "hazır", "hazırlıklı", "şanslı", "şanssız", "haklı", "haksız",
@@ -165,6 +167,7 @@ COMMON_NOUNS: set[str] = {
     "çimen", "yaprak", "dal", "kök", "tohum", "toprak", "taş", "kaya", "dağ", "tepe", "vadi", "ova",
     "tarla", "bahçe", "deniz", "göl", "nehir", "dere", "ırmak", "yağmur", "kar", "rüzgâr", "fırtına",
     "güneş", "ay", "yıldız", "gökyüzü", "bulut", "hava", "ateş", "duman", "kül", "kum", "çamur",
+    "dalga", "manzara", "kıyı", "gölge", "ritim", "damla",
     # Yer/kurum/ulaşım
     "şehir", "köy", "kasaba", "sokak", "cadde", "mahalle", "meydan", "park", "okul", "sınıf",
     "üniversite", "hastane", "eczane", "market", "dükkân", "mağaza", "kafe", "restoran", "otel",
@@ -176,7 +179,7 @@ COMMON_NOUNS: set[str] = {
     "sonbahar", "kış", "dün", "bugün", "yarın", "şimdi", "zaman", "saat", "dakika", "saniye",
     "hayat", "yaşam", "ölüm", "doğum", "yaş", "isim", "ad", "söz", "kelime", "cümle", "dil", "hikâye",
     "masal", "şarkı", "müzik", "resim", "film", "oyun", "iş", "meslek", "para", "soru", "cevap",
-    "fikir", "düşünce", "duygu", "sevinç", "üzüntü", "korku", "öfke", "merak", "umut", "sevgi",
+    "fikir", "düşünce", "duygu", "sevinç", "üzüntü", "hüzün", "keder", "neşe", "korku", "öfke", "merak", "umut", "sevgi",
     "saygı", "güven", "yalan", "gerçek", "hayal", "rüya", "anı", "hatıra", "plan", "hedef", "yol",
     "sorun", "çözüm", "neden", "sonuç", "başlangıç", "son", "orta", "yan", "iç", "dış", "üst", "alt",
     "ön", "arka", "sağ", "sol", "güç", "enerji", "hareket", "durum", "olay", "haber", "mektup",
@@ -486,6 +489,11 @@ class ConversationalResonanceCortex:
         "bık": (-0.50, 0.35, "yorgunluk"),
         "üzül": (-0.65, 0.40, "üzüntü"),
         "üzgün": (-0.65, 0.35, "üzüntü"),
+        "hüzün": (-0.60, 0.30, "üzüntü"),
+        "keder": (-0.62, 0.32, "üzüntü"),
+        "neşe": (+0.72, 0.62, "sevinç"),
+        "dinlendir": (+0.45, 0.20, "huzur"),
+        "rahatlat": (+0.55, 0.25, "huzur"),
         "kötü": (-0.55, 0.45, "üzüntü"),
         "sıkkın": (-0.50, 0.35, "üzüntü"),
         "yalnız": (-0.55, 0.30, "üzüntü"),

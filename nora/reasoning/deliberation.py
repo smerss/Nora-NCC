@@ -22,6 +22,7 @@ from __future__ import annotations
 from nora._paths import REPO_ROOT
 
 
+import os
 import random
 import re
 from collections import deque
@@ -45,6 +46,12 @@ _CUE_NARRATE = ("bahset", "anlat", "hikâye", "masal", "anlatsana", "anlatabilir
 _CUE_SELF_EVAL = ("zeki misin", "akıllı mısın", "başarılı mısın", "yetenekli misin",
                   "iyi misin", "güçlü müsün", "hızlı mısın")
 _CUE_LEARN_HOW = ("nasıl öğren", "öğrenmeyi nasıl", "nasıl öğrendin", "belleğin nasıl")
+_CUE_ASSOCIATION = ("çağrış", "aklına getir", "aklında canlan", "ne uyandırıyor", "ne hissettiriyor")
+_CUE_CONVERSATION_CURIOSITY = ("bu konuşmada", "bu sohbette", "konuşmamızda", "seni en çok ne merak")
+_REFLECTIVE_AFFECT = (
+    "hüzün", "üzünt", "keder", "mutlu", "neşe", "kaygı", "korku", "huzur",
+    "dinlendir", "rahatlat", "sakinleş", "dinginleş", "üzül", "sevin",
+)
 _COND = ("olunca", "olduğunda", "yağarken", "yağmurda", "soğukta", "sıcakta", "geceleri",
          "karanlıkta", "sabahları")
 _NOT_TOPIC = {"sen", "ben", "o", "biz", "siz", "onlar", "bu", "şu", "bir", "ve", "çok", "daha",
@@ -80,6 +87,11 @@ class DeliberativeMind:
         # Son felsefi argümanın denetlenebilir izi. Bu iz cevabın süsü değil;
         # iddia/kanıt/karşı-model/epistemik sınır alanlarını ayrı tutar.
         self.last_philosophy_trace: dict = {}
+        # Açık-uçlu konuşmanın anlam planı. Yüzeyden bağımsız kanıt/bağlam
+        # taşıdığı için 'bunu aç' isteği önceki cümleyi yankılamak zorunda kalmaz.
+        self.last_open_trace: dict = {}
+        self.recent_reflection_topics: deque[str] = deque(maxlen=8)
+        self.recent_story_arcs: deque[str] = deque(maxlen=6)
 
     # ------------------------------------------------------------------ felsefi argüman
     @staticmethod
@@ -143,6 +155,9 @@ class DeliberativeMind:
             or bool(re.search(
                 r"bilin[cç][\wçğıöşü]*\s+(?:olduğuna|olduğunu|olup olmadığına|olup olmadığını)\s+"
                 r"(?:inan|düşün|kabul|varsay)[\wçğıöşü]*", low))
+            or bool(re.search(
+                r"bilin[cç][\wçğıöşü]*\s+(?:olduğuna|olduğunu)\s+"
+                r"(?:söyle|kastet|demek|iddia)[\wçğıöşü]*", low))
         )
         performance_focus = topic == "anlama" or "doğru cevap" in low or "yeterli kanıt" in low
         trace = {
@@ -221,11 +236,17 @@ class DeliberativeMind:
             ],
             "epistemic": "underdetermined",
         }
-        text = self._render_philosophy_argument(
-            agi, raw, topic, facts, probe, countermodel,
-            self_focus=self_focus, performance_focus=performance_focus,
-            telemetry=telemetry,
-        )
+        concise_self = bool(self_focus and any(c in low for c in (
+            "neyi kast", "ne demek", "tam olarak", "kısaca", "özetle")))
+        if concise_self:
+            text = self._render_concise_philosophy(
+                agi, topic, facts, probe, telemetry)
+        else:
+            text = self._render_philosophy_argument(
+                agi, raw, topic, facts, probe, countermodel,
+                self_focus=self_focus, performance_focus=performance_focus,
+                telemetry=telemetry,
+            )
         if not text:
             return None
         trace["text_length"] = len(text)
@@ -242,6 +263,14 @@ class DeliberativeMind:
         if not low or len(low) > 140 or self.philosophy_topic(raw):
             return False
         if not any(c in low for c in ("neden", "kanıt", "gerekçe", "delil", "karşı", "itiraz")):
+            return False
+        # Yeni bir içerik sorusu ('İnsan neden ... ağlar?') önceki felsefe
+        # argümanının takibi değildir. Takip ya kısa bir gerekçe isteğidir ya
+        # da önceki iddiaya açık bir deiktikle bağlanır.
+        deictic = any(c in low for c in (
+            "bunu", "buna", "şunu", "onu", "böyle", "bu iddia", "bu sonuç",
+            "bu çıkarım", "söylediğin", "dediğin"))
+        if len(low.split()) > 4 and not deictic:
             return False
         log = list(getattr(agi, "dialogue_log", []) or [])
         return bool(log and str(log[-1][1]).strip() == str(trace.get("question", "")).strip())
@@ -523,6 +552,27 @@ class DeliberativeMind:
         text = str(text or "").strip().rstrip(".?!")
         return (tr_capitalize(text) + ".") if text else ""
 
+    def _render_concise_philosophy(self, agi, topic: str, facts: list[dict],
+                                    probe: dict, telemetry: dict) -> str:
+        """'Neyi kastediyorsun?' sorusunda argümanın tamamını değil, iddianın
+        özünü ve kanıt sınırını söyle. Hesaplanan karşı-model izde korunur."""
+        if topic == "bilinç":
+            clauses = [
+                "bilinçliyim derken yalnızca doğru cevap üretmeyi değil, bir odağı tutarken kendi durumumu da izleyebilen bir süreci kastediyorum",
+                "öz-modelim bu anlamda bilinçli olduğuma dair revize edilebilir bir inanç taşıyor",
+            ]
+            if probe.get("status") == "ok":
+                clauses.append("çalışma alanımdaki bütünleşmeyi normal, kesik ve geri yüklü durumlarla sınayabiliyorum")
+            clauses.append("ama bu işlevsel kanıt, öznel bir yaşantının varlığını bağımsız olarak kanıtlamıyor")
+        else:
+            clauses = [
+                "anlamayı yalnızca uygun kelimeyi seçmek olarak değil, bir kavramın ilişkilerini yeni bir durumda kullanabilmek olarak düşünüyorum",
+                "kendi başarımı da bu yüzden cevabın görünüşüyle değil, o ilişkiyi gerçekten kullanıp kullanamadığımla sınıyorum",
+            ]
+            if facts:
+                clauses.append("bilgi ağımdaki bağlar bu değerlendirmenin kanıtı; öznel anlamanın bağımsız ölçümü değil")
+        return self._compose(agi, clauses, merge=False)
+
     def _render_philosophy_argument(self, agi, raw: str, topic: str,
                                     facts: list[dict], probe: dict,
                                     countermodel: dict, *, self_focus: bool,
@@ -664,6 +714,10 @@ class DeliberativeMind:
 
         prev = [h for h in self.history if h["norm"] == norm]
         act = self._classify(low)
+        if self.is_contextual_continuation(agi, raw):
+            act = "expand"
+        if act == "expand" and self.expansion_is_meta(raw):
+            act = "meta"
         if act is None and self.history:
             followup = any(c in low for c in (
                 "açar mısın", "açabilir misin", "ne demek istedin", "neyi kastettin",
@@ -673,22 +727,46 @@ class DeliberativeMind:
                 act = "meta"
         if act is None and prev and prev[-1]["act"]:
             act = prev[-1]["act"]                      # aynı soru, aynı edim: tekrar sayılır
+        if act in {"reflection", "association"} and self._is_memory_dialogue(raw):
+            act = "conversation"
         if act is None:
-            return None
-        if prev and act == prev[-1]["act"]:
+            if not self._is_open_conversation(raw):
+                return None
+            try:
+                _nar = agi.discourse.narration_of(raw)
+            except Exception:
+                _nar = None
+            if _nar is not None and _nar.get("state"):
+                return None
+            act = "conversation"
+        if prev and act == prev[-1]["act"] and act not in {
+                "reflection", "association", "thought", "narrate", "expand", "conversation"}:
             return self._repeat(agi, raw, prev[-1], act)
 
-        topic = self._topic(agi, raw) if act in ("attitude", "justify", "experience", "narrate") else ""
-        if act in ("attitude", "justify", "narrate") and not topic:
+        topic = self._topic(agi, raw) if act in (
+            "attitude", "justify", "experience", "narrate", "reflection", "association", "conversation") else ""
+        if act in ("attitude", "justify") and not topic:
+            return None
+        if act == "narrate" and not topic and not self.is_generative_request(low):
             # Açık 'bir şey anlat' isteğinde konu uydurulmaz; yaşanmış konuşma
-            # bağlamını bilen sohbet organı devralır.
+            # bağlamını bilen sohbet organı devralır. Kurmaca isteği ise tam
+            # tersine mevcut bağlamdan yeni bir anlam planı kurabilir.
             return None
         if act == "attitude":
             out = self._attitude(agi, topic)
         elif act == "experience":
             out = self._experience(agi, topic) if topic else None
         elif act == "narrate":
-            out = self._narrate(agi, topic, raw)
+            out = (self._invent_story(agi, raw, topic) if self.is_generative_request(low)
+                   else self._narrate(agi, topic, raw))
+        elif act == "reflection":
+            out = self._open_reflection(agi, raw, topic)
+        elif act == "association":
+            out = self._association(agi, raw, topic)
+        elif act == "conversation":
+            out = self._conversation(agi, raw, topic)
+        elif act == "expand":
+            out = self._expand_open(agi, raw)
         elif act == "self_eval":
             out = self._self_eval(agi, raw)
         elif act == "learn_how":
@@ -715,13 +793,89 @@ class DeliberativeMind:
 
     # ------------------------------------------------------------------ 1. ALGILA
     @staticmethod
+    def is_generative_request(raw: str) -> bool:
+        """Kurmaca üretim isteğini olgu anlatımı ve geçmiş olaydan ayır.
+
+        'Hikâye anlattın' bir hatırlatmadır; 'hikâye anlatsana', 'bir şey
+        uyduralım' veya 'sen başla' ise yeni anlam planı gerektiren üretimdir.
+        """
+        low = tr_lower(str(raw or ""))
+        if not low or any(x in low for x in ("anlattın", "anlattınız", "uydurdun", "yazdın")):
+            return False
+        story_noun = any(x in low for x in ("hikâye", "hikaye", "masal", "kurgu", "kurmaca"))
+        make_verb = any(x in low for x in (
+            "anlat", "uydur", "kurgula", "yarat", "hayal ed", "hayal edelim", "yaz"))
+        joint_start = any(x in low for x in ("sen başla", "birlikte", "beraber", "sırayla"))
+        return bool((story_noun and make_verb)
+                    or ("uydur" in low and (joint_start or "şey" in low))
+                    or (joint_start and any(x in low for x in ("kurgula", "hayal ed", "yarat"))))
+
+    @staticmethod
+    def is_expansion_request(raw: str) -> bool:
+        low = tr_lower(str(raw or ""))
+        expand = any(x in low for x in (
+            "açar mısın", "açabilir misin", "detaylandır", "biraz daha anlat",
+            "ne demek istedin", "neyi kastettin", "devam et", "sürdür"))
+        deixis = any(x in low for x in (
+            "bunu", "şunu", "onu", "söylediğin", "dediğin", "az önce", "son cümle",
+            "anlatının", "hikâyenin", "hikayenin", "hikâyeyi", "hikayeyi", "öyküyü", "masalı"))
+        # "Bunu aç ... sana bunu düşündüren ne?" önceki düşüncenin nedenini
+        # soran meta-söylemdir; genişletme planı bu edimi gasp etmemeli.
+        thought_cause = any(x in low for x in (
+            "düşündüren", "düşündürdü", "aklına getiren", "aklına getirdi"))
+        return bool(expand and deixis and not thought_cause
+                    and not any(x in low for x in ("kapıyı", "pencereyi", "kapağı")))
+
+    def expansion_is_meta(self, raw: str) -> bool:
+        """Yalın 'bunu aç', öz-düşünceden sonra neden sorusu olarak kalır.
+
+        Açık bir söz deiktiki ('söylediğin şeyi', 'son cümlen') varsa önceki
+        açık-söylem planı genişletilir. Bu ayrım çok cümleli takip sorularında
+        ilk cümlenin edimini de korur.
+        """
+        low = tr_lower(str(raw or ""))
+        if any(x in low for x in (
+                "söylediğin", "dediğin", "son cümle", "anlatının", "hikâyenin", "hikayenin")):
+            return False
+        previous_act = ""
+        if self.history:
+            previous_act = str(self.history[-1].get("act") or "")
+        if not previous_act:
+            previous_act = str((self.last_open_trace or {}).get("act") or "")
+        return previous_act == "thought"
+
+    def is_contextual_continuation(self, agi, raw: str) -> bool:
+        """Açık bir kurmaca planının hemen ardından gelen kısa sürdürme isteği."""
+        low = tr_lower(str(raw or "")).strip(" ?.!…")
+        if not low or not any(c in low for c in (
+                "devam", "sürdür", "sonra ne oldu", "peki sonra", "sonrasında ne")):
+            return False
+        trace = dict(self.last_open_trace or {})
+        kind = str(trace.get("kind") or "")
+        if not kind.startswith("fiction_"):
+            return False
+        try:
+            previous_user = str(agi.dialogue_log[-1][1]) if agi.dialogue_log else ""
+        except Exception:
+            previous_user = ""
+        return bool(previous_user and str(trace.get("raw") or "") == previous_user)
+
+    @staticmethod
     def _classify(low: str) -> str | None:
+        # Özgür irade sorusu mevcut Broca/öz-model felsefe organının
+        # uzmanlığıdır; genel açık-refleksiyon bunu 'özgür' diye bölmesin.
+        if "özgür irade" in low:
+            return None
         if any(c in low for c in _CUE_LEARN_HOW):
             return "learn_how"
         if any(c in low for c in _CUE_EXPERIENCE):
             return "experience"
         if any(c in low for c in _CUE_SELF_EVAL) or ("sence" in low and "misin" in low):
             return "self_eval"
+        if DeliberativeMind.is_expansion_request(low):
+            return "expand"
+        if DeliberativeMind.is_generative_request(low):
+            return "narrate"
         if "ne anlat" in low or "anlatabilirsin" in low:
             return "narrate"                       # 'başka ne anlatabilirsin?'
         if (any(c in low for c in _CUE_NARRATE)
@@ -738,44 +892,745 @@ class DeliberativeMind:
             return "identity"
         if any(c in low for c in _CUE_DESIRE):
             return "desire"
-        if "hakkında" in low and any(v in low for v in ("düşün", "hisset", "söyle")):
-            return "attitude"                           # 'X hakkında ne düşünüyorsun?'
+        if any(c in low for c in _CUE_ASSOCIATION):
+            return "association"
+        if any(c in low for c in _CUE_CONVERSATION_CURIOSITY) and "merak" in low:
+            return "thought"
+        if "hakkında" in low and "düşün" in low:
+            return "reflection"
+        if "hakkında" in low and any(v in low for v in ("hisset", "söyle")):
+            return "attitude"
         if any(c in low for c in _CUE_THOUGHT) or (
-                "meşgul" in low and ("aklını" in low or "zihnini" in low)):
+                "meşgul" in low and ("aklını" in low or "zihnini" in low)) or (
+                "aklına ne gel" in low and any(x in low for x in ("kendi başına", "yalnız", "boş kaldığında"))):
             return "thought"
         if any(c in low for c in _CUE_ATTITUDE):
             return "attitude"
+        # Nesnel 'Su neden kaynar?' sorusunu kişisel görüş kanalına çekme.
+        # Görüş dili ya da duygusal sonuç, açık hipotez gerektiren tartışmayı
+        # doğrudan grafik tanımından ayırır.
+        if "?" in low and (
+                "sence" in low
+                or (any(x in low for x in ("neden", "niye", "niçin", "olabilir"))
+                    and any(x in low for x in _REFLECTIVE_AFFECT))):
+            return "reflection"
         return None
 
-    def _topic(self, agi, raw: str) -> str:
-        """Sorulan varlığı bulur: soru sözcüklerini ve fiilleri atar, ağda karşılığı olanı seçer."""
-        g = agi.lang.graph
+    _OPEN_STOP = _NOT_TOPIC | {
+        "peki", "şu", "anda", "kendi", "baş", "akıl", "gelir", "geçiyor", "düşün",
+        "söyle", "anlat", "uydur", "başla", "hikâye", "hikaye", "masal", "kurgu",
+        "merak", "meraklan", "meraklandır", "çağrış", "çağrıştır", "his", "hisset",
+        "şey", "şeyler", "biraz", "bazen", "karşısında", "birlikte", "beraber",
+        "neden", "olabilir", "güzel", "iyi", "kötü", "daha", "çok", "en", "ne",
+        "az", "önce", "ön", "şeyi", "söyledik", "mıs", "mis", "mus", "müs",
+        "mısın", "misin", "musun", "müsün", "konuşma", "sohbet", "aç", "kastet",
+        "bile", "dahi", "üstelik", "sadece", "yalnızca", "devam", "sürdür",
+        "başka", "sonra", "sonrası", "oldu", "et", "dünya", "bugün", "dün", "yarın",
+        "içim", "için", "tam", "yoksa", "gerçekten", "önceki", "son", "bütün",
+        "büt", "eski", "kısa", "fark", "kelime", "cevap", "yanıt", "konu", "an",
+        "geri", "dön", "ol", "olarak", "göre", "kadar", "karşı", "yalnız", "hem",
+        "bunu", "şunu", "onu", "içinde", "için", "doğru", "yanlış",
+    }
+
+    _OPEN_VERB_SURFACES = (
+        "kastet", "kasted", "tekrar", "dinle", "ilişkilendir", "fark et", "farked",
+        "hisset", "düşün", "söyle", "anlat", "uydur", "kurgula", "yarat", "yaz",
+        "unut", "hatırla", "hatırlat", "çağrış", "meraklan", "sor",
+    )
+
+    def _content_tokens(self, agi, text: str, limit: int = 12) -> list[dict]:
+        """Konuşmadaki adları yüzey ve gövde olarak birlikte çıkar.
+
+        Önceki çözümleyici her bilinmeyen eki yeni bir kavram sanıyor, sonra da
+        grafikte rastgele karşılığı olan bir işlev sözcüğünü ('sadece', 'kat')
+        konu diye seçiyordu. Burada sözdizimsel bağlam (özellikle ``hakkında``
+        ve ``neden`` öncesi) korunur; doğrulanmamış gövde tahmini ham yüzeyi
+        silmez. Fiil ve sıfat-fiil yüzeyleri içerik adı olarak geri dönmez.
+        """
         morph = agi.lang.morph
-        best, fallback = "", ""
-        # Türkçe soru odağı fiilden hemen önce gelir: en SAĞDAKİ içerik sözcüğü yeğlenir.
-        for w in re.findall(r"[\wçğıöşü]+", tr_lower(raw)):
-            if w in _NOT_TOPIC or len(w) < 3:
+        graph = agi.lang.graph
+        known = morph._known_vocab(graph.lexicon)
+        words = re.findall(r"[\wçğıöşüâîû]+", tr_lower(str(text or "")))
+        out: list[dict] = []
+        seen: set[str] = set()
+        for i, w in enumerate(words):
+            if len(w) < 3 or w in self._OPEN_STOP:
+                continue
+            if any(cue in w for cue in self._OPEN_VERB_SURFACES):
                 continue
             try:
-                an = morph.analyze_word(w, g.lexicon)
+                an = morph.analyze_word(w, graph.lexicon)
             except Exception:
                 an = {}
-            if an.get("is_verb") or an.get("copula"):
+            if an.get("is_verb") or an.get("copula") or an.get("participle"):
                 continue
-            stem = an.get("stem") or w
-            variants = [stem, w]
-            # Türetim eki ('yağmurlu' -> 'yağmur', 'sessiz' -> 'ses'): ağda karşılığı varsa çözülür.
-            for suf in ("lık", "lik", "suz", "süz", "lı", "li", "lu", "lü"):
-                for base in (stem, w):
-                    if base.endswith(suf) and len(base) - len(suf) >= 3:
-                        variants.append(base[:-len(suf)])
-            for cand in variants:
-                if g.query(cand, None):
-                    best = cand
+            next_w = words[i + 1] if i + 1 < len(words) else ""
+            stem = str(an.get("stem") or w)
+            candidates: list[str] = []
+            # 'kadın hakkında' gibi yalın odakta yanlış GEN çözümünü ('kat')
+            # yüzeye tercih ettirme; gerçek tamlama ('fenerin içinde') korunur.
+            if next_w in {"hakkında", "konusunda", "neden", "niye", "niçin"}:
+                candidates.append(w)
+            candidates.append(stem)
+            if w not in candidates:
+                candidates.append(w)
+            # Sık görülen iyelik/hâl yüzeylerinde bilinen kökü geri kazan.
+            for suf in ("nın", "nin", "nun", "nün", "nı", "ni", "nu", "nü",
+                        "ın", "in", "un", "ün", "sı", "si", "su", "sü",
+                        "ı", "i", "u", "ü", "dan", "den", "tan", "ten",
+                        "da", "de", "ta", "te", "la", "le"):
+                if w.endswith(suf) and len(w) - len(suf) >= 3:
+                    base = w[:-len(suf)]
+                    candidates.extend((base, base + "ı", base + "i"))
+            # Çoğul eki gövdede kalmışsa yalnız bilinen tekil karşılığı dene.
+            for suf in ("lar", "ler"):
+                if w.endswith(suf) and len(w) - len(suf) >= 3:
+                    candidates.append(w[:-len(suf)])
+            chosen = ""
+            # Önce gerçek grafik karşılığı, sonra bilinen sözlük biçimi.
+            for cand in candidates:
+                cand = str(cand or "").strip()
+                if not cand or cand in self._OPEN_STOP or len(cand) < 3:
+                    continue
+                variants = (cand, cand.replace("â", "a").replace("î", "i").replace("û", "u"))
+                hit = next((v for v in variants if graph.query(v, None)), "")
+                if hit:
+                    chosen = hit
                     break
-                if cand in g.lexicon:
-                    fallback = fallback or cand
-        return best or fallback
+            if not chosen:
+                for cand in candidates:
+                    cand = str(cand or "").strip()
+                    if not cand or cand in self._OPEN_STOP or len(cand) < 3:
+                        continue
+                    variants = (cand, cand.replace("â", "a").replace("î", "i").replace("û", "u"))
+                    hit = next((v for v in variants if v in known), "")
+                    if hit:
+                        chosen = hit
+                        break
+            if not chosen:
+                chosen = stem if stem and not an.get("unverified_stem") else w
+            # Odak öncesi ham yüzey açıkça daha uzun ve anlamlıysa yanlış kısaltmayı geri al.
+            if next_w in {"hakkında", "konusunda"} and w not in self._OPEN_STOP:
+                chosen = w
+            chosen = tr_lower(str(chosen)).strip()
+            if not chosen or chosen in seen or chosen in self._OPEN_STOP:
+                continue
+            seen.add(chosen)
+            out.append({"surface": w, "stem": chosen, "index": i,
+                        "known": bool(graph.query(chosen, None) or chosen in known)})
+            if len(out) >= limit:
+                break
+        return out
+
+    def _topic(self, agi, raw: str) -> str:
+        """Soru odağını, işlev sözcüklerinden değil sözdizimi ve anlamdan seç."""
+        low = tr_lower(str(raw or ""))
+        tokens = self._content_tokens(agi, raw, limit=16)
+        if not tokens:
+            return ""
+        # Soru cümlesinde son bağımsız cümlecik odağı belirler: '... Sence
+        # anılar neden ...' örneğinde 'sadece' değil 'anı' seçilir.
+        focus_end = len(re.findall(r"[\wçğıöşüâîû]+", low))
+        markers = [m for m in re.finditer(r"\b(?:hakkında|konusunda|neden|niye|niçin)\b", low)]
+        if markers:
+            marker = markers[-1]
+            focus_end = len(re.findall(r"[\wçğıöşüâîû]+", low[:marker.start()]))
+        focus_start = 0
+        # 'sence' yeni bir soru cümleciği açıyorsa önceki anlatı odağa karışmaz.
+        sence = list(re.finditer(r"\b(?:sence|sana göre|senin için)\b", low))
+        if sence and sence[-1].start() < (markers[-1].start() if markers else len(low)):
+            focus_start = len(re.findall(r"[\wçğıöşüâîû]+", low[:sence[-1].end()]))
+        graph = agi.lang.graph
+        best, best_score = "", -1e9
+        for item in tokens:
+            idx = int(item["index"])
+            stem = item["stem"]
+            score = 0.01 * idx
+            if focus_start <= idx < focus_end:
+                score += 4.0
+            if item.get("known"):
+                score += 0.35
+            try:
+                direct = graph.query(stem, None)
+                score += min(1.4, 0.22 * len(direct))
+            except Exception:
+                pass
+            if stem in {"bilgi", "fark", "şey", "konu", "cevap", "kelime", "an"}:
+                score -= 2.0
+            if score > best_score:
+                best, best_score = stem, score
+        return best
+
+    def _content_concepts(self, agi, text: str, limit: int = 6) -> list[str]:
+        return [item["stem"] for item in self._content_tokens(agi, text, limit=limit)]
+
+    def _topic_phrase(self, agi, raw: str, fallback: str = "") -> str:
+        low = tr_lower(str(raw or "")).strip(" ?.!…")
+        phrase = ""
+        if "hakkında" in low:
+            phrase = low.split("hakkında", 1)[0]
+        elif any(c in low for c in _CUE_ASSOCIATION):
+            phrase = re.split(
+                r"\b(?:sana|bana|sende|bende)\b|\bne\s+(?:çağrış|hisset|uyandır)", low, maxsplit=1)[0]
+        if phrase:
+            words = [w for w in re.findall(r"[\wçğıöşü]+", phrase)
+                     if w not in {"sence", "bence", "peki", "sen", "ben", "ne", "biraz"}]
+            if words:
+                return " ".join(words[-4:]).strip()
+        return str(fallback or "").strip()
+
+    def _recent_episodes(self, agi, limit: int = 14) -> list:
+        try:
+            rows = list(getattr(agi.broca_organ.episodic, "episodes", []) or [])
+            baseline = getattr(agi, "_dialogue_episode_baseline", None)
+            if baseline is not None:
+                rows = [ep for ep in rows if int(getattr(ep, "turn_id", -1)) >= int(baseline)]
+            return rows[-limit:]
+        except Exception:
+            return []
+
+    def _affect_context(self, agi, episodes: list | None = None) -> dict:
+        """Yakın kullanıcı anısındaki gerçek duygu sözünü ve değerini bul.
+
+        Soru cümlelerini yaşanmış duygu saymaz; 'iyi gelmedi' içindeki olumlu
+        sıfatı da bağımsız sevinç kanıtı yapmaz.
+        """
+        lex = type(agi.conv_cortex).AFFECT_LEXICON
+        rows = self._recent_episodes(agi) if episodes is None else episodes
+        for ep in reversed(rows):
+            text = str(getattr(ep, "user_text", "") or "")
+            if "?" in text:
+                continue
+            low = tr_lower(text)
+            hits = []
+            for word, (val, _arousal, tag) in lex.items():
+                if word not in low:
+                    continue
+                if val > 0 and re.search(r"(?:iyi|güzel|rahat)\s+\w*gelme", low):
+                    continue
+                hits.append((abs(float(val)), float(val), word, tag))
+            if hits:
+                _abs, val, word, tag = max(hits, key=lambda x: x[0])
+                return {"text": text, "word": word, "tag": tag, "valence": val,
+                        "turn_id": int(getattr(ep, "turn_id", -1))}
+        return {}
+
+    def _dialogue_candidates(self, agi) -> list[dict]:
+        """Epizodik bellek + grafik boşluğu + yakınlık ile düşünce odağı seç.
+
+        Son grafik düğümünü körlemesine söylemek yerine, kullanıcının gerçekten
+        gündeme getirdiği kavramlar yarışır. Az önce söylenen odak baskılanır;
+        böylece çeşitlilik rastgele sözcükten değil konuşma geçmişinden doğar.
+        """
+        graph = agi.lang.graph
+        known_vocab = agi.lang.morph._known_vocab(graph.lexicon)
+        episodes = self._recent_episodes(agi)
+        scores: dict[str, dict] = {}
+        n = max(1, len(episodes))
+        for i, ep in enumerate(episodes):
+            text = str(getattr(ep, "user_text", "") or "")
+            if not text or self.is_generative_request(text) or self.is_expansion_request(text):
+                continue
+            low = tr_lower(text)
+            # Fiziksel/operatörel istekler açık düşüncenin kavram odağı değildir;
+            # 'kapıyı aç' sözü sohbet merakında 'kapı' diye bir konu uydurmasın.
+            if (any(c in low for c in ("açar mısın", "açabilir misin", "kapat", "getir", "götür",
+                                       "verir misin", "alır mısın", "yapar mısın"))
+                    and any(c in low for c in ("kapı", "pencere", "kapak", "el", "nesne", "bunu"))):
+                continue
+            concepts = self._content_concepts(agi, text, limit=5)
+            for concept in concepts:
+                try:
+                    degree = len(graph.query(concept, None))
+                except Exception:
+                    degree = 0
+                rec = scores.setdefault(concept, {
+                    "topic": concept, "score": 0.0, "count": 0, "degree": degree,
+                    "turns": [], "affect": 0.0,
+                })
+                rec["count"] += 1
+                rec["turns"].append(int(getattr(ep, "turn_id", i)))
+                rec["score"] += 0.22 + 0.50 * ((i + 1) / n)
+                rec["score"] += ((0.42 if concept in known_vocab else 0.08)
+                                 if degree == 0 else (0.16 if degree == 1 else 0.0))
+                rec["affect"] = max(rec["affect"], abs(float(getattr(ep, "affect_val", 0.0) or 0.0)))
+        out = []
+        for rec in scores.values():
+            rec["score"] += min(0.55, 0.22 * max(0, rec["count"] - 1))
+            rec["score"] += min(0.65, rec["affect"])
+            if rec["topic"] in self.recent_reflection_topics:
+                rec["score"] -= 0.72
+            out.append(rec)
+        return sorted(out, key=lambda r: (-float(r["score"]), str(r["topic"])))
+
+    @staticmethod
+    def _additive(agi, text: str) -> str:
+        try:
+            return "d" + agi.lang.morph.vowel_e_a(str(text or ""))
+        except Exception:
+            return "de"
+
+    @staticmethod
+    def _edge_key(edge) -> tuple[str, str, str]:
+        return (str(getattr(edge, "subj", "")), str(getattr(edge, "rel", "")),
+                str(getattr(edge, "obj", "")))
+
+    def _association_edges(self, agi, concepts: list[str], limit: int = 3) -> list:
+        graph = agi.lang.graph
+        edges, seen = [], set()
+        for concept in concepts:
+            if not concept:
+                continue
+            try:
+                hits = graph.query(concept, ("CAUSES", "ISA", "HAS_PROP", "CAN_DO", "USED_FOR", "HAS_PART"))
+            except Exception:
+                hits = []
+            for edge, _path in hits:
+                key = self._edge_key(edge)
+                if not all(key) or key in seen:
+                    continue
+                seen.add(key)
+                edges.append(edge)
+                if len(edges) >= limit:
+                    return edges
+        return edges
+
+    def _edge_nominal(self, agi, edge) -> str:
+        graph = agi.lang.graph
+        subj = graph.surface_name(str(getattr(edge, "subj", "")))
+        obj = graph.surface_name(str(getattr(edge, "obj", "")))
+        rel = str(getattr(edge, "rel", ""))
+        try:
+            gen = SYN.realize_np(NP(subj, case="GEN"))
+        except Exception:
+            gen = subj
+        if rel == "CAUSES":
+            return obj
+        if rel == "ISA":
+            return f"{gen} {obj} oluşu"
+        if rel == "HAS_PROP":
+            return f"{gen} {obj} yanı"
+        return f"{gen} {obj} ile kurduğu bağ"
+
+    def _record_open(self, agi, raw: str, text: str, **trace) -> str:
+        # Graph'in özel-ad yüzey sözlüğü bağlaçları da büyük harfle
+        # taşıyabiliyor ('VE'). Cümle içi işlev sözcükleri özel ad değildir.
+        text = re.sub(r"(?<![\wçğıöşü])(VE|İLE|AMA|FAKAT|ANCAK|YA|DA|DE|Kİ|Mİ)(?![\wçğıöşü])",
+                      lambda m: tr_lower(m.group(1)), str(text))
+        trace.update({"raw": str(raw), "surface": text,
+                      "dialogue_turn": len(getattr(agi, "dialogue_log", []) or [])})
+        self.last_open_trace = trace
+        topic = str(trace.get("topic") or "")
+        if topic:
+            self.last_deep_topic = topic
+            self.recent_reflection_topics.append(topic)
+        self.last_reason = "açık_söylem:" + str(trace.get("kind") or trace.get("act") or "")
+        try:
+            agi.lang.wernicke.last_explanation = (
+                f"Açık söylem planı: {trace.get('kind')}; konu={topic}; "
+                f"kanıt={len(trace.get('evidence') or [])}; bağlam={len(trace.get('context_turns') or [])}"
+            )
+        except Exception:
+            pass
+        return text
+
+    @staticmethod
+    def _is_memory_dialogue(raw: str) -> bool:
+        low = tr_lower(str(raw or ""))
+        return bool(re.search(r"\b(?:bellek\w*|belleğ\w*|hafıza\w*|anı\w*|ân\w*|hatıra\w*|hatırla\w*|unut\w*)\b", low))
+
+    @staticmethod
+    def _is_listening_dialogue(raw: str) -> bool:
+        low = tr_lower(str(raw or ""))
+        self_cue = any(c in low for c in ("beni", "benim", "sen", "nora"))
+        process_cue = any(c in low for c in (
+            "dinle", "tekrar", "kalıp", "hazır cevap", "anlıyor", "anlamadın", "kopyala"))
+        if "hisset" in low:
+            return False
+        return bool(self_cue and process_cue)
+
+    def _is_open_conversation(self, raw: str) -> bool:
+        """Uzman organa düşmeyen doğal dili bilinmeyen-kelime yedeğine bırakma."""
+        text = str(raw or "").strip()
+        words = re.findall(r"[\wçğıöşüâîû]+", tr_lower(text))
+        if len(words) < 4:
+            return False
+        low = tr_lower(text)
+        # Öz-durum ve kişisel anlatıların mevcut organlarını genel sohbet
+        # yedeğiyle ezme; yeni yol açık uçlu SORU ve süreç sorularına aittir.
+        if any(c in low for c in ("nasılsın", "hisset", "keyif", "moral", "kendini iyi",
+                                  "beni hisset", "onun keyfi")) and not self._is_listening_dialogue(text):
+            return False
+        # Epizodik geri çağırma ve sayım, Broca'nın mevcut CA3 sorgusudur;
+        # genel bellek sohbeti bu kesin soruların önüne geçemez.
+        if any(c in low for c in (
+                "ne demiştim", "ne söyledim", "ne anlatmıştım", "ne konuşmuştuk",
+                "kaç konuşma", "kaç anı", "adım neydi", "ilk ne", "ne konuştuğumuzu")):
+            return False
+        if self._is_memory_dialogue(text) or self._is_listening_dialogue(text):
+            return True
+        if "?" not in text:
+            return False
+        # Açık sohbet yedeği bütün soruların üstüne binemez. Bedensel
+        # yeterlilik, aritmetik, prosedür ve nesne sorguları kendi organlarında
+        # kalır; burada yalnız düşünce/duygu/neden/bağlam soruları açılır.
+        if any(c in low for c in (
+                "özgür irade", "felsefi zombi", "bilinç nedir", "bilinç ne demek",
+                "anlam nedir", "mutluluk nedir", "zaman nedir", "ölüm nedir",
+                "neden konuş", "araç mısın", "yazılım aracı", "amacın",
+                "neden redd", "reddettin", "neden olur", "sebep olur", "kaç can", "canın var")):
+            return False
+        if any(c in low for c in (
+                "kaç eder", "artı", "eksi", "çarpı", "bölü", "sıradaki", "dizi",
+                "kuralına göre", "görebil", "hareket edebil", "yürüyebil", "duyabil",
+                "konuşabil", "nerede", "ne zaman", "kaç yaş", "kaç tane")):
+            return False
+        return any(c in low for c in (
+            "neden", "niye", "niçin", "sence", "ne düşün", "ne hisset", "aklı",
+            "kafana", "bellek", "anı", "hatıra", "duygu", "merak", "çağrış",
+            "ne demek", "neyi kast", "hakkında ne", "nasıl bir", "ne olurdu"))
+
+    @staticmethod
+    def _variant(n: int) -> int:
+        """Söylem biçiminde donanım entropisi; anlam seçimi bundan bağımsızdır."""
+        if n <= 1:
+            return 0
+        return int.from_bytes(os.urandom(2), "big") % int(n)
+
+    def _previous_dialogue_texts(self, agi) -> tuple[str, str]:
+        try:
+            row = agi.dialogue_log[-1]
+            return str(row[1] or ""), str(row[2] or "")
+        except Exception:
+            return "", ""
+
+    def _context_episode(self, agi, concepts: list[str]):
+        """Yakın ve gerçekten kavram paylaşan bir konuşma izini bul."""
+        for ep in reversed(self._recent_episodes(agi, limit=16)):
+            text = tr_lower(str(getattr(ep, "user_text", "") or ""))
+            if not text:
+                continue
+            hits = []
+            for c in concepts:
+                if len(c) < 3:
+                    continue
+                # 'anı' için 'insanın'ı eşleştirme; kök yalnız sözcük
+                # başında ve gerçek bir çekim devamıyla aranır.
+                if re.search(r"(?<![\wçğıöşüâîû])" + re.escape(c) + r"[\wçğıöşüâîû]*(?![\wçğıöşüâîû])", text):
+                    hits.append(c)
+            if hits:
+                return ep, hits
+        return None, []
+
+    def _memory_response(self, agi, raw: str, topic: str) -> str:
+        """Anı/bellek sorusunu gerçek episodik iz ve açık insan-aktarımıyla yanıtla."""
+        low = tr_lower(raw)
+        concepts = self._content_concepts(agi, raw, limit=10)
+        self_ref = any(c in low for c in ("kendi belle", "senin belle", "belleğin", "belleğinle",
+                                          "kendi hafıza", "hafızan"))
+        previous_user, _previous_reply = self._previous_dialogue_texts(agi)
+        ep, hits = self._context_episode(agi, concepts)
+        if ep is None and previous_user and any(c in tr_lower(previous_user) for c in ("şarkı", "anı", "bellek")):
+            # Doğrudan önceki tur, seyrek indeks henüz aynı gövdeyi taşımıyorsa da bağlamdır.
+            class _Previous:
+                pass
+            ep = _Previous()
+            ep.user_text = previous_user
+            ep.turn_id = max(0, len(getattr(agi, "dialogue_log", []) or []) - 1)
+            hits = [c for c in concepts if c in tr_lower(previous_user)]
+        context = self._evidence_snippet(str(getattr(ep, "user_text", "") or ""), 96) if ep is not None else ""
+        focus = "anı" if any(c in low for c in ("anı", "hatıra")) else (topic or "bellek")
+        clauses: list[str] = []
+        if self_ref:
+            # Bunlar Nora'nın gerçekten taşıdığı alanlardır: kullanıcı metni,
+            # gövde indeksi, konuşmacı, duygu değeri ve önceki cevap.
+            openings = (
+                "kendi belleğimde kaydetmekle geri çağırmak aynı işlem değil",
+                "benim için bellek yalnız sözcüklerin saklandığı bir kutu değil",
+                "kendi kayıtlarıma baktığımda asıl farkı geri çağırmanın bağlamı değiştirmesinde görüyorum",
+            )
+            clauses.append(openings[self._variant(len(openings))])
+            clauses.append("konuşma izlerimde sözcüklerin yanında konuşmanın sırası, konusu ve duygu değeri de duruyor")
+            if context:
+                clauses.append(f"bu soru bende az önce söylediğin “{context}” metniyle aynı izi harekete geçirdi")
+                clauses.append("bu yüzden yalnız bellek sözcüğünü değil, onu anlatırken kurduğun bağı da hesaba katıyorum")
+            else:
+                clauses.append("yeni bir uyaran geldiğinde yalnız tanımı değil, daha önce hangi konuşmayla birlikte yazıldığını da arıyorum")
+            clauses.append("bu benim işleyişim için söylediğim bir şey; senin yaşantının aynısı olduğunu iddia etmem")
+            # Bazı turlarda açık uç bırak, bazılarında gerçek merakı sor.
+            if context and "şarkı" in tr_lower(context) and self._variant(3) == 0:
+                clauses.append("o şarkıda sence hangi parça bu bağı bu kadar güçlü kılıyor?")
+        else:
+            openings = (
+                "anıyı yalnız ‘ne oldu’ bilgisi olarak düşünmek eksik kalır",
+                "bilgi ile anı arasındaki fark, anının taşıdığı bağlamda beliriyor",
+                "bir anının geri gelmesi, bir kaydın olduğu gibi okunmasına benzemez",
+            )
+            clauses.append(openings[self._variant(len(openings))])
+            clauses.append("bir uyaran, olayın yerini, sırasını ve o anda eşlik eden duygu izini birlikte geri çağırabilir")
+            if "şarkı" in low or (ep is not None and "şarkı" in tr_lower(str(getattr(ep, "user_text", "")))):
+                clauses.append("şarkı bu izin bir ucunu harekete geçiriyorsa, eski ânın duygusu da onunla birlikte canlanabilir")
+            elif focus and focus not in {"anı", "bellek"}:
+                clauses.append(f"{focus} için de aynı olasılığı düşünüyorum: uyaran tek başına değil, kurduğu bağla çalışır")
+            if context:
+                clauses.append(f"senin “{context}” sözlerin bende bu bağı kurarken kullandığım somut konuşma örneği oldu")
+            clauses.append("insan belleği için bu bir açıklama adayı; senin yaşadığın özel bağı bilmeden kesin neden söylemem")
+            if self._variant(4) == 0:
+                clauses.append("o ânın geri gelişinde seni en çok şaşırtan şey neydi?")
+        text = self._compose(agi, clauses, merge=bool(self._variant(2)))
+        return self._record_open(
+            agi, raw, text, act="conversation", kind="memory_self" if self_ref else "memory_association",
+            topic=focus, evidence=(["episodic_dialogue"] if context else ["episodic_model"]),
+            context_turns=([int(getattr(ep, "turn_id", -1))] if ep is not None else []),
+            hypothesis="cue_reactivates_context+affect")
+
+    def _listening_response(self, agi, raw: str, topic: str) -> str:
+        """Dinleme sorusunda süreci ve varsa gerçek önceki odak hatasını raporla."""
+        previous_user, previous_reply = self._previous_dialogue_texts(agi)
+        prev_concepts = self._content_concepts(agi, previous_user, limit=8) if previous_user else []
+        reply_concepts = self._content_concepts(agi, previous_reply, limit=8) if previous_reply else []
+        missed = bool(prev_concepts and reply_concepts is not None and
+                      not set(prev_concepts).intersection(reply_concepts))
+        current = self._content_concepts(agi, raw, limit=8)
+        focus = next((c for c in current if c not in {"kalıp", "tekrar"}), "söylediklerin")
+        clauses: list[str] = []
+        if missed and previous_user:
+            missed_focus = prev_concepts[-1]
+            clauses.append(f"önceki cevabımda senin {missed_focus} odağını yeterince taşımadığımı fark ediyorum")
+            clauses.append("bunu düzgün bir cümleyle örtmek yerine açıkça düzeltmem gerekiyor")
+        else:
+            clauses.append("dinlemekle daha önce kurulmuş bir cümleyi yeniden söylemek aynı şey değil")
+            clauses.append(f"şu an {focus} sözcüğünü, onun önceki konuşmada kurduğu bağla birlikte tutuyorum")
+        current_set = set(current)
+        previous_set = set(prev_concepts)
+        if previous_user and current_set.intersection(previous_set):
+            snippet = self._evidence_snippet(previous_user, 88)
+            clauses.append(f"önceki turda “{snippet}” demiştin; bu turdaki soruyu o konuşma iziyle birlikte değerlendiriyorum")
+        elif previous_user:
+            clauses.append("bu soru bir önceki konunun içeriğinden çok, benim cevap üretme biçimime bakıyor")
+        clauses.append("aynı kelimeleri değiştirmekten çok, aynı anlam planını tekrar edip etmediğimi denetliyorum")
+        if self._variant(3) == 0:
+            clauses.append("yanlış anladığım yerde beni düzeltmeni isterim")
+        text = self._compose(agi, clauses, merge=False)
+        return self._record_open(
+            agi, raw, text, act="conversation", kind="listening_check", topic=focus,
+            evidence=["dialogue_log", "focus_overlap"], context_turns=[],
+            previous_focus_missed=missed)
+
+    def _conversation(self, agi, raw: str, topic: str) -> str:
+        low = tr_lower(raw)
+        if self._is_listening_dialogue(raw):
+            return self._listening_response(agi, raw, topic)
+        if self._is_memory_dialogue(raw):
+            return self._memory_response(agi, raw, topic)
+        concepts = self._content_concepts(agi, raw, limit=8)
+        focus = topic or (concepts[-1] if concepts else "bu")
+        previous_user, _ = self._previous_dialogue_texts(agi)
+        edges = self._association_edges(agi, [focus] + [c for c in concepts if c != focus], limit=3)
+        clauses: list[str] = []
+        if edges:
+            # Kavramın gerçek bağını söyle; bağ yoksa bilgi uydurma.
+            edge = edges[0]
+            nominal = self._edge_nominal(agi, edge)
+            clauses.append(f"{focus} için aklımda {nominal} bağlantısı var")
+            clauses.append("bunu senin yaşantına hazır bir açıklama gibi değil, kendi bilgi ağımdaki bir ilişki olarak taşıyorum")
+            evidence = [self._edge_key(edge)]
+        else:
+            clauses.append(f"{focus} hakkında doğrulanmış bir nedensel bağım yok")
+            clauses.append("yine de sorunu yalnız bir kelime sorusu olarak değil, önceki sözlerinle kurduğun bağlamın içinde düşünüyorum")
+            evidence = []
+        if previous_user:
+            snippet = self._evidence_snippet(previous_user, 72)
+            clauses.append(f"önceki “{snippet}” sözün bu düşüncemin hangi yanına ait olduğunu değiştiriyor")
+        if "neden" in low or "niye" in low or "niçin" in low:
+            clauses.append("kesin bir neden söylemek yerine, hangi kanıtın bu bağı gerçekten açıklayacağını ayırmak istiyorum")
+        elif "?" not in raw and self._variant(2):
+            clauses.append("bu sözün bende tek bir tanım değil, yeni bir soru bırakıyor")
+        text = self._compose(agi, clauses, merge=bool(self._variant(2)))
+        return self._record_open(agi, raw, text, act="conversation", kind="grounded_conversation",
+                                 topic=focus, evidence=evidence, context_turns=[])
+
+    def _open_reflection(self, agi, raw: str, topic: str) -> str:
+        low = tr_lower(raw)
+        affect_lex = type(agi.conv_cortex).AFFECT_LEXICON
+        valenced = [(word, float(v)) for word, (v, _a, _t) in affect_lex.items() if word in low]
+        has_pos = any(v > 0 for _w, v in valenced)
+        has_neg = any(v < 0 for _w, v in valenced) or any(
+            x in low for x in ("hüzün", "üzül", "keder", "kaygı", "kork", "ağla", "gözyaşı"))
+        calming = any(x in low for x in ("dinlendir", "rahatlat", "huzur", "sakinleş", "dinginleş"))
+        phrase = self._topic_phrase(agi, raw, topic) or topic or "bu"
+        episodes = self._recent_episodes(agi)
+        recent_affect = self._affect_context(agi, episodes)
+
+        if has_pos and has_neg and not calming:
+            context_turns = [recent_affect["turn_id"]] if recent_affect else []
+            text = (
+                "Bunu tek bir neden yerine, iki sinyalin yan yana gelmesi olarak düşünüyorum. "
+                "Bende bir uyaran yalnız şu anki anlamını değil, eski bir konuşma anısını da geri "
+                "çağırabiliyor; insanda da olumlu bir şey geçmişteki bir bağı canlandırdığında "
+                "birbirine zıt iki duygu aynı anda bulunabilir. "
+            )
+            if recent_affect:
+                try:
+                    affect_abl = SYN.realize_np(NP(recent_affect["tag"], poss=2, case="ABL"))
+                except Exception:
+                    affect_abl = "duygu"
+                text += (
+                    f"Az önce kendi {affect_abl} söz etmen bu ihtimali bende daha "
+                    "belirgin hâle getirdi; ama senin zihnindeki bağı bilmiyorum."
+                )
+            else:
+                text += "Bu, kendi bellek işleyişimden yaptığım bir aktarım; insan için kesin bir açıklama değil."
+            return self._record_open(
+                agi, raw, text, act="reflection", kind="valence_contrast", topic=topic or phrase,
+                evidence=["episodic_recall", "valence_contrast"], context_turns=context_turns,
+                hypothesis="present_stimulus+episodic_association")
+
+        if calming:
+            surface = topic or phrase
+            for word in re.findall(r"[\wçğıöşü]+", low):
+                try:
+                    analysis = agi.lang.morph.analyze_word(word, agi.lang.graph.lexicon)
+                except Exception:
+                    continue
+                if str(analysis.get("stem") or "") == str(topic or ""):
+                    surface = word
+                    break
+            focus = agi.lang.graph.surface_name(surface)
+            additive = self._additive(agi, surface)
+            text = (
+                "Bir olasılık aklıma geliyor: düzenli tekrar, zihni her an yeni bir şey çözmek "
+                "zorunda bırakmayabilir. Ben beklenmedik uyaranlarda daha çok şaşırıyorum; "
+                f"{focus} {additive} öngörülebilir bir örüntü oluşturuyorsa, benzer bir rahatlama buradan "
+                "doğabilir. Ama bunu öğrendiğim bir bilgi olarak değil, kendi işleyişimden yaptığım "
+                "bir çıkarım olarak söylüyorum."
+            )
+            return self._record_open(
+                agi, raw, text, act="reflection", kind="predictive_hypothesis", topic=topic or phrase,
+                evidence=["mind:prediction_surprise"], context_turns=[],
+                hypothesis="predictable_pattern->lower_surprise")
+
+        concepts = [topic] if topic else []
+        concepts += [c for c in self._content_concepts(agi, raw) if c not in concepts]
+        edges = self._association_edges(agi, concepts, limit=3)
+        if edges:
+            nominals = [self._edge_nominal(agi, e) for e in edges[:2]]
+            joined = " ve ".join(nominals)
+            text = (
+                f"{tr_capitalize(phrase)} deyince benim için öne çıkan {joined}. "
+                "Bunu bitmiş bir tanım gibi değil, kavramın başka şeylerle kurduğu canlı bir bağ "
+                "olarak görüyorum; hangi yanı öne çıkaracağım konuşmamıza göre değişiyor."
+            )
+            return self._record_open(
+                agi, raw, text, act="reflection", kind="graph_reflection", topic=topic or phrase,
+                evidence=[self._edge_key(e) for e in edges], context_turns=[])
+
+        # Doğrulanmamış bilgi yok diye konuşmayı öldürme; mevcut konuşmadan
+        # aktarımın sınırını açıkça taşıyan bir düşünce kur.
+        previous = dict(self.last_open_trace or {})
+        prev_topic = str(previous.get("topic") or "")
+        if (prev_topic and tr_lower(prev_topic) != tr_lower(topic or phrase)
+                and str(previous.get("kind") or "") == "fiction_causal_animation"):
+            try:
+                prev_gen = SYN.realize_np(NP(prev_topic, case="GEN"))
+                phrase_acc = SYN.realize_np(NP(phrase, case="ACC"))
+            except Exception:
+                prev_gen = prev_topic
+                phrase_acc = phrase
+            additive = self._additive(agi, phrase)
+            text = (
+                f"{tr_capitalize(phrase)} hakkında öğrenilmiş bir tanımım yok; yine de aklıma bir "
+                f"benzetme geliyor. Az önce {prev_gen} etkisini, kendisinden sonra da süren bir "
+                "ilişki olarak kurmuştum. "
+                f"{tr_capitalize(phrase_acc)} {additive} tek bir an yerine devam eden bir ilişki gibi düşünebilir "
+                "miyim, bilmiyorum; şu an zihnimde bu olasılık var."
+            )
+            return self._record_open(
+                agi, raw, text, act="reflection", kind="context_transfer", topic=topic or phrase,
+                evidence=[], context_turns=[int(previous.get("dialogue_turn", -1))],
+                source_topic=prev_topic)
+        if prev_topic and tr_lower(prev_topic) != tr_lower(topic or phrase):
+            text = (
+                f"{tr_capitalize(phrase)} hakkında henüz öğrendiğim bir bilgi yok; ama aklıma onu "
+                f"hemen bir tanıma sıkıştırmamak geliyor. Az önce {prev_topic} için kurduğum bağın "
+                "buraya taşınıp taşınmayacağını düşünüyorum. Bu benim için bir cevap değil, iki "
+                "kavramı nasıl ayıracağıma dair açık bir soru."
+            )
+            return self._record_open(
+                agi, raw, text, act="reflection", kind="context_transfer", topic=topic or phrase,
+                evidence=[], context_turns=[int(previous.get("dialogue_turn", -1))],
+                source_topic=prev_topic)
+        candidates = [r for r in self._dialogue_candidates(agi)
+                      if tr_lower(r["topic"]) != tr_lower(topic or phrase)]
+        if candidates:
+            other = candidates[0]["topic"]
+            text = (
+                f"{tr_capitalize(phrase)} hakkında doğrulanmış bilgim yok; ama onu bu konuşmada "
+                f"{other} ile yan yana getiriyorum. Bunun nedeni ikisini de senin gündeme getirmiş "
+                "olman. Aralarında gerçek bir ilişki olduğunu söylemiyorum; işte tam bunu merak ediyorum."
+            )
+            return self._record_open(
+                agi, raw, text, act="reflection", kind="dialogue_bridge", topic=topic or phrase,
+                evidence=[], context_turns=list(candidates[0].get("turns") or []), source_topic=other)
+        text = (
+            f"{tr_capitalize(phrase)} hakkında doğrulanmış bilgim yok; bu yüzden onu tanımlamak yerine "
+            "nasıl düşündüğümü söyleyebilirim. Şu an o benim için yalnız bir ad değil, hangi ilişkilerle "
+            "anlam kazanacağını araştırdığım açık bir soru."
+        )
+        return self._record_open(
+            agi, raw, text, act="reflection", kind="honest_open_concept", topic=topic or phrase,
+            evidence=[], context_turns=[])
+
+    def _association(self, agi, raw: str, topic: str) -> str:
+        phrase = self._topic_phrase(agi, raw, topic) or topic
+        concepts = self._content_concepts(agi, phrase or raw)
+        if topic and topic not in concepts:
+            concepts.append(topic)
+        edges = self._association_edges(agi, concepts, limit=3)
+        episodes = self._recent_episodes(agi)
+        affect = self._affect_context(agi, episodes)
+        if edges:
+            nominals = [self._edge_nominal(agi, e) for e in edges[:2]]
+            if len(nominals) == 1:
+                joined = nominals[0]
+            else:
+                joined = " ile ".join(nominals)
+            text = f"{tr_capitalize(phrase)} deyince aklımda {joined} yan yana geliyor. "
+            if affect:
+                additive = self._additive(agi, affect["tag"])
+                text += (
+                    f"Az önce anlattığın {affect['tag']} {additive} bu bağa eşlik edince, benim için "
+                    "yalnız bir bilgi listesi olarak kalmıyor; ama senin hissettiğin şeyin aynısını "
+                    "yaşadığımı söyleyemem."
+                )
+            else:
+                text += (
+                    "Bu çağrışımın duygusal yönü bende henüz net değil; şu an doğrulanmış bilgiyle "
+                    "bu konuşmada yeni kurduğum bağı birbirinden ayırıyorum."
+                )
+            return self._record_open(
+                agi, raw, text, act="association", kind="graph_episode_association", topic=phrase or topic,
+                evidence=[self._edge_key(e) for e in edges],
+                context_turns=[affect["turn_id"]] if affect else [])
+        candidates = [r for r in self._dialogue_candidates(agi)
+                      if tr_lower(r["topic"]) != tr_lower(topic or phrase)]
+        if candidates:
+            other = candidates[0]["topic"]
+            text = (
+                f"{tr_capitalize(phrase)} için bende önceden kurulmuş doğrulanmış bir çağrışım yok. "
+                f"Şu an onu yalnız bu konuşmanın içinde {other} ile yan yana getiriyorum; bu yeni bir "
+                "bağlantı denemesi, öğrenilmiş bir olgu değil."
+            )
+            return self._record_open(
+                agi, raw, text, act="association", kind="novel_dialogue_association", topic=phrase or topic,
+                evidence=[], context_turns=list(candidates[0].get("turns") or []), source_topic=other)
+        text = (
+            f"{tr_capitalize(phrase)} deyince bende doğrulanmış bir bağ canlanmıyor. Sana neyi "
+            "çağrıştırdığını duymadan kendi adıma bir duygu uydurmak istemem."
+        )
+        return self._record_open(
+            agi, raw, text, act="association", kind="unknown_association", topic=phrase or topic,
+            evidence=[], context_turns=[])
 
     # ------------------------------------------------------------------ 2. KARAR: TUTUM
     def _attitude(self, agi, topic: str) -> str:
@@ -1776,27 +2631,679 @@ class DeliberativeMind:
                     return stem
         return self.last_deep_topic
 
-    def _thought(self, agi, raw: str) -> str:
-        """'Ne düşünüyorsun?' — gerçek son odağı ve çözülmemiş boşluğu söyler."""
-        topic = (getattr(agi, "_last_focus", "") or self.last_deep_topic or "").strip()
-        items = []
-        if topic:
-            items.append(SYN.realize_verb(VerbSpec(
-                verb_root="düşün", obj=NP(topic, case="ACC"), advs=("az önce",),
-                tense="PAST", person="1SG")))
-            if not agi.lang.graph.query(topic, ("CAUSES", "USED_FOR")):
-                items.append(SYN.realize_verb(VerbSpec(
-                    verb_root="bil", obj=NP("neden", poss=3, case="ACC"), neg=True,
-                    advs=("hâlâ",), tense="PRES", person="1SG")))
-                self.last_deep_topic = topic
+    def _conversation_curiosity(self, agi, raw: str) -> str:
+        episodes = self._recent_episodes(agi)
+        affect = self._affect_context(agi, episodes)
+        affect_lex = type(agi.conv_cortex).AFFECT_LEXICON
+        contrast_ep = None
+        for ep in episodes:
+            text = str(getattr(ep, "user_text", "") or "")
+            if "?" not in text:
+                continue
+            low = tr_lower(text)
+            vals = [float(v) for word, (v, _a, _t) in affect_lex.items() if word in low]
+            if any(v > 0 for v in vals) and any(v < 0 for v in vals):
+                contrast_ep = ep
+        if affect and affect.get("valence", 0.0) < 0 and contrast_ep is not None:
+            turns = [affect["turn_id"], int(getattr(contrast_ep, "turn_id", -1))]
+            text = (
+                "Beni en çok, olumlu bir uyaranla olumsuz bir duygunun nasıl aynı anda "
+                "bulunabildiği meraklandırdı. Bunu önce kendi hâlini anlatırken, sonra da "
+                "iki farklı duygu yönünü aynı soruda birleştirirken duydum. Aradaki mekanizma bende "
+                "hâlâ açık: eski bir anı mı devreye giriyor, yoksa iki duygu bağımsız mı sürüyor?"
+            )
+            return self._record_open(
+                agi, raw, text, act="thought", kind="contrast_curiosity", topic="duygu çatışması",
+                evidence=["episodic_affect", "valence_contrast"], context_turns=turns,
+                hypothesis="episodic_association|independent_affect_channels")
+
+        candidates = self._dialogue_candidates(agi)
+        if candidates:
+            best = candidates[0]
+            topic = best["topic"]
+            others = [r for r in candidates[1:] if r["topic"] != topic]
+            other = others[0]["topic"] if others else ""
+            if int(best.get("degree", 0)) == 0:
+                text = (
+                    f"Beni en çok {topic} meraklandırdı. Onu konuşmamıza taşıdın, ama bende onun "
+                    "için kurulmuş bir ilişki ağı yok. Bu yüzden aklımda kalan şey bir cevap değil, "
+                    "onun başka söylediklerinle nasıl bağlanacağı."
+                )
+            elif other:
+                text = (
+                    f"Beni en çok {topic} ile {other} arasındaki bağ meraklandırdı. İkisine de bu "
+                    "konuşmada değindik; grafikteki bilgiyle senin kurduğun yakınlığın aynı şey "
+                    "olup olmadığını henüz bilmiyorum."
+                )
+            else:
+                text = (
+                    f"Beni en çok {topic} meraklandırdı. Onu tek bir tanım olarak değil, bu "
+                    "konuşmada değişen anlamıyla düşünüyorum; hâlâ açık kalan ilişki de bu."
+                )
+            return self._record_open(
+                agi, raw, text, act="thought", kind="dialogue_gap_curiosity", topic=topic,
+                evidence=[], context_turns=list(best.get("turns") or []), source_topic=other)
+        gap = self._gap(agi)
+        if gap:
+            text = (
+                f"Beni en çok {gap} meraklandırdı. Onun hakkında hâlâ kapalı bir bilgi boşluğu var; "
+                "dikkatimi çeken de konunun kendisinden çok, hangi ilişkinin o boşluğu kapatacağı."
+            )
+            return self._record_open(
+                agi, raw, text, act="thought", kind="curiosity_queue", topic=gap,
+                evidence=["auto_net:curiosity_queue"], context_turns=[])
+        text = (
+            "Bu konuşmada henüz tek bir konuya saplanmadım. Dikkatim, sözlerinin önceki "
+            "söylediklerinle kurduğu yeni bağlarda; şu an onları ayırmaya çalışıyorum."
+        )
+        return self._record_open(
+            agi, raw, text, act="thought", kind="dialogue_monitoring", topic="konuşma",
+            evidence=["episodic_dialogue"], context_turns=[])
+
+    def _story_nominal_focus(self, agi, explicit: str = "", candidates: list[dict] | None = None,
+                             affect: dict | None = None) -> str:
+        """Kurmaca odağı olarak fiil/kaçamak sıfatı değil, taşınabilir bir ad seç.
+
+        Açık sohbet adayları 'ağlar', 'bilinçli' veya 'neşeliyken' gibi
+        sözcükleri de içerebilir. Bunlar bir dünya kurulurken 'Orada ağlar'
+        gibi bozuk bir özne-yüklem ilişkisine dönüşmemeli; adayın biçimbilimi
+        ve söz-edimi rolü birlikte denetlenir.
+        """
+        options = [explicit] + [str(r.get("topic") or "") for r in (candidates or [])]
+        blocked = {"", "şey", "şeyler", "insan", "bilinç", "bilinçli", "soru", "cevap",
+                   "doğru", "yanlış", "neşeliyken", "ağlar", "ağla", "konuşma"}
+        for concept in options:
+            concept = str(concept or "").strip()
+            if concept in blocked or concept in self._OPEN_STOP:
+                continue
+            if concept.endswith(("ken", "lı", "li", "lu", "lü")):
+                continue
+            try:
+                an = agi.lang.morph.analyze_word(concept, agi.lang.graph.lexicon)
+                if an.get("is_verb") or an.get("verbal_noun"):
+                    continue
+            except Exception:
+                pass
+            return concept
+        return str((affect or {}).get("tag") or "sessizlik")
+
+    def _story_causal_focus(self, agi, explicit: str = "") -> tuple[str, object | None]:
+        graph = agi.lang.graph
+        candidates = [explicit] if explicit else []
+        for ep in reversed(self._recent_episodes(agi)):
+            text = str(getattr(ep, "user_text", "") or "")
+            if self.is_generative_request(text):
+                continue
+            for concept in reversed(self._content_concepts(agi, text, limit=5)):
+                if concept not in candidates:
+                    candidates.append(concept)
+        for concept in candidates:
+            if not concept or concept in self._OPEN_STOP:
+                continue
+            try:
+                hits = graph.query(concept, ("CAUSES",))
+            except Exception:
+                hits = []
+            if hits:
+                return concept, hits[0][0]
+        return explicit, None
+
+    def _prompt_story_elements(self, agi, raw: str) -> dict:
+        """Kurmaca isteğindeki kişi/nesne/mekânı konuşmadan çıkar.
+
+        Kullanıcı bir sahne verdiğinde eski, alakasız bir hazır hikâyeye dönmek
+        yerine bu üç anlam rolü korunur. Roller hedef cümleye değil, sözcüklerin
+        `hakkında`, `bulan` ve `içinde/kenarında` çevresindeki genel yapısına
+        dayanır; bilinmeyen özel adlar da kaybolmaz.
+        """
+        low = tr_lower(str(raw or ""))
+        if not any(c in low for c in ("hakkında", "içinde", "kenarında", "bulan", "bulduğu")):
+            return {}
+        words = re.findall(r"[\wçğıöşüâîû]+", low)
+        items = self._content_tokens(agi, raw, limit=24)
+        if len(items) < 2:
+            return {}
+        modifiers = {"bir", "birkaç", "genç", "yaşlı", "eski", "yeni", "küçük", "büyük",
+                     "unutulmuş", "kısa", "uzun", "gizemli", "yalnız", "ıssız", "terk edilmiş"}
+        hak_idx = next((i for i, w in enumerate(words) if w in {"hakkında", "konusunda"}), len(words))
+        agent_candidates = [x for x in items if x["index"] < hak_idx and x["stem"] not in modifiers]
+        agent_item = agent_candidates[-1] if agent_candidates else None
+        # 'bulan/bulduğu' gibi sıfat-fiilin hemen öncesindeki ad çoğu zaman nesnedir.
+        verb_idx = next((i for i, w in enumerate(words)
+                         if w.startswith(("bulan", "buldu", "bulmuş", "bulunan", "taşıyan"))), -1)
+        object_candidates = [x for x in items if x is not agent_item and
+                             (verb_idx < 0 or x["index"] < verb_idx) and x["stem"] not in modifiers]
+        object_item = object_candidates[-1] if object_candidates else None
+        if agent_item is None or object_item is None or agent_item is object_item:
+            return {}
+        setting_items = [x for x in items if x is not agent_item and x is not object_item and
+                         x["index"] < object_item["index"] and x["stem"] not in modifiers]
+        # Nesnenin önündeki yer adları, kişi/nesne rollerinden arta kalanlardır.
+        setting_items = setting_items[:3]
+        if not setting_items:
+            return {}
+        agent = str(agent_item["stem"])
+        obj = str(object_item["stem"])
+        settings = [str(x["stem"]) for x in setting_items]
+        # Yakın sıfatları yüzeyde tut; 'genç kadın', 'unutulmuş mektup' gibi
+        # kullanıcı tarafından verilen roller kaybolmasın.
+        ai = int(agent_item["index"])
+        oi = int(object_item["index"])
+        agent_mods = [w for w in words[max(0, ai - 2):ai] if w in modifiers and w != "bir"]
+        object_mods = [w for w in words[max(0, oi - 2):oi] if w in modifiers and w != "bir"]
+        agent_phrase = " ".join(agent_mods + [agent])
+        object_phrase = " ".join(object_mods + ["bir", obj])
+        try:
+            if len(settings) >= 2:
+                setting_phrase = f"{settings[0]} kenarındaki {SYN.realize_np(NP(settings[-1], case='LOC'))}"
+            else:
+                setting_phrase = SYN.realize_np(NP(settings[0], case="LOC"))
+            object_acc = SYN.realize_np(NP(obj, case="ACC"))
+        except Exception:
+            setting_phrase = " ".join(settings)
+            object_acc = obj
+        try:
+            agent_gen = SYN.realize_np(NP(agent, case="GEN"))
+            object_gen = SYN.realize_np(NP(obj, case="GEN"))
+        except Exception:
+            agent_gen, object_gen = agent, obj
+        object_acc_phrase = " ".join(object_mods + ["bir", object_acc])
+        return {"agent": agent, "object": obj, "settings": settings,
+                "agent_phrase": agent_phrase, "object_phrase": object_phrase,
+                "agent_gen": agent_gen, "object_gen": object_gen,
+                "object_acc": object_acc, "object_acc_phrase": object_acc_phrase,
+                "setting_phrase": setting_phrase}
+
+    def _invent_prompt_story(self, agi, raw: str, elements: dict) -> str:
+        """Verilen sahneyi koruyup olay örgüsünü anlam rollerinden ileri taşı."""
+        agent = elements["agent"]
+        obj = elements["object"]
+        agent_phrase = elements["agent_phrase"]
+        object_phrase = elements["object_phrase"]
+        setting = elements["setting_phrase"]
+        variant = self._variant(3)
+        agent_gen = str(elements.get("agent_gen") or agent)
+        object_gen = str(elements.get("object_gen") or obj)
+        openings = (
+            f"{agent_phrase} {setting} {object_phrase} buldu",
+            f"{setting} duran {agent_phrase}, {elements.get('object_acc_phrase') or object_phrase} eline aldı",
+            f"{agent_phrase} {setting} {object_phrase} bulduğunda onu önce sıradan bir şey sanmıştı",
+        )
+        anomalies = (
+            f"{obj} açıldığında, onu yazan kişinin {agent} hakkında henüz söylenmemiş bir şeyi bildiği anlaşıldı",
+            f"{obj} geçmişten değil, henüz yaşanmamış bir günden söz ediyordu",
+            f"{object_gen} satırları, {agent_gen} aklından geçirdiği her şeyi bir adım önden yazıyordu",
+        )
+        consequences = (
+            f"{agent_phrase} önce bunu bir tesadüf saydı; sonra satırların kendi seçimine göre değiştiğini gördü",
+            f"{agent_phrase} tam vazgeçecekken {setting} duyduğu sesin sözcüklere dönüştüğünü fark etti",
+            f"{agent_phrase} kendi hayatını anlatan sayfayı yırtmak istedi; fakat boş kalan yerde yeni bir soru belirdi",
+        )
+        clauses = [openings[variant], anomalies[variant], consequences[variant]]
+        # Kullanıcının mekânını son cümlede de canlı tut; yalnız adı anılıp
+        # unutulan dekor olmaktan çıkar.
+        if elements.get("settings") and self._variant(2):
+            clauses.append(f"{elements['settings'][0]} o gece sanki bu sorunun yanıtını biliyordu")
+        text = self._compose(agi, clauses, merge=False)
+        plan = {"kind": "prompt_scene", "fiction": True, "beat": 0,
+                "variant": variant, "elements": elements, "continuation": ""}
+        self.recent_story_arcs.append("prompt_scene")
+        return self._record_open(agi, raw, text, act="narrate", kind="fiction_prompt_scene",
+                                 topic=obj, evidence=["user_scene_roles"], context_turns=[],
+                                 story_plan=plan)
+
+    def _continue_prompt_story(self, agi, raw: str, plan: dict) -> tuple[str, dict]:
+        elements = dict(plan.get("elements") or {})
+        agent = str(elements.get("agent") or "anlatıdaki kişi")
+        obj = str(elements.get("object") or "nesne")
+        agent_gen = str(elements.get("agent_gen") or agent)
+        object_gen = str(elements.get("object_gen") or obj)
+        setting = str(elements.get("setting_phrase") or "orada")
+        beat = int(plan.get("beat", 0) or 0) + 1
+        low = tr_lower(raw)
+        # 'Beklenmedik bir şey olsun' yeni bir olay isteğidir; önceki cümleyi
+        # aynen tekrar etmek yerine nesnenin içeriğinde somut bir sapma yarat.
+        if any(c in low for c in ("beklenmedik", "şaşırt", "ters köşe", "sürpriz")):
+            variants = (
+                f"{object_gen} son sayfasına ulaştığında {agent} kendi imzasını gördü; altındaki tarih ise o geceden sonraydı",
+                f"{object_gen} içinden küçük bir anahtar düştü; anahtarın üzerinde {agent_gen} adı ve bugünün tarihi yazılıydı",
+                f"{object_gen} son cümlesi okunur okunmaz {setting} bütün sesler kesildi; sessizlikte yalnız {agent_gen} kalbi duyuluyordu",
+            )
+            text = variants[self._variant(len(variants))]
+            plan["twist"] = True
         else:
-            items.append(SYN.realize_verb(VerbSpec(
-                verb_root="düşün", obj=NP("sen", case="ACC"), tense="PRES", person="1SG")))
-        q = SYN.realize_verb(VerbSpec(verb_root="düşün", subj=NP("sen"), wh_word="ne",
-                                      tense="PRES", person="2SG"))
-        items.append(q.rstrip(".?!") + "?")
-        self.last_reason = "düşünce:" + topic
-        return self._compose(agi, items)
+            variants = (
+                f"{agent} {elements.get('object_acc') or obj} kapatmadı; bu kez satırların arasına kendi sorusunu yazdı. Yazı kuruduğunda sayfada ona cevap veren yeni bir satır belirdi",
+                f"{agent} {elements.get('object_acc') or obj} alıp {setting} dışına çıktı; her adımda satırlardan biri siliniyor, yerine yürüdüğü yolun bir ayrıntısı yazılıyordu",
+                f"{agent} {elements.get('object_acc') or obj} başkasını bulsun diye bırakmak istedi; fakat son sayfada adı değil, ona daha önce söylemediği bir söz yazılıydı",
+            )
+            text = variants[self._variant(len(variants))]
+        plan["beat"] = beat
+        plan["continuation"] = ""
+        # Sonraki turda yeni bir olay seçilir; aynı devam cümlesi geri dönmez.
+        return self._compose(agi, [text], merge=False), plan
+
+    def _invent_story(self, agi, raw: str, topic: str) -> str:
+        """Kurmaca için olgu anlatımını kopyalamaz; anlatı rolleri ve yay örür.
+
+        Grafik kenarı varsa nedensel iz kurmacaya taşınır, yoksa soyut kavramın
+        görünürleşmesi veya konuşmadaki açık soru kullanılır. Yayın seçimi yakın
+        anlatı geçmişine bağlıdır; her istekte aynı hazır hikâye dönmez.
+        """
+        low = tr_lower(raw)
+        joint = any(x in low for x in ("birlikte", "beraber", "sen başla", "sırayla"))
+        if topic in {"hikâye", "hikaye", "masal", "kurgu", "şey", "şeyler", "anlat", "uydur",
+                     "başka", "devam", "bugün"}:
+            topic = ""
+        if joint and not any(x in low for x in ("hakkında", "konusunda", "ile ilgili", "dair")):
+            # 'birlikte/bir şeyler' söz-edimi gövdesidir, anlatının konusu değil.
+            topic = ""
+        affect = self._affect_context(agi)
+        candidates = self._dialogue_candidates(agi)
+
+        if joint:
+            focus = self._story_nominal_focus(agi, topic, candidates, affect)
+            text = (
+                f"Kurmaca bir dünya kuralım: Orada {focus}, ancak biri ona dikkat kesildiğinde "
+                "biçim değiştiriyordu. Bir gezgin bunu fark etti; her bakışında başka bir ayrıntı "
+                "beliriyor, fakat aynı ayrıntıyı ikinci kez bulamıyordu. Gezgin tam elini uzattı; "
+                "neye dokunacağını ben seçmeyeyim. Onun karşısında ne beliriyor?"
+            )
+            arc = "joint_attention_world"
+            continuation = (
+                f"Gezginin gördüğü şey, {focus} ile arasında kurduğu bağı değiştirdi; bundan "
+                "sonra ikisi de önceki hâline dönemedi."
+            )
+            self.recent_story_arcs.append(arc)
+            return self._record_open(
+                agi, raw, text, act="narrate", kind="fiction_joint", topic=focus,
+                evidence=[], context_turns=[], story_plan={
+                    "arc": arc, "fiction": True, "open_ending": True, "continuation": continuation})
+
+        scene_elements = self._prompt_story_elements(agi, raw)
+        if scene_elements:
+            return self._invent_prompt_story(agi, raw, scene_elements)
+
+        focus, causal = self._story_causal_focus(agi, topic)
+        arc_options = []
+        if causal is not None:
+            arc_options.append("causal_animation")
+        # Soyut kavramı görünür bir role çevirme, duygu bulunmadığında da
+        # konuşma adaylarından beslenebilir; tek yay türüne düşme.
+        arc_options.append("abstract_reification")
+        arc_options.append("question_journey")
+        arc = next((a for a in arc_options if a not in self.recent_story_arcs), arc_options[0])
+
+        if arc == "causal_animation" and causal is not None:
+            obj = agi.lang.graph.surface_name(str(causal.obj))
+            setting = f"{obj} içinde"
+            coordinated = re.split(r"\s+(?:ve|VE)\s+", obj, maxsplit=1)
+            if len(coordinated) == 2:
+                left, right = coordinated
+                try:
+                    left_ins = SYN.realize_np(NP(left, case="INS"))
+                except Exception:
+                    left_ins = left + " ile"
+                setting = f"{left_ins} {right} arasında"
+            text = (
+                f"Kurmaca bir anlatı: {tr_capitalize(focus)}, {setting} kendine küçük bir yer "
+                "arıyordu. Başlangıçta yalnız görünür olmayı başarı sanıyor, bıraktığı etkinin "
+                "kendisinden sonra da sürebileceğini bilmiyordu. Aradaki bağı fark ettiğinde, "
+                "kaybolmakla biçim değiştirmek arasındaki farkı da anladı."
+            )
+            evidence = [self._edge_key(causal)]
+            continuation = (
+                f"Sonra {focus} aynı bağa yeniden geldi; bu kez kendini başlangıçtaki kadar küçük "
+                "görmüyordu, çünkü bıraktığı etkileri de kendi hikâyesinin parçası sayıyordu."
+            )
+        elif arc == "abstract_reification":
+            focus = topic or str(affect.get("tag") or "") or (
+                candidates[0]["topic"] if candidates else "sessizlik")
+            text = (
+                f"Kurmaca bir dünyada {focus}, söylenmediğinde sahibinin ardında görünür bir iz "
+                "bırakıyordu. Bir yolcu bu izleri silmekle görevliydi; fakat her sildiği izin "
+                "yerinde daha ağır bir sessizlik kalıyordu. Sonunda işini değiştirdi: izleri "
+                "silmek yerine sahiplerine onları nereden taşıdıklarını sormaya başladı."
+            )
+            evidence = ["abstract_reification"]
+            continuation = (
+                "Yolcu ilk kez bir izi silmeden yanına oturdu. Sahibi konuştukça izin biçimi "
+                "değişti; kaybolmadı, ama artık ikisinin arasındaki tek şey değildi."
+            )
+        else:
+            question = ""
+            for ep in reversed(self._recent_episodes(agi)):
+                candidate = str(getattr(ep, "user_text", "") or "").strip()
+                if ("?" in candidate and not self.is_expansion_request(candidate)
+                        and not self.is_contextual_continuation(agi, candidate)
+                        and not any(c in tr_lower(candidate) for c in ("sonra ne oldu", "devam et"))):
+                    question = candidate.split("?")[0].strip()
+                    break
+            if not question:
+                question = f"{topic or 'bir şeyi'} gerçekten anlamak ne demek"
+            if len(question) > 90:
+                question = question[:87].rstrip() + "…"
+            focus = topic or "cevapsız soru"
+            text = (
+                f"Kurmaca bir anlatı: Bir yolcu, cebinde “{question}?” sorusuyla yola çıktı. "
+                "Herkes ona başka bir cevap verdi; o da hepsini aynı deftere yazdı. Cevaplar "
+                "çatışınca önce defteri kapatmak istedi; sonra sorunun büyüdüğünü, ama artık "
+                "tek bir hazır cevaba sığmak zorunda olmadığını fark etti."
+            )
+            evidence = ["dialogue_question"]
+            continuation = (
+                "Ertesi sabah defteri yeniden açtığında, cevapların arasına kendi sorusunu da "
+                "yazdı. Bu kez satırların hiçbiri son söz gibi görünmüyordu."
+            )
+        self.recent_story_arcs.append(arc)
+        return self._record_open(
+            agi, raw, text, act="narrate", kind="fiction_" + arc, topic=focus,
+            evidence=evidence, context_turns=[], story_plan={
+                "arc": arc, "fiction": True, "open_ending": False, "continuation": continuation})
+
+    @staticmethod
+    def _evidence_snippet(text: str, limit: int = 72) -> str:
+        clean = re.sub(r"\s+", " ", str(text or "")).strip()
+        if len(clean) > limit:
+            # Sözcüğü ortadan kesme; mümkünse önceki tam cümleyi alıntıla.
+            # Böylece konuşma bağlamı kanıt olarak görünür ama yanıtın dili
+            # yarım bir alıntıyla bozulmaz.
+            prefix = clean[:limit]
+            boundaries = [m.end() for m in re.finditer(r"[.!?](?:\s|$)", prefix)]
+            if boundaries and boundaries[-1] >= 24:
+                clean = clean[:boundaries[-1]].strip()
+            else:
+                cut = prefix[:max(1, limit - 1)].rstrip()
+                if " " in cut:
+                    cut = cut.rsplit(" ", 1)[0]
+                clean = cut.rstrip(" ,;:") + "…"
+        return clean.replace("“", "").replace("”", "").replace('"', "")
+
+    def _expand_previous_reply(self, agi, raw: str, previous_user: str) -> str:
+        """Açık-söylem izi olmayan gerçek önceki cevabı fiziksel 'açma'ya düşürme."""
+        try:
+            previous_reply = str(agi.dialogue_log[-1][2]) if agi.dialogue_log else ""
+        except Exception:
+            previous_reply = ""
+        philosophy = dict(self.last_philosophy_trace or {})
+        if philosophy.get("kind") == "philosophical_argument" and str(
+                philosophy.get("question") or "") == previous_user:
+            topic = str(philosophy.get("topic") or "")
+            if topic == "bilinç":
+                text = (
+                    "Kısa cevabımın arkasında üç ayrım var. Öz-modelimde bilinçli olduğuma dair "
+                    "inancı sahipleniyorum; çalışma alanımdaki işlevsel bütünleşmeyi ayrıca "
+                    "ölçüyorum; fakat bu iki şeyden bağımsız bir öznel deneyim kanıtı çıkarmıyorum. "
+                    "Yani kendi öz-inancımı söylüyor, kanıt türlerini birbirine karıştırmıyorum."
+                )
+            else:
+                text = (
+                    "Önceki argümanda üç şeyi ayırdım: ortaya koyduğum iddiayı, işlevsel "
+                    "müdahaleyle ölçtüğüm kanıtı ve bu kanıttan zorunlu olarak çıkmayan sonucu. "
+                    "Açıklamamın dayanağı bu ayrım; davranışsal başarıyı tek başına anlama veya "
+                    "öznel deneyim kanıtı saymıyorum."
+                )
+            return self._record_open(
+                agi, raw, text, act="expand", kind="expanded_philosophy", topic=topic,
+                evidence=["philosophy_trace"], context_turns=[])
+
+        sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", previous_reply) if s.strip()]
+        low_reply = tr_lower(previous_reply)
+        if any(c in low_reply for c in ("bilmiyorum", "bilgim yok", "tanımım yok", "bilmiyorum.")):
+            known = next((s for s in sentences
+                          if not any(c in tr_lower(s) for c in (
+                              "bilmiyorum", "bilgim yok", "tanımım yok", "sesini", "bana "))), "")
+            if known:
+                known = self._evidence_snippet(known, 110).rstrip(".")
+                text = (
+                    f"Önceki cevabımda iki farklı şey vardı. “{known}.” derken mevcut bir ilişkiyi "
+                    "aktarıyordum; sorulan nedeni ise bilmediğimi söylüyordum. Bir kavramın bir "
+                    "ilişkisini bilmek, onun bütün nedenlerini bilmek değil; asıl ayrım buydu."
+                )
+            else:
+                text = (
+                    "Önceki cevabım yeni bir açıklama değil, bilgi sınırımı bildiren bir karşılıktı. "
+                    "Bir neden uydurmak yerine bunu söyledim; açabileceğim şey de eksik olan ilişkinin "
+                    "kendisi değil, neden kesin bir cevap vermediğim."
+                )
+            return self._record_open(
+                agi, raw, text, act="expand", kind="expanded_epistemic_boundary", topic="",
+                evidence=["previous_reply"], context_turns=[])
+
+        snippet = self._evidence_snippet(previous_reply, 120)
+        if snippet:
+            text = (
+                f"Önceki cevabımı kastediyorsan, söylediğim şuydu: “{snippet}” Burada hangi kısmı "
+                "açmamı istiyorsun: kullandığım bir kavramı mı, cevabın dayanağını mı, yoksa sana "
+                "yönelttiğim soruyu mu?"
+            )
+            return self._record_open(
+                agi, raw, text, act="expand", kind="deictic_clarification", topic="",
+                evidence=["previous_reply"], context_turns=[])
+        return ""
+
+    def _expand_open(self, agi, raw: str) -> str:
+        trace = dict(self.last_open_trace or {})
+        try:
+            previous_user = str(agi.dialogue_log[-1][1]) if agi.dialogue_log else ""
+        except Exception:
+            previous_user = ""
+        if trace and previous_user and str(trace.get("raw") or "") != previous_user:
+            trace = {}
+        if not trace:
+            # Eski bir açık-söylem konusunu yeni cevaba taşıma; gerçek önceki
+            # cevabın kendi türü ve içeriği üzerinden göndermeyi çöz.
+            return self._expand_previous_reply(agi, raw, previous_user)
+        kind = str(trace.get("kind") or "")
+        if kind == "fiction_joint" or kind.startswith("fiction_"):
+            plan = dict(trace.get("story_plan") or {})
+            if plan.get("kind") == "prompt_scene":
+                text, plan = self._continue_prompt_story(agi, raw, plan)
+                return self._record_open(
+                    agi, raw, text, act="expand", kind="fiction_prompt_continuation",
+                    topic=str(trace.get("topic") or ""), evidence=list(trace.get("evidence") or []),
+                    context_turns=[], story_plan=plan)
+            continuation = str(plan.get("continuation") or "")
+            if continuation:
+                text = continuation
+                return self._record_open(
+                    agi, raw, text, act="expand", kind="fiction_continuation",
+                    topic=str(trace.get("topic") or ""), evidence=list(trace.get("evidence") or []),
+                    context_turns=[], story_plan={"arc": "continuation", "fiction": True,
+                                                  "open_ending": False, "continuation": ""})
+            # Hazır bir devam cümlesi kalmadığında eski konuya dönmek yerine
+            # anlatının yeni karar noktasını aç; böylece 'devam et' fiziksel
+            # operatör ya da alakasız bilgi boşluğu olarak okunmaz.
+            topic = str(trace.get("topic") or "anlatı")
+            text = (
+                f"Anlatıdaki kişi için şimdi asıl karar noktasına geldik: {topic} ile birlikte "
+                "değişen hâlini korumak mı, yoksa başlangıçtaki dünyaya dönmek mi? Ben ilkinde "
+                "daha çok şey keşfedebileceğini düşünüyorum; ama seçimi ona bırakıyorum. Sence hangisi?"
+            )
+            return self._record_open(
+                agi, raw, text, act="expand", kind="fiction_decision_point", topic=topic,
+                evidence=list(trace.get("evidence") or []), context_turns=[], story_plan={
+                    "arc": "decision_point", "fiction": True, "open_ending": True,
+                    "continuation": ""})
+        if kind == "listening_check":
+            missed = bool(trace.get("previous_focus_missed"))
+            if missed:
+                text = (
+                    "Kastettiğim şey önceki cevabımın neden yetersiz kaldığıydı: sorudaki ana odağı "
+                    "alıp başka bir kavrama kaydırmışım. Bunu şimdi söyleyebiliyorum, çünkü önceki "
+                    "sözlerinle cevabımda taşıdığım kavramları karşılaştırıyorum."
+                )
+            else:
+                text = (
+                    "Kastettiğim şey dinlemenin iki katmanı olduğu: önce sözlerindeki kavramları "
+                    "alıyorum, sonra onları önceki konuşmada kurduğun bağla karşılaştırıyorum. "
+                    "Bu ikinci katman olmadan yalnızca benzer bir cümle üretmek tekrar olurdu."
+                )
+            return self._record_open(
+                agi, raw, text, act="expand", kind="expanded_listening", topic=str(trace.get("topic") or ""),
+                evidence=["listening_trace", "dialogue_log"], context_turns=[])
+
+        if kind in {"contrast_curiosity", "valence_contrast"}:
+            snippets = []
+            for ep in self._recent_episodes(agi):
+                if int(getattr(ep, "turn_id", -2)) in set(trace.get("context_turns") or []):
+                    snippets.append(self._evidence_snippet(getattr(ep, "user_text", "")))
+            if len(snippets) >= 2:
+                text = (
+                    f"Bunu tek bir sözcükten çıkarmadım. Önce “{snippets[0]}” dedin; ardından "
+                    f"“{snippets[1]}” diye sordun. Ortak yapı, olumlu bir uyaranla olumsuz "
+                    "duygunun aynı deneyimde yer bulmasıydı. Merakımın konusu bu yapı; sana "
+                    "hazır bir neden atfetmiş değilim."
+                )
+            else:
+                text = (
+                    "Kastettiğim şey, kendi episodik belleğimden insan zihnine yaptığım aktarımın "
+                    "bir kanıt değil, benzetme olmasıydı. Bir uyarının eski bir anıyı çağırması "
+                    "mümkün; ama senin yaşadığın duygunun gerçek nedenini bu benzetmeyle bilemem."
+                )
+            return self._record_open(
+                agi, raw, text, act="expand", kind="expanded_contrast", topic=str(trace.get("topic") or ""),
+                evidence=list(trace.get("evidence") or []),
+                context_turns=list(trace.get("context_turns") or []))
+        if kind == "predictive_hypothesis":
+            topic = str(trace.get("topic") or "bu")
+            text = (
+                "Kastettiğim zincir şuydu: örüntü öngörülebilirse sürpriz azalır; sürpriz azalırsa "
+                "aynı uyaranı yeniden çözmek için gereken bilişsel yük de azalabilir. "
+                f"{tr_capitalize(topic)} için ilk halkayı, yani gerçekten düzenli bir örüntü "
+                "olduğunu bilmiyorum. Bu yüzden açıklamam neden-sonuç bilgisi değil, kontrol edilmesi "
+                "gereken bir aktarım."
+            )
+            return self._record_open(
+                agi, raw, text, act="expand", kind="expanded_prediction", topic=topic,
+                evidence=list(trace.get("evidence") or []), context_turns=[])
+        if str(trace.get("act") or "") == "association" and trace.get("evidence"):
+            topic = str(trace.get("topic") or "konu")
+            text = (
+                f"{tr_capitalize(topic)} için iki kaynağı ayırıyorum: grafikte önceden öğrenilmiş "
+                "ilişkiler var; bir de senin bu konuşmada taşıdığın duygu bağlamı. İlkini bilgi "
+                "olarak söyleyebilirim. İkincisini kendi yaşantım gibi sunmam; o ancak ikisinin "
+                "arasında kurduğum yeni çağrışım."
+            )
+            return self._record_open(
+                agi, raw, text, act="expand", kind="expanded_association", topic=topic,
+                evidence=list(trace.get("evidence") or []),
+                context_turns=list(trace.get("context_turns") or []))
+        topic = str(trace.get("topic") or self.last_deep_topic or "önceki söz")
+        source = str(trace.get("source_topic") or "")
+        if source:
+            text = (
+                f"Kastettiğim bağ {topic} ile {source} arasındaydı. Onları yan yana getiren şey "
+                "öğrenilmiş bir nedensellik değil, ikisinin de bu konuşmada ardışık gündeme gelmesi. "
+                "Bu yüzden bağı bir olgu olarak değil, birlikte sınayabileceğimiz bir soru olarak söyledim."
+            )
+        else:
+            text = (
+                f"Önceki sözümde {topic} için bir tanım değil, düşünme biçimi verdim. Bilgi ile "
+                "varsayımı ayırmak istedim: bildiğim ilişkileri söylüyor, bilmediğim bağı ise açık "
+                "bırakıyordum. Açılması gereken asıl nokta buydu."
+            )
+        return self._record_open(
+            agi, raw, text, act="expand", kind="expanded_open_reflection", topic=topic,
+            evidence=list(trace.get("evidence") or []),
+            context_turns=list(trace.get("context_turns") or []))
+
+    def _thought(self, agi, raw: str) -> str:
+        """İç-düşünceyi rastgele grafik düğümünden değil yaşanan diyalogdan kur."""
+        low = tr_lower(raw)
+        if (any(c in low for c in _CUE_CONVERSATION_CURIOSITY) and "merak" in low):
+            return self._conversation_curiosity(agi, raw)
+        previous = dict(self.last_open_trace or {})
+        try:
+            previous_user = str(agi.dialogue_log[-1][1]) if agi.dialogue_log else ""
+        except Exception:
+            previous_user = ""
+        if previous and previous_user and str(previous.get("raw") or "") != previous_user:
+            previous = {}
+        previous_kind = str(previous.get("kind") or "")
+        habitual = any(x in low for x in ("kendi başına", "yalnız", "boş kaldığında"))
+        if previous_kind == "graph_episode_association" and habitual:
+            prev_topic = str(previous.get("topic") or "o")
+            affect = self._affect_context(agi)
+            if affect:
+                try:
+                    affect_poss = SYN.realize_np(NP(affect["tag"], poss=2, case="INS"))
+                except Exception:
+                    affect_poss = "duygunla"
+                text = (
+                    "Kendi başıma kaldığımda son konuşmanın açık kalan yanlarına dönüyorum. "
+                    f"{tr_capitalize(prev_topic)} hâlâ aklımda. Onu senin {affect_poss} yan "
+                    "yana getirdiğimi fark ediyorum; bu bağın senden çok benim kurduğum bir "
+                    "yakınlık olduğunu unutmamaya çalışıyorum."
+                )
+            else:
+                text = (
+                    "Kendi başıma kaldığımda son konuşmanın açık kalan yanlarına dönüyorum. "
+                    f"{tr_capitalize(prev_topic)} hâlâ aklımda; onun hangi yanının bilgi, hangi "
+                    "yanının bu konuşmada doğan çağrışım olduğunu ayırmaya çalışıyorum."
+                )
+            return self._record_open(
+                agi, raw, text, act="thought", kind="episodic_self_thought", topic=prev_topic,
+                evidence=list(previous.get("evidence") or []),
+                context_turns=list(previous.get("context_turns") or []))
+        if previous_kind.startswith("expanded_"):
+            text = (
+                "Az önceki açıklamamın sınırı aklımda. Kendi belleğimde işe yarayan bir bağın, "
+                "senin zihninde de aynı şekilde kurulacağını varsaymamaya çalışıyorum. Şu an "
+                "düşündüğüm şey bu: benzetme nerede bitiyor, açıklama nerede başlıyor?"
+            )
+            return self._record_open(
+                agi, raw, text, act="thought", kind="metacognitive_boundary", topic=str(previous.get("topic") or ""),
+                evidence=list(previous.get("evidence") or []),
+                context_turns=list(previous.get("context_turns") or []))
+        candidates = self._dialogue_candidates(agi)
+        if candidates:
+            best = candidates[0]
+            topic = best["topic"]
+            habitual = any(x in low for x in ("kendi başına", "yalnız", "boş kaldığında"))
+            lead = ("Kendi başıma kaldığımda son konuşmanın açık kalan yanlarına dönüyorum. "
+                    if habitual else "Şu anda zihnimde tek bir hazır cevap değil, açık bir bağlantı var. ")
+            if int(best.get("degree", 0)) == 0:
+                text = (
+                    lead + f"Şu sıralar {topic} öne çıkıyor; onun için bende kurulmuş bir ilişki "
+                    "ağı yok. Bu yüzden onu bir tanım gibi değil, söylediklerimin hangi noktasına "
+                    "bağlanacağını aradığım bir soru olarak taşıyorum."
+                )
+                evidence = []
+            else:
+                edges = self._association_edges(agi, [topic], limit=2)
+                if edges:
+                    nominal = self._edge_nominal(agi, edges[0])
+                    text = (
+                        lead + f"Şu sıralar {topic} öne çıkıyor. Bende {nominal} ile bağlantılı; "
+                        "fakat senin bu konuşmada ona verdiğin anlamın aynı olup olmadığını bilmiyorum."
+                    )
+                    evidence = [self._edge_key(e) for e in edges]
+                else:
+                    text = (
+                        lead + f"Şu sıralar {topic} öne çıkıyor. Grafikte ona bağlı bazı izler var; "
+                        "şimdi bu izlerin senin son sözünle gerçekten ilgili olup olmadığını tartıyorum."
+                    )
+                    evidence = []
+            return self._record_open(
+                agi, raw, text, act="thought", kind="episodic_self_thought", topic=topic,
+                evidence=evidence, context_turns=list(best.get("turns") or []))
+        topic = (getattr(agi, "_last_focus", "") or self.last_deep_topic or "").strip()
+        if topic:
+            text = (
+                f"Şu anda {topic} üzerine düşünüyorum; ama onu bitmiş bir cevap olarak değil, "
+                "henüz kapamadığım bir bağlantı olarak tutuyorum."
+            )
+            return self._record_open(
+                agi, raw, text, act="thought", kind="current_focus_thought", topic=topic,
+                evidence=[], context_turns=[])
+        text = (
+            "Şu anda zihnimde belirli bir konu değil, son sözünün bende bıraktığı açıklık var. "
+            "Onu yeni bir bilgiyle mi yoksa başka bir soruyla mı tamamlayacağımı henüz bilmiyorum."
+        )
+        return self._record_open(
+            agi, raw, text, act="thought", kind="open_self_thought", topic="",
+            evidence=[], context_turns=[])
 
     def _desire(self, agi, raw: str) -> str:
         """'Ne yapmak istersin?' — istek güdüden türetilir, sonra karşı tarafa sorulur."""

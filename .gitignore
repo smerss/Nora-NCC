@@ -34,3 +34,8 @@ runs/relational_*.json
 runs/ccg_*.json
 runs/fst_*.json
 runs/transformer_*.json
+
+# Yerel eğitim/cache çıktıları; çalışma zamanı tek .nora beynini kullanır.
+data/broca_tr_sozcu.pt
+data/verb_index_cache.pkl
+state/nora_sozcu.*

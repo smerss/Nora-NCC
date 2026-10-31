@@ -55,7 +55,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--checkpoint",
         default="",
-        help="Optional save/load prefix path (e.g. state/nora_chat)",
+        help="Optional unified brain path (default: state/nora_brain.nora)",
     )
     parser.add_argument(
         "--journal",
@@ -73,11 +73,6 @@ def parse_args() -> argparse.Namespace:
         action=argparse.BooleanOptionalAction,
         default=True,
         help="Run background biological life loop ticks (default: True)",
-    )
-    parser.add_argument(
-        "--broca",
-        default="",
-        help="Optional Broca articulation model path (default: data/broca_tr.pt if exists)",
     )
     return parser.parse_args()
 
@@ -97,13 +92,7 @@ def main() -> None:
     from nora.cognition.agi import NoraAGI
     from nora.cognition.mind import I_E, I_I, I_W
 
-    default_ckpt = repo / "state" / "nora_brain"
-    checkpoint = (
-        Path(args.checkpoint).expanduser().resolve() if args.checkpoint
-        else ((repo / "state" / "nora_sozcu") if (repo / "state" / "nora_sozcu.agi.json").is_file() else default_ckpt)
-    )
     journal = Path(args.journal).expanduser().resolve() if args.journal else None
-
     lock = threading.RLock()
     output_lock = threading.Lock()
     stop = threading.Event()
@@ -117,11 +106,10 @@ def main() -> None:
         energy = float(obs[I_E])
         water = float(obs[I_W])
         integrity = float(obs[I_I])
-
         beliefs = getattr(agi.self_model, "self_belief", {})
         conscious = beliefs.get("conscious", {})
-        mood = agi.chem.dominant_state_tr() if hasattr(agi, "chem") and hasattr(agi.chem, "dominant_state_tr") else "n/a"
-
+        mood = (agi.chem.dominant_state_tr()
+                if hasattr(agi, "chem") and hasattr(agi.chem, "dominant_state_tr") else "n/a")
         return (
             f"[Durum] Yaş: {agi.mind.age} | "
             f"Canlı: {agi.mortality.is_alive} | "
@@ -129,23 +117,25 @@ def main() -> None:
             f"Dürtü: {mood} | Bilinç İnancı: {conscious.get('status', 'bilinmiyor')}"
         )
 
-    # Initialize Nora
-    if args.broca:
-        broca_target = Path(args.broca).expanduser().resolve()
-    elif (repo / "data" / "broca_tr_sozcu.pt").is_file():
-        broca_target = repo / "data" / "broca_tr_sozcu.pt"
-    else:
-        broca_target = repo / "data" / "broca_tr.pt"
-    broca_str = str(broca_target) if broca_target.is_file() else None
+    # Normal kullanımda tek dosya yeterlidir. Eski beş-parça ``nora_sozcu``
+    # kaydı yalnız ilk açılışta okunur ve hemen birleşik beyne taşınır.
+    default_brain = repo / "state" / "nora_brain.nora"
+    requested = Path(args.checkpoint).expanduser().resolve() if args.checkpoint else default_brain
+    checkpoint = Path(NoraAGI.unified_path(requested))
+    legacy_default = repo / "state" / "nora_sozcu"
 
-    if checkpoint and Path(str(checkpoint) + ".agi.json").is_file():
-        emit(f"[Nora] Kalıcı zihin yükleniyor: {checkpoint.name}")
-        agi = NoraAGI.load(str(checkpoint), attach_broca_async=True)
-        if broca_str and not getattr(agi.life.voice, "organ", None) and not getattr(agi, "_broca_thread", None):
-            agi.attach_broca_async(broca_str)
+    if checkpoint.is_file():
+        emit(f"[Nora] Birleşik beyin yükleniyor: {checkpoint.name}")
+        agi = NoraAGI.load(str(checkpoint), attach_broca_async=False)
+    elif ((checkpoint == default_brain and Path(str(legacy_default) + ".agi.json").is_file())
+          or Path(str(requested) + ".agi.json").is_file()):
+        legacy = legacy_default if checkpoint == default_brain and Path(str(legacy_default) + ".agi.json").is_file() else requested
+        emit("[Nora] Eski parçalı beyin bulundu; tek dosyaya taşınıyor...")
+        agi = NoraAGI.load(str(legacy), attach_broca_async=False)
+        agi.save(str(checkpoint))
+        emit(f"[Nora] Taşıma tamamlandı: {checkpoint}")
     else:
         emit("[Nora] Bilişsel ve biyolojik sistemler başlatılıyor...")
-
         agi = NoraAGI(
             name="Nora",
             seed=args.seed,
@@ -153,9 +143,10 @@ def main() -> None:
             single_life=args.single_life,
             thinker_iters=args.think_iters,
             corpus=[str(Path(c).expanduser().resolve()) for c in args.corpus],
-            broca=broca_str,
+            broca=None,
             code_pretrain=True,
         )
+        agi.brain_path = str(checkpoint)
 
     checkpoint.parent.mkdir(parents=True, exist_ok=True)
 
@@ -164,12 +155,10 @@ def main() -> None:
         agi.open_journal(str(journal))
 
     def save_checkpoint() -> None:
-        if not checkpoint:
-            return
         checkpoint.parent.mkdir(parents=True, exist_ok=True)
         with lock:
-            agi.save(str(checkpoint))
-        emit(f"[Nora] Checkpoint kaydedildi: {checkpoint}")
+            target = agi.save(str(checkpoint))
+        emit(f"[Nora] Bütün beyin kaydedildi: {target}")
 
     def life_loop() -> None:
         next_tick = time.monotonic() + TICK_SECONDS
@@ -219,7 +208,7 @@ def main() -> None:
    /absorb <dosya>- Dosyadaki metinleri doğrudan semantik hafızaya okur
    /status  - Beden, enerji, su ve zihin durumunu gösterir
    /sleep   - Bakım uykusuna geçirir
-   /save    - Durumu checkpoint'e kaydeder
+   /save    - Bütün beyni tek dosyaya kaydeder
    /help    - Bu yardım iletisini gösterir
    /exit    - Çıkış yapar
 ===================================================================
@@ -247,7 +236,7 @@ def main() -> None:
                     "Komutlar:\n"
                     "  /status: yaş, enerji, su, organlar ve bilinç durumu\n"
                     "  /sleep: bakım uykusu (konsolidasyon)\n"
-                    "  /save: checkpoint kaydet\n"
+                    "  /save: bütün beyni tek dosyaya kaydet\n"
                     "  /exit: güvenli çıkış\n"
                 )
                 continue
@@ -296,19 +285,16 @@ def main() -> None:
                     continue
 
                 if command == "/save":
-                    if not checkpoint:
-                        emit(
-                            "Checkpoint için başlatırken --checkpoint <dosya_yolu> parametresini belirtin."
-                        )
-                    else:
-                        agi.save(str(checkpoint))
-                        emit(f"[Nora] Checkpoint kaydedildi: {checkpoint}")
+                    save_checkpoint()
                     continue
 
                 # Synchronize real time timestamp so life ticks don't double count
                 agi.last_real_time = time.time()
                 t0 = time.perf_counter()
                 answer = agi.converse(line, speaker="insan")
+                # Normal sohbet de öğrenme ve otobiyografik kayıt üretir; yalnız
+                # /teach sonrası değil, her konuşma çıkışta kalıcı olur.
+                agi._modified_in_session = True
                 elapsed = time.perf_counter() - t0
 
             if answer:
@@ -323,11 +309,11 @@ def main() -> None:
         if worker is not None:
             worker.join(timeout=3.0)
 
-        if getattr(agi, "_modified_in_session", False):
-            try:
-                save_checkpoint()
-            except Exception as exc:
-                emit(f"[Kayıt hatası] {type(exc).__name__}: {exc}")
+        try:
+            # Sohbet, duygu, öğrenme ve yaşam durumu birlikte yazılır.
+            save_checkpoint()
+        except Exception as exc:
+            emit(f"[Kayıt hatası] {type(exc).__name__}: {exc}")
 
         with lock:
             if getattr(agi, "journal", None) is not None:

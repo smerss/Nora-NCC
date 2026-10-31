@@ -322,6 +322,7 @@ class DiscourseCortex:
         lex = set(self.lexicon or ())
         # Aynı sözcük bir turda bir kez çözümlensin (tur içi memo; O(1))
         memo: dict[str, dict] = {}
+        verb_narration: dict | None = None
         # Kimlik bildiren cümleler (ad, yaş, memleket) anlatı değil SOSYAL BİLGİdir; onları
         # sosyal öğrenme korteksi işler, Nora "duyuyorum" diye yansıtmaz.
         if any(w in words for w in ("adım", "ismim", "adımı", "yaşındayım", "yaşıyorum", "senindir")):
@@ -335,7 +336,10 @@ class DiscourseCortex:
             if an.get("tense") in ("OPT", "NEC"):
                 continue
             if an.get("is_verb") and an.get("person") in ("1SG", "1PL"):
-                return {"verb": an["stem"], "neg": bool(an.get("neg")), "person": an.get("person"),
+                # Cümlenin ilerisinde açık bir hâl bildirimi olabilir
+                # ('kafam karışık; seninle konuşmak istedim'). İlk fiili
+                # hemen döndürüp duyguyu sosyal selamlamaya kurban etme.
+                verb_narration = verb_narration or {"verb": an["stem"], "neg": bool(an.get("neg")), "person": an.get("person"),
                         "tense": an.get("tense", ""), "index": i, "words": words,
                         "rest": words[:i], "tail": words[i + 1:],
                         "modal": an.get("modal")}
@@ -386,10 +390,18 @@ class DiscourseCortex:
             if _nan is None:
                 _nan = memo[nxt] = morph.analyze_word(nxt, lex)
             _is_state = nxt in STATE_ADJECTIVES or nxt in ("yok", "yoktur")
+            _inferred_state = False
             if not _is_state and _nan.get("case") == "NOM" and not _nan.get("is_verb") \
+                    and not _nan.get("verbal_noun") and not nxt.endswith(("mak", "mek")) \
                     and not _nan.get("poss") and len(nxt) > 2:
                 # 'matematik ödevim çok zor' — sıfat yüklemi (sözlükte sıfat diye etiket yok; yapı karar verir)
                 _is_state = True
+                _inferred_state = True
+            # 'Annemle uzun uzun konuştum' içindeki uzun bir zarftır;
+            # açık bir birinci-kişi fiili varken onu hâl yüklemi sanma.
+            # Sözlükte gerçek hâl sıfatı olan 'kafam karışık' ise korunur.
+            if _is_state and _inferred_state and verb_narration is not None:
+                continue
             if _is_state:
                 # Çok sözcüklü özne: 'matematik ödevim' -> 'matematik ödev'
                 _k = i
@@ -409,6 +421,9 @@ class DiscourseCortex:
                 return {"verb": nxt, "neg": nxt.startswith("yok"), "person": "1SG", "tense": "STATE",
                         "index": i, "words": words, "rest": words[:i], "tail": words[j + 1:],
                         "state": True, "subject": _subj}
+
+        if verb_narration is not None:
+            return verb_narration
 
         # Kimlik bildirimi: 'Ben öğretmenim' (1. kişi koşacı + meslek adı)
         if len(words) >= 2 and words[0] == "ben":
@@ -559,6 +574,41 @@ class DiscourseCortex:
             return ctx, f"{gen} {nom}".strip(), mid
         return None
 
+    def _failed_relief_note(self, nar: dict, agi) -> str:
+        """Hâl + başarısız rahatlama yan olayını tek anlam planında birleştir.
+
+        '... yürüyüş bile iyi gelmedi' örneğindeki sözcüklere değil, ``iyi
+        gel-`` ilişkisinin olumsuzlanmasına bakar. Böylece ikinci olay düşüp
+        yalnız ilk sıfatın yankısı söylenmez; her somut eylem için de ayrı
+        hazır karşılık yazılmaz.
+        """
+        tail = list(nar.get("tail") or [])
+        if not tail or "iyi" not in tail:
+            return ""
+        morph = getattr(getattr(agi, "lang", None), "morph", None)
+        lex = getattr(getattr(getattr(agi, "lang", None), "graph", None), "lexicon", None)
+        if morph is None:
+            return ""
+        good_i = tail.index("iyi")
+        for w in tail[good_i + 1:]:
+            try:
+                an = morph.analyze_word(w, lex)
+            except Exception:
+                continue
+            if an.get("is_verb") and an.get("stem") == "gel" and an.get("neg"):
+                focus = " ".join(
+                    x for x in tail[:good_i]
+                    if x not in {"bile", "da", "de", "ama", "fakat", "üstelik", "artık"}
+                ).strip()
+                if focus:
+                    try:
+                        additive = "d" + morph.vowel_e_a(focus)
+                    except Exception:
+                        additive = "de"
+                    return f"{focus} {additive} beklediğin rahatlamayı getirmemiş"
+                return "beklediğin rahatlamanın gelmemesi de işi zorlaştırmış"
+        return ""
+
     def respond_narration(self, raw: str, agi, nar: dict) -> dict:
         """Anlatıya insan gibi karşılık: olayı kendi sözleriyle geri yansıt + gerçek bir soru."""
         verb = nar["verb"]
@@ -634,12 +684,15 @@ class DiscourseCortex:
                 warm = True
             follow = self._fresh((
                 "Yanındayım.", "Ne oldu?", "Bu his ne zamandır sürüyor?",
-                "İstersen biraz susalım, beraber.",
+                "İstersen birlikte biraz susalım.",
             )) if warm else self._fresh((
                 "Bunu yalnız taşımak zorunda değilsin.", "Biraz yavaşlayalım mı?", "Nefes al, buradayım.",
             ))
             if nar.get("neg") and not _subj:
                 follow = ""
+            relief_note = self._failed_relief_note(nar, agi)
+            if relief_note:
+                lead = f"{lead} {tr_capitalize(relief_note)}."
             return {"text": f"{lead} {follow}".strip(), "act": "NARRATION_EMPATHIZE", "narration": True}
         # Konuşan 'biz' diyorsa dinleyen de o topluluğun içinde: 'gideceğimizi duyuyorum'.
         _poss = 4 if str(nar.get("person")) == "1PL" else 2
@@ -898,8 +951,9 @@ class DiscourseCortex:
                 f"Bu evrende elim yok, {neg_ab}" if not acc else
                 f"{tr_capitalize(acc)} {neg_ab}: bende el yok",
             ))
-            ask = self._fresh(("Sen mi yapacaksın?", "Başka nasıl yardımcı olabilirim?",
-                               "Bunu tarif edersen belki başka türlü yardım edebilirim."))
+            ask = self._fresh(("Sen mi yapacaksın?",
+                               "Elim yok; ama bunun başka bir yolunu birlikte düşünebiliriz.",
+                               "Fiziksel adımı yapamam; sözle çözüm arayabiliriz."))
             return f"{head}. {tr_capitalize(ask)}"
         if verb in ("öner", "tavsiye et"):
             topic = obj or "bir şey"

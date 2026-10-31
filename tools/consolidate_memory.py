@@ -53,7 +53,7 @@ def main():
 
     # Haber külliyatından tanım, nedensellik ve güçlü olgu cümlelerini topla
     pattern = re.compile(r"(?:d[ıiırruü]r|t[ıiırruü]r|yönetir|sağlar|belirler|oluşturur|kabul\s+etti|karar\s+verdi)\b", re.IGNORECASE)
-    
+
     for s in raw_sents:
         s = s.strip()
         words = s.split()
