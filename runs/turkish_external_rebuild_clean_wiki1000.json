@@ -1,0 +1,82 @@
+[
+  {
+    "step": 250,
+    "seen_delta": 87432,
+    "loss250": 5.871971216201782,
+    "lr": 0.0009516619028617729,
+    "seconds": 57.70986292500038,
+    "held_exact_skipped": 0,
+    "dropout": 0.0,
+    "bpe_dropout": 0.0,
+    "batch": 32,
+    "sources": [
+      "wiki_cc0"
+    ],
+    "stream_sentences": 170457,
+    "hidden": 512,
+    "n": 393,
+    "top1": 0.3104325699745547,
+    "top5": 0.3816793893129771,
+    "ppl": 247.66119552937414
+  },
+  {
+    "step": 500,
+    "seen_delta": 175340,
+    "loss250": 5.658980033874512,
+    "lr": 0.0009097176522946842,
+    "seconds": 124.16850030200021,
+    "held_exact_skipped": 0,
+    "dropout": 0.0,
+    "bpe_dropout": 0.0,
+    "batch": 32,
+    "sources": [
+      "wiki_cc0"
+    ],
+    "stream_sentences": 170457,
+    "hidden": 512,
+    "n": 393,
+    "top1": 0.2875318066157761,
+    "top5": 0.36895674300254455,
+    "ppl": 250.20396226031525
+  },
+  {
+    "step": 750,
+    "seen_delta": 263213,
+    "loss250": 5.5586007213592525,
+    "lr": 0.0008728715609439695,
+    "seconds": 193.77413388199966,
+    "held_exact_skipped": 0,
+    "dropout": 0.0,
+    "bpe_dropout": 0.0,
+    "batch": 32,
+    "sources": [
+      "wiki_cc0"
+    ],
+    "stream_sentences": 170457,
+    "hidden": 512,
+    "n": 393,
+    "top1": 0.2926208651399491,
+    "top5": 0.3638676844783715,
+    "ppl": 289.235338466106
+  },
+  {
+    "step": 1000,
+    "seen_delta": 350447,
+    "loss250": 5.513892251968384,
+    "lr": 0.0008401680504168059,
+    "seconds": 260.6834121439997,
+    "held_exact_skipped": 0,
+    "dropout": 0.0,
+    "bpe_dropout": 0.0,
+    "batch": 32,
+    "sources": [
+      "wiki_cc0"
+    ],
+    "stream_sentences": 170457,
+    "hidden": 512,
+    "n": 393,
+    "top1": 0.2875318066157761,
+    "top5": 0.37150127226463103,
+    "ppl": 269.7144087940172
+  }
+]

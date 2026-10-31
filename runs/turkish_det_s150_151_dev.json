@@ -1,0 +1,52 @@
+[
+  {
+    "fold": 1,
+    "position_seed": 150,
+    "wide_seed": 151,
+    "position_epochs_fixed": 12,
+    "wide_epochs_fixed": 9,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean1000_step1000.pt",
+    "model_prefix": "det_s150_151",
+    "freeze_emb": false,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_bpe_dropout_deterministic": true,
+    "target_seeded_bpe": true,
+    "runtime": {
+      "torch": "2.15.0+cu132",
+      "tokenizers": "0.23.3"
+    },
+    "target_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "dialogue_repeats": 1,
+    "target_domain": "all",
+    "target_l2sp": 0.0,
+    "position": {
+      "n": 401,
+      "hit1": 154,
+      "hit5": 191,
+      "top1": 0.38403990024937656,
+      "top5": 0.4763092269326683,
+      "ppl": 76.25676561266685
+    },
+    "wide": {
+      "n": 401,
+      "hit1": 160,
+      "hit5": 191,
+      "top1": 0.39900249376558605,
+      "top5": 0.4763092269326683,
+      "ppl": 85.10507089907703
+    },
+    "ensemble": {
+      "n": 401,
+      "hit1": 165,
+      "hit5": 196,
+      "top1": 0.4114713216957606,
+      "top5": 0.48877805486284287,
+      "ppl": 72.41127556121339
+    },
+    "seconds": 37.630674239000086
+  }
+]

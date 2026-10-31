@@ -1,0 +1,125 @@
+{
+  "protocol": "one-pass target training; fixed external retention probes; no replay/epoch augmentation",
+  "results": [
+    {
+      "fold": 1,
+      "train_sentences": 234,
+      "optimizer_steps": 8,
+      "epochs": 1,
+      "replay": false,
+      "held": {
+        "n": 401,
+        "hit1": 148,
+        "hit5": 189,
+        "top1": 0.3690773067331671,
+        "top5": 0.4713216957605985,
+        "ppl": 83.11056248541418
+      },
+      "before": {
+        "chatbot_confirmation": {
+          "n": 5953,
+          "hit1": 1444,
+          "hit5": 2255,
+          "top1": 0.24256677305560223,
+          "top5": 0.37880060473710736,
+          "ppl": 202.19577232972304
+        },
+        "xquad": {
+          "n": 15737,
+          "hit1": 1738,
+          "hit5": 3462,
+          "top1": 0.11044036347461397,
+          "top5": 0.21999110376818962,
+          "ppl": 1000.3753118593024
+        }
+      },
+      "after": {
+        "chatbot_confirmation": {
+          "n": 5953,
+          "hit1": 1334,
+          "hit5": 2109,
+          "top1": 0.22408869477574334,
+          "top5": 0.3542751553838401,
+          "ppl": 317.7102073324716
+        },
+        "xquad": {
+          "n": 15737,
+          "hit1": 1366,
+          "hit5": 2908,
+          "top1": 0.08680180466416725,
+          "top5": 0.18478744360424476,
+          "ppl": 1729.342080576746
+        }
+      },
+      "external_ppl_delta": {
+        "chatbot_confirmation": 115.51443500274857,
+        "xquad": 728.9667687174435
+      },
+      "external_hit1_delta": {
+        "chatbot_confirmation": -110,
+        "xquad": -372
+      },
+      "seconds": 10.321202296999218
+    },
+    {
+      "fold": 2,
+      "train_sentences": 234,
+      "optimizer_steps": 8,
+      "epochs": 1,
+      "replay": false,
+      "held": {
+        "n": 419,
+        "hit1": 157,
+        "hit5": 199,
+        "top1": 0.3747016706443914,
+        "top5": 0.47494033412887826,
+        "ppl": 96.0203121936803
+      },
+      "before": {
+        "chatbot_confirmation": {
+          "n": 5953,
+          "hit1": 1444,
+          "hit5": 2255,
+          "top1": 0.24256677305560223,
+          "top5": 0.37880060473710736,
+          "ppl": 202.19577232972304
+        },
+        "xquad": {
+          "n": 15737,
+          "hit1": 1738,
+          "hit5": 3462,
+          "top1": 0.11044036347461397,
+          "top5": 0.21999110376818962,
+          "ppl": 1000.3753118593024
+        }
+      },
+      "after": {
+        "chatbot_confirmation": {
+          "n": 5953,
+          "hit1": 1335,
+          "hit5": 2133,
+          "top1": 0.22425667730556023,
+          "top5": 0.35830673609944563,
+          "ppl": 314.518300204878
+        },
+        "xquad": {
+          "n": 15737,
+          "hit1": 1403,
+          "hit5": 2936,
+          "top1": 0.08915295164262566,
+          "top5": 0.18656668996632142,
+          "ppl": 1698.3012583072543
+        }
+      },
+      "external_ppl_delta": {
+        "chatbot_confirmation": 112.32252787515498,
+        "xquad": 697.9259464479519
+      },
+      "external_hit1_delta": {
+        "chatbot_confirmation": -109,
+        "xquad": -335
+      },
+      "seconds": 10.218221996000466
+    }
+  ]
+}

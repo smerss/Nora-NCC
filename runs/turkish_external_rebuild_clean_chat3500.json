@@ -1,0 +1,282 @@
+[
+  {
+    "step": 250,
+    "seen_delta": 99018,
+    "loss250": 5.334033760070801,
+    "lr": 0.0009516619028617729,
+    "seconds": 75.05388259300025,
+    "held_exact_skipped": 0,
+    "dropout": 0.0,
+    "bpe_dropout": 0.0,
+    "batch": 32,
+    "sources": [
+      "chatbot_gpl3"
+    ],
+    "stream_sentences": 116199,
+    "hidden": 512,
+    "n": 393,
+    "top1": 0.30025445292620867,
+    "top5": 0.3791348600508906,
+    "ppl": 249.74120204115619
+  },
+  {
+    "step": 500,
+    "seen_delta": 199852,
+    "loss250": 5.103325141906739,
+    "lr": 0.0009097176522946842,
+    "seconds": 152.30520652799987,
+    "held_exact_skipped": 0,
+    "dropout": 0.0,
+    "bpe_dropout": 0.0,
+    "batch": 32,
+    "sources": [
+      "chatbot_gpl3"
+    ],
+    "stream_sentences": 116199,
+    "hidden": 512,
+    "n": 393,
+    "top1": 0.29770992366412213,
+    "top5": 0.39185750636132316,
+    "ppl": 262.1175293885322
+  },
+  {
+    "step": 750,
+    "seen_delta": 299320,
+    "loss250": 5.033283754348755,
+    "lr": 0.0008728715609439695,
+    "seconds": 227.684900879,
+    "held_exact_skipped": 0,
+    "dropout": 0.0,
+    "bpe_dropout": 0.0,
+    "batch": 32,
+    "sources": [
+      "chatbot_gpl3"
+    ],
+    "stream_sentences": 116199,
+    "hidden": 512,
+    "n": 393,
+    "top1": 0.3104325699745547,
+    "top5": 0.3791348600508906,
+    "ppl": 242.64599013566504
+  },
+  {
+    "step": 1000,
+    "seen_delta": 400234,
+    "loss250": 4.979743705749511,
+    "lr": 0.0008401680504168059,
+    "seconds": 304.9012394710003,
+    "held_exact_skipped": 0,
+    "dropout": 0.0,
+    "bpe_dropout": 0.0,
+    "batch": 32,
+    "sources": [
+      "chatbot_gpl3"
+    ],
+    "stream_sentences": 116199,
+    "hidden": 512,
+    "n": 393,
+    "top1": 0.30788804071246817,
+    "top5": 0.3791348600508906,
+    "ppl": 236.4430202954131
+  },
+  {
+    "step": 1250,
+    "seen_delta": 501127,
+    "loss250": 4.936652536392212,
+    "lr": 0.0008108848540793831,
+    "seconds": 382.8519870180003,
+    "held_exact_skipped": 0,
+    "dropout": 0.0,
+    "bpe_dropout": 0.0,
+    "batch": 32,
+    "sources": [
+      "chatbot_gpl3"
+    ],
+    "stream_sentences": 116199,
+    "hidden": 512,
+    "n": 393,
+    "top1": 0.3053435114503817,
+    "top5": 0.37659033078880405,
+    "ppl": 240.15258116383347
+  },
+  {
+    "step": 1500,
+    "seen_delta": 603371,
+    "loss250": 4.915096181869507,
+    "lr": 0.0007844645405527362,
+    "seconds": 462.04373894000037,
+    "held_exact_skipped": 0,
+    "dropout": 0.0,
+    "bpe_dropout": 0.0,
+    "batch": 32,
+    "sources": [
+      "chatbot_gpl3"
+    ],
+    "stream_sentences": 116199,
+    "hidden": 512,
+    "n": 393,
+    "top1": 0.3053435114503817,
+    "top5": 0.37659033078880405,
+    "ppl": 247.60366125786837
+  },
+  {
+    "step": 1750,
+    "seen_delta": 705461,
+    "loss250": 4.8824248847961425,
+    "lr": 0.0007604691006293736,
+    "seconds": 548.3496631190001,
+    "held_exact_skipped": 0,
+    "dropout": 0.0,
+    "bpe_dropout": 0.0,
+    "batch": 32,
+    "sources": [
+      "chatbot_gpl3"
+    ],
+    "stream_sentences": 116199,
+    "hidden": 512,
+    "n": 393,
+    "top1": 0.31297709923664124,
+    "top5": 0.38676844783715014,
+    "ppl": 230.50857158479155
+  },
+  {
+    "step": 2000,
+    "seen_delta": 807551,
+    "loss250": 4.853500802993774,
+    "lr": 0.0007385489458759963,
+    "seconds": 646.5147803350001,
+    "held_exact_skipped": 0,
+    "dropout": 0.0,
+    "bpe_dropout": 0.0,
+    "batch": 32,
+    "sources": [
+      "chatbot_gpl3"
+    ],
+    "stream_sentences": 116199,
+    "hidden": 512,
+    "n": 393,
+    "top1": 0.3053435114503817,
+    "top5": 0.37659033078880405,
+    "ppl": 230.1377030635542
+  },
+  {
+    "step": 2250,
+    "seen_delta": 908788,
+    "loss250": 4.829997937202454,
+    "lr": 0.0007184212081070997,
+    "seconds": 748.348042912,
+    "held_exact_skipped": 0,
+    "dropout": 0.0,
+    "bpe_dropout": 0.0,
+    "batch": 32,
+    "sources": [
+      "chatbot_gpl3"
+    ],
+    "stream_sentences": 116199,
+    "hidden": 512,
+    "n": 393,
+    "top1": 0.30788804071246817,
+    "top5": 0.3816793893129771,
+    "ppl": 231.1290194659637
+  },
+  {
+    "step": 2500,
+    "seen_delta": 1010447,
+    "loss250": 4.81631443977356,
+    "lr": 0.0006998542122237651,
+    "seconds": 847.2458315670001,
+    "held_exact_skipped": 0,
+    "dropout": 0.0,
+    "bpe_dropout": 0.0,
+    "batch": 32,
+    "sources": [
+      "chatbot_gpl3"
+    ],
+    "stream_sentences": 116199,
+    "hidden": 512,
+    "n": 393,
+    "top1": 0.30279898218829515,
+    "top5": 0.37659033078880405,
+    "ppl": 239.53454473245606
+  },
+  {
+    "step": 2750,
+    "seen_delta": 1111122,
+    "loss250": 4.771169767379761,
+    "lr": 0.0006826561487862893,
+    "seconds": 938.161828706,
+    "held_exact_skipped": 0,
+    "dropout": 0.0,
+    "bpe_dropout": 0.0,
+    "batch": 32,
+    "sources": [
+      "chatbot_gpl3"
+    ],
+    "stream_sentences": 116199,
+    "hidden": 512,
+    "n": 393,
+    "top1": 0.30025445292620867,
+    "top5": 0.37404580152671757,
+    "ppl": 224.6214626302021
+  },
+  {
+    "step": 3000,
+    "seen_delta": 1211628,
+    "loss250": 4.758300020217895,
+    "lr": 0.0006666666666666666,
+    "seconds": 1034.7425826449999,
+    "held_exact_skipped": 0,
+    "dropout": 0.0,
+    "bpe_dropout": 0.0,
+    "batch": 32,
+    "sources": [
+      "chatbot_gpl3"
+    ],
+    "stream_sentences": 116199,
+    "hidden": 512,
+    "n": 393,
+    "top1": 0.3104325699745547,
+    "top5": 0.37659033078880405,
+    "ppl": 237.1825594767346
+  },
+  {
+    "step": 3250,
+    "seen_delta": 1314887,
+    "loss250": 4.784387832641602,
+    "lr": 0.0006517505359122821,
+    "seconds": 1127.2907658140002,
+    "held_exact_skipped": 0,
+    "dropout": 0.0,
+    "bpe_dropout": 0.0,
+    "batch": 32,
+    "sources": [
+      "chatbot_gpl3"
+    ],
+    "stream_sentences": 116199,
+    "hidden": 512,
+    "n": 393,
+    "top1": 0.3053435114503817,
+    "top5": 0.37404580152671757,
+    "ppl": 223.9985840072673
+  },
+  {
+    "step": 3500,
+    "seen_delta": 1415682,
+    "loss250": 4.729891687393189,
+    "lr": 0.0006377928041432807,
+    "seconds": 1216.86586799,
+    "held_exact_skipped": 0,
+    "dropout": 0.0,
+    "bpe_dropout": 0.0,
+    "batch": 32,
+    "sources": [
+      "chatbot_gpl3"
+    ],
+    "stream_sentences": 116199,
+    "hidden": 512,
+    "n": 393,
+    "top1": 0.30788804071246817,
+    "top5": 0.3816793893129771,
+    "ppl": 228.13520876304997
+  }
+]

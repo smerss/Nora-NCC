@@ -1,0 +1,414 @@
+{
+  "protocol": "step8000 reserved external tail; target and reserved external each once; alternating no replay",
+  "base_checkpoint": "runs/models/external_onepass_full_step8000.pt",
+  "results": [
+    {
+      "fold": 1,
+      "mode": "full",
+      "target_batch": 4,
+      "external_per_target_batch": 4,
+      "target_lr": 0.0005,
+      "external_lr": 0.0001,
+      "base_held": {
+        "n": 401,
+        "hit1": 129,
+        "hit5": 177,
+        "top1": 0.32169576059850374,
+        "top5": 0.44139650872817954,
+        "ppl": 119.7878374825833
+      },
+      "held": {
+        "n": 401,
+        "hit1": 149,
+        "hit5": 203,
+        "top1": 0.371571072319202,
+        "top5": 0.5062344139650873,
+        "ppl": 68.7969118634014
+      },
+      "base_probe": {
+        "n": 1461,
+        "hit1": 404,
+        "hit5": 622,
+        "top1": 0.27652292950034224,
+        "top5": 0.42573579739904177,
+        "ppl": 139.7341070453741
+      },
+      "probe_after": {
+        "n": 1461,
+        "hit1": 372,
+        "hit5": 614,
+        "top1": 0.2546201232032854,
+        "top5": 0.4202600958247775,
+        "ppl": 167.0478057578249
+      },
+      "probe_hit1_delta": -32,
+      "probe_ppl_delta": 27.313698712450815,
+      "target_seen": 234,
+      "external_seen": 236,
+      "external_range": [
+        256000,
+        256236
+      ],
+      "target_cycles": 0,
+      "held_exact_skipped": 0,
+      "model": "runs/models/reserved_full_tb4_ex4_lr0.0005_fold1.pt"
+    },
+    {
+      "fold": 2,
+      "mode": "full",
+      "target_batch": 4,
+      "external_per_target_batch": 4,
+      "target_lr": 0.0005,
+      "external_lr": 0.0001,
+      "base_held": {
+        "n": 419,
+        "hit1": 134,
+        "hit5": 177,
+        "top1": 0.3198090692124105,
+        "top5": 0.4224343675417661,
+        "ppl": 151.0873870258493
+      },
+      "held": {
+        "n": 419,
+        "hit1": 164,
+        "hit5": 201,
+        "top1": 0.3914081145584726,
+        "top5": 0.4797136038186158,
+        "ppl": 89.90616164770421
+      },
+      "base_probe": {
+        "n": 1461,
+        "hit1": 404,
+        "hit5": 622,
+        "top1": 0.27652292950034224,
+        "top5": 0.42573579739904177,
+        "ppl": 139.7341070453741
+      },
+      "probe_after": {
+        "n": 1461,
+        "hit1": 375,
+        "hit5": 620,
+        "top1": 0.25667351129363447,
+        "top5": 0.4243668720054757,
+        "ppl": 165.03535601049904
+      },
+      "probe_hit1_delta": -29,
+      "probe_ppl_delta": 25.301248965124955,
+      "target_seen": 234,
+      "external_seen": 236,
+      "external_range": [
+        256000,
+        256236
+      ],
+      "target_cycles": 0,
+      "held_exact_skipped": 0,
+      "model": "runs/models/reserved_full_tb4_ex4_lr0.0005_fold2.pt"
+    },
+    {
+      "fold": 1,
+      "mode": "full",
+      "target_batch": 4,
+      "external_per_target_batch": 12,
+      "target_lr": 0.0005,
+      "external_lr": 0.0001,
+      "base_held": {
+        "n": 401,
+        "hit1": 129,
+        "hit5": 177,
+        "top1": 0.32169576059850374,
+        "top5": 0.44139650872817954,
+        "ppl": 119.7878374825833
+      },
+      "held": {
+        "n": 401,
+        "hit1": 150,
+        "hit5": 200,
+        "top1": 0.3740648379052369,
+        "top5": 0.49875311720698257,
+        "ppl": 68.18574659666253
+      },
+      "base_probe": {
+        "n": 1461,
+        "hit1": 404,
+        "hit5": 622,
+        "top1": 0.27652292950034224,
+        "top5": 0.42573579739904177,
+        "ppl": 139.7341070453741
+      },
+      "probe_after": {
+        "n": 1461,
+        "hit1": 375,
+        "hit5": 611,
+        "top1": 0.25667351129363447,
+        "top5": 0.4182067077344285,
+        "ppl": 158.63844218077207
+      },
+      "probe_hit1_delta": -29,
+      "probe_ppl_delta": 18.904335135397986,
+      "target_seen": 234,
+      "external_seen": 708,
+      "external_range": [
+        256000,
+        256708
+      ],
+      "target_cycles": 0,
+      "held_exact_skipped": 0,
+      "model": "runs/models/reserved_full_tb4_ex12_lr0.0005_fold1.pt"
+    },
+    {
+      "fold": 2,
+      "mode": "full",
+      "target_batch": 4,
+      "external_per_target_batch": 12,
+      "target_lr": 0.0005,
+      "external_lr": 0.0001,
+      "base_held": {
+        "n": 419,
+        "hit1": 134,
+        "hit5": 177,
+        "top1": 0.3198090692124105,
+        "top5": 0.4224343675417661,
+        "ppl": 151.0873870258493
+      },
+      "held": {
+        "n": 419,
+        "hit1": 162,
+        "hit5": 203,
+        "top1": 0.38663484486873506,
+        "top5": 0.48448687350835323,
+        "ppl": 91.61350613271114
+      },
+      "base_probe": {
+        "n": 1461,
+        "hit1": 404,
+        "hit5": 622,
+        "top1": 0.27652292950034224,
+        "top5": 0.42573579739904177,
+        "ppl": 139.7341070453741
+      },
+      "probe_after": {
+        "n": 1461,
+        "hit1": 380,
+        "hit5": 617,
+        "top1": 0.2600958247775496,
+        "top5": 0.42231348391512663,
+        "ppl": 157.68441618344818
+      },
+      "probe_hit1_delta": -24,
+      "probe_ppl_delta": 17.95030913807409,
+      "target_seen": 234,
+      "external_seen": 708,
+      "external_range": [
+        256000,
+        256708
+      ],
+      "target_cycles": 0,
+      "held_exact_skipped": 0,
+      "model": "runs/models/reserved_full_tb4_ex12_lr0.0005_fold2.pt"
+    },
+    {
+      "fold": 1,
+      "mode": "full",
+      "target_batch": 4,
+      "external_per_target_batch": 12,
+      "target_lr": 0.001,
+      "external_lr": 0.0001,
+      "base_held": {
+        "n": 401,
+        "hit1": 129,
+        "hit5": 177,
+        "top1": 0.32169576059850374,
+        "top5": 0.44139650872817954,
+        "ppl": 119.7878374825833
+      },
+      "held": {
+        "n": 401,
+        "hit1": 155,
+        "hit5": 205,
+        "top1": 0.3865336658354115,
+        "top5": 0.5112219451371571,
+        "ppl": 61.87095452036324
+      },
+      "base_probe": {
+        "n": 1461,
+        "hit1": 404,
+        "hit5": 622,
+        "top1": 0.27652292950034224,
+        "top5": 0.42573579739904177,
+        "ppl": 139.7341070453741
+      },
+      "probe_after": {
+        "n": 1461,
+        "hit1": 368,
+        "hit5": 598,
+        "top1": 0.2518822724161533,
+        "top5": 0.40930869267624914,
+        "ppl": 179.73528393605997
+      },
+      "probe_hit1_delta": -36,
+      "probe_ppl_delta": 40.00117689068588,
+      "target_seen": 234,
+      "external_seen": 708,
+      "external_range": [
+        256000,
+        256708
+      ],
+      "target_cycles": 0,
+      "held_exact_skipped": 0,
+      "model": "runs/models/reserved_full_tb4_ex12_lr0.001_fold1.pt"
+    },
+    {
+      "fold": 2,
+      "mode": "full",
+      "target_batch": 4,
+      "external_per_target_batch": 12,
+      "target_lr": 0.001,
+      "external_lr": 0.0001,
+      "base_held": {
+        "n": 419,
+        "hit1": 134,
+        "hit5": 177,
+        "top1": 0.3198090692124105,
+        "top5": 0.4224343675417661,
+        "ppl": 151.0873870258493
+      },
+      "held": {
+        "n": 419,
+        "hit1": 164,
+        "hit5": 204,
+        "top1": 0.3914081145584726,
+        "top5": 0.48687350835322196,
+        "ppl": 88.41142328664161
+      },
+      "base_probe": {
+        "n": 1461,
+        "hit1": 404,
+        "hit5": 622,
+        "top1": 0.27652292950034224,
+        "top5": 0.42573579739904177,
+        "ppl": 139.7341070453741
+      },
+      "probe_after": {
+        "n": 1461,
+        "hit1": 375,
+        "hit5": 597,
+        "top1": 0.25667351129363447,
+        "top5": 0.4086242299794661,
+        "ppl": 178.60438637000792
+      },
+      "probe_hit1_delta": -29,
+      "probe_ppl_delta": 38.87027932463383,
+      "target_seen": 234,
+      "external_seen": 708,
+      "external_range": [
+        256000,
+        256708
+      ],
+      "target_cycles": 0,
+      "held_exact_skipped": 0,
+      "model": "runs/models/reserved_full_tb4_ex12_lr0.001_fold2.pt"
+    },
+    {
+      "fold": 1,
+      "mode": "sampled",
+      "target_batch": 1,
+      "external_per_target_batch": 12,
+      "target_lr": 0.0005,
+      "external_lr": 0.0001,
+      "base_held": {
+        "n": 401,
+        "hit1": 129,
+        "hit5": 177,
+        "top1": 0.32169576059850374,
+        "top5": 0.44139650872817954,
+        "ppl": 119.7878374825833
+      },
+      "held": {
+        "n": 401,
+        "hit1": 154,
+        "hit5": 206,
+        "top1": 0.38403990024937656,
+        "top5": 0.513715710723192,
+        "ppl": 68.67170425690013
+      },
+      "base_probe": {
+        "n": 1461,
+        "hit1": 404,
+        "hit5": 622,
+        "top1": 0.27652292950034224,
+        "top5": 0.42573579739904177,
+        "ppl": 139.7341070453741
+      },
+      "probe_after": {
+        "n": 1461,
+        "hit1": 383,
+        "hit5": 602,
+        "top1": 0.2621492128678987,
+        "top5": 0.41204654346338127,
+        "ppl": 163.61701371260943
+      },
+      "probe_hit1_delta": -21,
+      "probe_ppl_delta": 23.882906667235346,
+      "target_seen": 234,
+      "external_seen": 2808,
+      "external_range": [
+        256000,
+        258808
+      ],
+      "target_cycles": 0,
+      "held_exact_skipped": 0,
+      "model": "runs/models/reserved_sampled_tb1_ex12_lr0.0005_fold1.pt"
+    },
+    {
+      "fold": 2,
+      "mode": "sampled",
+      "target_batch": 1,
+      "external_per_target_batch": 12,
+      "target_lr": 0.0005,
+      "external_lr": 0.0001,
+      "base_held": {
+        "n": 419,
+        "hit1": 134,
+        "hit5": 177,
+        "top1": 0.3198090692124105,
+        "top5": 0.4224343675417661,
+        "ppl": 151.0873870258493
+      },
+      "held": {
+        "n": 419,
+        "hit1": 164,
+        "hit5": 202,
+        "top1": 0.3914081145584726,
+        "top5": 0.4821002386634845,
+        "ppl": 94.62230722559828
+      },
+      "base_probe": {
+        "n": 1461,
+        "hit1": 404,
+        "hit5": 622,
+        "top1": 0.27652292950034224,
+        "top5": 0.42573579739904177,
+        "ppl": 139.7341070453741
+      },
+      "probe_after": {
+        "n": 1461,
+        "hit1": 385,
+        "hit5": 607,
+        "top1": 0.26351813826146475,
+        "top5": 0.41546885694729635,
+        "ppl": 162.39797488921286
+      },
+      "probe_hit1_delta": -19,
+      "probe_ppl_delta": 22.663867843838773,
+      "target_seen": 234,
+      "external_seen": 2808,
+      "external_range": [
+        256000,
+        258808
+      ],
+      "target_cycles": 0,
+      "held_exact_skipped": 0,
+      "model": "runs/models/reserved_sampled_tb1_ex12_lr0.0005_fold2.pt"
+    }
+  ]
+}

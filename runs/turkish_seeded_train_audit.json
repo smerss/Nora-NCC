@@ -1,0 +1,28 @@
+{
+  "protocol": "same base, same first 32 external sentences, one full-loss update; separate Python processes for seeded replica; Rust-compatible skipped-merge reinsertion",
+  "runtime": {
+    "torch": "2.15.0+cu132",
+    "tokenizers": "0.23.3"
+  },
+  "zero_dropout_legacy": {
+    "loss": 8.669426918029785,
+    "seen": 20422394,
+    "hash": "de464a292f9097c005c6fcf7b3e25a77d6dc54143c54a0e867c533844939a45a"
+  },
+  "zero_dropout_seeded": {
+    "loss": 8.669426918029785,
+    "seen": 20422394,
+    "hash": "de464a292f9097c005c6fcf7b3e25a77d6dc54143c54a0e867c533844939a45a"
+  },
+  "dropout_01_seed_149000003_run_a": {
+    "loss": 8.580397605895996,
+    "seen": 20422434,
+    "hash": "6f5def7bc829a2b07856c5c974a7f6274c9638f695536f0de1a7103e39e0ce1c"
+  },
+  "dropout_01_seed_149000003_run_b": {
+    "loss": 8.580397605895996,
+    "seen": 20422434,
+    "hash": "6f5def7bc829a2b07856c5c974a7f6274c9638f695536f0de1a7103e39e0ce1c"
+  },
+  "passed": true
+}

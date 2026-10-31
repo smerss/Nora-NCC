@@ -1,0 +1,205 @@
+{
+  "protocol": "development fold1/2 only; fixed equal probability mixtures of six independently seeded Rust-compatible BPE-dropout pairs; no fold3/4",
+  "results": [
+    {
+      "fold": 1,
+      "models": [
+        "runs/models/det2_s149_147_fold1_position.pt",
+        "runs/models/det2_s149_147_fold1_wide.pt",
+        "runs/models/det2_s150_151_fold1_position.pt",
+        "runs/models/det2_s150_151_fold1_wide.pt",
+        "runs/models/det2_s152_153_fold1_position.pt",
+        "runs/models/det2_s152_153_fold1_wide.pt",
+        "runs/models/det2_s154_155_fold1_position.pt",
+        "runs/models/det2_s154_155_fold1_wide.pt",
+        "runs/models/det2_s156_157_fold1_position.pt",
+        "runs/models/det2_s156_157_fold1_wide.pt",
+        "runs/models/det2_s158_159_fold1_position.pt",
+        "runs/models/det2_s158_159_fold1_wide.pt"
+      ],
+      "variants": {
+        "all12": {
+          "n": 401,
+          "hit1": 179,
+          "hit5": 213,
+          "top1": 0.4463840399002494,
+          "top5": 0.5311720698254364,
+          "ppl": 66.23919202968378
+        },
+        "first2pairs": {
+          "n": 401,
+          "hit1": 177,
+          "hit5": 213,
+          "top1": 0.44139650872817954,
+          "top5": 0.5311720698254364,
+          "ppl": 67.48437583876677
+        },
+        "first3pairs": {
+          "n": 401,
+          "hit1": 178,
+          "hit5": 210,
+          "top1": 0.44389027431421446,
+          "top5": 0.5236907730673317,
+          "ppl": 67.6106704435242
+        },
+        "first4pairs": {
+          "n": 401,
+          "hit1": 178,
+          "hit5": 216,
+          "top1": 0.44389027431421446,
+          "top5": 0.5386533665835411,
+          "ppl": 67.06804189174791
+        },
+        "without_149_147": {
+          "n": 401,
+          "hit1": 179,
+          "hit5": 216,
+          "top1": 0.4463840399002494,
+          "top5": 0.5386533665835411,
+          "ppl": 67.18218548622687
+        },
+        "without_150_151": {
+          "n": 401,
+          "hit1": 178,
+          "hit5": 217,
+          "top1": 0.44389027431421446,
+          "top5": 0.5411471321695761,
+          "ppl": 66.57812898452056
+        },
+        "without_152_153": {
+          "n": 401,
+          "hit1": 179,
+          "hit5": 210,
+          "top1": 0.4463840399002494,
+          "top5": 0.5236907730673317,
+          "ppl": 65.86477689889618
+        },
+        "without_154_155": {
+          "n": 401,
+          "hit1": 177,
+          "hit5": 212,
+          "top1": 0.44139650872817954,
+          "top5": 0.5286783042394015,
+          "ppl": 66.34083694618748
+        },
+        "without_156_157": {
+          "n": 401,
+          "hit1": 179,
+          "hit5": 216,
+          "top1": 0.4463840399002494,
+          "top5": 0.5386533665835411,
+          "ppl": 66.41258862294833
+        },
+        "without_158_159": {
+          "n": 401,
+          "hit1": 178,
+          "hit5": 213,
+          "top1": 0.44389027431421446,
+          "top5": 0.5311720698254364,
+          "ppl": 66.73083602792398
+        }
+      },
+      "seconds": 10.221209128000055
+    },
+    {
+      "fold": 2,
+      "models": [
+        "runs/models/det2_s149_147_fold2_position.pt",
+        "runs/models/det2_s149_147_fold2_wide.pt",
+        "runs/models/det2_s150_151_fold2_position.pt",
+        "runs/models/det2_s150_151_fold2_wide.pt",
+        "runs/models/det2_s152_153_fold2_position.pt",
+        "runs/models/det2_s152_153_fold2_wide.pt",
+        "runs/models/det2_s154_155_fold2_position.pt",
+        "runs/models/det2_s154_155_fold2_wide.pt",
+        "runs/models/det2_s156_157_fold2_position.pt",
+        "runs/models/det2_s156_157_fold2_wide.pt",
+        "runs/models/det2_s158_159_fold2_position.pt",
+        "runs/models/det2_s158_159_fold2_wide.pt"
+      ],
+      "variants": {
+        "all12": {
+          "n": 419,
+          "hit1": 166,
+          "hit5": 207,
+          "top1": 0.39618138424821003,
+          "top5": 0.49403341288782815,
+          "ppl": 110.16271340477968
+        },
+        "first2pairs": {
+          "n": 419,
+          "hit1": 166,
+          "hit5": 205,
+          "top1": 0.39618138424821003,
+          "top5": 0.4892601431980907,
+          "ppl": 114.96372801945303
+        },
+        "first3pairs": {
+          "n": 419,
+          "hit1": 169,
+          "hit5": 207,
+          "top1": 0.4033412887828162,
+          "top5": 0.49403341288782815,
+          "ppl": 111.63387326806793
+        },
+        "first4pairs": {
+          "n": 419,
+          "hit1": 169,
+          "hit5": 205,
+          "top1": 0.4033412887828162,
+          "top5": 0.4892601431980907,
+          "ppl": 110.99338632606676
+        },
+        "without_149_147": {
+          "n": 419,
+          "hit1": 166,
+          "hit5": 205,
+          "top1": 0.39618138424821003,
+          "top5": 0.4892601431980907,
+          "ppl": 110.72183368525347
+        },
+        "without_150_151": {
+          "n": 419,
+          "hit1": 168,
+          "hit5": 207,
+          "top1": 0.4009546539379475,
+          "top5": 0.49403341288782815,
+          "ppl": 110.65188949533412
+        },
+        "without_152_153": {
+          "n": 419,
+          "hit1": 167,
+          "hit5": 207,
+          "top1": 0.39856801909307876,
+          "top5": 0.49403341288782815,
+          "ppl": 111.01130219794238
+        },
+        "without_154_155": {
+          "n": 419,
+          "hit1": 168,
+          "hit5": 207,
+          "top1": 0.4009546539379475,
+          "top5": 0.49403341288782815,
+          "ppl": 110.62133302170177
+        },
+        "without_156_157": {
+          "n": 419,
+          "hit1": 166,
+          "hit5": 206,
+          "top1": 0.39618138424821003,
+          "top5": 0.4916467780429594,
+          "ppl": 110.27763953792167
+        },
+        "without_158_159": {
+          "n": 419,
+          "hit1": 168,
+          "hit5": 207,
+          "top1": 0.4009546539379475,
+          "top5": 0.49403341288782815,
+          "ppl": 110.70635121784537
+        }
+      },
+      "seconds": 11.268870807999974
+    }
+  ]
+}

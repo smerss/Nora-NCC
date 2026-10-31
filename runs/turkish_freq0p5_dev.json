@@ -1,0 +1,122 @@
+[
+  {
+    "fold": 1,
+    "position_seed": 149,
+    "wide_seed": 147,
+    "position_epochs_fixed": 12,
+    "wide_epochs_fixed": 9,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean1000_step1000.pt",
+    "model_prefix": "freq0p5",
+    "target_adapter": "none",
+    "target_output_bias": false,
+    "target_untied_output": false,
+    "freeze_emb": false,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_bpe_dropout_deterministic": true,
+    "target_seeded_bpe": true,
+    "runtime": {
+      "torch": "2.15.0+cu132",
+      "tokenizers": "0.23.3"
+    },
+    "target_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "target_early_weight": 1.0,
+    "target_early_count": 0,
+    "target_frequency_alpha": 0.5,
+    "target_frequency_cap": 8.0,
+    "dialogue_repeats": 1,
+    "target_domain": "all",
+    "target_bag_fraction": 1.0,
+    "target_l2sp": 0.0,
+    "position_train_sentences": 234,
+    "position": {
+      "n": 401,
+      "hit1": 152,
+      "hit5": 201,
+      "top1": 0.3790523690773067,
+      "top5": 0.5012468827930174,
+      "ppl": 104.5533187140718
+    },
+    "wide_train_sentences": 234,
+    "wide": {
+      "n": 401,
+      "hit1": 152,
+      "hit5": 196,
+      "top1": 0.3790523690773067,
+      "top5": 0.48877805486284287,
+      "ppl": 110.72174930122527
+    },
+    "ensemble": {
+      "n": 401,
+      "hit1": 156,
+      "hit5": 201,
+      "top1": 0.38902743142144636,
+      "top5": 0.5012468827930174,
+      "ppl": 90.74833503427297
+    },
+    "seconds": 34.80767761300012
+  },
+  {
+    "fold": 2,
+    "position_seed": 149,
+    "wide_seed": 147,
+    "position_epochs_fixed": 12,
+    "wide_epochs_fixed": 9,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean1000_step1000.pt",
+    "model_prefix": "freq0p5",
+    "target_adapter": "none",
+    "target_output_bias": false,
+    "target_untied_output": false,
+    "freeze_emb": false,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_bpe_dropout_deterministic": true,
+    "target_seeded_bpe": true,
+    "runtime": {
+      "torch": "2.15.0+cu132",
+      "tokenizers": "0.23.3"
+    },
+    "target_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "target_early_weight": 1.0,
+    "target_early_count": 0,
+    "target_frequency_alpha": 0.5,
+    "target_frequency_cap": 8.0,
+    "dialogue_repeats": 1,
+    "target_domain": "all",
+    "target_bag_fraction": 1.0,
+    "target_l2sp": 0.0,
+    "position_train_sentences": 234,
+    "position": {
+      "n": 419,
+      "hit1": 151,
+      "hit5": 184,
+      "top1": 0.360381861575179,
+      "top5": 0.43914081145584727,
+      "ppl": 157.2149966728804
+    },
+    "wide_train_sentences": 234,
+    "wide": {
+      "n": 419,
+      "hit1": 154,
+      "hit5": 197,
+      "top1": 0.36754176610978523,
+      "top5": 0.4701670644391408,
+      "ppl": 141.98723083847074
+    },
+    "ensemble": {
+      "n": 419,
+      "hit1": 154,
+      "hit5": 200,
+      "top1": 0.36754176610978523,
+      "top5": 0.477326968973747,
+      "ppl": 126.36396965335092
+    },
+    "seconds": 31.938822245999745
+  }
+]

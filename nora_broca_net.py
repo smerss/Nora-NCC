@@ -598,11 +598,14 @@ def measure_relational_transfer(proposer: NeuralRelationalProposer, *,
 
 class BrocaNet(nn.Module):
     def __init__(self, vocab: int, d: int = 256, h: int = 512, dropout: float = 0.0,
-                 temporal: int = 0, positional: bool = False):
+                 temporal: int = 0, positional: bool = False, output_bias: bool = False,
+                 untied_output: bool = False):
         super().__init__()
         self.V = vocab + N_SPECIAL
         self.pad, self.bos, self.eos = vocab, vocab + 1, vocab + 2
         self.emb = nn.Embedding(self.V, d)
+        self.out_weight = nn.Parameter(self.emb.weight.detach().clone()) if untied_output else None
+        self.out_bias = nn.Parameter(torch.zeros(self.V)) if output_bias else None
         self.pos_emb = nn.Embedding(65, d) if positional else None
         if self.pos_emb is not None:
             nn.init.zeros_(self.pos_emb.weight)
@@ -640,22 +643,30 @@ class BrocaNet(nn.Module):
             z = z + projection(self.drop(out))
         return z, hn                                           # (B,L,d); dropout yalnız eğitim kipinde
 
+    def output_weight(self):
+        return self.emb.weight if self.out_weight is None else self.out_weight
+
     def forward(self, ids: torch.Tensor, c: torch.Tensor, h0: torch.Tensor | None = None,
                 position_offset: int = 0):
         z, hn = self.hidden(ids, c, h0, position_offset=position_offset)
-        return z @ self.emb.weight.t(), hn                     # gömme bağlama (tied): tam sözlük üzerinden
+        logits = z @ self.output_weight().t()
+        if self.out_bias is not None:
+            logits = logits + self.out_bias
+        return logits, hn                                      # bağlı gömme + isteğe bağlı öğrenilen önyargı
 
 
 class BrocaOrgan:
     MAX_LEN = 40
 
     def __init__(self, tokenizer: SubwordTokenizer, seed: int = 0, d: int = 256, h: int = 512,
-                 dropout: float = 0.0, temporal: int = 0, positional: bool = False):
+                 dropout: float = 0.0, temporal: int = 0, positional: bool = False,
+                 output_bias: bool = False, untied_output: bool = False):
         torch.manual_seed(seed)
         self.rng = np.random.default_rng(seed + 90_001)
         self.tok = tokenizer
         V = self.tok.tk.get_vocab_size()
-        self.net = BrocaNet(V, d, h, dropout=dropout, temporal=temporal, positional=positional)
+        self.net = BrocaNet(V, d, h, dropout=dropout, temporal=temporal, positional=positional,
+                            output_bias=output_bias, untied_output=untied_output)
         self.lr = 2.5e-3
         self.opt = torch.optim.Adam(self.net.parameters(), lr=self.lr)
         self.V = V
@@ -699,7 +710,14 @@ class BrocaOrgan:
                     anchor_dropout: float = 0.0, loss_mode: str = "sampled",
                     negative_samples: int = 2048, bpe_dropout: float = 0.0,
                     parameter_anchor: dict[str, torch.Tensor] | None = None,
-                    parameter_anchor_strength: float = 0.0) -> float:
+                    parameter_anchor_strength: float = 0.0,
+                    focal_gamma: float = 0.0,
+                    bpe_dropout_seed: int | None = None,
+                    early_token_weight: float = 1.0,
+                    early_token_count: int = 0,
+                    frequency_alpha: float = 0.0,
+                    frequency_cap: float = 8.0,
+                    word_start_weight: float = 1.0) -> float:
         """Tek bir gradyan adımı: bu akış parçası görüldükten sonra bir daha okunmaz (epoch yok).
 
         ``anchor_dropout`` çapalı ve çapasız dil koşullarını aynı modelde öğrenir.
@@ -717,25 +735,49 @@ class BrocaOrgan:
         bpe_dropout = float(bpe_dropout)
         if not 0.0 <= bpe_dropout < 1.0:
             raise ValueError("bpe_dropout [0,1) aralığında olmalı")
+        focal_gamma = float(focal_gamma)
+        if focal_gamma < 0 or (focal_gamma and loss_mode != "full"):
+            raise ValueError("focal_gamma yalnız full kayıpla sıfır veya pozitif olmalı")
+        early_token_weight = float(early_token_weight)
+        early_token_count = int(early_token_count)
+        if early_token_weight <= 0 or early_token_count < 0:
+            raise ValueError("early_token_weight pozitif, early_token_count negatif olamaz")
+        if early_token_count and loss_mode != "full":
+            raise ValueError("early token weighting yalnız full kayıpla kullanılabilir")
+        frequency_alpha = float(frequency_alpha)
+        frequency_cap = float(frequency_cap)
+        if frequency_alpha < 0 or frequency_cap < 1:
+            raise ValueError("frequency_alpha >=0 ve frequency_cap >=1 olmalı")
+        if frequency_alpha and loss_mode != "full":
+            raise ValueError("frequency weighting yalnız full kayıpla kullanılabilir")
+        word_start_weight = float(word_start_weight)
+        if word_start_weight <= 0:
+            raise ValueError("word_start_weight pozitif olmalı")
+        if word_start_weight != 1.0 and loss_mode != "full":
+            raise ValueError("word-start weighting yalnız full kayıpla kullanılabilir")
         parameter_anchor_strength = float(parameter_anchor_strength)
         if parameter_anchor_strength < 0 or (parameter_anchor_strength and parameter_anchor is None):
             raise ValueError("pozitif L2-SP cezası için parameter_anchor gerekli")
-        previous_bpe_dropout = self.tok.tk.model.dropout
-        try:
-            if bpe_dropout:
-                self.tok.tk.model.dropout = bpe_dropout
-            enc = self.tok.tk.encode_batch(sentences)
-        finally:
-            self.tok.tk.model.dropout = previous_bpe_dropout
-        rows, bags = [], []
-        for e in enc:
-            ids, pcs = e.ids[: self.MAX_LEN], e.tokens[: self.MAX_LEN]
+        if bpe_dropout_seed is not None:
+            enc = self.tok.encode_batch_bpe_dropout(sentences, bpe_dropout, bpe_dropout_seed)
+        else:
+            previous_bpe_dropout = self.tok.tk.model.dropout
+            try:
+                if bpe_dropout:
+                    self.tok.tk.model.dropout = bpe_dropout
+                enc = [(e.ids, e.tokens) for e in self.tok.tk.encode_batch(sentences)]
+            finally:
+                self.tok.tk.model.dropout = previous_bpe_dropout
+        rows, bags, word_starts = [], [], []
+        for raw_ids, raw_pcs in enc:
+            ids, pcs = raw_ids[: self.MAX_LEN], raw_pcs[: self.MAX_LEN]
             if len(ids) < 3:
                 continue
             for i in ids:
                 self.freq[i] += 1
             self.seen_tokens += len(ids)
             rows.append(ids)
+            word_starts.append([piece.startswith("▁") for piece in pcs])
             bag_ids = self._pseudo_anchor_bag(ids, pcs)
             if anchor_dropout and self.rng.random() < anchor_dropout:
                 bag_ids = []
@@ -749,7 +791,12 @@ class BrocaOrgan:
         net = self.net
         inp = torch.full((B, L), net.pad, dtype=torch.long)
         tgt = torch.full((B, L), -100, dtype=torch.long)
+        word_weights = torch.ones(B, L) if word_start_weight != 1.0 else None
         for b, r in enumerate(rows):
+            if word_weights is not None:
+                starts = torch.tensor(word_starts[b], dtype=torch.bool)
+                word_weights[b, :len(r)] = torch.where(
+                    starts, torch.tensor(word_start_weight), torch.tensor(1.0))
             inp[b, 0] = net.bos
             inp[b, 1:len(r) + 1] = torch.tensor(r)
             tgt[b, :len(r)] = torch.tensor(r)
@@ -765,8 +812,39 @@ class BrocaOrgan:
             mask = tgt != -100
             # Değerlendirilen nesnelle birebir aynı tam-softmax; küçük partilerde
             # örneklemeli kaybın negatif dağılımı/tekilleştirme sapmasını ayırt eder.
-            logits = z[mask] @ net.emb.weight.t()
-            loss = F.cross_entropy(logits, tgt[mask])
+            logits = z[mask] @ net.output_weight().t()
+            if net.out_bias is not None:
+                logits = logits + net.out_bias
+            if focal_gamma or early_token_count or frequency_alpha or word_weights is not None:
+                token_loss = F.cross_entropy(logits, tgt[mask], reduction="none")
+                if focal_gamma:
+                    token_loss = ((1.0 - torch.exp(-token_loss)) ** focal_gamma) * token_loss
+                weights = word_weights[mask] if word_weights is not None else None
+                if early_token_count:
+                    positions = torch.arange(tgt.shape[1], device=tgt.device).unsqueeze(0)
+                    early_weights = torch.where(positions < early_token_count,
+                                                torch.tensor(early_token_weight, device=tgt.device),
+                                                torch.tensor(1.0, device=tgt.device)).expand_as(tgt)[mask]
+                    weights = early_weights if weights is None else weights * early_weights
+                if frequency_alpha:
+                    target_ids = tgt[mask]
+                    freq_table = self.freq.to(device=target_ids.device, dtype=token_loss.dtype)
+                    frequencies = torch.ones_like(target_ids, dtype=token_loss.dtype)
+                    valid = target_ids < freq_table.numel()
+                    frequencies[valid] = freq_table[target_ids[valid]]
+                    rare_weights = (frequencies + 1.0).pow(-frequency_alpha)
+                    # EOS'un frekansı tabloda yok; onu partinin ortalama ağırlığıyla nötrle.
+                    rare_weights = torch.where(target_ids == net.eos,
+                                               rare_weights.mean(), rare_weights)
+                    rare_weights = rare_weights / rare_weights.mean().clamp_min(1e-8)
+                    rare_weights = rare_weights.clamp(max=frequency_cap)
+                    weights = rare_weights if weights is None else weights * rare_weights
+                if weights is not None:
+                    loss = (token_loss * weights).sum() / weights.sum().clamp_min(1e-8)
+                else:
+                    loss = token_loss.mean()
+            else:
+                loss = F.cross_entropy(logits, tgt[mask])
         else:
             loss = self._sampled_loss(z, tgt, K=negative_samples)
         if parameter_anchor_strength:
@@ -797,10 +875,14 @@ class BrocaOrgan:
         q_full = q_full / q_full.sum()
         neg = torch.multinomial(q_full, K, replacement=True)
         cand = torch.unique(neg)
-        W = net.emb.weight[cand]
+        output_weight = net.output_weight()
+        W = output_weight[cand]
         logits = zt @ W.t() - torch.log(K * q_full[cand])[None, :]
+        true = (zt * output_weight[yt]).sum(1) - torch.log(K * q_full[yt])
+        if net.out_bias is not None:
+            logits = logits + net.out_bias[cand]
+            true = true + net.out_bias[yt]
         logits = logits.masked_fill(cand[None, :] == yt[:, None], -1e9)        # kazara isabet
-        true = (zt * net.emb.weight[yt]).sum(1) - torch.log(K * q_full[yt])
         all_l = torch.cat([true[:, None], logits], dim=1)
         return F.cross_entropy(all_l, torch.zeros(len(yt), dtype=torch.long))
 
@@ -911,7 +993,9 @@ class BrocaOrgan:
                     bag[b, g] = 1.0
             st = torch.from_numpy(np.tile(state.astype(np.float32), (B, 1)))
             z, _ = net.hidden(inp, net.encode_cond(st, bag))
-            logits = z @ net.emb.weight.t()
+            logits = z @ net.output_weight().t()
+            if net.out_bias is not None:
+                logits = logits + net.out_bias
             mask = tgt != -100
             yt = tgt[mask]
             scores = logits[mask]
@@ -1077,6 +1161,28 @@ class BrocaOrgan:
         return float(loss.detach())
 
     # ------------------------------------------------------------ kapasite / kalıcılık
+    def add_untied_output(self) -> dict:
+        """Çıktı gömmesini girdinin birebir kopyasıyla ayır; başlangıç fonksiyonu korunur."""
+        if self.net.out_weight is not None:
+            return {"added": 0, "untied_output": True}
+        before = sum(p.numel() for p in self.net.parameters())
+        self.net.out_weight = nn.Parameter(self.net.emb.weight.detach().clone())
+        self.opt = torch.optim.Adam(self.net.parameters(), lr=self.lr)
+        after = sum(p.numel() for p in self.net.parameters())
+        return {"before": before, "after": after, "added": after - before,
+                "untied_output": True}
+
+    def add_output_bias(self) -> dict:
+        """Sıfır başlangıçlı öğrenilebilir sözlük önyargısı ekler; ilk logitler korunur."""
+        if self.net.out_bias is not None:
+            return {"added": 0, "output_bias": True}
+        before = sum(p.numel() for p in self.net.parameters())
+        self.net.out_bias = nn.Parameter(torch.zeros(self.net.V))
+        self.opt = torch.optim.Adam(self.net.parameters(), lr=self.lr)
+        after = sum(p.numel() for p in self.net.parameters())
+        return {"before": before, "after": after, "added": after - before,
+                "output_bias": True}
+
     def add_positional_embedding(self) -> dict:
         """Erken-parça modellemesi için sıfır-başlangıçlı konum gömmesi ekle."""
         if self.net.pos_emb is not None:
@@ -1121,11 +1227,16 @@ class BrocaOrgan:
         rng_state = torch.get_rng_state()
         torch.manual_seed(int(seed))
         new = BrocaNet(old.V - N_SPECIAL, old.emb.embedding_dim, h, dropout=old.drop.p,
-                       positional=old.pos_emb is not None)
+                       positional=old.pos_emb is not None, output_bias=old.out_bias is not None,
+                       untied_output=old.out_weight is not None)
         torch.set_rng_state(rng_state)
         oh = old.h
         with torch.no_grad():
             new.emb.weight.copy_(old.emb.weight)
+            if old.out_weight is not None:
+                new.out_weight.copy_(old.out_weight)
+            if old.out_bias is not None:
+                new.out_bias.copy_(old.out_bias)
             if old.pos_emb is not None:
                 new.pos_emb.weight.copy_(old.pos_emb.weight)
             new.cond[0].weight[:oh].copy_(old.cond[0].weight)
@@ -1155,7 +1266,10 @@ class BrocaOrgan:
         torch.save({"net": self.net.state_dict(), "freq": self.freq, "seen": self.seen_tokens,
                     "tok": self.tok.to_str(), "pos": self.pos, "dims": (self.net.emb.embedding_dim, self.net.h),
                     "dropout": float(self.net.drop.p), "temporal": len(self.net.temporal),
-                    "positional": self.net.pos_emb is not None, "token_memory": self.token_memory}, tmp)
+                    "positional": self.net.pos_emb is not None,
+                    "output_bias": self.net.out_bias is not None,
+                    "untied_output": self.net.out_weight is not None,
+                    "token_memory": self.token_memory}, tmp)
         os.replace(tmp, path)
 
     @classmethod
@@ -1163,7 +1277,9 @@ class BrocaOrgan:
         d = torch.load(path, weights_only=False)
         o = cls(SubwordTokenizer.from_str(d["tok"]), d=d["dims"][0], h=d["dims"][1],
                 dropout=d.get("dropout", 0.0), temporal=d.get("temporal", 0),
-                positional=d.get("positional", "pos_emb.weight" in d["net"]))
+                positional=d.get("positional", "pos_emb.weight" in d["net"]),
+                output_bias=d.get("output_bias", "out_bias" in d["net"]),
+                untied_output=d.get("untied_output", "out_weight" in d["net"]))
         o.net.load_state_dict(d["net"])
         o.freq = d["freq"]
         o.seen_tokens = int(d["seen"])

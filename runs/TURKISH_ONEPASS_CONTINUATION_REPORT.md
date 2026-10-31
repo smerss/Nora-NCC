@@ -66,3 +66,11 @@ Ayrıntılı ham kayıtlar `runs/turkish_onepass_*_dev.json`, `runs/turkish_full
 ## Sıradaki teknik eşik
 
 Yeni bir LR/epoch/replay grid’i değil; **tek sunumda 181/401 ve 189/419 ile tam chatbot+XQuAD korunumunu aynı adayda** sağlayan öğrenme mekanizması. Ancak böyle ortak bir aday dondurulduktan sonra fold-3/4 confirmation ve çoklu-tohum karşılaştırması anlamlı olacaktır.
+
+## Canlı model ve felsefe notu (2026-10-31)
+
+Bu rapordaki eğitimler ayrı checkpoint kopyalarında yapılmıştır; canlı kullanılan modelin üzerine yazılmamıştır. “Dondurma” yalnız ölçüm snapshot’ıdır ve canlı öğrenmeyi durdurmaz.
+
+Canlı `hear()`/`learn_online()` yolu her cümleyi bir kez işler. Buna karşılık ana next-subword motoru hâlâ GRU/TokenMoE’dir; mantar cismi yardımcı öğrenme yollarındadır. `sleep()` içinde 20–48 replay adımlı konsolidasyon vardır; bu yol tek-sunum skor kanıtı olarak kullanılmamıştır. Dolayısıyla canlı öğrenme iskeleti hedef felsefeyle uyumludur, fakat ana öğrenme motorunun tek-okuyuş genellemesi ve unutmama kanıtı tamamlanmamıştır.
+
+Bütün proje alanlarının birleşik güncel durumu `NORA_GUNCEL_DURUM.md` içindedir.

@@ -1,0 +1,554 @@
+[
+  {
+    "fold": 1,
+    "model": "original_position",
+    "facts": [
+      100,
+      202
+    ],
+    "dialogue": [
+      67,
+      199
+    ]
+  },
+  {
+    "fold": 1,
+    "model": "original_wide",
+    "facts": [
+      96,
+      202
+    ],
+    "dialogue": [
+      67,
+      199
+    ]
+  },
+  {
+    "fold": 1,
+    "model": "clean_position",
+    "facts": [
+      103,
+      202
+    ],
+    "dialogue": [
+      68,
+      199
+    ]
+  },
+  {
+    "fold": 1,
+    "model": "clean_wide",
+    "facts": [
+      103,
+      202
+    ],
+    "dialogue": [
+      67,
+      199
+    ]
+  },
+  {
+    "fold": 1,
+    "model": "early4_position",
+    "facts": [
+      100,
+      202
+    ],
+    "dialogue": [
+      67,
+      199
+    ]
+  },
+  {
+    "fold": 1,
+    "model": "early4_wide",
+    "facts": [
+      99,
+      202
+    ],
+    "dialogue": [
+      72,
+      199
+    ]
+  },
+  {
+    "fold": 1,
+    "model": "early8_position",
+    "facts": [
+      103,
+      202
+    ],
+    "dialogue": [
+      69,
+      199
+    ]
+  },
+  {
+    "fold": 1,
+    "model": "early8_wide",
+    "facts": [
+      102,
+      202
+    ],
+    "dialogue": [
+      72,
+      199
+    ]
+  },
+  {
+    "fold": 1,
+    "model": "focal1_position",
+    "facts": [
+      99,
+      202
+    ],
+    "dialogue": [
+      72,
+      199
+    ]
+  },
+  {
+    "fold": 1,
+    "model": "focal1_wide",
+    "facts": [
+      100,
+      202
+    ],
+    "dialogue": [
+      70,
+      199
+    ]
+  },
+  {
+    "fold": 1,
+    "model": "focal2_position",
+    "facts": [
+      102,
+      202
+    ],
+    "dialogue": [
+      73,
+      199
+    ]
+  },
+  {
+    "fold": 1,
+    "model": "focal2_wide",
+    "facts": [
+      101,
+      202
+    ],
+    "dialogue": [
+      67,
+      199
+    ]
+  },
+  {
+    "fold": 1,
+    "model": "chat_position",
+    "facts": [
+      103,
+      202
+    ],
+    "dialogue": [
+      67,
+      199
+    ]
+  },
+  {
+    "fold": 1,
+    "model": "chat_wide",
+    "facts": [
+      104,
+      202
+    ],
+    "dialogue": [
+      67,
+      199
+    ]
+  },
+  {
+    "fold": 1,
+    "model": "clean_external",
+    "facts": [
+      66,
+      202
+    ],
+    "dialogue": [
+      60,
+      199
+    ]
+  },
+  {
+    "fold": 1,
+    "model": "chat_external",
+    "facts": [
+      62,
+      202
+    ],
+    "dialogue": [
+      61,
+      199
+    ]
+  },
+  {
+    "fold": 1,
+    "model": "wiki_position",
+    "facts": [
+      96,
+      202
+    ],
+    "dialogue": [
+      65,
+      199
+    ]
+  },
+  {
+    "fold": 1,
+    "model": "wiki_wide",
+    "facts": [
+      99,
+      202
+    ],
+    "dialogue": [
+      65,
+      199
+    ]
+  },
+  {
+    "fold": 1,
+    "model": "short3500_position",
+    "facts": [
+      101,
+      202
+    ],
+    "dialogue": [
+      67,
+      199
+    ]
+  },
+  {
+    "fold": 1,
+    "model": "short3500_wide",
+    "facts": [
+      98,
+      202
+    ],
+    "dialogue": [
+      66,
+      199
+    ]
+  },
+  {
+    "fold": 1,
+    "model": "short_chat_position",
+    "facts": [
+      104,
+      202
+    ],
+    "dialogue": [
+      71,
+      199
+    ]
+  },
+  {
+    "fold": 1,
+    "model": "short1000_position",
+    "facts": [
+      105,
+      202
+    ],
+    "dialogue": [
+      69,
+      199
+    ]
+  },
+  {
+    "fold": 1,
+    "model": "short1000_wide",
+    "facts": [
+      101,
+      202
+    ],
+    "dialogue": [
+      70,
+      199
+    ]
+  },
+  {
+    "fold": 2,
+    "model": "original_position",
+    "facts": [
+      85,
+      188
+    ],
+    "dialogue": [
+      79,
+      231
+    ]
+  },
+  {
+    "fold": 2,
+    "model": "original_wide",
+    "facts": [
+      86,
+      188
+    ],
+    "dialogue": [
+      80,
+      231
+    ]
+  },
+  {
+    "fold": 2,
+    "model": "clean_position",
+    "facts": [
+      88,
+      188
+    ],
+    "dialogue": [
+      77,
+      231
+    ]
+  },
+  {
+    "fold": 2,
+    "model": "clean_wide",
+    "facts": [
+      83,
+      188
+    ],
+    "dialogue": [
+      75,
+      231
+    ]
+  },
+  {
+    "fold": 2,
+    "model": "early4_position",
+    "facts": [
+      84,
+      188
+    ],
+    "dialogue": [
+      83,
+      231
+    ]
+  },
+  {
+    "fold": 2,
+    "model": "early4_wide",
+    "facts": [
+      89,
+      188
+    ],
+    "dialogue": [
+      74,
+      231
+    ]
+  },
+  {
+    "fold": 2,
+    "model": "early8_position",
+    "facts": [
+      89,
+      188
+    ],
+    "dialogue": [
+      76,
+      231
+    ]
+  },
+  {
+    "fold": 2,
+    "model": "early8_wide",
+    "facts": [
+      85,
+      188
+    ],
+    "dialogue": [
+      76,
+      231
+    ]
+  },
+  {
+    "fold": 2,
+    "model": "focal1_position",
+    "facts": [
+      89,
+      188
+    ],
+    "dialogue": [
+      81,
+      231
+    ]
+  },
+  {
+    "fold": 2,
+    "model": "focal1_wide",
+    "facts": [
+      84,
+      188
+    ],
+    "dialogue": [
+      76,
+      231
+    ]
+  },
+  {
+    "fold": 2,
+    "model": "focal2_position",
+    "facts": [
+      86,
+      188
+    ],
+    "dialogue": [
+      80,
+      231
+    ]
+  },
+  {
+    "fold": 2,
+    "model": "focal2_wide",
+    "facts": [
+      87,
+      188
+    ],
+    "dialogue": [
+      79,
+      231
+    ]
+  },
+  {
+    "fold": 2,
+    "model": "chat_position",
+    "facts": [
+      87,
+      188
+    ],
+    "dialogue": [
+      74,
+      231
+    ]
+  },
+  {
+    "fold": 2,
+    "model": "chat_wide",
+    "facts": [
+      82,
+      188
+    ],
+    "dialogue": [
+      76,
+      231
+    ]
+  },
+  {
+    "fold": 2,
+    "model": "clean_external",
+    "facts": [
+      59,
+      188
+    ],
+    "dialogue": [
+      73,
+      231
+    ]
+  },
+  {
+    "fold": 2,
+    "model": "chat_external",
+    "facts": [
+      58,
+      188
+    ],
+    "dialogue": [
+      80,
+      231
+    ]
+  },
+  {
+    "fold": 2,
+    "model": "wiki_position",
+    "facts": [
+      90,
+      188
+    ],
+    "dialogue": [
+      79,
+      231
+    ]
+  },
+  {
+    "fold": 2,
+    "model": "wiki_wide",
+    "facts": [
+      89,
+      188
+    ],
+    "dialogue": [
+      77,
+      231
+    ]
+  },
+  {
+    "fold": 2,
+    "model": "short3500_position",
+    "facts": [
+      84,
+      188
+    ],
+    "dialogue": [
+      86,
+      231
+    ]
+  },
+  {
+    "fold": 2,
+    "model": "short3500_wide",
+    "facts": [
+      89,
+      188
+    ],
+    "dialogue": [
+      78,
+      231
+    ]
+  },
+  {
+    "fold": 2,
+    "model": "short_chat_position",
+    "facts": [
+      82,
+      188
+    ],
+    "dialogue": [
+      86,
+      231
+    ]
+  },
+  {
+    "fold": 2,
+    "model": "short1000_position",
+    "facts": [
+      85,
+      188
+    ],
+    "dialogue": [
+      78,
+      231
+    ]
+  },
+  {
+    "fold": 2,
+    "model": "short1000_wide",
+    "facts": [
+      84,
+      188
+    ],
+    "dialogue": [
+      75,
+      231
+    ]
+  }
+]

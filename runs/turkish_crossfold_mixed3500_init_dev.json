@@ -1,0 +1,86 @@
+[
+  {
+    "fold": 1,
+    "position_seed": 149,
+    "wide_seed": 147,
+    "position_epochs_fixed": 12,
+    "wide_epochs_fixed": 9,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean_mixed3500_complete_step3500.pt",
+    "freeze_emb": false,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "dialogue_repeats": 1,
+    "target_l2sp": 0.0,
+    "position": {
+      "n": 401,
+      "hit1": 172,
+      "hit5": 213,
+      "top1": 0.428927680798005,
+      "top5": 0.5311720698254364,
+      "ppl": 71.14261250957878
+    },
+    "wide": {
+      "n": 401,
+      "hit1": 170,
+      "hit5": 201,
+      "top1": 0.4239401496259352,
+      "top5": 0.5012468827930174,
+      "ppl": 84.50143287916451
+    },
+    "ensemble": {
+      "n": 401,
+      "hit1": 175,
+      "hit5": 212,
+      "top1": 0.43640897755610975,
+      "top5": 0.5286783042394015,
+      "ppl": 65.31158197041985
+    },
+    "seconds": 34.6573808359999
+  },
+  {
+    "fold": 2,
+    "position_seed": 149,
+    "wide_seed": 147,
+    "position_epochs_fixed": 12,
+    "wide_epochs_fixed": 9,
+    "position_weight": 0.5,
+    "base_model": "runs/models/external_clean_mixed3500_complete_step3500.pt",
+    "freeze_emb": false,
+    "freeze_cond": false,
+    "target_bpe_dropout": 0.1,
+    "target_dropout": 0.1,
+    "target_lr": 0.0005,
+    "target_focal_gamma": 0.0,
+    "dialogue_repeats": 1,
+    "target_l2sp": 0.0,
+    "position": {
+      "n": 419,
+      "hit1": 163,
+      "hit5": 211,
+      "top1": 0.38902147971360385,
+      "top5": 0.5035799522673031,
+      "ppl": 110.39593392614849
+    },
+    "wide": {
+      "n": 419,
+      "hit1": 164,
+      "hit5": 199,
+      "top1": 0.3914081145584726,
+      "top5": 0.47494033412887826,
+      "ppl": 127.25662052464273
+    },
+    "ensemble": {
+      "n": 419,
+      "hit1": 167,
+      "hit5": 205,
+      "top1": 0.39856801909307876,
+      "top5": 0.4892601431980907,
+      "ppl": 101.762406781278
+    },
+    "seconds": 31.81050862399934
+  }
+]

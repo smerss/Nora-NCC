@@ -4983,3 +4983,9 @@ büyütmek veya belirsiz makineyi rastgele seçmek başarı olarak yazılmadı.
 Bu bölümdeki sonuçlar genel zekâ, fenomenal bilinç, sınırsız alan aktarımı veya insan müdahalesi
 olmadan her konuyu kavrama iddiası taşımaz. Ölçülen şey belirli görevlerdeki işlevsel nedensel
 değişim ve bağımsız held-out genellemedir.
+
+## Güncel teknik durum (2026-10-31)
+
+Canlı öğrenme, tek-sunum Türkçe sonuçları, geriye-dönük unutma, CCG/Transformer, diyalog ve 0,45B disk-MoE kanıtlarının güncel birleşik durumu **`NORA_GUNCEL_DURUM.md`** içindedir.
+
+Kısa durum: canlı tek-geçiş öğrenme iskeleti vardır; ana next-subword motoru hâlâ GRU/TokenMoE’dir. Fold-1/2 için tek-sunum ve korunum aynı adayda %45 eşiğini geçmemiştir. Epoch/replay sonuçları yeni kabul ölçütünün çözümü değildir.

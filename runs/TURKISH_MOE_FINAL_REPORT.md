@@ -226,3 +226,66 @@ kalıyor; “Makale yazarken yoruldum” empati üretmeye devam ediyor. Böylece
 **Bu turda aşılan eşik:** fold-0 top-1 > %45 ve aynı dondurulmuş MoE ile iki dış veri kümesinde
 taban üstü. **Sıradaki eşik:** fold-1/2 dahil aynı-dağılım çapraz-fold sonuçlarını %45'e taşımak;
 ardından 0,45B disk-MoE stresini aynı kaliteli, gerçek eğitilmiş uzmanlarla birleştirmek.
+
+## 13. Fold-1/2 geliştirme güncellemesi
+
+Bu bölüm yalnız development ölçümleridir; fold-3/4 çalıştırılmadı ve buradan bağımsız genelleme
+sonucu çıkarılmıyor. Aynı subword tokenizer, çapasız next-subword ve 5-fold indeksleme korunuyor.
+
+| Dondurulmuş aday | Fold-1 top-1 | Fold-2 top-1 | Fold-1/2 PPL |
+|---|---:|---:|---:|
+| İlk 16-uzman olasılık karışımı | 181/401 = %45,1372 | 170/419 = %40,5728 | 50,7210 / 81,0201 |
+| Fold-0 NLL `global_reg0.001` router | 177/401 = %44,1397 | **175/419 = %41,7661** | 48,2641 / 76,0849 |
+| 16 uzman + `%10` kısa-diyalog position | **182/401 = %45,3865** | 174/419 = %41,5274 | 50,0058 / 78,8515 |
+
+Fold-2 için %45 sınırı 189/419'dur. En yüksek ölçülen 175'ten sonra ortak eşik için hâlâ **14
+doğru token** gerekiyor; 182/174 sabit adayı bağımsız confirmation başarısı olarak sunulmuyor.
+
+Tamamlanan yeni gerçek eğitimler ve hedef aktarımları:
+
+- Temiz karma 3500: **1.299.427 token / 1.034,78 sn**; step-3500 hedef ensemble **175/167**.
+- Temiz karma corpusun tamamı, 8.958 adım tek geçiş: **286.656 cümle / 3.336.080 token /
+  2.584,80 sn**. Son checkpoint fold-0'da **130/393** ile önceki karma checkpoint'leri geçti;
+  bağımsız film confirmation **3.164/13.350 = %23,7004**, PPL **186,8655**. Buna karşılık
+  step-8958 hedef ensemble **172/158**, step-6250 hedef ensemble **170/164** verdi. Veri
+  bütçesini 3,3 milyon tokena çıkarmak fold-2 top-1 açığını kapatmadı.
+- Gerçek haricî eğitimli h768 1000: **370.304 token / 384,11 sn**; hedef ensemble **171/167**.
+- Kısa-cümle 3500 (8–49 karakter, 136.411 cümlelik akış): **814.593 token / 602,62 sn**;
+  step-3500 hedef ensemble **172/171**.
+- Kısa-diyalog position uzmanı fold-2 dialogue alt kümesinde **86/231** verdi; önceki dinamik
+  karışımın dialogue sonucu 84/231 idi. `%10` düşük ağırlıkla yukarıdaki 182/174 adayını üretti.
+- Dört yeni bağımsız tohum çifti, 8/24 uzman karışımları, ağırlık soup'u, token-kimlikli router,
+  correctness cross-fit, 256 boyutlu nöral prefix-context router ve oylama fold-2'de 175'i
+  aşmadı. Ağırlık soup'u 172'de, en iyi context router 174'te kaldı.
+- Kısa wiki facts kolu fold-2 facts'te 83/188'de, dialogue-only ince ayar 83/231'de kaldı;
+  facts-only/dialogue-only ayrımı genel çözüm diye büyütülmüyor.
+
+**Tekrarlanabilirlik düzeltmesi:** aynı ayarlı kısa-1000 hedef koşusu fold-1'de 178'i tekrarlarken
+fold-2'de 168 yerine 161 verdi. Bağımsız denetimde BPE-dropout=0 iken aynı tohum sıfırlamasıyla
+32/32 segmentasyon aynı, BPE-dropout=0,1 iken **26/32 segmentasyon farklı** çıktı
+(`runs/turkish_bpe_rng_audit.json`). Dolayısıyla BPE-dropout'lu hedef koşuları artık kontrollü
+tohum kanıtı değil, stokastik tekrar olarak etiketleniyor; kayıp 168'lik checkpoint nihai kazanç
+olarak kullanılmıyor. Yeni metadata alanı `target_bpe_dropout_deterministic` bu ayrımı taşır.
+
+Başlıca kanıt dosyaları: `runs/turkish_short_curriculum_ensemble_dev.json`,
+`runs/turkish_dynamic_router_dev.json`, `runs/turkish_multiseed_ensemble_dev.json`,
+`runs/turkish_multiseed_weight_soup_dev.json`, `runs/turkish_short_chat_target_domain_dev.json`,
+`runs/turkish_external_rebuild_clean_mixed3500_complete.json`,
+`runs/turkish_external_rebuild_clean_short3500.json`,
+`runs/turkish_external_rebuild_clean_fullpass8958.json`,
+`runs/turkish_fullpass8958_base_and_external_confirmation.json` ve
+`runs/turkish_context_router_dev.json`.
+
+## 14. Güncel tek-sunum ve canlı öğrenme durumu (2026-10-31)
+
+Bu bölüm önceki MoE/epoch/replay sonuçlarını silmez; güncel kabul ölçütü karşısındaki durumlarını açıklar.
+
+- Ortak tek-sunum + korunum adayı yoktur. En iyi ortak full-pass sonuç **164/401 ve 174/419**, gerekli eşik **181/401 ve 189/419** olmuştur; dış kayıp da vardır.
+- En iyi korunumlu uniform sampled + taze haricî akış tarifi **158/160** vermiştir. Tam probe’da chatbot hit1 değişimi **−569/−575**, XQuAD **−28/−49**; PPL artışı chatbot yaklaşık 15, XQuAD 50/63’tür. Kayıp sıfır değildir.
+- Haricî akış **286.656 cümle / 8.958 adım** tek geçişle tamamlanmış, hedef satırı kullanılmamıştır.
+- EWC, PCGrad, RBF, kNN-LM, ridge, fast-weight, ensemble/soup, chunk’lı GRU ve gerçek k-WTA/`learn_oneshot` kolları ortak çözüm vermemiştir.
+- Deneyler canlı checkpoint’i değiştirmemiştir. Canlı `hear()`/`learn_online()` tek-geçiş yolu korunur; test için dondurma yalnız snapshot ölçümüdür.
+- Ana next-subword motoru GRU/TokenMoE’dir; mantar cismi yardımcı öğrenme yollarındadır. Bu nedenle canlı sistem hedef felsefenin iskeletine sahip olsa da ana öğrenme motoru için tek-okuyuş genellemesi ve unutmama kanıtı tamamlanmamıştır.
+- Fold-3/4 confirmation başlatılmamıştır; development adayı olmadan bağımsız genelleme iddiası kurulmaz.
+
+Birleşik güncel durum: `NORA_GUNCEL_DURUM.md`. Ayrıntılı olumsuz sonuçlar: `runs/TURKISH_ONEPASS_CONTINUATION_REPORT.md`.

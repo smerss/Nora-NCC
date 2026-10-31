@@ -270,3 +270,7 @@ Tam paket: **A1–A55 → 55/55 GEÇTİ (290.1 sn)**; sonrasında A29 12/12, A50
   sıfatları sözcük dağarcığına eklendi.
 - **Ölçüm**: tam paket iki kez koşuldu: **55/55 (286.9 sn)** ve **55/55 (286.5 sn)**; bir ara koşuda
   yükle bağlı 1 test düştü (tekrarında geçti). Gecikme 7 ms.
+
+## Güncel durum bağlantısı (2026-10-31)
+
+Birleşik güncel teknik durum `NORA_GUNCEL_DURUM.md` içindedir. Fold-1/2 için tek-sunum + korunum ortak %45 eşiği henüz aşılmamıştır; canlı checkpoint deneylerle değiştirilmemiştir.
