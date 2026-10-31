@@ -2846,7 +2846,7 @@ class BrocaGenerator:
                     f"doğrulanmış {definition} yok.")
             return tr_capitalize(text)
         clauses = []
-        for proposition in (known or [])[:4]:
+        for proposition in (known or [])[:(6 if state == "insufficient" else 4)]:
             realized = self.realize_prop(proposition).strip().rstrip(".!?")
             if realized:
                 clauses.append(tr_capitalize(realized) + ".")
