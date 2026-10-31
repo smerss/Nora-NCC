@@ -12,6 +12,8 @@ BATTERY_MAP = {
     "counterfactual": "batteries.battery",
     "bridge": "batteries.bridge_battery",
     "bridge_battery": "batteries.bridge_battery",
+    "broca_articulation": "batteries.broca_articulation_battery",
+    "broca_articulation_battery": "batteries.broca_articulation_battery",
     "causal": "batteries.causal_battery",
     "causal_battery": "batteries.causal_battery",
     "consciousness": "batteries.consciousness_battery",

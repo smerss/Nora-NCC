@@ -20,6 +20,8 @@ TOOL_MAP = {
     "gen_seg": "tools.gen_seg",
     "benchmark": "tools.benchmark_profile",
     "benchmark_profile": "tools.benchmark_profile",
+    "compare_broca": "tools.compare_broca_decoders",
+    "compare_broca_decoders": "tools.compare_broca_decoders",
 }
 
 
