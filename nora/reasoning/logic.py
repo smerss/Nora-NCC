@@ -360,17 +360,20 @@ class NeuralUtteranceCortex:
         saved_ach = self.chem.ach
         self.chem.ach = 0.88
         counts: dict[int, int] = {}
+        encoded = []
+        for lbl, sents in self.BOOT_EXEMPLARS.items():
+            cid = self.label_to_id[lbl]
+            for sent in sents:
+                v, _ = self.encode_utterance(sent)
+                encoded.append((lbl, cid, v))
         for _ in range(3):
-            for lbl, sents in self.BOOT_EXEMPLARS.items():
-                cid = self.label_to_id[lbl]
-                for sent in sents:
-                    v, _ = self.encode_utterance(sent)
-                    for mb in self.mbs:
-                        mb.learn_oneshot(v, cid, chem=self.chem, strength=0.95)
-                    codes = tuple(set(mb.encode_kc(v).tolist()) for mb in self.mbs)
-                    self.kc_protos.setdefault(lbl, []).append(codes)
-                    self._append_proto(codes, cid)
-                    counts[cid] = counts.get(cid, 0) + 1
+            for lbl, cid, v in encoded:
+                for mb in self.mbs:
+                    mb.learn_oneshot(v, cid, chem=self.chem, strength=0.95)
+                codes = tuple(set(mb.encode_kc(v).tolist()) for mb in self.mbs)
+                self.kc_protos.setdefault(lbl, []).append(codes)
+                self._append_proto(codes, cid)
+                counts[cid] = counts.get(cid, 0) + 1
         # Sınıf başına örnek sayısı farkı bir "önceki olasılık" yanlılığı yaratmasın:
         # her sınıfın sinaptik kütlesi örnek sayısına bölünerek eşitlenir (APL normalizasyonu benzeri).
         for cid, cnt in counts.items():

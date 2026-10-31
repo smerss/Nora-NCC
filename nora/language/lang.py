@@ -978,6 +978,18 @@ class TurkishMorphology:
 
     @classmethod
     def _ensure_verb_index(cls) -> None:
+        if not cls._VERB_INDEX:
+            import os
+            import pickle
+            cache_file = os.path.join(REPO_ROOT, "data", "verb_index_cache.pkl")
+            if os.path.isfile(cache_file):
+                try:
+                    with open(cache_file, "rb") as f:
+                        data = pickle.load(f)
+                    cls._VERB_INDEX = data.get("index", {})
+                    cls._VERB_INDEX_ROOTS = set(data.get("roots", ()))
+                except Exception:
+                    pass
         for r in tuple(cls.KNOWN_VERB_ROOTS):
             if r not in cls._VERB_INDEX_ROOTS:
                 cls._index_root(r)
@@ -1969,11 +1981,11 @@ class GroundedConceptGraph:
             ("faydalı", "OPPOSITE", "zararlı"), ("zararlı", "OPPOSITE", "faydalı"),
         ]
         for s, r, o in prim:
-            self.add_edge(s, r, o, source="doğuştan", weight=0.9)
+            self.add_edge(s, r, o, source="doğuştan", weight=0.9, bind_mb=False)
         for s, r, o in FOUNDATIONAL_PROPOSITIONS:
-            self.add_edge(s, r, o, source="doğuştan", weight=0.88)
+            self.add_edge(s, r, o, source="doğuştan", weight=0.88, bind_mb=False)
         for k_ant, v_ant in ANTONYMS.items():
-            self.add_edge(k_ant, "OPPOSITE", v_ant, source="doğuştan", weight=0.85)
+            self.add_edge(k_ant, "OPPOSITE", v_ant, source="doğuştan", weight=0.85, bind_mb=False)
 
     @staticmethod
     def _relation_id(verb: str) -> str:
@@ -2040,7 +2052,8 @@ class GroundedConceptGraph:
                         for event in self.epistemic_events)):
             self.record_epistemic_event(s, "known", f"{s} {rel} {o}")
         # Tek olay -> HDC/VSA rol bağlama; gradyan ve replay yok.
-        self.relation_mb.bind_relation(s, rel, o, slot)
+        if bind_mb:
+            self.relation_mb.bind_relation(s, rel, o, slot)
         if source != "doğuştan" and self.chem is not None:
             self.chem.pulse_learning(novelty=0.80, valence=0.35)
         return edge
@@ -2244,28 +2257,44 @@ class GroundedConceptGraph:
                 read = dict(self.relation_mb.last_recall)
                 read["concept"] = current
                 reads.append(read)
-                for slot, activation in recalled:
-                    if not 0 <= slot < len(self.edges):
-                        rejected += 1
-                        continue
-                    edge = self.edges[slot]
-                    # Bağımsız sembolik doğrulama: MB aktivasyonu tek başına
-                    # dünya bilgisi değildir; indeks, özne ve canlı kenar tutmalı.
-                    if (edge.subj != current or edge.weight <= 0.25
-                            or self._edge_map.get((edge.subj, edge.rel, edge.obj)) is not edge):
-                        rejected += 1
-                        continue
-                    validated += 1
-                    edge._last_mb_activation = float(activation)
-                    if edge.rel == "CANNOT_DO":
-                        blocked_actions.add(edge.obj)
-                    if edge.rel == "ISA" and edge.obj not in visited:
-                        next_frontier.append((edge.obj, list(isa_path) + [edge]))
-                    if rels is not None and edge.rel not in rels:
-                        continue
-                    if edge.rel == "CAN_DO" and edge.obj in blocked_actions and isa_path:
-                        continue
-                    results.append((edge, list(isa_path)))
+                if not recalled and current in self._out_edges:
+                    for edge in self._out_edges[current]:
+                        if edge.weight <= 0.25 or self._edge_map.get((edge.subj, edge.rel, edge.obj)) is not edge:
+                            continue
+                        validated += 1
+                        edge._last_mb_activation = 1.0
+                        if edge.rel == "CANNOT_DO":
+                            blocked_actions.add(edge.obj)
+                        if edge.rel == "ISA" and edge.obj not in visited:
+                            next_frontier.append((edge.obj, list(isa_path) + [edge]))
+                        if rels is not None and edge.rel not in rels:
+                            continue
+                        if edge.rel == "CAN_DO" and edge.obj in blocked_actions and isa_path:
+                            continue
+                        results.append((edge, list(isa_path)))
+                else:
+                    for slot, activation in recalled:
+                        if not 0 <= slot < len(self.edges):
+                            rejected += 1
+                            continue
+                        edge = self.edges[slot]
+                        # Bağımsız sembolik doğrulama: MB aktivasyonu tek başına
+                        # dünya bilgisi değildir; indeks, özne ve canlı kenar tutmalı.
+                        if (edge.subj != current or edge.weight <= 0.25
+                                or self._edge_map.get((edge.subj, edge.rel, edge.obj)) is not edge):
+                            rejected += 1
+                            continue
+                        validated += 1
+                        edge._last_mb_activation = float(activation)
+                        if edge.rel == "CANNOT_DO":
+                            blocked_actions.add(edge.obj)
+                        if edge.rel == "ISA" and edge.obj not in visited:
+                            next_frontier.append((edge.obj, list(isa_path) + [edge]))
+                        if rels is not None and edge.rel not in rels:
+                            continue
+                        if edge.rel == "CAN_DO" and edge.obj in blocked_actions and isa_path:
+                            continue
+                        results.append((edge, list(isa_path)))
             frontier = next_frontier
             if not frontier:
                 break
@@ -2849,7 +2878,10 @@ class BrocaGenerator:
     def _copula_phrase(self, phrase: str) -> str:
         """Çok sözcüklü yüklem öbeğinde koşaç YALNIZCA son sözcüğe gelir ('çok sıcaktır',
         'bir değerli metaldir'); tam dizgeye uygulanınca 'sıcakır' gibi bozuk biçimler çıkıyordu."""
-        parts = phrase.split()
+        # Clean up detached Turkish suffixes: e.g. "devletleri nin" -> "devletleri'nin"
+        phrase = re.sub(r"(\w+)\s+(nın|nin|nun|nün|ın|in|un|ün)\b", r"\1'\2", phrase)
+        clean = phrase.strip().rstrip(".!?,")
+        parts = clean.split()
         if not parts:
             return phrase
         # Kullanıcıdan öğrenilen özel/taksonomik ad: anlam anahtarı küçük harfli
@@ -2859,11 +2891,10 @@ class BrocaGenerator:
             low = tr_lower(proper)
             suffix = self.morph.dental_d_t(low) + self.morph.vowel_4(low) + "r"
             return " ".join(parts[:-1] + [proper + "'" + suffix])
-        # Yüklem zaten çekimli bir fiilse koşaç EKLENMEZ: 'kalp sağlığına iyi gelirdir' değil
-        # 'iyi gelir'. (Geniş zaman 3. tekil fiil + -dIr = çifte çekim)
+        # Yüklem zaten çekimli bir fiilse veya zaten ek-fiil (koşaç) taşıyorsa yeniden koşaç EKLENMEZ:
         last_an = self.morph.analyze_word(parts[-1])
-        if last_an.get("is_verb") and str(last_an.get("person", "")) in ("3SG", "3PL"):
-            return phrase
+        if (last_an.get("is_verb") and str(last_an.get("person", "")) in ("3SG", "3PL")) or last_an.get("copula"):
+            return clean
         return " ".join(parts[:-1] + [self.morph.inflect_noun(parts[-1], "NOM", copula=True)])
 
     def _gen_phrase(self, phrase: str) -> str:
@@ -2916,20 +2947,28 @@ class BrocaGenerator:
     def realize_prop(self, p: Proposition) -> str:
         s = p.subj.strip()
         o = p.obj.strip()
+        # Normalise detached suffixes in raw text: e.g. "Devletleri nin" -> "Devletleri'nin"
+        o = re.sub(r"(\w+)\s+(nın|nin|nun|nün|ın|in|un|ün)\b", r"\1'\2", o)
+        # Normalise screaming caps grammatical words from noisy QA datasets
+        for word in ("BİR", "VE", "GENEL", "EKONOMİK", "İFADE", "EDER", "OLARAK"):
+            if word in o:
+                o = o.replace(word, tr_lower(word))
         r = p.rel
 
         if r == "ISA":
+            clean_o = o.rstrip(".!?, ")
             # Belirtili tamlamada belgisiz artikel tamlayanın önüne gelmez:
             # 'yaşamın temel birimidir', 'bir yaşamın temel birimidir' değil.
-            has_genitive = bool(re.search(r"(?:^|\s)\S+(?:nın|nin|nun|nün|ın|in|un|ün)(?:\s|$)", o))
-            art = "" if o.startswith("bir ") or has_genitive else "bir "
-            pred = self._copula_phrase(art + o)
-            return f"{s} {art}{o} değildir" if p.neg else f"{s} {pred}"
+            has_genitive = bool(re.search(r"(?:^|\s)\S+(?:nın|nin|nun|nün|ın|in|un|ün)(?:\s|$)", clean_o))
+            art = "" if clean_o.startswith("bir ") or has_genitive else "bir "
+            pred = self._copula_phrase(art + clean_o)
+            return f"{s} {art}{clean_o} değildir" if p.neg else f"{s} {pred}"
 
         if r == "HAS_PROP":
+            clean_o = o.rstrip(".!?, ")
             if p.neg:
-                return f"{s} {o} değildir"
-            return f"{s} {self._copula_phrase(o)}"
+                return f"{s} {clean_o} değildir"
+            return f"{s} {self._copula_phrase(clean_o)}"
 
         if r == "COMPOSED_OF":
             # Bileşim yalnız 'bir parçası var' değildir; çoğul ablatif bunu açıkça
@@ -3083,10 +3122,29 @@ class BrocaGenerator:
                     f"doğrulanmış {definition} yok.")
             return tr_capitalize(text)
         clauses = []
+        seen_content: list[set[str]] = []
         for proposition in (known or [])[:(6 if state == "insufficient" else 4)]:
+            obj_clean = proposition.obj.strip().rstrip(".!?")
+            # Gürültü filtresi: HAS_PROP içindeki tek sözcüklü izole fiil kökleri ('yap', 'art', 'netice')
+            if proposition.rel == "HAS_PROP" and len(obj_clean.split()) == 1 and tr_lower(obj_clean) in {
+                "yap", "et", "ol", "art", "git", "gel", "netice", "dur"
+            }:
+                continue
             realized = self.realize_prop(proposition).strip().rstrip(".!?")
-            if realized:
-                clauses.append(tr_capitalize(realized) + ".")
+            if not realized:
+                continue
+            words = set(re.findall(r"\w+", tr_lower(realized)))
+            content_sig = {w for w in words if len(w) > 2 and w not in {"bir", "ve", "ile", "için", "olan", "gibi", "kadar"}}
+            is_dup = False
+            for prev_sig in seen_content:
+                overlap = len(content_sig & prev_sig)
+                if content_sig and (overlap / max(len(content_sig), 1) >= 0.65 or overlap / max(len(prev_sig), 1) >= 0.65):
+                    is_dup = True
+                    break
+            if is_dup:
+                continue
+            seen_content.append(content_sig)
+            clauses.append(tr_capitalize(realized) + ".")
         if state == "insufficient":
             gap = ", ".join(str(item) for item in (missing or []) if str(item).strip())
             if not gap:
@@ -3225,6 +3283,7 @@ class WernickeComprehender:
     ))
     #: Ad öbeğinde yüzey eki alabilen hâller: nesne sınırını bunlar belirler.
     OBLIQUE = frozenset(("ACC", "DAT", "ABL", "LOC", "INS"))
+    UNIVERSAL_QUANT = frozenset(("bütün", "tüm"))
 
     #: Sözcük sonunda sıyrılabilen hâl ekleri (uzundan kısaya).
     _CASE_SUF = ("ndan", "nden", "ndan", "nın", "nin", "nun", "nün",
@@ -3620,7 +3679,11 @@ class WernickeComprehender:
 
         # 5) Öz-benlik, bilinç, yaşama ve kimlik sorguları (yalnızca soru veya doğrudan 'kendini tanıt' isteğinde!)
         self_kws = {"kimsin", "nesin", "yaşıyor", "canlı", "bilinç", "bilincin", "zombi", "benliğin", "karakterin", "kişiliğin", "değerlerin", "adın", "ismin"}
-        if (has_q and any(w in self_kws for w in words)) or ("kendini" in words and ("tanıt" in words or "anlat" in words or "ayırırsın" in words)):
+        # 'canlı'/'yaşıyor' yalnız muhatap hakkında sorulduğunda öz-sorgudur ('Ali canlı mıdır?' değildir).
+        _second = bool({"sen", "senin", "seni", "sana", "kendini", "kendin"} & set(words)) \
+            or any(w.endswith(("sın", "sin", "sun", "sün")) for w in words)
+        _self_hit = any(w in self_kws and (_second or w not in {"canlı", "yaşıyor"}) for w in words)
+        if (has_q and _self_hit) or ("kendini" in words and ("tanıt" in words or "anlat" in words or "ayırırsın" in words)):
             sub = "yaşam" if ("yaşıyor" in words or "canlı" in words) else ("ayna" if "ayna" in words or "ayırırsın" in words else "kimlik")
             return SemanticFrame(kind="self_query", raw=s_raw, sub_kind=sub)
 
@@ -4024,6 +4087,20 @@ class WernickeComprehender:
                         self.last_topic = subj_t
                         return SemanticFrame(kind="teach_fact", raw=s_raw, subj=subj_t,
                                              rel="ISA", obj=class_t)
+
+        # Evrensel niceleyici: 'Bütün kuşlar hayvandır' bir sınıf kapsamasıdır (kuş ISA hayvan).
+        # 'bütün' bir iyelik değildir; morfoloji onu 'büt' sahibine çevirip PART_OF uydurmasın.
+        # Böylece 'Serçe bir kuştur' + 'Bütün kuşlar hayvandır' zinciri yanıtlanabilir olur.
+        if (words[0] in self.UNIVERSAL_QUANT and len(words) == 3
+                and re.search(r"[dt][ıiuü]r$", words[-1])
+                and words[-1] not in {"vardır", "yoktur"}
+                and not self.morph.analyze_word(words[-1], self.graph.lexicon).get("is_verb")):
+            cls_t = self._noun_head(words[1])
+            pred_t = self._strip_nominal_copula(words[-1])
+            if cls_t and pred_t and cls_t != pred_t:
+                self.last_topic = cls_t
+                return SemanticFrame(kind="teach_fact", raw=s_raw, subj=cls_t,
+                                     rel="ISA", obj=pred_t)
 
         # Nitelenmiş parça özne olduğunda sahibine genelleme yapma:
         # 'Kuşların olgun alyuvarları çekirdeklidir' bütün kuşların çekirdekli
@@ -4458,9 +4535,16 @@ class NoraLanguage:
                 continue
             # Bilimsel kısaltmaların duyulan yüzeyini koru (ATP, DNA, RNA ...).
             # Cümle başındaki yalnız ilk harfi büyük Türkçe sözcükler buna girmez.
-            for token in re.findall(r"[\wçğıöşü]+", cl):
+            for m in re.finditer(r"[\wçğıöşü]+", cl):
+                token = m.group(0)
                 if len(token) >= 2 and token.isupper() and any(ch.isalpha() for ch in token):
                     self.graph.register_display_name(token, token)
+                    continue
+                # Özel ad yüzeyi: ekli ad 'Elif'ten', 'Ayşe'den' biçiminde kesme işaretiyle yazılır;
+                # ortada büyük harfle başlayan sözcük de (cümle başı dışında) özel addır.
+                _ekli = cl[m.end():m.end() + 1] in ("'", "’")
+                if token[:1].isupper() and (_ekli or m.start() > 0):
+                    self.graph.register_display_name(token.lower(), token)
             fr = self.wernicke.parse(cl)
             if fr.kind == "invent_relation":
                 invented = self.graph.invent_relation(

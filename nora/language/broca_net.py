@@ -671,7 +671,7 @@ class BrocaOrgan:
         self.net = BrocaNet(V, d, h, dropout=dropout, temporal=temporal, positional=positional,
                             output_bias=output_bias, untied_output=untied_output)
         self.lr = 2.5e-3
-        self.opt = torch.optim.Adam(self.net.parameters(), lr=self.lr)
+        self._opt = None
         self.V = V
         self.freq = torch.zeros(V)
         self.seen_tokens = 0
@@ -679,6 +679,16 @@ class BrocaOrgan:
         self.common_ids: torch.Tensor | None = None
         self.punct_ids: set[int] = set()
         self.token_memory: dict | None = None  # açıkça train metninden kurulan episodic retrieval
+
+    @property
+    def opt(self):
+        if self._opt is None:
+            self._opt = torch.optim.Adam(self.net.parameters(), lr=self.lr)
+        return self._opt
+
+    @opt.setter
+    def opt(self, value):
+        self._opt = value
 
     # ------------------------------------------------------------ veri
     def _encode(self, sentences: list[str]) -> list[list[int]]:

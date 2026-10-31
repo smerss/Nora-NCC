@@ -58,6 +58,7 @@ from nora_mind import Mind, I_E, I_W, I_I
 from nora_chem import NeuroChemistry, ChemMushroomBody
 from nora_self import CoreSelf
 from nora_lang import NoraLanguage, Proposition, TurkishMorphology, tr_lower, tr_capitalize
+from nora.cognition import puzzles
 from nora_stem import MathCortex, PhysicsCortex
 from nora_knowledge import ConversationalResonanceCortex, SYNONYMS
 from nora_broca import GenerativeBrocaOrgan, NP, VerbSpec, PredSpec
@@ -462,6 +463,8 @@ class NoraAGI:
         self.relational_reasoner = None
         self.last_deliberation: dict = {}
         self.last_utterance_class: dict = {}
+        # Yapısal çözücülerin tur arası bağlamı (ör. son karşılaştırma); kalıcı durum değildir.
+        self._puzzle_memory: dict = {}
         self._turn_mint_label: str = ""
         self.user_profiles: dict[str, dict[str, str]] = {}
         self.macros: dict[str, list[str]] = {}
@@ -793,12 +796,26 @@ class NoraAGI:
                                  if is_manifest else BrocaOrgan.load(path))
         self.life.voice.tok = self.life.voice.organ.tok
 
+    def attach_broca_async(self, path: str):
+        """Broca organını arka planda yükler, böylece başlangıç bekleme süresi sıfıra iner."""
+        import threading
+        th = threading.Thread(target=self.attach_broca, args=(path,), daemon=True)
+        self._broca_thread = th
+        th.start()
+        return th
+
+    def ensure_broca_ready(self, timeout: float = 10.0) -> None:
+        th = getattr(self, "_broca_thread", None)
+        if th is not None and th.is_alive():
+            th.join(timeout=timeout)
+
     # Söz organı konuşmaya başlamak için ne kadar dil duymuş olmalı (duyulan parça sayısından üstel doyma).
     # Az dil duymuş bir organın sözü dizgi gürültüsüdür; o durumda Nora kendi sözünü KURMAZ, dürüstçe bilmediğini söyler.
     VOICE_READY_MATURE = 0.35
 
     def voice_ready(self) -> bool:
         """Dil olgunluğu kapısı: eğitilmiş artikülasyon organı varsa ya da yeterince dil duyulduysa açılır."""
+        self.ensure_broca_ready()
         v = self.life.voice
         return v.organ is not None or v.mature >= self.VOICE_READY_MATURE
 
@@ -1023,6 +1040,15 @@ class NoraAGI:
             expanded.extend((part_edge, part_path) for part_edge, part_path in scope_rows
                             if part_edge.subj == scope and not part_path
                             and part_edge.rel != "PART_OF")
+        priority = {"ISA": 0, "HAS_PART": 1, "COMPOSED_OF": 1,
+                    "CAN_DO": 2, "CANNOT_DO": 2, "CAUSES": 2,
+                    "HAS_PROP": 3, "USED_FOR": 4, "LOCATED_AT": 5}
+        expanded.sort(key=lambda row: (
+            priority.get(row[0].rel, 9),
+            bool(row[1]),
+            0 if len(str(row[0].obj).split()) > 1 else 1,
+            -row[0].weight,
+        ))
         propositions = []
         seen = set()
         for edge, _path in expanded + [(edge, []) for edge in (extra_proof or [])]:
@@ -1263,6 +1289,13 @@ class NoraAGI:
         started = time.perf_counter()
         try:
             evidence = self.lang.graph.query(concept, None)
+            if not evidence:
+                for pl in (concept + "lar", concept + "ler"):
+                    alt_ev = self.lang.graph.query(pl, None)
+                    if alt_ev:
+                        concept = pl
+                        evidence = alt_ev
+                        break
         except Exception:
             evidence = []
         self.last_epistemic_gate = {
@@ -2123,6 +2156,14 @@ class NoraAGI:
         # iç-konuşma ve nöral üretimden önce tamamlanır. Yaşam saati donmaz;
         # hızlı anlam cevabı olmayan turlar olağan yakalama yoluna devam eder.
         _preflight_t0 = time.perf_counter()
+        # Yapısal çözücüler (takvim, kelime problemi) kavram kapısından ÖNCE bakar: 'elması' gibi
+        # sözcükler bilinmeyen kavram sayılıp problem çözülmeden reddedilmesin.
+        _structured = puzzles.solve(raw, self.__dict__.setdefault("_puzzle_memory", {}))
+        if _structured is not None:
+            _reply, _why = _structured
+            self.lang.wernicke.last_explanation = _why
+            self._log_turn(speaker, raw, _reply, _preflight_t0)
+            return _reply
         _preflight_unknown = self._epistemic_gate(raw)
         if _preflight_unknown:
             self._log_turn(speaker, raw, _preflight_unknown, _preflight_t0)
@@ -3136,6 +3177,9 @@ class NoraAGI:
             return _unknown
         s_low = tr_lower(raw)
         bids: list[CorticalBid] = []
+        # Evet/hayır sorusu bilinmeyince dürüst 'bilmiyorum' teklifi kurulur; çağrışımsal
+        # yedek ise soruyu yanıtlamadan önceki cümleyi yeniden söyleyerek yarışmaz.
+        _yn_unknown_bid = False
         # Anlam çerçevesi sosyal sınıflandırmadan ÖNCE çözülür. Üçüncü şahıs
         # biyoloji/fizik olgusu, içinde 'enerji' geçiyor diye kişisel anlatıya
         # dönüşmemeli; kişisel hâl cümleleri zaten teach_fact üretmez.
@@ -3424,14 +3468,20 @@ class NoraAGI:
                     or len(_q_words - {"neden", "niçin", "niye", "peki", "az", "önce", "sen", "bir"}) == 0
                 _expl = (wern.last_explanation or "").strip()
                 _expl_relevant = bool(_expl) and bool(set(re.findall(r"[\wçğıöşü]+", tr_lower(_expl))) & _q_words)
+                # Çıplak 'Neden?' önceki cevabın gerekçesini sorar: bu gerekçe ne olursa olsun
+                # bedensel durum cümlesiyle değiştirilmez.
+                _self_act = bool(_q_words & {"reddet", "reddettin", "kabul", "yaptın", "davrandın",
+                                             "böyle", "öyle", "erteledin", "yapmadın"})
                 if ref_exp and _asks_own_action:
                     ans_w = tr_capitalize(ref_exp.rstrip(".")) + "."
-                elif _expl and _expl_relevant:
+                elif _expl and (_expl_relevant or _asks_own_action):
                     ans_w = tr_capitalize(_expl.rstrip(".")) + "."
-                else:
+                elif _self_act:
                     goal_names = {0: "enerji ihtiyacım", 1: "susuzluğum", 2: "tehlikeden korunma isteğim", 3: "merakım"}
                     g_str = goal_names.get(self.mind.goal, "içsel dengem")
                     ans_w = f"Böyle davrandım çünkü şu an {g_str} ön planda ve kimyam {self.chem.dominant_state_tr()}."
+                else:
+                    ans_w = "Bu cevap için kaydettiğim bir gerekçe yok."
                 bids.append(CorticalBid("insular_self", 0.96, 0.95, ans_w, "why_introspection"))
             elif fr.kind == "self_query" and conv_res is None:
                 bids.append(CorticalBid("insular_self", 0.96, 0.95, self._answer_self_query(fr.sub_kind), f"self:{fr.sub_kind}"))
@@ -3627,7 +3677,12 @@ class NoraAGI:
                             wern.last_explanation = f"Çok-adımlı nedensel yayılım: {chain_str}"
                             rep_yn = f"Evet, {chain_str}; dolayısıyla {concl_str}."
                         else:
-                            wern.last_explanation = f"{fr.subj} kavramından yayılan aktivasyonla {chk['edge'].obj} bağına ulaştım"
+                            _ischain = list(chk.get("isa_path") or []) + [chk["edge"]]
+                            if len(_ischain) > 1:
+                                wern.last_explanation = " ve ".join(
+                                    broca.realize_prop(Proposition(subj=pe.subj, rel=pe.rel, obj=pe.obj)) for pe in _ischain)
+                            else:
+                                wern.last_explanation = f"{fr.subj} kavramından yayılan aktivasyonla {chk['edge'].obj} bağına ulaştım"
                             rep_yn = broca.compose_inference_chain(chk["answer"], fr.subj, fr.obj, chk["edge"], chk["isa_path"])
                 if rep_yn is not None:
                     used_s2 = bool(len(chk.get("isa_path") or []) > 0
@@ -3637,10 +3692,15 @@ class NoraAGI:
                         f"yn:{fr.subj}?{fr.obj}", used_s2=used_s2,
                     ))
                 elif conv_res is None:
+                    _yn_unknown_bid = True
+                    _unknown_txt = self.speak_unknown(fr.subj, fallback=(f"{tr_capitalize(fr.subj)} hakkında '{fr.obj}' bilgisini "
+                                                                         f"henüz deneyimlemedim veya duymadım; tek cümleyle öğretebilirsin."))
+                    # Kavram biliniyor, yalnız bu yüklem bilinmiyorsa 'kavram bilgim yok' yanlış olur.
+                    if graph._out_edges.get(fr.subj) or graph._in_edges.get(fr.subj):
+                        _unknown_txt = (f"{tr_capitalize(fr.subj)} hakkında '{fr.obj}' bilgisini "
+                                        f"henüz deneyimlemedim veya duymadım; tek cümleyle öğretebilirsin.")
                     bids.append(CorticalBid(
-                        "hippocampal_concept", 0.76, 0.78,
-                        self.speak_unknown(fr.subj, fallback=(f"{tr_capitalize(fr.subj)} hakkında '{fr.obj}' bilgisini "
-                                                              f"henüz deneyimlemedim veya duymadım; tek cümleyle öğretebilirsin.")),
+                        "hippocampal_concept", 0.76, 0.78, _unknown_txt,
                         f"yn_unknown:{fr.subj}",
                     ))
             elif fr.kind == "wh_query" and conv_res is None:
@@ -3796,7 +3856,7 @@ class NoraAGI:
                             ))
 
         # --- SÜTUN 7: Açık-Uçlu Çağrışımsal Türkçe Sohbet Sentezleyicisi (her zaman yedek aday olarak yarışır!) ---
-        if not _wh_unans and not _delib_owned:
+        if not _wh_unans and not _delib_owned and not _yn_unknown_bid:
             # "neden/nasıl" sorusuna tür ("bir canlıdır") yanıt değildir: nedeni/yöntemi bilmiyorsak
             # çağrışımsal sentez susar, dürüst bilgisizlik konuşur.
             bids.append(self._synthesize_associative_dialogue(raw, s_low, speaker=speaker))
@@ -8088,7 +8148,11 @@ class NoraAGI:
             if top is None and prop in antonym_axis:
                 top = self.comp_graph.extremum(antonym_axis[prop], maximum=False)
             if top:
-                return f"Öğrendiğim sıralamaya göre en {prop} olan {morph.inflect_noun(top, 'NOM', copula=True)}."
+                _surf = self.lang.graph.surface_name(top)
+                _top_txt = morph.inflect_noun(_surf, "NOM", copula=True)
+                if _surf[:1].isupper():
+                    _top_txt = _surf[:1] + _top_txt[1:]    # özel ad büyük harfle kalır
+                return f"Öğrendiğim sıralamaya göre en {prop} olan {_top_txt}."
             # BELİRSİZLİK SÖYLENİR: iki ayrı uç varsa keyfî birini seçmek yalan olurdu.
             _cands = self.comp_graph.extremum_all(prop, maximum=True)
             _kind = "ambiguous" if len(_cands) > 1 else "unknown"
@@ -8411,6 +8475,7 @@ class NoraAGI:
         os.replace(_np_tmp, path_prefix + ".agi_mb.npz")
         self.mind.save(path_prefix + ".mind.npz")
         self.life.voice.save_file(path_prefix + ".voice.pkl.gz")
+        self.ensure_broca_ready()
         if self.life.voice.organ is not None:
             self.life.voice.organ.save(path_prefix + ".broca.pt")
         # Günlük: kayıt anı da iz bırakır, tampon diske indirilir.
@@ -8419,7 +8484,7 @@ class NoraAGI:
             self.journal.flush()
 
     @classmethod
-    def load(cls, path_prefix: str) -> "NoraAGI":
+    def load(cls, path_prefix: str, attach_broca_async: bool = False) -> "NoraAGI":
         with open(path_prefix + ".agi.json", "r", encoding="utf-8") as f:
             meta = json.load(f)
         agi = cls(name=meta["name"], seed=int(meta["seed"]), boot_thinker=False)
@@ -8438,6 +8503,7 @@ class NoraAGI:
                 obj_case=(extra[3] if len(extra) > 3 else "NOM"),
                 obj_plural=(extra[4] if len(extra) > 4 else False),
                 sentence=(extra[5] if len(extra) > 5 else ""),
+                bind_mb=False,
             )
         for row in meta.get("epistemic_events") or []:
             if len(row) < 3:
@@ -8582,7 +8648,10 @@ class NoraAGI:
         if os.path.exists(path_prefix + ".voice.pkl.gz"):
             agi.life.voice.load_file(path_prefix + ".voice.pkl.gz")
         if os.path.exists(path_prefix + ".broca.pt"):
-            agi.attach_broca(path_prefix + ".broca.pt")
+            if attach_broca_async:
+                agi.attach_broca_async(path_prefix + ".broca.pt")
+            else:
+                agi.attach_broca(path_prefix + ".broca.pt")
         z = np.load(path_prefix + ".agi_mb.npz")
         agi.fast.class_names = list(meta["fast_classes"])
         agi.fast.name_to_id = {n: i for i, n in enumerate(agi.fast.class_names)}
