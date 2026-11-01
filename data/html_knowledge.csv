@@ -1,0 +1,50 @@
+concept,subject,relation,object
+html,html,ISA,web işaretleme dili
+html,html,USED_FOR,web sayfalarının yapısını ve içeriğini oluşturmak
+html,html5,ISA,modern html web standardı
+html,html5,USED_FOR,semantik ve modern web uygulamaları geliştirmek
+button etiketi,button etiketi,ISA,html etkileşim elemanı
+button etiketi,button etiketi,USED_FOR,tıklanabilir buton ve kullanıcı eylemleri oluşturmak
+button etiketi,button,USED_FOR,tıklanabilir düğmeler ve form gönderme eylemleri oluşturmak
+form etiketi,form etiketi,ISA,html veri toplama elemanı
+form etiketi,form etiketi,USED_FOR,kullanıcıdan veri almak ve sunucuya göndermek
+form etiketi,form,USED_FOR,kullanıcı girdilerini toplamak ve işlemek
+input etiketi,input etiketi,ISA,html form giriş elemanı
+input etiketi,input etiketi,USED_FOR,"kullanıcıdan metin, şifre, e-posta veya sayısal veri girişi almak"
+input etiketi,input,USED_FOR,kullanıcıdan çeşitli formatlarda veri girişi toplamak
+a etiketi,a etiketi,ISA,html köprü ve bağlantı elemanı
+a etiketi,a etiketi,USED_FOR,web sayfaları arasında köprü ve bağlantı linki vermek
+a etiketi,a,USED_FOR,başka sayfalara veya dosyalara yönlendirme linki oluşturmak
+img etiketi,img etiketi,ISA,html görsel elemanı
+img etiketi,img etiketi,USED_FOR,"web sayfasına resim, fotoğraf veya grafik eklemek"
+img etiketi,img,USED_FOR,sayfaya görsel içerik yerleştirmek
+p etiketi,p etiketi,ISA,html paragraf elemanı
+p etiketi,p etiketi,USED_FOR,metin paragrafları ve okuma blokları oluşturmak
+p etiketi,p,USED_FOR,metinleri düzenli paragraflar halinde sunmak
+h1 etiketi,h1 etiketi,ISA,html birincil başlık elemanı
+h1 etiketi,h1 etiketi,USED_FOR,sayfanın en önemli ana başlığını belirtmek
+h1 etiketi,h1,USED_FOR,sayfa ana başlığını tanımlamak
+div etiketi,div etiketi,ISA,html blok kapsayıcı eleman
+div etiketi,div etiketi,USED_FOR,sayfa bölümlerini gruplamak ve css ile düzenlemek
+div etiketi,div,USED_FOR,blok düzeyinde kapsayıcı ve yerleşim alanları oluşturmak
+span etiketi,span etiketi,ISA,html satır içi kapsayıcı eleman
+span etiketi,span etiketi,USED_FOR,metin içindeki belirli kelimeleri veya kısımları biçimlendirmek
+span etiketi,span,USED_FOR,satır içi metin parçalarını gruplamak ve stillendirmek
+table etiketi,table etiketi,ISA,html veri tablosu elemanı
+table etiketi,table etiketi,USED_FOR,satır ve sütunlardan oluşan iki boyutlu veri tabloları oluşturmak
+table etiketi,table,USED_FOR,yapılandırılmış verileri satır ve sütunlar halinde göstermek
+ul ve ol etiketleri,ul etiketi,ISA,html sırasız liste elemanı
+ul ve ol etiketleri,ul etiketi,USED_FOR,madde işaretli sırasız liste oluşturmak
+ul ve ol etiketleri,ol etiketi,ISA,html sıralı liste elemanı
+ul ve ol etiketleri,ol etiketi,USED_FOR,numaralı sıralı liste oluşturmak
+ul ve ol etiketleri,li etiketi,USED_FOR,liste maddelerini ve öğelerini tanımlamak
+semantik etiketler,semantik html,ISA,anlamsal web standardı
+semantik etiketler,header etiketi,USED_FOR,sayfa veya bölüm başlığını ve logosunu tutmak
+semantik etiketler,nav etiketi,USED_FOR,gezinme menüsü ve sayfa içi bağlantıları barındırmak
+semantik etiketler,main etiketi,USED_FOR,sayfanın birincil ve özgün içeriğini kapsamak
+semantik etiketler,footer etiketi,USED_FOR,"sayfa altbilgisi, telif hakları ve iletişim bağlantılarını barındırmak"
+semantik etiketler,section etiketi,USED_FOR,sayfadaki tematik içerik bölümlerini ayırmak
+head ve body etiketleri,head etiketi,ISA,html meta veri kapsayıcısı
+head ve body etiketleri,head etiketi,USED_FOR,"sayfa başlığı, meta etiketleri ve stil bağlantılarını tutmak"
+head ve body etiketleri,body etiketi,ISA,html görünür içerik gövdesi
+head ve body etiketleri,body etiketi,USED_FOR,kullanıcının tarayıcıda gördüğü tüm içeriği barındırmak

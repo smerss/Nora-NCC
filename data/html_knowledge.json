@@ -1,0 +1,240 @@
+[
+  {
+    "concept": "html",
+    "triples": [
+      ["html", "ISA", "web işaretleme dili"],
+      ["html", "USED_FOR", "web sayfalarının yapısını ve içeriğini oluşturmak"],
+      ["html5", "ISA", "modern html web standardı"],
+      ["html5", "USED_FOR", "semantik ve modern web uygulamaları geliştirmek"]
+    ],
+    "sentences": [
+      "HTML, web sayfalarının iskeletini ve içeriğini tanımlayan standart işaretleme dilidir.",
+      "HTML5, modern web tarayıcılarında multimedya ve semantik etiket desteği sunan en güncel HTML standardıdır."
+    ],
+    "qa": [
+      ["HTML nedir?", "HTML (HyperText Markup Language), web sayfalarının yapısını ve içeriğini oluşturmak için kullanılan standart işaretleme dilidir."],
+      ["HTML ne işe yarar?", "HTML, web sayfalarında metin, görsel, form ve bağlantı gibi içeriklerin hiyerarşik yapısını kurmaya yarar."],
+      ["HTML5 nedir?", "HTML5, ses, video ve modern semantik etiketleri yerel olarak destekleyen en güncel HTML sürümüdür."]
+    ]
+  },
+  {
+    "concept": "button etiketi",
+    "triples": [
+      ["button etiketi", "ISA", "html etkileşim elemanı"],
+      ["button etiketi", "USED_FOR", "tıklanabilir buton ve kullanıcı eylemleri oluşturmak"],
+      ["button", "USED_FOR", "tıklanabilir düğmeler ve form gönderme eylemleri oluşturmak"]
+    ],
+    "sentences": [
+      "Button etiketi, web sayfalarında kullanıcıların tıklayabileceği etkileşimli düğmeler oluşturmak için kullanılır.",
+      "HTML'de button etiketi type niteliği alarak submit, reset veya button işlevlerinde çalışabilir."
+    ],
+    "qa": [
+      ["Button ne işe yarar?", "Button etiketi, web sayfalarında kullanıcıların tıklayarak form göndermesini veya bir işlemi tetiklemesini sağlar."],
+      ["Button etiketi nedir?", "Button etiketi, web sayfalarında tıklanabilir butonlar ve etkileşimli düğmeler tanımlayan HTML etiketidir."],
+      ["HTML'de buton nasıl yapılır?", "HTML'de buton oluşturmak için <button> etiketini kullanabilirsin; örneğin <button type='button'>Tıkla</button> şeklinde tanımlanır."]
+    ]
+  },
+  {
+    "concept": "form etiketi",
+    "triples": [
+      ["form etiketi", "ISA", "html veri toplama elemanı"],
+      ["form etiketi", "USED_FOR", "kullanıcıdan veri almak ve sunucuya göndermek"],
+      ["form", "USED_FOR", "kullanıcı girdilerini toplamak ve işlemek"]
+    ],
+    "sentences": [
+      "Form etiketi, metin kutuları, butonlar ve onay kutuları gibi girdi elemanlarını kapsayarak kullanıcı verilerini sunucuya iletir.",
+      "HTML formlarında action verinin gideceği adresi, method ise GET veya POST aktarım yöntemini belirler."
+    ],
+    "qa": [
+      ["Form etiketi ne işe yarar?", "Form etiketi, kullanıcıdan metin, şifre ve seçim gibi girdileri toplayıp sunucuya göndermek için kullanılır."],
+      ["Form etiketi nedir?", "Form etiketi, web sitelerinde veri girişi yapılan giriş, kayıt veya iletişim bölümlerini oluşturan kapsayıcı HTML elemanıdır."],
+      ["HTML form nasıl oluşturulur?", "HTML'de form oluşturmak için <form action='url' method='post'> yapısı kullanılır ve içerisine input, textarea, button gibi elemanlar eklenir."]
+    ]
+  },
+  {
+    "concept": "input etiketi",
+    "triples": [
+      ["input etiketi", "ISA", "html form giriş elemanı"],
+      ["input etiketi", "USED_FOR", "kullanıcıdan metin, şifre, e-posta veya sayısal veri girişi almak"],
+      ["input", "USED_FOR", "kullanıcıdan çeşitli formatlarda veri girişi toplamak"]
+    ],
+    "sentences": [
+      "Input etiketi, type niteliğine göre metin, parola, onay kutusu veya e-posta gibi farklı veri giriş alanları sunar.",
+      "Input etiketi tek başına kapanan (self-closing) boş bir HTML elemanıdır."
+    ],
+    "qa": [
+      ["Input etiketi ne işe yarar?", "Input etiketi, kullanıcının web sayfasına yazı, parola, e-posta veya seçim girmesini sağlayan etkileşimli girdi alanıdır."],
+      ["Input etiketi nedir?", "Input etiketi, formlar içinde veri toplamak için kullanılan çok yönlü bir HTML elemanıdır."],
+      ["HTML input türleri nelerdir?", "HTML input etiketinin sık kullanılan türleri text, password, email, number, checkbox ve radio türleridir."]
+    ]
+  },
+  {
+    "concept": "a etiketi",
+    "triples": [
+      ["a etiketi", "ISA", "html köprü ve bağlantı elemanı"],
+      ["a etiketi", "USED_FOR", "web sayfaları arasında köprü ve bağlantı linki vermek"],
+      ["a", "USED_FOR", "başka sayfalara veya dosyalara yönlendirme linki oluşturmak"]
+    ],
+    "sentences": [
+      "A etiketi (anchor), href niteliği ile kullanıcıları başka bir web sayfasına, dosyaya veya e-posta adresine yönlendiren köprüler oluşturur.",
+      "A etiketinde target='_blank' kullanıldığında bağlantı yeni bir tarayıcı sekmesinde açılır."
+    ],
+    "qa": [
+      ["A etiketi ne işe yarar?", "A etiketi, sayfalar arasında gezinmeyi sağlayan tıklanabilir bağlantılar ve linkler oluşturmak için kullanılır."],
+      ["A etiketi nedir?", "A etiketi (anchor), web sayfalarında hipermetin köprüleri (link) oluşturan temel HTML etiketidir."],
+      ["HTML'de link nasıl verilir?", "HTML'de link vermek için <a href='https://ornek.com'>Bağlantı Metni</a> yapısı kullanılır."]
+    ]
+  },
+  {
+    "concept": "img etiketi",
+    "triples": [
+      ["img etiketi", "ISA", "html görsel elemanı"],
+      ["img etiketi", "USED_FOR", "web sayfasına resim, fotoğraf veya grafik eklemek"],
+      ["img", "USED_FOR", "sayfaya görsel içerik yerleştirmek"]
+    ],
+    "sentences": [
+      "Img etiketi, src niteliği ile dosya yolunu, alt niteliği ile erişilebilirlik açıklamasını alarak sayfada görsel görüntüler.",
+      "Img etiketi kapanış etiketi gerektirmeyen boş (void) bir HTML etiketidir."
+    ],
+    "qa": [
+      ["Img etiketi ne işe yarar?", "Img etiketi, web sayfalarına fotoğraf, resim, logo veya grafik eklemek için kullanılır."],
+      ["Img etiketi nedir?", "Img etiketi, harici görsel dosyalarını web sayfasına gömen ve görüntüleyen HTML elemanıdır."],
+      ["HTML resim etiketi nasıl kullanılır?", "HTML'de resim eklemek için <img src='resim.jpg' alt='Açıklama'> sözdizimi kullanılır."]
+    ]
+  },
+  {
+    "concept": "p etiketi",
+    "triples": [
+      ["p etiketi", "ISA", "html paragraf elemanı"],
+      ["p etiketi", "USED_FOR", "metin paragrafları ve okuma blokları oluşturmak"],
+      ["p", "USED_FOR", "metinleri düzenli paragraflar halinde sunmak"]
+    ],
+    "sentences": [
+      "P etiketi, metinleri anlamlı paragraflara bölerek tarayıcının satır başı ve boşluk bırakmasını sağlar.",
+      "Web sayfalarındaki genel gövde metinleri ve açıklamalar p etiketi ile sarılır."
+    ],
+    "qa": [
+      ["P etiketi ne işe yarar?", "P etiketi, web sayfasında metinleri düzenli paragraflar hâline getirmek için kullanılır."],
+      ["P etiketi nedir?", "P (paragraph) etiketi, metin bloklarını birbirinden ayıran temel HTML paragraf elemanıdır."]
+    ]
+  },
+  {
+    "concept": "h1 etiketi",
+    "triples": [
+      ["h1 etiketi", "ISA", "html birincil başlık elemanı"],
+      ["h1 etiketi", "USED_FOR", "sayfanın en önemli ana başlığını belirtmek"],
+      ["h1", "USED_FOR", "sayfa ana başlığını tanımlamak"]
+    ],
+    "sentences": [
+      "H1 etiketi, bir web sayfasının birincil ve en yüksek düzeydeki ana başlığını tanımlar.",
+      "SEO ve erişilebilirlik açısından her sayfada genellikle tek bir h1 etiketi bulunması önerilir."
+    ],
+    "qa": [
+      ["H1 etiketi ne işe yarar?", "H1 etiketi, sayfanın ana başlığını vurgulamak ve arama motorlarına sayfa konusunu bildirmek için kullanılır."],
+      ["H1 nedir?", "H1 etiketi, HTML'deki en büyük ve en önemli başlık seviyesidir."]
+    ]
+  },
+  {
+    "concept": "div etiketi",
+    "triples": [
+      ["div etiketi", "ISA", "html blok kapsayıcı eleman"],
+      ["div etiketi", "USED_FOR", "sayfa bölümlerini gruplamak ve css ile düzenlemek"],
+      ["div", "USED_FOR", "blok düzeyinde kapsayıcı ve yerleşim alanları oluşturmak"]
+    ],
+    "sentences": [
+      "Div etiketi, anlamsal bir anlam taşımayan fakat CSS ile düzen ve yerleşim kurmak için kullanılan blok kapsayıcıdır.",
+      "Modern web tasarımında bölümleri, kartları ve ızgara yapılarını gruplamak için sıklıkla div kullanılır."
+    ],
+    "qa": [
+      ["Div ne işe yarar?", "Div etiketi, diğer HTML öğelerini gruplamak, düzenlemek ve CSS ile biçimlendirmek için kullanılan blok düzeyinde bir kapsayıcıdır."],
+      ["Div etiketi nedir?", "Div (division) etiketi, web sayfasını bölümlere ayıran genel amaçlı bir kapsayıcı elemandır."]
+    ]
+  },
+  {
+    "concept": "span etiketi",
+    "triples": [
+      ["span etiketi", "ISA", "html satır içi kapsayıcı eleman"],
+      ["span etiketi", "USED_FOR", "metin içindeki belirli kelimeleri veya kısımları biçimlendirmek"],
+      ["span", "USED_FOR", "satır içi metin parçalarını gruplamak ve stillendirmek"]
+    ],
+    "sentences": [
+      "Span etiketi, bir metin bloğu içinde yeni satıra geçmeden belirli kelimelere özel stil vermek için kullanılır.",
+      "Span etiketi satır içi (inline) bir elemandır ve metin akışını bozmaz."
+    ],
+    "qa": [
+      ["Span ne işe yarar?", "Span etiketi, metin akışını bölmeden belirli kelimelere veya ifadelere CSS stili uygulamak için kullanılır."],
+      ["Span etiketi nedir?", "Span etiketi, satır içi düzeyde metin ve eleman gruplamak için kullanılan biçimlendirme elemanıdır."]
+    ]
+  },
+  {
+    "concept": "table etiketi",
+    "triples": [
+      ["table etiketi", "ISA", "html veri tablosu elemanı"],
+      ["table etiketi", "USED_FOR", "satır ve sütunlardan oluşan iki boyutlu veri tabloları oluşturmak"],
+      ["table", "USED_FOR", "yapılandırılmış verileri satır ve sütunlar halinde göstermek"]
+    ],
+    "sentences": [
+      "Table etiketi, tr satırları, th başlıkları ve td hücreleri ile birlikte iki boyutlu veri tabloları oluşturur.",
+      "HTML tabloları finansal veriler, listeler ve karşılaştırmalı bilgileri düzenlemek için idealdir."
+    ],
+    "qa": [
+      ["Table etiketi ne işe yarar?", "Table etiketi, verileri satırlar ve sütunlar halinde düzenli bir tablo formatında sunmak için kullanılır."],
+      ["HTML tablo nasıl yapılır?", "HTML'de tablo oluşturmak için <table> etiketi açılır, içine <tr> (satır), <th> (başlık) ve <td> (veri hücresi) etiketleri yerleştirilir."]
+    ]
+  },
+  {
+    "concept": "ul ve ol etiketleri",
+    "triples": [
+      ["ul etiketi", "ISA", "html sırasız liste elemanı"],
+      ["ul etiketi", "USED_FOR", "madde işaretli sırasız liste oluşturmak"],
+      ["ol etiketi", "ISA", "html sıralı liste elemanı"],
+      ["ol etiketi", "USED_FOR", "numaralı sıralı liste oluşturmak"],
+      ["li etiketi", "USED_FOR", "liste maddelerini ve öğelerini tanımlamak"]
+    ],
+    "sentences": [
+      "Ul etiketi madde işaretli sırasız listeler oluştururken, ol etiketi numaralandırılmış sıralı listeler üretir.",
+      "Her iki listede de her bir liste elemanı li (list item) etiketi ile tanımlanır."
+    ],
+    "qa": [
+      ["Ul ve ol arasındaki fark nedir?", "Ul etiketi madde işaretli sırasız listeler üretirken, ol etiketi 1, 2, 3 şeklinde numaralandırılmış sıralı listeler oluşturur."],
+      ["Li etiketi ne işe yarar?", "Li etiketi, ul veya ol listeleri içinde her bir liste maddesini belirtmek için kullanılır."]
+    ]
+  },
+  {
+    "concept": "semantik etiketler",
+    "triples": [
+      ["semantik html", "ISA", "anlamsal web standardı"],
+      ["header etiketi", "USED_FOR", "sayfa veya bölüm başlığını ve logosunu tutmak"],
+      ["nav etiketi", "USED_FOR", "gezinme menüsü ve sayfa içi bağlantıları barındırmak"],
+      ["main etiketi", "USED_FOR", "sayfanın birincil ve özgün içeriğini kapsamak"],
+      ["footer etiketi", "USED_FOR", "sayfa altbilgisi, telif hakları ve iletişim bağlantılarını barındırmak"],
+      ["section etiketi", "USED_FOR", "sayfadaki tematik içerik bölümlerini ayırmak"]
+    ],
+    "sentences": [
+      "Semantik HTML etiketleri, etiket adına bakıldığında içeriğin ne olduğunu tarayıcıya, ekran okuyucuya ve arama motoruna açıkça anlatır.",
+      "Header, nav, main, section ve footer gibi semantik etiketler sayfa düzeninin anlaşılabilirliğini ve SEO kalitesini yükseltir."
+    ],
+    "qa": [
+      ["Semantik HTML nedir?", "Semantik HTML, içeriğin anlamına uygun etiketler (header, nav, main, article, footer) kullanılarak yazılan ve erişilebilirliği artıran HTML yapısıdır."],
+      ["Nav etiketi ne işe yarar?", "Nav etiketi, web sitesinde menü ve gezinme bağlantılarını anlamsal olarak sarmalamak için kullanılır."],
+      ["Footer etiketi ne işe yarar?", "Footer etiketi, sayfanın en altındaki telif hakkı, yazar bilgisi ve alt menü gibi bilgileri barındırır."]
+    ]
+  },
+  {
+    "concept": "head ve body etiketleri",
+    "triples": [
+      ["head etiketi", "ISA", "html meta veri kapsayıcısı"],
+      ["head etiketi", "USED_FOR", "sayfa başlığı, meta etiketleri ve stil bağlantılarını tutmak"],
+      ["body etiketi", "ISA", "html görünür içerik gövdesi"],
+      ["body etiketi", "USED_FOR", "kullanıcının tarayıcıda gördüğü tüm içeriği barındırmak"]
+    ],
+    "sentences": [
+      "Head etiketi sayfa hakkında tarayıcıya bilgi veren meta verileri içerirken, body etiketi ekranda görünen asıl içeriği barındırır.",
+      "Title, meta, link ve style etiketleri head içerisine yazılır; başlıklar, paragraflar, resimler ise body içine konur."
+    ],
+    "qa": [
+      ["Head ve body etiketlerinin farkı nedir?", "Head etiketi kullanıcıya görünmeyen meta verileri ve sayfa başlığını barındırır; body etiketi ise sayfada ekrana gelen tüm görsel ve metinsel içeriği taşır."],
+      ["Body etiketi ne işe yarar?", "Body etiketi, bir web sayfasının kullanıcı tarafından görülebilen tüm başlık, paragraf, form ve görsellerini içeren ana gövdedir."]
+    ]
+  }
+]

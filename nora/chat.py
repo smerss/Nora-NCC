@@ -80,6 +80,35 @@ def parse_args() -> argparse.Namespace:
         default=True,
         help="Run background biological life loop ticks (default: True)",
     )
+    parser.add_argument(
+        "--web",
+        "--webui",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="WebUI arayüzünü başlat ve tarayıcıda sekme aç (varsayılan: True)",
+    )
+    parser.add_argument(
+        "--cli",
+        action="store_true",
+        help="WebUI yerine doğrudan terminal konsolunda çalıştır",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=7860,
+        help="WebUI sunucu portu (varsayılan: 7860)",
+    )
+    parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="WebUI sunucu adresi (varsayılan: 127.0.0.1)",
+    )
+    parser.add_argument(
+        "--open-browser",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Tarayıcıda otomatik yeni sekme aç (varsayılan: True)",
+    )
     return parser.parse_args()
 
 
@@ -175,6 +204,23 @@ def main() -> None:
             target = agi.save(str(checkpoint))
         emit(f"[Nora] Bütün beyin kaydedildi: {target}")
 
+    use_web = bool(args.web and not args.cli)
+    web_server = None
+    if use_web:
+        from nora.web import NoraWebServer
+        web_server = NoraWebServer(
+            agi=agi,
+            lock=lock,
+            stop=stop,
+            args=args,
+            save_checkpoint=save_checkpoint,
+            status_summary=status_summary,
+            emit=emit,
+            host=args.host,
+            port=args.port,
+            open_browser=args.open_browser,
+        )
+
     def life_loop() -> None:
         next_tick = time.monotonic() + TICK_SECONDS
         while not stop.is_set():
@@ -195,9 +241,16 @@ def main() -> None:
                     text = str(msg.get("text") or "").strip()
                     if text:
                         emit(f"\n[Nora içses / yaş={msg.get('age', '?')}] {text}")
+                        if web_server is not None:
+                            web_server.on_thought(msg)
+
+                if web_server is not None:
+                    web_server.broadcast_event("status", web_server.get_vitals())
 
                 if not state.get("alive", False):
                     emit("\n[Nora] Yaşam döngüsü sona erdi.")
+                    if web_server is not None:
+                        web_server.broadcast_event("status", web_server.get_vitals())
                     stop.set()
                     break
 
@@ -228,98 +281,107 @@ def main() -> None:
    /exit    - Çıkış yapar
 ===================================================================
 """
-    emit(banner)
 
     try:
-        while not stop.is_set():
-            try:
-                line = input("Sen > ").strip()
-            except (EOFError, KeyboardInterrupt):
-                print()
-                break
+        if use_web:
+            assert web_server is not None
+            web_server.start()
+        else:
+            emit(banner)
+            while not stop.is_set():
+                try:
+                    line = input("Sen > ").strip()
+                except (EOFError, KeyboardInterrupt):
+                    print()
+                    break
 
-            if not line:
-                continue
-
-            command = line.casefold()
-
-            if command in {"/exit", "/quit", "exit", "quit", "çıkış", "q"}:
-                break
-
-            if command in {"/help", "/yardım", "/yardim"}:
-                emit(
-                    "Komutlar:\n"
-                    "  /status: yaş, enerji, su, organlar ve bilinç durumu\n"
-                    "  /sleep: bakım uykusu (konsolidasyon)\n"
-                    "  /save: bütün beyni tek dosyaya kaydet\n"
-                    "  /exit: güvenli çıkış\n"
-                )
-                continue
-
-            with lock:
-                if not agi.mortality.is_alive:
-                    emit("[Nora] Yaşam fonksiyonları durdu, yanıt veremiyor.")
+                if not line:
                     continue
 
-                if command == "/status":
-                    emit(status_summary())
-                    continue
+                command = line.casefold()
 
-                if command == "/sleep":
-                    result = agi.sleep()
+                if command in {"/exit", "/quit", "exit", "quit", "çıkış", "q"}:
+                    break
+
+                if command in {"/help", "/yardım", "/yardim"}:
                     emit(
-                        f"[Uyku] Mod: {result.get('mode')} | "
-                        f"Replay adımları: {result.get('replay')}"
+                        "Komutlar:\n"
+                        "  /status: yaş, enerji, su, organlar ve bilinç durumu\n"
+                        "  /sleep: bakım uykusu (konsolidasyon)\n"
+                        "  /save: bütün beyni tek dosyaya kaydet\n"
+                        "  /exit: güvenli çıkış\n"
                     )
                     continue
 
-                if command.startswith("/teach ") or command.startswith("/öğret "):
-                    fact = line.split(" ", 1)[1].strip()
-                    try:
-                        edges = agi.lang.teach_sentence(fact, speaker="insan")
-                        agi._modified_in_session = True
-                        save_checkpoint()
-                        emit(f"[Öğrenildi ve Kaydedildi] '{fact}' -> {len(edges)} bağlantı hafızaya işlendi.")
-                    except Exception as e:
-                        emit(f"[Hata] Öğrenilemedi: {e}")
-                    continue
+                with lock:
+                    if not agi.mortality.is_alive:
+                        emit("[Nora] Yaşam fonksiyonları durdu, yanıt veremiyor.")
+                        continue
 
-                if command.startswith("/absorb ") or command.startswith("/oku "):
-                    target_file = line.split(" ", 1)[1].strip()
-                    p = Path(target_file).expanduser().resolve()
-                    if not p.is_file():
-                        emit(f"[Hata] Dosya bulunamadı: {target_file}")
-                    else:
-                        emit(f"[Nora] Dosya okunuyor ve semantik hafızaya işleniyor: {p}")
+                    if command == "/status":
+                        emit(status_summary())
+                        continue
+
+                    if command == "/sleep":
+                        result = agi.sleep()
+                        emit(
+                            f"[Uyku] Mod: {result.get('mode')} | "
+                            f"Replay adımları: {result.get('replay')}"
+                        )
+                        continue
+
+                    if command.startswith("/teach ") or command.startswith("/öğret "):
+                        fact = line.split(" ", 1)[1].strip()
                         try:
-                            stats = agi.read_corpus(str(p))
+                            edges = agi.lang.teach_sentence(fact, speaker="insan")
+                            agi._modified_in_session = True
                             save_checkpoint()
-                            emit(f"[Hafıza] Tamamlandı ve kalıcı kaydedildi: {stats}")
+                            emit(f"[Öğrenildi ve Kaydedildi] '{fact}' -> {len(edges)} bağlantı hafızaya işlendi.")
                         except Exception as e:
-                            emit(f"[Hata] Okuma sırasında hata: {e}")
-                    continue
+                            emit(f"[Hata] Öğrenilemedi: {e}")
+                        continue
 
-                if command == "/save":
-                    save_checkpoint()
-                    continue
+                    if command.startswith("/absorb ") or command.startswith("/oku "):
+                        target_file = line.split(" ", 1)[1].strip()
+                        p = Path(target_file).expanduser().resolve()
+                        if not p.is_file():
+                            emit(f"[Hata] Dosya bulunamadı: {target_file}")
+                        else:
+                            emit(f"[Nora] Dosya okunuyor ve semantik hafızaya işleniyor: {p}")
+                            try:
+                                stats = agi.read_corpus(str(p))
+                                save_checkpoint()
+                                emit(f"[Hafıza] Tamamlandı ve kalıcı kaydedildi: {stats}")
+                            except Exception as e:
+                                emit(f"[Hata] Okuma sırasında hata: {e}")
+                        continue
 
-                # Synchronize real time timestamp so life ticks don't double count
-                agi.last_real_time = time.time()
-                t0 = time.perf_counter()
-                answer = agi.converse(line, speaker="insan")
-                if do_train:
-                    agi._modified_in_session = True
-                elapsed = time.perf_counter() - t0
+                    if command == "/save":
+                        save_checkpoint()
+                        continue
 
-            if answer:
-                emit(f"Nora ({elapsed:.2f}s) > {answer}\n")
-            else:
-                emit("Nora > ...\n")
+                    # Synchronize real time timestamp so life ticks don't double count
+                    agi.last_real_time = time.time()
+                    t0 = time.perf_counter()
+                    answer = agi.converse(line, speaker="insan")
+                    if do_train:
+                        agi._modified_in_session = True
+                    elapsed = time.perf_counter() - t0
+
+                if answer:
+                    emit(f"Nora ({elapsed:.2f}s) > {answer}\n")
+                else:
+                    emit("Nora > ...\n")
 
     except KeyboardInterrupt:
         pass
     finally:
         stop.set()
+        if web_server is not None and web_server.server is not None:
+            try:
+                web_server.server.server_close()
+            except Exception:
+                pass
         if worker is not None:
             worker.join(timeout=3.0)
 

@@ -326,13 +326,24 @@ On Windows PowerShell, activate the environment with:
 .venv\Scripts\Activate.ps1
 ```
 
-### Run the single-file chat launcher
+### Run the chat launcher (WebUI & CLI)
 
-For ordinary conversation, open just one Python file:
+For ordinary conversation, run `chat.py`:
 
 ```bash
+# Starts the WebUI and automatically opens a new browser tab (http://127.0.0.1:7860)
 python chat.py
+
+# Or run directly in the terminal console
+python chat.py --cli
 ```
+
+Options:
+- `--web`: Enable WebUI and auto-open browser tab (default: enabled).
+- `--cli`: Run in classic terminal console mode instead of WebUI.
+- `--port 7860`: Specify WebUI server port (default: 7860).
+- `--host 127.0.0.1`: Specify WebUI server host.
+- `--no-open-browser`: Start WebUI without automatically opening a browser tab.
 
 The launcher automatically loads `state/nora_brain.nora`, creates it on first use, and saves the complete brain on `/save` and exit. A different brain can be selected with `--checkpoint path/to/another.nora`; an old five-part prefix is migrated automatically. No separate `.pt`, voice, or tokenizer file has to be selected. Conversation turns and learning state are included in the same brain file.
 

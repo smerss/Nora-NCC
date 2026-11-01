@@ -43,3 +43,6 @@ state/nora_sozcu.*
 # veri korpusu ve yönlendirme çıktıları (büyük, git'e gitmez)
 data/corpus/
 data/routed/
+data/checkpoints/
+data/benchmarks/*.parquet
+data/benchmarks/*.jsonl

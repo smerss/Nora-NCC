@@ -502,6 +502,8 @@ class SchoolCortex:
                     "Hangisini açayım?")
         sym = None
         for cand in ("≤", "≥", "≠", "+", "-", "×", "÷", "=", "<", ">", "%", "√", "²", "³", "π", "∞", "±", "°"):
+            if cand in ("<", ">") and re.search(r"<[a-zA-Z][\w\-]*", s):
+                continue
             if cand in s:
                 sym = cand
                 break
