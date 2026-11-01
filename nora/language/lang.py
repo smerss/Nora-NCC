@@ -2028,6 +2028,28 @@ class GroundedConceptGraph:
             return w[:-1]
         return w
 
+    def retract_edges(self, predicate) -> int:
+        """Koşulu sağlayan kenarları sorgu indekslerinden çıkarır; kayıt silinmez.
+
+        HDC bağları kenarın listedeki yerine (slot) göre tutulduğu için liste kısaltılmaz:
+        kenar ağırlığı sıfırlanır, durumu 'retracted' olur ve hiçbir komşuluk onu döndürmez."""
+        n = 0
+        for edge in self.edges:
+            if edge.status == "retracted" or not predicate(edge):
+                continue
+            edge.weight = 0.0
+            edge.status = "retracted"
+            for index, key in ((self._out_edges, edge.subj), (self._in_edges, edge.obj)):
+                bucket = index.get(key)
+                if bucket is not None:
+                    bucket[:] = [e for e in bucket if e is not edge]
+                    if not bucket:
+                        index.pop(key, None)
+            if self._edge_map.get((edge.subj, edge.rel, edge.obj)) is edge:
+                del self._edge_map[(edge.subj, edge.rel, edge.obj)]
+            n += 1
+        return n
+
     def add_edge(self, subj: str, rel: str, obj: str, source: str = "duyum",
                  speaker: str = "insan", weight: float = 1.0, bind_mb: bool = True,
                  status: str = "accepted", verb: str = "", obj_surface: str = "",
@@ -4579,6 +4601,11 @@ class NoraLanguage:
                 if token[:1].isupper() and (_ekli or m.start() > 0):
                     self.graph.register_display_name(token.lower(), token)
             fr = self.wernicke.parse(cl)
+            # Zamir öznenin ('benim', 'sen', 'o' ...) göndergesi cümlenin dışında, konuşanda durur.
+            # Kavram ağına 'benim ISA ...' diye yazılırsa okunan her metnin yazarı Nora'nın
+            # kendisi olur ve sonraki her 'benim' sözünde o yabancı hayat anlatılır.
+            if self.is_deictic(getattr(fr, "subj", "")):
+                continue
             if fr.kind == "invent_relation":
                 invented = self.graph.invent_relation(
                     fr.subj, fr.obj, cl, fr.verb,
@@ -4619,6 +4646,16 @@ class NoraLanguage:
             elif fr.kind == "teach_val":
                 learned.append(self.graph.add_edge(fr.subj, fr.rel, fr.obj, source="duyum", speaker=speaker))
         return learned
+
+    @staticmethod
+    def is_deictic(subj: str) -> bool:
+        """Özne bir kişi/gösterme zamiri mi (her hâl ekiyle)? Göndergesi bağlamdadır, dünyada değil."""
+        from nora_broca import TurkishSyntaxEngine
+        head = tr_lower(str(subj or "")).split()
+        if not head:
+            return False
+        forms = {form for cases in TurkishSyntaxEngine.PRONOUN_CASES.values() for form in cases.values()}
+        return head[0] in forms
 
     def _teachable_predicate(self, obj: str) -> bool:
         """Yüklem gerçekten tek bir özellik mi? 'organdır ve düşünmeyi sağlar' gibi bütün bir

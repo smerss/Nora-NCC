@@ -98,13 +98,28 @@ def scan_file(path: Path) -> list[dict]:
         return [{"line": 0, "text": f"[okunamadı: {exc}]", "error": True}]
 
 
+def _module_files(root: Path) -> list[tuple[str, Path]]:
+    """Denetlenecek modüller, baseline'daki düz `nora_<ad>.py` adlarıyla.
+
+    Kaynak `nora/` paketine taşındığından beri dosyalar `nora/<alt>/<ad>.py` altında
+    durur; eski kökteki `nora_*.py` taraması boş döner ve mandal sessizce kör olur.
+    """
+    found: dict[str, Path] = {}
+    for p in sorted((root / "nora").rglob("*.py")):
+        if p.name == "__init__.py" or p.name.startswith("_"):
+            continue
+        found.setdefault(f"nora_{p.stem}.py", p)
+    for p in sorted(root.glob("nora_*.py")):
+        found.setdefault(p.name, p)
+    found.pop("nora_audit.py", None)
+    return sorted(found.items())
+
+
 def scan_all(root: Path = ROOT) -> dict:
     mods = {}
-    for p in sorted(root.glob("nora_*.py")):
-        if p.name in ("nora_audit.py",):
-            continue
+    for name, p in _module_files(root):
         items = scan_file(p)
-        mods[p.name] = {"adet": len(items), "ornek": [i["text"][:60] for i in items[:3]]}
+        mods[name] = {"adet": len(items), "ornek": [i["text"][:60] for i in items[:3]]}
     total = sum(v["adet"] for v in mods.values())
     soylem = sum(v["adet"] for k, v in mods.items() if k in SOYLEM)
     return {"toplam": total, "soylem": soylem, "modul": mods}
@@ -173,7 +188,7 @@ def main(argv=None) -> int:
         save_baseline(rep)
         print("baseline yazıldı.")
         return 0
-    if args.check and cmp["artan"]:
+    if args.check and (cmp["artan"] or cmp["toplam_fark"] > 0):
         print("HATA: iskelet büyümüş:", cmp["artan"])
         return 1
     return 0

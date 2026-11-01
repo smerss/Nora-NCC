@@ -46,3 +46,4 @@ data/routed/
 data/checkpoints/
 data/benchmarks/*.parquet
 data/benchmarks/*.jsonl
+.gemini/

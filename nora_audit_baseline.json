@@ -1,12 +1,12 @@
 {
-  "toplam": 1122,
-  "soylem": 126,
+  "toplam": 1549,
+  "soylem": 324,
   "modul": {
     "nora_abstract.py": {
       "adet": 0
     },
     "nora_agi.py": {
-      "adet": 184
+      "adet": 214
     },
     "nora_anlatim.py": {
       "adet": 0
@@ -17,9 +17,6 @@
     "nora_architecture.py": {
       "adet": 0
     },
-    "nora_autonomous_logic.py": {
-      "adet": 120
-    },
     "nora_besle.py": {
       "adet": 272
     },
@@ -27,10 +24,10 @@
       "adet": 0
     },
     "nora_broca.py": {
-      "adet": 24
+      "adet": 25
     },
     "nora_broca_net.py": {
-      "adet": 0
+      "adet": 3
     },
     "nora_bus.py": {
       "adet": 0
@@ -38,8 +35,11 @@
     "nora_causal.py": {
       "adet": 0
     },
+    "nora_chat.py": {
+      "adet": 21
+    },
     "nora_chem.py": {
-      "adet": 5
+      "adet": 6
     },
     "nora_code.py": {
       "adet": 8
@@ -48,10 +48,10 @@
       "adet": 0
     },
     "nora_deliberation.py": {
-      "adet": 5
+      "adet": 197
     },
     "nora_discourse.py": {
-      "adet": 57
+      "adet": 59
     },
     "nora_drive.py": {
       "adet": 0
@@ -78,7 +78,13 @@
       "adet": 0
     },
     "nora_frames.py": {
-      "adet": 32
+      "adet": 36
+    },
+    "nora_grow_gpt.py": {
+      "adet": 46
+    },
+    "nora_growing_net.py": {
+      "adet": 40
     },
     "nora_gw.py": {
       "adet": 0
@@ -90,25 +96,31 @@
       "adet": 14
     },
     "nora_knowledge.py": {
-      "adet": 127
+      "adet": 133
     },
     "nora_lang.py": {
-      "adet": 21
+      "adet": 32
     },
     "nora_laws.py": {
       "adet": 0
     },
     "nora_life.py": {
-      "adet": 0
+      "adet": 2
     },
     "nora_life_experiment.py": {
       "adet": 9
+    },
+    "nora_logic.py": {
+      "adet": 120
     },
     "nora_meta.py": {
       "adet": 4
     },
     "nora_metacog.py": {
       "adet": 0
+    },
+    "nora_micro_gpt.py": {
+      "adet": 1
     },
     "nora_mind.py": {
       "adet": 30
@@ -143,6 +155,9 @@
     "nora_provenance.py": {
       "adet": 0
     },
+    "nora_puzzles.py": {
+      "adet": 9
+    },
     "nora_register.py": {
       "adet": 3
     },
@@ -161,6 +176,9 @@
     "nora_semantic_code.py": {
       "adet": 0
     },
+    "nora_semantic_math.py": {
+      "adet": 2
+    },
     "nora_sets.py": {
       "adet": 0
     },
@@ -171,10 +189,13 @@
       "adet": 0
     },
     "nora_stem.py": {
-      "adet": 65
+      "adet": 87
     },
     "nora_store.py": {
       "adet": 0
+    },
+    "nora_story_math.py": {
+      "adet": 25
     },
     "nora_studio.py": {
       "adet": 10
@@ -195,7 +216,10 @@
       "adet": 0
     },
     "nora_voice.py": {
-      "adet": 0
+      "adet": 2
+    },
+    "nora_web.py": {
+      "adet": 7
     },
     "nora_workspace.py": {
       "adet": 0

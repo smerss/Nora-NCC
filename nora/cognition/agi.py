@@ -4313,7 +4313,7 @@ class NoraAGI:
             self.last_code = res
             if res.get("ok"):
                 self.chem.pulse_learning(novelty=0.5, valence=0.35)
-                self._structured_output = res.get("path") in ("composed", "html")
+                self._structured_output = res.get("path") == "composed"
                 self._apply_tag("islem", 1)
                 return self.code_cortex.speak(res, agi=self), f"code:{res.get('path')}", 0.988
             if res.get("reply_hint"):
@@ -9423,6 +9423,14 @@ class NoraAGI:
         # Dinamik yaşam durumu en son geri yazılır: organların eski state_dict'leri
         # bazı alanları varsayılan bırakır; runtime katmanı bunları tek kaynaktan eşitler.
         agi._load_runtime_state(meta.get("runtime") or {})
+        # Zamir özneli kenarlar öğrenmede artık kurulmuyor; eski beyinlerde kalanlar da
+        # aynı kuralla sorgudan çekilir ('benim ISA böbrek üstümde tümörüm var' gibi).
+        try:
+            from nora_lang import NoraLanguage
+            agi.lang.graph.retract_edges(
+                lambda e: e.source != "doğuştan" and NoraLanguage.is_deictic(e.subj))
+        except Exception:
+            pass
         if not agi.mortality.is_alive:
             agi.self_model.update_self_belief(agi.mind, agi.obs, alive=False)
         # Günlük varsa yaşam kaldığı yerden kaydedilmeye devam eder (kayıtlar korunur).

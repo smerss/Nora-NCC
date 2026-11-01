@@ -782,9 +782,8 @@ class MathCortex:
         var = "t" if ("t" in expr and "x" not in expr) else "x"
         return expr, var
 
-    @classmethod
+    @staticmethod
     def _compose_math_reply(
-        cls,
         kind: str,
         expr_display: str,
         steps: list[str],
@@ -793,156 +792,16 @@ class MathCortex:
         raw_text: str = "",
         agi: Any = None,
     ) -> str:
-        chem = getattr(agi, "chem", None) if agi is not None else None
-        da = float(getattr(chem, "da_tonic", 0.5) or 0.5) + max(0.0, float(getattr(chem, "da_phasic", 0.0) or 0.0))
-        sht = float(getattr(chem, "sht", 0.65) or 0.65)
-        oxy = float(getattr(chem, "oxy", 0.5) or 0.5)
-        cort = float(getattr(chem, "cort", 0.1) or 0.1)
-        turn_num = len(getattr(agi, "dialogue_log", []) or []) + int(getattr(getattr(agi, "style", None), "turn", 0) or 0)
-
-        s_low = _tr_low(raw_text or "")
-        is_testing = any(k in s_low for k in ("test", "bakalım", "çözebilir misin", "basit", "temel", "dene", "deneyelim", "seviye"))
-
-        if kind == "derivative":
-            if is_testing:
-                openers = [
-                    "Evet, Nora'nın basit türev ve integralleri çözebildiğini söylüyorsan önce temel seviyeden test etmek daha mantıklı. 😄",
-                    "Temel seviyeden başlayarak türev adımlarını doğrulamak ve test etmek en sağlıklı yaklaşım.",
-                    "Nora'nın temel kalkülüs becerilerini sınamak için harika bir soru! Birlikte adım adım inceleyelim:",
-                    "Elbette; temel türev kurallarıyla test etmek sağlam bir zemin kurar. Adım adım bakalım:",
-                ]
-            elif da > 0.58:
-                openers = [
-                    "Harika bir kalkülüs sorusu! Fonksiyonun türevini terim terim kuvvet kuralıyla çıkaralım:",
-                    "Kalkülüsün en zevkli kısımlarından biri; fonksiyonun türevini adım adım inceleyelim:",
-                    "Çok güzel bir türev problemi! İfadeyi terim terim ayrıştırıp çözelim:",
-                ]
-            elif sht > 0.55:
-                openers = [
-                    "Tabii, verilen fonksiyonu adım adım inceleyerek türevini hesaplayalım:",
-                    "Elbette; türev kurallarını terim terim uygulayarak çözüme ulaşalım:",
-                    "Verilen matematiksel ifadeyi dikkatle ayrıştırıp türevini alalım:",
-                ]
-            else:
-                openers = [
-                    "Verilen fonksiyonun türevini adım adım çözelim:",
-                    "Fonksiyonu terim terim inceleyerek türevine ulaşalım:",
-                    "Kuvvet kuralını uygulayarak türevi adım adım çıkaralım:",
-                ]
-        elif kind == "indefinite_integral":
-            if is_testing:
-                openers = [
-                    "Evet, Nora'nın basit integralleri çözebildiğini adım adım test etmek çok mantıklı. 😄",
-                    "Temel integral kurallarıyla başlamak ve adım adım doğrulamak en doğrusu.",
-                    "Nora'nın integral alma becerisini test etmek için güzel bir soru! Birlikte bakalım:",
-                    "Elbette; temel integral adımlarını sınamak harika bir yaklaşım:",
-                ]
-            elif da > 0.58:
-                openers = [
-                    "Harika bir integral problemi! Fonksiyonu ters kuvvet kuralıyla adım adım entegre edelim:",
-                    "İntegral hesabını terim terim açarak ilkel fonksiyona ulaşalım:",
-                    "Çok güzel bir integral sorusu! Terimleri adım adım entegre edelim:",
-                ]
-            elif sht > 0.55:
-                openers = [
-                    "Tabii, verilen fonksiyonun belirsiz integralini adım adım hesaplayalım:",
-                    "Elbette; entegrasyon kurallarını terim terim uygulayalım:",
-                    "Verilen matematiksel ifadeyi dikkatle ayrıştırıp integralini alalım:",
-                ]
-            else:
-                openers = [
-                    "Belirsiz integrali adım adım çözelim:",
-                    "Fonksiyonu terim terim entegre ederek ilkel fonksiyonu bulalım:",
-                    "Ters kuvvet kuralını uygulayarak integrali hesaplayalım:",
-                ]
-        elif kind == "definite_integral":
-            if is_testing:
-                openers = [
-                    "Evet, belirli integralleri ve sınır değerlerini test etmek çok mantıklı bir yaklaşım.",
-                    "Belirli integrali kalkülüsün temel teoremiyle adım adım doğrulayalım:",
-                ]
-            elif da > 0.58:
-                openers = [
-                    "Harika bir belirli integral problemi! Sınırlar arasındaki alanı adım adım hesaplayalım:",
-                    "Kalkülüsün temel teoremini uygulayarak belirli integrali adım adım çözelim:",
-                ]
-            else:
-                openers = [
-                    "Belirli integrali kalkülüsün temel teoremiyle adım adım hesaplayalım:",
-                    "Verilen sınır değerleri için belirli integrali adım adım çözelim:",
-                ]
-        else:
-            if is_testing:
-                openers = [
-                    "Denklem çözme adımlarını temelden test etmek gayet mantıklı; birlikte çözelim:",
-                    "Nora'nın cebirsel problem çözme adımlarını sınamak için güzel bir soru:",
-                ]
-            elif da > 0.58:
-                openers = [
-                    "Harika bir cebir problemi! Denklemi adım adım çözelim:",
-                    "Çok güzel bir denklem sorusu! Bilinmeyeni yalnız bırakalım:",
-                ]
-            else:
-                openers = [
-                    "Verilen denklemi adım adım çözelim:",
-                    "Denklemdeki bilinmeyeni bulmak için adım adım ilerleyelim:",
-                ]
-
-        state_idx = (int(da * 73 + sht * 47 + oxy * 31 + cort * 19 + turn_num * 13)) % len(openers)
-        if hasattr(cls, "_last_math_opener_idx") and getattr(cls, "_last_math_opener_idx") == state_idx:
-            state_idx = (state_idx + 1) % len(openers)
-        cls._last_math_opener_idx = state_idx
-        opening = openers[state_idx]
-
-        lines = [opening]
-        if kind == "derivative":
-            lines.append(f"İnceleyeceğimiz fonksiyon: f(x) = {expr_display}")
-            if steps:
-                lines.append("\nKuvvet kuralını ve türev özelliklerini terim terim uygulayalım:")
-                lines.extend(steps)
-            lines.append(f"\nToparladığımızda sembolik türev: {result_str} olur{verif_note}.")
-        elif kind == "indefinite_integral":
-            lines.append(f"Hesaplayacağımız belirsiz integral: ∫ ({expr_display}) dx")
-            if steps:
-                lines.append("\nTers kuvvet kuralını (entegrasyon) terim terim uygulayalım:")
-                lines.extend(steps)
-            lines.append(f"\nSonuç olarak belirsiz integral: {result_str} olur.")
-        elif kind == "definite_integral":
-            lines.append(f"Hesaplayacağımız belirli integral: {expr_display}")
-            if steps:
-                lines.extend(steps)
-            lines.append(f"\nBelirli integralin kesin değeri: {result_str} olur{verif_note}.")
-        elif kind in ("linear_eq", "quadratic_eq", "cubic_eq", "linear_system"):
-            lines.append(f"Çözeceğimiz denklem: {expr_display}")
-            if steps:
-                lines.extend(steps)
-            lines.append(f"\nSonuç: {result_str}")
-        else:
-            lines.append(result_str)
-
+        """Hesabın kendi izini döndürür: ifade, AST yürüyüşünden çıkan adımlar, sonuç.
+        Hazır açılış/kapanış cümlesi yoktur; söylenen her satır hesaplamadan türer."""
+        head = {
+            "derivative": f"f(x) = {expr_display}",
+            "indefinite_integral": f"∫ ({expr_display}) dx",
+        }.get(kind, expr_display)
+        lines = [head] if head else []
+        lines.extend(steps)
+        lines.append(f"{result_str}{verif_note}")
         return "\n".join(lines).strip()
-
-    @classmethod
-    def _calculus_clarification(cls, kind: str, expr_s: str, var: str, agi: Any = None) -> dict:
-        if kind == "türev":
-            reply = (
-                "Türev alma isteğini anladım; ancak türevini almak istediğin matematiksel ifadeyi "
-                "tam olarak ayrıştıramadım. Örneğin 'f(x) = 3x^2 + 2x türevi nedir?' ya da '3x^2 + 2x türevini al' "
-                "biçiminde standart cebirsel gösterimle yazarsan terim terim hesaplayabilirim."
-            )
-        else:
-            reply = (
-                "İntegral hesaplama isteğini anladım; ancak entegre edilecek matematiksel ifadeyi "
-                "tam olarak ayrıştıramadım. Örneğin '2x + 4 integrali nedir?' ya da '0'dan 3'e x^2 integrali' "
-                "şeklinde belirtirsen adım adım hesaplayabilirim."
-            )
-        return {
-            "domain": "math",
-            "kind": "calculus_clarification",
-            "confidence": 0.96,
-            "reply": reply,
-            "trace": f"{kind}_clarification",
-        }
 
     def _solve_single_eq(self, lhs_s: str, rhs_s: str, var: str, raw_text: str = "", agi: Any = None) -> dict | None:
         try:
@@ -1119,7 +978,7 @@ class MathCortex:
         expr_s, var = self._extract_calculus_target(s, kind="derivative")
         if not expr_s:
             if "türev" in s:
-                return self._calculus_clarification("türev", expr_s, var, agi=agi)
+                return None
             return None
         try:
             ast = SymbolicAST.parse(expr_s)
@@ -1183,7 +1042,7 @@ class MathCortex:
             }
         except Exception:
             if "türev" in s:
-                return self._calculus_clarification("türev", expr_s, var, agi=agi)
+                return None
             return None
 
     def _solve_integral(self, s: str, raw_text: str = "", agi: Any = None) -> dict | None:
@@ -1244,14 +1103,14 @@ class MathCortex:
                 }
             except Exception:
                 if "integral" in s:
-                    return self._calculus_clarification("integral", expr_s, var, agi=agi)
+                    return None
                 return None
 
         # Belirsiz polinom integrali: "3x^2 + 4x integrali nedir?", "integralini al: 2x + 4", "f(x) = 2x + 4 integralini al"
         expr_s, var = self._extract_calculus_target(s, kind="integral")
         if not expr_s:
             if "integral" in s:
-                return self._calculus_clarification("integral", expr_s, var, agi=agi)
+                return None
             return None
         try:
             ast = SymbolicAST.parse(expr_s)
@@ -1325,7 +1184,7 @@ class MathCortex:
                     return {"domain": "math", "kind": "indefinite_integral", "confidence": 0.97, "reply": reply_txt, "trace": f"F({var}) = exp({var}) + C"}
         except Exception:
             if "integral" in s:
-                return self._calculus_clarification("integral", expr_s, var, agi=agi)
+                return None
             return None
         return None
 
