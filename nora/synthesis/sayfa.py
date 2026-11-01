@@ -339,8 +339,15 @@ class El {
   get textContent() { return this._text + this.children.map(c => c.textContent).join(''); }
   set textContent(v) { this.children = []; this._text = String(v); }
   get innerText() { return this.textContent; } set innerText(v) { this.textContent = v; }
-  get innerHTML() { return this.textContent; }
-  set innerHTML(v) { this.children = []; this._text = String(v).replace(/<[^>]*>/g, ''); }
+  get innerHTML() { return this._text + this.children.map(c => c.tagName === '#TEXT' ? c._text
+    : '<' + c.tagName.toLowerCase() + '>' + c.innerHTML + '</' + c.tagName.toLowerCase() + '>').join(''); }
+  set innerHTML(v) {
+    // Düz öğe dizisi ('<li>a</li><li>b</li>') çocuk öğe olur; geri kalan metin kendi metnidir.
+    this.children = []; let rest = String(v);
+    rest = rest.replace(/<([a-zA-Z][\w-]*)[^>]*>([\s\S]*?)<\/\1>/g, (m, tag, inner) => {
+      const c = new El(tag, {}, this.ownerDocument); c.innerHTML = inner; this.appendChild(c); return ''; });
+    this._text = rest.replace(/<[^>]*>/g, '');
+  }
   get firstChild() { return this.children[0] || null; }
   get lastChild() { return this.children[this.children.length - 1] || null; }
   appendChild(c) { if (c.parentNode) c.parentNode.removeChild(c); c.parentNode = this; this.children.push(c); return c; }
@@ -389,7 +396,7 @@ function build() {
   sandbox.window = sandbox;
   sandbox.addEventListener = (t, f) => (sandbox.listeners[t] = sandbox.listeners[t] || []).push(f);
   page.ctx = vm.createContext(sandbox); doc._page = page;
-  try { vm.runInContext(data.script, page.ctx, { timeout: 2500 }); } catch (e) { page.errors.push('script: ' + e.message); }
+  try { vm.runInContext((data.strict ? '"use strict";' : '') + data.script, page.ctx, { timeout: 2500 }); } catch (e) { page.errors.push('script: ' + e.message); }
   const ready = (doc.listeners['DOMContentLoaded'] || []).concat(sandbox.listeners['DOMContentLoaded'] || [],
                                                                  sandbox.listeners['load'] || []);
   for (const f of ready) call(page, f, doc, { type: 'load' }, 'load');
@@ -406,14 +413,20 @@ function fire(el, page) {
   const ev = { type: 'click', target: el, currentTarget: el, preventDefault() {}, stopPropagation() {} };
   if (el.attrs.onclick) {
     let fn = null;
-    try { fn = vm.runInContext('(function(event){\n' + el.attrs.onclick + '\n})', page.ctx, { timeout: 2500 }); }
+    try { fn = vm.runInContext('(function(event){' + (data.strict ? '"use strict";' : '') + '\n' + el.attrs.onclick + '\n})', page.ctx, { timeout: 2500 }); }
     catch (e) { page.errors.push('onclick: ' + e.message); }
     if (fn) call(page, fn, el, ev, 'onclick');
   }
   if (typeof el.onclick === 'function') call(page, el.onclick, el, ev, 'onclick');
   for (const f of (el.listeners.click || [])) call(page, f, el, ev, 'click');
 }
-const snap = p => p.els.map(e => [e._text, e.textContent, String(e.value)]);
+const snap = p => p.els.map(e => [e._text, e.textContent, String(e.value), e.children.length]);
+// Eylem: sayı = o öğeye bas; ['type', i, metin] = o kutuya yaz (input olayı da tetiklenir).
+function act(p, a) {
+  if (typeof a === 'number') { fire(p.els[a], p); return; }
+  const el = p.els[a[1]]; el.value = String(a[2]);
+  for (const f of (el.listeners.input || [])) call(p, f, el, { type: 'input', target: el }, 'input');
+}
 function measure(request) {
   data = request;
   const out = { handlers: [], runs: [] };
@@ -424,7 +437,7 @@ function measure(request) {
     out.load_errors = p.errors; }
   for (const seq of data.actions) {
     const p = build(); const snaps = [snap(p)];
-    for (const i of seq) { fire(p.els[i], p); snaps.push(snap(p)); }
+    for (const a of seq) { act(p, a); snaps.push(snap(p)); }
     out.runs.push({ snaps, errors: p.errors, alerts: p.alerts });
   }
   return out;
@@ -461,11 +474,12 @@ class DomHarness:
             DomHarness._shim_path = path
         return cls._shim_path
 
-    def run(self, page: Page, actions: list[list[int]]) -> dict | None:
-        """Bir kez yeniden dener: alt süreç ara sıra geçici bir hatayla düşebilir."""
-        out = self._run_once(page, actions)
+    def run(self, page: Page, actions: list, strict: bool = False) -> dict | None:
+        """Bir kez yeniden dener: alt süreç ara sıra geçici bir hatayla düşebilir.
+        strict: sayfa kodu katı kipte koşar (Nora'nın ürettiği sayfalar böyle sınanır)."""
+        out = self._run_once(page, actions, strict)
         if out is not None and out.get("error"):
-            out = self._run_once(page, actions)
+            out = self._run_once(page, actions, strict)
         return out
 
     def _process(self) -> subprocess.Popen:
@@ -484,10 +498,12 @@ class DomHarness:
         except OSError:
             pass
 
-    def _run_once(self, page: Page, actions: list[list[int]], timeout: float = 30.0) -> dict | None:
+    def _run_once(self, page: Page, actions: list, strict: bool = False,
+                  timeout: float = 30.0) -> dict | None:
         if not self.node:
             return None
-        payload = json.dumps({**page.harness_payload(), "actions": actions}, ensure_ascii=False)
+        payload = json.dumps({**page.harness_payload(), "actions": actions, "strict": strict},
+                             ensure_ascii=False)
         with DomHarness._lock:
             worker = self._process()
             box: list[bytes] = []
@@ -553,6 +569,37 @@ def effect_holds(op: str, k: float, n0: float, n1: float, n2: float) -> bool:
 
 def apply_effect(op: str, k: float, a: float) -> float:
     return {"add": a + k, "mul": a * k, "div": a / k, "set": k}[op]
+
+
+# Metin/liste etkileri (prior: gözlem uzayı). Yazılanı listeye EKLE, yazılanı GÖSTER, listeyi BOŞALT.
+NUMERIC_OPS = {"add", "mul", "div", "set"}
+INPUT_OPS = {"append", "show"}
+ROLE_OF = {"append": "liste", "clear": "liste", "show": "metin"}
+INPUT_TAGS = {"input", "textarea"}
+# Doğrulama satırında etkinin gösterimi: listeye ekle, listeyi boşalt, yazılanı göster.
+TEXT_SYMBOL = {"append": "⊕", "clear": "∅", "show": "⇐"}
+# Ölçümde kutuya yazılan, doğal metinde rastlantıyla geçmeyecek iki sonda.
+PROBES = ("qzx7", "wvj4")
+
+
+def text_effect(snaps: list, target_excluded: int) -> tuple[int, str] | None:
+    """[başta, yaz1, bas, yaz2, bas] anlık görüntülerinden metin/liste etkisini çıkarır."""
+    nodes = range(len(snaps[0]))
+    for d in nodes:
+        if d == target_excluded:
+            continue
+        cc = [s[d][3] for s in snaps]
+        full = [s[d][1] for s in snaps]
+        if (cc[2] == cc[1] + 1 and cc[4] == cc[3] + 1
+                and PROBES[0] in full[2] and PROBES[1] in full[4]):
+            return d, "append"
+    for d in nodes:
+        if d == target_excluded:
+            continue
+        own = [s[d][0] for s in snaps]
+        if PROBES[0] not in own[1] and PROBES[0] in own[2] and PROBES[1] in own[4]:
+            return d, "show"
+    return None
 
 
 # Gözlenen etkinin sembolü: Nora'nın kendi matematik korteksine soruyu bu biçimde sorar.
@@ -652,6 +699,8 @@ class Fragment:
     display_id: str
     words: list[str]
     origin: str = "öğretim"   # öğretim | deney (Nora'nın kendi denemesi)
+    role: str = "sayı"        # hedefin türü: sayı | liste | metin
+    input_id: str = ""        # etkisi yazılana bağlıysa okunan kutu
 
 
 def meaning_key(op: str, k: float, slot: bool) -> str:
@@ -823,12 +872,11 @@ class PageCortex:
         desc_clauses = clauses(description)
         desc_tokens = tokens(description)
         self.seen_words.update(desc_tokens)
-        new_fragments, words = [], []
+        effects: dict[int, tuple] = {}
         for c, run in zip(controls, obs["runs"]):
             if run["errors"]:
                 continue
             s0, s1, s2 = run["snaps"]
-            effect = None
             for d in range(len(page.nodes)):
                 if s0[d][0] == s1[d][0]:
                     continue
@@ -837,11 +885,16 @@ class PageCortex:
                     continue
                 guess = infer_effect(n0, n1, n2)
                 if guess:
-                    effect = (d, *guess)
+                    effects[c] = (d, *guess)
                     break
-            if effect is None:
+        inputs = [i for i, n in enumerate(page.nodes) if n["tag"] in INPUT_TAGS]
+        if inputs:
+            effects.update(self._text_effects(page, inputs[0], [c for c in controls if c not in effects]))
+        new_fragments, words = [], []
+        for c in controls:
+            if c not in effects:
                 continue
-            display, op, k = effect
+            display, op, k = effects[c]
             handler = first["handlers"][c]
             via_listener = not handler["inline"]
             code = handler["inline"] or function_body(handler["prop"] or handler["listeners"][0])
@@ -849,7 +902,7 @@ class PageCortex:
             clause = self._clause_for(label, desc_clauses, len(controls) == 1, description)
             numbers = [n for n in (word_number(t) for t in tokens(clause)) if n is not None]
             magnitude = abs(k) if op == "add" else k
-            slot = any(math.isclose(n, magnitude) for n in numbers)
+            slot = op in NUMERIC_OPS and any(math.isclose(n, magnitude) for n in numbers)
             key = meaning_key(op, k, slot)
             label_words = tokens(label)
             verb_like = [t for t in tokens(clause)
@@ -868,6 +921,8 @@ class PageCortex:
                 example=ex_index, node=c, label=label, code=code, via_listener=via_listener,
                 meaning=key, k=magnitude, slot=slot, state=state,
                 display_id=page.nodes[display]["attrs"].get("id", ""), words=verb_like or label_words,
+                role=ROLE_OF.get(op, "sayı"),
+                input_id=page.nodes[inputs[0]]["attrs"].get("id", "") if inputs and op in INPUT_OPS else "",
             ))
         if not new_fragments:
             return {"ok": False, "reason": "etki_gözlenmedi"}
@@ -876,6 +931,33 @@ class PageCortex:
         self.fragments.extend(new_fragments)
         return {"ok": True, "example": ex_index, "words": words,
                 "fragments": [(f.label, f.meaning, fmt_num(f.k), f.slot) for f in new_fragments]}
+
+    def _text_effects(self, page: Page, inp: int, controls: list[int]) -> dict[int, tuple]:
+        """Kutuya yazıp düğmeye basarak metin/liste etkisini gözler; boşaltmayı dolu listede sınar."""
+        found: dict[int, tuple] = {}
+        if not controls:
+            return found
+        seqs = [[["type", inp, PROBES[0]], c, ["type", inp, PROBES[1]], c] for c in controls]
+        obs = self.harness.run(page, seqs)
+        if not obs or obs.get("error"):
+            return found
+        for c, run in zip(controls, obs["runs"]):
+            if run["errors"]:
+                continue
+            eff = text_effect(run["snaps"], inp)
+            if eff:
+                found[c] = (eff[0], eff[1], 0.0)
+        fillers = [(c, d) for c, (d, op, _k) in found.items() if op == "append"]
+        rest = [c for c in controls if c not in found]
+        if fillers and rest:
+            filler, target = fillers[0]
+            prefix = [["type", inp, PROBES[0]], filler, ["type", inp, PROBES[1]], filler]
+            obs = self.harness.run(page, [prefix + [c] for c in rest])
+            for c, run in zip(rest, (obs or {}).get("runs") or ()):
+                before, after = run["snaps"][-2][target][3], run["snaps"][-1][target][3]
+                if not run["errors"] and before >= 2 and after == 0:
+                    found[c] = (target, "clear", 0.0)
+        return found
 
     @staticmethod
     def _clause_for(label: str, desc_clauses: list[str], only: bool, description: str) -> str:
@@ -946,29 +1028,39 @@ class PageCortex:
             return float(item["number"])
         return frag.k
 
-    def _adapt(self, frag: Fragment, k: float, base: Fragment, used: dict[str, str]) -> dict | None:
+    def _adapt(self, frag: Fragment, k: float, base_ex: int, targets: dict[str, tuple[str, str, int]],
+               input_id: str, used: dict[str, str]) -> dict | None:
+        """Parçayı tabana bağlar: büyüklük deliği, hedef/kutu kimlikleri, durum adı ve bağımlılıklar."""
         ex = self.examples[frag.example]
         code, label = frag.code, frag.label
-        if not math.isclose(k, frag.k):
+        if frag.role == "sayı" and not math.isclose(k, frag.k):
             old = fmt_num(frag.k)
             pattern = rf"(?<![\w.]){re.escape(old)}(?![\w.])"
             if not re.search(pattern, code):
                 return None
             code = re.sub(pattern, fmt_num(k), code)
             label = re.sub(pattern, fmt_num(k), label)
+        target_id, target_state, target_ex = targets[frag.role]
+        state_new = target_state if (frag.state and target_state and target_ex != frag.example) else frag.state
+
+        def bind(text: str) -> str:
+            text = rename_identifier(text, frag.state, state_new) if frag.state else text
+            text = rename_element_id(text, frag.display_id, target_id)
+            return rename_element_id(text, frag.input_id, input_id) if frag.input_id else text
+
         deps: list[str] = []
-        if frag.example != base.example:
-            code = rename_identifier(code, frag.state, base.state)
-            code = rename_element_id(code, frag.display_id, base.display_id)
-            pending = [n for n in identifiers(code) if n in ex["decls"] and n != base.state]
+        # Durum tabanınkine bağlandıysa bildirimi tabandadır; kendi durumuyla geldiyse bildirimi de gelir.
+        provided = state_new if target_state and state_new == target_state else None
+        if frag.example != base_ex:
+            code = bind(code)
+            pending = [n for n in identifiers(code) if n in ex["decls"] and n != provided]
             seen = set()
             while pending:
                 name = pending.pop()
                 if name in seen:
                     continue
                 seen.add(name)
-                stmt = rename_identifier(ex["decls"][name], frag.state, base.state)
-                stmt = rename_element_id(stmt, frag.display_id, base.display_id)
+                stmt = bind(ex["decls"][name])
                 if name in used and used[name] != stmt:
                     fresh = f"{name}{frag.example}"
                     code = rename_identifier(code, name, fresh)
@@ -979,8 +1071,18 @@ class PageCortex:
                     used[name] = stmt
                     deps.append(stmt)
                 pending.extend(n for n in identifiers(stmt)
-                               if n in ex["decls"] and n not in seen and n != base.state)
+                               if n in ex["decls"] and n not in seen and n != provided)
         return {"code": code, "label": label, "deps": deps, "source": frag}
+
+    def _targets_of(self, example: int) -> dict[str, tuple[str, str, int]]:
+        out: dict[str, tuple[str, str, int]] = {}
+        for f in self.fragments:
+            if f.example == example and f.display_id and f.role not in out:
+                out[f.role] = (f.display_id, f.state if f.role == "sayı" else "", example)
+        return out
+
+    def _input_of(self, example: int) -> str:
+        return next((f.input_id for f in self.fragments if f.example == example and f.input_id), "")
 
     def compose(self, plan_items: list[dict]) -> dict:
         by_key: dict[str, list[Fragment]] = collections.defaultdict(list)
@@ -993,8 +1095,10 @@ class PageCortex:
                        key=lambda e: (-coverage[e], e))
         attempts = []
         for base_ex in bases:
-            base = next(f for f in self.fragments if f.example == base_ex and f.display_id)
             ex = self.examples[base_ex]
+            targets = self._targets_of(base_ex)
+            input_id = self._input_of(base_ex)
+            borrowed: list[tuple[int, int]] = []   # (örnek, düğüm): tabanda olmayan hedef/kutu
             used = {n: s for n, s in ex["decls"].items()}
             parts = []
             for it in plan_items:
@@ -1005,26 +1109,56 @@ class PageCortex:
                     f.example != base_ex, f.example))
                 part = None
                 for frag in cands:
-                    part = self._adapt(frag, self._magnitude(it, frag), base, dict(used))
+                    local_targets, local_input, local_borrow = dict(targets), input_id, []
+                    if frag.role not in local_targets:
+                        src = parse_page(self.examples[frag.example]["markup"]).find_id(frag.display_id)
+                        if src is None:
+                            continue
+                        local_targets[frag.role] = (frag.display_id, frag.state if frag.role == "sayı" else "",
+                                                    frag.example)
+                        local_borrow.append((frag.example, src))
+                    if frag.input_id and not local_input:
+                        src = parse_page(self.examples[frag.example]["markup"]).find_id(frag.input_id)
+                        if src is None:
+                            continue
+                        local_input = frag.input_id
+                        local_borrow.append((frag.example, src))
+                    part = self._adapt(frag, self._magnitude(it, frag), base_ex, local_targets,
+                                       local_input, dict(used))
                     if part is not None:
+                        targets, input_id = local_targets, local_input
+                        borrowed += local_borrow
                         used.update({n: s for s in part["deps"] for n in declared_names(s)})
                         break
                 if part is None:
                     break
                 part["k"] = self._magnitude(it, part["source"])
                 part["meaning"] = it["meaning"]
+                part["target"] = targets[part["source"].role][0]
                 parts.append(part)
             if len(parts) != len(plan_items):
                 continue
-            markup = self._assemble(base_ex, parts)
-            check = self.verify(markup, base.display_id, parts)
+            markup = self._assemble(base_ex, parts, borrowed)
+            check = self.verify(markup, parts, input_id)
             attempts.append({"base": base_ex, "ok": check["ok"], "detail": check.get("detail")})
             if check["ok"]:
                 return {"ok": True, "markup": markup, "parts": parts, "checks": check["checks"],
                         "base": base_ex, "attempts": attempts}
         return {"ok": False, "reason": "doğrulanamadı", "attempts": attempts}
 
-    def _assemble(self, base_ex: int, parts: list[dict]) -> str:
+    @staticmethod
+    def _copy_subtree(src: Page, idx: int, dst: Page, parent: int) -> int:
+        node = src.nodes[idx]
+        new = len(dst.nodes)
+        dst.nodes.append({"tag": node["tag"], "attrs": dict(node["attrs"]), "content": [], "parent": parent})
+        for c in node["content"]:
+            if isinstance(c, int):
+                dst.nodes[new]["content"].append(PageCortex._copy_subtree(src, c, dst, new))
+            else:
+                dst.nodes[new]["content"].append(c)
+        return new
+
+    def _assemble(self, base_ex: int, parts: list[dict], borrowed: list[tuple[int, int]] = ()) -> str:
         ex = self.examples[base_ex]
         page = parse_page(ex["markup"])
         anchor = None
@@ -1046,8 +1180,13 @@ class PageCortex:
         indent = next((c for c in reversed(page.nodes[parent]["content"][:pos])
                        if isinstance(c, str) and "\n" in c), "\n")
         new_items: list[Any] = []
+        sources: dict[int, Page] = {}
+        for example, node in borrowed:
+            src_page = sources.setdefault(example, parse_page(self.examples[example]["markup"]))
+            new_items += [indent, self._copy_subtree(src_page, node, page, parent)]
         for part in parts:
-            src_page = parse_page(self.examples[part["source"].example]["markup"])
+            src_page = sources.setdefault(part["source"].example,
+                                          parse_page(self.examples[part["source"].example]["markup"]))
             src = src_page.nodes[part["source"].node]
             attrs = {k: v for k, v in src["attrs"].items() if k != "id" and not k.startswith("on")}
             attrs["onclick"] = " ".join(line.strip() for line in part["code"].splitlines() if line.strip())
@@ -1067,25 +1206,53 @@ class PageCortex:
         content.append(("raw", f"{indent}<script>\n{script}\n</script>\n"))
         return serialize(page)
 
-    def verify(self, markup: str, display_id: str, parts: list[dict]) -> dict:
+    def verify(self, markup: str, parts: list[dict], input_id: str = "") -> dict:
+        """Her düğmeye kendi etkisine uygun eylem dizisiyle basar ve hedefte beklenen değişikliği arar."""
         page = parse_page(markup)
-        display = page.find_id(display_id)
         controls = [i for i, n in enumerate(page.nodes) if n["attrs"].get("onclick")]
-        if display is None or len(controls) != len(parts):
+        inp = page.find_id(input_id) if input_id else None
+        if len(controls) != len(parts):
             return {"ok": False, "detail": "yapı"}
-        obs = self.harness.run(page, [[c, c] for c in controls])
+        filler = next((c for c, p in zip(controls, parts) if p["meaning"] == "append"), None)
+        seqs, specs = [], []
+        for c, part in zip(controls, parts):
+            target = page.find_id(part["target"])
+            op = part["meaning"].rstrip("+-").split("=")[0]
+            if target is None or (op in INPUT_OPS and inp is None):
+                return {"ok": False, "detail": "hedef_yok"}
+            if op in INPUT_OPS:
+                seq = [["type", inp, PROBES[0]], c, ["type", inp, PROBES[1]], c]
+            elif op == "clear":
+                if filler is None and not page.children(target):
+                    return {"ok": False, "detail": "boşaltma_sınanamaz"}
+                seq = ([["type", inp, PROBES[0]], filler, ["type", inp, PROBES[1]], filler]
+                       if filler is not None else []) + [c]
+            else:
+                seq = [c, c]
+            seqs.append(seq)
+            specs.append((part, target, op))
+        # Üretilen sayfa katı kipte sınanır: bildirilmemiş değişken gibi özensiz kod geçemez.
+        obs = self.harness.run(page, seqs, strict=True)
         if not obs or obs.get("error") or obs.get("load_errors"):
             return {"ok": False, "detail": (obs or {}).get("error") or (obs or {}).get("load_errors")}
         checks = []
-        for part, run in zip(parts, obs["runs"]):
-            n0, n1, n2 = (_first_number(s[display][0]) for s in run["snaps"])
-            op = part["meaning"].rstrip("+-").split("=")[0]
-            k = part["k"] * (-1 if part["meaning"] == "add-" else 1)
-            if op == "set" and "=" in part["meaning"]:
-                k = float(part["meaning"].split("=")[1])
-            ok = (not run["errors"] and None not in (n0, n1, n2) and effect_holds(op, k, n0, n1, n2))
-            checks.append({"label": part["label"], "op": op, "k": k, "ok": ok,
-                           "seen": [n0, n1, n2], "errors": run["errors"]})
+        for (part, target, op), run in zip(specs, obs["runs"]):
+            snaps, k, seen = run["snaps"], 0.0, None
+            if op in NUMERIC_OPS:
+                n0, n1, n2 = (_first_number(s[target][0]) for s in snaps)
+                k = part["k"] * (-1 if part["meaning"] == "add-" else 1)
+                if op == "set" and "=" in part["meaning"]:
+                    k = float(part["meaning"].split("=")[1])
+                ok = None not in (n0, n1, n2) and effect_holds(op, k, n0, n1, n2)
+                seen = [n0, n1, n2]
+            elif op == "clear":
+                ok = snaps[-2][target][3] >= 1 and snaps[-1][target][3] == 0
+            else:
+                eff = text_effect(snaps, inp)
+                ok = eff is not None and eff == (target, op)
+            ok = ok and not run["errors"]
+            checks.append({"label": part["label"], "op": op, "k": k, "ok": ok, "seen": seen,
+                           "errors": run["errors"]})
         return {"ok": all(c["ok"] for c in checks), "checks": checks,
                 "detail": [c for c in checks if not c["ok"]]}
 
@@ -1137,6 +1304,12 @@ class PageCortex:
             c_read = syn.realize_verb(VerbSpec(verb_root="oku", obj=NP("örnek", case="ACC"),
                                                tense="PAST", person="1SG"))
             return tr_capitalize(c_read) + ": " + (", ".join(res.get("new_operators") or ()) or "0") + "."
+        if not res.get("ok") and res.get("path") == "page_unverified":
+            # Parçalar öğrenilmiş ama birleşen sayfa sınanamadı/geçemedi: bilmemek değil, doğrulayamamak.
+            c_check = syn.realize_verb(VerbSpec(verb_root="doğrula", obj=NP("sayfa", case="ACC"), neg=True,
+                                                tense="PAST", person="1SG"))
+            reasons = sorted({str(a.get("detail")) for a in res.get("attempts") or () if a.get("detail")})
+            return f"{tr_capitalize(c_check)}: {', '.join(res.get('unknown') or ())} ({'; '.join(reasons) or '—'})."
         if not res.get("ok"):
             c_learn = syn.realize_verb(VerbSpec(verb_root="öğren", obj=NP("etki", case="ACC"), neg=True,
                                                 tense="PAST", person="1SG"))
@@ -1151,6 +1324,8 @@ class PageCortex:
         def effect(c: dict) -> str:
             if c["op"] == "add":
                 return ("+" if c["k"] >= 0 else "−") + fmt_num(abs(c["k"]))
+            if c["op"] in TEXT_SYMBOL:
+                return TEXT_SYMBOL[c["op"]]
             return {"mul": "×", "div": "÷", "set": "="}.get(c["op"], c["op"]) + fmt_num(c["k"])
         checks = "; ".join(
             f"«{c['label']}» {effect(c)} {'✓' if c['ok'] else '✗'}"
