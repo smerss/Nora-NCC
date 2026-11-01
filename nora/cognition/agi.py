@@ -1308,16 +1308,17 @@ class NoraAGI:
         parts = [p for p in re.split(r"(?<=[.!?…])\s+|\n+", text) if p.strip()]
         if len(parts) != 1:
             return ""
-        # Tek-sözcüklü tanım sorularında genel söylem/valans çözümlemesi
-        # gereksizdir. Bu dilbilgisel kısa yol yeni sözcükte fiil-kök indeksini
-        # genişletmeden aynı Graph/HDC kapısına gelir; bütün kavramlara açıktır.
+        # Yalın tanım sorularında genel söylem/valans çözümlemesi gereksizdir.
+        # Kavram tek sözcükle sınırlı değildir: "yapay zeka" ve "ökaryot hücre"
+        # gibi ad öbekleri bölünmeden aynı Graph/HDC kapısına gelir.
         low = tr_lower(text).strip()
         # Açık görüş/deliberasyon isteği sözlük tanımı değildir; iç nedensel
         # model ve tartım organları cevaplar. Nesnel bilgi kapısı bunu gasp etmez.
         if any(marker in low for marker in ("sence", "sana göre", "senin için")):
             return ""
         simple = re.fullmatch(
-            r"([\wçğıöşüâîû]+)\s+(?:nedir|neydir|ne\s+demek(?:tir)?)\s*\?", low)
+            r"([\wçğıöşüâîû]+(?:\s+[\wçğıöşüâîû]+){0,5})\s+"
+            r"(?:nedir|neydir|ne\s+demek(?:tir)?)\s*\?", low)
         if not simple:
             # Matematik, fizik, kişisel bellek, operatör ve birleşik takip
             # soruları kendi uzman organlarına ulaşır. Onların bilinmezlik
@@ -3443,6 +3444,16 @@ class NoraAGI:
         _delib = (None if _graph_composition_answer is not None
                   else self.deliberation.handle(self, raw, locals().get("fr")))
         _delib_owned = bool(_delib)
+        _delib_act = ""
+        if _delib_owned and self.deliberation.history:
+            _delib_act = str(self.deliberation.history[-1].get("act") or "")
+        # Öz-söz-edimi çözülmüşken Wernicke'nin yüzeysel WH çerçevesi aynı
+        # soruyu sıradan bir nesne sorusu gibi yarışa sokamaz. Özellikle
+        # "ne yapmak istersin" -> "iki" ve "neden öğreniyorsun" ->
+        # "öğrendiğin" kaymaları anlam düzeyinde engellenir; skor şişirilmez.
+        _self_delib_owned = _delib_owned and _delib_act in {
+            "identity", "desire", "learn_why", "learn_how", "self_eval", "thought", "meta",
+        }
         if _delib:
             _open_trace = dict(self.deliberation.last_open_trace or {})
             if _open_trace.get("raw") != raw:
@@ -3849,7 +3860,7 @@ class NoraAGI:
                         "hippocampal_concept", 0.76, 0.78, _unknown_txt,
                         f"yn_unknown:{fr.subj}",
                     ))
-            elif fr.kind == "wh_query" and conv_res is None:
+            elif fr.kind == "wh_query" and conv_res is None and not _self_delib_owned:
                 # Soru sözcüğü neyi sorduğunu belirler: "nasıl" yöntem, "neden" sebep ister.
                 # Bunlarda tür ("X bir Y'dir") yanıt değildir; bilinmiyorsa dürüstçe sorulur.
                 _wh = getattr(fr, "wh", "") or ""

@@ -7139,6 +7139,78 @@ def a145_felsefi_arguman_ve_kanit_siniri():
     return passed == len(checks), detail
 
 
+def a146_konusma_anlami_kisi_ve_cok_kelimeli_rota():
+    """Tanım kanıtı ile öz-söz-edimi yarışında konu ve kişi korunur.
+
+    Bu pil akıcılık iddiası ölçmez. Gerçek beyinde görülen dört rota hatasını
+    bağımsız fikstürle ayırır: çok-kelimeli tanımın genel sohbete kaçması,
+    ikinci-şahıs öğrenme amacının kullanıcıya çevrilmesi, istek sorusunun
+    rastgele ``iki`` kavramına yenilmesi ve ``bahseder`` biçiminin kimlik
+    isteği yerine açık-yedek olarak okunması.
+    """
+    checks = {}
+
+    semantic = NoraAGI(seed=146, boot_thinker=False)
+    semantic.lang.graph.add_edge("yapay zeka", "CAN_DO", "örüntü sınıflandır")
+    semantic.lang.graph.add_edge("yapay zeka", "HAS_PART", "öğrenme modeli")
+    definition = semantic.converse("Yapay zeka nedir?")
+    definition_low = tr_lower(definition)
+    gate = dict(getattr(semantic, "last_epistemic_gate", {}) or {})
+    checks["cok-kelimeli-tanim-grafta"] = (
+        gate.get("concept") == "yapay zeka"
+        and "örüntü" in definition_low and "öğrenme modeli" in definition_low
+        and "dopamin" not in definition_low and "tek geçişte" not in definition_low
+    )
+
+    purpose_agent = NoraAGI(seed=1461, boot_thinker=False)
+    purpose = purpose_agent.converse("Neden sürekli öğreniyorsun?")
+    purpose_low = tr_lower(purpose)
+    checks["ogrenme-amaci-dogru-kisi"] = (
+        "öğreniyorum" in purpose_low and "için" in purpose_low
+        and "öğrendiğini" not in purpose_low and "bana neden" not in purpose_low
+        and purpose_agent.last_gw_trace.get("winner") == "insular_self"
+        and purpose_agent.deliberation.history
+        and purpose_agent.deliberation.history[-1].get("act") == "learn_why"
+        and purpose_agent.deliberation._is_learning_purpose("neden öğrenmek istiyorsun?")
+        and not purpose_agent.deliberation._is_learning_purpose("neden öğreniyorum?")
+        and not purpose_agent.deliberation._is_learning_purpose("onun öğrenmesini istiyorsun?")
+    )
+
+    desire_agent = NoraAGI(seed=1462, boot_thinker=False)
+    # Gerçek beyindeki alakasız rakibi kur: kişi yönelimli istek sorusu
+    # yalnız yarış kazancını yükselterek değil, yanlış çerçeveyi eleyerek çözülmeli.
+    desire_agent.lang.graph.add_edge("iki", "HAS_PROP", "yapmak")
+    desire_agent.lang.graph.add_edge("iki", "HAS_PROP", "söyle")
+    desire = desire_agent.converse("Bugün ne yapmak istersin?")
+    desire_low = tr_lower(desire)
+    checks["istek-kavram-yarismasina-kurban-olmaz"] = (
+        "istiyorum" in desire_low and "iki yapmaktır" not in desire_low
+        and desire_agent.last_gw_trace.get("winner") == "insular_self"
+        and desire_agent.deliberation.history
+        and desire_agent.deliberation.history[-1].get("act") == "desire"
+    )
+
+    identity_agent = NoraAGI(seed=1463, boot_thinker=False)
+    identity = identity_agent.converse("Bana kendinden bahseder misin?")
+    identity_low = tr_lower(identity)
+    checks["bahseder-kimlik-istedir"] = (
+        "nora" in identity_low and "çözemedim" not in identity_low
+        and identity_agent.deliberation.history
+        and identity_agent.deliberation.history[-1].get("act") == "identity"
+    )
+    identity_imperative = identity_agent.converse("Bana kendinden bahset.")
+    checks["bahset-emri-de-kimliktir"] = (
+        "nora" in tr_lower(identity_imperative)
+        and identity_agent.deliberation.history[-1].get("act") == "identity"
+    )
+
+    passed = sum(bool(v) for v in checks.values())
+    detail = f"{passed}/{len(checks)} — tanım/amaç/istek/kimlik rota ve kişi yönelimi"
+    if passed != len(checks):
+        detail += " | " + str([k for k, v in checks.items() if not v])
+    return passed == len(checks), detail
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -7280,6 +7352,7 @@ TESTS = {
     "A143": ("insan hedefi vermeden 1000 adımda hedef yaşam döngüsü", a143_otonom_hedef_yasam_dongusu_1000_adim),
     "A144": ("durumlu öğretici diyalog: takip, örnek, quiz, düzeltme ve özet", a144_durumlu_ogretici_diyalog),
     "A145": ("felsefi argüman: öz-inanç, bilinç/anlama ayrımı ve kanıt sınırı", a145_felsefi_arguman_ve_kanit_siniri),
+    "A146": ("konuşma anlamı: çok-kelimeli tanım ve doğru kişi/rota", a146_konusma_anlami_kisi_ve_cok_kelimeli_rota),
     "A111": ("icadın şeması: görülmemiş parametre icat gerektirmez", a111_icadin_semasi),
     "A110": ("dil: buyruk sarmalayıcısı ve X mi Y mi seçim sorusu", a110_sarmalayici_ve_secim_sorusu),
     "A108": ("şema: delikli makro görülmemiş parametreyi kapsar", a108_sema_delikli_makro),

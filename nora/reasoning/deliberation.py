@@ -31,7 +31,7 @@ from nora_broca import NP, PredSpec, TurkishSyntaxEngine as SYN, VerbSpec
 from nora_lang import Proposition, tr_capitalize, tr_lower
 
 # Söz edimi tetikleyicileri (algısal ipuçları; cevap metni değil)
-_CUE_IDENTITY = ("kimsin", "sen nesin", "kendini tanıt", "kendinden bahset")
+_CUE_IDENTITY = ("kimsin", "sen nesin", "kendini tanıt", "kendinden bahse")
 _CUE_THOUGHT = ("ne düşünüyorsun", "aklından ne geçiyor", "kafanda ne var")
 _CUE_DESIRE = ("ne yapmak istersin", "canın ne ister", "ne yapmayı istersin", "neyi istersin")
 _CUE_JUSTIFY = ("söylüyorsun", "diyorsun", "söyledin", "dedin", "iddia ediyorsun")
@@ -769,6 +769,8 @@ class DeliberativeMind:
             out = self._expand_open(agi, raw)
         elif act == "self_eval":
             out = self._self_eval(agi, raw)
+        elif act == "learn_why":
+            out = self._learn_why(agi, raw)
         elif act == "learn_how":
             out = self._learn_how(agi)
         elif act == "conditional":
@@ -861,11 +863,28 @@ class DeliberativeMind:
         return bool(previous_user and str(trace.get("raw") or "") == previous_user)
 
     @staticmethod
+    def _is_learning_purpose(low: str) -> bool:
+        """Nora'nın öğrenme amacını, kullanıcının öğrenme nedeninden ayır.
+
+        Kişi eki yüzeyde okunur; böylece "neden öğreniyorsun" Nora'ya,
+        "neden öğreniyorum" ise kullanıcıya ait kalır. "Onun öğrenmesini
+        istiyorsun" gibi üçüncü-kişi içerikli istekler bu çerçeveye girmez.
+        """
+        if not any(c in low for c in ("neden", "niye", "niçin")):
+            return False
+        second = r"(?:sın|sin|sun|sün|sınız|siniz|sunuz|sünüz)"
+        direct = re.search(rf"\böğren[\wçğıöşü]*{second}\b", low)
+        desire = re.search(rf"\böğren(?:mek|meyi)\s+ist[\wçğıöşü]*{second}\b", low)
+        return bool(direct or desire)
+
+    @staticmethod
     def _classify(low: str) -> str | None:
         # Özgür irade sorusu mevcut Broca/öz-model felsefe organının
         # uzmanlığıdır; genel açık-refleksiyon bunu 'özgür' diye bölmesin.
         if "özgür irade" in low:
             return None
+        if DeliberativeMind._is_learning_purpose(low):
+            return "learn_why"
         if any(c in low for c in _CUE_LEARN_HOW):
             return "learn_how"
         if any(c in low for c in _CUE_EXPERIENCE):
@@ -878,6 +897,11 @@ class DeliberativeMind:
             return "narrate"
         if "ne anlat" in low or "anlatabilirsin" in low:
             return "narrate"                       # 'başka ne anlatabilirsin?'
+        # "Kendinden bahset/bahseder misin?" bir dünya kavramı anlatımı değil,
+        # Nora'nın öz-modelinden kimlik söz-edimidir. Genel "bahset" dalından önce
+        # okunmalıdır; "bahse" ortak gövdesi iki çekimi de kapsar.
+        if any(c in low for c in _CUE_IDENTITY):
+            return "identity"
         if (any(c in low for c in _CUE_NARRATE)
                 and not any(c in low for c in ("neden", "niye", "nasıl"))):
             return "narrate" if any(c in low for c in ("bahset", "anlat")) else None
@@ -888,8 +912,6 @@ class DeliberativeMind:
             return "justify"                            # 'neden sevdiğini söylüyorsun?'
         if any(c in low for c in _CUE_META):
             return "meta"
-        if any(c in low for c in _CUE_IDENTITY):
-            return "identity"
         if any(c in low for c in _CUE_DESIRE):
             return "desire"
         if any(c in low for c in _CUE_ASSOCIATION):
@@ -1763,6 +1785,36 @@ class DeliberativeMind:
                                       wh_word="nasıl", tense="PRES", person="2SG"))
         items.append(q.rstrip(".?!") + "?")
         self.last_reason = "kendini değerlendirme"
+        return self._compose(agi, items)
+
+    def _learn_why(self, agi, raw: str) -> str:
+        """'Neden öğreniyorsun?' — amaç, kişi çevrilmeden öz-güdüden kurulur.
+
+        Spekülatif kavram sorgusu fiil yüzeyini konu sanıp soruyu kullanıcıya
+        geri çeviriyordu. Burada yüklem Nora'nın birinci-şahıs öğrenmesidir;
+        gerekçe ise bilgi boşluğunu kapatma isteği ve ölçülen merak eğilimidir.
+        """
+        want = SYN.nominalize_inf(
+            "kapat", short_ma=False, case="NOM",
+            obj=NP("boşluk", mods=("bilgi",), poss=1, plural=True, case="ACC"),
+        )
+        reason = SYN.nominalize_dik(
+            "iste", poss=1, case="NOM", postpos="için", obj=want,
+        )
+        items = [SYN.realize_verb(VerbSpec(
+            verb_root="öğren", pre_clause=reason, tense="PRES", person="1SG",
+        ))]
+        try:
+            curiosity = float(agi.self_model.traits.get("meraklılık", 0.0))
+        except Exception:
+            curiosity = 0.0
+        if curiosity > 0.0:
+            items.append(SYN.realize_verb(VerbSpec(
+                verb_root="merak et",
+                obj=NP("ilişki", mods=("yeni",), plural=True, case="ACC"),
+                tense="PRES", person="1SG",
+            )))
+        self.last_reason = "öğrenme amacı"
         return self._compose(agi, items)
 
     def _learn_how(self, agi) -> str:
