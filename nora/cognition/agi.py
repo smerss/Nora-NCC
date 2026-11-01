@@ -2138,7 +2138,18 @@ class NoraAGI:
         c_fast = self.fast.mb.sleep_consolidate(replay_steps=0)
         c_rel = self.lang.graph.relation_mb.sleep_maintenance()
         traits = self.self_model.sleep_reflect()
+        # Öğretmensiz çalışma replay değildir: öğretilmiş örnekler yeniden oynatılmaz, onlardan
+        # yeni davranış denenir ve kendi matematik korteksiyle adlandırılır.
+        self_study = []
+        page = getattr(getattr(self, "code_cortex", None), "page", None)
+        if page is not None and page.fragments and not page.studied:
+            page.oracle = getattr(self, "math_cortex", None) or page.oracle
+            try:
+                self_study = [r["word"] for r in page.self_study()]
+            except Exception:
+                self_study = []
         return {
+            "self_study": self_study,
             "sleep_cycle": self.self_model.sleep_cycles,
             "fast_consolidated": c_fast["consolidated_synapses"],
             "word_consolidated": c_word["consolidated_synapses"],

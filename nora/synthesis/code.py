@@ -441,6 +441,8 @@ class CodeSynthesisCortex:
     def handle(self, request: str, agi: Any = None) -> dict:
         t0 = time.perf_counter()
         if self.page.is_requested(request):
+            if getattr(agi, "math_cortex", None) is not None:
+                self.page.oracle = agi.math_cortex
             res = self.page.handle(request)
             res["ms"] = round((time.perf_counter() - t0) * 1000, 2)
             return res

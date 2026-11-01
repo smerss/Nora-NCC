@@ -535,7 +535,7 @@ def infer_effect(n0: float, n1: float, n2: float) -> tuple[str, float] | None:
     if not math.isclose(n0, 0.0) and not math.isclose(n1, 0.0):
         ratio = n1 / n0
         if not math.isclose(ratio, 1.0) and math.isclose(n2, n1 * ratio):
-            return "mul", ratio
+            return ("mul", ratio) if ratio > 1 else ("div", 1 / ratio)
     return None
 
 
@@ -546,7 +546,28 @@ def effect_holds(op: str, k: float, n0: float, n1: float, n2: float) -> bool:
         return math.isclose(n1 - n0, k) and math.isclose(n2 - n1, k)
     if op == "mul":
         return math.isclose(n1, n0 * k) and math.isclose(n2, n1 * k)
+    if op == "div":
+        return math.isclose(n1, n0 / k) and math.isclose(n2, n1 / k)
     return False
+
+
+def apply_effect(op: str, k: float, a: float) -> float:
+    return {"add": a + k, "mul": a * k, "div": a / k, "set": k}[op]
+
+
+# Gözlenen etkinin sembolü: Nora'nın kendi matematik korteksine soruyu bu biçimde sorar.
+EFFECT_SYMBOL = {"add+": "+", "add-": "-", "mul": "*", "div": "/"}
+
+# Fiilden ad yapan -(I)m eki (çarp-ım, böl-üm, topla-m): biçimbilim önseli.
+_DEVERBAL_M = ("ım", "im", "um", "üm", "m")
+
+
+def deverbal_root(noun: str) -> str:
+    noun = tr_lower(noun)
+    for tail in _DEVERBAL_M:
+        if noun.endswith(tail) and len(noun) - len(tail) >= 3:
+            return noun[:-len(tail)]
+    return noun
 
 
 # ============================================================================
@@ -630,6 +651,7 @@ class Fragment:
     state: str
     display_id: str
     words: list[str]
+    origin: str = "öğretim"   # öğretim | deney (Nora'nın kendi denemesi)
 
 
 def meaning_key(op: str, k: float, slot: bool) -> str:
@@ -654,6 +676,104 @@ class PageCortex:
         self.control_nouns: collections.Counter = collections.Counter()
         self.seen_words: set[str] = set()
         self.last: dict = {}
+        # Öz-çalışma: kimse öğretmeden kendi deneyiyle bulduğu davranışlar ve onlara verdiği adlar.
+        self.self_taught: list[dict] = []
+        self.studied = False
+        self.oracle = None   # Nora'nın matematik korteksi (adlandırmada danışılan kendi organı)
+
+    # ---------------------------------------------------------------- öz-çalışma
+    def explore(self, probe: float = 3.0) -> list[Fragment]:
+        """Öğretilmiş düğme kodlarında işleci değiştir, çalıştır ve doğan etkiyi GÖZLE.
+
+        İşleç kümesi (+ - * /) JS sözdiziminin önselidir; hangi değişikliğin hangi etkiyi
+        doğurduğu ve bunun hangi sayfada çalıştığı ölçümle bulunur. Yeni etki adsız kaydedilir."""
+        known = {f.meaning for f in self.fragments}
+        found: list[Fragment] = []
+        for frag in [f for f in self.fragments if f.origin == "öğretim" and f.state]:
+            state = re.escape(frag.state)
+            m = re.search(rf"(?<![\w$.]){state}\s*=\s*{state}\s*([-+*/])\s*(\d+(?:\.\d+)?)", frag.code)
+            if not m:
+                continue
+            for op in "+-*/":
+                if op == m.group(1):
+                    continue
+                code = (frag.code[:m.start(1)] + op + frag.code[m.end(1):m.start(2)]
+                        + fmt_num(probe) + frag.code[m.end(2):])
+                part = {"code": code, "label": frag.label, "deps": [], "source": frag,
+                        "k": probe, "meaning": ""}
+                page = parse_page(self._assemble(frag.example, [part]))
+                display = page.find_id(frag.display_id)
+                controls = [i for i, n in enumerate(page.nodes) if n["attrs"].get("onclick")]
+                if display is None or len(controls) != 1:
+                    continue
+                obs = self.harness.run(page, [[controls[0], controls[0]]])
+                if not obs or obs.get("error") or obs.get("load_errors") or obs["runs"][0]["errors"]:
+                    continue
+                n0, n1, n2 = (_first_number(s[display][0]) for s in obs["runs"][0]["snaps"])
+                guess = None if None in (n0, n1, n2) else infer_effect(n0, n1, n2)
+                if guess is None:
+                    continue
+                eff, k = guess
+                magnitude = abs(k) if eff == "add" else k
+                if not math.isclose(magnitude, probe):
+                    continue
+                key = meaning_key(eff, k, True)
+                if key in known:
+                    continue
+                known.add(key)
+                found.append(Fragment(
+                    example=frag.example, node=frag.node, label="", code=code, via_listener=False,
+                    meaning=key, k=probe, slot=True, state=frag.state, display_id=frag.display_id,
+                    words=[], origin="deney"))
+        self.fragments.extend(found)
+        return found
+
+    def _oracle(self):
+        if self.oracle is None:
+            from nora_stem import MathCortex
+            self.oracle = MathCortex()
+        return self.oracle
+
+    def name_behavior(self, frag: Fragment, a: float = 6.0) -> dict | None:
+        """Adsız davranışı kendi matematik korteksine sorarak adlandırır.
+
+        Soru yalnız sembolle sorulur ('6 * 3'). Korteksin cevabındaki sonuç, deneyde gözlenen
+        sonuçla aynı değilse ad verilmez; aynıysa sonucu niteleyen ad ('çarpım') fiil köküne
+        indirilir ('çarp') ve davranışa bağlanır."""
+        symbol = EFFECT_SYMBOL.get(frag.meaning)
+        if symbol is None:
+            return None
+        question = f"{fmt_num(a)} {symbol} {fmt_num(frag.k)}"
+        reply = str((self._oracle().try_solve(question) or {}).get("reply") or "")
+        op = frag.meaning.rstrip("+-")
+        k = -frag.k if frag.meaning == "add-" else frag.k
+        expected = apply_effect(op, k, a)
+        words = tokens(reply)
+        at = [i for i, w in enumerate(words) if word_number(w) is not None
+              and math.isclose(word_number(w), expected)]
+        if not at or at[-1] == 0 or word_number(words[at[-1] - 1]) is not None:
+            return None
+        root = deverbal_root(words[at[-1] - 1])
+        self.verb_words.setdefault(root, collections.Counter())[frag.meaning] += 1
+        frag.words, frag.label = [root], root
+        record = {"word": root, "meaning": frag.meaning, "question": question, "reply": reply,
+                  "source": "deney+matematik"}
+        self.self_taught.append(record)
+        return record
+
+    def self_study(self) -> list[dict]:
+        """Öğretmensiz çalışma: deneyle yeni davranış bul, kendi bilgisiyle adlandır."""
+        self.studied = True
+        named = []
+        for frag in self.explore():
+            rec = self.name_behavior(frag)
+            if rec:
+                named.append(rec)
+        return named
+
+    def authorship(self) -> dict:
+        return {"öğretim": sum(f.origin == "öğretim" for f in self.fragments),
+                "deney": sum(f.origin == "deney" and bool(f.words) for f in self.fragments)}
 
     # ---------------------------------------------------------------- öğretim
     @staticmethod
@@ -961,6 +1081,8 @@ class PageCortex:
             n0, n1, n2 = (_first_number(s[display][0]) for s in run["snaps"])
             op = part["meaning"].rstrip("+-").split("=")[0]
             k = part["k"] * (-1 if part["meaning"] == "add-" else 1)
+            if op == "set" and "=" in part["meaning"]:
+                k = float(part["meaning"].split("=")[1])
             ok = (not run["errors"] and None not in (n0, n1, n2) and effect_holds(op, k, n0, n1, n2))
             checks.append({"label": part["label"], "op": op, "k": k, "ok": ok,
                            "seen": [n0, n1, n2], "errors": run["errors"]})
@@ -970,6 +1092,12 @@ class PageCortex:
     # ---------------------------------------------------------------- giriş/beyan
     def handle(self, request: str) -> dict:
         plan = self.plan(request)
+        learned_now: list[dict] = []
+        if (plan["unknown"] or not plan["items"]) and not self.studied and self.fragments:
+            # Bilmediği bir etkiyle karşılaşınca önce kendi başına çalışır, sonra yeniden dener.
+            learned_now = self.self_study()
+            if learned_now:
+                plan = self.plan(request)
         if plan["unknown"] or not plan["items"]:
             gap = {"ok": False, "language": "html", "path": "page_gap", "reason": "bilinmeyen_etki",
                    "unknown": plan["unknown"], "known": self.known_words(), "program": "",
@@ -984,9 +1112,13 @@ class PageCortex:
                     "unknown": [it["word"] for it in plan["items"]], "known": self.known_words()}
             fail["reply_hint"] = self.speak(fail)
             return fail
+        used = [p["source"] for p in res["parts"]]
         return {"ok": True, "language": "html", "path": "page", "program": res["markup"],
                 "verified": True, "confidence": 1.0, "checks": res["checks"],
-                "sources": sorted({p["source"].example for p in res["parts"]})}
+                "sources": sorted({f.example for f in used}),
+                "self_taught": [r for r in self.self_taught
+                                if any(f.origin == "deney" and r["word"] in f.words for f in used)],
+                "learned_now": learned_now}
 
     def known_words(self) -> list[str]:
         """Her öğrenilmiş etki için onu en sık anlatan sözcük."""
@@ -1019,19 +1151,32 @@ class PageCortex:
         def effect(c: dict) -> str:
             if c["op"] == "add":
                 return ("+" if c["k"] >= 0 else "−") + fmt_num(abs(c["k"]))
-            return {"mul": "×", "set": "="}.get(c["op"], c["op"]) + fmt_num(c["k"])
+            return {"mul": "×", "div": "÷", "set": "="}.get(c["op"], c["op"]) + fmt_num(c["k"])
         checks = "; ".join(
             f"«{c['label']}» {effect(c)} {'✓' if c['ok'] else '✗'}"
             for c in res.get("checks") or ())
-        return (tr_capitalize(c_build) + ".\n```html\n" + str(res.get("program") or "").rstrip()
+        head = ""
+        if res.get("self_taught"):
+            # Öğretilmediği hâlde kullandığı şeyi kaynağıyla söyler: deney + kendi matematiği.
+            c_self = syn.realize_verb(VerbSpec(verb_root="öğren", obj="bunu", advs=("kendi kendime",),
+                                               tense="PAST", person="1SG"))
+            head = tr_capitalize(c_self) + ": " + "; ".join(
+                f"{r['word']} ({r['question']} → {r['reply'].split(';')[0]})" for r in res["self_taught"]) + ".\n"
+        return (head + tr_capitalize(c_build) + ".\n```html\n" + str(res.get("program") or "").rstrip()
                 + "\n```\n" + tr_capitalize(c_try) + ": " + checks + ".")
 
     # ---------------------------------------------------------------- kalıcılık
     def state_dict(self) -> dict:
         return {"examples": [{"description": e["description"], "markup": e["markup"]}
-                             for e in self.examples]}
+                             for e in self.examples],
+                "studied": self.studied}
 
     def load_state_dict(self, data: dict | None) -> None:
+        oracle = self.oracle
         self.__init__()
+        self.oracle = oracle
         for ex in (data or {}).get("examples") or ():
             self.teach(ex.get("description", ""), ex.get("markup", ""))
+        # Öz-çalışma deterministiktir: aynı örneklerden aynı davranışlar yeniden bulunur.
+        if (data or {}).get("studied"):
+            self.self_study()

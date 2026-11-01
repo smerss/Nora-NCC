@@ -129,3 +129,56 @@ def test_page_learning_survives_whole_brain_save(tmp_path):
     again = NoraAGI.load(path)
     reply = again.converse("6 artıran ve sıfırlayan butonları olan bir sayaç sayfası yap", speaker="insan")
     assert "```html" in reply and "+6 ✓" in reply and "=0 ✓" in reply
+
+
+# ---------------------------------------------------------------- öğretmensiz çalışma (3. aşama)
+
+def _fresh():
+    pc = PageCortex()
+    assert pc.teach_document(CURRICULUM)["ok"]
+    return pc
+
+
+def test_untaught_effects_are_found_by_experiment_and_named_by_own_math():
+    pc = _fresh()
+    assert not pc.studied and pc.authorship()["deney"] == 0
+    res = pc.handle("sayıyı 3 ile çarpan ve 1 artıran butonları olan bir sayaç sayfası yap")
+    assert res["ok"], res.get("reply_hint")
+    assert {r["word"] for r in res["learned_now"]} >= {"çarp", "böl"}
+    named = {r["word"]: r for r in pc.self_taught}
+    assert "18" in named["çarp"]["reply"]  # 6 * 3: kendi matematik korteksinin cevabı gözlemle aynı
+    _independent_check(res["program"], [("mul", 3.0), ("add", 1.0)])
+    res = pc.handle("sayıyı 2'ye bölen ve sıfırlayan butonlu bir sayaç sayfası yap")
+    assert res["ok"]
+    _independent_check(res["program"], [("div", 2.0), ("set", 0.0)])
+    assert pc.authorship() == {"öğretim": 4, "deney": 2}
+
+
+def test_self_study_does_not_invent_what_it_cannot_ground():
+    pc = _fresh()
+    res = pc.handle("sayıyı ikiye katlayan butonu olan bir sayaç sayfası yap")
+    assert pc.studied and not res["ok"] and res["program"] == ""
+    assert any("katla" in u for u in res["unknown"])
+
+
+def test_name_is_refused_when_own_math_disagrees_with_observation():
+    class WrongMath:
+        def try_solve(self, text):
+            return {"reply": "6 × 3 = 20; çarpım 20 eder."}
+
+    pc = _fresh()
+    pc.oracle = WrongMath()
+    assert pc.self_study() == []
+    assert pc._meaning_of("çarpan") is None
+
+
+def test_sleep_runs_self_study_and_it_persists(tmp_path):
+    from nora.cognition.agi import NoraAGI
+
+    agi = NoraAGI(seed=742, boot_thinker=False)
+    for block in CURRICULUM.split("Öğren:")[1:]:
+        agi.converse("Öğren:" + block, speaker="insan")
+    assert set(agi.sleep()["self_study"]) >= {"çarp", "böl"}
+    again = NoraAGI.load(agi.save(str(tmp_path / "beyin")))
+    reply = again.converse("sayıyı 4 ile çarpan butonu olan bir sayaç sayfası yap", speaker="insan")
+    assert "```html" in reply and "×4 ✓" in reply
