@@ -39,3 +39,7 @@ runs/transformer_*.json
 data/broca_tr_sozcu.pt
 data/verb_index_cache.pkl
 state/nora_sozcu.*
+
+# veri korpusu ve yönlendirme çıktıları (büyük, git'e gitmez)
+data/corpus/
+data/routed/
