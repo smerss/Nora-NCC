@@ -41,10 +41,16 @@ def parse_args() -> argparse.Namespace:
         help="Initial boot/cognition budget (default: 800)",
     )
     parser.add_argument(
+        "--train",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Enable model training and persistent learning during chat (default: False)",
+    )
+    parser.add_argument(
         "--boot-thinker",
         action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Run initial boot thinker training (default: True, use --no-boot-thinker for fast start)",
+        default=False,
+        help="Run initial boot thinker training (default: False, use --boot-thinker or --train to enable)",
     )
     parser.add_argument(
         "--corpus",
@@ -123,15 +129,22 @@ def main() -> None:
     requested = Path(args.checkpoint).expanduser().resolve() if args.checkpoint else default_brain
     checkpoint = Path(NoraAGI.unified_path(requested))
     legacy_default = repo / "state" / "nora_sozcu"
+    do_train = bool(args.train or args.boot_thinker)
 
     if checkpoint.is_file():
         emit(f"[Nora] Birleşik beyin yükleniyor: {checkpoint.name}")
         agi = NoraAGI.load(str(checkpoint), attach_broca_async=False)
+        if do_train and getattr(agi, "cognition", None) is None:
+            agi._thinker_iters = int(args.think_iters)
+            agi._ensure_cognition()
     elif ((checkpoint == default_brain and Path(str(legacy_default) + ".agi.json").is_file())
           or Path(str(requested) + ".agi.json").is_file()):
         legacy = legacy_default if checkpoint == default_brain and Path(str(legacy_default) + ".agi.json").is_file() else requested
         emit("[Nora] Eski parçalı beyin bulundu; tek dosyaya taşınıyor...")
         agi = NoraAGI.load(str(legacy), attach_broca_async=False)
+        if do_train and getattr(agi, "cognition", None) is None:
+            agi._thinker_iters = int(args.think_iters)
+            agi._ensure_cognition()
         agi.save(str(checkpoint))
         emit(f"[Nora] Taşıma tamamlandı: {checkpoint}")
     else:
@@ -139,15 +152,17 @@ def main() -> None:
         agi = NoraAGI(
             name="Nora",
             seed=args.seed,
-            boot_thinker=args.boot_thinker,
+            boot_thinker=do_train,
             single_life=args.single_life,
             thinker_iters=args.think_iters,
             corpus=[str(Path(c).expanduser().resolve()) for c in args.corpus],
             broca=None,
-            code_pretrain=True,
+            code_pretrain=do_train,
         )
         agi.brain_path = str(checkpoint)
 
+    # Her oturumun söz zarı kendi donanım entropisiyle başlar; kayıtlı tohum aynı sözleri geri getirmez.
+    agi.refresh_chance_streams()
     checkpoint.parent.mkdir(parents=True, exist_ok=True)
 
     if journal:
@@ -292,9 +307,8 @@ def main() -> None:
                 agi.last_real_time = time.time()
                 t0 = time.perf_counter()
                 answer = agi.converse(line, speaker="insan")
-                # Normal sohbet de öğrenme ve otobiyografik kayıt üretir; yalnız
-                # /teach sonrası değil, her konuşma çıkışta kalıcı olur.
-                agi._modified_in_session = True
+                if do_train:
+                    agi._modified_in_session = True
                 elapsed = time.perf_counter() - t0
 
             if answer:
@@ -309,11 +323,11 @@ def main() -> None:
         if worker is not None:
             worker.join(timeout=3.0)
 
-        try:
-            # Sohbet, duygu, öğrenme ve yaşam durumu birlikte yazılır.
-            save_checkpoint()
-        except Exception as exc:
-            emit(f"[Kayıt hatası] {type(exc).__name__}: {exc}")
+        if do_train or getattr(agi, "_modified_in_session", False):
+            try:
+                save_checkpoint()
+            except Exception as exc:
+                emit(f"[Kayıt hatası] {type(exc).__name__}: {exc}")
 
         with lock:
             if getattr(agi, "journal", None) is not None:

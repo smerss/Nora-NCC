@@ -359,8 +359,14 @@ class ChemMushroomBody:
             idx = self.encode_kc(x)
 
         # Yalnızca aktif KC sinapslarında yerel hata-güdümlü 3-faktörlü güncelleme.
-        sc = self.scores(idx)
-        cur_target = float(sc[target])
+        # Contrastive istenmediğinde tüm matrisi toplamak yerine yalnız hedef satırı O(K) hesapla.
+        if contrastive and self.n_out > 1 and strength > 0:
+            sc = self.scores(idx)
+            cur_target = float(sc[target])
+        else:
+            sc = None
+            cur_target = float((self.W_slow[target, idx] + self.W_fast[target, idx]).sum()) / max(1.0, float(len(idx)))
+
         want = 1.0 if strength >= 0 else -0.6
         # Zıt işaretli ve sertleşmiş bir bağla çakışma, eski sinapsı ezmek için
         # gerekçe değildir: önce yeni KC kapasitesi açılır ve örnek yeni kodla yazılır.
@@ -370,8 +376,11 @@ class ChemMushroomBody:
         if conflict and self.n_kc < 8192:
             self.grow_neurogenesis(add_kc=512)
             idx = self.encode_kc(x)
-            sc = self.scores(idx)
-            cur_target = float(sc[target])
+            if sc is not None:
+                sc = self.scores(idx)
+                cur_target = float(sc[target])
+            else:
+                cur_target = float((self.W_slow[target, idx] + self.W_fast[target, idx]).sum()) / max(1.0, float(len(idx)))
             grew_for_conflict = True
 
         plasticity = 1.0 - 0.85 * self.stiff[target, idx]
@@ -389,7 +398,7 @@ class ChemMushroomBody:
         # "contrastive learning" değildir. Bu nedenle burada negatif ağırlık
         # güncellemesi yoktur. Çakışma yalnız izlenir ve gerekirse nörogenez olur.
         rival = -1
-        if contrastive and self.n_out > 1 and strength > 0:
+        if sc is not None and contrastive and self.n_out > 1 and strength > 0:
             sc_other = sc.copy()
             sc_other[target] = -1e9
             rival = int(np.argmax(sc_other))

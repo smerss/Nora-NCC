@@ -1,0 +1,1682 @@
+[
+ {
+  "ID": "dev8-more0",
+  "kind": "more",
+  "Body_tr": "Ceren'nın 41 puli var. Gülay'nin Ceren'dan 9 pul fazlası var.",
+  "Question_tr": "Gülay'nin kaç puli var?",
+  "gold": 50
+ },
+ {
+  "ID": "dev8-less0",
+  "kind": "less",
+  "Body_tr": "Ceren'nın 41 puli var. Gülay'nin Ceren'dan 9 pul eksiği var.",
+  "Question_tr": "Gülay'nin kaç puli var?",
+  "gold": 32
+ },
+ {
+  "ID": "dev8-groups0",
+  "kind": "groups",
+  "Body_tr": "Ceren'nın 24 puli var. Her kutuya 4 pul koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 6
+ },
+ {
+  "ID": "dev8-product0",
+  "kind": "product",
+  "Body_tr": "Ceren'nın 6 kutusu var. Her kutuda 4 pul var.",
+  "Question_tr": "Toplam kaç pul var?",
+  "gold": 24
+ },
+ {
+  "ID": "dev8-more1",
+  "kind": "more",
+  "Body_tr": "Esra'nın 61 mumi var. Doruk'nin Esra'dan 3 mum fazlası var.",
+  "Question_tr": "Doruk'nin kaç mumi var?",
+  "gold": 64
+ },
+ {
+  "ID": "dev8-less1",
+  "kind": "less",
+  "Body_tr": "Esra'nın 61 mumi var. Doruk'nin Esra'dan 3 mum eksiği var.",
+  "Question_tr": "Doruk'nin kaç mumi var?",
+  "gold": 58
+ },
+ {
+  "ID": "dev8-groups1",
+  "kind": "groups",
+  "Body_tr": "Esra'nın 16 mumi var. Her kutuya 2 mum koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 8
+ },
+ {
+  "ID": "dev8-product1",
+  "kind": "product",
+  "Body_tr": "Esra'nın 8 kutusu var. Her kutuda 2 mum var.",
+  "Question_tr": "Toplam kaç mum var?",
+  "gold": 16
+ },
+ {
+  "ID": "dev8-more2",
+  "kind": "more",
+  "Body_tr": "Esra'nın 51 mumi var. Gülay'nin Esra'dan 2 mum fazlası var.",
+  "Question_tr": "Gülay'nin kaç mumi var?",
+  "gold": 53
+ },
+ {
+  "ID": "dev8-less2",
+  "kind": "less",
+  "Body_tr": "Esra'nın 51 mumi var. Gülay'nin Esra'dan 2 mum eksiği var.",
+  "Question_tr": "Gülay'nin kaç mumi var?",
+  "gold": 49
+ },
+ {
+  "ID": "dev8-groups2",
+  "kind": "groups",
+  "Body_tr": "Esra'nın 30 mumi var. Her kutuya 5 mum koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 6
+ },
+ {
+  "ID": "dev8-product2",
+  "kind": "product",
+  "Body_tr": "Esra'nın 6 kutusu var. Her kutuda 5 mum var.",
+  "Question_tr": "Toplam kaç mum var?",
+  "gold": 30
+ },
+ {
+  "ID": "dev8-more3",
+  "kind": "more",
+  "Body_tr": "Gülay'nın 49 topi var. Ceren'nin Gülay'dan 8 top fazlası var.",
+  "Question_tr": "Ceren'nin kaç topi var?",
+  "gold": 57
+ },
+ {
+  "ID": "dev8-less3",
+  "kind": "less",
+  "Body_tr": "Gülay'nın 49 topi var. Ceren'nin Gülay'dan 8 top eksiği var.",
+  "Question_tr": "Ceren'nin kaç topi var?",
+  "gold": 41
+ },
+ {
+  "ID": "dev8-groups3",
+  "kind": "groups",
+  "Body_tr": "Gülay'nın 56 topi var. Her kutuya 8 top koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 7
+ },
+ {
+  "ID": "dev8-product3",
+  "kind": "product",
+  "Body_tr": "Gülay'nın 7 kutusu var. Her kutuda 8 top var.",
+  "Question_tr": "Toplam kaç top var?",
+  "gold": 56
+ },
+ {
+  "ID": "dev8-more4",
+  "kind": "more",
+  "Body_tr": "Gülay'nın 69 topi var. Fikret'nin Gülay'dan 7 top fazlası var.",
+  "Question_tr": "Fikret'nin kaç topi var?",
+  "gold": 76
+ },
+ {
+  "ID": "dev8-less4",
+  "kind": "less",
+  "Body_tr": "Gülay'nın 69 topi var. Fikret'nin Gülay'dan 7 top eksiği var.",
+  "Question_tr": "Fikret'nin kaç topi var?",
+  "gold": 62
+ },
+ {
+  "ID": "dev8-groups4",
+  "kind": "groups",
+  "Body_tr": "Gülay'nın 35 topi var. Her kutuya 5 top koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 7
+ },
+ {
+  "ID": "dev8-product4",
+  "kind": "product",
+  "Body_tr": "Gülay'nın 7 kutusu var. Her kutuda 5 top var.",
+  "Question_tr": "Toplam kaç top var?",
+  "gold": 35
+ },
+ {
+  "ID": "dev8-more5",
+  "kind": "more",
+  "Body_tr": "Ceren'nın 22 rozeti var. Hüseyin'nin Ceren'dan 3 rozet fazlası var.",
+  "Question_tr": "Hüseyin'nin kaç rozeti var?",
+  "gold": 25
+ },
+ {
+  "ID": "dev8-less5",
+  "kind": "less",
+  "Body_tr": "Ceren'nın 22 rozeti var. Hüseyin'nin Ceren'dan 3 rozet eksiği var.",
+  "Question_tr": "Hüseyin'nin kaç rozeti var?",
+  "gold": 19
+ },
+ {
+  "ID": "dev8-groups5",
+  "kind": "groups",
+  "Body_tr": "Ceren'nın 42 rozeti var. Her kutuya 6 rozet koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 7
+ },
+ {
+  "ID": "dev8-product5",
+  "kind": "product",
+  "Body_tr": "Ceren'nın 7 kutusu var. Her kutuda 6 rozet var.",
+  "Question_tr": "Toplam kaç rozet var?",
+  "gold": 42
+ },
+ {
+  "ID": "dev8-more6",
+  "kind": "more",
+  "Body_tr": "Fikret'nın 28 puli var. Gülay'nin Fikret'dan 5 pul fazlası var.",
+  "Question_tr": "Gülay'nin kaç puli var?",
+  "gold": 33
+ },
+ {
+  "ID": "dev8-less6",
+  "kind": "less",
+  "Body_tr": "Fikret'nın 28 puli var. Gülay'nin Fikret'dan 5 pul eksiği var.",
+  "Question_tr": "Gülay'nin kaç puli var?",
+  "gold": 23
+ },
+ {
+  "ID": "dev8-groups6",
+  "kind": "groups",
+  "Body_tr": "Fikret'nın 56 puli var. Her kutuya 7 pul koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 8
+ },
+ {
+  "ID": "dev8-product6",
+  "kind": "product",
+  "Body_tr": "Fikret'nın 8 kutusu var. Her kutuda 7 pul var.",
+  "Question_tr": "Toplam kaç pul var?",
+  "gold": 56
+ },
+ {
+  "ID": "dev8-more7",
+  "kind": "more",
+  "Body_tr": "Doruk'nın 68 fincani var. Ceren'nin Doruk'dan 2 fincan fazlası var.",
+  "Question_tr": "Ceren'nin kaç fincani var?",
+  "gold": 70
+ },
+ {
+  "ID": "dev8-less7",
+  "kind": "less",
+  "Body_tr": "Doruk'nın 68 fincani var. Ceren'nin Doruk'dan 2 fincan eksiği var.",
+  "Question_tr": "Ceren'nin kaç fincani var?",
+  "gold": 66
+ },
+ {
+  "ID": "dev8-groups7",
+  "kind": "groups",
+  "Body_tr": "Doruk'nın 72 fincani var. Her kutuya 8 fincan koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 9
+ },
+ {
+  "ID": "dev8-product7",
+  "kind": "product",
+  "Body_tr": "Doruk'nın 9 kutusu var. Her kutuda 8 fincan var.",
+  "Question_tr": "Toplam kaç fincan var?",
+  "gold": 72
+ },
+ {
+  "ID": "dev8-more8",
+  "kind": "more",
+  "Body_tr": "Gülay'nın 15 puli var. Hüseyin'nin Gülay'dan 7 pul fazlası var.",
+  "Question_tr": "Hüseyin'nin kaç puli var?",
+  "gold": 22
+ },
+ {
+  "ID": "dev8-less8",
+  "kind": "less",
+  "Body_tr": "Gülay'nın 15 puli var. Hüseyin'nin Gülay'dan 7 pul eksiği var.",
+  "Question_tr": "Hüseyin'nin kaç puli var?",
+  "gold": 8
+ },
+ {
+  "ID": "dev8-groups8",
+  "kind": "groups",
+  "Body_tr": "Gülay'nın 42 puli var. Her kutuya 6 pul koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 7
+ },
+ {
+  "ID": "dev8-product8",
+  "kind": "product",
+  "Body_tr": "Gülay'nın 7 kutusu var. Her kutuda 6 pul var.",
+  "Question_tr": "Toplam kaç pul var?",
+  "gold": 42
+ },
+ {
+  "ID": "dev8-more9",
+  "kind": "more",
+  "Body_tr": "Fikret'nın 55 puli var. Gülay'nin Fikret'dan 6 pul fazlası var.",
+  "Question_tr": "Gülay'nin kaç puli var?",
+  "gold": 61
+ },
+ {
+  "ID": "dev8-less9",
+  "kind": "less",
+  "Body_tr": "Fikret'nın 55 puli var. Gülay'nin Fikret'dan 6 pul eksiği var.",
+  "Question_tr": "Gülay'nin kaç puli var?",
+  "gold": 49
+ },
+ {
+  "ID": "dev8-groups9",
+  "kind": "groups",
+  "Body_tr": "Fikret'nın 21 puli var. Her kutuya 7 pul koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 3
+ },
+ {
+  "ID": "dev8-product9",
+  "kind": "product",
+  "Body_tr": "Fikret'nın 3 kutusu var. Her kutuda 7 pul var.",
+  "Question_tr": "Toplam kaç pul var?",
+  "gold": 21
+ },
+ {
+  "ID": "dev8-more10",
+  "kind": "more",
+  "Body_tr": "Doruk'nın 16 mumi var. Gülay'nin Doruk'dan 4 mum fazlası var.",
+  "Question_tr": "Gülay'nin kaç mumi var?",
+  "gold": 20
+ },
+ {
+  "ID": "dev8-less10",
+  "kind": "less",
+  "Body_tr": "Doruk'nın 16 mumi var. Gülay'nin Doruk'dan 4 mum eksiği var.",
+  "Question_tr": "Gülay'nin kaç mumi var?",
+  "gold": 12
+ },
+ {
+  "ID": "dev8-groups10",
+  "kind": "groups",
+  "Body_tr": "Doruk'nın 20 mumi var. Her kutuya 5 mum koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 4
+ },
+ {
+  "ID": "dev8-product10",
+  "kind": "product",
+  "Body_tr": "Doruk'nın 4 kutusu var. Her kutuda 5 mum var.",
+  "Question_tr": "Toplam kaç mum var?",
+  "gold": 20
+ },
+ {
+  "ID": "dev8-more11",
+  "kind": "more",
+  "Body_tr": "Gülay'nın 49 topi var. Esra'nin Gülay'dan 6 top fazlası var.",
+  "Question_tr": "Esra'nin kaç topi var?",
+  "gold": 55
+ },
+ {
+  "ID": "dev8-less11",
+  "kind": "less",
+  "Body_tr": "Gülay'nın 49 topi var. Esra'nin Gülay'dan 6 top eksiği var.",
+  "Question_tr": "Esra'nin kaç topi var?",
+  "gold": 43
+ },
+ {
+  "ID": "dev8-groups11",
+  "kind": "groups",
+  "Body_tr": "Gülay'nın 15 topi var. Her kutuya 3 top koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 5
+ },
+ {
+  "ID": "dev8-product11",
+  "kind": "product",
+  "Body_tr": "Gülay'nın 5 kutusu var. Her kutuda 3 top var.",
+  "Question_tr": "Toplam kaç top var?",
+  "gold": 15
+ },
+ {
+  "ID": "dev8-more12",
+  "kind": "more",
+  "Body_tr": "Esra'nın 17 fincani var. Gülay'nin Esra'dan 3 fincan fazlası var.",
+  "Question_tr": "Gülay'nin kaç fincani var?",
+  "gold": 20
+ },
+ {
+  "ID": "dev8-less12",
+  "kind": "less",
+  "Body_tr": "Esra'nın 17 fincani var. Gülay'nin Esra'dan 3 fincan eksiği var.",
+  "Question_tr": "Gülay'nin kaç fincani var?",
+  "gold": 14
+ },
+ {
+  "ID": "dev8-groups12",
+  "kind": "groups",
+  "Body_tr": "Esra'nın 12 fincani var. Her kutuya 3 fincan koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 4
+ },
+ {
+  "ID": "dev8-product12",
+  "kind": "product",
+  "Body_tr": "Esra'nın 4 kutusu var. Her kutuda 3 fincan var.",
+  "Question_tr": "Toplam kaç fincan var?",
+  "gold": 12
+ },
+ {
+  "ID": "dev8-more13",
+  "kind": "more",
+  "Body_tr": "Gülay'nın 54 mumi var. Doruk'nin Gülay'dan 7 mum fazlası var.",
+  "Question_tr": "Doruk'nin kaç mumi var?",
+  "gold": 61
+ },
+ {
+  "ID": "dev8-less13",
+  "kind": "less",
+  "Body_tr": "Gülay'nın 54 mumi var. Doruk'nin Gülay'dan 7 mum eksiği var.",
+  "Question_tr": "Doruk'nin kaç mumi var?",
+  "gold": 47
+ },
+ {
+  "ID": "dev8-groups13",
+  "kind": "groups",
+  "Body_tr": "Gülay'nın 10 mumi var. Her kutuya 2 mum koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 5
+ },
+ {
+  "ID": "dev8-product13",
+  "kind": "product",
+  "Body_tr": "Gülay'nın 5 kutusu var. Her kutuda 2 mum var.",
+  "Question_tr": "Toplam kaç mum var?",
+  "gold": 10
+ },
+ {
+  "ID": "dev8-more14",
+  "kind": "more",
+  "Body_tr": "Gülay'nın 61 mumi var. Fikret'nin Gülay'dan 7 mum fazlası var.",
+  "Question_tr": "Fikret'nin kaç mumi var?",
+  "gold": 68
+ },
+ {
+  "ID": "dev8-less14",
+  "kind": "less",
+  "Body_tr": "Gülay'nın 61 mumi var. Fikret'nin Gülay'dan 7 mum eksiği var.",
+  "Question_tr": "Fikret'nin kaç mumi var?",
+  "gold": 54
+ },
+ {
+  "ID": "dev8-groups14",
+  "kind": "groups",
+  "Body_tr": "Gülay'nın 48 mumi var. Her kutuya 8 mum koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 6
+ },
+ {
+  "ID": "dev8-product14",
+  "kind": "product",
+  "Body_tr": "Gülay'nın 6 kutusu var. Her kutuda 8 mum var.",
+  "Question_tr": "Toplam kaç mum var?",
+  "gold": 48
+ },
+ {
+  "ID": "dev8-more15",
+  "kind": "more",
+  "Body_tr": "Hüseyin'nın 17 puli var. Doruk'nin Hüseyin'dan 6 pul fazlası var.",
+  "Question_tr": "Doruk'nin kaç puli var?",
+  "gold": 23
+ },
+ {
+  "ID": "dev8-less15",
+  "kind": "less",
+  "Body_tr": "Hüseyin'nın 17 puli var. Doruk'nin Hüseyin'dan 6 pul eksiği var.",
+  "Question_tr": "Doruk'nin kaç puli var?",
+  "gold": 11
+ },
+ {
+  "ID": "dev8-groups15",
+  "kind": "groups",
+  "Body_tr": "Hüseyin'nın 21 puli var. Her kutuya 3 pul koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 7
+ },
+ {
+  "ID": "dev8-product15",
+  "kind": "product",
+  "Body_tr": "Hüseyin'nın 7 kutusu var. Her kutuda 3 pul var.",
+  "Question_tr": "Toplam kaç pul var?",
+  "gold": 21
+ },
+ {
+  "ID": "dev8-more16",
+  "kind": "more",
+  "Body_tr": "Fikret'nın 19 topi var. Doruk'nin Fikret'dan 6 top fazlası var.",
+  "Question_tr": "Doruk'nin kaç topi var?",
+  "gold": 25
+ },
+ {
+  "ID": "dev8-less16",
+  "kind": "less",
+  "Body_tr": "Fikret'nın 19 topi var. Doruk'nin Fikret'dan 6 top eksiği var.",
+  "Question_tr": "Doruk'nin kaç topi var?",
+  "gold": 13
+ },
+ {
+  "ID": "dev8-groups16",
+  "kind": "groups",
+  "Body_tr": "Fikret'nın 25 topi var. Her kutuya 5 top koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 5
+ },
+ {
+  "ID": "dev8-product16",
+  "kind": "product",
+  "Body_tr": "Fikret'nın 5 kutusu var. Her kutuda 5 top var.",
+  "Question_tr": "Toplam kaç top var?",
+  "gold": 25
+ },
+ {
+  "ID": "dev8-more17",
+  "kind": "more",
+  "Body_tr": "Hüseyin'nın 46 topi var. Fikret'nin Hüseyin'dan 5 top fazlası var.",
+  "Question_tr": "Fikret'nin kaç topi var?",
+  "gold": 51
+ },
+ {
+  "ID": "dev8-less17",
+  "kind": "less",
+  "Body_tr": "Hüseyin'nın 46 topi var. Fikret'nin Hüseyin'dan 5 top eksiği var.",
+  "Question_tr": "Fikret'nin kaç topi var?",
+  "gold": 41
+ },
+ {
+  "ID": "dev8-groups17",
+  "kind": "groups",
+  "Body_tr": "Hüseyin'nın 6 topi var. Her kutuya 2 top koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 3
+ },
+ {
+  "ID": "dev8-product17",
+  "kind": "product",
+  "Body_tr": "Hüseyin'nın 3 kutusu var. Her kutuda 2 top var.",
+  "Question_tr": "Toplam kaç top var?",
+  "gold": 6
+ },
+ {
+  "ID": "dev8-more18",
+  "kind": "more",
+  "Body_tr": "Hüseyin'nın 66 puli var. Esra'nin Hüseyin'dan 7 pul fazlası var.",
+  "Question_tr": "Esra'nin kaç puli var?",
+  "gold": 73
+ },
+ {
+  "ID": "dev8-less18",
+  "kind": "less",
+  "Body_tr": "Hüseyin'nın 66 puli var. Esra'nin Hüseyin'dan 7 pul eksiği var.",
+  "Question_tr": "Esra'nin kaç puli var?",
+  "gold": 59
+ },
+ {
+  "ID": "dev8-groups18",
+  "kind": "groups",
+  "Body_tr": "Hüseyin'nın 28 puli var. Her kutuya 7 pul koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 4
+ },
+ {
+  "ID": "dev8-product18",
+  "kind": "product",
+  "Body_tr": "Hüseyin'nın 4 kutusu var. Her kutuda 7 pul var.",
+  "Question_tr": "Toplam kaç pul var?",
+  "gold": 28
+ },
+ {
+  "ID": "dev8-more19",
+  "kind": "more",
+  "Body_tr": "Esra'nın 36 topi var. Doruk'nin Esra'dan 4 top fazlası var.",
+  "Question_tr": "Doruk'nin kaç topi var?",
+  "gold": 40
+ },
+ {
+  "ID": "dev8-less19",
+  "kind": "less",
+  "Body_tr": "Esra'nın 36 topi var. Doruk'nin Esra'dan 4 top eksiği var.",
+  "Question_tr": "Doruk'nin kaç topi var?",
+  "gold": 32
+ },
+ {
+  "ID": "dev8-groups19",
+  "kind": "groups",
+  "Body_tr": "Esra'nın 30 topi var. Her kutuya 5 top koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 6
+ },
+ {
+  "ID": "dev8-product19",
+  "kind": "product",
+  "Body_tr": "Esra'nın 6 kutusu var. Her kutuda 5 top var.",
+  "Question_tr": "Toplam kaç top var?",
+  "gold": 30
+ },
+ {
+  "ID": "dev8-more20",
+  "kind": "more",
+  "Body_tr": "Fikret'nın 47 mumi var. Gülay'nin Fikret'dan 3 mum fazlası var.",
+  "Question_tr": "Gülay'nin kaç mumi var?",
+  "gold": 50
+ },
+ {
+  "ID": "dev8-less20",
+  "kind": "less",
+  "Body_tr": "Fikret'nın 47 mumi var. Gülay'nin Fikret'dan 3 mum eksiği var.",
+  "Question_tr": "Gülay'nin kaç mumi var?",
+  "gold": 44
+ },
+ {
+  "ID": "dev8-groups20",
+  "kind": "groups",
+  "Body_tr": "Fikret'nın 64 mumi var. Her kutuya 8 mum koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 8
+ },
+ {
+  "ID": "dev8-product20",
+  "kind": "product",
+  "Body_tr": "Fikret'nın 8 kutusu var. Her kutuda 8 mum var.",
+  "Question_tr": "Toplam kaç mum var?",
+  "gold": 64
+ },
+ {
+  "ID": "dev8-more21",
+  "kind": "more",
+  "Body_tr": "Esra'nın 10 puli var. Fikret'nin Esra'dan 8 pul fazlası var.",
+  "Question_tr": "Fikret'nin kaç puli var?",
+  "gold": 18
+ },
+ {
+  "ID": "dev8-less21",
+  "kind": "less",
+  "Body_tr": "Esra'nın 10 puli var. Fikret'nin Esra'dan 8 pul eksiği var.",
+  "Question_tr": "Fikret'nin kaç puli var?",
+  "gold": 2
+ },
+ {
+  "ID": "dev8-groups21",
+  "kind": "groups",
+  "Body_tr": "Esra'nın 40 puli var. Her kutuya 8 pul koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 5
+ },
+ {
+  "ID": "dev8-product21",
+  "kind": "product",
+  "Body_tr": "Esra'nın 5 kutusu var. Her kutuda 8 pul var.",
+  "Question_tr": "Toplam kaç pul var?",
+  "gold": 40
+ },
+ {
+  "ID": "dev8-more22",
+  "kind": "more",
+  "Body_tr": "Hüseyin'nın 24 rozeti var. Esra'nin Hüseyin'dan 8 rozet fazlası var.",
+  "Question_tr": "Esra'nin kaç rozeti var?",
+  "gold": 32
+ },
+ {
+  "ID": "dev8-less22",
+  "kind": "less",
+  "Body_tr": "Hüseyin'nın 24 rozeti var. Esra'nin Hüseyin'dan 8 rozet eksiği var.",
+  "Question_tr": "Esra'nin kaç rozeti var?",
+  "gold": 16
+ },
+ {
+  "ID": "dev8-groups22",
+  "kind": "groups",
+  "Body_tr": "Hüseyin'nın 6 rozeti var. Her kutuya 2 rozet koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 3
+ },
+ {
+  "ID": "dev8-product22",
+  "kind": "product",
+  "Body_tr": "Hüseyin'nın 3 kutusu var. Her kutuda 2 rozet var.",
+  "Question_tr": "Toplam kaç rozet var?",
+  "gold": 6
+ },
+ {
+  "ID": "dev8-more23",
+  "kind": "more",
+  "Body_tr": "Hüseyin'nın 57 mumi var. Ceren'nin Hüseyin'dan 3 mum fazlası var.",
+  "Question_tr": "Ceren'nin kaç mumi var?",
+  "gold": 60
+ },
+ {
+  "ID": "dev8-less23",
+  "kind": "less",
+  "Body_tr": "Hüseyin'nın 57 mumi var. Ceren'nin Hüseyin'dan 3 mum eksiği var.",
+  "Question_tr": "Ceren'nin kaç mumi var?",
+  "gold": 54
+ },
+ {
+  "ID": "dev8-groups23",
+  "kind": "groups",
+  "Body_tr": "Hüseyin'nın 32 mumi var. Her kutuya 8 mum koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 4
+ },
+ {
+  "ID": "dev8-product23",
+  "kind": "product",
+  "Body_tr": "Hüseyin'nın 4 kutusu var. Her kutuda 8 mum var.",
+  "Question_tr": "Toplam kaç mum var?",
+  "gold": 32
+ },
+ {
+  "ID": "dev8-more24",
+  "kind": "more",
+  "Body_tr": "Hüseyin'nın 47 fincani var. Doruk'nin Hüseyin'dan 9 fincan fazlası var.",
+  "Question_tr": "Doruk'nin kaç fincani var?",
+  "gold": 56
+ },
+ {
+  "ID": "dev8-less24",
+  "kind": "less",
+  "Body_tr": "Hüseyin'nın 47 fincani var. Doruk'nin Hüseyin'dan 9 fincan eksiği var.",
+  "Question_tr": "Doruk'nin kaç fincani var?",
+  "gold": 38
+ },
+ {
+  "ID": "dev8-groups24",
+  "kind": "groups",
+  "Body_tr": "Hüseyin'nın 6 fincani var. Her kutuya 2 fincan koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 3
+ },
+ {
+  "ID": "dev8-product24",
+  "kind": "product",
+  "Body_tr": "Hüseyin'nın 3 kutusu var. Her kutuda 2 fincan var.",
+  "Question_tr": "Toplam kaç fincan var?",
+  "gold": 6
+ },
+ {
+  "ID": "dev8-more25",
+  "kind": "more",
+  "Body_tr": "Doruk'nın 18 puli var. Hüseyin'nin Doruk'dan 9 pul fazlası var.",
+  "Question_tr": "Hüseyin'nin kaç puli var?",
+  "gold": 27
+ },
+ {
+  "ID": "dev8-less25",
+  "kind": "less",
+  "Body_tr": "Doruk'nın 18 puli var. Hüseyin'nin Doruk'dan 9 pul eksiği var.",
+  "Question_tr": "Hüseyin'nin kaç puli var?",
+  "gold": 9
+ },
+ {
+  "ID": "dev8-groups25",
+  "kind": "groups",
+  "Body_tr": "Doruk'nın 72 puli var. Her kutuya 8 pul koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 9
+ },
+ {
+  "ID": "dev8-product25",
+  "kind": "product",
+  "Body_tr": "Doruk'nın 9 kutusu var. Her kutuda 8 pul var.",
+  "Question_tr": "Toplam kaç pul var?",
+  "gold": 72
+ },
+ {
+  "ID": "dev8-more26",
+  "kind": "more",
+  "Body_tr": "Gülay'nın 53 fincani var. Ceren'nin Gülay'dan 7 fincan fazlası var.",
+  "Question_tr": "Ceren'nin kaç fincani var?",
+  "gold": 60
+ },
+ {
+  "ID": "dev8-less26",
+  "kind": "less",
+  "Body_tr": "Gülay'nın 53 fincani var. Ceren'nin Gülay'dan 7 fincan eksiği var.",
+  "Question_tr": "Ceren'nin kaç fincani var?",
+  "gold": 46
+ },
+ {
+  "ID": "dev8-groups26",
+  "kind": "groups",
+  "Body_tr": "Gülay'nın 12 fincani var. Her kutuya 3 fincan koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 4
+ },
+ {
+  "ID": "dev8-product26",
+  "kind": "product",
+  "Body_tr": "Gülay'nın 4 kutusu var. Her kutuda 3 fincan var.",
+  "Question_tr": "Toplam kaç fincan var?",
+  "gold": 12
+ },
+ {
+  "ID": "dev8-more27",
+  "kind": "more",
+  "Body_tr": "Esra'nın 32 mumi var. Gülay'nin Esra'dan 9 mum fazlası var.",
+  "Question_tr": "Gülay'nin kaç mumi var?",
+  "gold": 41
+ },
+ {
+  "ID": "dev8-less27",
+  "kind": "less",
+  "Body_tr": "Esra'nın 32 mumi var. Gülay'nin Esra'dan 9 mum eksiği var.",
+  "Question_tr": "Gülay'nin kaç mumi var?",
+  "gold": 23
+ },
+ {
+  "ID": "dev8-groups27",
+  "kind": "groups",
+  "Body_tr": "Esra'nın 27 mumi var. Her kutuya 3 mum koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 9
+ },
+ {
+  "ID": "dev8-product27",
+  "kind": "product",
+  "Body_tr": "Esra'nın 9 kutusu var. Her kutuda 3 mum var.",
+  "Question_tr": "Toplam kaç mum var?",
+  "gold": 27
+ },
+ {
+  "ID": "dev8-more28",
+  "kind": "more",
+  "Body_tr": "Gülay'nın 50 topi var. Ceren'nin Gülay'dan 2 top fazlası var.",
+  "Question_tr": "Ceren'nin kaç topi var?",
+  "gold": 52
+ },
+ {
+  "ID": "dev8-less28",
+  "kind": "less",
+  "Body_tr": "Gülay'nın 50 topi var. Ceren'nin Gülay'dan 2 top eksiği var.",
+  "Question_tr": "Ceren'nin kaç topi var?",
+  "gold": 48
+ },
+ {
+  "ID": "dev8-groups28",
+  "kind": "groups",
+  "Body_tr": "Gülay'nın 56 topi var. Her kutuya 8 top koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 7
+ },
+ {
+  "ID": "dev8-product28",
+  "kind": "product",
+  "Body_tr": "Gülay'nın 7 kutusu var. Her kutuda 8 top var.",
+  "Question_tr": "Toplam kaç top var?",
+  "gold": 56
+ },
+ {
+  "ID": "dev8-more29",
+  "kind": "more",
+  "Body_tr": "Esra'nın 67 mumi var. Ceren'nin Esra'dan 5 mum fazlası var.",
+  "Question_tr": "Ceren'nin kaç mumi var?",
+  "gold": 72
+ },
+ {
+  "ID": "dev8-less29",
+  "kind": "less",
+  "Body_tr": "Esra'nın 67 mumi var. Ceren'nin Esra'dan 5 mum eksiği var.",
+  "Question_tr": "Ceren'nin kaç mumi var?",
+  "gold": 62
+ },
+ {
+  "ID": "dev8-groups29",
+  "kind": "groups",
+  "Body_tr": "Esra'nın 24 mumi var. Her kutuya 8 mum koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 3
+ },
+ {
+  "ID": "dev8-product29",
+  "kind": "product",
+  "Body_tr": "Esra'nın 3 kutusu var. Her kutuda 8 mum var.",
+  "Question_tr": "Toplam kaç mum var?",
+  "gold": 24
+ },
+ {
+  "ID": "dev8-more30",
+  "kind": "more",
+  "Body_tr": "Gülay'nın 24 rozeti var. Esra'nin Gülay'dan 2 rozet fazlası var.",
+  "Question_tr": "Esra'nin kaç rozeti var?",
+  "gold": 26
+ },
+ {
+  "ID": "dev8-less30",
+  "kind": "less",
+  "Body_tr": "Gülay'nın 24 rozeti var. Esra'nin Gülay'dan 2 rozet eksiği var.",
+  "Question_tr": "Esra'nin kaç rozeti var?",
+  "gold": 22
+ },
+ {
+  "ID": "dev8-groups30",
+  "kind": "groups",
+  "Body_tr": "Gülay'nın 20 rozeti var. Her kutuya 5 rozet koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 4
+ },
+ {
+  "ID": "dev8-product30",
+  "kind": "product",
+  "Body_tr": "Gülay'nın 4 kutusu var. Her kutuda 5 rozet var.",
+  "Question_tr": "Toplam kaç rozet var?",
+  "gold": 20
+ },
+ {
+  "ID": "dev8-more31",
+  "kind": "more",
+  "Body_tr": "Fikret'nın 66 topi var. Hüseyin'nin Fikret'dan 5 top fazlası var.",
+  "Question_tr": "Hüseyin'nin kaç topi var?",
+  "gold": 71
+ },
+ {
+  "ID": "dev8-less31",
+  "kind": "less",
+  "Body_tr": "Fikret'nın 66 topi var. Hüseyin'nin Fikret'dan 5 top eksiği var.",
+  "Question_tr": "Hüseyin'nin kaç topi var?",
+  "gold": 61
+ },
+ {
+  "ID": "dev8-groups31",
+  "kind": "groups",
+  "Body_tr": "Fikret'nın 42 topi var. Her kutuya 7 top koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 6
+ },
+ {
+  "ID": "dev8-product31",
+  "kind": "product",
+  "Body_tr": "Fikret'nın 6 kutusu var. Her kutuda 7 top var.",
+  "Question_tr": "Toplam kaç top var?",
+  "gold": 42
+ },
+ {
+  "ID": "dev8-more32",
+  "kind": "more",
+  "Body_tr": "Ceren'nın 36 mumi var. Hüseyin'nin Ceren'dan 9 mum fazlası var.",
+  "Question_tr": "Hüseyin'nin kaç mumi var?",
+  "gold": 45
+ },
+ {
+  "ID": "dev8-less32",
+  "kind": "less",
+  "Body_tr": "Ceren'nın 36 mumi var. Hüseyin'nin Ceren'dan 9 mum eksiği var.",
+  "Question_tr": "Hüseyin'nin kaç mumi var?",
+  "gold": 27
+ },
+ {
+  "ID": "dev8-groups32",
+  "kind": "groups",
+  "Body_tr": "Ceren'nın 32 mumi var. Her kutuya 4 mum koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 8
+ },
+ {
+  "ID": "dev8-product32",
+  "kind": "product",
+  "Body_tr": "Ceren'nın 8 kutusu var. Her kutuda 4 mum var.",
+  "Question_tr": "Toplam kaç mum var?",
+  "gold": 32
+ },
+ {
+  "ID": "dev8-more33",
+  "kind": "more",
+  "Body_tr": "Esra'nın 42 puli var. Doruk'nin Esra'dan 5 pul fazlası var.",
+  "Question_tr": "Doruk'nin kaç puli var?",
+  "gold": 47
+ },
+ {
+  "ID": "dev8-less33",
+  "kind": "less",
+  "Body_tr": "Esra'nın 42 puli var. Doruk'nin Esra'dan 5 pul eksiği var.",
+  "Question_tr": "Doruk'nin kaç puli var?",
+  "gold": 37
+ },
+ {
+  "ID": "dev8-groups33",
+  "kind": "groups",
+  "Body_tr": "Esra'nın 14 puli var. Her kutuya 2 pul koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 7
+ },
+ {
+  "ID": "dev8-product33",
+  "kind": "product",
+  "Body_tr": "Esra'nın 7 kutusu var. Her kutuda 2 pul var.",
+  "Question_tr": "Toplam kaç pul var?",
+  "gold": 14
+ },
+ {
+  "ID": "dev8-more34",
+  "kind": "more",
+  "Body_tr": "Ceren'nın 27 mumi var. Doruk'nin Ceren'dan 7 mum fazlası var.",
+  "Question_tr": "Doruk'nin kaç mumi var?",
+  "gold": 34
+ },
+ {
+  "ID": "dev8-less34",
+  "kind": "less",
+  "Body_tr": "Ceren'nın 27 mumi var. Doruk'nin Ceren'dan 7 mum eksiği var.",
+  "Question_tr": "Doruk'nin kaç mumi var?",
+  "gold": 20
+ },
+ {
+  "ID": "dev8-groups34",
+  "kind": "groups",
+  "Body_tr": "Ceren'nın 40 mumi var. Her kutuya 8 mum koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 5
+ },
+ {
+  "ID": "dev8-product34",
+  "kind": "product",
+  "Body_tr": "Ceren'nın 5 kutusu var. Her kutuda 8 mum var.",
+  "Question_tr": "Toplam kaç mum var?",
+  "gold": 40
+ },
+ {
+  "ID": "dev8-more35",
+  "kind": "more",
+  "Body_tr": "Esra'nın 55 rozeti var. Fikret'nin Esra'dan 6 rozet fazlası var.",
+  "Question_tr": "Fikret'nin kaç rozeti var?",
+  "gold": 61
+ },
+ {
+  "ID": "dev8-less35",
+  "kind": "less",
+  "Body_tr": "Esra'nın 55 rozeti var. Fikret'nin Esra'dan 6 rozet eksiği var.",
+  "Question_tr": "Fikret'nin kaç rozeti var?",
+  "gold": 49
+ },
+ {
+  "ID": "dev8-groups35",
+  "kind": "groups",
+  "Body_tr": "Esra'nın 20 rozeti var. Her kutuya 4 rozet koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 5
+ },
+ {
+  "ID": "dev8-product35",
+  "kind": "product",
+  "Body_tr": "Esra'nın 5 kutusu var. Her kutuda 4 rozet var.",
+  "Question_tr": "Toplam kaç rozet var?",
+  "gold": 20
+ },
+ {
+  "ID": "dev8-more36",
+  "kind": "more",
+  "Body_tr": "Esra'nın 64 rozeti var. Doruk'nin Esra'dan 3 rozet fazlası var.",
+  "Question_tr": "Doruk'nin kaç rozeti var?",
+  "gold": 67
+ },
+ {
+  "ID": "dev8-less36",
+  "kind": "less",
+  "Body_tr": "Esra'nın 64 rozeti var. Doruk'nin Esra'dan 3 rozet eksiği var.",
+  "Question_tr": "Doruk'nin kaç rozeti var?",
+  "gold": 61
+ },
+ {
+  "ID": "dev8-groups36",
+  "kind": "groups",
+  "Body_tr": "Esra'nın 49 rozeti var. Her kutuya 7 rozet koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 7
+ },
+ {
+  "ID": "dev8-product36",
+  "kind": "product",
+  "Body_tr": "Esra'nın 7 kutusu var. Her kutuda 7 rozet var.",
+  "Question_tr": "Toplam kaç rozet var?",
+  "gold": 49
+ },
+ {
+  "ID": "dev8-more37",
+  "kind": "more",
+  "Body_tr": "Hüseyin'nın 37 rozeti var. Doruk'nin Hüseyin'dan 6 rozet fazlası var.",
+  "Question_tr": "Doruk'nin kaç rozeti var?",
+  "gold": 43
+ },
+ {
+  "ID": "dev8-less37",
+  "kind": "less",
+  "Body_tr": "Hüseyin'nın 37 rozeti var. Doruk'nin Hüseyin'dan 6 rozet eksiği var.",
+  "Question_tr": "Doruk'nin kaç rozeti var?",
+  "gold": 31
+ },
+ {
+  "ID": "dev8-groups37",
+  "kind": "groups",
+  "Body_tr": "Hüseyin'nın 21 rozeti var. Her kutuya 3 rozet koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 7
+ },
+ {
+  "ID": "dev8-product37",
+  "kind": "product",
+  "Body_tr": "Hüseyin'nın 7 kutusu var. Her kutuda 3 rozet var.",
+  "Question_tr": "Toplam kaç rozet var?",
+  "gold": 21
+ },
+ {
+  "ID": "dev8-more38",
+  "kind": "more",
+  "Body_tr": "Esra'nın 14 fincani var. Doruk'nin Esra'dan 7 fincan fazlası var.",
+  "Question_tr": "Doruk'nin kaç fincani var?",
+  "gold": 21
+ },
+ {
+  "ID": "dev8-less38",
+  "kind": "less",
+  "Body_tr": "Esra'nın 14 fincani var. Doruk'nin Esra'dan 7 fincan eksiği var.",
+  "Question_tr": "Doruk'nin kaç fincani var?",
+  "gold": 7
+ },
+ {
+  "ID": "dev8-groups38",
+  "kind": "groups",
+  "Body_tr": "Esra'nın 36 fincani var. Her kutuya 4 fincan koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 9
+ },
+ {
+  "ID": "dev8-product38",
+  "kind": "product",
+  "Body_tr": "Esra'nın 9 kutusu var. Her kutuda 4 fincan var.",
+  "Question_tr": "Toplam kaç fincan var?",
+  "gold": 36
+ },
+ {
+  "ID": "dev8-more39",
+  "kind": "more",
+  "Body_tr": "Hüseyin'nın 14 topi var. Esra'nin Hüseyin'dan 2 top fazlası var.",
+  "Question_tr": "Esra'nin kaç topi var?",
+  "gold": 16
+ },
+ {
+  "ID": "dev8-less39",
+  "kind": "less",
+  "Body_tr": "Hüseyin'nın 14 topi var. Esra'nin Hüseyin'dan 2 top eksiği var.",
+  "Question_tr": "Esra'nin kaç topi var?",
+  "gold": 12
+ },
+ {
+  "ID": "dev8-groups39",
+  "kind": "groups",
+  "Body_tr": "Hüseyin'nın 72 topi var. Her kutuya 8 top koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 9
+ },
+ {
+  "ID": "dev8-product39",
+  "kind": "product",
+  "Body_tr": "Hüseyin'nın 9 kutusu var. Her kutuda 8 top var.",
+  "Question_tr": "Toplam kaç top var?",
+  "gold": 72
+ },
+ {
+  "ID": "dev8-more40",
+  "kind": "more",
+  "Body_tr": "Esra'nın 20 topi var. Doruk'nin Esra'dan 5 top fazlası var.",
+  "Question_tr": "Doruk'nin kaç topi var?",
+  "gold": 25
+ },
+ {
+  "ID": "dev8-less40",
+  "kind": "less",
+  "Body_tr": "Esra'nın 20 topi var. Doruk'nin Esra'dan 5 top eksiği var.",
+  "Question_tr": "Doruk'nin kaç topi var?",
+  "gold": 15
+ },
+ {
+  "ID": "dev8-groups40",
+  "kind": "groups",
+  "Body_tr": "Esra'nın 12 topi var. Her kutuya 2 top koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 6
+ },
+ {
+  "ID": "dev8-product40",
+  "kind": "product",
+  "Body_tr": "Esra'nın 6 kutusu var. Her kutuda 2 top var.",
+  "Question_tr": "Toplam kaç top var?",
+  "gold": 12
+ },
+ {
+  "ID": "dev8-more41",
+  "kind": "more",
+  "Body_tr": "Doruk'nın 22 fincani var. Gülay'nin Doruk'dan 7 fincan fazlası var.",
+  "Question_tr": "Gülay'nin kaç fincani var?",
+  "gold": 29
+ },
+ {
+  "ID": "dev8-less41",
+  "kind": "less",
+  "Body_tr": "Doruk'nın 22 fincani var. Gülay'nin Doruk'dan 7 fincan eksiği var.",
+  "Question_tr": "Gülay'nin kaç fincani var?",
+  "gold": 15
+ },
+ {
+  "ID": "dev8-groups41",
+  "kind": "groups",
+  "Body_tr": "Doruk'nın 40 fincani var. Her kutuya 8 fincan koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 5
+ },
+ {
+  "ID": "dev8-product41",
+  "kind": "product",
+  "Body_tr": "Doruk'nın 5 kutusu var. Her kutuda 8 fincan var.",
+  "Question_tr": "Toplam kaç fincan var?",
+  "gold": 40
+ },
+ {
+  "ID": "dev8-more42",
+  "kind": "more",
+  "Body_tr": "Doruk'nın 11 fincani var. Gülay'nin Doruk'dan 5 fincan fazlası var.",
+  "Question_tr": "Gülay'nin kaç fincani var?",
+  "gold": 16
+ },
+ {
+  "ID": "dev8-less42",
+  "kind": "less",
+  "Body_tr": "Doruk'nın 11 fincani var. Gülay'nin Doruk'dan 5 fincan eksiği var.",
+  "Question_tr": "Gülay'nin kaç fincani var?",
+  "gold": 6
+ },
+ {
+  "ID": "dev8-groups42",
+  "kind": "groups",
+  "Body_tr": "Doruk'nın 35 fincani var. Her kutuya 5 fincan koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 7
+ },
+ {
+  "ID": "dev8-product42",
+  "kind": "product",
+  "Body_tr": "Doruk'nın 7 kutusu var. Her kutuda 5 fincan var.",
+  "Question_tr": "Toplam kaç fincan var?",
+  "gold": 35
+ },
+ {
+  "ID": "dev8-more43",
+  "kind": "more",
+  "Body_tr": "Fikret'nın 54 puli var. Gülay'nin Fikret'dan 8 pul fazlası var.",
+  "Question_tr": "Gülay'nin kaç puli var?",
+  "gold": 62
+ },
+ {
+  "ID": "dev8-less43",
+  "kind": "less",
+  "Body_tr": "Fikret'nın 54 puli var. Gülay'nin Fikret'dan 8 pul eksiği var.",
+  "Question_tr": "Gülay'nin kaç puli var?",
+  "gold": 46
+ },
+ {
+  "ID": "dev8-groups43",
+  "kind": "groups",
+  "Body_tr": "Fikret'nın 18 puli var. Her kutuya 6 pul koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 3
+ },
+ {
+  "ID": "dev8-product43",
+  "kind": "product",
+  "Body_tr": "Fikret'nın 3 kutusu var. Her kutuda 6 pul var.",
+  "Question_tr": "Toplam kaç pul var?",
+  "gold": 18
+ },
+ {
+  "ID": "dev8-more44",
+  "kind": "more",
+  "Body_tr": "Esra'nın 12 fincani var. Doruk'nin Esra'dan 9 fincan fazlası var.",
+  "Question_tr": "Doruk'nin kaç fincani var?",
+  "gold": 21
+ },
+ {
+  "ID": "dev8-less44",
+  "kind": "less",
+  "Body_tr": "Esra'nın 12 fincani var. Doruk'nin Esra'dan 9 fincan eksiği var.",
+  "Question_tr": "Doruk'nin kaç fincani var?",
+  "gold": 3
+ },
+ {
+  "ID": "dev8-groups44",
+  "kind": "groups",
+  "Body_tr": "Esra'nın 35 fincani var. Her kutuya 5 fincan koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 7
+ },
+ {
+  "ID": "dev8-product44",
+  "kind": "product",
+  "Body_tr": "Esra'nın 7 kutusu var. Her kutuda 5 fincan var.",
+  "Question_tr": "Toplam kaç fincan var?",
+  "gold": 35
+ },
+ {
+  "ID": "dev8-more45",
+  "kind": "more",
+  "Body_tr": "Gülay'nın 28 fincani var. Doruk'nin Gülay'dan 2 fincan fazlası var.",
+  "Question_tr": "Doruk'nin kaç fincani var?",
+  "gold": 30
+ },
+ {
+  "ID": "dev8-less45",
+  "kind": "less",
+  "Body_tr": "Gülay'nın 28 fincani var. Doruk'nin Gülay'dan 2 fincan eksiği var.",
+  "Question_tr": "Doruk'nin kaç fincani var?",
+  "gold": 26
+ },
+ {
+  "ID": "dev8-groups45",
+  "kind": "groups",
+  "Body_tr": "Gülay'nın 48 fincani var. Her kutuya 6 fincan koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 8
+ },
+ {
+  "ID": "dev8-product45",
+  "kind": "product",
+  "Body_tr": "Gülay'nın 8 kutusu var. Her kutuda 6 fincan var.",
+  "Question_tr": "Toplam kaç fincan var?",
+  "gold": 48
+ },
+ {
+  "ID": "dev8-more46",
+  "kind": "more",
+  "Body_tr": "Gülay'nın 70 puli var. Hüseyin'nin Gülay'dan 5 pul fazlası var.",
+  "Question_tr": "Hüseyin'nin kaç puli var?",
+  "gold": 75
+ },
+ {
+  "ID": "dev8-less46",
+  "kind": "less",
+  "Body_tr": "Gülay'nın 70 puli var. Hüseyin'nin Gülay'dan 5 pul eksiği var.",
+  "Question_tr": "Hüseyin'nin kaç puli var?",
+  "gold": 65
+ },
+ {
+  "ID": "dev8-groups46",
+  "kind": "groups",
+  "Body_tr": "Gülay'nın 42 puli var. Her kutuya 6 pul koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 7
+ },
+ {
+  "ID": "dev8-product46",
+  "kind": "product",
+  "Body_tr": "Gülay'nın 7 kutusu var. Her kutuda 6 pul var.",
+  "Question_tr": "Toplam kaç pul var?",
+  "gold": 42
+ },
+ {
+  "ID": "dev8-more47",
+  "kind": "more",
+  "Body_tr": "Hüseyin'nın 11 rozeti var. Doruk'nin Hüseyin'dan 8 rozet fazlası var.",
+  "Question_tr": "Doruk'nin kaç rozeti var?",
+  "gold": 19
+ },
+ {
+  "ID": "dev8-less47",
+  "kind": "less",
+  "Body_tr": "Hüseyin'nın 11 rozeti var. Doruk'nin Hüseyin'dan 8 rozet eksiği var.",
+  "Question_tr": "Doruk'nin kaç rozeti var?",
+  "gold": 3
+ },
+ {
+  "ID": "dev8-groups47",
+  "kind": "groups",
+  "Body_tr": "Hüseyin'nın 42 rozeti var. Her kutuya 6 rozet koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 7
+ },
+ {
+  "ID": "dev8-product47",
+  "kind": "product",
+  "Body_tr": "Hüseyin'nın 7 kutusu var. Her kutuda 6 rozet var.",
+  "Question_tr": "Toplam kaç rozet var?",
+  "gold": 42
+ },
+ {
+  "ID": "dev8-more48",
+  "kind": "more",
+  "Body_tr": "Doruk'nın 16 topi var. Ceren'nin Doruk'dan 3 top fazlası var.",
+  "Question_tr": "Ceren'nin kaç topi var?",
+  "gold": 19
+ },
+ {
+  "ID": "dev8-less48",
+  "kind": "less",
+  "Body_tr": "Doruk'nın 16 topi var. Ceren'nin Doruk'dan 3 top eksiği var.",
+  "Question_tr": "Ceren'nin kaç topi var?",
+  "gold": 13
+ },
+ {
+  "ID": "dev8-groups48",
+  "kind": "groups",
+  "Body_tr": "Doruk'nın 40 topi var. Her kutuya 8 top koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 5
+ },
+ {
+  "ID": "dev8-product48",
+  "kind": "product",
+  "Body_tr": "Doruk'nın 5 kutusu var. Her kutuda 8 top var.",
+  "Question_tr": "Toplam kaç top var?",
+  "gold": 40
+ },
+ {
+  "ID": "dev8-more49",
+  "kind": "more",
+  "Body_tr": "Hüseyin'nın 37 puli var. Gülay'nin Hüseyin'dan 8 pul fazlası var.",
+  "Question_tr": "Gülay'nin kaç puli var?",
+  "gold": 45
+ },
+ {
+  "ID": "dev8-less49",
+  "kind": "less",
+  "Body_tr": "Hüseyin'nın 37 puli var. Gülay'nin Hüseyin'dan 8 pul eksiği var.",
+  "Question_tr": "Gülay'nin kaç puli var?",
+  "gold": 29
+ },
+ {
+  "ID": "dev8-groups49",
+  "kind": "groups",
+  "Body_tr": "Hüseyin'nın 18 puli var. Her kutuya 3 pul koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 6
+ },
+ {
+  "ID": "dev8-product49",
+  "kind": "product",
+  "Body_tr": "Hüseyin'nın 6 kutusu var. Her kutuda 3 pul var.",
+  "Question_tr": "Toplam kaç pul var?",
+  "gold": 18
+ },
+ {
+  "ID": "dev8-more50",
+  "kind": "more",
+  "Body_tr": "Gülay'nın 28 rozeti var. Esra'nin Gülay'dan 2 rozet fazlası var.",
+  "Question_tr": "Esra'nin kaç rozeti var?",
+  "gold": 30
+ },
+ {
+  "ID": "dev8-less50",
+  "kind": "less",
+  "Body_tr": "Gülay'nın 28 rozeti var. Esra'nin Gülay'dan 2 rozet eksiği var.",
+  "Question_tr": "Esra'nin kaç rozeti var?",
+  "gold": 26
+ },
+ {
+  "ID": "dev8-groups50",
+  "kind": "groups",
+  "Body_tr": "Gülay'nın 21 rozeti var. Her kutuya 7 rozet koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 3
+ },
+ {
+  "ID": "dev8-product50",
+  "kind": "product",
+  "Body_tr": "Gülay'nın 3 kutusu var. Her kutuda 7 rozet var.",
+  "Question_tr": "Toplam kaç rozet var?",
+  "gold": 21
+ },
+ {
+  "ID": "dev8-more51",
+  "kind": "more",
+  "Body_tr": "Gülay'nın 20 rozeti var. Doruk'nin Gülay'dan 9 rozet fazlası var.",
+  "Question_tr": "Doruk'nin kaç rozeti var?",
+  "gold": 29
+ },
+ {
+  "ID": "dev8-less51",
+  "kind": "less",
+  "Body_tr": "Gülay'nın 20 rozeti var. Doruk'nin Gülay'dan 9 rozet eksiği var.",
+  "Question_tr": "Doruk'nin kaç rozeti var?",
+  "gold": 11
+ },
+ {
+  "ID": "dev8-groups51",
+  "kind": "groups",
+  "Body_tr": "Gülay'nın 42 rozeti var. Her kutuya 7 rozet koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 6
+ },
+ {
+  "ID": "dev8-product51",
+  "kind": "product",
+  "Body_tr": "Gülay'nın 6 kutusu var. Her kutuda 7 rozet var.",
+  "Question_tr": "Toplam kaç rozet var?",
+  "gold": 42
+ },
+ {
+  "ID": "dev8-more52",
+  "kind": "more",
+  "Body_tr": "Ceren'nın 20 fincani var. Doruk'nin Ceren'dan 7 fincan fazlası var.",
+  "Question_tr": "Doruk'nin kaç fincani var?",
+  "gold": 27
+ },
+ {
+  "ID": "dev8-less52",
+  "kind": "less",
+  "Body_tr": "Ceren'nın 20 fincani var. Doruk'nin Ceren'dan 7 fincan eksiği var.",
+  "Question_tr": "Doruk'nin kaç fincani var?",
+  "gold": 13
+ },
+ {
+  "ID": "dev8-groups52",
+  "kind": "groups",
+  "Body_tr": "Ceren'nın 12 fincani var. Her kutuya 3 fincan koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 4
+ },
+ {
+  "ID": "dev8-product52",
+  "kind": "product",
+  "Body_tr": "Ceren'nın 4 kutusu var. Her kutuda 3 fincan var.",
+  "Question_tr": "Toplam kaç fincan var?",
+  "gold": 12
+ },
+ {
+  "ID": "dev8-more53",
+  "kind": "more",
+  "Body_tr": "Doruk'nın 59 puli var. Esra'nin Doruk'dan 6 pul fazlası var.",
+  "Question_tr": "Esra'nin kaç puli var?",
+  "gold": 65
+ },
+ {
+  "ID": "dev8-less53",
+  "kind": "less",
+  "Body_tr": "Doruk'nın 59 puli var. Esra'nin Doruk'dan 6 pul eksiği var.",
+  "Question_tr": "Esra'nin kaç puli var?",
+  "gold": 53
+ },
+ {
+  "ID": "dev8-groups53",
+  "kind": "groups",
+  "Body_tr": "Doruk'nın 16 puli var. Her kutuya 4 pul koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 4
+ },
+ {
+  "ID": "dev8-product53",
+  "kind": "product",
+  "Body_tr": "Doruk'nın 4 kutusu var. Her kutuda 4 pul var.",
+  "Question_tr": "Toplam kaç pul var?",
+  "gold": 16
+ },
+ {
+  "ID": "dev8-more54",
+  "kind": "more",
+  "Body_tr": "Esra'nın 42 fincani var. Doruk'nin Esra'dan 2 fincan fazlası var.",
+  "Question_tr": "Doruk'nin kaç fincani var?",
+  "gold": 44
+ },
+ {
+  "ID": "dev8-less54",
+  "kind": "less",
+  "Body_tr": "Esra'nın 42 fincani var. Doruk'nin Esra'dan 2 fincan eksiği var.",
+  "Question_tr": "Doruk'nin kaç fincani var?",
+  "gold": 40
+ },
+ {
+  "ID": "dev8-groups54",
+  "kind": "groups",
+  "Body_tr": "Esra'nın 21 fincani var. Her kutuya 3 fincan koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 7
+ },
+ {
+  "ID": "dev8-product54",
+  "kind": "product",
+  "Body_tr": "Esra'nın 7 kutusu var. Her kutuda 3 fincan var.",
+  "Question_tr": "Toplam kaç fincan var?",
+  "gold": 21
+ },
+ {
+  "ID": "dev8-more55",
+  "kind": "more",
+  "Body_tr": "Esra'nın 17 rozeti var. Doruk'nin Esra'dan 8 rozet fazlası var.",
+  "Question_tr": "Doruk'nin kaç rozeti var?",
+  "gold": 25
+ },
+ {
+  "ID": "dev8-less55",
+  "kind": "less",
+  "Body_tr": "Esra'nın 17 rozeti var. Doruk'nin Esra'dan 8 rozet eksiği var.",
+  "Question_tr": "Doruk'nin kaç rozeti var?",
+  "gold": 9
+ },
+ {
+  "ID": "dev8-groups55",
+  "kind": "groups",
+  "Body_tr": "Esra'nın 54 rozeti var. Her kutuya 6 rozet koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 9
+ },
+ {
+  "ID": "dev8-product55",
+  "kind": "product",
+  "Body_tr": "Esra'nın 9 kutusu var. Her kutuda 6 rozet var.",
+  "Question_tr": "Toplam kaç rozet var?",
+  "gold": 54
+ },
+ {
+  "ID": "dev8-more56",
+  "kind": "more",
+  "Body_tr": "Hüseyin'nın 29 rozeti var. Esra'nin Hüseyin'dan 7 rozet fazlası var.",
+  "Question_tr": "Esra'nin kaç rozeti var?",
+  "gold": 36
+ },
+ {
+  "ID": "dev8-less56",
+  "kind": "less",
+  "Body_tr": "Hüseyin'nın 29 rozeti var. Esra'nin Hüseyin'dan 7 rozet eksiği var.",
+  "Question_tr": "Esra'nin kaç rozeti var?",
+  "gold": 22
+ },
+ {
+  "ID": "dev8-groups56",
+  "kind": "groups",
+  "Body_tr": "Hüseyin'nın 18 rozeti var. Her kutuya 3 rozet koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 6
+ },
+ {
+  "ID": "dev8-product56",
+  "kind": "product",
+  "Body_tr": "Hüseyin'nın 6 kutusu var. Her kutuda 3 rozet var.",
+  "Question_tr": "Toplam kaç rozet var?",
+  "gold": 18
+ },
+ {
+  "ID": "dev8-more57",
+  "kind": "more",
+  "Body_tr": "Gülay'nın 20 rozeti var. Esra'nin Gülay'dan 4 rozet fazlası var.",
+  "Question_tr": "Esra'nin kaç rozeti var?",
+  "gold": 24
+ },
+ {
+  "ID": "dev8-less57",
+  "kind": "less",
+  "Body_tr": "Gülay'nın 20 rozeti var. Esra'nin Gülay'dan 4 rozet eksiği var.",
+  "Question_tr": "Esra'nin kaç rozeti var?",
+  "gold": 16
+ },
+ {
+  "ID": "dev8-groups57",
+  "kind": "groups",
+  "Body_tr": "Gülay'nın 12 rozeti var. Her kutuya 4 rozet koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 3
+ },
+ {
+  "ID": "dev8-product57",
+  "kind": "product",
+  "Body_tr": "Gülay'nın 3 kutusu var. Her kutuda 4 rozet var.",
+  "Question_tr": "Toplam kaç rozet var?",
+  "gold": 12
+ },
+ {
+  "ID": "dev8-more58",
+  "kind": "more",
+  "Body_tr": "Esra'nın 53 mumi var. Fikret'nin Esra'dan 4 mum fazlası var.",
+  "Question_tr": "Fikret'nin kaç mumi var?",
+  "gold": 57
+ },
+ {
+  "ID": "dev8-less58",
+  "kind": "less",
+  "Body_tr": "Esra'nın 53 mumi var. Fikret'nin Esra'dan 4 mum eksiği var.",
+  "Question_tr": "Fikret'nin kaç mumi var?",
+  "gold": 49
+ },
+ {
+  "ID": "dev8-groups58",
+  "kind": "groups",
+  "Body_tr": "Esra'nın 72 mumi var. Her kutuya 8 mum koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 9
+ },
+ {
+  "ID": "dev8-product58",
+  "kind": "product",
+  "Body_tr": "Esra'nın 9 kutusu var. Her kutuda 8 mum var.",
+  "Question_tr": "Toplam kaç mum var?",
+  "gold": 72
+ },
+ {
+  "ID": "dev8-more59",
+  "kind": "more",
+  "Body_tr": "Ceren'nın 39 fincani var. Fikret'nin Ceren'dan 4 fincan fazlası var.",
+  "Question_tr": "Fikret'nin kaç fincani var?",
+  "gold": 43
+ },
+ {
+  "ID": "dev8-less59",
+  "kind": "less",
+  "Body_tr": "Ceren'nın 39 fincani var. Fikret'nin Ceren'dan 4 fincan eksiği var.",
+  "Question_tr": "Fikret'nin kaç fincani var?",
+  "gold": 35
+ },
+ {
+  "ID": "dev8-groups59",
+  "kind": "groups",
+  "Body_tr": "Ceren'nın 40 fincani var. Her kutuya 8 fincan koyuyor.",
+  "Question_tr": "Kaç kutu gerekir?",
+  "gold": 5
+ },
+ {
+  "ID": "dev8-product59",
+  "kind": "product",
+  "Body_tr": "Ceren'nın 5 kutusu var. Her kutuda 8 fincan var.",
+  "Question_tr": "Toplam kaç fincan var?",
+  "gold": 40
+ }
+]

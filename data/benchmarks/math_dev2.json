@@ -1,0 +1,2102 @@
+[
+ {
+  "ID": "dev2-c0",
+  "kind": "compare",
+  "Body_tr": "Zeynep'nin 57 karti var. Selin'nin 20 karti var.",
+  "Question_tr": "Zeynep, Selin'den kaç kart fazla?",
+  "gold": 37
+ },
+ {
+  "ID": "dev2-d0",
+  "kind": "divide",
+  "Body_tr": "Can'nin 18 baloni var. Hepsini eşit olarak 2 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç balon var?",
+  "gold": 9
+ },
+ {
+  "ID": "dev2-m0",
+  "kind": "multi",
+  "Body_tr": "Derya 43 şeker ve Emre 23 şeker topladı. Derya 8 şeker verdi.",
+  "Question_tr": "Şimdi toplam kaç şeker var?",
+  "gold": 58
+ },
+ {
+  "ID": "dev2-c1",
+  "kind": "compare",
+  "Body_tr": "Ayşe'nin 23 baloni var. Derya'nin 22 baloni var.",
+  "Question_tr": "Ayşe, Derya'den kaç balon fazla?",
+  "gold": 1
+ },
+ {
+  "ID": "dev2-d1",
+  "kind": "divide",
+  "Body_tr": "Derya'nin 66 baloni var. Hepsini eşit olarak 6 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç balon var?",
+  "gold": 11
+ },
+ {
+  "ID": "dev2-m1",
+  "kind": "multi",
+  "Body_tr": "Can 24 bilye ve Ayşe 37 bilye topladı. Can 5 bilye verdi.",
+  "Question_tr": "Şimdi toplam kaç bilye var?",
+  "gold": 56
+ },
+ {
+  "ID": "dev2-c2",
+  "kind": "compare",
+  "Body_tr": "Burak'nin 88 baloni var. Ali'nin 69 baloni var.",
+  "Question_tr": "Burak, Ali'den kaç balon fazla?",
+  "gold": 19
+ },
+ {
+  "ID": "dev2-d2",
+  "kind": "divide",
+  "Body_tr": "Derya'nin 30 çiçeki var. Hepsini eşit olarak 3 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç çiçek var?",
+  "gold": 10
+ },
+ {
+  "ID": "dev2-m2",
+  "kind": "multi",
+  "Body_tr": "Emre 11 kart ve Can 40 kart topladı. Emre 8 kart verdi.",
+  "Question_tr": "Şimdi toplam kaç kart var?",
+  "gold": 43
+ },
+ {
+  "ID": "dev2-c3",
+  "kind": "compare",
+  "Body_tr": "Mehmet'nin 42 karti var. Ali'nin 28 karti var.",
+  "Question_tr": "Mehmet, Ali'den kaç kart fazla?",
+  "gold": 14
+ },
+ {
+  "ID": "dev2-d3",
+  "kind": "divide",
+  "Body_tr": "Derya'nin 24 şekeri var. Hepsini eşit olarak 3 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç şeker var?",
+  "gold": 8
+ },
+ {
+  "ID": "dev2-m3",
+  "kind": "multi",
+  "Body_tr": "Mehmet 39 kalem ve Selin 30 kalem topladı. Mehmet 36 kalem verdi.",
+  "Question_tr": "Şimdi toplam kaç kalem var?",
+  "gold": 33
+ },
+ {
+  "ID": "dev2-c4",
+  "kind": "compare",
+  "Body_tr": "Elif'nin 22 bilyei var. Can'nin 16 bilyei var.",
+  "Question_tr": "Elif, Can'den kaç bilye fazla?",
+  "gold": 6
+ },
+ {
+  "ID": "dev2-d4",
+  "kind": "divide",
+  "Body_tr": "Ayşe'nin 4 çiçeki var. Hepsini eşit olarak 2 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç çiçek var?",
+  "gold": 2
+ },
+ {
+  "ID": "dev2-m4",
+  "kind": "multi",
+  "Body_tr": "Selin 57 kitap ve Can 5 kitap topladı. Selin 11 kitap verdi.",
+  "Question_tr": "Şimdi toplam kaç kitap var?",
+  "gold": 51
+ },
+ {
+  "ID": "dev2-c5",
+  "kind": "compare",
+  "Body_tr": "Ayşe'nin 25 şekeri var. Selin'nin 4 şekeri var.",
+  "Question_tr": "Ayşe, Selin'den kaç şeker fazla?",
+  "gold": 21
+ },
+ {
+  "ID": "dev2-d5",
+  "kind": "divide",
+  "Body_tr": "Selin'nin 64 şekeri var. Hepsini eşit olarak 8 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç şeker var?",
+  "gold": 8
+ },
+ {
+  "ID": "dev2-m5",
+  "kind": "multi",
+  "Body_tr": "Selin 48 kutu ve Elif 45 kutu topladı. Selin 41 kutu verdi.",
+  "Question_tr": "Şimdi toplam kaç kutu var?",
+  "gold": 52
+ },
+ {
+  "ID": "dev2-c6",
+  "kind": "compare",
+  "Body_tr": "Emre'nin 87 çiçeki var. Elif'nin 22 çiçeki var.",
+  "Question_tr": "Emre, Elif'den kaç çiçek fazla?",
+  "gold": 65
+ },
+ {
+  "ID": "dev2-d6",
+  "kind": "divide",
+  "Body_tr": "Ali'nin 14 kutui var. Hepsini eşit olarak 2 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kutu var?",
+  "gold": 7
+ },
+ {
+  "ID": "dev2-m6",
+  "kind": "multi",
+  "Body_tr": "Can 14 şeker ve Emre 48 şeker topladı. Can 5 şeker verdi.",
+  "Question_tr": "Şimdi toplam kaç şeker var?",
+  "gold": 57
+ },
+ {
+  "ID": "dev2-c7",
+  "kind": "compare",
+  "Body_tr": "Selin'nin 45 elmai var. Burak'nin 13 elmai var.",
+  "Question_tr": "Selin, Burak'den kaç elma fazla?",
+  "gold": 32
+ },
+ {
+  "ID": "dev2-d7",
+  "kind": "divide",
+  "Body_tr": "Elif'nin 36 çiçeki var. Hepsini eşit olarak 9 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç çiçek var?",
+  "gold": 4
+ },
+ {
+  "ID": "dev2-m7",
+  "kind": "multi",
+  "Body_tr": "Mehmet 23 kalem ve Elif 22 kalem topladı. Mehmet 10 kalem verdi.",
+  "Question_tr": "Şimdi toplam kaç kalem var?",
+  "gold": 35
+ },
+ {
+  "ID": "dev2-c8",
+  "kind": "compare",
+  "Body_tr": "Burak'nin 85 çiçeki var. Mehmet'nin 28 çiçeki var.",
+  "Question_tr": "Burak, Mehmet'den kaç çiçek fazla?",
+  "gold": 57
+ },
+ {
+  "ID": "dev2-d8",
+  "kind": "divide",
+  "Body_tr": "Derya'nin 27 kurabiyei var. Hepsini eşit olarak 3 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kurabiye var?",
+  "gold": 9
+ },
+ {
+  "ID": "dev2-m8",
+  "kind": "multi",
+  "Body_tr": "Ayşe 29 kalem ve Elif 47 kalem topladı. Ayşe 20 kalem verdi.",
+  "Question_tr": "Şimdi toplam kaç kalem var?",
+  "gold": 56
+ },
+ {
+  "ID": "dev2-c9",
+  "kind": "compare",
+  "Body_tr": "Zeynep'nin 87 kalemi var. Mehmet'nin 49 kalemi var.",
+  "Question_tr": "Zeynep, Mehmet'den kaç kalem fazla?",
+  "gold": 38
+ },
+ {
+  "ID": "dev2-d9",
+  "kind": "divide",
+  "Body_tr": "Selin'nin 80 kutui var. Hepsini eşit olarak 8 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kutu var?",
+  "gold": 10
+ },
+ {
+  "ID": "dev2-m9",
+  "kind": "multi",
+  "Body_tr": "Burak 17 elma ve Ali 27 elma topladı. Burak 5 elma verdi.",
+  "Question_tr": "Şimdi toplam kaç elma var?",
+  "gold": 39
+ },
+ {
+  "ID": "dev2-c10",
+  "kind": "compare",
+  "Body_tr": "Mehmet'nin 56 karti var. Burak'nin 5 karti var.",
+  "Question_tr": "Mehmet, Burak'den kaç kart fazla?",
+  "gold": 51
+ },
+ {
+  "ID": "dev2-d10",
+  "kind": "divide",
+  "Body_tr": "Can'nin 72 elmai var. Hepsini eşit olarak 8 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç elma var?",
+  "gold": 9
+ },
+ {
+  "ID": "dev2-m10",
+  "kind": "multi",
+  "Body_tr": "Can 8 balon ve Ayşe 45 balon topladı. Can 5 balon verdi.",
+  "Question_tr": "Şimdi toplam kaç balon var?",
+  "gold": 48
+ },
+ {
+  "ID": "dev2-c11",
+  "kind": "compare",
+  "Body_tr": "Emre'nin 88 kurabiyei var. Ali'nin 79 kurabiyei var.",
+  "Question_tr": "Emre, Ali'den kaç kurabiye fazla?",
+  "gold": 9
+ },
+ {
+  "ID": "dev2-d11",
+  "kind": "divide",
+  "Body_tr": "Ayşe'nin 48 kutui var. Hepsini eşit olarak 4 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kutu var?",
+  "gold": 12
+ },
+ {
+  "ID": "dev2-m11",
+  "kind": "multi",
+  "Body_tr": "Derya 17 kitap ve Selin 23 kitap topladı. Derya 16 kitap verdi.",
+  "Question_tr": "Şimdi toplam kaç kitap var?",
+  "gold": 24
+ },
+ {
+  "ID": "dev2-c12",
+  "kind": "compare",
+  "Body_tr": "Ali'nin 36 baloni var. Emre'nin 6 baloni var.",
+  "Question_tr": "Ali, Emre'den kaç balon fazla?",
+  "gold": 30
+ },
+ {
+  "ID": "dev2-d12",
+  "kind": "divide",
+  "Body_tr": "Zeynep'nin 96 kutui var. Hepsini eşit olarak 8 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kutu var?",
+  "gold": 12
+ },
+ {
+  "ID": "dev2-m12",
+  "kind": "multi",
+  "Body_tr": "Zeynep 29 kitap ve Ali 45 kitap topladı. Zeynep 9 kitap verdi.",
+  "Question_tr": "Şimdi toplam kaç kitap var?",
+  "gold": 65
+ },
+ {
+  "ID": "dev2-c13",
+  "kind": "compare",
+  "Body_tr": "Selin'nin 64 kitapi var. Burak'nin 50 kitapi var.",
+  "Question_tr": "Selin, Burak'den kaç kitap fazla?",
+  "gold": 14
+ },
+ {
+  "ID": "dev2-d13",
+  "kind": "divide",
+  "Body_tr": "Mehmet'nin 10 elmai var. Hepsini eşit olarak 2 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç elma var?",
+  "gold": 5
+ },
+ {
+  "ID": "dev2-m13",
+  "kind": "multi",
+  "Body_tr": "Emre 30 kart ve Mehmet 37 kart topladı. Emre 13 kart verdi.",
+  "Question_tr": "Şimdi toplam kaç kart var?",
+  "gold": 54
+ },
+ {
+  "ID": "dev2-c14",
+  "kind": "compare",
+  "Body_tr": "Ayşe'nin 54 karti var. Selin'nin 53 karti var.",
+  "Question_tr": "Ayşe, Selin'den kaç kart fazla?",
+  "gold": 1
+ },
+ {
+  "ID": "dev2-d14",
+  "kind": "divide",
+  "Body_tr": "Can'nin 72 bilyei var. Hepsini eşit olarak 8 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç bilye var?",
+  "gold": 9
+ },
+ {
+  "ID": "dev2-m14",
+  "kind": "multi",
+  "Body_tr": "Selin 34 şeker ve Emre 53 şeker topladı. Selin 3 şeker verdi.",
+  "Question_tr": "Şimdi toplam kaç şeker var?",
+  "gold": 84
+ },
+ {
+  "ID": "dev2-c15",
+  "kind": "compare",
+  "Body_tr": "Emre'nin 46 kitapi var. Mehmet'nin 20 kitapi var.",
+  "Question_tr": "Emre, Mehmet'den kaç kitap fazla?",
+  "gold": 26
+ },
+ {
+  "ID": "dev2-d15",
+  "kind": "divide",
+  "Body_tr": "Elif'nin 28 baloni var. Hepsini eşit olarak 7 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç balon var?",
+  "gold": 4
+ },
+ {
+  "ID": "dev2-m15",
+  "kind": "multi",
+  "Body_tr": "Mehmet 41 balon ve Ayşe 59 balon topladı. Mehmet 23 balon verdi.",
+  "Question_tr": "Şimdi toplam kaç balon var?",
+  "gold": 77
+ },
+ {
+  "ID": "dev2-c16",
+  "kind": "compare",
+  "Body_tr": "Elif'nin 64 kurabiyei var. Mehmet'nin 35 kurabiyei var.",
+  "Question_tr": "Elif, Mehmet'den kaç kurabiye fazla?",
+  "gold": 29
+ },
+ {
+  "ID": "dev2-d16",
+  "kind": "divide",
+  "Body_tr": "Elif'nin 18 kutui var. Hepsini eşit olarak 6 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kutu var?",
+  "gold": 3
+ },
+ {
+  "ID": "dev2-m16",
+  "kind": "multi",
+  "Body_tr": "Selin 38 kutu ve Ali 35 kutu topladı. Selin 9 kutu verdi.",
+  "Question_tr": "Şimdi toplam kaç kutu var?",
+  "gold": 64
+ },
+ {
+  "ID": "dev2-c17",
+  "kind": "compare",
+  "Body_tr": "Elif'nin 90 karti var. Selin'nin 44 karti var.",
+  "Question_tr": "Elif, Selin'den kaç kart fazla?",
+  "gold": 46
+ },
+ {
+  "ID": "dev2-d17",
+  "kind": "divide",
+  "Body_tr": "Elif'nin 18 bilyei var. Hepsini eşit olarak 9 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç bilye var?",
+  "gold": 2
+ },
+ {
+  "ID": "dev2-m17",
+  "kind": "multi",
+  "Body_tr": "Mehmet 19 kurabiye ve Selin 20 kurabiye topladı. Mehmet 3 kurabiye verdi.",
+  "Question_tr": "Şimdi toplam kaç kurabiye var?",
+  "gold": 36
+ },
+ {
+  "ID": "dev2-c18",
+  "kind": "compare",
+  "Body_tr": "Derya'nin 81 karti var. Can'nin 40 karti var.",
+  "Question_tr": "Derya, Can'den kaç kart fazla?",
+  "gold": 41
+ },
+ {
+  "ID": "dev2-d18",
+  "kind": "divide",
+  "Body_tr": "Derya'nin 18 çiçeki var. Hepsini eşit olarak 3 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç çiçek var?",
+  "gold": 6
+ },
+ {
+  "ID": "dev2-m18",
+  "kind": "multi",
+  "Body_tr": "Ayşe 10 bilye ve Can 29 bilye topladı. Ayşe 10 bilye verdi.",
+  "Question_tr": "Şimdi toplam kaç bilye var?",
+  "gold": 29
+ },
+ {
+  "ID": "dev2-c19",
+  "kind": "compare",
+  "Body_tr": "Ali'nin 67 karti var. Derya'nin 13 karti var.",
+  "Question_tr": "Ali, Derya'den kaç kart fazla?",
+  "gold": 54
+ },
+ {
+  "ID": "dev2-d19",
+  "kind": "divide",
+  "Body_tr": "Burak'nin 54 elmai var. Hepsini eşit olarak 6 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç elma var?",
+  "gold": 9
+ },
+ {
+  "ID": "dev2-m19",
+  "kind": "multi",
+  "Body_tr": "Mehmet 24 kurabiye ve Ayşe 36 kurabiye topladı. Mehmet 13 kurabiye verdi.",
+  "Question_tr": "Şimdi toplam kaç kurabiye var?",
+  "gold": 47
+ },
+ {
+  "ID": "dev2-c20",
+  "kind": "compare",
+  "Body_tr": "Mehmet'nin 61 elmai var. Can'nin 3 elmai var.",
+  "Question_tr": "Mehmet, Can'den kaç elma fazla?",
+  "gold": 58
+ },
+ {
+  "ID": "dev2-d20",
+  "kind": "divide",
+  "Body_tr": "Derya'nin 44 karti var. Hepsini eşit olarak 4 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kart var?",
+  "gold": 11
+ },
+ {
+  "ID": "dev2-m20",
+  "kind": "multi",
+  "Body_tr": "Mehmet 5 kurabiye ve Derya 41 kurabiye topladı. Mehmet 1 kurabiye verdi.",
+  "Question_tr": "Şimdi toplam kaç kurabiye var?",
+  "gold": 45
+ },
+ {
+  "ID": "dev2-c21",
+  "kind": "compare",
+  "Body_tr": "Burak'nin 21 çiçeki var. Selin'nin 2 çiçeki var.",
+  "Question_tr": "Burak, Selin'den kaç çiçek fazla?",
+  "gold": 19
+ },
+ {
+  "ID": "dev2-d21",
+  "kind": "divide",
+  "Body_tr": "Mehmet'nin 72 kurabiyei var. Hepsini eşit olarak 8 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kurabiye var?",
+  "gold": 9
+ },
+ {
+  "ID": "dev2-m21",
+  "kind": "multi",
+  "Body_tr": "Ayşe 40 elma ve Elif 59 elma topladı. Ayşe 35 elma verdi.",
+  "Question_tr": "Şimdi toplam kaç elma var?",
+  "gold": 64
+ },
+ {
+  "ID": "dev2-c22",
+  "kind": "compare",
+  "Body_tr": "Elif'nin 88 kalemi var. Can'nin 19 kalemi var.",
+  "Question_tr": "Elif, Can'den kaç kalem fazla?",
+  "gold": 69
+ },
+ {
+  "ID": "dev2-d22",
+  "kind": "divide",
+  "Body_tr": "Mehmet'nin 24 baloni var. Hepsini eşit olarak 3 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç balon var?",
+  "gold": 8
+ },
+ {
+  "ID": "dev2-m22",
+  "kind": "multi",
+  "Body_tr": "Mehmet 19 kurabiye ve Ayşe 55 kurabiye topladı. Mehmet 12 kurabiye verdi.",
+  "Question_tr": "Şimdi toplam kaç kurabiye var?",
+  "gold": 62
+ },
+ {
+  "ID": "dev2-c23",
+  "kind": "compare",
+  "Body_tr": "Can'nin 76 çiçeki var. Zeynep'nin 64 çiçeki var.",
+  "Question_tr": "Can, Zeynep'den kaç çiçek fazla?",
+  "gold": 12
+ },
+ {
+  "ID": "dev2-d23",
+  "kind": "divide",
+  "Body_tr": "Ayşe'nin 16 elmai var. Hepsini eşit olarak 2 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç elma var?",
+  "gold": 8
+ },
+ {
+  "ID": "dev2-m23",
+  "kind": "multi",
+  "Body_tr": "Derya 38 şeker ve Elif 38 şeker topladı. Derya 9 şeker verdi.",
+  "Question_tr": "Şimdi toplam kaç şeker var?",
+  "gold": 67
+ },
+ {
+  "ID": "dev2-c24",
+  "kind": "compare",
+  "Body_tr": "Ali'nin 34 kalemi var. Mehmet'nin 16 kalemi var.",
+  "Question_tr": "Ali, Mehmet'den kaç kalem fazla?",
+  "gold": 18
+ },
+ {
+  "ID": "dev2-d24",
+  "kind": "divide",
+  "Body_tr": "Ali'nin 30 karti var. Hepsini eşit olarak 6 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kart var?",
+  "gold": 5
+ },
+ {
+  "ID": "dev2-m24",
+  "kind": "multi",
+  "Body_tr": "Ali 51 balon ve Emre 19 balon topladı. Ali 46 balon verdi.",
+  "Question_tr": "Şimdi toplam kaç balon var?",
+  "gold": 24
+ },
+ {
+  "ID": "dev2-c25",
+  "kind": "compare",
+  "Body_tr": "Can'nin 28 baloni var. Burak'nin 7 baloni var.",
+  "Question_tr": "Can, Burak'den kaç balon fazla?",
+  "gold": 21
+ },
+ {
+  "ID": "dev2-d25",
+  "kind": "divide",
+  "Body_tr": "Selin'nin 48 baloni var. Hepsini eşit olarak 6 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç balon var?",
+  "gold": 8
+ },
+ {
+  "ID": "dev2-m25",
+  "kind": "multi",
+  "Body_tr": "Derya 28 kutu ve Zeynep 49 kutu topladı. Derya 18 kutu verdi.",
+  "Question_tr": "Şimdi toplam kaç kutu var?",
+  "gold": 59
+ },
+ {
+  "ID": "dev2-c26",
+  "kind": "compare",
+  "Body_tr": "Selin'nin 30 kurabiyei var. Ali'nin 29 kurabiyei var.",
+  "Question_tr": "Selin, Ali'den kaç kurabiye fazla?",
+  "gold": 1
+ },
+ {
+  "ID": "dev2-d26",
+  "kind": "divide",
+  "Body_tr": "Zeynep'nin 63 şekeri var. Hepsini eşit olarak 7 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç şeker var?",
+  "gold": 9
+ },
+ {
+  "ID": "dev2-m26",
+  "kind": "multi",
+  "Body_tr": "Ayşe 49 balon ve Ali 51 balon topladı. Ayşe 1 balon verdi.",
+  "Question_tr": "Şimdi toplam kaç balon var?",
+  "gold": 99
+ },
+ {
+  "ID": "dev2-c27",
+  "kind": "compare",
+  "Body_tr": "Zeynep'nin 64 bilyei var. Elif'nin 43 bilyei var.",
+  "Question_tr": "Zeynep, Elif'den kaç bilye fazla?",
+  "gold": 21
+ },
+ {
+  "ID": "dev2-d27",
+  "kind": "divide",
+  "Body_tr": "Zeynep'nin 21 kurabiyei var. Hepsini eşit olarak 3 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kurabiye var?",
+  "gold": 7
+ },
+ {
+  "ID": "dev2-m27",
+  "kind": "multi",
+  "Body_tr": "Ali 34 elma ve Can 18 elma topladı. Ali 15 elma verdi.",
+  "Question_tr": "Şimdi toplam kaç elma var?",
+  "gold": 37
+ },
+ {
+  "ID": "dev2-c28",
+  "kind": "compare",
+  "Body_tr": "Mehmet'nin 34 kalemi var. Elif'nin 3 kalemi var.",
+  "Question_tr": "Mehmet, Elif'den kaç kalem fazla?",
+  "gold": 31
+ },
+ {
+  "ID": "dev2-d28",
+  "kind": "divide",
+  "Body_tr": "Derya'nin 48 kitapi var. Hepsini eşit olarak 8 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kitap var?",
+  "gold": 6
+ },
+ {
+  "ID": "dev2-m28",
+  "kind": "multi",
+  "Body_tr": "Mehmet 9 kalem ve Selin 27 kalem topladı. Mehmet 5 kalem verdi.",
+  "Question_tr": "Şimdi toplam kaç kalem var?",
+  "gold": 31
+ },
+ {
+  "ID": "dev2-c29",
+  "kind": "compare",
+  "Body_tr": "Derya'nin 34 kurabiyei var. Zeynep'nin 24 kurabiyei var.",
+  "Question_tr": "Derya, Zeynep'den kaç kurabiye fazla?",
+  "gold": 10
+ },
+ {
+  "ID": "dev2-d29",
+  "kind": "divide",
+  "Body_tr": "Mehmet'nin 12 şekeri var. Hepsini eşit olarak 6 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç şeker var?",
+  "gold": 2
+ },
+ {
+  "ID": "dev2-m29",
+  "kind": "multi",
+  "Body_tr": "Elif 56 kurabiye ve Can 54 kurabiye topladı. Elif 45 kurabiye verdi.",
+  "Question_tr": "Şimdi toplam kaç kurabiye var?",
+  "gold": 65
+ },
+ {
+  "ID": "dev2-c30",
+  "kind": "compare",
+  "Body_tr": "Derya'nin 39 şekeri var. Emre'nin 20 şekeri var.",
+  "Question_tr": "Derya, Emre'den kaç şeker fazla?",
+  "gold": 19
+ },
+ {
+  "ID": "dev2-d30",
+  "kind": "divide",
+  "Body_tr": "Ali'nin 14 elmai var. Hepsini eşit olarak 2 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç elma var?",
+  "gold": 7
+ },
+ {
+  "ID": "dev2-m30",
+  "kind": "multi",
+  "Body_tr": "Ali 16 şeker ve Mehmet 60 şeker topladı. Ali 14 şeker verdi.",
+  "Question_tr": "Şimdi toplam kaç şeker var?",
+  "gold": 62
+ },
+ {
+  "ID": "dev2-c31",
+  "kind": "compare",
+  "Body_tr": "Selin'nin 89 şekeri var. Ali'nin 15 şekeri var.",
+  "Question_tr": "Selin, Ali'den kaç şeker fazla?",
+  "gold": 74
+ },
+ {
+  "ID": "dev2-d31",
+  "kind": "divide",
+  "Body_tr": "Can'nin 18 şekeri var. Hepsini eşit olarak 9 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç şeker var?",
+  "gold": 2
+ },
+ {
+  "ID": "dev2-m31",
+  "kind": "multi",
+  "Body_tr": "Elif 12 kalem ve Burak 52 kalem topladı. Elif 7 kalem verdi.",
+  "Question_tr": "Şimdi toplam kaç kalem var?",
+  "gold": 57
+ },
+ {
+  "ID": "dev2-c32",
+  "kind": "compare",
+  "Body_tr": "Emre'nin 20 baloni var. Zeynep'nin 4 baloni var.",
+  "Question_tr": "Emre, Zeynep'den kaç balon fazla?",
+  "gold": 16
+ },
+ {
+  "ID": "dev2-d32",
+  "kind": "divide",
+  "Body_tr": "Mehmet'nin 64 baloni var. Hepsini eşit olarak 8 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç balon var?",
+  "gold": 8
+ },
+ {
+  "ID": "dev2-m32",
+  "kind": "multi",
+  "Body_tr": "Elif 30 kart ve Ayşe 9 kart topladı. Elif 2 kart verdi.",
+  "Question_tr": "Şimdi toplam kaç kart var?",
+  "gold": 37
+ },
+ {
+  "ID": "dev2-c33",
+  "kind": "compare",
+  "Body_tr": "Mehmet'nin 44 kutui var. Emre'nin 28 kutui var.",
+  "Question_tr": "Mehmet, Emre'den kaç kutu fazla?",
+  "gold": 16
+ },
+ {
+  "ID": "dev2-d33",
+  "kind": "divide",
+  "Body_tr": "Burak'nin 28 karti var. Hepsini eşit olarak 7 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kart var?",
+  "gold": 4
+ },
+ {
+  "ID": "dev2-m33",
+  "kind": "multi",
+  "Body_tr": "Emre 20 kutu ve Ayşe 50 kutu topladı. Emre 14 kutu verdi.",
+  "Question_tr": "Şimdi toplam kaç kutu var?",
+  "gold": 56
+ },
+ {
+  "ID": "dev2-c34",
+  "kind": "compare",
+  "Body_tr": "Derya'nin 35 kalemi var. Ayşe'nin 3 kalemi var.",
+  "Question_tr": "Derya, Ayşe'den kaç kalem fazla?",
+  "gold": 32
+ },
+ {
+  "ID": "dev2-d34",
+  "kind": "divide",
+  "Body_tr": "Selin'nin 35 şekeri var. Hepsini eşit olarak 5 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç şeker var?",
+  "gold": 7
+ },
+ {
+  "ID": "dev2-m34",
+  "kind": "multi",
+  "Body_tr": "Selin 47 kart ve Elif 46 kart topladı. Selin 15 kart verdi.",
+  "Question_tr": "Şimdi toplam kaç kart var?",
+  "gold": 78
+ },
+ {
+  "ID": "dev2-c35",
+  "kind": "compare",
+  "Body_tr": "Derya'nin 82 bilyei var. Ayşe'nin 50 bilyei var.",
+  "Question_tr": "Derya, Ayşe'den kaç bilye fazla?",
+  "gold": 32
+ },
+ {
+  "ID": "dev2-d35",
+  "kind": "divide",
+  "Body_tr": "Emre'nin 27 baloni var. Hepsini eşit olarak 9 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç balon var?",
+  "gold": 3
+ },
+ {
+  "ID": "dev2-m35",
+  "kind": "multi",
+  "Body_tr": "Zeynep 24 çiçek ve Derya 40 çiçek topladı. Zeynep 12 çiçek verdi.",
+  "Question_tr": "Şimdi toplam kaç çiçek var?",
+  "gold": 52
+ },
+ {
+  "ID": "dev2-c36",
+  "kind": "compare",
+  "Body_tr": "Can'nin 71 çiçeki var. Ayşe'nin 40 çiçeki var.",
+  "Question_tr": "Can, Ayşe'den kaç çiçek fazla?",
+  "gold": 31
+ },
+ {
+  "ID": "dev2-d36",
+  "kind": "divide",
+  "Body_tr": "Burak'nin 24 kitapi var. Hepsini eşit olarak 4 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kitap var?",
+  "gold": 6
+ },
+ {
+  "ID": "dev2-m36",
+  "kind": "multi",
+  "Body_tr": "Ali 28 balon ve Burak 49 balon topladı. Ali 22 balon verdi.",
+  "Question_tr": "Şimdi toplam kaç balon var?",
+  "gold": 55
+ },
+ {
+  "ID": "dev2-c37",
+  "kind": "compare",
+  "Body_tr": "Selin'nin 59 şekeri var. Burak'nin 27 şekeri var.",
+  "Question_tr": "Selin, Burak'den kaç şeker fazla?",
+  "gold": 32
+ },
+ {
+  "ID": "dev2-d37",
+  "kind": "divide",
+  "Body_tr": "Can'nin 6 çiçeki var. Hepsini eşit olarak 3 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç çiçek var?",
+  "gold": 2
+ },
+ {
+  "ID": "dev2-m37",
+  "kind": "multi",
+  "Body_tr": "Derya 12 kart ve Mehmet 55 kart topladı. Derya 4 kart verdi.",
+  "Question_tr": "Şimdi toplam kaç kart var?",
+  "gold": 63
+ },
+ {
+  "ID": "dev2-c38",
+  "kind": "compare",
+  "Body_tr": "Burak'nin 61 kurabiyei var. Ayşe'nin 4 kurabiyei var.",
+  "Question_tr": "Burak, Ayşe'den kaç kurabiye fazla?",
+  "gold": 57
+ },
+ {
+  "ID": "dev2-d38",
+  "kind": "divide",
+  "Body_tr": "Elif'nin 24 kitapi var. Hepsini eşit olarak 8 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kitap var?",
+  "gold": 3
+ },
+ {
+  "ID": "dev2-m38",
+  "kind": "multi",
+  "Body_tr": "Can 52 kart ve Zeynep 54 kart topladı. Can 46 kart verdi.",
+  "Question_tr": "Şimdi toplam kaç kart var?",
+  "gold": 60
+ },
+ {
+  "ID": "dev2-c39",
+  "kind": "compare",
+  "Body_tr": "Ayşe'nin 60 baloni var. Mehmet'nin 34 baloni var.",
+  "Question_tr": "Ayşe, Mehmet'den kaç balon fazla?",
+  "gold": 26
+ },
+ {
+  "ID": "dev2-d39",
+  "kind": "divide",
+  "Body_tr": "Mehmet'nin 42 bilyei var. Hepsini eşit olarak 6 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç bilye var?",
+  "gold": 7
+ },
+ {
+  "ID": "dev2-m39",
+  "kind": "multi",
+  "Body_tr": "Elif 55 kalem ve Zeynep 47 kalem topladı. Elif 35 kalem verdi.",
+  "Question_tr": "Şimdi toplam kaç kalem var?",
+  "gold": 67
+ },
+ {
+  "ID": "dev2-c40",
+  "kind": "compare",
+  "Body_tr": "Elif'nin 15 baloni var. Emre'nin 6 baloni var.",
+  "Question_tr": "Elif, Emre'den kaç balon fazla?",
+  "gold": 9
+ },
+ {
+  "ID": "dev2-d40",
+  "kind": "divide",
+  "Body_tr": "Ayşe'nin 32 karti var. Hepsini eşit olarak 4 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kart var?",
+  "gold": 8
+ },
+ {
+  "ID": "dev2-m40",
+  "kind": "multi",
+  "Body_tr": "Elif 53 kart ve Selin 25 kart topladı. Elif 49 kart verdi.",
+  "Question_tr": "Şimdi toplam kaç kart var?",
+  "gold": 29
+ },
+ {
+  "ID": "dev2-c41",
+  "kind": "compare",
+  "Body_tr": "Can'nin 74 elmai var. Ayşe'nin 58 elmai var.",
+  "Question_tr": "Can, Ayşe'den kaç elma fazla?",
+  "gold": 16
+ },
+ {
+  "ID": "dev2-d41",
+  "kind": "divide",
+  "Body_tr": "Derya'nin 18 şekeri var. Hepsini eşit olarak 3 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç şeker var?",
+  "gold": 6
+ },
+ {
+  "ID": "dev2-m41",
+  "kind": "multi",
+  "Body_tr": "Derya 14 kalem ve Selin 19 kalem topladı. Derya 9 kalem verdi.",
+  "Question_tr": "Şimdi toplam kaç kalem var?",
+  "gold": 24
+ },
+ {
+  "ID": "dev2-c42",
+  "kind": "compare",
+  "Body_tr": "Burak'nin 33 kurabiyei var. Mehmet'nin 18 kurabiyei var.",
+  "Question_tr": "Burak, Mehmet'den kaç kurabiye fazla?",
+  "gold": 15
+ },
+ {
+  "ID": "dev2-d42",
+  "kind": "divide",
+  "Body_tr": "Zeynep'nin 54 çiçeki var. Hepsini eşit olarak 9 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç çiçek var?",
+  "gold": 6
+ },
+ {
+  "ID": "dev2-m42",
+  "kind": "multi",
+  "Body_tr": "Mehmet 57 şeker ve Emre 39 şeker topladı. Mehmet 13 şeker verdi.",
+  "Question_tr": "Şimdi toplam kaç şeker var?",
+  "gold": 83
+ },
+ {
+  "ID": "dev2-c43",
+  "kind": "compare",
+  "Body_tr": "Can'nin 21 bilyei var. Ayşe'nin 1 bilyei var.",
+  "Question_tr": "Can, Ayşe'den kaç bilye fazla?",
+  "gold": 20
+ },
+ {
+  "ID": "dev2-d43",
+  "kind": "divide",
+  "Body_tr": "Zeynep'nin 30 çiçeki var. Hepsini eşit olarak 3 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç çiçek var?",
+  "gold": 10
+ },
+ {
+  "ID": "dev2-m43",
+  "kind": "multi",
+  "Body_tr": "Zeynep 10 elma ve Elif 47 elma topladı. Zeynep 7 elma verdi.",
+  "Question_tr": "Şimdi toplam kaç elma var?",
+  "gold": 50
+ },
+ {
+  "ID": "dev2-c44",
+  "kind": "compare",
+  "Body_tr": "Can'nin 19 çiçeki var. Ayşe'nin 1 çiçeki var.",
+  "Question_tr": "Can, Ayşe'den kaç çiçek fazla?",
+  "gold": 18
+ },
+ {
+  "ID": "dev2-d44",
+  "kind": "divide",
+  "Body_tr": "Selin'nin 21 kurabiyei var. Hepsini eşit olarak 3 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kurabiye var?",
+  "gold": 7
+ },
+ {
+  "ID": "dev2-m44",
+  "kind": "multi",
+  "Body_tr": "Zeynep 55 kalem ve Burak 30 kalem topladı. Zeynep 31 kalem verdi.",
+  "Question_tr": "Şimdi toplam kaç kalem var?",
+  "gold": 54
+ },
+ {
+  "ID": "dev2-c45",
+  "kind": "compare",
+  "Body_tr": "Ali'nin 15 şekeri var. Selin'nin 5 şekeri var.",
+  "Question_tr": "Ali, Selin'den kaç şeker fazla?",
+  "gold": 10
+ },
+ {
+  "ID": "dev2-d45",
+  "kind": "divide",
+  "Body_tr": "Can'nin 21 kitapi var. Hepsini eşit olarak 7 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kitap var?",
+  "gold": 3
+ },
+ {
+  "ID": "dev2-m45",
+  "kind": "multi",
+  "Body_tr": "Elif 29 kalem ve Burak 41 kalem topladı. Elif 15 kalem verdi.",
+  "Question_tr": "Şimdi toplam kaç kalem var?",
+  "gold": 55
+ },
+ {
+  "ID": "dev2-c46",
+  "kind": "compare",
+  "Body_tr": "Burak'nin 41 kurabiyei var. Ayşe'nin 25 kurabiyei var.",
+  "Question_tr": "Burak, Ayşe'den kaç kurabiye fazla?",
+  "gold": 16
+ },
+ {
+  "ID": "dev2-d46",
+  "kind": "divide",
+  "Body_tr": "Ayşe'nin 35 şekeri var. Hepsini eşit olarak 7 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç şeker var?",
+  "gold": 5
+ },
+ {
+  "ID": "dev2-m46",
+  "kind": "multi",
+  "Body_tr": "Zeynep 43 şeker ve Emre 43 şeker topladı. Zeynep 12 şeker verdi.",
+  "Question_tr": "Şimdi toplam kaç şeker var?",
+  "gold": 74
+ },
+ {
+  "ID": "dev2-c47",
+  "kind": "compare",
+  "Body_tr": "Can'nin 29 kitapi var. Selin'nin 23 kitapi var.",
+  "Question_tr": "Can, Selin'den kaç kitap fazla?",
+  "gold": 6
+ },
+ {
+  "ID": "dev2-d47",
+  "kind": "divide",
+  "Body_tr": "Elif'nin 24 bilyei var. Hepsini eşit olarak 3 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç bilye var?",
+  "gold": 8
+ },
+ {
+  "ID": "dev2-m47",
+  "kind": "multi",
+  "Body_tr": "Derya 60 kalem ve Mehmet 48 kalem topladı. Derya 2 kalem verdi.",
+  "Question_tr": "Şimdi toplam kaç kalem var?",
+  "gold": 106
+ },
+ {
+  "ID": "dev2-c48",
+  "kind": "compare",
+  "Body_tr": "Zeynep'nin 53 kurabiyei var. Mehmet'nin 17 kurabiyei var.",
+  "Question_tr": "Zeynep, Mehmet'den kaç kurabiye fazla?",
+  "gold": 36
+ },
+ {
+  "ID": "dev2-d48",
+  "kind": "divide",
+  "Body_tr": "Can'nin 16 çiçeki var. Hepsini eşit olarak 8 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç çiçek var?",
+  "gold": 2
+ },
+ {
+  "ID": "dev2-m48",
+  "kind": "multi",
+  "Body_tr": "Zeynep 32 kurabiye ve Burak 45 kurabiye topladı. Zeynep 23 kurabiye verdi.",
+  "Question_tr": "Şimdi toplam kaç kurabiye var?",
+  "gold": 54
+ },
+ {
+  "ID": "dev2-c49",
+  "kind": "compare",
+  "Body_tr": "Selin'nin 79 bilyei var. Burak'nin 77 bilyei var.",
+  "Question_tr": "Selin, Burak'den kaç bilye fazla?",
+  "gold": 2
+ },
+ {
+  "ID": "dev2-d49",
+  "kind": "divide",
+  "Body_tr": "Can'nin 36 bilyei var. Hepsini eşit olarak 3 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç bilye var?",
+  "gold": 12
+ },
+ {
+  "ID": "dev2-m49",
+  "kind": "multi",
+  "Body_tr": "Derya 42 balon ve Zeynep 37 balon topladı. Derya 17 balon verdi.",
+  "Question_tr": "Şimdi toplam kaç balon var?",
+  "gold": 62
+ },
+ {
+  "ID": "dev2-c50",
+  "kind": "compare",
+  "Body_tr": "Derya'nin 78 karti var. Ayşe'nin 65 karti var.",
+  "Question_tr": "Derya, Ayşe'den kaç kart fazla?",
+  "gold": 13
+ },
+ {
+  "ID": "dev2-d50",
+  "kind": "divide",
+  "Body_tr": "Burak'nin 16 baloni var. Hepsini eşit olarak 8 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç balon var?",
+  "gold": 2
+ },
+ {
+  "ID": "dev2-m50",
+  "kind": "multi",
+  "Body_tr": "Ali 24 elma ve Burak 13 elma topladı. Ali 15 elma verdi.",
+  "Question_tr": "Şimdi toplam kaç elma var?",
+  "gold": 22
+ },
+ {
+  "ID": "dev2-c51",
+  "kind": "compare",
+  "Body_tr": "Zeynep'nin 88 kalemi var. Selin'nin 72 kalemi var.",
+  "Question_tr": "Zeynep, Selin'den kaç kalem fazla?",
+  "gold": 16
+ },
+ {
+  "ID": "dev2-d51",
+  "kind": "divide",
+  "Body_tr": "Can'nin 63 elmai var. Hepsini eşit olarak 9 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç elma var?",
+  "gold": 7
+ },
+ {
+  "ID": "dev2-m51",
+  "kind": "multi",
+  "Body_tr": "Can 25 elma ve Ayşe 16 elma topladı. Can 14 elma verdi.",
+  "Question_tr": "Şimdi toplam kaç elma var?",
+  "gold": 27
+ },
+ {
+  "ID": "dev2-c52",
+  "kind": "compare",
+  "Body_tr": "Elif'nin 20 kutui var. Mehmet'nin 16 kutui var.",
+  "Question_tr": "Elif, Mehmet'den kaç kutu fazla?",
+  "gold": 4
+ },
+ {
+  "ID": "dev2-d52",
+  "kind": "divide",
+  "Body_tr": "Burak'nin 28 kalemi var. Hepsini eşit olarak 4 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kalem var?",
+  "gold": 7
+ },
+ {
+  "ID": "dev2-m52",
+  "kind": "multi",
+  "Body_tr": "Can 20 çiçek ve Elif 30 çiçek topladı. Can 1 çiçek verdi.",
+  "Question_tr": "Şimdi toplam kaç çiçek var?",
+  "gold": 49
+ },
+ {
+  "ID": "dev2-c53",
+  "kind": "compare",
+  "Body_tr": "Emre'nin 35 şekeri var. Selin'nin 25 şekeri var.",
+  "Question_tr": "Emre, Selin'den kaç şeker fazla?",
+  "gold": 10
+ },
+ {
+  "ID": "dev2-d53",
+  "kind": "divide",
+  "Body_tr": "Ayşe'nin 88 elmai var. Hepsini eşit olarak 8 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç elma var?",
+  "gold": 11
+ },
+ {
+  "ID": "dev2-m53",
+  "kind": "multi",
+  "Body_tr": "Mehmet 42 kurabiye ve Elif 33 kurabiye topladı. Mehmet 39 kurabiye verdi.",
+  "Question_tr": "Şimdi toplam kaç kurabiye var?",
+  "gold": 36
+ },
+ {
+  "ID": "dev2-c54",
+  "kind": "compare",
+  "Body_tr": "Elif'nin 72 bilyei var. Emre'nin 46 bilyei var.",
+  "Question_tr": "Elif, Emre'den kaç bilye fazla?",
+  "gold": 26
+ },
+ {
+  "ID": "dev2-d54",
+  "kind": "divide",
+  "Body_tr": "Derya'nin 20 kutui var. Hepsini eşit olarak 5 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kutu var?",
+  "gold": 4
+ },
+ {
+  "ID": "dev2-m54",
+  "kind": "multi",
+  "Body_tr": "Can 13 çiçek ve Ayşe 17 çiçek topladı. Can 13 çiçek verdi.",
+  "Question_tr": "Şimdi toplam kaç çiçek var?",
+  "gold": 17
+ },
+ {
+  "ID": "dev2-c55",
+  "kind": "compare",
+  "Body_tr": "Elif'nin 63 baloni var. Emre'nin 18 baloni var.",
+  "Question_tr": "Elif, Emre'den kaç balon fazla?",
+  "gold": 45
+ },
+ {
+  "ID": "dev2-d55",
+  "kind": "divide",
+  "Body_tr": "Derya'nin 25 çiçeki var. Hepsini eşit olarak 5 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç çiçek var?",
+  "gold": 5
+ },
+ {
+  "ID": "dev2-m55",
+  "kind": "multi",
+  "Body_tr": "Mehmet 9 bilye ve Derya 41 bilye topladı. Mehmet 5 bilye verdi.",
+  "Question_tr": "Şimdi toplam kaç bilye var?",
+  "gold": 45
+ },
+ {
+  "ID": "dev2-c56",
+  "kind": "compare",
+  "Body_tr": "Can'nin 74 kitapi var. Zeynep'nin 39 kitapi var.",
+  "Question_tr": "Can, Zeynep'den kaç kitap fazla?",
+  "gold": 35
+ },
+ {
+  "ID": "dev2-d56",
+  "kind": "divide",
+  "Body_tr": "Selin'nin 72 kutui var. Hepsini eşit olarak 9 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kutu var?",
+  "gold": 8
+ },
+ {
+  "ID": "dev2-m56",
+  "kind": "multi",
+  "Body_tr": "Ayşe 52 elma ve Derya 59 elma topladı. Ayşe 22 elma verdi.",
+  "Question_tr": "Şimdi toplam kaç elma var?",
+  "gold": 89
+ },
+ {
+  "ID": "dev2-c57",
+  "kind": "compare",
+  "Body_tr": "Mehmet'nin 85 bilyei var. Ayşe'nin 41 bilyei var.",
+  "Question_tr": "Mehmet, Ayşe'den kaç bilye fazla?",
+  "gold": 44
+ },
+ {
+  "ID": "dev2-d57",
+  "kind": "divide",
+  "Body_tr": "Can'nin 66 çiçeki var. Hepsini eşit olarak 6 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç çiçek var?",
+  "gold": 11
+ },
+ {
+  "ID": "dev2-m57",
+  "kind": "multi",
+  "Body_tr": "Ali 46 şeker ve Emre 60 şeker topladı. Ali 16 şeker verdi.",
+  "Question_tr": "Şimdi toplam kaç şeker var?",
+  "gold": 90
+ },
+ {
+  "ID": "dev2-c58",
+  "kind": "compare",
+  "Body_tr": "Can'nin 36 kitapi var. Ayşe'nin 16 kitapi var.",
+  "Question_tr": "Can, Ayşe'den kaç kitap fazla?",
+  "gold": 20
+ },
+ {
+  "ID": "dev2-d58",
+  "kind": "divide",
+  "Body_tr": "Burak'nin 50 kurabiyei var. Hepsini eşit olarak 5 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kurabiye var?",
+  "gold": 10
+ },
+ {
+  "ID": "dev2-m58",
+  "kind": "multi",
+  "Body_tr": "Mehmet 38 kurabiye ve Ali 35 kurabiye topladı. Mehmet 29 kurabiye verdi.",
+  "Question_tr": "Şimdi toplam kaç kurabiye var?",
+  "gold": 44
+ },
+ {
+  "ID": "dev2-c59",
+  "kind": "compare",
+  "Body_tr": "Ayşe'nin 33 kalemi var. Mehmet'nin 28 kalemi var.",
+  "Question_tr": "Ayşe, Mehmet'den kaç kalem fazla?",
+  "gold": 5
+ },
+ {
+  "ID": "dev2-d59",
+  "kind": "divide",
+  "Body_tr": "Ali'nin 27 şekeri var. Hepsini eşit olarak 3 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç şeker var?",
+  "gold": 9
+ },
+ {
+  "ID": "dev2-m59",
+  "kind": "multi",
+  "Body_tr": "Ali 50 bilye ve Emre 8 bilye topladı. Ali 27 bilye verdi.",
+  "Question_tr": "Şimdi toplam kaç bilye var?",
+  "gold": 31
+ },
+ {
+  "ID": "dev2-c60",
+  "kind": "compare",
+  "Body_tr": "Can'nin 90 kurabiyei var. Zeynep'nin 73 kurabiyei var.",
+  "Question_tr": "Can, Zeynep'den kaç kurabiye fazla?",
+  "gold": 17
+ },
+ {
+  "ID": "dev2-d60",
+  "kind": "divide",
+  "Body_tr": "Emre'nin 42 kutui var. Hepsini eşit olarak 7 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kutu var?",
+  "gold": 6
+ },
+ {
+  "ID": "dev2-m60",
+  "kind": "multi",
+  "Body_tr": "Elif 30 kutu ve Selin 23 kutu topladı. Elif 23 kutu verdi.",
+  "Question_tr": "Şimdi toplam kaç kutu var?",
+  "gold": 30
+ },
+ {
+  "ID": "dev2-c61",
+  "kind": "compare",
+  "Body_tr": "Can'nin 72 kurabiyei var. Zeynep'nin 62 kurabiyei var.",
+  "Question_tr": "Can, Zeynep'den kaç kurabiye fazla?",
+  "gold": 10
+ },
+ {
+  "ID": "dev2-d61",
+  "kind": "divide",
+  "Body_tr": "Zeynep'nin 32 baloni var. Hepsini eşit olarak 8 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç balon var?",
+  "gold": 4
+ },
+ {
+  "ID": "dev2-m61",
+  "kind": "multi",
+  "Body_tr": "Emre 30 kalem ve Derya 32 kalem topladı. Emre 23 kalem verdi.",
+  "Question_tr": "Şimdi toplam kaç kalem var?",
+  "gold": 39
+ },
+ {
+  "ID": "dev2-c62",
+  "kind": "compare",
+  "Body_tr": "Elif'nin 85 baloni var. Ali'nin 15 baloni var.",
+  "Question_tr": "Elif, Ali'den kaç balon fazla?",
+  "gold": 70
+ },
+ {
+  "ID": "dev2-d62",
+  "kind": "divide",
+  "Body_tr": "Zeynep'nin 45 karti var. Hepsini eşit olarak 9 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kart var?",
+  "gold": 5
+ },
+ {
+  "ID": "dev2-m62",
+  "kind": "multi",
+  "Body_tr": "Derya 24 çiçek ve Ali 8 çiçek topladı. Derya 17 çiçek verdi.",
+  "Question_tr": "Şimdi toplam kaç çiçek var?",
+  "gold": 15
+ },
+ {
+  "ID": "dev2-c63",
+  "kind": "compare",
+  "Body_tr": "Emre'nin 84 baloni var. Burak'nin 10 baloni var.",
+  "Question_tr": "Emre, Burak'den kaç balon fazla?",
+  "gold": 74
+ },
+ {
+  "ID": "dev2-d63",
+  "kind": "divide",
+  "Body_tr": "Can'nin 28 çiçeki var. Hepsini eşit olarak 7 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç çiçek var?",
+  "gold": 4
+ },
+ {
+  "ID": "dev2-m63",
+  "kind": "multi",
+  "Body_tr": "Selin 12 elma ve Can 26 elma topladı. Selin 2 elma verdi.",
+  "Question_tr": "Şimdi toplam kaç elma var?",
+  "gold": 36
+ },
+ {
+  "ID": "dev2-c64",
+  "kind": "compare",
+  "Body_tr": "Elif'nin 16 kalemi var. Emre'nin 12 kalemi var.",
+  "Question_tr": "Elif, Emre'den kaç kalem fazla?",
+  "gold": 4
+ },
+ {
+  "ID": "dev2-d64",
+  "kind": "divide",
+  "Body_tr": "Can'nin 72 kutui var. Hepsini eşit olarak 6 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kutu var?",
+  "gold": 12
+ },
+ {
+  "ID": "dev2-m64",
+  "kind": "multi",
+  "Body_tr": "Selin 52 kitap ve Ali 43 kitap topladı. Selin 44 kitap verdi.",
+  "Question_tr": "Şimdi toplam kaç kitap var?",
+  "gold": 51
+ },
+ {
+  "ID": "dev2-c65",
+  "kind": "compare",
+  "Body_tr": "Elif'nin 52 şekeri var. Emre'nin 43 şekeri var.",
+  "Question_tr": "Elif, Emre'den kaç şeker fazla?",
+  "gold": 9
+ },
+ {
+  "ID": "dev2-d65",
+  "kind": "divide",
+  "Body_tr": "Selin'nin 30 çiçeki var. Hepsini eşit olarak 5 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç çiçek var?",
+  "gold": 6
+ },
+ {
+  "ID": "dev2-m65",
+  "kind": "multi",
+  "Body_tr": "Can 49 kitap ve Mehmet 55 kitap topladı. Can 5 kitap verdi.",
+  "Question_tr": "Şimdi toplam kaç kitap var?",
+  "gold": 99
+ },
+ {
+  "ID": "dev2-c66",
+  "kind": "compare",
+  "Body_tr": "Burak'nin 55 elmai var. Zeynep'nin 18 elmai var.",
+  "Question_tr": "Burak, Zeynep'den kaç elma fazla?",
+  "gold": 37
+ },
+ {
+  "ID": "dev2-d66",
+  "kind": "divide",
+  "Body_tr": "Derya'nin 56 baloni var. Hepsini eşit olarak 8 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç balon var?",
+  "gold": 7
+ },
+ {
+  "ID": "dev2-m66",
+  "kind": "multi",
+  "Body_tr": "Ali 57 kutu ve Burak 32 kutu topladı. Ali 4 kutu verdi.",
+  "Question_tr": "Şimdi toplam kaç kutu var?",
+  "gold": 85
+ },
+ {
+  "ID": "dev2-c67",
+  "kind": "compare",
+  "Body_tr": "Emre'nin 50 şekeri var. Burak'nin 26 şekeri var.",
+  "Question_tr": "Emre, Burak'den kaç şeker fazla?",
+  "gold": 24
+ },
+ {
+  "ID": "dev2-d67",
+  "kind": "divide",
+  "Body_tr": "Mehmet'nin 30 karti var. Hepsini eşit olarak 3 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kart var?",
+  "gold": 10
+ },
+ {
+  "ID": "dev2-m67",
+  "kind": "multi",
+  "Body_tr": "Ali 47 kalem ve Emre 32 kalem topladı. Ali 23 kalem verdi.",
+  "Question_tr": "Şimdi toplam kaç kalem var?",
+  "gold": 56
+ },
+ {
+  "ID": "dev2-c68",
+  "kind": "compare",
+  "Body_tr": "Mehmet'nin 71 kurabiyei var. Burak'nin 39 kurabiyei var.",
+  "Question_tr": "Mehmet, Burak'den kaç kurabiye fazla?",
+  "gold": 32
+ },
+ {
+  "ID": "dev2-d68",
+  "kind": "divide",
+  "Body_tr": "Ali'nin 35 kalemi var. Hepsini eşit olarak 5 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kalem var?",
+  "gold": 7
+ },
+ {
+  "ID": "dev2-m68",
+  "kind": "multi",
+  "Body_tr": "Elif 45 kutu ve Ali 28 kutu topladı. Elif 29 kutu verdi.",
+  "Question_tr": "Şimdi toplam kaç kutu var?",
+  "gold": 44
+ },
+ {
+  "ID": "dev2-c69",
+  "kind": "compare",
+  "Body_tr": "Mehmet'nin 89 bilyei var. Emre'nin 6 bilyei var.",
+  "Question_tr": "Mehmet, Emre'den kaç bilye fazla?",
+  "gold": 83
+ },
+ {
+  "ID": "dev2-d69",
+  "kind": "divide",
+  "Body_tr": "Ali'nin 30 şekeri var. Hepsini eşit olarak 5 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç şeker var?",
+  "gold": 6
+ },
+ {
+  "ID": "dev2-m69",
+  "kind": "multi",
+  "Body_tr": "Emre 51 kart ve Zeynep 11 kart topladı. Emre 10 kart verdi.",
+  "Question_tr": "Şimdi toplam kaç kart var?",
+  "gold": 52
+ },
+ {
+  "ID": "dev2-c70",
+  "kind": "compare",
+  "Body_tr": "Selin'nin 78 kutui var. Derya'nin 1 kutui var.",
+  "Question_tr": "Selin, Derya'den kaç kutu fazla?",
+  "gold": 77
+ },
+ {
+  "ID": "dev2-d70",
+  "kind": "divide",
+  "Body_tr": "Selin'nin 48 baloni var. Hepsini eşit olarak 6 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç balon var?",
+  "gold": 8
+ },
+ {
+  "ID": "dev2-m70",
+  "kind": "multi",
+  "Body_tr": "Mehmet 58 kalem ve Emre 28 kalem topladı. Mehmet 7 kalem verdi.",
+  "Question_tr": "Şimdi toplam kaç kalem var?",
+  "gold": 79
+ },
+ {
+  "ID": "dev2-c71",
+  "kind": "compare",
+  "Body_tr": "Burak'nin 12 karti var. Ayşe'nin 2 karti var.",
+  "Question_tr": "Burak, Ayşe'den kaç kart fazla?",
+  "gold": 10
+ },
+ {
+  "ID": "dev2-d71",
+  "kind": "divide",
+  "Body_tr": "Selin'nin 10 kurabiyei var. Hepsini eşit olarak 2 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kurabiye var?",
+  "gold": 5
+ },
+ {
+  "ID": "dev2-m71",
+  "kind": "multi",
+  "Body_tr": "Zeynep 27 kutu ve Ali 10 kutu topladı. Zeynep 14 kutu verdi.",
+  "Question_tr": "Şimdi toplam kaç kutu var?",
+  "gold": 23
+ },
+ {
+  "ID": "dev2-c72",
+  "kind": "compare",
+  "Body_tr": "Burak'nin 37 elmai var. Zeynep'nin 24 elmai var.",
+  "Question_tr": "Burak, Zeynep'den kaç elma fazla?",
+  "gold": 13
+ },
+ {
+  "ID": "dev2-d72",
+  "kind": "divide",
+  "Body_tr": "Can'nin 16 bilyei var. Hepsini eşit olarak 4 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç bilye var?",
+  "gold": 4
+ },
+ {
+  "ID": "dev2-m72",
+  "kind": "multi",
+  "Body_tr": "Ali 30 çiçek ve Emre 28 çiçek topladı. Ali 26 çiçek verdi.",
+  "Question_tr": "Şimdi toplam kaç çiçek var?",
+  "gold": 32
+ },
+ {
+  "ID": "dev2-c73",
+  "kind": "compare",
+  "Body_tr": "Zeynep'nin 22 çiçeki var. Derya'nin 7 çiçeki var.",
+  "Question_tr": "Zeynep, Derya'den kaç çiçek fazla?",
+  "gold": 15
+ },
+ {
+  "ID": "dev2-d73",
+  "kind": "divide",
+  "Body_tr": "Elif'nin 60 kitapi var. Hepsini eşit olarak 6 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kitap var?",
+  "gold": 10
+ },
+ {
+  "ID": "dev2-m73",
+  "kind": "multi",
+  "Body_tr": "Emre 36 şeker ve Mehmet 23 şeker topladı. Emre 21 şeker verdi.",
+  "Question_tr": "Şimdi toplam kaç şeker var?",
+  "gold": 38
+ },
+ {
+  "ID": "dev2-c74",
+  "kind": "compare",
+  "Body_tr": "Zeynep'nin 26 baloni var. Ayşe'nin 15 baloni var.",
+  "Question_tr": "Zeynep, Ayşe'den kaç balon fazla?",
+  "gold": 11
+ },
+ {
+  "ID": "dev2-d74",
+  "kind": "divide",
+  "Body_tr": "Mehmet'nin 28 karti var. Hepsini eşit olarak 7 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kart var?",
+  "gold": 4
+ },
+ {
+  "ID": "dev2-m74",
+  "kind": "multi",
+  "Body_tr": "Mehmet 20 balon ve Selin 25 balon topladı. Mehmet 4 balon verdi.",
+  "Question_tr": "Şimdi toplam kaç balon var?",
+  "gold": 41
+ },
+ {
+  "ID": "dev2-c75",
+  "kind": "compare",
+  "Body_tr": "Ali'nin 26 baloni var. Selin'nin 20 baloni var.",
+  "Question_tr": "Ali, Selin'den kaç balon fazla?",
+  "gold": 6
+ },
+ {
+  "ID": "dev2-d75",
+  "kind": "divide",
+  "Body_tr": "Zeynep'nin 10 kurabiyei var. Hepsini eşit olarak 2 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kurabiye var?",
+  "gold": 5
+ },
+ {
+  "ID": "dev2-m75",
+  "kind": "multi",
+  "Body_tr": "Ali 49 balon ve Can 59 balon topladı. Ali 2 balon verdi.",
+  "Question_tr": "Şimdi toplam kaç balon var?",
+  "gold": 106
+ },
+ {
+  "ID": "dev2-c76",
+  "kind": "compare",
+  "Body_tr": "Zeynep'nin 30 şekeri var. Ali'nin 19 şekeri var.",
+  "Question_tr": "Zeynep, Ali'den kaç şeker fazla?",
+  "gold": 11
+ },
+ {
+  "ID": "dev2-d76",
+  "kind": "divide",
+  "Body_tr": "Burak'nin 27 kalemi var. Hepsini eşit olarak 3 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kalem var?",
+  "gold": 9
+ },
+ {
+  "ID": "dev2-m76",
+  "kind": "multi",
+  "Body_tr": "Can 8 şeker ve Mehmet 52 şeker topladı. Can 3 şeker verdi.",
+  "Question_tr": "Şimdi toplam kaç şeker var?",
+  "gold": 57
+ },
+ {
+  "ID": "dev2-c77",
+  "kind": "compare",
+  "Body_tr": "Mehmet'nin 37 şekeri var. Selin'nin 28 şekeri var.",
+  "Question_tr": "Mehmet, Selin'den kaç şeker fazla?",
+  "gold": 9
+ },
+ {
+  "ID": "dev2-d77",
+  "kind": "divide",
+  "Body_tr": "Ali'nin 96 elmai var. Hepsini eşit olarak 8 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç elma var?",
+  "gold": 12
+ },
+ {
+  "ID": "dev2-m77",
+  "kind": "multi",
+  "Body_tr": "Can 47 balon ve Mehmet 35 balon topladı. Can 27 balon verdi.",
+  "Question_tr": "Şimdi toplam kaç balon var?",
+  "gold": 55
+ },
+ {
+  "ID": "dev2-c78",
+  "kind": "compare",
+  "Body_tr": "Burak'nin 86 bilyei var. Ayşe'nin 39 bilyei var.",
+  "Question_tr": "Burak, Ayşe'den kaç bilye fazla?",
+  "gold": 47
+ },
+ {
+  "ID": "dev2-d78",
+  "kind": "divide",
+  "Body_tr": "Zeynep'nin 24 kitapi var. Hepsini eşit olarak 3 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kitap var?",
+  "gold": 8
+ },
+ {
+  "ID": "dev2-m78",
+  "kind": "multi",
+  "Body_tr": "Selin 28 çiçek ve Can 49 çiçek topladı. Selin 22 çiçek verdi.",
+  "Question_tr": "Şimdi toplam kaç çiçek var?",
+  "gold": 55
+ },
+ {
+  "ID": "dev2-c79",
+  "kind": "compare",
+  "Body_tr": "Elif'nin 69 şekeri var. Selin'nin 28 şekeri var.",
+  "Question_tr": "Elif, Selin'den kaç şeker fazla?",
+  "gold": 41
+ },
+ {
+  "ID": "dev2-d79",
+  "kind": "divide",
+  "Body_tr": "Ayşe'nin 45 kitapi var. Hepsini eşit olarak 5 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kitap var?",
+  "gold": 9
+ },
+ {
+  "ID": "dev2-m79",
+  "kind": "multi",
+  "Body_tr": "Elif 6 kalem ve Zeynep 24 kalem topladı. Elif 3 kalem verdi.",
+  "Question_tr": "Şimdi toplam kaç kalem var?",
+  "gold": 27
+ },
+ {
+  "ID": "dev2-c80",
+  "kind": "compare",
+  "Body_tr": "Ayşe'nin 71 şekeri var. Emre'nin 57 şekeri var.",
+  "Question_tr": "Ayşe, Emre'den kaç şeker fazla?",
+  "gold": 14
+ },
+ {
+  "ID": "dev2-d80",
+  "kind": "divide",
+  "Body_tr": "Zeynep'nin 24 kalemi var. Hepsini eşit olarak 3 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kalem var?",
+  "gold": 8
+ },
+ {
+  "ID": "dev2-m80",
+  "kind": "multi",
+  "Body_tr": "Selin 16 elma ve Mehmet 7 elma topladı. Selin 9 elma verdi.",
+  "Question_tr": "Şimdi toplam kaç elma var?",
+  "gold": 14
+ },
+ {
+  "ID": "dev2-c81",
+  "kind": "compare",
+  "Body_tr": "Can'nin 84 çiçeki var. Burak'nin 22 çiçeki var.",
+  "Question_tr": "Can, Burak'den kaç çiçek fazla?",
+  "gold": 62
+ },
+ {
+  "ID": "dev2-d81",
+  "kind": "divide",
+  "Body_tr": "Zeynep'nin 25 elmai var. Hepsini eşit olarak 5 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç elma var?",
+  "gold": 5
+ },
+ {
+  "ID": "dev2-m81",
+  "kind": "multi",
+  "Body_tr": "Derya 33 kitap ve Burak 14 kitap topladı. Derya 8 kitap verdi.",
+  "Question_tr": "Şimdi toplam kaç kitap var?",
+  "gold": 39
+ },
+ {
+  "ID": "dev2-c82",
+  "kind": "compare",
+  "Body_tr": "Ali'nin 80 bilyei var. Zeynep'nin 23 bilyei var.",
+  "Question_tr": "Ali, Zeynep'den kaç bilye fazla?",
+  "gold": 57
+ },
+ {
+  "ID": "dev2-d82",
+  "kind": "divide",
+  "Body_tr": "Elif'nin 21 kutui var. Hepsini eşit olarak 7 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kutu var?",
+  "gold": 3
+ },
+ {
+  "ID": "dev2-m82",
+  "kind": "multi",
+  "Body_tr": "Burak 20 balon ve Zeynep 45 balon topladı. Burak 2 balon verdi.",
+  "Question_tr": "Şimdi toplam kaç balon var?",
+  "gold": 63
+ },
+ {
+  "ID": "dev2-c83",
+  "kind": "compare",
+  "Body_tr": "Elif'nin 29 çiçeki var. Ali'nin 16 çiçeki var.",
+  "Question_tr": "Elif, Ali'den kaç çiçek fazla?",
+  "gold": 13
+ },
+ {
+  "ID": "dev2-d83",
+  "kind": "divide",
+  "Body_tr": "Derya'nin 15 kitapi var. Hepsini eşit olarak 3 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kitap var?",
+  "gold": 5
+ },
+ {
+  "ID": "dev2-m83",
+  "kind": "multi",
+  "Body_tr": "Mehmet 53 elma ve Burak 30 elma topladı. Mehmet 32 elma verdi.",
+  "Question_tr": "Şimdi toplam kaç elma var?",
+  "gold": 51
+ },
+ {
+  "ID": "dev2-c84",
+  "kind": "compare",
+  "Body_tr": "Ali'nin 50 kalemi var. Derya'nin 41 kalemi var.",
+  "Question_tr": "Ali, Derya'den kaç kalem fazla?",
+  "gold": 9
+ },
+ {
+  "ID": "dev2-d84",
+  "kind": "divide",
+  "Body_tr": "Can'nin 16 çiçeki var. Hepsini eşit olarak 2 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç çiçek var?",
+  "gold": 8
+ },
+ {
+  "ID": "dev2-m84",
+  "kind": "multi",
+  "Body_tr": "Ali 37 balon ve Derya 6 balon topladı. Ali 34 balon verdi.",
+  "Question_tr": "Şimdi toplam kaç balon var?",
+  "gold": 9
+ },
+ {
+  "ID": "dev2-c85",
+  "kind": "compare",
+  "Body_tr": "Selin'nin 33 kitapi var. Zeynep'nin 12 kitapi var.",
+  "Question_tr": "Selin, Zeynep'den kaç kitap fazla?",
+  "gold": 21
+ },
+ {
+  "ID": "dev2-d85",
+  "kind": "divide",
+  "Body_tr": "Can'nin 45 kutui var. Hepsini eşit olarak 5 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kutu var?",
+  "gold": 9
+ },
+ {
+  "ID": "dev2-m85",
+  "kind": "multi",
+  "Body_tr": "Elif 51 kalem ve Ayşe 38 kalem topladı. Elif 7 kalem verdi.",
+  "Question_tr": "Şimdi toplam kaç kalem var?",
+  "gold": 82
+ },
+ {
+  "ID": "dev2-c86",
+  "kind": "compare",
+  "Body_tr": "Burak'nin 10 bilyei var. Elif'nin 9 bilyei var.",
+  "Question_tr": "Burak, Elif'den kaç bilye fazla?",
+  "gold": 1
+ },
+ {
+  "ID": "dev2-d86",
+  "kind": "divide",
+  "Body_tr": "Ayşe'nin 48 kitapi var. Hepsini eşit olarak 4 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kitap var?",
+  "gold": 12
+ },
+ {
+  "ID": "dev2-m86",
+  "kind": "multi",
+  "Body_tr": "Elif 50 çiçek ve Mehmet 9 çiçek topladı. Elif 17 çiçek verdi.",
+  "Question_tr": "Şimdi toplam kaç çiçek var?",
+  "gold": 42
+ },
+ {
+  "ID": "dev2-c87",
+  "kind": "compare",
+  "Body_tr": "Elif'nin 70 baloni var. Mehmet'nin 21 baloni var.",
+  "Question_tr": "Elif, Mehmet'den kaç balon fazla?",
+  "gold": 49
+ },
+ {
+  "ID": "dev2-d87",
+  "kind": "divide",
+  "Body_tr": "Derya'nin 42 elmai var. Hepsini eşit olarak 6 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç elma var?",
+  "gold": 7
+ },
+ {
+  "ID": "dev2-m87",
+  "kind": "multi",
+  "Body_tr": "Zeynep 16 kalem ve Mehmet 55 kalem topladı. Zeynep 16 kalem verdi.",
+  "Question_tr": "Şimdi toplam kaç kalem var?",
+  "gold": 55
+ },
+ {
+  "ID": "dev2-c88",
+  "kind": "compare",
+  "Body_tr": "Selin'nin 34 elmai var. Ali'nin 8 elmai var.",
+  "Question_tr": "Selin, Ali'den kaç elma fazla?",
+  "gold": 26
+ },
+ {
+  "ID": "dev2-d88",
+  "kind": "divide",
+  "Body_tr": "Can'nin 15 elmai var. Hepsini eşit olarak 5 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç elma var?",
+  "gold": 3
+ },
+ {
+  "ID": "dev2-m88",
+  "kind": "multi",
+  "Body_tr": "Can 15 kurabiye ve Mehmet 59 kurabiye topladı. Can 14 kurabiye verdi.",
+  "Question_tr": "Şimdi toplam kaç kurabiye var?",
+  "gold": 60
+ },
+ {
+  "ID": "dev2-c89",
+  "kind": "compare",
+  "Body_tr": "Burak'nin 77 kurabiyei var. Emre'nin 31 kurabiyei var.",
+  "Question_tr": "Burak, Emre'den kaç kurabiye fazla?",
+  "gold": 46
+ },
+ {
+  "ID": "dev2-d89",
+  "kind": "divide",
+  "Body_tr": "Zeynep'nin 21 çiçeki var. Hepsini eşit olarak 7 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç çiçek var?",
+  "gold": 3
+ },
+ {
+  "ID": "dev2-m89",
+  "kind": "multi",
+  "Body_tr": "Derya 40 kurabiye ve Emre 48 kurabiye topladı. Derya 13 kurabiye verdi.",
+  "Question_tr": "Şimdi toplam kaç kurabiye var?",
+  "gold": 75
+ },
+ {
+  "ID": "dev2-c90",
+  "kind": "compare",
+  "Body_tr": "Zeynep'nin 86 kalemi var. Emre'nin 17 kalemi var.",
+  "Question_tr": "Zeynep, Emre'den kaç kalem fazla?",
+  "gold": 69
+ },
+ {
+  "ID": "dev2-d90",
+  "kind": "divide",
+  "Body_tr": "Ayşe'nin 72 çiçeki var. Hepsini eşit olarak 9 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç çiçek var?",
+  "gold": 8
+ },
+ {
+  "ID": "dev2-m90",
+  "kind": "multi",
+  "Body_tr": "Burak 13 kutu ve Ayşe 46 kutu topladı. Burak 3 kutu verdi.",
+  "Question_tr": "Şimdi toplam kaç kutu var?",
+  "gold": 56
+ },
+ {
+  "ID": "dev2-c91",
+  "kind": "compare",
+  "Body_tr": "Mehmet'nin 85 karti var. Ali'nin 1 karti var.",
+  "Question_tr": "Mehmet, Ali'den kaç kart fazla?",
+  "gold": 84
+ },
+ {
+  "ID": "dev2-d91",
+  "kind": "divide",
+  "Body_tr": "Selin'nin 48 çiçeki var. Hepsini eşit olarak 4 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç çiçek var?",
+  "gold": 12
+ },
+ {
+  "ID": "dev2-m91",
+  "kind": "multi",
+  "Body_tr": "Ali 34 kart ve Can 52 kart topladı. Ali 11 kart verdi.",
+  "Question_tr": "Şimdi toplam kaç kart var?",
+  "gold": 75
+ },
+ {
+  "ID": "dev2-c92",
+  "kind": "compare",
+  "Body_tr": "Ali'nin 48 kalemi var. Ayşe'nin 20 kalemi var.",
+  "Question_tr": "Ali, Ayşe'den kaç kalem fazla?",
+  "gold": 28
+ },
+ {
+  "ID": "dev2-d92",
+  "kind": "divide",
+  "Body_tr": "Ayşe'nin 80 şekeri var. Hepsini eşit olarak 8 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç şeker var?",
+  "gold": 10
+ },
+ {
+  "ID": "dev2-m92",
+  "kind": "multi",
+  "Body_tr": "Derya 32 elma ve Burak 56 elma topladı. Derya 20 elma verdi.",
+  "Question_tr": "Şimdi toplam kaç elma var?",
+  "gold": 68
+ },
+ {
+  "ID": "dev2-c93",
+  "kind": "compare",
+  "Body_tr": "Ali'nin 78 çiçeki var. Zeynep'nin 44 çiçeki var.",
+  "Question_tr": "Ali, Zeynep'den kaç çiçek fazla?",
+  "gold": 34
+ },
+ {
+  "ID": "dev2-d93",
+  "kind": "divide",
+  "Body_tr": "Ayşe'nin 18 baloni var. Hepsini eşit olarak 2 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç balon var?",
+  "gold": 9
+ },
+ {
+  "ID": "dev2-m93",
+  "kind": "multi",
+  "Body_tr": "Ayşe 45 kart ve Derya 54 kart topladı. Ayşe 18 kart verdi.",
+  "Question_tr": "Şimdi toplam kaç kart var?",
+  "gold": 81
+ },
+ {
+  "ID": "dev2-c94",
+  "kind": "compare",
+  "Body_tr": "Ayşe'nin 28 kurabiyei var. Ali'nin 16 kurabiyei var.",
+  "Question_tr": "Ayşe, Ali'den kaç kurabiye fazla?",
+  "gold": 12
+ },
+ {
+  "ID": "dev2-d94",
+  "kind": "divide",
+  "Body_tr": "Elif'nin 22 kurabiyei var. Hepsini eşit olarak 2 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kurabiye var?",
+  "gold": 11
+ },
+ {
+  "ID": "dev2-m94",
+  "kind": "multi",
+  "Body_tr": "Ali 18 balon ve Zeynep 20 balon topladı. Ali 7 balon verdi.",
+  "Question_tr": "Şimdi toplam kaç balon var?",
+  "gold": 31
+ },
+ {
+  "ID": "dev2-c95",
+  "kind": "compare",
+  "Body_tr": "Ayşe'nin 15 kurabiyei var. Mehmet'nin 4 kurabiyei var.",
+  "Question_tr": "Ayşe, Mehmet'den kaç kurabiye fazla?",
+  "gold": 11
+ },
+ {
+  "ID": "dev2-d95",
+  "kind": "divide",
+  "Body_tr": "Ayşe'nin 24 baloni var. Hepsini eşit olarak 8 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç balon var?",
+  "gold": 3
+ },
+ {
+  "ID": "dev2-m95",
+  "kind": "multi",
+  "Body_tr": "Emre 59 çiçek ve Mehmet 57 çiçek topladı. Emre 33 çiçek verdi.",
+  "Question_tr": "Şimdi toplam kaç çiçek var?",
+  "gold": 83
+ },
+ {
+  "ID": "dev2-c96",
+  "kind": "compare",
+  "Body_tr": "Mehmet'nin 85 çiçeki var. Emre'nin 74 çiçeki var.",
+  "Question_tr": "Mehmet, Emre'den kaç çiçek fazla?",
+  "gold": 11
+ },
+ {
+  "ID": "dev2-d96",
+  "kind": "divide",
+  "Body_tr": "Selin'nin 45 kurabiyei var. Hepsini eşit olarak 5 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kurabiye var?",
+  "gold": 9
+ },
+ {
+  "ID": "dev2-m96",
+  "kind": "multi",
+  "Body_tr": "Selin 5 kutu ve Mehmet 25 kutu topladı. Selin 4 kutu verdi.",
+  "Question_tr": "Şimdi toplam kaç kutu var?",
+  "gold": 26
+ },
+ {
+  "ID": "dev2-c97",
+  "kind": "compare",
+  "Body_tr": "Zeynep'nin 78 kurabiyei var. Mehmet'nin 16 kurabiyei var.",
+  "Question_tr": "Zeynep, Mehmet'den kaç kurabiye fazla?",
+  "gold": 62
+ },
+ {
+  "ID": "dev2-d97",
+  "kind": "divide",
+  "Body_tr": "Mehmet'nin 30 kutui var. Hepsini eşit olarak 6 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kutu var?",
+  "gold": 5
+ },
+ {
+  "ID": "dev2-m97",
+  "kind": "multi",
+  "Body_tr": "Selin 23 balon ve Derya 31 balon topladı. Selin 13 balon verdi.",
+  "Question_tr": "Şimdi toplam kaç balon var?",
+  "gold": 41
+ },
+ {
+  "ID": "dev2-c98",
+  "kind": "compare",
+  "Body_tr": "Ali'nin 32 kalemi var. Elif'nin 14 kalemi var.",
+  "Question_tr": "Ali, Elif'den kaç kalem fazla?",
+  "gold": 18
+ },
+ {
+  "ID": "dev2-d98",
+  "kind": "divide",
+  "Body_tr": "Derya'nin 18 kutui var. Hepsini eşit olarak 3 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç kutu var?",
+  "gold": 6
+ },
+ {
+  "ID": "dev2-m98",
+  "kind": "multi",
+  "Body_tr": "Emre 25 kurabiye ve Zeynep 57 kurabiye topladı. Emre 22 kurabiye verdi.",
+  "Question_tr": "Şimdi toplam kaç kurabiye var?",
+  "gold": 60
+ },
+ {
+  "ID": "dev2-c99",
+  "kind": "compare",
+  "Body_tr": "Derya'nin 51 elmai var. Ayşe'nin 24 elmai var.",
+  "Question_tr": "Derya, Ayşe'den kaç elma fazla?",
+  "gold": 27
+ },
+ {
+  "ID": "dev2-d99",
+  "kind": "divide",
+  "Body_tr": "Ayşe'nin 15 şekeri var. Hepsini eşit olarak 3 kutuya koydu.",
+  "Question_tr": "Her kutuda kaç şeker var?",
+  "gold": 5
+ },
+ {
+  "ID": "dev2-m99",
+  "kind": "multi",
+  "Body_tr": "Ali 55 balon ve Ayşe 6 balon topladı. Ali 32 balon verdi.",
+  "Question_tr": "Şimdi toplam kaç balon var?",
+  "gold": 29
+ }
+]

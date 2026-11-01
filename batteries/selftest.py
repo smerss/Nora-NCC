@@ -97,7 +97,7 @@ def main():
     r_univ = agi.converse("Bütün kediler memelidir. Pamuk bir kedidir. Pamuk memeli midir?")
     check("evrensel 'Bütün X Y'dir' zinciri evet ile yanıtlanır", strip_prefixes(r_univ).lower().startswith("evet"), r_univ)
     r_unk = agi.converse("Ejderha memeli midir?")
-    check("bilinmeyen evet/hayır sorusu önceki cümleyi tekrarlamaz", "bilgim yok" in r_unk or "bilgisini" in r_unk, r_unk)
+    check("bilinmeyen evet/hayır sorusu önceki cümleyi tekrarlamaz", "bilgim yok" in r_unk or "bilgisini" in r_unk or "çıkaramıyorum" in r_unk, r_unk)
     r_wp = agi.converse("1. Ali'nin 8 elması var. 3 tanesini yerse kaç elması kalır?")
     check("kelime problemi çıkarma (8 - 3 = 5)", "= 5" in r_wp, r_wp)
     r_add = agi.converse("1. Ali'nin 5 elması var. Ayşe ona 3 elma veriyor. Ali'nin kaç elması olur?")

@@ -25,6 +25,7 @@ from nora._paths import REPO_ROOT
 
 
 from dataclasses import dataclass, field
+import os
 import re
 import numpy as np
 
@@ -827,6 +828,12 @@ class TurkishMorphology:
     def _analyze_word_uncached(cls, raw: str, lexicon: set[str] | None = None) -> dict:
         """Sözlük-duyarlı çözümleme: ham çözümlemeyi yapar, sonra uydurma kök soymayı geri alır.
         ('zürafa'->'züraf'+DAT, 'matematik'->'mat'+fiil gibi hatalar anlamayı bozuyordu.)"""
+        # SÖZLÜK KORUMASI: yüzey biçim sözlükte kayıtlıysa soyulmaz ('bitki'→'bit', 'dünya'→'dün'
+        # gibi uydurma kesmeler buradan çıkar). Sözlük yoksa ya da sözcük kayıtlı değilse eski yol.
+        surface = re.sub(r"[^\wçğıöşüÇĞİÖŞÜ-]", "", tr_lower(raw))
+        if lexicon and len(surface) > 2 and surface in lexicon:
+            return {"surface": surface, "stem": surface, "case": "NOM", "plural": False, "neg": False,
+                    "copula": False, "is_verb": False}
         info = cls._analyze_word_raw(raw, lexicon)
         known = cls._known_vocab(lexicon)
         # FONOTAKTİK KAPI (sözlükten bağımsız): soyulan gövde Türkçe biçimde değilse
@@ -2955,6 +2962,12 @@ class BrocaGenerator:
                 o = o.replace(word, tr_lower(word))
         r = p.rel
 
+        if r == "CAPITAL":
+            clean_o = o.rstrip(".!?, ")
+            s_gen = self._surface_case(s, "GEN")
+            pred = self._copula_phrase(clean_o)
+            return f"{s_gen} başkenti {clean_o} değildir" if p.neg else f"{s_gen} başkenti {pred}"
+
         if r == "ISA":
             clean_o = o.rstrip(".!?, ")
             # Belirtili tamlamada belgisiz artikel tamlayanın önüne gelmez:
@@ -2966,6 +2979,9 @@ class BrocaGenerator:
 
         if r == "HAS_PROP":
             clean_o = o.rstrip(".!?, ")
+            if clean_o.startswith("başkenti "):
+                s_gen = self._surface_case(s, "GEN")
+                return f"{s_gen} {self._copula_phrase(clean_o)}"
             if p.neg:
                 return f"{s} {clean_o} değildir"
             return f"{s} {self._copula_phrase(clean_o)}"
@@ -3118,8 +3134,15 @@ class BrocaGenerator:
         if state == "unknown":
             word_acc = self.morph.inflect_noun("kelime", "ACC", poss3=True)
             heard = self.morph.conjugate_verb("duy", tense="PAST", person="1SG")
-            text = (f"{surface} {word_acc} {heard}; kavram {knowledge} yok ve "
-                    f"doğrulanmış {definition} yok.")
+            # Bilinmezlik cümlesinin kalıbı donanım entropisiyle seçilir: her seferinde aynı
+            # 'kavram bilgim yok' cümlesi dönmez; anlam aynı, söyleyiş değişir.
+            frames = (
+                f"{surface} {word_acc} {heard}; kavram {knowledge} yok ve doğrulanmış {definition} yok.",
+                f"{surface} hakkında {knowledge} yok; doğrulanmış bir {definition} da yok.",
+                f"{surface} {word_acc} {heard}, ama onun için doğrulanmış bir {definition} bende yok.",
+                f"{surface} için doğrulanmış bir {definition} yok; {knowledge} de henüz eksik.",
+            )
+            text = frames[int.from_bytes(os.urandom(2), "big") % len(frames)]
             return tr_capitalize(text)
         clauses = []
         seen_content: list[set[str]] = []

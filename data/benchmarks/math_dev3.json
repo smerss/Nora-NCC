@@ -1,0 +1,1262 @@
+[
+ {
+  "ID": "dev3-a0",
+  "kind": "add",
+  "Body_tr": "Sepette 8 boncuk vardı. Sena sepete 42 boncuk daha koydu.",
+  "Question_tr": "Son durumda kaç boncuk var?",
+  "gold": 50
+ },
+ {
+  "ID": "dev3-r0",
+  "kind": "remove",
+  "Body_tr": "Sena'de 51 tohum vardı. Bunların 19 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç tohum kaldı?",
+  "gold": 32
+ },
+ {
+  "ID": "dev3-c0",
+  "kind": "compare",
+  "Body_tr": "Hakan'nın 37 rozeti var, Ece'nin ise 6 rozeti var.",
+  "Question_tr": "Hakan, Ece'den kaç rozet fazla?",
+  "gold": 31
+ },
+ {
+  "ID": "dev3-a1",
+  "kind": "add",
+  "Body_tr": "Sepette 78 boncuk vardı. Hakan sepete 51 boncuk daha koydu.",
+  "Question_tr": "Son durumda kaç boncuk var?",
+  "gold": 129
+ },
+ {
+  "ID": "dev3-r1",
+  "kind": "remove",
+  "Body_tr": "Tolga'de 13 defter vardı. Bunların 4 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç defter kaldı?",
+  "gold": 9
+ },
+ {
+  "ID": "dev3-c1",
+  "kind": "compare",
+  "Body_tr": "Hakan'nın 23 mumi var, Gül'nin ise 12 mumi var.",
+  "Question_tr": "Hakan, Gül'den kaç mum fazla?",
+  "gold": 11
+ },
+ {
+  "ID": "dev3-a2",
+  "kind": "add",
+  "Body_tr": "Sepette 62 madalya vardı. Nazlı sepete 6 madalya daha koydu.",
+  "Question_tr": "Son durumda kaç madalya var?",
+  "gold": 68
+ },
+ {
+  "ID": "dev3-r2",
+  "kind": "remove",
+  "Body_tr": "Ece'de 10 mum vardı. Bunların 7 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç mum kaldı?",
+  "gold": 3
+ },
+ {
+  "ID": "dev3-c2",
+  "kind": "compare",
+  "Body_tr": "Hakan'nın 71 mumi var, Ece'nin ise 48 mumi var.",
+  "Question_tr": "Hakan, Ece'den kaç mum fazla?",
+  "gold": 23
+ },
+ {
+  "ID": "dev3-a3",
+  "kind": "add",
+  "Body_tr": "Sepette 46 tohum vardı. Sena sepete 50 tohum daha koydu.",
+  "Question_tr": "Son durumda kaç tohum var?",
+  "gold": 96
+ },
+ {
+  "ID": "dev3-r3",
+  "kind": "remove",
+  "Body_tr": "Ece'de 54 boncuk vardı. Bunların 40 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç boncuk kaldı?",
+  "gold": 14
+ },
+ {
+  "ID": "dev3-c3",
+  "kind": "compare",
+  "Body_tr": "Tolga'nın 41 rozeti var, Hakan'nin ise 10 rozeti var.",
+  "Question_tr": "Tolga, Hakan'den kaç rozet fazla?",
+  "gold": 31
+ },
+ {
+  "ID": "dev3-a4",
+  "kind": "add",
+  "Body_tr": "Sepette 26 boncuk vardı. Ece sepete 21 boncuk daha koydu.",
+  "Question_tr": "Son durumda kaç boncuk var?",
+  "gold": 47
+ },
+ {
+  "ID": "dev3-r4",
+  "kind": "remove",
+  "Body_tr": "Tolga'de 20 oyuncak vardı. Bunların 5 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç oyuncak kaldı?",
+  "gold": 15
+ },
+ {
+  "ID": "dev3-c4",
+  "kind": "compare",
+  "Body_tr": "Sena'nın 77 tohumi var, Tolga'nin ise 47 tohumi var.",
+  "Question_tr": "Sena, Tolga'den kaç tohum fazla?",
+  "gold": 30
+ },
+ {
+  "ID": "dev3-a5",
+  "kind": "add",
+  "Body_tr": "Sepette 68 madalya vardı. Tolga sepete 17 madalya daha koydu.",
+  "Question_tr": "Son durumda kaç madalya var?",
+  "gold": 85
+ },
+ {
+  "ID": "dev3-r5",
+  "kind": "remove",
+  "Body_tr": "Gül'de 63 rozet vardı. Bunların 36 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç rozet kaldı?",
+  "gold": 27
+ },
+ {
+  "ID": "dev3-c5",
+  "kind": "compare",
+  "Body_tr": "Sena'nın 42 madalyai var, Gül'nin ise 28 madalyai var.",
+  "Question_tr": "Sena, Gül'den kaç madalya fazla?",
+  "gold": 14
+ },
+ {
+  "ID": "dev3-a6",
+  "kind": "add",
+  "Body_tr": "Sepette 44 defter vardı. Sena sepete 60 defter daha koydu.",
+  "Question_tr": "Son durumda kaç defter var?",
+  "gold": 104
+ },
+ {
+  "ID": "dev3-r6",
+  "kind": "remove",
+  "Body_tr": "Mert'de 22 madalya vardı. Bunların 15 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç madalya kaldı?",
+  "gold": 7
+ },
+ {
+  "ID": "dev3-c6",
+  "kind": "compare",
+  "Body_tr": "Mert'nın 88 meyvei var, Kerem'nin ise 52 meyvei var.",
+  "Question_tr": "Mert, Kerem'den kaç meyve fazla?",
+  "gold": 36
+ },
+ {
+  "ID": "dev3-a7",
+  "kind": "add",
+  "Body_tr": "Sepette 37 madalya vardı. Sena sepete 47 madalya daha koydu.",
+  "Question_tr": "Son durumda kaç madalya var?",
+  "gold": 84
+ },
+ {
+  "ID": "dev3-r7",
+  "kind": "remove",
+  "Body_tr": "Sena'de 37 rozet vardı. Bunların 29 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç rozet kaldı?",
+  "gold": 8
+ },
+ {
+  "ID": "dev3-c7",
+  "kind": "compare",
+  "Body_tr": "Kerem'nın 84 boncuki var, Gül'nin ise 56 boncuki var.",
+  "Question_tr": "Kerem, Gül'den kaç boncuk fazla?",
+  "gold": 28
+ },
+ {
+  "ID": "dev3-a8",
+  "kind": "add",
+  "Body_tr": "Sepette 19 tohum vardı. Mert sepete 58 tohum daha koydu.",
+  "Question_tr": "Son durumda kaç tohum var?",
+  "gold": 77
+ },
+ {
+  "ID": "dev3-r8",
+  "kind": "remove",
+  "Body_tr": "Tolga'de 69 madalya vardı. Bunların 49 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç madalya kaldı?",
+  "gold": 20
+ },
+ {
+  "ID": "dev3-c8",
+  "kind": "compare",
+  "Body_tr": "Ece'nın 62 boncuki var, Mert'nin ise 60 boncuki var.",
+  "Question_tr": "Ece, Mert'den kaç boncuk fazla?",
+  "gold": 2
+ },
+ {
+  "ID": "dev3-a9",
+  "kind": "add",
+  "Body_tr": "Sepette 11 boncuk vardı. Mert sepete 35 boncuk daha koydu.",
+  "Question_tr": "Son durumda kaç boncuk var?",
+  "gold": 46
+ },
+ {
+  "ID": "dev3-r9",
+  "kind": "remove",
+  "Body_tr": "Tolga'de 36 boncuk vardı. Bunların 16 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç boncuk kaldı?",
+  "gold": 20
+ },
+ {
+  "ID": "dev3-c9",
+  "kind": "compare",
+  "Body_tr": "Kerem'nın 32 boncuki var, Hakan'nin ise 25 boncuki var.",
+  "Question_tr": "Kerem, Hakan'den kaç boncuk fazla?",
+  "gold": 7
+ },
+ {
+  "ID": "dev3-a10",
+  "kind": "add",
+  "Body_tr": "Sepette 63 rozet vardı. Nazlı sepete 60 rozet daha koydu.",
+  "Question_tr": "Son durumda kaç rozet var?",
+  "gold": 123
+ },
+ {
+  "ID": "dev3-r10",
+  "kind": "remove",
+  "Body_tr": "Mert'de 44 oyuncak vardı. Bunların 17 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç oyuncak kaldı?",
+  "gold": 27
+ },
+ {
+  "ID": "dev3-c10",
+  "kind": "compare",
+  "Body_tr": "Kerem'nın 86 boncuki var, Mert'nin ise 48 boncuki var.",
+  "Question_tr": "Kerem, Mert'den kaç boncuk fazla?",
+  "gold": 38
+ },
+ {
+  "ID": "dev3-a11",
+  "kind": "add",
+  "Body_tr": "Sepette 14 boncuk vardı. Hakan sepete 12 boncuk daha koydu.",
+  "Question_tr": "Son durumda kaç boncuk var?",
+  "gold": 26
+ },
+ {
+  "ID": "dev3-r11",
+  "kind": "remove",
+  "Body_tr": "Gül'de 22 mum vardı. Bunların 2 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç mum kaldı?",
+  "gold": 20
+ },
+ {
+  "ID": "dev3-c11",
+  "kind": "compare",
+  "Body_tr": "Tolga'nın 49 boncuki var, Sena'nin ise 22 boncuki var.",
+  "Question_tr": "Tolga, Sena'den kaç boncuk fazla?",
+  "gold": 27
+ },
+ {
+  "ID": "dev3-a12",
+  "kind": "add",
+  "Body_tr": "Sepette 29 boncuk vardı. Nazlı sepete 56 boncuk daha koydu.",
+  "Question_tr": "Son durumda kaç boncuk var?",
+  "gold": 85
+ },
+ {
+  "ID": "dev3-r12",
+  "kind": "remove",
+  "Body_tr": "Tolga'de 27 tohum vardı. Bunların 17 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç tohum kaldı?",
+  "gold": 10
+ },
+ {
+  "ID": "dev3-c12",
+  "kind": "compare",
+  "Body_tr": "Gül'nın 73 defteri var, Sena'nin ise 57 defteri var.",
+  "Question_tr": "Gül, Sena'den kaç defter fazla?",
+  "gold": 16
+ },
+ {
+  "ID": "dev3-a13",
+  "kind": "add",
+  "Body_tr": "Sepette 12 tohum vardı. Ece sepete 52 tohum daha koydu.",
+  "Question_tr": "Son durumda kaç tohum var?",
+  "gold": 64
+ },
+ {
+  "ID": "dev3-r13",
+  "kind": "remove",
+  "Body_tr": "Ece'de 88 tohum vardı. Bunların 56 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç tohum kaldı?",
+  "gold": 32
+ },
+ {
+  "ID": "dev3-c13",
+  "kind": "compare",
+  "Body_tr": "Hakan'nın 62 oyuncaki var, Sena'nin ise 53 oyuncaki var.",
+  "Question_tr": "Hakan, Sena'den kaç oyuncak fazla?",
+  "gold": 9
+ },
+ {
+  "ID": "dev3-a14",
+  "kind": "add",
+  "Body_tr": "Sepette 10 rozet vardı. Mert sepete 24 rozet daha koydu.",
+  "Question_tr": "Son durumda kaç rozet var?",
+  "gold": 34
+ },
+ {
+  "ID": "dev3-r14",
+  "kind": "remove",
+  "Body_tr": "Tolga'de 31 tohum vardı. Bunların 29 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç tohum kaldı?",
+  "gold": 2
+ },
+ {
+  "ID": "dev3-c14",
+  "kind": "compare",
+  "Body_tr": "Hakan'nın 47 mumi var, Gül'nin ise 32 mumi var.",
+  "Question_tr": "Hakan, Gül'den kaç mum fazla?",
+  "gold": 15
+ },
+ {
+  "ID": "dev3-a15",
+  "kind": "add",
+  "Body_tr": "Sepette 68 mum vardı. Nazlı sepete 9 mum daha koydu.",
+  "Question_tr": "Son durumda kaç mum var?",
+  "gold": 77
+ },
+ {
+  "ID": "dev3-r15",
+  "kind": "remove",
+  "Body_tr": "Ece'de 37 madalya vardı. Bunların 19 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç madalya kaldı?",
+  "gold": 18
+ },
+ {
+  "ID": "dev3-c15",
+  "kind": "compare",
+  "Body_tr": "Ece'nın 39 boncuki var, Mert'nin ise 33 boncuki var.",
+  "Question_tr": "Ece, Mert'den kaç boncuk fazla?",
+  "gold": 6
+ },
+ {
+  "ID": "dev3-a16",
+  "kind": "add",
+  "Body_tr": "Sepette 22 tohum vardı. Tolga sepete 48 tohum daha koydu.",
+  "Question_tr": "Son durumda kaç tohum var?",
+  "gold": 70
+ },
+ {
+  "ID": "dev3-r16",
+  "kind": "remove",
+  "Body_tr": "Kerem'de 21 defter vardı. Bunların 6 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç defter kaldı?",
+  "gold": 15
+ },
+ {
+  "ID": "dev3-c16",
+  "kind": "compare",
+  "Body_tr": "Gül'nın 53 madalyai var, Tolga'nin ise 13 madalyai var.",
+  "Question_tr": "Gül, Tolga'den kaç madalya fazla?",
+  "gold": 40
+ },
+ {
+  "ID": "dev3-a17",
+  "kind": "add",
+  "Body_tr": "Sepette 77 mum vardı. Mert sepete 51 mum daha koydu.",
+  "Question_tr": "Son durumda kaç mum var?",
+  "gold": 128
+ },
+ {
+  "ID": "dev3-r17",
+  "kind": "remove",
+  "Body_tr": "Tolga'de 62 meyve vardı. Bunların 27 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç meyve kaldı?",
+  "gold": 35
+ },
+ {
+  "ID": "dev3-c17",
+  "kind": "compare",
+  "Body_tr": "Hakan'nın 42 oyuncaki var, Kerem'nin ise 38 oyuncaki var.",
+  "Question_tr": "Hakan, Kerem'den kaç oyuncak fazla?",
+  "gold": 4
+ },
+ {
+  "ID": "dev3-a18",
+  "kind": "add",
+  "Body_tr": "Sepette 16 rozet vardı. Tolga sepete 5 rozet daha koydu.",
+  "Question_tr": "Son durumda kaç rozet var?",
+  "gold": 21
+ },
+ {
+  "ID": "dev3-r18",
+  "kind": "remove",
+  "Body_tr": "Hakan'de 35 rozet vardı. Bunların 21 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç rozet kaldı?",
+  "gold": 14
+ },
+ {
+  "ID": "dev3-c18",
+  "kind": "compare",
+  "Body_tr": "Ece'nın 76 madalyai var, Hakan'nin ise 48 madalyai var.",
+  "Question_tr": "Ece, Hakan'den kaç madalya fazla?",
+  "gold": 28
+ },
+ {
+  "ID": "dev3-a19",
+  "kind": "add",
+  "Body_tr": "Sepette 69 oyuncak vardı. Sena sepete 3 oyuncak daha koydu.",
+  "Question_tr": "Son durumda kaç oyuncak var?",
+  "gold": 72
+ },
+ {
+  "ID": "dev3-r19",
+  "kind": "remove",
+  "Body_tr": "Nazlı'de 65 oyuncak vardı. Bunların 43 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç oyuncak kaldı?",
+  "gold": 22
+ },
+ {
+  "ID": "dev3-c19",
+  "kind": "compare",
+  "Body_tr": "Gül'nın 77 rozeti var, Ece'nin ise 48 rozeti var.",
+  "Question_tr": "Gül, Ece'den kaç rozet fazla?",
+  "gold": 29
+ },
+ {
+  "ID": "dev3-a20",
+  "kind": "add",
+  "Body_tr": "Sepette 6 mum vardı. Mert sepete 45 mum daha koydu.",
+  "Question_tr": "Son durumda kaç mum var?",
+  "gold": 51
+ },
+ {
+  "ID": "dev3-r20",
+  "kind": "remove",
+  "Body_tr": "Ece'de 40 oyuncak vardı. Bunların 25 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç oyuncak kaldı?",
+  "gold": 15
+ },
+ {
+  "ID": "dev3-c20",
+  "kind": "compare",
+  "Body_tr": "Tolga'nın 57 meyvei var, Nazlı'nin ise 25 meyvei var.",
+  "Question_tr": "Tolga, Nazlı'den kaç meyve fazla?",
+  "gold": 32
+ },
+ {
+  "ID": "dev3-a21",
+  "kind": "add",
+  "Body_tr": "Sepette 48 rozet vardı. Kerem sepete 58 rozet daha koydu.",
+  "Question_tr": "Son durumda kaç rozet var?",
+  "gold": 106
+ },
+ {
+  "ID": "dev3-r21",
+  "kind": "remove",
+  "Body_tr": "Hakan'de 21 boncuk vardı. Bunların 10 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç boncuk kaldı?",
+  "gold": 11
+ },
+ {
+  "ID": "dev3-c21",
+  "kind": "compare",
+  "Body_tr": "Ece'nın 61 meyvei var, Nazlı'nin ise 59 meyvei var.",
+  "Question_tr": "Ece, Nazlı'den kaç meyve fazla?",
+  "gold": 2
+ },
+ {
+  "ID": "dev3-a22",
+  "kind": "add",
+  "Body_tr": "Sepette 53 defter vardı. Ece sepete 10 defter daha koydu.",
+  "Question_tr": "Son durumda kaç defter var?",
+  "gold": 63
+ },
+ {
+  "ID": "dev3-r22",
+  "kind": "remove",
+  "Body_tr": "Hakan'de 77 oyuncak vardı. Bunların 18 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç oyuncak kaldı?",
+  "gold": 59
+ },
+ {
+  "ID": "dev3-c22",
+  "kind": "compare",
+  "Body_tr": "Hakan'nın 34 defteri var, Mert'nin ise 16 defteri var.",
+  "Question_tr": "Hakan, Mert'den kaç defter fazla?",
+  "gold": 18
+ },
+ {
+  "ID": "dev3-a23",
+  "kind": "add",
+  "Body_tr": "Sepette 15 meyve vardı. Ece sepete 36 meyve daha koydu.",
+  "Question_tr": "Son durumda kaç meyve var?",
+  "gold": 51
+ },
+ {
+  "ID": "dev3-r23",
+  "kind": "remove",
+  "Body_tr": "Tolga'de 23 rozet vardı. Bunların 19 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç rozet kaldı?",
+  "gold": 4
+ },
+ {
+  "ID": "dev3-c23",
+  "kind": "compare",
+  "Body_tr": "Mert'nın 49 madalyai var, Gül'nin ise 34 madalyai var.",
+  "Question_tr": "Mert, Gül'den kaç madalya fazla?",
+  "gold": 15
+ },
+ {
+  "ID": "dev3-a24",
+  "kind": "add",
+  "Body_tr": "Sepette 55 oyuncak vardı. Tolga sepete 22 oyuncak daha koydu.",
+  "Question_tr": "Son durumda kaç oyuncak var?",
+  "gold": 77
+ },
+ {
+  "ID": "dev3-r24",
+  "kind": "remove",
+  "Body_tr": "Gül'de 79 madalya vardı. Bunların 15 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç madalya kaldı?",
+  "gold": 64
+ },
+ {
+  "ID": "dev3-c24",
+  "kind": "compare",
+  "Body_tr": "Nazlı'nın 37 madalyai var, Tolga'nin ise 14 madalyai var.",
+  "Question_tr": "Nazlı, Tolga'den kaç madalya fazla?",
+  "gold": 23
+ },
+ {
+  "ID": "dev3-a25",
+  "kind": "add",
+  "Body_tr": "Sepette 48 mum vardı. Nazlı sepete 3 mum daha koydu.",
+  "Question_tr": "Son durumda kaç mum var?",
+  "gold": 51
+ },
+ {
+  "ID": "dev3-r25",
+  "kind": "remove",
+  "Body_tr": "Ece'de 33 madalya vardı. Bunların 16 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç madalya kaldı?",
+  "gold": 17
+ },
+ {
+  "ID": "dev3-c25",
+  "kind": "compare",
+  "Body_tr": "Tolga'nın 64 boncuki var, Kerem'nin ise 26 boncuki var.",
+  "Question_tr": "Tolga, Kerem'den kaç boncuk fazla?",
+  "gold": 38
+ },
+ {
+  "ID": "dev3-a26",
+  "kind": "add",
+  "Body_tr": "Sepette 33 defter vardı. Kerem sepete 37 defter daha koydu.",
+  "Question_tr": "Son durumda kaç defter var?",
+  "gold": 70
+ },
+ {
+  "ID": "dev3-r26",
+  "kind": "remove",
+  "Body_tr": "Mert'de 20 rozet vardı. Bunların 16 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç rozet kaldı?",
+  "gold": 4
+ },
+ {
+  "ID": "dev3-c26",
+  "kind": "compare",
+  "Body_tr": "Gül'nın 55 mumi var, Mert'nin ise 32 mumi var.",
+  "Question_tr": "Gül, Mert'den kaç mum fazla?",
+  "gold": 23
+ },
+ {
+  "ID": "dev3-a27",
+  "kind": "add",
+  "Body_tr": "Sepette 33 rozet vardı. Mert sepete 24 rozet daha koydu.",
+  "Question_tr": "Son durumda kaç rozet var?",
+  "gold": 57
+ },
+ {
+  "ID": "dev3-r27",
+  "kind": "remove",
+  "Body_tr": "Kerem'de 90 oyuncak vardı. Bunların 56 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç oyuncak kaldı?",
+  "gold": 34
+ },
+ {
+  "ID": "dev3-c27",
+  "kind": "compare",
+  "Body_tr": "Nazlı'nın 53 defteri var, Tolga'nin ise 44 defteri var.",
+  "Question_tr": "Nazlı, Tolga'den kaç defter fazla?",
+  "gold": 9
+ },
+ {
+  "ID": "dev3-a28",
+  "kind": "add",
+  "Body_tr": "Sepette 66 rozet vardı. Ece sepete 34 rozet daha koydu.",
+  "Question_tr": "Son durumda kaç rozet var?",
+  "gold": 100
+ },
+ {
+  "ID": "dev3-r28",
+  "kind": "remove",
+  "Body_tr": "Kerem'de 68 tohum vardı. Bunların 11 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç tohum kaldı?",
+  "gold": 57
+ },
+ {
+  "ID": "dev3-c28",
+  "kind": "compare",
+  "Body_tr": "Ece'nın 57 defteri var, Kerem'nin ise 46 defteri var.",
+  "Question_tr": "Ece, Kerem'den kaç defter fazla?",
+  "gold": 11
+ },
+ {
+  "ID": "dev3-a29",
+  "kind": "add",
+  "Body_tr": "Sepette 69 tohum vardı. Tolga sepete 53 tohum daha koydu.",
+  "Question_tr": "Son durumda kaç tohum var?",
+  "gold": 122
+ },
+ {
+  "ID": "dev3-r29",
+  "kind": "remove",
+  "Body_tr": "Ece'de 55 meyve vardı. Bunların 40 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç meyve kaldı?",
+  "gold": 15
+ },
+ {
+  "ID": "dev3-c29",
+  "kind": "compare",
+  "Body_tr": "Gül'nın 87 mumi var, Tolga'nin ise 55 mumi var.",
+  "Question_tr": "Gül, Tolga'den kaç mum fazla?",
+  "gold": 32
+ },
+ {
+  "ID": "dev3-a30",
+  "kind": "add",
+  "Body_tr": "Sepette 40 rozet vardı. Nazlı sepete 60 rozet daha koydu.",
+  "Question_tr": "Son durumda kaç rozet var?",
+  "gold": 100
+ },
+ {
+  "ID": "dev3-r30",
+  "kind": "remove",
+  "Body_tr": "Sena'de 25 rozet vardı. Bunların 21 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç rozet kaldı?",
+  "gold": 4
+ },
+ {
+  "ID": "dev3-c30",
+  "kind": "compare",
+  "Body_tr": "Gül'nın 26 oyuncaki var, Kerem'nin ise 6 oyuncaki var.",
+  "Question_tr": "Gül, Kerem'den kaç oyuncak fazla?",
+  "gold": 20
+ },
+ {
+  "ID": "dev3-a31",
+  "kind": "add",
+  "Body_tr": "Sepette 39 tohum vardı. Sena sepete 48 tohum daha koydu.",
+  "Question_tr": "Son durumda kaç tohum var?",
+  "gold": 87
+ },
+ {
+  "ID": "dev3-r31",
+  "kind": "remove",
+  "Body_tr": "Ece'de 76 mum vardı. Bunların 63 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç mum kaldı?",
+  "gold": 13
+ },
+ {
+  "ID": "dev3-c31",
+  "kind": "compare",
+  "Body_tr": "Nazlı'nın 62 rozeti var, Kerem'nin ise 55 rozeti var.",
+  "Question_tr": "Nazlı, Kerem'den kaç rozet fazla?",
+  "gold": 7
+ },
+ {
+  "ID": "dev3-a32",
+  "kind": "add",
+  "Body_tr": "Sepette 5 tohum vardı. Mert sepete 8 tohum daha koydu.",
+  "Question_tr": "Son durumda kaç tohum var?",
+  "gold": 13
+ },
+ {
+  "ID": "dev3-r32",
+  "kind": "remove",
+  "Body_tr": "Mert'de 37 rozet vardı. Bunların 24 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç rozet kaldı?",
+  "gold": 13
+ },
+ {
+  "ID": "dev3-c32",
+  "kind": "compare",
+  "Body_tr": "Nazlı'nın 58 tohumi var, Gül'nin ise 53 tohumi var.",
+  "Question_tr": "Nazlı, Gül'den kaç tohum fazla?",
+  "gold": 5
+ },
+ {
+  "ID": "dev3-a33",
+  "kind": "add",
+  "Body_tr": "Sepette 25 meyve vardı. Nazlı sepete 25 meyve daha koydu.",
+  "Question_tr": "Son durumda kaç meyve var?",
+  "gold": 50
+ },
+ {
+  "ID": "dev3-r33",
+  "kind": "remove",
+  "Body_tr": "Sena'de 77 oyuncak vardı. Bunların 42 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç oyuncak kaldı?",
+  "gold": 35
+ },
+ {
+  "ID": "dev3-c33",
+  "kind": "compare",
+  "Body_tr": "Gül'nın 52 rozeti var, Hakan'nin ise 19 rozeti var.",
+  "Question_tr": "Gül, Hakan'den kaç rozet fazla?",
+  "gold": 33
+ },
+ {
+  "ID": "dev3-a34",
+  "kind": "add",
+  "Body_tr": "Sepette 18 meyve vardı. Sena sepete 12 meyve daha koydu.",
+  "Question_tr": "Son durumda kaç meyve var?",
+  "gold": 30
+ },
+ {
+  "ID": "dev3-r34",
+  "kind": "remove",
+  "Body_tr": "Kerem'de 44 mum vardı. Bunların 19 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç mum kaldı?",
+  "gold": 25
+ },
+ {
+  "ID": "dev3-c34",
+  "kind": "compare",
+  "Body_tr": "Gül'nın 50 mumi var, Mert'nin ise 16 mumi var.",
+  "Question_tr": "Gül, Mert'den kaç mum fazla?",
+  "gold": 34
+ },
+ {
+  "ID": "dev3-a35",
+  "kind": "add",
+  "Body_tr": "Sepette 25 tohum vardı. Kerem sepete 24 tohum daha koydu.",
+  "Question_tr": "Son durumda kaç tohum var?",
+  "gold": 49
+ },
+ {
+  "ID": "dev3-r35",
+  "kind": "remove",
+  "Body_tr": "Mert'de 62 defter vardı. Bunların 17 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç defter kaldı?",
+  "gold": 45
+ },
+ {
+  "ID": "dev3-c35",
+  "kind": "compare",
+  "Body_tr": "Nazlı'nın 27 rozeti var, Kerem'nin ise 21 rozeti var.",
+  "Question_tr": "Nazlı, Kerem'den kaç rozet fazla?",
+  "gold": 6
+ },
+ {
+  "ID": "dev3-a36",
+  "kind": "add",
+  "Body_tr": "Sepette 24 meyve vardı. Tolga sepete 56 meyve daha koydu.",
+  "Question_tr": "Son durumda kaç meyve var?",
+  "gold": 80
+ },
+ {
+  "ID": "dev3-r36",
+  "kind": "remove",
+  "Body_tr": "Gül'de 32 rozet vardı. Bunların 23 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç rozet kaldı?",
+  "gold": 9
+ },
+ {
+  "ID": "dev3-c36",
+  "kind": "compare",
+  "Body_tr": "Mert'nın 44 tohumi var, Sena'nin ise 8 tohumi var.",
+  "Question_tr": "Mert, Sena'den kaç tohum fazla?",
+  "gold": 36
+ },
+ {
+  "ID": "dev3-a37",
+  "kind": "add",
+  "Body_tr": "Sepette 7 defter vardı. Sena sepete 31 defter daha koydu.",
+  "Question_tr": "Son durumda kaç defter var?",
+  "gold": 38
+ },
+ {
+  "ID": "dev3-r37",
+  "kind": "remove",
+  "Body_tr": "Kerem'de 25 oyuncak vardı. Bunların 10 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç oyuncak kaldı?",
+  "gold": 15
+ },
+ {
+  "ID": "dev3-c37",
+  "kind": "compare",
+  "Body_tr": "Hakan'nın 58 tohumi var, Tolga'nin ise 26 tohumi var.",
+  "Question_tr": "Hakan, Tolga'den kaç tohum fazla?",
+  "gold": 32
+ },
+ {
+  "ID": "dev3-a38",
+  "kind": "add",
+  "Body_tr": "Sepette 63 meyve vardı. Sena sepete 26 meyve daha koydu.",
+  "Question_tr": "Son durumda kaç meyve var?",
+  "gold": 89
+ },
+ {
+  "ID": "dev3-r38",
+  "kind": "remove",
+  "Body_tr": "Mert'de 23 defter vardı. Bunların 2 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç defter kaldı?",
+  "gold": 21
+ },
+ {
+  "ID": "dev3-c38",
+  "kind": "compare",
+  "Body_tr": "Mert'nın 29 oyuncaki var, Tolga'nin ise 12 oyuncaki var.",
+  "Question_tr": "Mert, Tolga'den kaç oyuncak fazla?",
+  "gold": 17
+ },
+ {
+  "ID": "dev3-a39",
+  "kind": "add",
+  "Body_tr": "Sepette 58 defter vardı. Nazlı sepete 32 defter daha koydu.",
+  "Question_tr": "Son durumda kaç defter var?",
+  "gold": 90
+ },
+ {
+  "ID": "dev3-r39",
+  "kind": "remove",
+  "Body_tr": "Hakan'de 23 madalya vardı. Bunların 16 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç madalya kaldı?",
+  "gold": 7
+ },
+ {
+  "ID": "dev3-c39",
+  "kind": "compare",
+  "Body_tr": "Sena'nın 40 tohumi var, Hakan'nin ise 5 tohumi var.",
+  "Question_tr": "Sena, Hakan'den kaç tohum fazla?",
+  "gold": 35
+ },
+ {
+  "ID": "dev3-a40",
+  "kind": "add",
+  "Body_tr": "Sepette 7 mum vardı. Nazlı sepete 58 mum daha koydu.",
+  "Question_tr": "Son durumda kaç mum var?",
+  "gold": 65
+ },
+ {
+  "ID": "dev3-r40",
+  "kind": "remove",
+  "Body_tr": "Ece'de 27 madalya vardı. Bunların 21 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç madalya kaldı?",
+  "gold": 6
+ },
+ {
+  "ID": "dev3-c40",
+  "kind": "compare",
+  "Body_tr": "Kerem'nın 90 rozeti var, Tolga'nin ise 56 rozeti var.",
+  "Question_tr": "Kerem, Tolga'den kaç rozet fazla?",
+  "gold": 34
+ },
+ {
+  "ID": "dev3-a41",
+  "kind": "add",
+  "Body_tr": "Sepette 22 madalya vardı. Kerem sepete 5 madalya daha koydu.",
+  "Question_tr": "Son durumda kaç madalya var?",
+  "gold": 27
+ },
+ {
+  "ID": "dev3-r41",
+  "kind": "remove",
+  "Body_tr": "Ece'de 23 defter vardı. Bunların 2 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç defter kaldı?",
+  "gold": 21
+ },
+ {
+  "ID": "dev3-c41",
+  "kind": "compare",
+  "Body_tr": "Hakan'nın 44 oyuncaki var, Tolga'nin ise 15 oyuncaki var.",
+  "Question_tr": "Hakan, Tolga'den kaç oyuncak fazla?",
+  "gold": 29
+ },
+ {
+  "ID": "dev3-a42",
+  "kind": "add",
+  "Body_tr": "Sepette 11 oyuncak vardı. Tolga sepete 12 oyuncak daha koydu.",
+  "Question_tr": "Son durumda kaç oyuncak var?",
+  "gold": 23
+ },
+ {
+  "ID": "dev3-r42",
+  "kind": "remove",
+  "Body_tr": "Tolga'de 27 meyve vardı. Bunların 11 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç meyve kaldı?",
+  "gold": 16
+ },
+ {
+  "ID": "dev3-c42",
+  "kind": "compare",
+  "Body_tr": "Tolga'nın 40 defteri var, Hakan'nin ise 28 defteri var.",
+  "Question_tr": "Tolga, Hakan'den kaç defter fazla?",
+  "gold": 12
+ },
+ {
+  "ID": "dev3-a43",
+  "kind": "add",
+  "Body_tr": "Sepette 7 rozet vardı. Kerem sepete 20 rozet daha koydu.",
+  "Question_tr": "Son durumda kaç rozet var?",
+  "gold": 27
+ },
+ {
+  "ID": "dev3-r43",
+  "kind": "remove",
+  "Body_tr": "Tolga'de 76 oyuncak vardı. Bunların 57 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç oyuncak kaldı?",
+  "gold": 19
+ },
+ {
+  "ID": "dev3-c43",
+  "kind": "compare",
+  "Body_tr": "Tolga'nın 42 mumi var, Mert'nin ise 11 mumi var.",
+  "Question_tr": "Tolga, Mert'den kaç mum fazla?",
+  "gold": 31
+ },
+ {
+  "ID": "dev3-a44",
+  "kind": "add",
+  "Body_tr": "Sepette 7 defter vardı. Mert sepete 13 defter daha koydu.",
+  "Question_tr": "Son durumda kaç defter var?",
+  "gold": 20
+ },
+ {
+  "ID": "dev3-r44",
+  "kind": "remove",
+  "Body_tr": "Gül'de 82 mum vardı. Bunların 44 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç mum kaldı?",
+  "gold": 38
+ },
+ {
+  "ID": "dev3-c44",
+  "kind": "compare",
+  "Body_tr": "Mert'nın 20 meyvei var, Tolga'nin ise 15 meyvei var.",
+  "Question_tr": "Mert, Tolga'den kaç meyve fazla?",
+  "gold": 5
+ },
+ {
+  "ID": "dev3-a45",
+  "kind": "add",
+  "Body_tr": "Sepette 46 rozet vardı. Hakan sepete 8 rozet daha koydu.",
+  "Question_tr": "Son durumda kaç rozet var?",
+  "gold": 54
+ },
+ {
+  "ID": "dev3-r45",
+  "kind": "remove",
+  "Body_tr": "Nazlı'de 36 mum vardı. Bunların 22 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç mum kaldı?",
+  "gold": 14
+ },
+ {
+  "ID": "dev3-c45",
+  "kind": "compare",
+  "Body_tr": "Kerem'nın 94 rozeti var, Nazlı'nin ise 55 rozeti var.",
+  "Question_tr": "Kerem, Nazlı'den kaç rozet fazla?",
+  "gold": 39
+ },
+ {
+  "ID": "dev3-a46",
+  "kind": "add",
+  "Body_tr": "Sepette 10 oyuncak vardı. Gül sepete 5 oyuncak daha koydu.",
+  "Question_tr": "Son durumda kaç oyuncak var?",
+  "gold": 15
+ },
+ {
+  "ID": "dev3-r46",
+  "kind": "remove",
+  "Body_tr": "Kerem'de 31 oyuncak vardı. Bunların 19 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç oyuncak kaldı?",
+  "gold": 12
+ },
+ {
+  "ID": "dev3-c46",
+  "kind": "compare",
+  "Body_tr": "Ece'nın 62 meyvei var, Hakan'nin ise 36 meyvei var.",
+  "Question_tr": "Ece, Hakan'den kaç meyve fazla?",
+  "gold": 26
+ },
+ {
+  "ID": "dev3-a47",
+  "kind": "add",
+  "Body_tr": "Sepette 32 madalya vardı. Kerem sepete 24 madalya daha koydu.",
+  "Question_tr": "Son durumda kaç madalya var?",
+  "gold": 56
+ },
+ {
+  "ID": "dev3-r47",
+  "kind": "remove",
+  "Body_tr": "Ece'de 78 rozet vardı. Bunların 10 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç rozet kaldı?",
+  "gold": 68
+ },
+ {
+  "ID": "dev3-c47",
+  "kind": "compare",
+  "Body_tr": "Ece'nın 60 mumi var, Tolga'nin ise 34 mumi var.",
+  "Question_tr": "Ece, Tolga'den kaç mum fazla?",
+  "gold": 26
+ },
+ {
+  "ID": "dev3-a48",
+  "kind": "add",
+  "Body_tr": "Sepette 50 tohum vardı. Sena sepete 47 tohum daha koydu.",
+  "Question_tr": "Son durumda kaç tohum var?",
+  "gold": 97
+ },
+ {
+  "ID": "dev3-r48",
+  "kind": "remove",
+  "Body_tr": "Ece'de 12 defter vardı. Bunların 11 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç defter kaldı?",
+  "gold": 1
+ },
+ {
+  "ID": "dev3-c48",
+  "kind": "compare",
+  "Body_tr": "Gül'nın 79 madalyai var, Ece'nin ise 45 madalyai var.",
+  "Question_tr": "Gül, Ece'den kaç madalya fazla?",
+  "gold": 34
+ },
+ {
+  "ID": "dev3-a49",
+  "kind": "add",
+  "Body_tr": "Sepette 17 tohum vardı. Gül sepete 5 tohum daha koydu.",
+  "Question_tr": "Son durumda kaç tohum var?",
+  "gold": 22
+ },
+ {
+  "ID": "dev3-r49",
+  "kind": "remove",
+  "Body_tr": "Mert'de 10 rozet vardı. Bunların 4 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç rozet kaldı?",
+  "gold": 6
+ },
+ {
+  "ID": "dev3-c49",
+  "kind": "compare",
+  "Body_tr": "Mert'nın 40 boncuki var, Sena'nin ise 39 boncuki var.",
+  "Question_tr": "Mert, Sena'den kaç boncuk fazla?",
+  "gold": 1
+ },
+ {
+  "ID": "dev3-a50",
+  "kind": "add",
+  "Body_tr": "Sepette 44 oyuncak vardı. Nazlı sepete 34 oyuncak daha koydu.",
+  "Question_tr": "Son durumda kaç oyuncak var?",
+  "gold": 78
+ },
+ {
+  "ID": "dev3-r50",
+  "kind": "remove",
+  "Body_tr": "Mert'de 34 tohum vardı. Bunların 3 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç tohum kaldı?",
+  "gold": 31
+ },
+ {
+  "ID": "dev3-c50",
+  "kind": "compare",
+  "Body_tr": "Sena'nın 78 tohumi var, Hakan'nin ise 47 tohumi var.",
+  "Question_tr": "Sena, Hakan'den kaç tohum fazla?",
+  "gold": 31
+ },
+ {
+  "ID": "dev3-a51",
+  "kind": "add",
+  "Body_tr": "Sepette 70 oyuncak vardı. Ece sepete 23 oyuncak daha koydu.",
+  "Question_tr": "Son durumda kaç oyuncak var?",
+  "gold": 93
+ },
+ {
+  "ID": "dev3-r51",
+  "kind": "remove",
+  "Body_tr": "Tolga'de 10 madalya vardı. Bunların 5 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç madalya kaldı?",
+  "gold": 5
+ },
+ {
+  "ID": "dev3-c51",
+  "kind": "compare",
+  "Body_tr": "Kerem'nın 50 tohumi var, Mert'nin ise 34 tohumi var.",
+  "Question_tr": "Kerem, Mert'den kaç tohum fazla?",
+  "gold": 16
+ },
+ {
+  "ID": "dev3-a52",
+  "kind": "add",
+  "Body_tr": "Sepette 9 rozet vardı. Hakan sepete 48 rozet daha koydu.",
+  "Question_tr": "Son durumda kaç rozet var?",
+  "gold": 57
+ },
+ {
+  "ID": "dev3-r52",
+  "kind": "remove",
+  "Body_tr": "Tolga'de 80 madalya vardı. Bunların 9 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç madalya kaldı?",
+  "gold": 71
+ },
+ {
+  "ID": "dev3-c52",
+  "kind": "compare",
+  "Body_tr": "Hakan'nın 23 mumi var, Gül'nin ise 18 mumi var.",
+  "Question_tr": "Hakan, Gül'den kaç mum fazla?",
+  "gold": 5
+ },
+ {
+  "ID": "dev3-a53",
+  "kind": "add",
+  "Body_tr": "Sepette 46 defter vardı. Nazlı sepete 48 defter daha koydu.",
+  "Question_tr": "Son durumda kaç defter var?",
+  "gold": 94
+ },
+ {
+  "ID": "dev3-r53",
+  "kind": "remove",
+  "Body_tr": "Ece'de 84 oyuncak vardı. Bunların 76 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç oyuncak kaldı?",
+  "gold": 8
+ },
+ {
+  "ID": "dev3-c53",
+  "kind": "compare",
+  "Body_tr": "Nazlı'nın 23 meyvei var, Gül'nin ise 10 meyvei var.",
+  "Question_tr": "Nazlı, Gül'den kaç meyve fazla?",
+  "gold": 13
+ },
+ {
+  "ID": "dev3-a54",
+  "kind": "add",
+  "Body_tr": "Sepette 67 defter vardı. Hakan sepete 7 defter daha koydu.",
+  "Question_tr": "Son durumda kaç defter var?",
+  "gold": 74
+ },
+ {
+  "ID": "dev3-r54",
+  "kind": "remove",
+  "Body_tr": "Kerem'de 24 defter vardı. Bunların 12 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç defter kaldı?",
+  "gold": 12
+ },
+ {
+  "ID": "dev3-c54",
+  "kind": "compare",
+  "Body_tr": "Mert'nın 43 meyvei var, Kerem'nin ise 16 meyvei var.",
+  "Question_tr": "Mert, Kerem'den kaç meyve fazla?",
+  "gold": 27
+ },
+ {
+  "ID": "dev3-a55",
+  "kind": "add",
+  "Body_tr": "Sepette 14 defter vardı. Kerem sepete 50 defter daha koydu.",
+  "Question_tr": "Son durumda kaç defter var?",
+  "gold": 64
+ },
+ {
+  "ID": "dev3-r55",
+  "kind": "remove",
+  "Body_tr": "Mert'de 87 oyuncak vardı. Bunların 5 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç oyuncak kaldı?",
+  "gold": 82
+ },
+ {
+  "ID": "dev3-c55",
+  "kind": "compare",
+  "Body_tr": "Gül'nın 46 tohumi var, Tolga'nin ise 38 tohumi var.",
+  "Question_tr": "Gül, Tolga'den kaç tohum fazla?",
+  "gold": 8
+ },
+ {
+  "ID": "dev3-a56",
+  "kind": "add",
+  "Body_tr": "Sepette 26 tohum vardı. Mert sepete 35 tohum daha koydu.",
+  "Question_tr": "Son durumda kaç tohum var?",
+  "gold": 61
+ },
+ {
+  "ID": "dev3-r56",
+  "kind": "remove",
+  "Body_tr": "Sena'de 45 oyuncak vardı. Bunların 40 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç oyuncak kaldı?",
+  "gold": 5
+ },
+ {
+  "ID": "dev3-c56",
+  "kind": "compare",
+  "Body_tr": "Hakan'nın 67 oyuncaki var, Tolga'nin ise 56 oyuncaki var.",
+  "Question_tr": "Hakan, Tolga'den kaç oyuncak fazla?",
+  "gold": 11
+ },
+ {
+  "ID": "dev3-a57",
+  "kind": "add",
+  "Body_tr": "Sepette 41 mum vardı. Ece sepete 12 mum daha koydu.",
+  "Question_tr": "Son durumda kaç mum var?",
+  "gold": 53
+ },
+ {
+  "ID": "dev3-r57",
+  "kind": "remove",
+  "Body_tr": "Tolga'de 54 madalya vardı. Bunların 24 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç madalya kaldı?",
+  "gold": 30
+ },
+ {
+  "ID": "dev3-c57",
+  "kind": "compare",
+  "Body_tr": "Tolga'nın 58 oyuncaki var, Sena'nin ise 18 oyuncaki var.",
+  "Question_tr": "Tolga, Sena'den kaç oyuncak fazla?",
+  "gold": 40
+ },
+ {
+  "ID": "dev3-a58",
+  "kind": "add",
+  "Body_tr": "Sepette 17 tohum vardı. Sena sepete 37 tohum daha koydu.",
+  "Question_tr": "Son durumda kaç tohum var?",
+  "gold": 54
+ },
+ {
+  "ID": "dev3-r58",
+  "kind": "remove",
+  "Body_tr": "Tolga'de 87 defter vardı. Bunların 60 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç defter kaldı?",
+  "gold": 27
+ },
+ {
+  "ID": "dev3-c58",
+  "kind": "compare",
+  "Body_tr": "Sena'nın 44 rozeti var, Kerem'nin ise 35 rozeti var.",
+  "Question_tr": "Sena, Kerem'den kaç rozet fazla?",
+  "gold": 9
+ },
+ {
+  "ID": "dev3-a59",
+  "kind": "add",
+  "Body_tr": "Sepette 28 meyve vardı. Nazlı sepete 57 meyve daha koydu.",
+  "Question_tr": "Son durumda kaç meyve var?",
+  "gold": 85
+ },
+ {
+  "ID": "dev3-r59",
+  "kind": "remove",
+  "Body_tr": "Hakan'de 17 boncuk vardı. Bunların 2 tanesi arkadaşına verildi.",
+  "Question_tr": "Geriye kaç boncuk kaldı?",
+  "gold": 15
+ },
+ {
+  "ID": "dev3-c59",
+  "kind": "compare",
+  "Body_tr": "Hakan'nın 68 meyvei var, Sena'nin ise 42 meyvei var.",
+  "Question_tr": "Hakan, Sena'den kaç meyve fazla?",
+  "gold": 26
+ }
+]

@@ -1,0 +1,1262 @@
+[
+ {
+  "ID": "dev6-distract0",
+  "kind": "distract",
+  "Body_tr": "Melike'nın 36 elmai vardı. Bahçede kuşlar ötüyordu. Melike 3 elma daha aldı.",
+  "Question_tr": "Şimdi kaç elmai var?",
+  "gold": 39
+ },
+ {
+  "ID": "dev6-than0",
+  "kind": "than",
+  "Body_tr": "Serkan 54 kart topladı. Aylin ise 43 kart topladı.",
+  "Question_tr": "Aylin, Serkan'dan kaç kart eksik?",
+  "gold": 11
+ },
+ {
+  "ID": "dev6-remove0",
+  "kind": "remove",
+  "Body_tr": "Sibel'nın 37 karti vardı. Herkes çok yorgundu. Hasan'ye 28 kart verdi.",
+  "Question_tr": "Sibel'nın kaç karti kaldı?",
+  "gold": 9
+ },
+ {
+  "ID": "dev6-distract1",
+  "kind": "distract",
+  "Body_tr": "Rüya'nın 49 kurdelei vardı. Bahçede kuşlar ötüyordu. Rüya 3 kurdele daha aldı.",
+  "Question_tr": "Şimdi kaç kurdelei var?",
+  "gold": 52
+ },
+ {
+  "ID": "dev6-than1",
+  "kind": "than",
+  "Body_tr": "Sibel 35 bilye topladı. Okan ise 12 bilye topladı.",
+  "Question_tr": "Okan, Sibel'dan kaç bilye eksik?",
+  "gold": 23
+ },
+ {
+  "ID": "dev6-remove1",
+  "kind": "remove",
+  "Body_tr": "Serkan'nın 78 bilyei vardı. Hava çok güzeldi. Hasan'ye 22 bilye verdi.",
+  "Question_tr": "Serkan'nın kaç bilyei kaldı?",
+  "gold": 56
+ },
+ {
+  "ID": "dev6-distract2",
+  "kind": "distract",
+  "Body_tr": "Okan'nın 20 elmai vardı. Hava çok güzeldi. Okan 2 elma daha aldı.",
+  "Question_tr": "Şimdi kaç elmai var?",
+  "gold": 22
+ },
+ {
+  "ID": "dev6-than2",
+  "kind": "than",
+  "Body_tr": "Tarık 71 mum topladı. Hasan ise 43 mum topladı.",
+  "Question_tr": "Hasan, Tarık'dan kaç mum eksik?",
+  "gold": 28
+ },
+ {
+  "ID": "dev6-remove2",
+  "kind": "remove",
+  "Body_tr": "Sibel'nın 16 elmai vardı. Okul bugün erken kapandı. Aylin'ye 5 elma verdi.",
+  "Question_tr": "Sibel'nın kaç elmai kaldı?",
+  "gold": 11
+ },
+ {
+  "ID": "dev6-distract3",
+  "kind": "distract",
+  "Body_tr": "Hasan'nın 48 elmai vardı. Okul bugün erken kapandı. Hasan 7 elma daha aldı.",
+  "Question_tr": "Şimdi kaç elmai var?",
+  "gold": 55
+ },
+ {
+  "ID": "dev6-than3",
+  "kind": "than",
+  "Body_tr": "Sibel 65 bilye topladı. Serkan ise 45 bilye topladı.",
+  "Question_tr": "Serkan, Sibel'dan kaç bilye eksik?",
+  "gold": 20
+ },
+ {
+  "ID": "dev6-remove3",
+  "kind": "remove",
+  "Body_tr": "Rüya'nın 63 karti vardı. Herkes çok yorgundu. Aylin'ye 24 kart verdi.",
+  "Question_tr": "Rüya'nın kaç karti kaldı?",
+  "gold": 39
+ },
+ {
+  "ID": "dev6-distract4",
+  "kind": "distract",
+  "Body_tr": "Sibel'nın 40 kurdelei vardı. Herkes çok yorgundu. Sibel 6 kurdele daha aldı.",
+  "Question_tr": "Şimdi kaç kurdelei var?",
+  "gold": 46
+ },
+ {
+  "ID": "dev6-than4",
+  "kind": "than",
+  "Body_tr": "Aylin 43 kart topladı. Melike ise 40 kart topladı.",
+  "Question_tr": "Melike, Aylin'dan kaç kart eksik?",
+  "gold": 3
+ },
+ {
+  "ID": "dev6-remove4",
+  "kind": "remove",
+  "Body_tr": "Melike'nın 54 elmai vardı. Okul bugün erken kapandı. Aylin'ye 12 elma verdi.",
+  "Question_tr": "Melike'nın kaç elmai kaldı?",
+  "gold": 42
+ },
+ {
+  "ID": "dev6-distract5",
+  "kind": "distract",
+  "Body_tr": "Serkan'nın 34 karti vardı. Okul bugün erken kapandı. Serkan 10 kart daha aldı.",
+  "Question_tr": "Şimdi kaç karti var?",
+  "gold": 44
+ },
+ {
+  "ID": "dev6-than5",
+  "kind": "than",
+  "Body_tr": "Sibel 48 bilye topladı. Aylin ise 29 bilye topladı.",
+  "Question_tr": "Aylin, Sibel'dan kaç bilye eksik?",
+  "gold": 19
+ },
+ {
+  "ID": "dev6-remove5",
+  "kind": "remove",
+  "Body_tr": "Sibel'nın 78 mumi vardı. Hava çok güzeldi. Aylin'ye 39 mum verdi.",
+  "Question_tr": "Sibel'nın kaç mumi kaldı?",
+  "gold": 39
+ },
+ {
+  "ID": "dev6-distract6",
+  "kind": "distract",
+  "Body_tr": "Tarık'nın 22 mumi vardı. Bahçede kuşlar ötüyordu. Tarık 10 mum daha aldı.",
+  "Question_tr": "Şimdi kaç mumi var?",
+  "gold": 32
+ },
+ {
+  "ID": "dev6-than6",
+  "kind": "than",
+  "Body_tr": "Tarık 43 kart topladı. Sibel ise 30 kart topladı.",
+  "Question_tr": "Sibel, Tarık'dan kaç kart eksik?",
+  "gold": 13
+ },
+ {
+  "ID": "dev6-remove6",
+  "kind": "remove",
+  "Body_tr": "Serkan'nın 27 bilyei vardı. Herkes çok yorgundu. Sibel'ye 3 bilye verdi.",
+  "Question_tr": "Serkan'nın kaç bilyei kaldı?",
+  "gold": 24
+ },
+ {
+  "ID": "dev6-distract7",
+  "kind": "distract",
+  "Body_tr": "Okan'nın 38 kurdelei vardı. Bahçede kuşlar ötüyordu. Okan 13 kurdele daha aldı.",
+  "Question_tr": "Şimdi kaç kurdelei var?",
+  "gold": 51
+ },
+ {
+  "ID": "dev6-than7",
+  "kind": "than",
+  "Body_tr": "Okan 71 elma topladı. Tarık ise 42 elma topladı.",
+  "Question_tr": "Tarık, Okan'dan kaç elma eksik?",
+  "gold": 29
+ },
+ {
+  "ID": "dev6-remove7",
+  "kind": "remove",
+  "Body_tr": "Serkan'nın 17 mumi vardı. Bahçede kuşlar ötüyordu. Rüya'ye 12 mum verdi.",
+  "Question_tr": "Serkan'nın kaç mumi kaldı?",
+  "gold": 5
+ },
+ {
+  "ID": "dev6-distract8",
+  "kind": "distract",
+  "Body_tr": "Melike'nın 28 elmai vardı. Bahçede kuşlar ötüyordu. Melike 14 elma daha aldı.",
+  "Question_tr": "Şimdi kaç elmai var?",
+  "gold": 42
+ },
+ {
+  "ID": "dev6-than8",
+  "kind": "than",
+  "Body_tr": "Tarık 21 elma topladı. Okan ise 17 elma topladı.",
+  "Question_tr": "Okan, Tarık'dan kaç elma eksik?",
+  "gold": 4
+ },
+ {
+  "ID": "dev6-remove8",
+  "kind": "remove",
+  "Body_tr": "Tarık'nın 80 karti vardı. Okul bugün erken kapandı. Hasan'ye 46 kart verdi.",
+  "Question_tr": "Tarık'nın kaç karti kaldı?",
+  "gold": 34
+ },
+ {
+  "ID": "dev6-distract9",
+  "kind": "distract",
+  "Body_tr": "Sibel'nın 25 bilyei vardı. Hava çok güzeldi. Sibel 4 bilye daha aldı.",
+  "Question_tr": "Şimdi kaç bilyei var?",
+  "gold": 29
+ },
+ {
+  "ID": "dev6-than9",
+  "kind": "than",
+  "Body_tr": "Sibel 28 elma topladı. Melike ise 22 elma topladı.",
+  "Question_tr": "Melike, Sibel'dan kaç elma eksik?",
+  "gold": 6
+ },
+ {
+  "ID": "dev6-remove9",
+  "kind": "remove",
+  "Body_tr": "Melike'nın 20 kurdelei vardı. Herkes çok yorgundu. Sibel'ye 17 kurdele verdi.",
+  "Question_tr": "Melike'nın kaç kurdelei kaldı?",
+  "gold": 3
+ },
+ {
+  "ID": "dev6-distract10",
+  "kind": "distract",
+  "Body_tr": "Serkan'nın 57 bilyei vardı. Hava çok güzeldi. Serkan 16 bilye daha aldı.",
+  "Question_tr": "Şimdi kaç bilyei var?",
+  "gold": 73
+ },
+ {
+  "ID": "dev6-than10",
+  "kind": "than",
+  "Body_tr": "Tarık 42 kurdele topladı. Rüya ise 25 kurdele topladı.",
+  "Question_tr": "Rüya, Tarık'dan kaç kurdele eksik?",
+  "gold": 17
+ },
+ {
+  "ID": "dev6-remove10",
+  "kind": "remove",
+  "Body_tr": "Tarık'nın 63 mumi vardı. Okul bugün erken kapandı. Aylin'ye 43 mum verdi.",
+  "Question_tr": "Tarık'nın kaç mumi kaldı?",
+  "gold": 20
+ },
+ {
+  "ID": "dev6-distract11",
+  "kind": "distract",
+  "Body_tr": "Sibel'nın 18 bilyei vardı. Okul bugün erken kapandı. Sibel 20 bilye daha aldı.",
+  "Question_tr": "Şimdi kaç bilyei var?",
+  "gold": 38
+ },
+ {
+  "ID": "dev6-than11",
+  "kind": "than",
+  "Body_tr": "Serkan 68 kart topladı. Okan ise 44 kart topladı.",
+  "Question_tr": "Okan, Serkan'dan kaç kart eksik?",
+  "gold": 24
+ },
+ {
+  "ID": "dev6-remove11",
+  "kind": "remove",
+  "Body_tr": "Okan'nın 72 mumi vardı. Bahçede kuşlar ötüyordu. Sibel'ye 15 mum verdi.",
+  "Question_tr": "Okan'nın kaç mumi kaldı?",
+  "gold": 57
+ },
+ {
+  "ID": "dev6-distract12",
+  "kind": "distract",
+  "Body_tr": "Sibel'nın 10 elmai vardı. Herkes çok yorgundu. Sibel 14 elma daha aldı.",
+  "Question_tr": "Şimdi kaç elmai var?",
+  "gold": 24
+ },
+ {
+  "ID": "dev6-than12",
+  "kind": "than",
+  "Body_tr": "Serkan 13 elma topladı. Tarık ise 10 elma topladı.",
+  "Question_tr": "Tarık, Serkan'dan kaç elma eksik?",
+  "gold": 3
+ },
+ {
+  "ID": "dev6-remove12",
+  "kind": "remove",
+  "Body_tr": "Melike'nın 80 kurdelei vardı. Herkes çok yorgundu. Tarık'ye 62 kurdele verdi.",
+  "Question_tr": "Melike'nın kaç kurdelei kaldı?",
+  "gold": 18
+ },
+ {
+  "ID": "dev6-distract13",
+  "kind": "distract",
+  "Body_tr": "Melike'nın 14 karti vardı. Hava çok güzeldi. Melike 11 kart daha aldı.",
+  "Question_tr": "Şimdi kaç karti var?",
+  "gold": 25
+ },
+ {
+  "ID": "dev6-than13",
+  "kind": "than",
+  "Body_tr": "Serkan 77 kart topladı. Melike ise 47 kart topladı.",
+  "Question_tr": "Melike, Serkan'dan kaç kart eksik?",
+  "gold": 30
+ },
+ {
+  "ID": "dev6-remove13",
+  "kind": "remove",
+  "Body_tr": "Serkan'nın 59 bilyei vardı. Okul bugün erken kapandı. Tarık'ye 52 bilye verdi.",
+  "Question_tr": "Serkan'nın kaç bilyei kaldı?",
+  "gold": 7
+ },
+ {
+  "ID": "dev6-distract14",
+  "kind": "distract",
+  "Body_tr": "Tarık'nın 40 bilyei vardı. Herkes çok yorgundu. Tarık 8 bilye daha aldı.",
+  "Question_tr": "Şimdi kaç bilyei var?",
+  "gold": 48
+ },
+ {
+  "ID": "dev6-than14",
+  "kind": "than",
+  "Body_tr": "Aylin 38 kurdele topladı. Tarık ise 31 kurdele topladı.",
+  "Question_tr": "Tarık, Aylin'dan kaç kurdele eksik?",
+  "gold": 7
+ },
+ {
+  "ID": "dev6-remove14",
+  "kind": "remove",
+  "Body_tr": "Tarık'nın 21 karti vardı. Hava çok güzeldi. Hasan'ye 11 kart verdi.",
+  "Question_tr": "Tarık'nın kaç karti kaldı?",
+  "gold": 10
+ },
+ {
+  "ID": "dev6-distract15",
+  "kind": "distract",
+  "Body_tr": "Hasan'nın 53 bilyei vardı. Herkes çok yorgundu. Hasan 10 bilye daha aldı.",
+  "Question_tr": "Şimdi kaç bilyei var?",
+  "gold": 63
+ },
+ {
+  "ID": "dev6-than15",
+  "kind": "than",
+  "Body_tr": "Sibel 49 kart topladı. Okan ise 32 kart topladı.",
+  "Question_tr": "Okan, Sibel'dan kaç kart eksik?",
+  "gold": 17
+ },
+ {
+  "ID": "dev6-remove15",
+  "kind": "remove",
+  "Body_tr": "Serkan'nın 30 karti vardı. Hava çok güzeldi. Tarık'ye 28 kart verdi.",
+  "Question_tr": "Serkan'nın kaç karti kaldı?",
+  "gold": 2
+ },
+ {
+  "ID": "dev6-distract16",
+  "kind": "distract",
+  "Body_tr": "Okan'nın 32 elmai vardı. Hava çok güzeldi. Okan 11 elma daha aldı.",
+  "Question_tr": "Şimdi kaç elmai var?",
+  "gold": 43
+ },
+ {
+  "ID": "dev6-than16",
+  "kind": "than",
+  "Body_tr": "Rüya 58 mum topladı. Okan ise 36 mum topladı.",
+  "Question_tr": "Okan, Rüya'dan kaç mum eksik?",
+  "gold": 22
+ },
+ {
+  "ID": "dev6-remove16",
+  "kind": "remove",
+  "Body_tr": "Hasan'nın 31 karti vardı. Hava çok güzeldi. Rüya'ye 27 kart verdi.",
+  "Question_tr": "Hasan'nın kaç karti kaldı?",
+  "gold": 4
+ },
+ {
+  "ID": "dev6-distract17",
+  "kind": "distract",
+  "Body_tr": "Serkan'nın 12 kurdelei vardı. Bahçede kuşlar ötüyordu. Serkan 8 kurdele daha aldı.",
+  "Question_tr": "Şimdi kaç kurdelei var?",
+  "gold": 20
+ },
+ {
+  "ID": "dev6-than17",
+  "kind": "than",
+  "Body_tr": "Hasan 62 mum topladı. Sibel ise 32 mum topladı.",
+  "Question_tr": "Sibel, Hasan'dan kaç mum eksik?",
+  "gold": 30
+ },
+ {
+  "ID": "dev6-remove17",
+  "kind": "remove",
+  "Body_tr": "Okan'nın 38 kurdelei vardı. Hava çok güzeldi. Tarık'ye 13 kurdele verdi.",
+  "Question_tr": "Okan'nın kaç kurdelei kaldı?",
+  "gold": 25
+ },
+ {
+  "ID": "dev6-distract18",
+  "kind": "distract",
+  "Body_tr": "Okan'nın 35 kurdelei vardı. Okul bugün erken kapandı. Okan 13 kurdele daha aldı.",
+  "Question_tr": "Şimdi kaç kurdelei var?",
+  "gold": 48
+ },
+ {
+  "ID": "dev6-than18",
+  "kind": "than",
+  "Body_tr": "Tarık 21 bilye topladı. Rüya ise 7 bilye topladı.",
+  "Question_tr": "Rüya, Tarık'dan kaç bilye eksik?",
+  "gold": 14
+ },
+ {
+  "ID": "dev6-remove18",
+  "kind": "remove",
+  "Body_tr": "Hasan'nın 27 bilyei vardı. Hava çok güzeldi. Serkan'ye 15 bilye verdi.",
+  "Question_tr": "Hasan'nın kaç bilyei kaldı?",
+  "gold": 12
+ },
+ {
+  "ID": "dev6-distract19",
+  "kind": "distract",
+  "Body_tr": "Rüya'nın 54 bilyei vardı. Bahçede kuşlar ötüyordu. Rüya 13 bilye daha aldı.",
+  "Question_tr": "Şimdi kaç bilyei var?",
+  "gold": 67
+ },
+ {
+  "ID": "dev6-than19",
+  "kind": "than",
+  "Body_tr": "Melike 27 elma topladı. Serkan ise 20 elma topladı.",
+  "Question_tr": "Serkan, Melike'dan kaç elma eksik?",
+  "gold": 7
+ },
+ {
+  "ID": "dev6-remove19",
+  "kind": "remove",
+  "Body_tr": "Rüya'nın 16 mumi vardı. Okul bugün erken kapandı. Melike'ye 11 mum verdi.",
+  "Question_tr": "Rüya'nın kaç mumi kaldı?",
+  "gold": 5
+ },
+ {
+  "ID": "dev6-distract20",
+  "kind": "distract",
+  "Body_tr": "Okan'nın 39 mumi vardı. Bahçede kuşlar ötüyordu. Okan 5 mum daha aldı.",
+  "Question_tr": "Şimdi kaç mumi var?",
+  "gold": 44
+ },
+ {
+  "ID": "dev6-than20",
+  "kind": "than",
+  "Body_tr": "Rüya 51 kurdele topladı. Melike ise 31 kurdele topladı.",
+  "Question_tr": "Melike, Rüya'dan kaç kurdele eksik?",
+  "gold": 20
+ },
+ {
+  "ID": "dev6-remove20",
+  "kind": "remove",
+  "Body_tr": "Aylin'nın 54 karti vardı. Hava çok güzeldi. Rüya'ye 15 kart verdi.",
+  "Question_tr": "Aylin'nın kaç karti kaldı?",
+  "gold": 39
+ },
+ {
+  "ID": "dev6-distract21",
+  "kind": "distract",
+  "Body_tr": "Rüya'nın 26 karti vardı. Hava çok güzeldi. Rüya 3 kart daha aldı.",
+  "Question_tr": "Şimdi kaç karti var?",
+  "gold": 29
+ },
+ {
+  "ID": "dev6-than21",
+  "kind": "than",
+  "Body_tr": "Serkan 20 elma topladı. Okan ise 8 elma topladı.",
+  "Question_tr": "Okan, Serkan'dan kaç elma eksik?",
+  "gold": 12
+ },
+ {
+  "ID": "dev6-remove21",
+  "kind": "remove",
+  "Body_tr": "Rüya'nın 24 kurdelei vardı. Herkes çok yorgundu. Hasan'ye 5 kurdele verdi.",
+  "Question_tr": "Rüya'nın kaç kurdelei kaldı?",
+  "gold": 19
+ },
+ {
+  "ID": "dev6-distract22",
+  "kind": "distract",
+  "Body_tr": "Melike'nın 43 bilyei vardı. Okul bugün erken kapandı. Melike 10 bilye daha aldı.",
+  "Question_tr": "Şimdi kaç bilyei var?",
+  "gold": 53
+ },
+ {
+  "ID": "dev6-than22",
+  "kind": "than",
+  "Body_tr": "Tarık 50 kurdele topladı. Hasan ise 48 kurdele topladı.",
+  "Question_tr": "Hasan, Tarık'dan kaç kurdele eksik?",
+  "gold": 2
+ },
+ {
+  "ID": "dev6-remove22",
+  "kind": "remove",
+  "Body_tr": "Rüya'nın 67 kurdelei vardı. Bahçede kuşlar ötüyordu. Melike'ye 16 kurdele verdi.",
+  "Question_tr": "Rüya'nın kaç kurdelei kaldı?",
+  "gold": 51
+ },
+ {
+  "ID": "dev6-distract23",
+  "kind": "distract",
+  "Body_tr": "Okan'nın 37 elmai vardı. Herkes çok yorgundu. Okan 13 elma daha aldı.",
+  "Question_tr": "Şimdi kaç elmai var?",
+  "gold": 50
+ },
+ {
+  "ID": "dev6-than23",
+  "kind": "than",
+  "Body_tr": "Rüya 74 kart topladı. Sibel ise 45 kart topladı.",
+  "Question_tr": "Sibel, Rüya'dan kaç kart eksik?",
+  "gold": 29
+ },
+ {
+  "ID": "dev6-remove23",
+  "kind": "remove",
+  "Body_tr": "Rüya'nın 25 bilyei vardı. Bahçede kuşlar ötüyordu. Aylin'ye 22 bilye verdi.",
+  "Question_tr": "Rüya'nın kaç bilyei kaldı?",
+  "gold": 3
+ },
+ {
+  "ID": "dev6-distract24",
+  "kind": "distract",
+  "Body_tr": "Hasan'nın 14 karti vardı. Bahçede kuşlar ötüyordu. Hasan 20 kart daha aldı.",
+  "Question_tr": "Şimdi kaç karti var?",
+  "gold": 34
+ },
+ {
+  "ID": "dev6-than24",
+  "kind": "than",
+  "Body_tr": "Okan 30 kurdele topladı. Serkan ise 5 kurdele topladı.",
+  "Question_tr": "Serkan, Okan'dan kaç kurdele eksik?",
+  "gold": 25
+ },
+ {
+  "ID": "dev6-remove24",
+  "kind": "remove",
+  "Body_tr": "Hasan'nın 30 karti vardı. Herkes çok yorgundu. Okan'ye 20 kart verdi.",
+  "Question_tr": "Hasan'nın kaç karti kaldı?",
+  "gold": 10
+ },
+ {
+  "ID": "dev6-distract25",
+  "kind": "distract",
+  "Body_tr": "Melike'nın 17 elmai vardı. Bahçede kuşlar ötüyordu. Melike 20 elma daha aldı.",
+  "Question_tr": "Şimdi kaç elmai var?",
+  "gold": 37
+ },
+ {
+  "ID": "dev6-than25",
+  "kind": "than",
+  "Body_tr": "Aylin 42 kart topladı. Serkan ise 15 kart topladı.",
+  "Question_tr": "Serkan, Aylin'dan kaç kart eksik?",
+  "gold": 27
+ },
+ {
+  "ID": "dev6-remove25",
+  "kind": "remove",
+  "Body_tr": "Melike'nın 71 kurdelei vardı. Herkes çok yorgundu. Aylin'ye 56 kurdele verdi.",
+  "Question_tr": "Melike'nın kaç kurdelei kaldı?",
+  "gold": 15
+ },
+ {
+  "ID": "dev6-distract26",
+  "kind": "distract",
+  "Body_tr": "Hasan'nın 40 mumi vardı. Okul bugün erken kapandı. Hasan 17 mum daha aldı.",
+  "Question_tr": "Şimdi kaç mumi var?",
+  "gold": 57
+ },
+ {
+  "ID": "dev6-than26",
+  "kind": "than",
+  "Body_tr": "Serkan 31 mum topladı. Aylin ise 12 mum topladı.",
+  "Question_tr": "Aylin, Serkan'dan kaç mum eksik?",
+  "gold": 19
+ },
+ {
+  "ID": "dev6-remove26",
+  "kind": "remove",
+  "Body_tr": "Rüya'nın 36 kurdelei vardı. Herkes çok yorgundu. Tarık'ye 33 kurdele verdi.",
+  "Question_tr": "Rüya'nın kaç kurdelei kaldı?",
+  "gold": 3
+ },
+ {
+  "ID": "dev6-distract27",
+  "kind": "distract",
+  "Body_tr": "Okan'nın 20 elmai vardı. Bahçede kuşlar ötüyordu. Okan 10 elma daha aldı.",
+  "Question_tr": "Şimdi kaç elmai var?",
+  "gold": 30
+ },
+ {
+  "ID": "dev6-than27",
+  "kind": "than",
+  "Body_tr": "Hasan 16 elma topladı. Rüya ise 7 elma topladı.",
+  "Question_tr": "Rüya, Hasan'dan kaç elma eksik?",
+  "gold": 9
+ },
+ {
+  "ID": "dev6-remove27",
+  "kind": "remove",
+  "Body_tr": "Tarık'nın 42 bilyei vardı. Hava çok güzeldi. Okan'ye 41 bilye verdi.",
+  "Question_tr": "Tarık'nın kaç bilyei kaldı?",
+  "gold": 1
+ },
+ {
+  "ID": "dev6-distract28",
+  "kind": "distract",
+  "Body_tr": "Serkan'nın 31 elmai vardı. Herkes çok yorgundu. Serkan 10 elma daha aldı.",
+  "Question_tr": "Şimdi kaç elmai var?",
+  "gold": 41
+ },
+ {
+  "ID": "dev6-than28",
+  "kind": "than",
+  "Body_tr": "Tarık 20 mum topladı. Rüya ise 17 mum topladı.",
+  "Question_tr": "Rüya, Tarık'dan kaç mum eksik?",
+  "gold": 3
+ },
+ {
+  "ID": "dev6-remove28",
+  "kind": "remove",
+  "Body_tr": "Sibel'nın 63 kurdelei vardı. Herkes çok yorgundu. Serkan'ye 28 kurdele verdi.",
+  "Question_tr": "Sibel'nın kaç kurdelei kaldı?",
+  "gold": 35
+ },
+ {
+  "ID": "dev6-distract29",
+  "kind": "distract",
+  "Body_tr": "Aylin'nın 48 karti vardı. Okul bugün erken kapandı. Aylin 17 kart daha aldı.",
+  "Question_tr": "Şimdi kaç karti var?",
+  "gold": 65
+ },
+ {
+  "ID": "dev6-than29",
+  "kind": "than",
+  "Body_tr": "Rüya 67 bilye topladı. Okan ise 42 bilye topladı.",
+  "Question_tr": "Okan, Rüya'dan kaç bilye eksik?",
+  "gold": 25
+ },
+ {
+  "ID": "dev6-remove29",
+  "kind": "remove",
+  "Body_tr": "Melike'nın 22 mumi vardı. Bahçede kuşlar ötüyordu. Sibel'ye 14 mum verdi.",
+  "Question_tr": "Melike'nın kaç mumi kaldı?",
+  "gold": 8
+ },
+ {
+  "ID": "dev6-distract30",
+  "kind": "distract",
+  "Body_tr": "Rüya'nın 46 kurdelei vardı. Bahçede kuşlar ötüyordu. Rüya 10 kurdele daha aldı.",
+  "Question_tr": "Şimdi kaç kurdelei var?",
+  "gold": 56
+ },
+ {
+  "ID": "dev6-than30",
+  "kind": "than",
+  "Body_tr": "Melike 23 kart topladı. Rüya ise 14 kart topladı.",
+  "Question_tr": "Rüya, Melike'dan kaç kart eksik?",
+  "gold": 9
+ },
+ {
+  "ID": "dev6-remove30",
+  "kind": "remove",
+  "Body_tr": "Melike'nın 52 mumi vardı. Herkes çok yorgundu. Sibel'ye 28 mum verdi.",
+  "Question_tr": "Melike'nın kaç mumi kaldı?",
+  "gold": 24
+ },
+ {
+  "ID": "dev6-distract31",
+  "kind": "distract",
+  "Body_tr": "Melike'nın 16 mumi vardı. Okul bugün erken kapandı. Melike 17 mum daha aldı.",
+  "Question_tr": "Şimdi kaç mumi var?",
+  "gold": 33
+ },
+ {
+  "ID": "dev6-than31",
+  "kind": "than",
+  "Body_tr": "Rüya 37 kart topladı. Hasan ise 17 kart topladı.",
+  "Question_tr": "Hasan, Rüya'dan kaç kart eksik?",
+  "gold": 20
+ },
+ {
+  "ID": "dev6-remove31",
+  "kind": "remove",
+  "Body_tr": "Okan'nın 75 bilyei vardı. Hava çok güzeldi. Aylin'ye 10 bilye verdi.",
+  "Question_tr": "Okan'nın kaç bilyei kaldı?",
+  "gold": 65
+ },
+ {
+  "ID": "dev6-distract32",
+  "kind": "distract",
+  "Body_tr": "Serkan'nın 42 elmai vardı. Herkes çok yorgundu. Serkan 4 elma daha aldı.",
+  "Question_tr": "Şimdi kaç elmai var?",
+  "gold": 46
+ },
+ {
+  "ID": "dev6-than32",
+  "kind": "than",
+  "Body_tr": "Okan 51 kart topladı. Rüya ise 45 kart topladı.",
+  "Question_tr": "Rüya, Okan'dan kaç kart eksik?",
+  "gold": 6
+ },
+ {
+  "ID": "dev6-remove32",
+  "kind": "remove",
+  "Body_tr": "Hasan'nın 15 mumi vardı. Hava çok güzeldi. Melike'ye 10 mum verdi.",
+  "Question_tr": "Hasan'nın kaç mumi kaldı?",
+  "gold": 5
+ },
+ {
+  "ID": "dev6-distract33",
+  "kind": "distract",
+  "Body_tr": "Melike'nın 44 karti vardı. Hava çok güzeldi. Melike 15 kart daha aldı.",
+  "Question_tr": "Şimdi kaç karti var?",
+  "gold": 59
+ },
+ {
+  "ID": "dev6-than33",
+  "kind": "than",
+  "Body_tr": "Okan 50 kurdele topladı. Serkan ise 30 kurdele topladı.",
+  "Question_tr": "Serkan, Okan'dan kaç kurdele eksik?",
+  "gold": 20
+ },
+ {
+  "ID": "dev6-remove33",
+  "kind": "remove",
+  "Body_tr": "Sibel'nın 39 elmai vardı. Herkes çok yorgundu. Serkan'ye 23 elma verdi.",
+  "Question_tr": "Sibel'nın kaç elmai kaldı?",
+  "gold": 16
+ },
+ {
+  "ID": "dev6-distract34",
+  "kind": "distract",
+  "Body_tr": "Melike'nın 12 karti vardı. Herkes çok yorgundu. Melike 13 kart daha aldı.",
+  "Question_tr": "Şimdi kaç karti var?",
+  "gold": 25
+ },
+ {
+  "ID": "dev6-than34",
+  "kind": "than",
+  "Body_tr": "Okan 22 bilye topladı. Aylin ise 17 bilye topladı.",
+  "Question_tr": "Aylin, Okan'dan kaç bilye eksik?",
+  "gold": 5
+ },
+ {
+  "ID": "dev6-remove34",
+  "kind": "remove",
+  "Body_tr": "Rüya'nın 25 mumi vardı. Okul bugün erken kapandı. Serkan'ye 7 mum verdi.",
+  "Question_tr": "Rüya'nın kaç mumi kaldı?",
+  "gold": 18
+ },
+ {
+  "ID": "dev6-distract35",
+  "kind": "distract",
+  "Body_tr": "Sibel'nın 15 mumi vardı. Okul bugün erken kapandı. Sibel 4 mum daha aldı.",
+  "Question_tr": "Şimdi kaç mumi var?",
+  "gold": 19
+ },
+ {
+  "ID": "dev6-than35",
+  "kind": "than",
+  "Body_tr": "Hasan 52 mum topladı. Tarık ise 36 mum topladı.",
+  "Question_tr": "Tarık, Hasan'dan kaç mum eksik?",
+  "gold": 16
+ },
+ {
+  "ID": "dev6-remove35",
+  "kind": "remove",
+  "Body_tr": "Tarık'nın 47 kurdelei vardı. Okul bugün erken kapandı. Serkan'ye 21 kurdele verdi.",
+  "Question_tr": "Tarık'nın kaç kurdelei kaldı?",
+  "gold": 26
+ },
+ {
+  "ID": "dev6-distract36",
+  "kind": "distract",
+  "Body_tr": "Sibel'nın 40 bilyei vardı. Okul bugün erken kapandı. Sibel 12 bilye daha aldı.",
+  "Question_tr": "Şimdi kaç bilyei var?",
+  "gold": 52
+ },
+ {
+  "ID": "dev6-than36",
+  "kind": "than",
+  "Body_tr": "Tarık 36 mum topladı. Melike ise 18 mum topladı.",
+  "Question_tr": "Melike, Tarık'dan kaç mum eksik?",
+  "gold": 18
+ },
+ {
+  "ID": "dev6-remove36",
+  "kind": "remove",
+  "Body_tr": "Tarık'nın 25 bilyei vardı. Hava çok güzeldi. Serkan'ye 8 bilye verdi.",
+  "Question_tr": "Tarık'nın kaç bilyei kaldı?",
+  "gold": 17
+ },
+ {
+  "ID": "dev6-distract37",
+  "kind": "distract",
+  "Body_tr": "Rüya'nın 24 elmai vardı. Herkes çok yorgundu. Rüya 10 elma daha aldı.",
+  "Question_tr": "Şimdi kaç elmai var?",
+  "gold": 34
+ },
+ {
+  "ID": "dev6-than37",
+  "kind": "than",
+  "Body_tr": "Aylin 14 elma topladı. Melike ise 7 elma topladı.",
+  "Question_tr": "Melike, Aylin'dan kaç elma eksik?",
+  "gold": 7
+ },
+ {
+  "ID": "dev6-remove37",
+  "kind": "remove",
+  "Body_tr": "Serkan'nın 79 bilyei vardı. Okul bugün erken kapandı. Aylin'ye 38 bilye verdi.",
+  "Question_tr": "Serkan'nın kaç bilyei kaldı?",
+  "gold": 41
+ },
+ {
+  "ID": "dev6-distract38",
+  "kind": "distract",
+  "Body_tr": "Hasan'nın 32 elmai vardı. Okul bugün erken kapandı. Hasan 12 elma daha aldı.",
+  "Question_tr": "Şimdi kaç elmai var?",
+  "gold": 44
+ },
+ {
+  "ID": "dev6-than38",
+  "kind": "than",
+  "Body_tr": "Tarık 55 mum topladı. Okan ise 30 mum topladı.",
+  "Question_tr": "Okan, Tarık'dan kaç mum eksik?",
+  "gold": 25
+ },
+ {
+  "ID": "dev6-remove38",
+  "kind": "remove",
+  "Body_tr": "Okan'nın 24 kurdelei vardı. Hava çok güzeldi. Melike'ye 6 kurdele verdi.",
+  "Question_tr": "Okan'nın kaç kurdelei kaldı?",
+  "gold": 18
+ },
+ {
+  "ID": "dev6-distract39",
+  "kind": "distract",
+  "Body_tr": "Melike'nın 31 bilyei vardı. Herkes çok yorgundu. Melike 13 bilye daha aldı.",
+  "Question_tr": "Şimdi kaç bilyei var?",
+  "gold": 44
+ },
+ {
+  "ID": "dev6-than39",
+  "kind": "than",
+  "Body_tr": "Okan 38 kurdele topladı. Melike ise 22 kurdele topladı.",
+  "Question_tr": "Melike, Okan'dan kaç kurdele eksik?",
+  "gold": 16
+ },
+ {
+  "ID": "dev6-remove39",
+  "kind": "remove",
+  "Body_tr": "Rüya'nın 56 kurdelei vardı. Bahçede kuşlar ötüyordu. Okan'ye 7 kurdele verdi.",
+  "Question_tr": "Rüya'nın kaç kurdelei kaldı?",
+  "gold": 49
+ },
+ {
+  "ID": "dev6-distract40",
+  "kind": "distract",
+  "Body_tr": "Melike'nın 39 kurdelei vardı. Hava çok güzeldi. Melike 17 kurdele daha aldı.",
+  "Question_tr": "Şimdi kaç kurdelei var?",
+  "gold": 56
+ },
+ {
+  "ID": "dev6-than40",
+  "kind": "than",
+  "Body_tr": "Tarık 40 bilye topladı. Aylin ise 32 bilye topladı.",
+  "Question_tr": "Aylin, Tarık'dan kaç bilye eksik?",
+  "gold": 8
+ },
+ {
+  "ID": "dev6-remove40",
+  "kind": "remove",
+  "Body_tr": "Tarık'nın 60 elmai vardı. Herkes çok yorgundu. Rüya'ye 41 elma verdi.",
+  "Question_tr": "Tarık'nın kaç elmai kaldı?",
+  "gold": 19
+ },
+ {
+  "ID": "dev6-distract41",
+  "kind": "distract",
+  "Body_tr": "Aylin'nın 38 bilyei vardı. Herkes çok yorgundu. Aylin 4 bilye daha aldı.",
+  "Question_tr": "Şimdi kaç bilyei var?",
+  "gold": 42
+ },
+ {
+  "ID": "dev6-than41",
+  "kind": "than",
+  "Body_tr": "Okan 20 bilye topladı. Serkan ise 15 bilye topladı.",
+  "Question_tr": "Serkan, Okan'dan kaç bilye eksik?",
+  "gold": 5
+ },
+ {
+  "ID": "dev6-remove41",
+  "kind": "remove",
+  "Body_tr": "Okan'nın 55 mumi vardı. Hava çok güzeldi. Tarık'ye 45 mum verdi.",
+  "Question_tr": "Okan'nın kaç mumi kaldı?",
+  "gold": 10
+ },
+ {
+  "ID": "dev6-distract42",
+  "kind": "distract",
+  "Body_tr": "Rüya'nın 59 kurdelei vardı. Herkes çok yorgundu. Rüya 7 kurdele daha aldı.",
+  "Question_tr": "Şimdi kaç kurdelei var?",
+  "gold": 66
+ },
+ {
+  "ID": "dev6-than42",
+  "kind": "than",
+  "Body_tr": "Okan 47 elma topladı. Rüya ise 40 elma topladı.",
+  "Question_tr": "Rüya, Okan'dan kaç elma eksik?",
+  "gold": 7
+ },
+ {
+  "ID": "dev6-remove42",
+  "kind": "remove",
+  "Body_tr": "Tarık'nın 33 karti vardı. Hava çok güzeldi. Aylin'ye 4 kart verdi.",
+  "Question_tr": "Tarık'nın kaç karti kaldı?",
+  "gold": 29
+ },
+ {
+  "ID": "dev6-distract43",
+  "kind": "distract",
+  "Body_tr": "Sibel'nın 14 karti vardı. Okul bugün erken kapandı. Sibel 19 kart daha aldı.",
+  "Question_tr": "Şimdi kaç karti var?",
+  "gold": 33
+ },
+ {
+  "ID": "dev6-than43",
+  "kind": "than",
+  "Body_tr": "Okan 51 mum topladı. Tarık ise 28 mum topladı.",
+  "Question_tr": "Tarık, Okan'dan kaç mum eksik?",
+  "gold": 23
+ },
+ {
+  "ID": "dev6-remove43",
+  "kind": "remove",
+  "Body_tr": "Okan'nın 74 karti vardı. Bahçede kuşlar ötüyordu. Sibel'ye 56 kart verdi.",
+  "Question_tr": "Okan'nın kaç karti kaldı?",
+  "gold": 18
+ },
+ {
+  "ID": "dev6-distract44",
+  "kind": "distract",
+  "Body_tr": "Melike'nın 11 kurdelei vardı. Herkes çok yorgundu. Melike 7 kurdele daha aldı.",
+  "Question_tr": "Şimdi kaç kurdelei var?",
+  "gold": 18
+ },
+ {
+  "ID": "dev6-than44",
+  "kind": "than",
+  "Body_tr": "Tarık 37 elma topladı. Hasan ise 20 elma topladı.",
+  "Question_tr": "Hasan, Tarık'dan kaç elma eksik?",
+  "gold": 17
+ },
+ {
+  "ID": "dev6-remove44",
+  "kind": "remove",
+  "Body_tr": "Serkan'nın 22 mumi vardı. Hava çok güzeldi. Okan'ye 13 mum verdi.",
+  "Question_tr": "Serkan'nın kaç mumi kaldı?",
+  "gold": 9
+ },
+ {
+  "ID": "dev6-distract45",
+  "kind": "distract",
+  "Body_tr": "Aylin'nın 22 karti vardı. Herkes çok yorgundu. Aylin 3 kart daha aldı.",
+  "Question_tr": "Şimdi kaç karti var?",
+  "gold": 25
+ },
+ {
+  "ID": "dev6-than45",
+  "kind": "than",
+  "Body_tr": "Hasan 36 bilye topladı. Serkan ise 8 bilye topladı.",
+  "Question_tr": "Serkan, Hasan'dan kaç bilye eksik?",
+  "gold": 28
+ },
+ {
+  "ID": "dev6-remove45",
+  "kind": "remove",
+  "Body_tr": "Melike'nın 23 bilyei vardı. Okul bugün erken kapandı. Tarık'ye 5 bilye verdi.",
+  "Question_tr": "Melike'nın kaç bilyei kaldı?",
+  "gold": 18
+ },
+ {
+  "ID": "dev6-distract46",
+  "kind": "distract",
+  "Body_tr": "Melike'nın 51 kurdelei vardı. Bahçede kuşlar ötüyordu. Melike 10 kurdele daha aldı.",
+  "Question_tr": "Şimdi kaç kurdelei var?",
+  "gold": 61
+ },
+ {
+  "ID": "dev6-than46",
+  "kind": "than",
+  "Body_tr": "Serkan 23 kurdele topladı. Melike ise 15 kurdele topladı.",
+  "Question_tr": "Melike, Serkan'dan kaç kurdele eksik?",
+  "gold": 8
+ },
+ {
+  "ID": "dev6-remove46",
+  "kind": "remove",
+  "Body_tr": "Melike'nın 52 kurdelei vardı. Okul bugün erken kapandı. Aylin'ye 41 kurdele verdi.",
+  "Question_tr": "Melike'nın kaç kurdelei kaldı?",
+  "gold": 11
+ },
+ {
+  "ID": "dev6-distract47",
+  "kind": "distract",
+  "Body_tr": "Sibel'nın 12 mumi vardı. Bahçede kuşlar ötüyordu. Sibel 3 mum daha aldı.",
+  "Question_tr": "Şimdi kaç mumi var?",
+  "gold": 15
+ },
+ {
+  "ID": "dev6-than47",
+  "kind": "than",
+  "Body_tr": "Okan 21 mum topladı. Tarık ise 8 mum topladı.",
+  "Question_tr": "Tarık, Okan'dan kaç mum eksik?",
+  "gold": 13
+ },
+ {
+  "ID": "dev6-remove47",
+  "kind": "remove",
+  "Body_tr": "Aylin'nın 52 elmai vardı. Hava çok güzeldi. Hasan'ye 51 elma verdi.",
+  "Question_tr": "Aylin'nın kaç elmai kaldı?",
+  "gold": 1
+ },
+ {
+  "ID": "dev6-distract48",
+  "kind": "distract",
+  "Body_tr": "Hasan'nın 28 elmai vardı. Okul bugün erken kapandı. Hasan 15 elma daha aldı.",
+  "Question_tr": "Şimdi kaç elmai var?",
+  "gold": 43
+ },
+ {
+  "ID": "dev6-than48",
+  "kind": "than",
+  "Body_tr": "Melike 58 kurdele topladı. Hasan ise 37 kurdele topladı.",
+  "Question_tr": "Hasan, Melike'dan kaç kurdele eksik?",
+  "gold": 21
+ },
+ {
+  "ID": "dev6-remove48",
+  "kind": "remove",
+  "Body_tr": "Rüya'nın 47 bilyei vardı. Herkes çok yorgundu. Serkan'ye 34 bilye verdi.",
+  "Question_tr": "Rüya'nın kaç bilyei kaldı?",
+  "gold": 13
+ },
+ {
+  "ID": "dev6-distract49",
+  "kind": "distract",
+  "Body_tr": "Tarık'nın 38 mumi vardı. Bahçede kuşlar ötüyordu. Tarık 8 mum daha aldı.",
+  "Question_tr": "Şimdi kaç mumi var?",
+  "gold": 46
+ },
+ {
+  "ID": "dev6-than49",
+  "kind": "than",
+  "Body_tr": "Sibel 17 mum topladı. Aylin ise 6 mum topladı.",
+  "Question_tr": "Aylin, Sibel'dan kaç mum eksik?",
+  "gold": 11
+ },
+ {
+  "ID": "dev6-remove49",
+  "kind": "remove",
+  "Body_tr": "Tarık'nın 30 mumi vardı. Bahçede kuşlar ötüyordu. Aylin'ye 27 mum verdi.",
+  "Question_tr": "Tarık'nın kaç mumi kaldı?",
+  "gold": 3
+ },
+ {
+  "ID": "dev6-distract50",
+  "kind": "distract",
+  "Body_tr": "Serkan'nın 54 elmai vardı. Herkes çok yorgundu. Serkan 17 elma daha aldı.",
+  "Question_tr": "Şimdi kaç elmai var?",
+  "gold": 71
+ },
+ {
+  "ID": "dev6-than50",
+  "kind": "than",
+  "Body_tr": "Rüya 16 kart topladı. Hasan ise 11 kart topladı.",
+  "Question_tr": "Hasan, Rüya'dan kaç kart eksik?",
+  "gold": 5
+ },
+ {
+  "ID": "dev6-remove50",
+  "kind": "remove",
+  "Body_tr": "Sibel'nın 15 kurdelei vardı. Hava çok güzeldi. Melike'ye 12 kurdele verdi.",
+  "Question_tr": "Sibel'nın kaç kurdelei kaldı?",
+  "gold": 3
+ },
+ {
+  "ID": "dev6-distract51",
+  "kind": "distract",
+  "Body_tr": "Aylin'nın 11 karti vardı. Herkes çok yorgundu. Aylin 9 kart daha aldı.",
+  "Question_tr": "Şimdi kaç karti var?",
+  "gold": 20
+ },
+ {
+  "ID": "dev6-than51",
+  "kind": "than",
+  "Body_tr": "Hasan 44 kurdele topladı. Serkan ise 28 kurdele topladı.",
+  "Question_tr": "Serkan, Hasan'dan kaç kurdele eksik?",
+  "gold": 16
+ },
+ {
+  "ID": "dev6-remove51",
+  "kind": "remove",
+  "Body_tr": "Sibel'nın 80 bilyei vardı. Herkes çok yorgundu. Melike'ye 56 bilye verdi.",
+  "Question_tr": "Sibel'nın kaç bilyei kaldı?",
+  "gold": 24
+ },
+ {
+  "ID": "dev6-distract52",
+  "kind": "distract",
+  "Body_tr": "Serkan'nın 56 kurdelei vardı. Herkes çok yorgundu. Serkan 10 kurdele daha aldı.",
+  "Question_tr": "Şimdi kaç kurdelei var?",
+  "gold": 66
+ },
+ {
+  "ID": "dev6-than52",
+  "kind": "than",
+  "Body_tr": "Tarık 44 mum topladı. Sibel ise 26 mum topladı.",
+  "Question_tr": "Sibel, Tarık'dan kaç mum eksik?",
+  "gold": 18
+ },
+ {
+  "ID": "dev6-remove52",
+  "kind": "remove",
+  "Body_tr": "Okan'nın 69 bilyei vardı. Hava çok güzeldi. Aylin'ye 21 bilye verdi.",
+  "Question_tr": "Okan'nın kaç bilyei kaldı?",
+  "gold": 48
+ },
+ {
+  "ID": "dev6-distract53",
+  "kind": "distract",
+  "Body_tr": "Rüya'nın 45 bilyei vardı. Okul bugün erken kapandı. Rüya 8 bilye daha aldı.",
+  "Question_tr": "Şimdi kaç bilyei var?",
+  "gold": 53
+ },
+ {
+  "ID": "dev6-than53",
+  "kind": "than",
+  "Body_tr": "Sibel 44 elma topladı. Serkan ise 25 elma topladı.",
+  "Question_tr": "Serkan, Sibel'dan kaç elma eksik?",
+  "gold": 19
+ },
+ {
+  "ID": "dev6-remove53",
+  "kind": "remove",
+  "Body_tr": "Hasan'nın 34 bilyei vardı. Herkes çok yorgundu. Okan'ye 5 bilye verdi.",
+  "Question_tr": "Hasan'nın kaç bilyei kaldı?",
+  "gold": 29
+ },
+ {
+  "ID": "dev6-distract54",
+  "kind": "distract",
+  "Body_tr": "Okan'nın 52 elmai vardı. Bahçede kuşlar ötüyordu. Okan 8 elma daha aldı.",
+  "Question_tr": "Şimdi kaç elmai var?",
+  "gold": 60
+ },
+ {
+  "ID": "dev6-than54",
+  "kind": "than",
+  "Body_tr": "Melike 31 mum topladı. Aylin ise 26 mum topladı.",
+  "Question_tr": "Aylin, Melike'dan kaç mum eksik?",
+  "gold": 5
+ },
+ {
+  "ID": "dev6-remove54",
+  "kind": "remove",
+  "Body_tr": "Serkan'nın 78 elmai vardı. Hava çok güzeldi. Rüya'ye 69 elma verdi.",
+  "Question_tr": "Serkan'nın kaç elmai kaldı?",
+  "gold": 9
+ },
+ {
+  "ID": "dev6-distract55",
+  "kind": "distract",
+  "Body_tr": "Okan'nın 22 bilyei vardı. Herkes çok yorgundu. Okan 20 bilye daha aldı.",
+  "Question_tr": "Şimdi kaç bilyei var?",
+  "gold": 42
+ },
+ {
+  "ID": "dev6-than55",
+  "kind": "than",
+  "Body_tr": "Melike 48 bilye topladı. Okan ise 21 bilye topladı.",
+  "Question_tr": "Okan, Melike'dan kaç bilye eksik?",
+  "gold": 27
+ },
+ {
+  "ID": "dev6-remove55",
+  "kind": "remove",
+  "Body_tr": "Aylin'nın 36 elmai vardı. Herkes çok yorgundu. Hasan'ye 34 elma verdi.",
+  "Question_tr": "Aylin'nın kaç elmai kaldı?",
+  "gold": 2
+ },
+ {
+  "ID": "dev6-distract56",
+  "kind": "distract",
+  "Body_tr": "Sibel'nın 51 bilyei vardı. Bahçede kuşlar ötüyordu. Sibel 4 bilye daha aldı.",
+  "Question_tr": "Şimdi kaç bilyei var?",
+  "gold": 55
+ },
+ {
+  "ID": "dev6-than56",
+  "kind": "than",
+  "Body_tr": "Melike 26 bilye topladı. Serkan ise 24 bilye topladı.",
+  "Question_tr": "Serkan, Melike'dan kaç bilye eksik?",
+  "gold": 2
+ },
+ {
+  "ID": "dev6-remove56",
+  "kind": "remove",
+  "Body_tr": "Aylin'nın 32 karti vardı. Herkes çok yorgundu. Tarık'ye 25 kart verdi.",
+  "Question_tr": "Aylin'nın kaç karti kaldı?",
+  "gold": 7
+ },
+ {
+  "ID": "dev6-distract57",
+  "kind": "distract",
+  "Body_tr": "Melike'nın 14 mumi vardı. Bahçede kuşlar ötüyordu. Melike 10 mum daha aldı.",
+  "Question_tr": "Şimdi kaç mumi var?",
+  "gold": 24
+ },
+ {
+  "ID": "dev6-than57",
+  "kind": "than",
+  "Body_tr": "Okan 14 kart topladı. Serkan ise 10 kart topladı.",
+  "Question_tr": "Serkan, Okan'dan kaç kart eksik?",
+  "gold": 4
+ },
+ {
+  "ID": "dev6-remove57",
+  "kind": "remove",
+  "Body_tr": "Serkan'nın 19 kurdelei vardı. Bahçede kuşlar ötüyordu. Melike'ye 13 kurdele verdi.",
+  "Question_tr": "Serkan'nın kaç kurdelei kaldı?",
+  "gold": 6
+ },
+ {
+  "ID": "dev6-distract58",
+  "kind": "distract",
+  "Body_tr": "Rüya'nın 33 elmai vardı. Okul bugün erken kapandı. Rüya 16 elma daha aldı.",
+  "Question_tr": "Şimdi kaç elmai var?",
+  "gold": 49
+ },
+ {
+  "ID": "dev6-than58",
+  "kind": "than",
+  "Body_tr": "Okan 39 elma topladı. Melike ise 17 elma topladı.",
+  "Question_tr": "Melike, Okan'dan kaç elma eksik?",
+  "gold": 22
+ },
+ {
+  "ID": "dev6-remove58",
+  "kind": "remove",
+  "Body_tr": "Rüya'nın 77 mumi vardı. Okul bugün erken kapandı. Tarık'ye 64 mum verdi.",
+  "Question_tr": "Rüya'nın kaç mumi kaldı?",
+  "gold": 13
+ },
+ {
+  "ID": "dev6-distract59",
+  "kind": "distract",
+  "Body_tr": "Aylin'nın 37 bilyei vardı. Bahçede kuşlar ötüyordu. Aylin 13 bilye daha aldı.",
+  "Question_tr": "Şimdi kaç bilyei var?",
+  "gold": 50
+ },
+ {
+  "ID": "dev6-than59",
+  "kind": "than",
+  "Body_tr": "Sibel 41 mum topladı. Tarık ise 24 mum topladı.",
+  "Question_tr": "Tarık, Sibel'dan kaç mum eksik?",
+  "gold": 17
+ },
+ {
+  "ID": "dev6-remove59",
+  "kind": "remove",
+  "Body_tr": "Melike'nın 76 elmai vardı. Bahçede kuşlar ötüyordu. Okan'ye 39 elma verdi.",
+  "Question_tr": "Melike'nın kaç elmai kaldı?",
+  "gold": 37
+ }
+]

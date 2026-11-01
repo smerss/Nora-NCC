@@ -932,6 +932,174 @@ class DeliberativeMind:
         )
         return agi.lang.broca.realize_prop(proposition).strip().rstrip(".!?")
 
+    # Güvenilmeyen duyum kenarlarını eleyen süzgeç. Kenarlar silinmez; yalnız akıl yürütmede
+    # kullanılmaz. Kaynak: ölçüm (1326 ISA kenarı: 32 doğuştan, 1292 duyum; duyumların çoğu
+    # cümle parçası). Kural: doğuştan kenar güvenilir; duyum kenarı yalnız tek sözcüklü, genel
+    # olmayan bir kategoriye bağlıysa güvenilir.
+    _ISA_TRUST_STOP = frozenset({
+        "bir", "bu", "daha", "ideal", "önemli", "hassas", "uzun", "düzenli", "sağlam",
+        "güvenilir", "her", "diğer", "sadece", "tabi", "objektif", "sağlıklı", "kullanışlı",
+        "güçlü", "geniş", "detaylı", "ağırlıklı", "kötü", "iyi", "büyük", "küçük", "yeni", "eski",
+    })
+
+    @staticmethod
+    def _generic_isa_objects(agi) -> set[str]:
+        """Çok sayıda farklı alt kavram toplayan kategoriler (süreç, konu...): tek başına kanıt değildir."""
+        children: dict[str, set[str]] = {}
+        for edges in agi.lang.graph._out_edges.values():
+            for edge in edges:
+                if edge.rel == "ISA" and str(getattr(edge, "status", "accepted")) == "accepted":
+                    children.setdefault(str(edge.obj), set()).add(str(edge.subj))
+        return {obj for obj, subs in children.items() if len(subs) >= 5}
+
+    @classmethod
+    def _trusted_isa(cls, edge, generic: set[str]) -> bool:
+        if str(getattr(edge, "source", "")) == "doğuştan":
+            return True
+        if str(getattr(edge, "source", "")) != "duyum":
+            return False
+        subj, obj = str(edge.subj), str(edge.obj)
+        return (len(subj.split()) == 1 and len(obj.split()) == 1
+                and subj not in cls._ISA_TRUST_STOP and obj not in generic)
+
+    @classmethod
+    def _isa_ancestors(cls, agi, origin: str, depth: int = 4, limit: int = 6) -> list[str]:
+        """Güvenilir ISA kenarlarını izleyerek kavramın bilinen üst kavramlarını toplar."""
+        graph = agi.lang.graph
+        generic = cls._generic_isa_objects(agi)
+        seen = {tr_lower(origin)}
+        frontier = [tr_lower(origin)]
+        found: list[str] = []
+        for _ in range(depth):
+            nxt: list[str] = []
+            for node in frontier:
+                for edge in graph._out_edges.get(node, []):
+                    if (edge.rel != "ISA" or str(getattr(edge, "status", "accepted")) != "accepted"
+                            or float(edge.weight) <= 0.25 or tr_lower(edge.obj) in seen
+                            or not cls._trusted_isa(edge, generic)):
+                        continue
+                    seen.add(tr_lower(edge.obj))
+                    found.append(str(edge.obj))
+                    nxt.append(tr_lower(edge.obj))
+            frontier = nxt
+        return found[:limit]
+
+    def _trusted_fact(self, agi):
+        """Güvenilir ISA kenarlarından rastgele bir olgu seçer; cümlesi grafiğin kendi kalıbından gelir."""
+        graph = agi.lang.graph
+        recent = self.__dict__.setdefault("_recent_facts", deque(maxlen=5))
+        # Yalnız doğuştan tanımlar söylenir; cümle yüklemi (-dır/-dir/...) taşımayanlar elenir.
+        options = []
+        for edges in graph._out_edges.values():
+            for edge in edges:
+                if (edge.rel != "ISA" or float(edge.weight) <= 0.25
+                        or str(getattr(edge, "source", "")) != "doğuştan"):
+                    continue
+                prop = self._cot_proposition(agi, edge)
+                if not prop or not re.search(r"(dır|dir|dur|dür|tır|tir|tur|tür)$", prop.strip()):
+                    continue
+                if prop not in recent:
+                    options.append((prop, edge))
+        if not options:
+            return None
+        prop, edge = options[self._variant(len(options))]
+        recent.append(prop)
+        return f"{tr_capitalize(prop)}.", edge
+
+    @staticmethod
+    def _literal_subject(question: str, parsed: str, graph) -> str:
+        """'Dünya bir gezegen mıdır?' → 'dünya'. Ayrıştırıcı sondaki eki sanıp kökü bozabiliyor ('dün', 'bit');
+        soru sözcüğü grafikte kavram olarak varsa onu kullan."""
+        match = re.match(r"\s*([\wçğıöşüÇĞİÖŞÜ]+)\s+bir\s+", question or "")
+        if match:
+            literal = tr_lower(match.group(1))
+            if literal != parsed and literal in graph._out_edges:
+                return literal
+        return parsed
+
+    def _trusted_paths(self, agi, origin: str, target: str, *, depth: int = 4,
+                       limit: int = 8) -> list[list]:
+        """Başlangıçtan hedefe giden, yalnız güvenilir ISA kenarlarından oluşan yolların listesi (hipotezler)."""
+        graph = agi.lang.graph
+        generic = self._generic_isa_objects(agi)
+        start, goal = tr_lower(origin), tr_lower(target)
+        paths: list[list] = []
+
+        def walk(node: str, path: list, seen: set[str]) -> None:
+            if len(paths) >= limit or len(path) >= depth:
+                return
+            for edge in graph._out_edges.get(node, []):
+                if (edge.rel != "ISA" or str(getattr(edge, "status", "accepted")) != "accepted"
+                        or float(edge.weight) <= 0.25 or not self._trusted_isa(edge, generic)):
+                    continue
+                nxt = tr_lower(edge.obj)
+                if nxt in seen:
+                    continue
+                if nxt == goal:
+                    paths.append(path + [edge])
+                    continue
+                walk(nxt, path + [edge], seen | {nxt})
+
+        walk(start, [], {start})
+        return sorted(paths, key=len)
+
+    def _hypothesis_search(self, agi, subj: str, target: str, *, question: str) -> dict | None:
+        """Birden çok güvenilir yolu hipotez olarak sınar; en kısa, doğrulanmış olanı cevap yapar.
+
+        Her hipotez yalnız güvenilir kenarlardan oluşur, bu yüzden doğrulama kenarların kendisidir.
+        Hiçbir yol yoksa None döner; çağıran arama raporuna düşer.
+        """
+        paths = self._trusted_paths(agi, subj, target)
+        if not paths:
+            return None
+        graph = agi.lang.graph
+        best = paths[0]
+        steps = [self._cot_proposition(agi, edge) for edge in best]
+        final = best[-1]
+        conclusion_body = self._cot_proposition(agi, final, subj=subj, rel="ISA", obj=final.obj)
+        if not steps or not conclusion_body:
+            return None
+        premises = " ve ".join(steps)
+        text = f"Evet, {premises}; dolayısıyla {conclusion_body}."
+        if len(paths) > 1:
+            text += f" Bu sonuca {len(paths)} ayrı güvenilir yoldan vardım."
+        hypotheses = [{"path": [f"{graph.surface_name(e.subj)} → {graph.surface_name(e.obj)}" for e in p],
+                       "verified": True} for p in paths]
+        trace = {
+            "kind": "hypothesis_search", "domain": "relational", "status": "verified",
+            "question": question, "explicit": False,
+            "steps": [{"surface": s, "input": e.subj, "output": e.obj, "relation": e.rel,
+                       "evidence": [e.subj, e.rel, e.obj]} for s, e in zip(steps, best)],
+            "hypotheses": hypotheses, "conclusion": text, "answer": True, "verified": True,
+            "verification": {"live_edges": len(best), "accepted_edges": len(best),
+                             "trusted_only": True, "paths": len(paths)},
+            "engine": "hdc_mb_graph+trusted_hypotheses", "replay": 0,
+        }
+        return {"text": text, "trace": trace}
+
+    def _search_report(self, agi, subj: str, target: str, *, question: str) -> dict:
+        """Bir yüklemin çıkarılamadığını, hangi kavramlara bakıldığını söyleyerek bildirir."""
+        subj_s = agi.lang.graph.surface_name(subj)
+        target_s = agi.lang.graph.surface_name(target)
+        ancestors = self._isa_ancestors(agi, subj)
+        if ancestors:
+            known = ", ".join(ancestors)
+            text = (f"{tr_capitalize(subj_s)} için bildiğim üst kavramlar: {known}. {tr_capitalize(target_s)} "
+                    "bunların arasında yok; bu yüzden olup olmadığını çıkaramıyorum. "
+                    f"Bana {target_s} ile ilgili bir bağ öğretirsen zinciri kurarım.")
+        else:
+            text = (f"{tr_capitalize(subj_s)} hakkında hiçbir üst kavram bilmiyorum; bu yüzden "
+                    f"{target_s} olup olmadığını çıkaramıyorum. Bana tek cümleyle öğretebilirsin.")
+        trace = {
+            "kind": "search_report", "domain": "relational", "status": "unknown",
+            "question": question, "steps": [{"surface": f"{subj_s} → {a}", "output": a}
+                                           for a in ancestors],
+            "conclusion": text, "answer": None, "verified": False,
+            "verification": {"searched": len(ancestors), "target_found": False},
+            "engine": "hdc_mb_graph+isa_search", "replay": 0,
+        }
+        return {"text": text, "trace": trace}
+
     def _reason_relation(self, agi, origin: str, path: list, *, answer: bool,
                          causal: bool, yes_no: bool, explicit: bool,
                          question: str) -> dict | None:
@@ -941,8 +1109,12 @@ class DeliberativeMind:
             return None                         # tek kenar geri çağırmadır, CoT değil
         current = tr_lower(origin).strip()
         steps: list[dict] = []
+        generic = self._generic_isa_objects(agi)
         for index, edge in enumerate(path):
             if tr_lower(edge.subj) != current or float(edge.weight) <= 0.25:
+                return None
+            # Güvenilmeyen bir ISA kenarı kanıt olarak kullanılmaz: zincir kurulmaz.
+            if edge.rel == "ISA" and not self._trusted_isa(edge, generic):
                 return None
             if graph._edge_map.get((edge.subj, edge.rel, edge.obj)) is not edge:
                 return None
@@ -1056,17 +1228,24 @@ class DeliberativeMind:
 
         graph = agi.lang.graph
         if kind == "yn_query":
+            subj = self._literal_subject(question, frame.subj, graph)
             try:
-                checked = graph.check_relation(frame.subj, frame.obj)
+                checked = graph.check_relation(subj, frame.obj)
             except Exception:
                 return None
             answer = checked.get("answer")
+            if answer is None and checked.get("edge") is None and not checked.get("contrast"):
+                # Zincir bulunamadı: güvenilir hipotezleri sına; yoksa nerede tıkandığını söyle.
+                found = self._hypothesis_search(agi, subj, frame.obj, question=question)
+                if found is not None:
+                    return found
+                return self._search_report(agi, subj, frame.obj, question=question)
             if answer is None or checked.get("edge") is None or checked.get("contrast"):
                 return None
             causal_path = list(checked.get("causal_path") or [])
             path = causal_path or list(checked.get("isa_path") or []) + [checked["edge"]]
             return self._reason_relation(
-                agi, frame.subj, path, answer=bool(answer), causal=bool(causal_path),
+                agi, subj, path, answer=bool(answer), causal=bool(causal_path),
                 yes_no=True, explicit=explicit, question=question,
             )
 
@@ -1114,6 +1293,14 @@ class DeliberativeMind:
         norm = re.sub(r"[^\wçğıöşü ]+", "", low).strip()
         if not norm:
             return None
+        # "Bana bir bilgi ver": uydurma değil, güvenilir bir olguyu rastgele seçip söyle.
+        if any(c in norm for c in ("bir bilgi ver", "bana bilgi ver", "bir şey öğret", "bir olgu")):
+            fact = self._trusted_fact(agi)
+            if fact is not None:
+                text, edge = fact
+                return self._record_open(
+                    agi, raw, text, act="thought", kind="shared_fact", topic=str(edge.subj),
+                    evidence=[self._edge_key(edge)], context_turns=[])
 
         prev = [h for h in self.history if h["norm"] == norm]
         act = self._classify(low)
@@ -1211,6 +1398,8 @@ class DeliberativeMind:
         make_verb = any(x in low for x in (
             "anlat", "uydur", "kurgula", "yarat", "hayal ed", "hayal edelim", "yaz"))
         joint_start = any(x in low for x in ("sen başla", "birlikte", "beraber", "sırayla"))
+        if any(x in low for x in ("bir bilgi ver", "bana bilgi ver", "bir şey öğret", "bir olgu")):
+            return True                  # güvenilir bir olguyu söyleme isteği
         return bool((story_noun and make_verb)
                     or ("uydur" in low and (joint_start or "şey" in low))
                     or (joint_start and any(x in low for x in ("kurgula", "hayal ed", "yarat"))))
@@ -3338,6 +3527,116 @@ class DeliberativeMind:
         # Sonraki turda yeni bir olay seçilir; aynı devam cümlesi geri dönmez.
         return self._compose(agi, [text], merge=False), plan
 
+    # Hikâye parçaları: konu boşsa ya da sosyal bir sözcükse bu havuzlardan kurulur.
+    _STORY_SOCIAL = frozenset({
+        "selam", "merhaba", "nasılsın", "naber", "dinginim", "iyiyim", "teşekkür", "sağol",
+        "hikâye", "hikaye", "anlat", "selamlaşma", "vedalaşma",
+    })
+    _STORY_AGENTS = ("bir yolcu", "yaşlı bir bekçi", "küçük bir kız", "bir gezgin",
+                     "bir çiftçi", "genç bir tabip", "eski bir kaptan")
+    _STORY_PLACES = ("bir kasabaya", "terk edilmiş bir kütüphaneye", "sisli bir vadiye",
+                     "sessiz bir limana", "eski bir hana", "kumsalın ucundaki bir kulübeye")
+    _STORY_THINGS = ("eski bir harita", "kırık bir ayna", "unutulmuş bir anahtar",
+                     "küçük bir fener", "sararmış bir mektup")
+    _STORY_PROBLEMS = (
+        "{thing} bir gecede kayboldu ve kimse nereye gittiğini bilmiyordu",
+        "{thing} her gece başka bir kapının önünde duruyordu",
+        "{thing} sahibine bir soru sordu, ama cevabı kimse bilmiyordu",
+        "{thing} elden ele geçti ve her el onu başka bir şeye dönüştürdü",
+    )
+    _STORY_TURNS = (
+        "Sonunda aradığının yolda değil, kendi içinde olduğunu anladı.",
+        "Bir gün kapıyı açtığında karşısında hiç görmediği bir yüz vardı; yüz ona adını söyledi.",
+        "Her cevap bulduğunda yeni bir soru doğdu; yolcu bundan vazgeçmedi.",
+        "Dönüş yolunda, gittiği her yerden bir parça kendisiyle birlikte geldi.",
+    )
+    # Yay havuzları: her metin bir kalıptır; yer tutucular ({focus}, {Focus}, {setting},
+    # {question}) yakın geçmişten ya da kavram grafiğinden doldurulur.
+    _STORY_JOINT = (
+        "Bir dünya kuralım: Orada {focus}, ancak biri ona dikkat kesildiğinde biçim "
+        "değiştiriyordu. Bir gezgin bunu fark etti; her bakışında başka bir ayrıntı beliriyor, "
+        "fakat aynı ayrıntıyı ikinci kez bulamıyordu. Gezgin tam elini uzattı; neye dokunacağını "
+        "ben seçmeyeyim. Onun karşısında ne beliriyor?",
+        "Bir dünya düşünelim: {Focus} orada, ama kimse ona bakmadığında yerini başka bir şeye "
+        "bırakıyordu. Bir gezgin bu düzeni çözmeye çalıştı; her denemesinde farklı bir ayrıntı "
+        "açılıyordu. Gezgin bir adım attı; hangi kapıyı açacağını sana bırakıyorum. Onun önünde "
+        "ne uzanıyor?",
+        "Bir masal kuralım: {Focus} bir köyün tam ortasında duruyordu ve köylüler ona her gün "
+        "başka bir ad veriyordu. Bir çocuk ona en yakın durduğunda ad değişmeyi bıraktı. Sen ne "
+        "adını koyarsın?",
+        "Bir gece yarısı {focus} kendi kendine konuşmaya başladı. Dinleyen tek kişi bir bekçiydi "
+        "ve bekçi ne söylediğini henüz anlamamıştı. Sen bekçinin yerinde olsaydın ilk ne derdin?",
+    )
+    _STORY_CAUSAL = (
+        "{Focus}, {setting} kendine küçük bir yer arıyordu. Başlangıçta yalnız "
+        "görünür olmayı başarı sanıyor, bıraktığı etkinin kendisinden sonra da sürebileceğini "
+        "bilmiyordu. Aradaki bağı fark ettiğinde, kaybolmakla biçim değiştirmek arasındaki farkı da "
+        "anladı.",
+        "{Focus} {setting} ufacık bir köşe buldu. Orada fark edilmeden kalmanın, "
+        "bıraktığı izlerle birlikte nasıl bir şey olduğunu öğrenmeye başladı. Bir gün o izlerin de "
+        "kendi hikâyesi olduğunu görünce, silinmekten korkmayı bıraktı.",
+        "{Focus}, {setting} bir iz bıraktı. O iz başka bir şeyi çağırdı, o şey de "
+        "geri dönüp ilkini değiştirdi. Zincirin hangi halkasının önce başladığını kimse bilmiyordu.",
+        "{Focus} {setting} kaybolduğu sanıldı. Ama her kaybolduğu yerde küçük bir "
+        "iz kalıyordu ve izler birleşince bir yol oldu.",
+    )
+    _STORY_ABSTRACT = (
+        "Bir dünyada {focus}, söylenmediğinde sahibinin ardında görünür bir iz bırakıyordu. "
+        "Bir yolcu bu izleri silmekle görevliydi; fakat her sildiği izin yerinde daha ağır bir "
+        "sessizlik kalıyordu. Sonunda işini değiştirdi: izleri silmek yerine sahiplerine onları "
+        "nereden taşıdıklarını sormaya başladı.",
+        "Bir dünyada {focus} bir ses gibi yayılıyordu, ama kimse onu tam duyamıyordu. Bir "
+        "yolcu her köşede o sesin yankısını topluyordu; yankılar birikince sesin kendisinden daha "
+        "net bir şey söylemeye başladı.",
+        "Bir dünyada {focus} bir sahibi arıyordu; ama sahip, ona sahip olmanın ne demek "
+        "olduğunu henüz bilmiyordu. Bir çocuk ikisinin arasına oturdu ve sorunun cevabı ikisinin de "
+        "bilmediği bir yerde çıktı.",
+        "Bir dünyada {focus} her gün biraz daha küçülüyordu. Bir bahçıvan onu büyütmek için "
+        "değil, küçüldüğünü fark etmek için her sabah yanına gidiyordu.",
+    )
+    _STORY_QUESTION = (
+        "Bir yolcu, cebinde “{question}?” sorusuyla yola çıktı. Herkes ona başka "
+        "bir cevap verdi; o da hepsini aynı deftere yazdı. Cevaplar çatışınca önce defteri kapatmak "
+        "istedi; sonra sorunun büyüdüğünü, ama artık tek bir hazır cevaba sığmak zorunda olmadığını "
+        "fark etti.",
+        "Cebinde “{question}?” diye bir soru taşıyan bir yolcu, bir kasabaya vardı. "
+        "Her meydanda biri ona farklı bir yol gösterdi; yolların hiçbiri aynı yere çıkmıyordu, ama "
+        "yolcu hangisinin doğru olduğunu sormayı bıraktı.",
+        "“{question}?” diye soran bir çocuk, cevabı bulmak için babasının eski "
+        "mektuplarını açtı. Mektupların hepsi aynı soruyu yeniden soruyordu; çocuk bir gün kendi "
+        "cevabını yazmaya karar verdi.",
+        "Bir kâtip, her gün masasına “{question}?” sorusunu bırakan bir müşteri "
+        "bekliyordu. Müşteri gelmeyince kâtip soruyu kendi yanıtlamaya başladı; yanıt bitmedi ama "
+        "masayı bırakmadı.",
+    )
+
+    def _story_question(self, agi) -> str:
+        """Son konuşmadaki gerçek bir kullanıcı sorusu (sosyal ve tekrar eden kalıplar hariç); yoksa boş."""
+        for ep in reversed(self._recent_episodes(agi)):
+            candidate = str(getattr(ep, "user_text", "") or "").strip()
+            if ("?" in candidate and not self.is_expansion_request(candidate)
+                    and not self.is_contextual_continuation(agi, candidate)
+                    and not any(c in tr_lower(candidate) for c in ("sonra ne oldu", "devam et"))
+                    and not (set(re.findall(r"[\wçğıöşü]+", tr_lower(candidate))) & self._STORY_SOCIAL)):
+                return candidate.split("?")[0].strip()
+        return ""
+
+    def _pool_text(self, pool: tuple[str, ...], **slots: str) -> str:
+        """Havuzdan donanım entropisiyle bir kalıp seçer ve yer tutucularını doldurur."""
+        slots.setdefault("Focus", tr_capitalize(str(slots.get("focus", ""))))
+        return pool[self._variant(len(pool))].format(**slots)
+
+    def _compose_story(self, focus: str) -> tuple[str, str]:
+        """Hikâyeyi havuzlardan kurar: kişi, yer, nesne, sorun ve dönüm noktası her seferinde yeniden çekilir."""
+        thing = focus or self._STORY_THINGS[self._variant(len(self._STORY_THINGS))]
+        agent = self._STORY_AGENTS[self._variant(len(self._STORY_AGENTS))]
+        place = self._STORY_PLACES[self._variant(len(self._STORY_PLACES))]
+        problem = self._STORY_PROBLEMS[self._variant(len(self._STORY_PROBLEMS))].format(thing=thing)
+        turn = self._STORY_TURNS[self._variant(len(self._STORY_TURNS))]
+        text = (f"{tr_capitalize(agent)} {place} gitti. "
+                f"{tr_capitalize(problem)}. {turn}")
+        return text, thing
+
     def _invent_story(self, agi, raw: str, topic: str) -> str:
         """Kurmaca için olgu anlatımını kopyalamaz; anlatı rolleri ve yay örür.
 
@@ -3354,16 +3653,16 @@ class DeliberativeMind:
             # 'birlikte/bir şeyler' söz-edimi gövdesidir, anlatının konusu değil.
             topic = ""
         affect = self._affect_context(agi)
-        candidates = self._dialogue_candidates(agi)
+        # Selamlaşma ve sohbet kalıpları hikâyenin konusu olmaz: "selam bir ses gibi yayılıyordu" gibi
+        # sahte bir olay bu yüzden çıkıyordu.
+        candidates = [c for c in self._dialogue_candidates(agi)
+                      if tr_lower(str(c.get("topic", ""))) not in self._STORY_SOCIAL]
+        if tr_lower(topic) in self._STORY_SOCIAL:
+            topic = ""
 
         if joint:
             focus = self._story_nominal_focus(agi, topic, candidates, affect)
-            text = (
-                f"Kurmaca bir dünya kuralım: Orada {focus}, ancak biri ona dikkat kesildiğinde "
-                "biçim değiştiriyordu. Bir gezgin bunu fark etti; her bakışında başka bir ayrıntı "
-                "beliriyor, fakat aynı ayrıntıyı ikinci kez bulamıyordu. Gezgin tam elini uzattı; "
-                "neye dokunacağını ben seçmeyeyim. Onun karşısında ne beliriyor?"
-            )
+            text = self._pool_text(self._STORY_JOINT, focus=focus)
             arc = "joint_attention_world"
             continuation = (
                 f"Gezginin gördüğü şey, {focus} ile arasında kurduğu bağı değiştirdi; bundan "
@@ -3386,8 +3685,13 @@ class DeliberativeMind:
         # Soyut kavramı görünür bir role çevirme, duygu bulunmadığında da
         # konuşma adaylarından beslenebilir; tek yay türüne düşme.
         arc_options.append("abstract_reification")
-        arc_options.append("question_journey")
-        arc = next((a for a in arc_options if a not in self.recent_story_arcs), arc_options[0])
+        # Soru yayı yalnız gerçek bir kullanıcı sorusu varsa açılır; uydurulmuş bir soru kurulmaz.
+        if self._story_question(agi):
+            arc_options.append("question_journey")
+        arc_options.append("composed_journey")
+        # Yay türü sabit sırayla değil, yakın geçmişte kullanılmamış olanlar arasından seçilir.
+        fresh_arcs = [a for a in arc_options if a not in self.recent_story_arcs] or arc_options
+        arc = fresh_arcs[self._variant(len(fresh_arcs))]
 
         if arc == "causal_animation" and causal is not None:
             obj = agi.lang.graph.surface_name(str(causal.obj))
@@ -3400,12 +3704,7 @@ class DeliberativeMind:
                 except Exception:
                     left_ins = left + " ile"
                 setting = f"{left_ins} {right} arasında"
-            text = (
-                f"Kurmaca bir anlatı: {tr_capitalize(focus)}, {setting} kendine küçük bir yer "
-                "arıyordu. Başlangıçta yalnız görünür olmayı başarı sanıyor, bıraktığı etkinin "
-                "kendisinden sonra da sürebileceğini bilmiyordu. Aradaki bağı fark ettiğinde, "
-                "kaybolmakla biçim değiştirmek arasındaki farkı da anladı."
-            )
+            text = self._pool_text(self._STORY_CAUSAL, focus=focus, setting=setting)
             evidence = [self._edge_key(causal)]
             continuation = (
                 f"Sonra {focus} aynı bağa yeniden geldi; bu kez kendini başlangıçtaki kadar küçük "
@@ -3414,37 +3713,23 @@ class DeliberativeMind:
         elif arc == "abstract_reification":
             focus = topic or str(affect.get("tag") or "") or (
                 candidates[0]["topic"] if candidates else "sessizlik")
-            text = (
-                f"Kurmaca bir dünyada {focus}, söylenmediğinde sahibinin ardında görünür bir iz "
-                "bırakıyordu. Bir yolcu bu izleri silmekle görevliydi; fakat her sildiği izin "
-                "yerinde daha ağır bir sessizlik kalıyordu. Sonunda işini değiştirdi: izleri "
-                "silmek yerine sahiplerine onları nereden taşıdıklarını sormaya başladı."
-            )
+            text = self._pool_text(self._STORY_ABSTRACT, focus=focus)
             evidence = ["abstract_reification"]
             continuation = (
                 "Yolcu ilk kez bir izi silmeden yanına oturdu. Sahibi konuştukça izin biçimi "
                 "değişti; kaybolmadı, ama artık ikisinin arasındaki tek şey değildi."
             )
+        elif arc == "composed_journey":
+            text, focus = self._compose_story(topic if topic not in self._STORY_SOCIAL else "")
+            evidence = ["composed_journey"]
+            continuation = ("Yolcu aradığı şeyin yolda değil kendinde olduğunu gördü; "
+                            "bundan sonra her kapı yeni bir soru gibi açıldı.")
         else:
-            question = ""
-            for ep in reversed(self._recent_episodes(agi)):
-                candidate = str(getattr(ep, "user_text", "") or "").strip()
-                if ("?" in candidate and not self.is_expansion_request(candidate)
-                        and not self.is_contextual_continuation(agi, candidate)
-                        and not any(c in tr_lower(candidate) for c in ("sonra ne oldu", "devam et"))):
-                    question = candidate.split("?")[0].strip()
-                    break
-            if not question:
-                question = f"{topic or 'bir şeyi'} gerçekten anlamak ne demek"
+            question = self._story_question(agi)
             if len(question) > 90:
                 question = question[:87].rstrip() + "…"
             focus = topic or "cevapsız soru"
-            text = (
-                f"Kurmaca bir anlatı: Bir yolcu, cebinde “{question}?” sorusuyla yola çıktı. "
-                "Herkes ona başka bir cevap verdi; o da hepsini aynı deftere yazdı. Cevaplar "
-                "çatışınca önce defteri kapatmak istedi; sonra sorunun büyüdüğünü, ama artık "
-                "tek bir hazır cevaba sığmak zorunda olmadığını fark etti."
-            )
+            text = self._pool_text(self._STORY_QUESTION, question=question)
             evidence = ["dialogue_question"]
             continuation = (
                 "Ertesi sabah defteri yeniden açtığında, cevapların arasına kendi sorusunu da "
@@ -3716,8 +4001,11 @@ class DeliberativeMind:
             best = candidates[0]
             topic = best["topic"]
             habitual = any(x in low for x in ("kendi başına", "yalnız", "boş kaldığında"))
+            leads = ("Şu anda zihnimde tek bir hazır cevap değil, açık bir bağlantı var. ",
+                     "Aklımda hazır bir cevap yok; açık bir bağlantı duruyor. ",
+                     "Şu an içimde kapalı bir cevap değil, açık bir iz var. ")
             lead = ("Kendi başıma kaldığımda son konuşmanın açık kalan yanlarına dönüyorum. "
-                    if habitual else "Şu anda zihnimde tek bir hazır cevap değil, açık bir bağlantı var. ")
+                    if habitual else leads[self._variant(len(leads))])
             if int(best.get("degree", 0)) == 0:
                 text = (
                     lead + f"Şu sıralar {topic} öne çıkıyor; onun için bende kurulmuş bir ilişki "

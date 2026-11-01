@@ -42,6 +42,32 @@ def _fmt_num(x: float, digits: int = 4) -> str:
     return "0" if s in ("-0", "") else s
 
 
+# Matematiksel sözcükler: sabit, işlev adı. Bunların dışındaki Türkçe sözcükler
+# ('ifadesinde', 'kaçtır', 'hesapla') ifadeye ait değildir ve ayrıştırmadan önce atılır.
+_MATH_WORDS = frozenset({"pi", "e", "sin", "cos", "tan", "exp", "ln", "log", "sqrt", "abs"})
+_MATH_WORD_OPS = {"üzeri": "^", "üssü": "^", "çarpı": "*", "kere": "*", "bölü": "/", "karekök": "sqrt"}
+_MATH_OPS = frozenset({"+", "-", "*", "/", "^", "(", ")"})
+
+
+def _math_span(text: str) -> str:
+    """Ham Türkçe ifadeden yalnız matematiksel belirteçleri bırakıp normalize eder.
+
+    Kesme işaretli ekler ("3'e", "pi'nin") ve dolgu sözcükleri atılır; sayı, işleç,
+    parantez, sabit/işlev adları ile tek harfli değişkenler (x, t, y, z) korunur.
+    """
+    s = _tr_low(text).replace("π", " pi ").replace("²", "^2").replace("³", "^3").replace("⁴", "^4")
+    s = s.replace("×", "*").replace("÷", "/").replace("**", "^")
+    s = re.sub(r"['’]\S*", " ", s)
+    out: list[str] = []
+    for tok in re.findall(r"\d+(?:\.\d+)?|[a-zçğıöşü_]+|[\+\-\*\/\^\(\)]", s):
+        if tok in _MATH_WORD_OPS:
+            out.append(_MATH_WORD_OPS[tok])
+        elif tok[0].isdigit() or tok in _MATH_OPS or tok in _MATH_WORDS or (len(tok) == 1 and tok in "xyzt"):
+            out.append(tok)
+    # Örtük çarpımları ('2 pi' -> '2*pi', '4 x ^ 3' -> '4*x ^ 3') ön-işlemcinin kuralıyla aç.
+    return SymbolicAST.preprocess(" ".join(out))
+
+
 # ============================================================================
 # 1. SEMBOLİK MATEMATİK AST VE TÜREV / İNTEGRAL / DENKLEM MOTORU
 # ============================================================================
@@ -655,7 +681,37 @@ class MathCortex:
                 except Exception:
                     pass
 
-        return None
+        # 8) Sembolik sabitli sayısal ifadeler ('2pi kaç eder', 'e^2 kaçtır'): en son, yalnız
+        #    başka hiçbir kalıp eşleşmediğinde denenir; 'pi nedir' gibi tanım sorularına dokunmaz.
+        return self._solve_constant_expr(raw_text)
+
+    def _solve_constant_expr(self, raw_text: str) -> dict | None:
+        """pi ve e içeren, değişkensiz sayısal ifadeleri değerlendirir ('2pi', 'e^2', 'pi/4 kaç eder')."""
+        span = _math_span(raw_text)
+        if not re.search(r"\b(pi|e)\b", span):
+            return None
+        # Hesap niyeti: sayı/işleç içeren bir ifade ya da açık bir hesap sözcüğü olmalı.
+        if not (re.search(r"\d|[\+\-\*\/\^\(]", span) or re.search(r"kaç|hesapla", _tr_low(raw_text))):
+            return None
+        # Değişken içeren ifade (x, t, ...) burada çözülmez; o yol denklem/türev motorunun işidir.
+        words = re.findall(r"[a-z]+", span)
+        if any(w not in _MATH_WORDS for w in words):
+            return None
+        try:
+            ast = SymbolicAST.parse(span)
+            val = SymbolicAST.eval_expr(ast)
+        except Exception:
+            return None
+        if not math.isfinite(val):
+            return None
+        is_exact = abs(val - round(val)) < 1e-9
+        disp = span.replace("pi", "π").replace("*", "×").replace("/", "÷")
+        rel = "=" if is_exact else "≈"
+        return {
+            "domain": "math", "kind": "constant_expr", "confidence": 0.96,
+            "reply": f"{disp} {rel} {_fmt_num(val, 6)} eder.",
+            "trace": f"{span} = {_fmt_num(val, 6)}",
+        }
 
     def _solve_single_eq(self, lhs_s: str, rhs_s: str, var: str) -> dict | None:
         try:
@@ -802,9 +858,10 @@ class MathCortex:
         m_bounds = re.search(r"(-?\d+(?:\.\d+)?)['’\s]*(?:dan|den|tan|ten)\s*(-?\d+(?:\.\d+)?)['’\s]*(?:e|a|ye|ya)(?:\s+kadar)?\s+(.+?)\s+integral", s)
         if m_bounds:
             a, b = float(m_bounds.group(1)), float(m_bounds.group(2))
-            expr_s = m_bounds.group(3).strip()
+            # "...ifadesinin integrali": ifadenin çevresindeki Türkçe dolgu sözcükleri atılır.
+            expr_s = _math_span(m_bounds.group(3))
             try:
-                var = "t" if ("t" in expr_s and "x" not in expr_s) else "x"
+                var = "t" if (re.search(r"\bt\b", expr_s) and not re.search(r"\bx\b", expr_s)) else "x"
                 ast = SymbolicAST.parse(expr_s)
                 val_num = SymbolicAST.simpson_integral(ast, var, a, b)
                 pc = SymbolicAST.poly_coeffs(ast, var)

@@ -436,6 +436,11 @@ def a17_expert_mathematics_cortex():
         ("3x^3 - 4x^2 + 5x - 2 fonksiyonunun türevi nedir?", lambda r: "9x^2 - 8x + 5" in tr_lower(r)),
         ("0'dan 3'e x^2 integrali kaçtır?", lambda r: "= 9" in r or "9 (" in r),
         ("24 ile 36 sayılarının ebob ve ekoku kaçtır?", lambda r: "12" in r and "72" in r),
+        ("2pi kaç eder?", lambda r: "6.283185" in r),
+        ("e^2 kaçtır?", lambda r: "7.389056" in r),
+        ("-2'den 3'e 4x^3 - 3x^2 + 2x - 7 ifadesinde integral", lambda r: "F(3) - F(-2) = 0" in r),
+        # Aynı integral tekrar sorulduğunda hesap yeniden yapılmalı; önceki cevap hatırlatılmamalı.
+        ("0'dan 3'e x^2 integrali kaçtır?", lambda r: "= 9" in r or "9 (" in r),
     ]
     hits = sum(int(chk(agi.converse(q))) for q, chk in cases)
     return hits == len(cases), f"cebir, denklem sistemi, türev, integral ve sayılar teorisi {hits}/{len(cases)}"

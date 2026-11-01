@@ -1,0 +1,1682 @@
+[
+ {
+  "ID": "dev7-start_gain0",
+  "kind": "start_gain",
+  "Body_tr": "Umut'nin bazı baloni vardı. Umut 6 balon daha aldı. Şimdi 26 baloni var.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 20
+ },
+ {
+  "ID": "dev7-start_loss0",
+  "kind": "start_loss",
+  "Body_tr": "Umut'nin bazı baloni vardı. Umut 11 balon verdi. Geriye 80 balon kaldı.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 91
+ },
+ {
+  "ID": "dev7-event_loss0",
+  "kind": "event_loss",
+  "Body_tr": "Umut'nin 44 baloni vardı. Umut bazı balon verdi. Geriye 33 balon kaldı.",
+  "Question_tr": "Kaç balon verdi?",
+  "gold": 11
+ },
+ {
+  "ID": "dev7-event_gain0",
+  "kind": "event_gain",
+  "Body_tr": "Umut'nin 16 baloni vardı. Umut bazı balon daha aldı. Şimdi 31 baloni var.",
+  "Question_tr": "Kaç balon aldı?",
+  "gold": 15
+ },
+ {
+  "ID": "dev7-start_gain1",
+  "kind": "start_gain",
+  "Body_tr": "Naz'nin bazı baloni vardı. Naz 7 balon daha aldı. Şimdi 44 baloni var.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 37
+ },
+ {
+  "ID": "dev7-start_loss1",
+  "kind": "start_loss",
+  "Body_tr": "Naz'nin bazı baloni vardı. Naz 7 balon verdi. Geriye 67 balon kaldı.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 74
+ },
+ {
+  "ID": "dev7-event_loss1",
+  "kind": "event_loss",
+  "Body_tr": "Naz'nin 44 baloni vardı. Naz bazı balon verdi. Geriye 39 balon kaldı.",
+  "Question_tr": "Kaç balon verdi?",
+  "gold": 5
+ },
+ {
+  "ID": "dev7-event_gain1",
+  "kind": "event_gain",
+  "Body_tr": "Naz'nin 10 baloni vardı. Naz bazı balon daha aldı. Şimdi 23 baloni var.",
+  "Question_tr": "Kaç balon aldı?",
+  "gold": 13
+ },
+ {
+  "ID": "dev7-start_gain2",
+  "kind": "start_gain",
+  "Body_tr": "Seda'nin bazı karti vardı. Seda 4 kart daha aldı. Şimdi 57 karti var.",
+  "Question_tr": "Başta kaç karti vardı?",
+  "gold": 53
+ },
+ {
+  "ID": "dev7-start_loss2",
+  "kind": "start_loss",
+  "Body_tr": "Seda'nin bazı karti vardı. Seda 2 kart verdi. Geriye 74 kart kaldı.",
+  "Question_tr": "Başta kaç karti vardı?",
+  "gold": 76
+ },
+ {
+  "ID": "dev7-event_loss2",
+  "kind": "event_loss",
+  "Body_tr": "Seda'nin 83 karti vardı. Seda bazı kart verdi. Geriye 74 kart kaldı.",
+  "Question_tr": "Kaç kart verdi?",
+  "gold": 9
+ },
+ {
+  "ID": "dev7-event_gain2",
+  "kind": "event_gain",
+  "Body_tr": "Seda'nin 34 karti vardı. Seda bazı kart daha aldı. Şimdi 63 karti var.",
+  "Question_tr": "Kaç kart aldı?",
+  "gold": 29
+ },
+ {
+  "ID": "dev7-start_gain3",
+  "kind": "start_gain",
+  "Body_tr": "Orhan'nin bazı karti vardı. Orhan 7 kart daha aldı. Şimdi 27 karti var.",
+  "Question_tr": "Başta kaç karti vardı?",
+  "gold": 20
+ },
+ {
+  "ID": "dev7-start_loss3",
+  "kind": "start_loss",
+  "Body_tr": "Orhan'nin bazı karti vardı. Orhan 15 kart verdi. Geriye 42 kart kaldı.",
+  "Question_tr": "Başta kaç karti vardı?",
+  "gold": 57
+ },
+ {
+  "ID": "dev7-event_loss3",
+  "kind": "event_loss",
+  "Body_tr": "Orhan'nin 57 karti vardı. Orhan bazı kart verdi. Geriye 42 kart kaldı.",
+  "Question_tr": "Kaç kart verdi?",
+  "gold": 15
+ },
+ {
+  "ID": "dev7-event_gain3",
+  "kind": "event_gain",
+  "Body_tr": "Orhan'nin 40 karti vardı. Orhan bazı kart daha aldı. Şimdi 49 karti var.",
+  "Question_tr": "Kaç kart aldı?",
+  "gold": 9
+ },
+ {
+  "ID": "dev7-start_gain4",
+  "kind": "start_gain",
+  "Body_tr": "Orhan'nin bazı kitapi vardı. Orhan 2 kitap daha aldı. Şimdi 34 kitapi var.",
+  "Question_tr": "Başta kaç kitapi vardı?",
+  "gold": 32
+ },
+ {
+  "ID": "dev7-start_loss4",
+  "kind": "start_loss",
+  "Body_tr": "Orhan'nin bazı kitapi vardı. Orhan 13 kitap verdi. Geriye 75 kitap kaldı.",
+  "Question_tr": "Başta kaç kitapi vardı?",
+  "gold": 88
+ },
+ {
+  "ID": "dev7-event_loss4",
+  "kind": "event_loss",
+  "Body_tr": "Orhan'nin 67 kitapi vardı. Orhan bazı kitap verdi. Geriye 57 kitap kaldı.",
+  "Question_tr": "Kaç kitap verdi?",
+  "gold": 10
+ },
+ {
+  "ID": "dev7-event_gain4",
+  "kind": "event_gain",
+  "Body_tr": "Orhan'nin 33 kitapi vardı. Orhan bazı kitap daha aldı. Şimdi 49 kitapi var.",
+  "Question_tr": "Kaç kitap aldı?",
+  "gold": 16
+ },
+ {
+  "ID": "dev7-start_gain5",
+  "kind": "start_gain",
+  "Body_tr": "Umut'nin bazı karti vardı. Umut 3 kart daha aldı. Şimdi 17 karti var.",
+  "Question_tr": "Başta kaç karti vardı?",
+  "gold": 14
+ },
+ {
+  "ID": "dev7-start_loss5",
+  "kind": "start_loss",
+  "Body_tr": "Umut'nin bazı karti vardı. Umut 9 kart verdi. Geriye 45 kart kaldı.",
+  "Question_tr": "Başta kaç karti vardı?",
+  "gold": 54
+ },
+ {
+  "ID": "dev7-event_loss5",
+  "kind": "event_loss",
+  "Body_tr": "Umut'nin 84 karti vardı. Umut bazı kart verdi. Geriye 72 kart kaldı.",
+  "Question_tr": "Kaç kart verdi?",
+  "gold": 12
+ },
+ {
+  "ID": "dev7-event_gain5",
+  "kind": "event_gain",
+  "Body_tr": "Umut'nin 34 karti vardı. Umut bazı kart daha aldı. Şimdi 63 karti var.",
+  "Question_tr": "Kaç kart aldı?",
+  "gold": 29
+ },
+ {
+  "ID": "dev7-start_gain6",
+  "kind": "start_gain",
+  "Body_tr": "Naz'nin bazı bilyei vardı. Naz 5 bilye daha aldı. Şimdi 56 bilyei var.",
+  "Question_tr": "Başta kaç bilyei vardı?",
+  "gold": 51
+ },
+ {
+  "ID": "dev7-start_loss6",
+  "kind": "start_loss",
+  "Body_tr": "Naz'nin bazı bilyei vardı. Naz 2 bilye verdi. Geriye 23 bilye kaldı.",
+  "Question_tr": "Başta kaç bilyei vardı?",
+  "gold": 25
+ },
+ {
+  "ID": "dev7-event_loss6",
+  "kind": "event_loss",
+  "Body_tr": "Naz'nin 54 bilyei vardı. Naz bazı bilye verdi. Geriye 33 bilye kaldı.",
+  "Question_tr": "Kaç bilye verdi?",
+  "gold": 21
+ },
+ {
+  "ID": "dev7-event_gain6",
+  "kind": "event_gain",
+  "Body_tr": "Naz'nin 21 bilyei vardı. Naz bazı bilye daha aldı. Şimdi 32 bilyei var.",
+  "Question_tr": "Kaç bilye aldı?",
+  "gold": 11
+ },
+ {
+  "ID": "dev7-start_gain7",
+  "kind": "start_gain",
+  "Body_tr": "Orhan'nin bazı baloni vardı. Orhan 5 balon daha aldı. Şimdi 17 baloni var.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 12
+ },
+ {
+  "ID": "dev7-start_loss7",
+  "kind": "start_loss",
+  "Body_tr": "Orhan'nin bazı baloni vardı. Orhan 12 balon verdi. Geriye 41 balon kaldı.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 53
+ },
+ {
+  "ID": "dev7-event_loss7",
+  "kind": "event_loss",
+  "Body_tr": "Orhan'nin 57 baloni vardı. Orhan bazı balon verdi. Geriye 47 balon kaldı.",
+  "Question_tr": "Kaç balon verdi?",
+  "gold": 10
+ },
+ {
+  "ID": "dev7-event_gain7",
+  "kind": "event_gain",
+  "Body_tr": "Orhan'nin 38 baloni vardı. Orhan bazı balon daha aldı. Şimdi 62 baloni var.",
+  "Question_tr": "Kaç balon aldı?",
+  "gold": 24
+ },
+ {
+  "ID": "dev7-start_gain8",
+  "kind": "start_gain",
+  "Body_tr": "Rıza'nin bazı kalemi vardı. Rıza 3 kalem daha aldı. Şimdi 35 kalemi var.",
+  "Question_tr": "Başta kaç kalemi vardı?",
+  "gold": 32
+ },
+ {
+  "ID": "dev7-start_loss8",
+  "kind": "start_loss",
+  "Body_tr": "Rıza'nin bazı kalemi vardı. Rıza 10 kalem verdi. Geriye 63 kalem kaldı.",
+  "Question_tr": "Başta kaç kalemi vardı?",
+  "gold": 73
+ },
+ {
+  "ID": "dev7-event_loss8",
+  "kind": "event_loss",
+  "Body_tr": "Rıza'nin 89 kalemi vardı. Rıza bazı kalem verdi. Geriye 81 kalem kaldı.",
+  "Question_tr": "Kaç kalem verdi?",
+  "gold": 8
+ },
+ {
+  "ID": "dev7-event_gain8",
+  "kind": "event_gain",
+  "Body_tr": "Rıza'nin 12 kalemi vardı. Rıza bazı kalem daha aldı. Şimdi 25 kalemi var.",
+  "Question_tr": "Kaç kalem aldı?",
+  "gold": 13
+ },
+ {
+  "ID": "dev7-start_gain9",
+  "kind": "start_gain",
+  "Body_tr": "Pınar'nin bazı bilyei vardı. Pınar 2 bilye daha aldı. Şimdi 39 bilyei var.",
+  "Question_tr": "Başta kaç bilyei vardı?",
+  "gold": 37
+ },
+ {
+  "ID": "dev7-start_loss9",
+  "kind": "start_loss",
+  "Body_tr": "Pınar'nin bazı bilyei vardı. Pınar 11 bilye verdi. Geriye 39 bilye kaldı.",
+  "Question_tr": "Başta kaç bilyei vardı?",
+  "gold": 50
+ },
+ {
+  "ID": "dev7-event_loss9",
+  "kind": "event_loss",
+  "Body_tr": "Pınar'nin 65 bilyei vardı. Pınar bazı bilye verdi. Geriye 59 bilye kaldı.",
+  "Question_tr": "Kaç bilye verdi?",
+  "gold": 6
+ },
+ {
+  "ID": "dev7-event_gain9",
+  "kind": "event_gain",
+  "Body_tr": "Pınar'nin 40 bilyei vardı. Pınar bazı bilye daha aldı. Şimdi 59 bilyei var.",
+  "Question_tr": "Kaç bilye aldı?",
+  "gold": 19
+ },
+ {
+  "ID": "dev7-start_gain10",
+  "kind": "start_gain",
+  "Body_tr": "Pınar'nin bazı kalemi vardı. Pınar 8 kalem daha aldı. Şimdi 26 kalemi var.",
+  "Question_tr": "Başta kaç kalemi vardı?",
+  "gold": 18
+ },
+ {
+  "ID": "dev7-start_loss10",
+  "kind": "start_loss",
+  "Body_tr": "Pınar'nin bazı kalemi vardı. Pınar 13 kalem verdi. Geriye 37 kalem kaldı.",
+  "Question_tr": "Başta kaç kalemi vardı?",
+  "gold": 50
+ },
+ {
+  "ID": "dev7-event_loss10",
+  "kind": "event_loss",
+  "Body_tr": "Pınar'nin 72 kalemi vardı. Pınar bazı kalem verdi. Geriye 50 kalem kaldı.",
+  "Question_tr": "Kaç kalem verdi?",
+  "gold": 22
+ },
+ {
+  "ID": "dev7-event_gain10",
+  "kind": "event_gain",
+  "Body_tr": "Pınar'nin 27 kalemi vardı. Pınar bazı kalem daha aldı. Şimdi 34 kalemi var.",
+  "Question_tr": "Kaç kalem aldı?",
+  "gold": 7
+ },
+ {
+  "ID": "dev7-start_gain11",
+  "kind": "start_gain",
+  "Body_tr": "Orhan'nin bazı kalemi vardı. Orhan 8 kalem daha aldı. Şimdi 35 kalemi var.",
+  "Question_tr": "Başta kaç kalemi vardı?",
+  "gold": 27
+ },
+ {
+  "ID": "dev7-start_loss11",
+  "kind": "start_loss",
+  "Body_tr": "Orhan'nin bazı kalemi vardı. Orhan 8 kalem verdi. Geriye 22 kalem kaldı.",
+  "Question_tr": "Başta kaç kalemi vardı?",
+  "gold": 30
+ },
+ {
+  "ID": "dev7-event_loss11",
+  "kind": "event_loss",
+  "Body_tr": "Orhan'nin 55 kalemi vardı. Orhan bazı kalem verdi. Geriye 45 kalem kaldı.",
+  "Question_tr": "Kaç kalem verdi?",
+  "gold": 10
+ },
+ {
+  "ID": "dev7-event_gain11",
+  "kind": "event_gain",
+  "Body_tr": "Orhan'nin 22 kalemi vardı. Orhan bazı kalem daha aldı. Şimdi 39 kalemi var.",
+  "Question_tr": "Kaç kalem aldı?",
+  "gold": 17
+ },
+ {
+  "ID": "dev7-start_gain12",
+  "kind": "start_gain",
+  "Body_tr": "Pınar'nin bazı bilyei vardı. Pınar 6 bilye daha aldı. Şimdi 60 bilyei var.",
+  "Question_tr": "Başta kaç bilyei vardı?",
+  "gold": 54
+ },
+ {
+  "ID": "dev7-start_loss12",
+  "kind": "start_loss",
+  "Body_tr": "Pınar'nin bazı bilyei vardı. Pınar 13 bilye verdi. Geriye 27 bilye kaldı.",
+  "Question_tr": "Başta kaç bilyei vardı?",
+  "gold": 40
+ },
+ {
+  "ID": "dev7-event_loss12",
+  "kind": "event_loss",
+  "Body_tr": "Pınar'nin 75 bilyei vardı. Pınar bazı bilye verdi. Geriye 68 bilye kaldı.",
+  "Question_tr": "Kaç bilye verdi?",
+  "gold": 7
+ },
+ {
+  "ID": "dev7-event_gain12",
+  "kind": "event_gain",
+  "Body_tr": "Pınar'nin 17 bilyei vardı. Pınar bazı bilye daha aldı. Şimdi 46 bilyei var.",
+  "Question_tr": "Kaç bilye aldı?",
+  "gold": 29
+ },
+ {
+  "ID": "dev7-start_gain13",
+  "kind": "start_gain",
+  "Body_tr": "Rıza'nin bazı bilyei vardı. Rıza 5 bilye daha aldı. Şimdi 58 bilyei var.",
+  "Question_tr": "Başta kaç bilyei vardı?",
+  "gold": 53
+ },
+ {
+  "ID": "dev7-start_loss13",
+  "kind": "start_loss",
+  "Body_tr": "Rıza'nin bazı bilyei vardı. Rıza 15 bilye verdi. Geriye 27 bilye kaldı.",
+  "Question_tr": "Başta kaç bilyei vardı?",
+  "gold": 42
+ },
+ {
+  "ID": "dev7-event_loss13",
+  "kind": "event_loss",
+  "Body_tr": "Rıza'nin 87 bilyei vardı. Rıza bazı bilye verdi. Geriye 62 bilye kaldı.",
+  "Question_tr": "Kaç bilye verdi?",
+  "gold": 25
+ },
+ {
+  "ID": "dev7-event_gain13",
+  "kind": "event_gain",
+  "Body_tr": "Rıza'nin 23 bilyei vardı. Rıza bazı bilye daha aldı. Şimdi 35 bilyei var.",
+  "Question_tr": "Kaç bilye aldı?",
+  "gold": 12
+ },
+ {
+  "ID": "dev7-start_gain14",
+  "kind": "start_gain",
+  "Body_tr": "Naz'nin bazı karti vardı. Naz 6 kart daha aldı. Şimdi 34 karti var.",
+  "Question_tr": "Başta kaç karti vardı?",
+  "gold": 28
+ },
+ {
+  "ID": "dev7-start_loss14",
+  "kind": "start_loss",
+  "Body_tr": "Naz'nin bazı karti vardı. Naz 13 kart verdi. Geriye 80 kart kaldı.",
+  "Question_tr": "Başta kaç karti vardı?",
+  "gold": 93
+ },
+ {
+  "ID": "dev7-event_loss14",
+  "kind": "event_loss",
+  "Body_tr": "Naz'nin 110 karti vardı. Naz bazı kart verdi. Geriye 86 kart kaldı.",
+  "Question_tr": "Kaç kart verdi?",
+  "gold": 24
+ },
+ {
+  "ID": "dev7-event_gain14",
+  "kind": "event_gain",
+  "Body_tr": "Naz'nin 10 karti vardı. Naz bazı kart daha aldı. Şimdi 31 karti var.",
+  "Question_tr": "Kaç kart aldı?",
+  "gold": 21
+ },
+ {
+  "ID": "dev7-start_gain15",
+  "kind": "start_gain",
+  "Body_tr": "Rıza'nin bazı kalemi vardı. Rıza 8 kalem daha aldı. Şimdi 54 kalemi var.",
+  "Question_tr": "Başta kaç kalemi vardı?",
+  "gold": 46
+ },
+ {
+  "ID": "dev7-start_loss15",
+  "kind": "start_loss",
+  "Body_tr": "Rıza'nin bazı kalemi vardı. Rıza 10 kalem verdi. Geriye 57 kalem kaldı.",
+  "Question_tr": "Başta kaç kalemi vardı?",
+  "gold": 67
+ },
+ {
+  "ID": "dev7-event_loss15",
+  "kind": "event_loss",
+  "Body_tr": "Rıza'nin 79 kalemi vardı. Rıza bazı kalem verdi. Geriye 61 kalem kaldı.",
+  "Question_tr": "Kaç kalem verdi?",
+  "gold": 18
+ },
+ {
+  "ID": "dev7-event_gain15",
+  "kind": "event_gain",
+  "Body_tr": "Rıza'nin 12 kalemi vardı. Rıza bazı kalem daha aldı. Şimdi 35 kalemi var.",
+  "Question_tr": "Kaç kalem aldı?",
+  "gold": 23
+ },
+ {
+  "ID": "dev7-start_gain16",
+  "kind": "start_gain",
+  "Body_tr": "Seda'nin bazı baloni vardı. Seda 3 balon daha aldı. Şimdi 54 baloni var.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 51
+ },
+ {
+  "ID": "dev7-start_loss16",
+  "kind": "start_loss",
+  "Body_tr": "Seda'nin bazı baloni vardı. Seda 3 balon verdi. Geriye 64 balon kaldı.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 67
+ },
+ {
+  "ID": "dev7-event_loss16",
+  "kind": "event_loss",
+  "Body_tr": "Seda'nin 58 baloni vardı. Seda bazı balon verdi. Geriye 50 balon kaldı.",
+  "Question_tr": "Kaç balon verdi?",
+  "gold": 8
+ },
+ {
+  "ID": "dev7-event_gain16",
+  "kind": "event_gain",
+  "Body_tr": "Seda'nin 17 baloni vardı. Seda bazı balon daha aldı. Şimdi 36 baloni var.",
+  "Question_tr": "Kaç balon aldı?",
+  "gold": 19
+ },
+ {
+  "ID": "dev7-start_gain17",
+  "kind": "start_gain",
+  "Body_tr": "Naz'nin bazı kalemi vardı. Naz 8 kalem daha aldı. Şimdi 45 kalemi var.",
+  "Question_tr": "Başta kaç kalemi vardı?",
+  "gold": 37
+ },
+ {
+  "ID": "dev7-start_loss17",
+  "kind": "start_loss",
+  "Body_tr": "Naz'nin bazı kalemi vardı. Naz 6 kalem verdi. Geriye 63 kalem kaldı.",
+  "Question_tr": "Başta kaç kalemi vardı?",
+  "gold": 69
+ },
+ {
+  "ID": "dev7-event_loss17",
+  "kind": "event_loss",
+  "Body_tr": "Naz'nin 71 kalemi vardı. Naz bazı kalem verdi. Geriye 63 kalem kaldı.",
+  "Question_tr": "Kaç kalem verdi?",
+  "gold": 8
+ },
+ {
+  "ID": "dev7-event_gain17",
+  "kind": "event_gain",
+  "Body_tr": "Naz'nin 29 kalemi vardı. Naz bazı kalem daha aldı. Şimdi 38 kalemi var.",
+  "Question_tr": "Kaç kalem aldı?",
+  "gold": 9
+ },
+ {
+  "ID": "dev7-start_gain18",
+  "kind": "start_gain",
+  "Body_tr": "Pınar'nin bazı kitapi vardı. Pınar 3 kitap daha aldı. Şimdi 32 kitapi var.",
+  "Question_tr": "Başta kaç kitapi vardı?",
+  "gold": 29
+ },
+ {
+  "ID": "dev7-start_loss18",
+  "kind": "start_loss",
+  "Body_tr": "Pınar'nin bazı kitapi vardı. Pınar 8 kitap verdi. Geriye 77 kitap kaldı.",
+  "Question_tr": "Başta kaç kitapi vardı?",
+  "gold": 85
+ },
+ {
+  "ID": "dev7-event_loss18",
+  "kind": "event_loss",
+  "Body_tr": "Pınar'nin 69 kitapi vardı. Pınar bazı kitap verdi. Geriye 56 kitap kaldı.",
+  "Question_tr": "Kaç kitap verdi?",
+  "gold": 13
+ },
+ {
+  "ID": "dev7-event_gain18",
+  "kind": "event_gain",
+  "Body_tr": "Pınar'nin 21 kitapi vardı. Pınar bazı kitap daha aldı. Şimdi 30 kitapi var.",
+  "Question_tr": "Kaç kitap aldı?",
+  "gold": 9
+ },
+ {
+  "ID": "dev7-start_gain19",
+  "kind": "start_gain",
+  "Body_tr": "Rıza'nin bazı bilyei vardı. Rıza 8 bilye daha aldı. Şimdi 21 bilyei var.",
+  "Question_tr": "Başta kaç bilyei vardı?",
+  "gold": 13
+ },
+ {
+  "ID": "dev7-start_loss19",
+  "kind": "start_loss",
+  "Body_tr": "Rıza'nin bazı bilyei vardı. Rıza 7 bilye verdi. Geriye 22 bilye kaldı.",
+  "Question_tr": "Başta kaç bilyei vardı?",
+  "gold": 29
+ },
+ {
+  "ID": "dev7-event_loss19",
+  "kind": "event_loss",
+  "Body_tr": "Rıza'nin 69 bilyei vardı. Rıza bazı bilye verdi. Geriye 58 bilye kaldı.",
+  "Question_tr": "Kaç bilye verdi?",
+  "gold": 11
+ },
+ {
+  "ID": "dev7-event_gain19",
+  "kind": "event_gain",
+  "Body_tr": "Rıza'nin 38 bilyei vardı. Rıza bazı bilye daha aldı. Şimdi 63 bilyei var.",
+  "Question_tr": "Kaç bilye aldı?",
+  "gold": 25
+ },
+ {
+  "ID": "dev7-start_gain20",
+  "kind": "start_gain",
+  "Body_tr": "Seda'nin bazı kalemi vardı. Seda 5 kalem daha aldı. Şimdi 50 kalemi var.",
+  "Question_tr": "Başta kaç kalemi vardı?",
+  "gold": 45
+ },
+ {
+  "ID": "dev7-start_loss20",
+  "kind": "start_loss",
+  "Body_tr": "Seda'nin bazı kalemi vardı. Seda 2 kalem verdi. Geriye 57 kalem kaldı.",
+  "Question_tr": "Başta kaç kalemi vardı?",
+  "gold": 59
+ },
+ {
+  "ID": "dev7-event_loss20",
+  "kind": "event_loss",
+  "Body_tr": "Seda'nin 80 kalemi vardı. Seda bazı kalem verdi. Geriye 55 kalem kaldı.",
+  "Question_tr": "Kaç kalem verdi?",
+  "gold": 25
+ },
+ {
+  "ID": "dev7-event_gain20",
+  "kind": "event_gain",
+  "Body_tr": "Seda'nin 39 kalemi vardı. Seda bazı kalem daha aldı. Şimdi 64 kalemi var.",
+  "Question_tr": "Kaç kalem aldı?",
+  "gold": 25
+ },
+ {
+  "ID": "dev7-start_gain21",
+  "kind": "start_gain",
+  "Body_tr": "Seda'nin bazı karti vardı. Seda 7 kart daha aldı. Şimdi 57 karti var.",
+  "Question_tr": "Başta kaç karti vardı?",
+  "gold": 50
+ },
+ {
+  "ID": "dev7-start_loss21",
+  "kind": "start_loss",
+  "Body_tr": "Seda'nin bazı karti vardı. Seda 5 kart verdi. Geriye 37 kart kaldı.",
+  "Question_tr": "Başta kaç karti vardı?",
+  "gold": 42
+ },
+ {
+  "ID": "dev7-event_loss21",
+  "kind": "event_loss",
+  "Body_tr": "Seda'nin 72 karti vardı. Seda bazı kart verdi. Geriye 67 kart kaldı.",
+  "Question_tr": "Kaç kart verdi?",
+  "gold": 5
+ },
+ {
+  "ID": "dev7-event_gain21",
+  "kind": "event_gain",
+  "Body_tr": "Seda'nin 9 karti vardı. Seda bazı kart daha aldı. Şimdi 20 karti var.",
+  "Question_tr": "Kaç kart aldı?",
+  "gold": 11
+ },
+ {
+  "ID": "dev7-start_gain22",
+  "kind": "start_gain",
+  "Body_tr": "Seda'nin bazı karti vardı. Seda 8 kart daha aldı. Şimdi 29 karti var.",
+  "Question_tr": "Başta kaç karti vardı?",
+  "gold": 21
+ },
+ {
+  "ID": "dev7-start_loss22",
+  "kind": "start_loss",
+  "Body_tr": "Seda'nin bazı karti vardı. Seda 9 kart verdi. Geriye 25 kart kaldı.",
+  "Question_tr": "Başta kaç karti vardı?",
+  "gold": 34
+ },
+ {
+  "ID": "dev7-event_loss22",
+  "kind": "event_loss",
+  "Body_tr": "Seda'nin 96 karti vardı. Seda bazı kart verdi. Geriye 75 kart kaldı.",
+  "Question_tr": "Kaç kart verdi?",
+  "gold": 21
+ },
+ {
+  "ID": "dev7-event_gain22",
+  "kind": "event_gain",
+  "Body_tr": "Seda'nin 28 karti vardı. Seda bazı kart daha aldı. Şimdi 47 karti var.",
+  "Question_tr": "Kaç kart aldı?",
+  "gold": 19
+ },
+ {
+  "ID": "dev7-start_gain23",
+  "kind": "start_gain",
+  "Body_tr": "Rıza'nin bazı bilyei vardı. Rıza 5 bilye daha aldı. Şimdi 40 bilyei var.",
+  "Question_tr": "Başta kaç bilyei vardı?",
+  "gold": 35
+ },
+ {
+  "ID": "dev7-start_loss23",
+  "kind": "start_loss",
+  "Body_tr": "Rıza'nin bazı bilyei vardı. Rıza 12 bilye verdi. Geriye 72 bilye kaldı.",
+  "Question_tr": "Başta kaç bilyei vardı?",
+  "gold": 84
+ },
+ {
+  "ID": "dev7-event_loss23",
+  "kind": "event_loss",
+  "Body_tr": "Rıza'nin 70 bilyei vardı. Rıza bazı bilye verdi. Geriye 48 bilye kaldı.",
+  "Question_tr": "Kaç bilye verdi?",
+  "gold": 22
+ },
+ {
+  "ID": "dev7-event_gain23",
+  "kind": "event_gain",
+  "Body_tr": "Rıza'nin 38 bilyei vardı. Rıza bazı bilye daha aldı. Şimdi 59 bilyei var.",
+  "Question_tr": "Kaç bilye aldı?",
+  "gold": 21
+ },
+ {
+  "ID": "dev7-start_gain24",
+  "kind": "start_gain",
+  "Body_tr": "Pınar'nin bazı bilyei vardı. Pınar 7 bilye daha aldı. Şimdi 36 bilyei var.",
+  "Question_tr": "Başta kaç bilyei vardı?",
+  "gold": 29
+ },
+ {
+  "ID": "dev7-start_loss24",
+  "kind": "start_loss",
+  "Body_tr": "Pınar'nin bazı bilyei vardı. Pınar 4 bilye verdi. Geriye 21 bilye kaldı.",
+  "Question_tr": "Başta kaç bilyei vardı?",
+  "gold": 25
+ },
+ {
+  "ID": "dev7-event_loss24",
+  "kind": "event_loss",
+  "Body_tr": "Pınar'nin 94 bilyei vardı. Pınar bazı bilye verdi. Geriye 76 bilye kaldı.",
+  "Question_tr": "Kaç bilye verdi?",
+  "gold": 18
+ },
+ {
+  "ID": "dev7-event_gain24",
+  "kind": "event_gain",
+  "Body_tr": "Pınar'nin 38 bilyei vardı. Pınar bazı bilye daha aldı. Şimdi 46 bilyei var.",
+  "Question_tr": "Kaç bilye aldı?",
+  "gold": 8
+ },
+ {
+  "ID": "dev7-start_gain25",
+  "kind": "start_gain",
+  "Body_tr": "Naz'nin bazı bilyei vardı. Naz 8 bilye daha aldı. Şimdi 64 bilyei var.",
+  "Question_tr": "Başta kaç bilyei vardı?",
+  "gold": 56
+ },
+ {
+  "ID": "dev7-start_loss25",
+  "kind": "start_loss",
+  "Body_tr": "Naz'nin bazı bilyei vardı. Naz 11 bilye verdi. Geriye 22 bilye kaldı.",
+  "Question_tr": "Başta kaç bilyei vardı?",
+  "gold": 33
+ },
+ {
+  "ID": "dev7-event_loss25",
+  "kind": "event_loss",
+  "Body_tr": "Naz'nin 93 bilyei vardı. Naz bazı bilye verdi. Geriye 86 bilye kaldı.",
+  "Question_tr": "Kaç bilye verdi?",
+  "gold": 7
+ },
+ {
+  "ID": "dev7-event_gain25",
+  "kind": "event_gain",
+  "Body_tr": "Naz'nin 13 bilyei vardı. Naz bazı bilye daha aldı. Şimdi 35 bilyei var.",
+  "Question_tr": "Kaç bilye aldı?",
+  "gold": 22
+ },
+ {
+  "ID": "dev7-start_gain26",
+  "kind": "start_gain",
+  "Body_tr": "Umut'nin bazı bilyei vardı. Umut 8 bilye daha aldı. Şimdi 55 bilyei var.",
+  "Question_tr": "Başta kaç bilyei vardı?",
+  "gold": 47
+ },
+ {
+  "ID": "dev7-start_loss26",
+  "kind": "start_loss",
+  "Body_tr": "Umut'nin bazı bilyei vardı. Umut 15 bilye verdi. Geriye 39 bilye kaldı.",
+  "Question_tr": "Başta kaç bilyei vardı?",
+  "gold": 54
+ },
+ {
+  "ID": "dev7-event_loss26",
+  "kind": "event_loss",
+  "Body_tr": "Umut'nin 96 bilyei vardı. Umut bazı bilye verdi. Geriye 71 bilye kaldı.",
+  "Question_tr": "Kaç bilye verdi?",
+  "gold": 25
+ },
+ {
+  "ID": "dev7-event_gain26",
+  "kind": "event_gain",
+  "Body_tr": "Umut'nin 6 bilyei vardı. Umut bazı bilye daha aldı. Şimdi 28 bilyei var.",
+  "Question_tr": "Kaç bilye aldı?",
+  "gold": 22
+ },
+ {
+  "ID": "dev7-start_gain27",
+  "kind": "start_gain",
+  "Body_tr": "Orhan'nin bazı karti vardı. Orhan 2 kart daha aldı. Şimdi 42 karti var.",
+  "Question_tr": "Başta kaç karti vardı?",
+  "gold": 40
+ },
+ {
+  "ID": "dev7-start_loss27",
+  "kind": "start_loss",
+  "Body_tr": "Orhan'nin bazı karti vardı. Orhan 12 kart verdi. Geriye 49 kart kaldı.",
+  "Question_tr": "Başta kaç karti vardı?",
+  "gold": 61
+ },
+ {
+  "ID": "dev7-event_loss27",
+  "kind": "event_loss",
+  "Body_tr": "Orhan'nin 99 karti vardı. Orhan bazı kart verdi. Geriye 78 kart kaldı.",
+  "Question_tr": "Kaç kart verdi?",
+  "gold": 21
+ },
+ {
+  "ID": "dev7-event_gain27",
+  "kind": "event_gain",
+  "Body_tr": "Orhan'nin 39 karti vardı. Orhan bazı kart daha aldı. Şimdi 64 karti var.",
+  "Question_tr": "Kaç kart aldı?",
+  "gold": 25
+ },
+ {
+  "ID": "dev7-start_gain28",
+  "kind": "start_gain",
+  "Body_tr": "Umut'nin bazı baloni vardı. Umut 9 balon daha aldı. Şimdi 32 baloni var.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 23
+ },
+ {
+  "ID": "dev7-start_loss28",
+  "kind": "start_loss",
+  "Body_tr": "Umut'nin bazı baloni vardı. Umut 14 balon verdi. Geriye 67 balon kaldı.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 81
+ },
+ {
+  "ID": "dev7-event_loss28",
+  "kind": "event_loss",
+  "Body_tr": "Umut'nin 90 baloni vardı. Umut bazı balon verdi. Geriye 71 balon kaldı.",
+  "Question_tr": "Kaç balon verdi?",
+  "gold": 19
+ },
+ {
+  "ID": "dev7-event_gain28",
+  "kind": "event_gain",
+  "Body_tr": "Umut'nin 9 baloni vardı. Umut bazı balon daha aldı. Şimdi 32 baloni var.",
+  "Question_tr": "Kaç balon aldı?",
+  "gold": 23
+ },
+ {
+  "ID": "dev7-start_gain29",
+  "kind": "start_gain",
+  "Body_tr": "Seda'nin bazı baloni vardı. Seda 3 balon daha aldı. Şimdi 31 baloni var.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 28
+ },
+ {
+  "ID": "dev7-start_loss29",
+  "kind": "start_loss",
+  "Body_tr": "Seda'nin bazı baloni vardı. Seda 7 balon verdi. Geriye 20 balon kaldı.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 27
+ },
+ {
+  "ID": "dev7-event_loss29",
+  "kind": "event_loss",
+  "Body_tr": "Seda'nin 65 baloni vardı. Seda bazı balon verdi. Geriye 40 balon kaldı.",
+  "Question_tr": "Kaç balon verdi?",
+  "gold": 25
+ },
+ {
+  "ID": "dev7-event_gain29",
+  "kind": "event_gain",
+  "Body_tr": "Seda'nin 16 baloni vardı. Seda bazı balon daha aldı. Şimdi 45 baloni var.",
+  "Question_tr": "Kaç balon aldı?",
+  "gold": 29
+ },
+ {
+  "ID": "dev7-start_gain30",
+  "kind": "start_gain",
+  "Body_tr": "Rıza'nin bazı bilyei vardı. Rıza 7 bilye daha aldı. Şimdi 62 bilyei var.",
+  "Question_tr": "Başta kaç bilyei vardı?",
+  "gold": 55
+ },
+ {
+  "ID": "dev7-start_loss30",
+  "kind": "start_loss",
+  "Body_tr": "Rıza'nin bazı bilyei vardı. Rıza 14 bilye verdi. Geriye 74 bilye kaldı.",
+  "Question_tr": "Başta kaç bilyei vardı?",
+  "gold": 88
+ },
+ {
+  "ID": "dev7-event_loss30",
+  "kind": "event_loss",
+  "Body_tr": "Rıza'nin 75 bilyei vardı. Rıza bazı bilye verdi. Geriye 60 bilye kaldı.",
+  "Question_tr": "Kaç bilye verdi?",
+  "gold": 15
+ },
+ {
+  "ID": "dev7-event_gain30",
+  "kind": "event_gain",
+  "Body_tr": "Rıza'nin 10 bilyei vardı. Rıza bazı bilye daha aldı. Şimdi 22 bilyei var.",
+  "Question_tr": "Kaç bilye aldı?",
+  "gold": 12
+ },
+ {
+  "ID": "dev7-start_gain31",
+  "kind": "start_gain",
+  "Body_tr": "Umut'nin bazı kitapi vardı. Umut 2 kitap daha aldı. Şimdi 28 kitapi var.",
+  "Question_tr": "Başta kaç kitapi vardı?",
+  "gold": 26
+ },
+ {
+  "ID": "dev7-start_loss31",
+  "kind": "start_loss",
+  "Body_tr": "Umut'nin bazı kitapi vardı. Umut 15 kitap verdi. Geriye 41 kitap kaldı.",
+  "Question_tr": "Başta kaç kitapi vardı?",
+  "gold": 56
+ },
+ {
+  "ID": "dev7-event_loss31",
+  "kind": "event_loss",
+  "Body_tr": "Umut'nin 74 kitapi vardı. Umut bazı kitap verdi. Geriye 61 kitap kaldı.",
+  "Question_tr": "Kaç kitap verdi?",
+  "gold": 13
+ },
+ {
+  "ID": "dev7-event_gain31",
+  "kind": "event_gain",
+  "Body_tr": "Umut'nin 18 kitapi vardı. Umut bazı kitap daha aldı. Şimdi 24 kitapi var.",
+  "Question_tr": "Kaç kitap aldı?",
+  "gold": 6
+ },
+ {
+  "ID": "dev7-start_gain32",
+  "kind": "start_gain",
+  "Body_tr": "Rıza'nin bazı baloni vardı. Rıza 5 balon daha aldı. Şimdi 55 baloni var.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 50
+ },
+ {
+  "ID": "dev7-start_loss32",
+  "kind": "start_loss",
+  "Body_tr": "Rıza'nin bazı baloni vardı. Rıza 14 balon verdi. Geriye 50 balon kaldı.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 64
+ },
+ {
+  "ID": "dev7-event_loss32",
+  "kind": "event_loss",
+  "Body_tr": "Rıza'nin 60 baloni vardı. Rıza bazı balon verdi. Geriye 43 balon kaldı.",
+  "Question_tr": "Kaç balon verdi?",
+  "gold": 17
+ },
+ {
+  "ID": "dev7-event_gain32",
+  "kind": "event_gain",
+  "Body_tr": "Rıza'nin 8 baloni vardı. Rıza bazı balon daha aldı. Şimdi 38 baloni var.",
+  "Question_tr": "Kaç balon aldı?",
+  "gold": 30
+ },
+ {
+  "ID": "dev7-start_gain33",
+  "kind": "start_gain",
+  "Body_tr": "Seda'nin bazı kitapi vardı. Seda 8 kitap daha aldı. Şimdi 27 kitapi var.",
+  "Question_tr": "Başta kaç kitapi vardı?",
+  "gold": 19
+ },
+ {
+  "ID": "dev7-start_loss33",
+  "kind": "start_loss",
+  "Body_tr": "Seda'nin bazı kitapi vardı. Seda 11 kitap verdi. Geriye 53 kitap kaldı.",
+  "Question_tr": "Başta kaç kitapi vardı?",
+  "gold": 64
+ },
+ {
+  "ID": "dev7-event_loss33",
+  "kind": "event_loss",
+  "Body_tr": "Seda'nin 72 kitapi vardı. Seda bazı kitap verdi. Geriye 64 kitap kaldı.",
+  "Question_tr": "Kaç kitap verdi?",
+  "gold": 8
+ },
+ {
+  "ID": "dev7-event_gain33",
+  "kind": "event_gain",
+  "Body_tr": "Seda'nin 12 kitapi vardı. Seda bazı kitap daha aldı. Şimdi 30 kitapi var.",
+  "Question_tr": "Kaç kitap aldı?",
+  "gold": 18
+ },
+ {
+  "ID": "dev7-start_gain34",
+  "kind": "start_gain",
+  "Body_tr": "Rıza'nin bazı karti vardı. Rıza 5 kart daha aldı. Şimdi 23 karti var.",
+  "Question_tr": "Başta kaç karti vardı?",
+  "gold": 18
+ },
+ {
+  "ID": "dev7-start_loss34",
+  "kind": "start_loss",
+  "Body_tr": "Rıza'nin bazı karti vardı. Rıza 8 kart verdi. Geriye 61 kart kaldı.",
+  "Question_tr": "Başta kaç karti vardı?",
+  "gold": 69
+ },
+ {
+  "ID": "dev7-event_loss34",
+  "kind": "event_loss",
+  "Body_tr": "Rıza'nin 54 karti vardı. Rıza bazı kart verdi. Geriye 41 kart kaldı.",
+  "Question_tr": "Kaç kart verdi?",
+  "gold": 13
+ },
+ {
+  "ID": "dev7-event_gain34",
+  "kind": "event_gain",
+  "Body_tr": "Rıza'nin 38 karti vardı. Rıza bazı kart daha aldı. Şimdi 46 karti var.",
+  "Question_tr": "Kaç kart aldı?",
+  "gold": 8
+ },
+ {
+  "ID": "dev7-start_gain35",
+  "kind": "start_gain",
+  "Body_tr": "Orhan'nin bazı kalemi vardı. Orhan 6 kalem daha aldı. Şimdi 34 kalemi var.",
+  "Question_tr": "Başta kaç kalemi vardı?",
+  "gold": 28
+ },
+ {
+  "ID": "dev7-start_loss35",
+  "kind": "start_loss",
+  "Body_tr": "Orhan'nin bazı kalemi vardı. Orhan 9 kalem verdi. Geriye 34 kalem kaldı.",
+  "Question_tr": "Başta kaç kalemi vardı?",
+  "gold": 43
+ },
+ {
+  "ID": "dev7-event_loss35",
+  "kind": "event_loss",
+  "Body_tr": "Orhan'nin 45 kalemi vardı. Orhan bazı kalem verdi. Geriye 33 kalem kaldı.",
+  "Question_tr": "Kaç kalem verdi?",
+  "gold": 12
+ },
+ {
+  "ID": "dev7-event_gain35",
+  "kind": "event_gain",
+  "Body_tr": "Orhan'nin 13 kalemi vardı. Orhan bazı kalem daha aldı. Şimdi 42 kalemi var.",
+  "Question_tr": "Kaç kalem aldı?",
+  "gold": 29
+ },
+ {
+  "ID": "dev7-start_gain36",
+  "kind": "start_gain",
+  "Body_tr": "Naz'nin bazı baloni vardı. Naz 8 balon daha aldı. Şimdi 34 baloni var.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 26
+ },
+ {
+  "ID": "dev7-start_loss36",
+  "kind": "start_loss",
+  "Body_tr": "Naz'nin bazı baloni vardı. Naz 10 balon verdi. Geriye 62 balon kaldı.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 72
+ },
+ {
+  "ID": "dev7-event_loss36",
+  "kind": "event_loss",
+  "Body_tr": "Naz'nin 73 baloni vardı. Naz bazı balon verdi. Geriye 48 balon kaldı.",
+  "Question_tr": "Kaç balon verdi?",
+  "gold": 25
+ },
+ {
+  "ID": "dev7-event_gain36",
+  "kind": "event_gain",
+  "Body_tr": "Naz'nin 36 baloni vardı. Naz bazı balon daha aldı. Şimdi 43 baloni var.",
+  "Question_tr": "Kaç balon aldı?",
+  "gold": 7
+ },
+ {
+  "ID": "dev7-start_gain37",
+  "kind": "start_gain",
+  "Body_tr": "Rıza'nin bazı kitapi vardı. Rıza 9 kitap daha aldı. Şimdi 63 kitapi var.",
+  "Question_tr": "Başta kaç kitapi vardı?",
+  "gold": 54
+ },
+ {
+  "ID": "dev7-start_loss37",
+  "kind": "start_loss",
+  "Body_tr": "Rıza'nin bazı kitapi vardı. Rıza 7 kitap verdi. Geriye 39 kitap kaldı.",
+  "Question_tr": "Başta kaç kitapi vardı?",
+  "gold": 46
+ },
+ {
+  "ID": "dev7-event_loss37",
+  "kind": "event_loss",
+  "Body_tr": "Rıza'nin 93 kitapi vardı. Rıza bazı kitap verdi. Geriye 74 kitap kaldı.",
+  "Question_tr": "Kaç kitap verdi?",
+  "gold": 19
+ },
+ {
+  "ID": "dev7-event_gain37",
+  "kind": "event_gain",
+  "Body_tr": "Rıza'nin 15 kitapi vardı. Rıza bazı kitap daha aldı. Şimdi 28 kitapi var.",
+  "Question_tr": "Kaç kitap aldı?",
+  "gold": 13
+ },
+ {
+  "ID": "dev7-start_gain38",
+  "kind": "start_gain",
+  "Body_tr": "Umut'nin bazı karti vardı. Umut 4 kart daha aldı. Şimdi 27 karti var.",
+  "Question_tr": "Başta kaç karti vardı?",
+  "gold": 23
+ },
+ {
+  "ID": "dev7-start_loss38",
+  "kind": "start_loss",
+  "Body_tr": "Umut'nin bazı karti vardı. Umut 10 kart verdi. Geriye 32 kart kaldı.",
+  "Question_tr": "Başta kaç karti vardı?",
+  "gold": 42
+ },
+ {
+  "ID": "dev7-event_loss38",
+  "kind": "event_loss",
+  "Body_tr": "Umut'nin 69 karti vardı. Umut bazı kart verdi. Geriye 48 kart kaldı.",
+  "Question_tr": "Kaç kart verdi?",
+  "gold": 21
+ },
+ {
+  "ID": "dev7-event_gain38",
+  "kind": "event_gain",
+  "Body_tr": "Umut'nin 5 karti vardı. Umut bazı kart daha aldı. Şimdi 27 karti var.",
+  "Question_tr": "Kaç kart aldı?",
+  "gold": 22
+ },
+ {
+  "ID": "dev7-start_gain39",
+  "kind": "start_gain",
+  "Body_tr": "Naz'nin bazı kalemi vardı. Naz 5 kalem daha aldı. Şimdi 61 kalemi var.",
+  "Question_tr": "Başta kaç kalemi vardı?",
+  "gold": 56
+ },
+ {
+  "ID": "dev7-start_loss39",
+  "kind": "start_loss",
+  "Body_tr": "Naz'nin bazı kalemi vardı. Naz 5 kalem verdi. Geriye 67 kalem kaldı.",
+  "Question_tr": "Başta kaç kalemi vardı?",
+  "gold": 72
+ },
+ {
+  "ID": "dev7-event_loss39",
+  "kind": "event_loss",
+  "Body_tr": "Naz'nin 49 kalemi vardı. Naz bazı kalem verdi. Geriye 40 kalem kaldı.",
+  "Question_tr": "Kaç kalem verdi?",
+  "gold": 9
+ },
+ {
+  "ID": "dev7-event_gain39",
+  "kind": "event_gain",
+  "Body_tr": "Naz'nin 10 kalemi vardı. Naz bazı kalem daha aldı. Şimdi 39 kalemi var.",
+  "Question_tr": "Kaç kalem aldı?",
+  "gold": 29
+ },
+ {
+  "ID": "dev7-start_gain40",
+  "kind": "start_gain",
+  "Body_tr": "Pınar'nin bazı baloni vardı. Pınar 9 balon daha aldı. Şimdi 42 baloni var.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 33
+ },
+ {
+  "ID": "dev7-start_loss40",
+  "kind": "start_loss",
+  "Body_tr": "Pınar'nin bazı baloni vardı. Pınar 8 balon verdi. Geriye 25 balon kaldı.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 33
+ },
+ {
+  "ID": "dev7-event_loss40",
+  "kind": "event_loss",
+  "Body_tr": "Pınar'nin 107 baloni vardı. Pınar bazı balon verdi. Geriye 89 balon kaldı.",
+  "Question_tr": "Kaç balon verdi?",
+  "gold": 18
+ },
+ {
+  "ID": "dev7-event_gain40",
+  "kind": "event_gain",
+  "Body_tr": "Pınar'nin 10 baloni vardı. Pınar bazı balon daha aldı. Şimdi 36 baloni var.",
+  "Question_tr": "Kaç balon aldı?",
+  "gold": 26
+ },
+ {
+  "ID": "dev7-start_gain41",
+  "kind": "start_gain",
+  "Body_tr": "Pınar'nin bazı baloni vardı. Pınar 6 balon daha aldı. Şimdi 30 baloni var.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 24
+ },
+ {
+  "ID": "dev7-start_loss41",
+  "kind": "start_loss",
+  "Body_tr": "Pınar'nin bazı baloni vardı. Pınar 13 balon verdi. Geriye 51 balon kaldı.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 64
+ },
+ {
+  "ID": "dev7-event_loss41",
+  "kind": "event_loss",
+  "Body_tr": "Pınar'nin 46 baloni vardı. Pınar bazı balon verdi. Geriye 30 balon kaldı.",
+  "Question_tr": "Kaç balon verdi?",
+  "gold": 16
+ },
+ {
+  "ID": "dev7-event_gain41",
+  "kind": "event_gain",
+  "Body_tr": "Pınar'nin 33 baloni vardı. Pınar bazı balon daha aldı. Şimdi 52 baloni var.",
+  "Question_tr": "Kaç balon aldı?",
+  "gold": 19
+ },
+ {
+  "ID": "dev7-start_gain42",
+  "kind": "start_gain",
+  "Body_tr": "Rıza'nin bazı karti vardı. Rıza 9 kart daha aldı. Şimdi 33 karti var.",
+  "Question_tr": "Başta kaç karti vardı?",
+  "gold": 24
+ },
+ {
+  "ID": "dev7-start_loss42",
+  "kind": "start_loss",
+  "Body_tr": "Rıza'nin bazı karti vardı. Rıza 2 kart verdi. Geriye 63 kart kaldı.",
+  "Question_tr": "Başta kaç karti vardı?",
+  "gold": 65
+ },
+ {
+  "ID": "dev7-event_loss42",
+  "kind": "event_loss",
+  "Body_tr": "Rıza'nin 49 karti vardı. Rıza bazı kart verdi. Geriye 36 kart kaldı.",
+  "Question_tr": "Kaç kart verdi?",
+  "gold": 13
+ },
+ {
+  "ID": "dev7-event_gain42",
+  "kind": "event_gain",
+  "Body_tr": "Rıza'nin 32 karti vardı. Rıza bazı kart daha aldı. Şimdi 56 karti var.",
+  "Question_tr": "Kaç kart aldı?",
+  "gold": 24
+ },
+ {
+  "ID": "dev7-start_gain43",
+  "kind": "start_gain",
+  "Body_tr": "Naz'nin bazı baloni vardı. Naz 3 balon daha aldı. Şimdi 59 baloni var.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 56
+ },
+ {
+  "ID": "dev7-start_loss43",
+  "kind": "start_loss",
+  "Body_tr": "Naz'nin bazı baloni vardı. Naz 4 balon verdi. Geriye 44 balon kaldı.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 48
+ },
+ {
+  "ID": "dev7-event_loss43",
+  "kind": "event_loss",
+  "Body_tr": "Naz'nin 109 baloni vardı. Naz bazı balon verdi. Geriye 85 balon kaldı.",
+  "Question_tr": "Kaç balon verdi?",
+  "gold": 24
+ },
+ {
+  "ID": "dev7-event_gain43",
+  "kind": "event_gain",
+  "Body_tr": "Naz'nin 32 baloni vardı. Naz bazı balon daha aldı. Şimdi 50 baloni var.",
+  "Question_tr": "Kaç balon aldı?",
+  "gold": 18
+ },
+ {
+  "ID": "dev7-start_gain44",
+  "kind": "start_gain",
+  "Body_tr": "Pınar'nin bazı baloni vardı. Pınar 7 balon daha aldı. Şimdi 32 baloni var.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 25
+ },
+ {
+  "ID": "dev7-start_loss44",
+  "kind": "start_loss",
+  "Body_tr": "Pınar'nin bazı baloni vardı. Pınar 4 balon verdi. Geriye 79 balon kaldı.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 83
+ },
+ {
+  "ID": "dev7-event_loss44",
+  "kind": "event_loss",
+  "Body_tr": "Pınar'nin 72 baloni vardı. Pınar bazı balon verdi. Geriye 56 balon kaldı.",
+  "Question_tr": "Kaç balon verdi?",
+  "gold": 16
+ },
+ {
+  "ID": "dev7-event_gain44",
+  "kind": "event_gain",
+  "Body_tr": "Pınar'nin 5 baloni vardı. Pınar bazı balon daha aldı. Şimdi 19 baloni var.",
+  "Question_tr": "Kaç balon aldı?",
+  "gold": 14
+ },
+ {
+  "ID": "dev7-start_gain45",
+  "kind": "start_gain",
+  "Body_tr": "Umut'nin bazı karti vardı. Umut 5 kart daha aldı. Şimdi 17 karti var.",
+  "Question_tr": "Başta kaç karti vardı?",
+  "gold": 12
+ },
+ {
+  "ID": "dev7-start_loss45",
+  "kind": "start_loss",
+  "Body_tr": "Umut'nin bazı karti vardı. Umut 8 kart verdi. Geriye 56 kart kaldı.",
+  "Question_tr": "Başta kaç karti vardı?",
+  "gold": 64
+ },
+ {
+  "ID": "dev7-event_loss45",
+  "kind": "event_loss",
+  "Body_tr": "Umut'nin 99 karti vardı. Umut bazı kart verdi. Geriye 77 kart kaldı.",
+  "Question_tr": "Kaç kart verdi?",
+  "gold": 22
+ },
+ {
+  "ID": "dev7-event_gain45",
+  "kind": "event_gain",
+  "Body_tr": "Umut'nin 36 karti vardı. Umut bazı kart daha aldı. Şimdi 65 karti var.",
+  "Question_tr": "Kaç kart aldı?",
+  "gold": 29
+ },
+ {
+  "ID": "dev7-start_gain46",
+  "kind": "start_gain",
+  "Body_tr": "Naz'nin bazı bilyei vardı. Naz 7 bilye daha aldı. Şimdi 31 bilyei var.",
+  "Question_tr": "Başta kaç bilyei vardı?",
+  "gold": 24
+ },
+ {
+  "ID": "dev7-start_loss46",
+  "kind": "start_loss",
+  "Body_tr": "Naz'nin bazı bilyei vardı. Naz 10 bilye verdi. Geriye 28 bilye kaldı.",
+  "Question_tr": "Başta kaç bilyei vardı?",
+  "gold": 38
+ },
+ {
+  "ID": "dev7-event_loss46",
+  "kind": "event_loss",
+  "Body_tr": "Naz'nin 108 bilyei vardı. Naz bazı bilye verdi. Geriye 84 bilye kaldı.",
+  "Question_tr": "Kaç bilye verdi?",
+  "gold": 24
+ },
+ {
+  "ID": "dev7-event_gain46",
+  "kind": "event_gain",
+  "Body_tr": "Naz'nin 30 bilyei vardı. Naz bazı bilye daha aldı. Şimdi 46 bilyei var.",
+  "Question_tr": "Kaç bilye aldı?",
+  "gold": 16
+ },
+ {
+  "ID": "dev7-start_gain47",
+  "kind": "start_gain",
+  "Body_tr": "Umut'nin bazı kalemi vardı. Umut 4 kalem daha aldı. Şimdi 38 kalemi var.",
+  "Question_tr": "Başta kaç kalemi vardı?",
+  "gold": 34
+ },
+ {
+  "ID": "dev7-start_loss47",
+  "kind": "start_loss",
+  "Body_tr": "Umut'nin bazı kalemi vardı. Umut 11 kalem verdi. Geriye 41 kalem kaldı.",
+  "Question_tr": "Başta kaç kalemi vardı?",
+  "gold": 52
+ },
+ {
+  "ID": "dev7-event_loss47",
+  "kind": "event_loss",
+  "Body_tr": "Umut'nin 82 kalemi vardı. Umut bazı kalem verdi. Geriye 62 kalem kaldı.",
+  "Question_tr": "Kaç kalem verdi?",
+  "gold": 20
+ },
+ {
+  "ID": "dev7-event_gain47",
+  "kind": "event_gain",
+  "Body_tr": "Umut'nin 15 kalemi vardı. Umut bazı kalem daha aldı. Şimdi 28 kalemi var.",
+  "Question_tr": "Kaç kalem aldı?",
+  "gold": 13
+ },
+ {
+  "ID": "dev7-start_gain48",
+  "kind": "start_gain",
+  "Body_tr": "Pınar'nin bazı kalemi vardı. Pınar 8 kalem daha aldı. Şimdi 68 kalemi var.",
+  "Question_tr": "Başta kaç kalemi vardı?",
+  "gold": 60
+ },
+ {
+  "ID": "dev7-start_loss48",
+  "kind": "start_loss",
+  "Body_tr": "Pınar'nin bazı kalemi vardı. Pınar 14 kalem verdi. Geriye 50 kalem kaldı.",
+  "Question_tr": "Başta kaç kalemi vardı?",
+  "gold": 64
+ },
+ {
+  "ID": "dev7-event_loss48",
+  "kind": "event_loss",
+  "Body_tr": "Pınar'nin 107 kalemi vardı. Pınar bazı kalem verdi. Geriye 89 kalem kaldı.",
+  "Question_tr": "Kaç kalem verdi?",
+  "gold": 18
+ },
+ {
+  "ID": "dev7-event_gain48",
+  "kind": "event_gain",
+  "Body_tr": "Pınar'nin 15 kalemi vardı. Pınar bazı kalem daha aldı. Şimdi 21 kalemi var.",
+  "Question_tr": "Kaç kalem aldı?",
+  "gold": 6
+ },
+ {
+  "ID": "dev7-start_gain49",
+  "kind": "start_gain",
+  "Body_tr": "Orhan'nin bazı kitapi vardı. Orhan 9 kitap daha aldı. Şimdi 63 kitapi var.",
+  "Question_tr": "Başta kaç kitapi vardı?",
+  "gold": 54
+ },
+ {
+  "ID": "dev7-start_loss49",
+  "kind": "start_loss",
+  "Body_tr": "Orhan'nin bazı kitapi vardı. Orhan 9 kitap verdi. Geriye 29 kitap kaldı.",
+  "Question_tr": "Başta kaç kitapi vardı?",
+  "gold": 38
+ },
+ {
+  "ID": "dev7-event_loss49",
+  "kind": "event_loss",
+  "Body_tr": "Orhan'nin 100 kitapi vardı. Orhan bazı kitap verdi. Geriye 79 kitap kaldı.",
+  "Question_tr": "Kaç kitap verdi?",
+  "gold": 21
+ },
+ {
+  "ID": "dev7-event_gain49",
+  "kind": "event_gain",
+  "Body_tr": "Orhan'nin 7 kitapi vardı. Orhan bazı kitap daha aldı. Şimdi 26 kitapi var.",
+  "Question_tr": "Kaç kitap aldı?",
+  "gold": 19
+ },
+ {
+  "ID": "dev7-start_gain50",
+  "kind": "start_gain",
+  "Body_tr": "Naz'nin bazı baloni vardı. Naz 7 balon daha aldı. Şimdi 65 baloni var.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 58
+ },
+ {
+  "ID": "dev7-start_loss50",
+  "kind": "start_loss",
+  "Body_tr": "Naz'nin bazı baloni vardı. Naz 3 balon verdi. Geriye 68 balon kaldı.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 71
+ },
+ {
+  "ID": "dev7-event_loss50",
+  "kind": "event_loss",
+  "Body_tr": "Naz'nin 54 baloni vardı. Naz bazı balon verdi. Geriye 49 balon kaldı.",
+  "Question_tr": "Kaç balon verdi?",
+  "gold": 5
+ },
+ {
+  "ID": "dev7-event_gain50",
+  "kind": "event_gain",
+  "Body_tr": "Naz'nin 10 baloni vardı. Naz bazı balon daha aldı. Şimdi 22 baloni var.",
+  "Question_tr": "Kaç balon aldı?",
+  "gold": 12
+ },
+ {
+  "ID": "dev7-start_gain51",
+  "kind": "start_gain",
+  "Body_tr": "Seda'nin bazı bilyei vardı. Seda 3 bilye daha aldı. Şimdi 32 bilyei var.",
+  "Question_tr": "Başta kaç bilyei vardı?",
+  "gold": 29
+ },
+ {
+  "ID": "dev7-start_loss51",
+  "kind": "start_loss",
+  "Body_tr": "Seda'nin bazı bilyei vardı. Seda 7 bilye verdi. Geriye 40 bilye kaldı.",
+  "Question_tr": "Başta kaç bilyei vardı?",
+  "gold": 47
+ },
+ {
+  "ID": "dev7-event_loss51",
+  "kind": "event_loss",
+  "Body_tr": "Seda'nin 45 bilyei vardı. Seda bazı bilye verdi. Geriye 38 bilye kaldı.",
+  "Question_tr": "Kaç bilye verdi?",
+  "gold": 7
+ },
+ {
+  "ID": "dev7-event_gain51",
+  "kind": "event_gain",
+  "Body_tr": "Seda'nin 7 bilyei vardı. Seda bazı bilye daha aldı. Şimdi 21 bilyei var.",
+  "Question_tr": "Kaç bilye aldı?",
+  "gold": 14
+ },
+ {
+  "ID": "dev7-start_gain52",
+  "kind": "start_gain",
+  "Body_tr": "Orhan'nin bazı kitapi vardı. Orhan 6 kitap daha aldı. Şimdi 56 kitapi var.",
+  "Question_tr": "Başta kaç kitapi vardı?",
+  "gold": 50
+ },
+ {
+  "ID": "dev7-start_loss52",
+  "kind": "start_loss",
+  "Body_tr": "Orhan'nin bazı kitapi vardı. Orhan 10 kitap verdi. Geriye 26 kitap kaldı.",
+  "Question_tr": "Başta kaç kitapi vardı?",
+  "gold": 36
+ },
+ {
+  "ID": "dev7-event_loss52",
+  "kind": "event_loss",
+  "Body_tr": "Orhan'nin 86 kitapi vardı. Orhan bazı kitap verdi. Geriye 68 kitap kaldı.",
+  "Question_tr": "Kaç kitap verdi?",
+  "gold": 18
+ },
+ {
+  "ID": "dev7-event_gain52",
+  "kind": "event_gain",
+  "Body_tr": "Orhan'nin 25 kitapi vardı. Orhan bazı kitap daha aldı. Şimdi 43 kitapi var.",
+  "Question_tr": "Kaç kitap aldı?",
+  "gold": 18
+ },
+ {
+  "ID": "dev7-start_gain53",
+  "kind": "start_gain",
+  "Body_tr": "Pınar'nin bazı baloni vardı. Pınar 5 balon daha aldı. Şimdi 46 baloni var.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 41
+ },
+ {
+  "ID": "dev7-start_loss53",
+  "kind": "start_loss",
+  "Body_tr": "Pınar'nin bazı baloni vardı. Pınar 13 balon verdi. Geriye 48 balon kaldı.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 61
+ },
+ {
+  "ID": "dev7-event_loss53",
+  "kind": "event_loss",
+  "Body_tr": "Pınar'nin 85 baloni vardı. Pınar bazı balon verdi. Geriye 60 balon kaldı.",
+  "Question_tr": "Kaç balon verdi?",
+  "gold": 25
+ },
+ {
+  "ID": "dev7-event_gain53",
+  "kind": "event_gain",
+  "Body_tr": "Pınar'nin 39 baloni vardı. Pınar bazı balon daha aldı. Şimdi 68 baloni var.",
+  "Question_tr": "Kaç balon aldı?",
+  "gold": 29
+ },
+ {
+  "ID": "dev7-start_gain54",
+  "kind": "start_gain",
+  "Body_tr": "Naz'nin bazı karti vardı. Naz 5 kart daha aldı. Şimdi 48 karti var.",
+  "Question_tr": "Başta kaç karti vardı?",
+  "gold": 43
+ },
+ {
+  "ID": "dev7-start_loss54",
+  "kind": "start_loss",
+  "Body_tr": "Naz'nin bazı karti vardı. Naz 14 kart verdi. Geriye 37 kart kaldı.",
+  "Question_tr": "Başta kaç karti vardı?",
+  "gold": 51
+ },
+ {
+  "ID": "dev7-event_loss54",
+  "kind": "event_loss",
+  "Body_tr": "Naz'nin 93 karti vardı. Naz bazı kart verdi. Geriye 70 kart kaldı.",
+  "Question_tr": "Kaç kart verdi?",
+  "gold": 23
+ },
+ {
+  "ID": "dev7-event_gain54",
+  "kind": "event_gain",
+  "Body_tr": "Naz'nin 17 karti vardı. Naz bazı kart daha aldı. Şimdi 33 karti var.",
+  "Question_tr": "Kaç kart aldı?",
+  "gold": 16
+ },
+ {
+  "ID": "dev7-start_gain55",
+  "kind": "start_gain",
+  "Body_tr": "Rıza'nin bazı kitapi vardı. Rıza 8 kitap daha aldı. Şimdi 18 kitapi var.",
+  "Question_tr": "Başta kaç kitapi vardı?",
+  "gold": 10
+ },
+ {
+  "ID": "dev7-start_loss55",
+  "kind": "start_loss",
+  "Body_tr": "Rıza'nin bazı kitapi vardı. Rıza 10 kitap verdi. Geriye 46 kitap kaldı.",
+  "Question_tr": "Başta kaç kitapi vardı?",
+  "gold": 56
+ },
+ {
+  "ID": "dev7-event_loss55",
+  "kind": "event_loss",
+  "Body_tr": "Rıza'nin 56 kitapi vardı. Rıza bazı kitap verdi. Geriye 40 kitap kaldı.",
+  "Question_tr": "Kaç kitap verdi?",
+  "gold": 16
+ },
+ {
+  "ID": "dev7-event_gain55",
+  "kind": "event_gain",
+  "Body_tr": "Rıza'nin 17 kitapi vardı. Rıza bazı kitap daha aldı. Şimdi 47 kitapi var.",
+  "Question_tr": "Kaç kitap aldı?",
+  "gold": 30
+ },
+ {
+  "ID": "dev7-start_gain56",
+  "kind": "start_gain",
+  "Body_tr": "Seda'nin bazı baloni vardı. Seda 2 balon daha aldı. Şimdi 18 baloni var.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 16
+ },
+ {
+  "ID": "dev7-start_loss56",
+  "kind": "start_loss",
+  "Body_tr": "Seda'nin bazı baloni vardı. Seda 15 balon verdi. Geriye 50 balon kaldı.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 65
+ },
+ {
+  "ID": "dev7-event_loss56",
+  "kind": "event_loss",
+  "Body_tr": "Seda'nin 76 baloni vardı. Seda bazı balon verdi. Geriye 59 balon kaldı.",
+  "Question_tr": "Kaç balon verdi?",
+  "gold": 17
+ },
+ {
+  "ID": "dev7-event_gain56",
+  "kind": "event_gain",
+  "Body_tr": "Seda'nin 37 baloni vardı. Seda bazı balon daha aldı. Şimdi 50 baloni var.",
+  "Question_tr": "Kaç balon aldı?",
+  "gold": 13
+ },
+ {
+  "ID": "dev7-start_gain57",
+  "kind": "start_gain",
+  "Body_tr": "Pınar'nin bazı baloni vardı. Pınar 5 balon daha aldı. Şimdi 50 baloni var.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 45
+ },
+ {
+  "ID": "dev7-start_loss57",
+  "kind": "start_loss",
+  "Body_tr": "Pınar'nin bazı baloni vardı. Pınar 4 balon verdi. Geriye 72 balon kaldı.",
+  "Question_tr": "Başta kaç baloni vardı?",
+  "gold": 76
+ },
+ {
+  "ID": "dev7-event_loss57",
+  "kind": "event_loss",
+  "Body_tr": "Pınar'nin 82 baloni vardı. Pınar bazı balon verdi. Geriye 67 balon kaldı.",
+  "Question_tr": "Kaç balon verdi?",
+  "gold": 15
+ },
+ {
+  "ID": "dev7-event_gain57",
+  "kind": "event_gain",
+  "Body_tr": "Pınar'nin 23 baloni vardı. Pınar bazı balon daha aldı. Şimdi 35 baloni var.",
+  "Question_tr": "Kaç balon aldı?",
+  "gold": 12
+ },
+ {
+  "ID": "dev7-start_gain58",
+  "kind": "start_gain",
+  "Body_tr": "Seda'nin bazı kitapi vardı. Seda 3 kitap daha aldı. Şimdi 34 kitapi var.",
+  "Question_tr": "Başta kaç kitapi vardı?",
+  "gold": 31
+ },
+ {
+  "ID": "dev7-start_loss58",
+  "kind": "start_loss",
+  "Body_tr": "Seda'nin bazı kitapi vardı. Seda 14 kitap verdi. Geriye 58 kitap kaldı.",
+  "Question_tr": "Başta kaç kitapi vardı?",
+  "gold": 72
+ },
+ {
+  "ID": "dev7-event_loss58",
+  "kind": "event_loss",
+  "Body_tr": "Seda'nin 68 kitapi vardı. Seda bazı kitap verdi. Geriye 56 kitap kaldı.",
+  "Question_tr": "Kaç kitap verdi?",
+  "gold": 12
+ },
+ {
+  "ID": "dev7-event_gain58",
+  "kind": "event_gain",
+  "Body_tr": "Seda'nin 11 kitapi vardı. Seda bazı kitap daha aldı. Şimdi 20 kitapi var.",
+  "Question_tr": "Kaç kitap aldı?",
+  "gold": 9
+ },
+ {
+  "ID": "dev7-start_gain59",
+  "kind": "start_gain",
+  "Body_tr": "Rıza'nin bazı bilyei vardı. Rıza 5 bilye daha aldı. Şimdi 18 bilyei var.",
+  "Question_tr": "Başta kaç bilyei vardı?",
+  "gold": 13
+ },
+ {
+  "ID": "dev7-start_loss59",
+  "kind": "start_loss",
+  "Body_tr": "Rıza'nin bazı bilyei vardı. Rıza 15 bilye verdi. Geriye 70 bilye kaldı.",
+  "Question_tr": "Başta kaç bilyei vardı?",
+  "gold": 85
+ },
+ {
+  "ID": "dev7-event_loss59",
+  "kind": "event_loss",
+  "Body_tr": "Rıza'nin 63 bilyei vardı. Rıza bazı bilye verdi. Geriye 47 bilye kaldı.",
+  "Question_tr": "Kaç bilye verdi?",
+  "gold": 16
+ },
+ {
+  "ID": "dev7-event_gain59",
+  "kind": "event_gain",
+  "Body_tr": "Rıza'nin 38 bilyei vardı. Rıza bazı bilye daha aldı. Şimdi 59 bilyei var.",
+  "Question_tr": "Kaç bilye aldı?",
+  "gold": 21
+ }
+]

@@ -290,6 +290,31 @@
         }
       ]
     },
+    "memory.replay": {
+      "desc": "Ezberden geri çağrılan doğrulanmış cevabın çerçevesi. Gövde ({body}) değişmez; açılış her turda yarışır, çerçevesiz gövde de bir seçenek.",
+      "priors": [
+        {
+          "id": "replay.plain",
+          "text": "{body}",
+          "bias": 1.0
+        },
+        {
+          "id": "replay.recall",
+          "text": "Hatırladığım kadarıyla şunu söyleyebilirim. {body}",
+          "bias": 0.96
+        },
+        {
+          "id": "replay.own",
+          "text": "Aklımda kalan şu. {body}",
+          "bias": 0.93
+        },
+        {
+          "id": "replay.look",
+          "text": "Bu soruya bildiğim kadarıyla bakıyorum. {body}",
+          "bias": 0.9
+        }
+      ]
+    },
     "style.lead_in": {
       "desc": "İç sesi söze sokan giriş; dördü de aynı işi yapar, seçimi yarış yapar.",
       "priors": [

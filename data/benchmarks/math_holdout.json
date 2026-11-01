@@ -1,0 +1,1262 @@
+[
+ {
+  "ID": "ho-transfer0",
+  "kind": "transfer",
+  "Body_tr": "Gamze'nın 28 fındıki vardı. Güneş doğmuştu. Gamze Zehra'ye 12 fındık verdi.",
+  "Question_tr": "Gamze'nın kaç fındıki kaldı?",
+  "gold": 16
+ },
+ {
+  "ID": "ho-gains0",
+  "kind": "gains",
+  "Body_tr": "Zehra 23 mısır buldu, Önder 15 mısır buldu. Zehra 15 mısır daha aldı.",
+  "Question_tr": "İkisinin toplam kaç mısıri var?",
+  "gold": 53
+ },
+ {
+  "ID": "ho-after0",
+  "kind": "after",
+  "Body_tr": "Yasemin'nın 79 çorapi vardı. Güneş doğmuştu. Yasemin 15 tane çorap yedi.",
+  "Question_tr": "Şimdi Yasemin'nın kaç çorapi var?",
+  "gold": 64
+ },
+ {
+  "ID": "ho-transfer1",
+  "kind": "transfer",
+  "Body_tr": "Gamze'nın 84 çorapi vardı. Sokakta sessizlik vardı. Gamze Önder'ye 10 çorap verdi.",
+  "Question_tr": "Gamze'nın kaç çorapi kaldı?",
+  "gold": 74
+ },
+ {
+  "ID": "ho-gains1",
+  "kind": "gains",
+  "Body_tr": "Kemal 35 pul buldu, Önder 15 pul buldu. Kemal 4 pul daha aldı.",
+  "Question_tr": "İkisinin toplam kaç puli var?",
+  "gold": 54
+ },
+ {
+  "ID": "ho-after1",
+  "kind": "after",
+  "Body_tr": "Önder'nın 79 puli vardı. Güneş doğmuştu. Önder 5 tane pul yedi.",
+  "Question_tr": "Şimdi Önder'nın kaç puli var?",
+  "gold": 74
+ },
+ {
+  "ID": "ho-transfer2",
+  "kind": "transfer",
+  "Body_tr": "Zehra'nın 39 mısıri vardı. Sokakta sessizlik vardı. Zehra Cem'ye 8 mısır verdi.",
+  "Question_tr": "Zehra'nın kaç mısıri kaldı?",
+  "gold": 31
+ },
+ {
+  "ID": "ho-gains2",
+  "kind": "gains",
+  "Body_tr": "Yasemin 20 tabak buldu, Gamze 13 tabak buldu. Yasemin 11 tabak daha aldı.",
+  "Question_tr": "İkisinin toplam kaç tabaki var?",
+  "gold": 44
+ },
+ {
+  "ID": "ho-after2",
+  "kind": "after",
+  "Body_tr": "Yasemin'nın 35 tabaki vardı. Kimse konuşmuyordu. Yasemin 1 tane tabak yedi.",
+  "Question_tr": "Şimdi Yasemin'nın kaç tabaki var?",
+  "gold": 34
+ },
+ {
+  "ID": "ho-transfer3",
+  "kind": "transfer",
+  "Body_tr": "Yasemin'nın 36 puli vardı. Güneş doğmuştu. Yasemin Önder'ye 23 pul verdi.",
+  "Question_tr": "Yasemin'nın kaç puli kaldı?",
+  "gold": 13
+ },
+ {
+  "ID": "ho-gains3",
+  "kind": "gains",
+  "Body_tr": "Cem 35 mısır buldu, Yasemin 30 mısır buldu. Cem 8 mısır daha aldı.",
+  "Question_tr": "İkisinin toplam kaç mısıri var?",
+  "gold": 73
+ },
+ {
+  "ID": "ho-after3",
+  "kind": "after",
+  "Body_tr": "Önder'nın 38 çorapi vardı. Kimse konuşmuyordu. Önder 3 tane çorap yedi.",
+  "Question_tr": "Şimdi Önder'nın kaç çorapi var?",
+  "gold": 35
+ },
+ {
+  "ID": "ho-transfer4",
+  "kind": "transfer",
+  "Body_tr": "Kemal'nın 40 mısıri vardı. Sokakta sessizlik vardı. Kemal Yasemin'ye 31 mısır verdi.",
+  "Question_tr": "Kemal'nın kaç mısıri kaldı?",
+  "gold": 9
+ },
+ {
+  "ID": "ho-gains4",
+  "kind": "gains",
+  "Body_tr": "Zehra 34 fındık buldu, Kemal 12 fındık buldu. Zehra 10 fındık daha aldı.",
+  "Question_tr": "İkisinin toplam kaç fındıki var?",
+  "gold": 56
+ },
+ {
+  "ID": "ho-after4",
+  "kind": "after",
+  "Body_tr": "Gamze'nın 84 fındıki vardı. Güneş doğmuştu. Gamze 6 tane fındık yedi.",
+  "Question_tr": "Şimdi Gamze'nın kaç fındıki var?",
+  "gold": 78
+ },
+ {
+  "ID": "ho-transfer5",
+  "kind": "transfer",
+  "Body_tr": "Cem'nın 32 çorapi vardı. Güneş doğmuştu. Cem Zehra'ye 9 çorap verdi.",
+  "Question_tr": "Cem'nın kaç çorapi kaldı?",
+  "gold": 23
+ },
+ {
+  "ID": "ho-gains5",
+  "kind": "gains",
+  "Body_tr": "Cem 5 çorap buldu, Kemal 28 çorap buldu. Cem 14 çorap daha aldı.",
+  "Question_tr": "İkisinin toplam kaç çorapi var?",
+  "gold": 47
+ },
+ {
+  "ID": "ho-after5",
+  "kind": "after",
+  "Body_tr": "Önder'nın 43 puli vardı. Güneş doğmuştu. Önder 12 tane pul yedi.",
+  "Question_tr": "Şimdi Önder'nın kaç puli var?",
+  "gold": 31
+ },
+ {
+  "ID": "ho-transfer6",
+  "kind": "transfer",
+  "Body_tr": "Zehra'nın 58 çorapi vardı. Kimse konuşmuyordu. Zehra Gamze'ye 49 çorap verdi.",
+  "Question_tr": "Zehra'nın kaç çorapi kaldı?",
+  "gold": 9
+ },
+ {
+  "ID": "ho-gains6",
+  "kind": "gains",
+  "Body_tr": "Önder 10 tabak buldu, Gamze 36 tabak buldu. Önder 10 tabak daha aldı.",
+  "Question_tr": "İkisinin toplam kaç tabaki var?",
+  "gold": 56
+ },
+ {
+  "ID": "ho-after6",
+  "kind": "after",
+  "Body_tr": "Zehra'nın 42 çorapi vardı. Sokakta sessizlik vardı. Zehra 3 tane çorap yedi.",
+  "Question_tr": "Şimdi Zehra'nın kaç çorapi var?",
+  "gold": 39
+ },
+ {
+  "ID": "ho-transfer7",
+  "kind": "transfer",
+  "Body_tr": "Zehra'nın 33 tabaki vardı. Sokakta sessizlik vardı. Zehra Gamze'ye 3 tabak verdi.",
+  "Question_tr": "Zehra'nın kaç tabaki kaldı?",
+  "gold": 30
+ },
+ {
+  "ID": "ho-gains7",
+  "kind": "gains",
+  "Body_tr": "Kemal 15 fındık buldu, Zehra 21 fındık buldu. Kemal 14 fındık daha aldı.",
+  "Question_tr": "İkisinin toplam kaç fındıki var?",
+  "gold": 50
+ },
+ {
+  "ID": "ho-after7",
+  "kind": "after",
+  "Body_tr": "Cem'nın 75 banti vardı. Güneş doğmuştu. Cem 24 tane bant yedi.",
+  "Question_tr": "Şimdi Cem'nın kaç banti var?",
+  "gold": 51
+ },
+ {
+  "ID": "ho-transfer8",
+  "kind": "transfer",
+  "Body_tr": "Gamze'nın 41 puli vardı. Sokakta sessizlik vardı. Gamze Cem'ye 16 pul verdi.",
+  "Question_tr": "Gamze'nın kaç puli kaldı?",
+  "gold": 25
+ },
+ {
+  "ID": "ho-gains8",
+  "kind": "gains",
+  "Body_tr": "Cem 37 çorap buldu, Önder 25 çorap buldu. Cem 13 çorap daha aldı.",
+  "Question_tr": "İkisinin toplam kaç çorapi var?",
+  "gold": 75
+ },
+ {
+  "ID": "ho-after8",
+  "kind": "after",
+  "Body_tr": "Gamze'nın 71 banti vardı. Güneş doğmuştu. Gamze 10 tane bant yedi.",
+  "Question_tr": "Şimdi Gamze'nın kaç banti var?",
+  "gold": 61
+ },
+ {
+  "ID": "ho-transfer9",
+  "kind": "transfer",
+  "Body_tr": "Zehra'nın 66 banti vardı. Kimse konuşmuyordu. Zehra Önder'ye 52 bant verdi.",
+  "Question_tr": "Zehra'nın kaç banti kaldı?",
+  "gold": 14
+ },
+ {
+  "ID": "ho-gains9",
+  "kind": "gains",
+  "Body_tr": "Önder 26 fındık buldu, Cem 33 fındık buldu. Önder 12 fındık daha aldı.",
+  "Question_tr": "İkisinin toplam kaç fındıki var?",
+  "gold": 71
+ },
+ {
+  "ID": "ho-after9",
+  "kind": "after",
+  "Body_tr": "Cem'nın 43 banti vardı. Güneş doğmuştu. Cem 24 tane bant yedi.",
+  "Question_tr": "Şimdi Cem'nın kaç banti var?",
+  "gold": 19
+ },
+ {
+  "ID": "ho-transfer10",
+  "kind": "transfer",
+  "Body_tr": "Önder'nın 79 çorapi vardı. Kimse konuşmuyordu. Önder Kemal'ye 56 çorap verdi.",
+  "Question_tr": "Önder'nın kaç çorapi kaldı?",
+  "gold": 23
+ },
+ {
+  "ID": "ho-gains10",
+  "kind": "gains",
+  "Body_tr": "Yasemin 38 çorap buldu, Zehra 36 çorap buldu. Yasemin 5 çorap daha aldı.",
+  "Question_tr": "İkisinin toplam kaç çorapi var?",
+  "gold": 79
+ },
+ {
+  "ID": "ho-after10",
+  "kind": "after",
+  "Body_tr": "Cem'nın 82 fındıki vardı. Kimse konuşmuyordu. Cem 23 tane fındık yedi.",
+  "Question_tr": "Şimdi Cem'nın kaç fındıki var?",
+  "gold": 59
+ },
+ {
+  "ID": "ho-transfer11",
+  "kind": "transfer",
+  "Body_tr": "Gamze'nın 90 puli vardı. Güneş doğmuştu. Gamze Zehra'ye 26 pul verdi.",
+  "Question_tr": "Gamze'nın kaç puli kaldı?",
+  "gold": 64
+ },
+ {
+  "ID": "ho-gains11",
+  "kind": "gains",
+  "Body_tr": "Yasemin 21 bant buldu, Kemal 34 bant buldu. Yasemin 4 bant daha aldı.",
+  "Question_tr": "İkisinin toplam kaç banti var?",
+  "gold": 59
+ },
+ {
+  "ID": "ho-after11",
+  "kind": "after",
+  "Body_tr": "Kemal'nın 66 puli vardı. Kimse konuşmuyordu. Kemal 7 tane pul yedi.",
+  "Question_tr": "Şimdi Kemal'nın kaç puli var?",
+  "gold": 59
+ },
+ {
+  "ID": "ho-transfer12",
+  "kind": "transfer",
+  "Body_tr": "Zehra'nın 89 fındıki vardı. Güneş doğmuştu. Zehra Gamze'ye 63 fındık verdi.",
+  "Question_tr": "Zehra'nın kaç fındıki kaldı?",
+  "gold": 26
+ },
+ {
+  "ID": "ho-gains12",
+  "kind": "gains",
+  "Body_tr": "Önder 5 çorap buldu, Cem 29 çorap buldu. Önder 9 çorap daha aldı.",
+  "Question_tr": "İkisinin toplam kaç çorapi var?",
+  "gold": 43
+ },
+ {
+  "ID": "ho-after12",
+  "kind": "after",
+  "Body_tr": "Kemal'nın 32 mısıri vardı. Güneş doğmuştu. Kemal 8 tane mısır yedi.",
+  "Question_tr": "Şimdi Kemal'nın kaç mısıri var?",
+  "gold": 24
+ },
+ {
+  "ID": "ho-transfer13",
+  "kind": "transfer",
+  "Body_tr": "Kemal'nın 27 puli vardı. Kimse konuşmuyordu. Kemal Zehra'ye 21 pul verdi.",
+  "Question_tr": "Kemal'nın kaç puli kaldı?",
+  "gold": 6
+ },
+ {
+  "ID": "ho-gains13",
+  "kind": "gains",
+  "Body_tr": "Gamze 13 mısır buldu, Kemal 14 mısır buldu. Gamze 8 mısır daha aldı.",
+  "Question_tr": "İkisinin toplam kaç mısıri var?",
+  "gold": 35
+ },
+ {
+  "ID": "ho-after13",
+  "kind": "after",
+  "Body_tr": "Zehra'nın 31 mısıri vardı. Kimse konuşmuyordu. Zehra 12 tane mısır yedi.",
+  "Question_tr": "Şimdi Zehra'nın kaç mısıri var?",
+  "gold": 19
+ },
+ {
+  "ID": "ho-transfer14",
+  "kind": "transfer",
+  "Body_tr": "Gamze'nın 32 tabaki vardı. Güneş doğmuştu. Gamze Önder'ye 7 tabak verdi.",
+  "Question_tr": "Gamze'nın kaç tabaki kaldı?",
+  "gold": 25
+ },
+ {
+  "ID": "ho-gains14",
+  "kind": "gains",
+  "Body_tr": "Zehra 35 tabak buldu, Cem 21 tabak buldu. Zehra 9 tabak daha aldı.",
+  "Question_tr": "İkisinin toplam kaç tabaki var?",
+  "gold": 65
+ },
+ {
+  "ID": "ho-after14",
+  "kind": "after",
+  "Body_tr": "Yasemin'nın 36 mısıri vardı. Güneş doğmuştu. Yasemin 8 tane mısır yedi.",
+  "Question_tr": "Şimdi Yasemin'nın kaç mısıri var?",
+  "gold": 28
+ },
+ {
+  "ID": "ho-transfer15",
+  "kind": "transfer",
+  "Body_tr": "Önder'nın 73 çorapi vardı. Sokakta sessizlik vardı. Önder Zehra'ye 69 çorap verdi.",
+  "Question_tr": "Önder'nın kaç çorapi kaldı?",
+  "gold": 4
+ },
+ {
+  "ID": "ho-gains15",
+  "kind": "gains",
+  "Body_tr": "Zehra 37 tabak buldu, Yasemin 25 tabak buldu. Zehra 4 tabak daha aldı.",
+  "Question_tr": "İkisinin toplam kaç tabaki var?",
+  "gold": 66
+ },
+ {
+  "ID": "ho-after15",
+  "kind": "after",
+  "Body_tr": "Kemal'nın 76 tabaki vardı. Güneş doğmuştu. Kemal 17 tane tabak yedi.",
+  "Question_tr": "Şimdi Kemal'nın kaç tabaki var?",
+  "gold": 59
+ },
+ {
+  "ID": "ho-transfer16",
+  "kind": "transfer",
+  "Body_tr": "Gamze'nın 23 tabaki vardı. Sokakta sessizlik vardı. Gamze Cem'ye 6 tabak verdi.",
+  "Question_tr": "Gamze'nın kaç tabaki kaldı?",
+  "gold": 17
+ },
+ {
+  "ID": "ho-gains16",
+  "kind": "gains",
+  "Body_tr": "Yasemin 7 çorap buldu, Önder 27 çorap buldu. Yasemin 10 çorap daha aldı.",
+  "Question_tr": "İkisinin toplam kaç çorapi var?",
+  "gold": 44
+ },
+ {
+  "ID": "ho-after16",
+  "kind": "after",
+  "Body_tr": "Cem'nın 69 puli vardı. Güneş doğmuştu. Cem 6 tane pul yedi.",
+  "Question_tr": "Şimdi Cem'nın kaç puli var?",
+  "gold": 63
+ },
+ {
+  "ID": "ho-transfer17",
+  "kind": "transfer",
+  "Body_tr": "Önder'nın 23 puli vardı. Sokakta sessizlik vardı. Önder Zehra'ye 7 pul verdi.",
+  "Question_tr": "Önder'nın kaç puli kaldı?",
+  "gold": 16
+ },
+ {
+  "ID": "ho-gains17",
+  "kind": "gains",
+  "Body_tr": "Önder 28 çorap buldu, Cem 24 çorap buldu. Önder 11 çorap daha aldı.",
+  "Question_tr": "İkisinin toplam kaç çorapi var?",
+  "gold": 63
+ },
+ {
+  "ID": "ho-after17",
+  "kind": "after",
+  "Body_tr": "Kemal'nın 60 çorapi vardı. Sokakta sessizlik vardı. Kemal 14 tane çorap yedi.",
+  "Question_tr": "Şimdi Kemal'nın kaç çorapi var?",
+  "gold": 46
+ },
+ {
+  "ID": "ho-transfer18",
+  "kind": "transfer",
+  "Body_tr": "Yasemin'nın 88 çorapi vardı. Güneş doğmuştu. Yasemin Gamze'ye 40 çorap verdi.",
+  "Question_tr": "Yasemin'nın kaç çorapi kaldı?",
+  "gold": 48
+ },
+ {
+  "ID": "ho-gains18",
+  "kind": "gains",
+  "Body_tr": "Kemal 15 tabak buldu, Cem 25 tabak buldu. Kemal 4 tabak daha aldı.",
+  "Question_tr": "İkisinin toplam kaç tabaki var?",
+  "gold": 44
+ },
+ {
+  "ID": "ho-after18",
+  "kind": "after",
+  "Body_tr": "Kemal'nın 44 tabaki vardı. Sokakta sessizlik vardı. Kemal 8 tane tabak yedi.",
+  "Question_tr": "Şimdi Kemal'nın kaç tabaki var?",
+  "gold": 36
+ },
+ {
+  "ID": "ho-transfer19",
+  "kind": "transfer",
+  "Body_tr": "Gamze'nın 44 banti vardı. Güneş doğmuştu. Gamze Kemal'ye 15 bant verdi.",
+  "Question_tr": "Gamze'nın kaç banti kaldı?",
+  "gold": 29
+ },
+ {
+  "ID": "ho-gains19",
+  "kind": "gains",
+  "Body_tr": "Cem 25 tabak buldu, Kemal 11 tabak buldu. Cem 12 tabak daha aldı.",
+  "Question_tr": "İkisinin toplam kaç tabaki var?",
+  "gold": 48
+ },
+ {
+  "ID": "ho-after19",
+  "kind": "after",
+  "Body_tr": "Kemal'nın 78 puli vardı. Kimse konuşmuyordu. Kemal 4 tane pul yedi.",
+  "Question_tr": "Şimdi Kemal'nın kaç puli var?",
+  "gold": 74
+ },
+ {
+  "ID": "ho-transfer20",
+  "kind": "transfer",
+  "Body_tr": "Yasemin'nın 29 banti vardı. Kimse konuşmuyordu. Yasemin Gamze'ye 7 bant verdi.",
+  "Question_tr": "Yasemin'nın kaç banti kaldı?",
+  "gold": 22
+ },
+ {
+  "ID": "ho-gains20",
+  "kind": "gains",
+  "Body_tr": "Yasemin 19 tabak buldu, Cem 28 tabak buldu. Yasemin 4 tabak daha aldı.",
+  "Question_tr": "İkisinin toplam kaç tabaki var?",
+  "gold": 51
+ },
+ {
+  "ID": "ho-after20",
+  "kind": "after",
+  "Body_tr": "Kemal'nın 67 puli vardı. Kimse konuşmuyordu. Kemal 1 tane pul yedi.",
+  "Question_tr": "Şimdi Kemal'nın kaç puli var?",
+  "gold": 66
+ },
+ {
+  "ID": "ho-transfer21",
+  "kind": "transfer",
+  "Body_tr": "Cem'nın 80 banti vardı. Sokakta sessizlik vardı. Cem Yasemin'ye 9 bant verdi.",
+  "Question_tr": "Cem'nın kaç banti kaldı?",
+  "gold": 71
+ },
+ {
+  "ID": "ho-gains21",
+  "kind": "gains",
+  "Body_tr": "Gamze 7 çorap buldu, Kemal 35 çorap buldu. Gamze 7 çorap daha aldı.",
+  "Question_tr": "İkisinin toplam kaç çorapi var?",
+  "gold": 49
+ },
+ {
+  "ID": "ho-after21",
+  "kind": "after",
+  "Body_tr": "Kemal'nın 43 banti vardı. Sokakta sessizlik vardı. Kemal 21 tane bant yedi.",
+  "Question_tr": "Şimdi Kemal'nın kaç banti var?",
+  "gold": 22
+ },
+ {
+  "ID": "ho-transfer22",
+  "kind": "transfer",
+  "Body_tr": "Önder'nın 30 puli vardı. Kimse konuşmuyordu. Önder Cem'ye 26 pul verdi.",
+  "Question_tr": "Önder'nın kaç puli kaldı?",
+  "gold": 4
+ },
+ {
+  "ID": "ho-gains22",
+  "kind": "gains",
+  "Body_tr": "Önder 9 fındık buldu, Kemal 31 fındık buldu. Önder 14 fındık daha aldı.",
+  "Question_tr": "İkisinin toplam kaç fındıki var?",
+  "gold": 54
+ },
+ {
+  "ID": "ho-after22",
+  "kind": "after",
+  "Body_tr": "Yasemin'nın 45 puli vardı. Kimse konuşmuyordu. Yasemin 23 tane pul yedi.",
+  "Question_tr": "Şimdi Yasemin'nın kaç puli var?",
+  "gold": 22
+ },
+ {
+  "ID": "ho-transfer23",
+  "kind": "transfer",
+  "Body_tr": "Zehra'nın 27 puli vardı. Güneş doğmuştu. Zehra Cem'ye 5 pul verdi.",
+  "Question_tr": "Zehra'nın kaç puli kaldı?",
+  "gold": 22
+ },
+ {
+  "ID": "ho-gains23",
+  "kind": "gains",
+  "Body_tr": "Gamze 34 çorap buldu, Yasemin 22 çorap buldu. Gamze 9 çorap daha aldı.",
+  "Question_tr": "İkisinin toplam kaç çorapi var?",
+  "gold": 65
+ },
+ {
+  "ID": "ho-after23",
+  "kind": "after",
+  "Body_tr": "Gamze'nın 74 tabaki vardı. Güneş doğmuştu. Gamze 19 tane tabak yedi.",
+  "Question_tr": "Şimdi Gamze'nın kaç tabaki var?",
+  "gold": 55
+ },
+ {
+  "ID": "ho-transfer24",
+  "kind": "transfer",
+  "Body_tr": "Kemal'nın 56 mısıri vardı. Kimse konuşmuyordu. Kemal Cem'ye 4 mısır verdi.",
+  "Question_tr": "Kemal'nın kaç mısıri kaldı?",
+  "gold": 52
+ },
+ {
+  "ID": "ho-gains24",
+  "kind": "gains",
+  "Body_tr": "Zehra 32 çorap buldu, Cem 14 çorap buldu. Zehra 11 çorap daha aldı.",
+  "Question_tr": "İkisinin toplam kaç çorapi var?",
+  "gold": 57
+ },
+ {
+  "ID": "ho-after24",
+  "kind": "after",
+  "Body_tr": "Kemal'nın 38 banti vardı. Güneş doğmuştu. Kemal 6 tane bant yedi.",
+  "Question_tr": "Şimdi Kemal'nın kaç banti var?",
+  "gold": 32
+ },
+ {
+  "ID": "ho-transfer25",
+  "kind": "transfer",
+  "Body_tr": "Gamze'nın 36 mısıri vardı. Kimse konuşmuyordu. Gamze Zehra'ye 16 mısır verdi.",
+  "Question_tr": "Gamze'nın kaç mısıri kaldı?",
+  "gold": 20
+ },
+ {
+  "ID": "ho-gains25",
+  "kind": "gains",
+  "Body_tr": "Yasemin 27 çorap buldu, Kemal 22 çorap buldu. Yasemin 11 çorap daha aldı.",
+  "Question_tr": "İkisinin toplam kaç çorapi var?",
+  "gold": 60
+ },
+ {
+  "ID": "ho-after25",
+  "kind": "after",
+  "Body_tr": "Zehra'nın 86 mısıri vardı. Sokakta sessizlik vardı. Zehra 5 tane mısır yedi.",
+  "Question_tr": "Şimdi Zehra'nın kaç mısıri var?",
+  "gold": 81
+ },
+ {
+  "ID": "ho-transfer26",
+  "kind": "transfer",
+  "Body_tr": "Kemal'nın 39 puli vardı. Kimse konuşmuyordu. Kemal Yasemin'ye 37 pul verdi.",
+  "Question_tr": "Kemal'nın kaç puli kaldı?",
+  "gold": 2
+ },
+ {
+  "ID": "ho-gains26",
+  "kind": "gains",
+  "Body_tr": "Zehra 16 çorap buldu, Kemal 15 çorap buldu. Zehra 9 çorap daha aldı.",
+  "Question_tr": "İkisinin toplam kaç çorapi var?",
+  "gold": 40
+ },
+ {
+  "ID": "ho-after26",
+  "kind": "after",
+  "Body_tr": "Zehra'nın 74 çorapi vardı. Sokakta sessizlik vardı. Zehra 13 tane çorap yedi.",
+  "Question_tr": "Şimdi Zehra'nın kaç çorapi var?",
+  "gold": 61
+ },
+ {
+  "ID": "ho-transfer27",
+  "kind": "transfer",
+  "Body_tr": "Zehra'nın 33 mısıri vardı. Sokakta sessizlik vardı. Zehra Önder'ye 7 mısır verdi.",
+  "Question_tr": "Zehra'nın kaç mısıri kaldı?",
+  "gold": 26
+ },
+ {
+  "ID": "ho-gains27",
+  "kind": "gains",
+  "Body_tr": "Zehra 17 bant buldu, Gamze 15 bant buldu. Zehra 6 bant daha aldı.",
+  "Question_tr": "İkisinin toplam kaç banti var?",
+  "gold": 38
+ },
+ {
+  "ID": "ho-after27",
+  "kind": "after",
+  "Body_tr": "Gamze'nın 82 fındıki vardı. Sokakta sessizlik vardı. Gamze 16 tane fındık yedi.",
+  "Question_tr": "Şimdi Gamze'nın kaç fındıki var?",
+  "gold": 66
+ },
+ {
+  "ID": "ho-transfer28",
+  "kind": "transfer",
+  "Body_tr": "Cem'nın 82 mısıri vardı. Kimse konuşmuyordu. Cem Zehra'ye 74 mısır verdi.",
+  "Question_tr": "Cem'nın kaç mısıri kaldı?",
+  "gold": 8
+ },
+ {
+  "ID": "ho-gains28",
+  "kind": "gains",
+  "Body_tr": "Gamze 20 pul buldu, Zehra 21 pul buldu. Gamze 14 pul daha aldı.",
+  "Question_tr": "İkisinin toplam kaç puli var?",
+  "gold": 55
+ },
+ {
+  "ID": "ho-after28",
+  "kind": "after",
+  "Body_tr": "Zehra'nın 65 tabaki vardı. Sokakta sessizlik vardı. Zehra 22 tane tabak yedi.",
+  "Question_tr": "Şimdi Zehra'nın kaç tabaki var?",
+  "gold": 43
+ },
+ {
+  "ID": "ho-transfer29",
+  "kind": "transfer",
+  "Body_tr": "Zehra'nın 60 puli vardı. Güneş doğmuştu. Zehra Önder'ye 4 pul verdi.",
+  "Question_tr": "Zehra'nın kaç puli kaldı?",
+  "gold": 56
+ },
+ {
+  "ID": "ho-gains29",
+  "kind": "gains",
+  "Body_tr": "Kemal 29 mısır buldu, Önder 14 mısır buldu. Kemal 10 mısır daha aldı.",
+  "Question_tr": "İkisinin toplam kaç mısıri var?",
+  "gold": 53
+ },
+ {
+  "ID": "ho-after29",
+  "kind": "after",
+  "Body_tr": "Kemal'nın 46 mısıri vardı. Güneş doğmuştu. Kemal 23 tane mısır yedi.",
+  "Question_tr": "Şimdi Kemal'nın kaç mısıri var?",
+  "gold": 23
+ },
+ {
+  "ID": "ho-transfer30",
+  "kind": "transfer",
+  "Body_tr": "Yasemin'nın 41 çorapi vardı. Güneş doğmuştu. Yasemin Zehra'ye 29 çorap verdi.",
+  "Question_tr": "Yasemin'nın kaç çorapi kaldı?",
+  "gold": 12
+ },
+ {
+  "ID": "ho-gains30",
+  "kind": "gains",
+  "Body_tr": "Zehra 37 mısır buldu, Gamze 12 mısır buldu. Zehra 8 mısır daha aldı.",
+  "Question_tr": "İkisinin toplam kaç mısıri var?",
+  "gold": 57
+ },
+ {
+  "ID": "ho-after30",
+  "kind": "after",
+  "Body_tr": "Cem'nın 47 banti vardı. Sokakta sessizlik vardı. Cem 8 tane bant yedi.",
+  "Question_tr": "Şimdi Cem'nın kaç banti var?",
+  "gold": 39
+ },
+ {
+  "ID": "ho-transfer31",
+  "kind": "transfer",
+  "Body_tr": "Cem'nın 56 mısıri vardı. Kimse konuşmuyordu. Cem Önder'ye 38 mısır verdi.",
+  "Question_tr": "Cem'nın kaç mısıri kaldı?",
+  "gold": 18
+ },
+ {
+  "ID": "ho-gains31",
+  "kind": "gains",
+  "Body_tr": "Yasemin 25 çorap buldu, Cem 27 çorap buldu. Yasemin 14 çorap daha aldı.",
+  "Question_tr": "İkisinin toplam kaç çorapi var?",
+  "gold": 66
+ },
+ {
+  "ID": "ho-after31",
+  "kind": "after",
+  "Body_tr": "Zehra'nın 37 puli vardı. Kimse konuşmuyordu. Zehra 12 tane pul yedi.",
+  "Question_tr": "Şimdi Zehra'nın kaç puli var?",
+  "gold": 25
+ },
+ {
+  "ID": "ho-transfer32",
+  "kind": "transfer",
+  "Body_tr": "Cem'nın 32 tabaki vardı. Güneş doğmuştu. Cem Zehra'ye 23 tabak verdi.",
+  "Question_tr": "Cem'nın kaç tabaki kaldı?",
+  "gold": 9
+ },
+ {
+  "ID": "ho-gains32",
+  "kind": "gains",
+  "Body_tr": "Önder 31 bant buldu, Kemal 7 bant buldu. Önder 11 bant daha aldı.",
+  "Question_tr": "İkisinin toplam kaç banti var?",
+  "gold": 49
+ },
+ {
+  "ID": "ho-after32",
+  "kind": "after",
+  "Body_tr": "Cem'nın 83 tabaki vardı. Kimse konuşmuyordu. Cem 24 tane tabak yedi.",
+  "Question_tr": "Şimdi Cem'nın kaç tabaki var?",
+  "gold": 59
+ },
+ {
+  "ID": "ho-transfer33",
+  "kind": "transfer",
+  "Body_tr": "Önder'nın 47 puli vardı. Sokakta sessizlik vardı. Önder Zehra'ye 28 pul verdi.",
+  "Question_tr": "Önder'nın kaç puli kaldı?",
+  "gold": 19
+ },
+ {
+  "ID": "ho-gains33",
+  "kind": "gains",
+  "Body_tr": "Gamze 29 mısır buldu, Önder 21 mısır buldu. Gamze 7 mısır daha aldı.",
+  "Question_tr": "İkisinin toplam kaç mısıri var?",
+  "gold": 57
+ },
+ {
+  "ID": "ho-after33",
+  "kind": "after",
+  "Body_tr": "Yasemin'nın 44 puli vardı. Sokakta sessizlik vardı. Yasemin 19 tane pul yedi.",
+  "Question_tr": "Şimdi Yasemin'nın kaç puli var?",
+  "gold": 25
+ },
+ {
+  "ID": "ho-transfer34",
+  "kind": "transfer",
+  "Body_tr": "Yasemin'nın 87 çorapi vardı. Sokakta sessizlik vardı. Yasemin Gamze'ye 53 çorap verdi.",
+  "Question_tr": "Yasemin'nın kaç çorapi kaldı?",
+  "gold": 34
+ },
+ {
+  "ID": "ho-gains34",
+  "kind": "gains",
+  "Body_tr": "Gamze 15 tabak buldu, Cem 39 tabak buldu. Gamze 7 tabak daha aldı.",
+  "Question_tr": "İkisinin toplam kaç tabaki var?",
+  "gold": 61
+ },
+ {
+  "ID": "ho-after34",
+  "kind": "after",
+  "Body_tr": "Yasemin'nın 38 tabaki vardı. Güneş doğmuştu. Yasemin 13 tane tabak yedi.",
+  "Question_tr": "Şimdi Yasemin'nın kaç tabaki var?",
+  "gold": 25
+ },
+ {
+  "ID": "ho-transfer35",
+  "kind": "transfer",
+  "Body_tr": "Kemal'nın 21 banti vardı. Güneş doğmuştu. Kemal Gamze'ye 3 bant verdi.",
+  "Question_tr": "Kemal'nın kaç banti kaldı?",
+  "gold": 18
+ },
+ {
+  "ID": "ho-gains35",
+  "kind": "gains",
+  "Body_tr": "Önder 35 tabak buldu, Cem 36 tabak buldu. Önder 6 tabak daha aldı.",
+  "Question_tr": "İkisinin toplam kaç tabaki var?",
+  "gold": 77
+ },
+ {
+  "ID": "ho-after35",
+  "kind": "after",
+  "Body_tr": "Gamze'nın 60 banti vardı. Sokakta sessizlik vardı. Gamze 1 tane bant yedi.",
+  "Question_tr": "Şimdi Gamze'nın kaç banti var?",
+  "gold": 59
+ },
+ {
+  "ID": "ho-transfer36",
+  "kind": "transfer",
+  "Body_tr": "Cem'nın 75 mısıri vardı. Sokakta sessizlik vardı. Cem Gamze'ye 49 mısır verdi.",
+  "Question_tr": "Cem'nın kaç mısıri kaldı?",
+  "gold": 26
+ },
+ {
+  "ID": "ho-gains36",
+  "kind": "gains",
+  "Body_tr": "Gamze 31 fındık buldu, Kemal 17 fındık buldu. Gamze 12 fındık daha aldı.",
+  "Question_tr": "İkisinin toplam kaç fındıki var?",
+  "gold": 60
+ },
+ {
+  "ID": "ho-after36",
+  "kind": "after",
+  "Body_tr": "Yasemin'nın 85 tabaki vardı. Kimse konuşmuyordu. Yasemin 14 tane tabak yedi.",
+  "Question_tr": "Şimdi Yasemin'nın kaç tabaki var?",
+  "gold": 71
+ },
+ {
+  "ID": "ho-transfer37",
+  "kind": "transfer",
+  "Body_tr": "Cem'nın 82 mısıri vardı. Güneş doğmuştu. Cem Önder'ye 73 mısır verdi.",
+  "Question_tr": "Cem'nın kaç mısıri kaldı?",
+  "gold": 9
+ },
+ {
+  "ID": "ho-gains37",
+  "kind": "gains",
+  "Body_tr": "Önder 18 pul buldu, Kemal 12 pul buldu. Önder 4 pul daha aldı.",
+  "Question_tr": "İkisinin toplam kaç puli var?",
+  "gold": 34
+ },
+ {
+  "ID": "ho-after37",
+  "kind": "after",
+  "Body_tr": "Önder'nın 44 banti vardı. Kimse konuşmuyordu. Önder 25 tane bant yedi.",
+  "Question_tr": "Şimdi Önder'nın kaç banti var?",
+  "gold": 19
+ },
+ {
+  "ID": "ho-transfer38",
+  "kind": "transfer",
+  "Body_tr": "Cem'nın 41 tabaki vardı. Kimse konuşmuyordu. Cem Gamze'ye 27 tabak verdi.",
+  "Question_tr": "Cem'nın kaç tabaki kaldı?",
+  "gold": 14
+ },
+ {
+  "ID": "ho-gains38",
+  "kind": "gains",
+  "Body_tr": "Gamze 28 tabak buldu, Zehra 12 tabak buldu. Gamze 6 tabak daha aldı.",
+  "Question_tr": "İkisinin toplam kaç tabaki var?",
+  "gold": 46
+ },
+ {
+  "ID": "ho-after38",
+  "kind": "after",
+  "Body_tr": "Önder'nın 77 tabaki vardı. Kimse konuşmuyordu. Önder 7 tane tabak yedi.",
+  "Question_tr": "Şimdi Önder'nın kaç tabaki var?",
+  "gold": 70
+ },
+ {
+  "ID": "ho-transfer39",
+  "kind": "transfer",
+  "Body_tr": "Cem'nın 50 fındıki vardı. Sokakta sessizlik vardı. Cem Gamze'ye 3 fındık verdi.",
+  "Question_tr": "Cem'nın kaç fındıki kaldı?",
+  "gold": 47
+ },
+ {
+  "ID": "ho-gains39",
+  "kind": "gains",
+  "Body_tr": "Önder 19 fındık buldu, Zehra 35 fındık buldu. Önder 10 fındık daha aldı.",
+  "Question_tr": "İkisinin toplam kaç fındıki var?",
+  "gold": 64
+ },
+ {
+  "ID": "ho-after39",
+  "kind": "after",
+  "Body_tr": "Zehra'nın 88 puli vardı. Güneş doğmuştu. Zehra 13 tane pul yedi.",
+  "Question_tr": "Şimdi Zehra'nın kaç puli var?",
+  "gold": 75
+ },
+ {
+  "ID": "ho-transfer40",
+  "kind": "transfer",
+  "Body_tr": "Zehra'nın 74 tabaki vardı. Sokakta sessizlik vardı. Zehra Kemal'ye 20 tabak verdi.",
+  "Question_tr": "Zehra'nın kaç tabaki kaldı?",
+  "gold": 54
+ },
+ {
+  "ID": "ho-gains40",
+  "kind": "gains",
+  "Body_tr": "Gamze 39 çorap buldu, Zehra 7 çorap buldu. Gamze 2 çorap daha aldı.",
+  "Question_tr": "İkisinin toplam kaç çorapi var?",
+  "gold": 48
+ },
+ {
+  "ID": "ho-after40",
+  "kind": "after",
+  "Body_tr": "Zehra'nın 57 mısıri vardı. Sokakta sessizlik vardı. Zehra 12 tane mısır yedi.",
+  "Question_tr": "Şimdi Zehra'nın kaç mısıri var?",
+  "gold": 45
+ },
+ {
+  "ID": "ho-transfer41",
+  "kind": "transfer",
+  "Body_tr": "Önder'nın 63 mısıri vardı. Güneş doğmuştu. Önder Yasemin'ye 57 mısır verdi.",
+  "Question_tr": "Önder'nın kaç mısıri kaldı?",
+  "gold": 6
+ },
+ {
+  "ID": "ho-gains41",
+  "kind": "gains",
+  "Body_tr": "Kemal 18 mısır buldu, Gamze 18 mısır buldu. Kemal 8 mısır daha aldı.",
+  "Question_tr": "İkisinin toplam kaç mısıri var?",
+  "gold": 44
+ },
+ {
+  "ID": "ho-after41",
+  "kind": "after",
+  "Body_tr": "Yasemin'nın 43 banti vardı. Güneş doğmuştu. Yasemin 2 tane bant yedi.",
+  "Question_tr": "Şimdi Yasemin'nın kaç banti var?",
+  "gold": 41
+ },
+ {
+  "ID": "ho-transfer42",
+  "kind": "transfer",
+  "Body_tr": "Gamze'nın 20 puli vardı. Güneş doğmuştu. Gamze Önder'ye 5 pul verdi.",
+  "Question_tr": "Gamze'nın kaç puli kaldı?",
+  "gold": 15
+ },
+ {
+  "ID": "ho-gains42",
+  "kind": "gains",
+  "Body_tr": "Cem 11 pul buldu, Yasemin 19 pul buldu. Cem 15 pul daha aldı.",
+  "Question_tr": "İkisinin toplam kaç puli var?",
+  "gold": 45
+ },
+ {
+  "ID": "ho-after42",
+  "kind": "after",
+  "Body_tr": "Önder'nın 44 çorapi vardı. Sokakta sessizlik vardı. Önder 14 tane çorap yedi.",
+  "Question_tr": "Şimdi Önder'nın kaç çorapi var?",
+  "gold": 30
+ },
+ {
+  "ID": "ho-transfer43",
+  "kind": "transfer",
+  "Body_tr": "Yasemin'nın 88 mısıri vardı. Sokakta sessizlik vardı. Yasemin Kemal'ye 79 mısır verdi.",
+  "Question_tr": "Yasemin'nın kaç mısıri kaldı?",
+  "gold": 9
+ },
+ {
+  "ID": "ho-gains43",
+  "kind": "gains",
+  "Body_tr": "Önder 32 çorap buldu, Gamze 5 çorap buldu. Önder 8 çorap daha aldı.",
+  "Question_tr": "İkisinin toplam kaç çorapi var?",
+  "gold": 45
+ },
+ {
+  "ID": "ho-after43",
+  "kind": "after",
+  "Body_tr": "Yasemin'nın 31 banti vardı. Kimse konuşmuyordu. Yasemin 15 tane bant yedi.",
+  "Question_tr": "Şimdi Yasemin'nın kaç banti var?",
+  "gold": 16
+ },
+ {
+  "ID": "ho-transfer44",
+  "kind": "transfer",
+  "Body_tr": "Önder'nın 70 fındıki vardı. Sokakta sessizlik vardı. Önder Yasemin'ye 55 fındık verdi.",
+  "Question_tr": "Önder'nın kaç fındıki kaldı?",
+  "gold": 15
+ },
+ {
+  "ID": "ho-gains44",
+  "kind": "gains",
+  "Body_tr": "Cem 38 pul buldu, Önder 40 pul buldu. Cem 5 pul daha aldı.",
+  "Question_tr": "İkisinin toplam kaç puli var?",
+  "gold": 83
+ },
+ {
+  "ID": "ho-after44",
+  "kind": "after",
+  "Body_tr": "Yasemin'nın 87 tabaki vardı. Sokakta sessizlik vardı. Yasemin 22 tane tabak yedi.",
+  "Question_tr": "Şimdi Yasemin'nın kaç tabaki var?",
+  "gold": 65
+ },
+ {
+  "ID": "ho-transfer45",
+  "kind": "transfer",
+  "Body_tr": "Cem'nın 21 puli vardı. Sokakta sessizlik vardı. Cem Önder'ye 8 pul verdi.",
+  "Question_tr": "Cem'nın kaç puli kaldı?",
+  "gold": 13
+ },
+ {
+  "ID": "ho-gains45",
+  "kind": "gains",
+  "Body_tr": "Kemal 20 çorap buldu, Önder 7 çorap buldu. Kemal 14 çorap daha aldı.",
+  "Question_tr": "İkisinin toplam kaç çorapi var?",
+  "gold": 41
+ },
+ {
+  "ID": "ho-after45",
+  "kind": "after",
+  "Body_tr": "Kemal'nın 86 fındıki vardı. Güneş doğmuştu. Kemal 5 tane fındık yedi.",
+  "Question_tr": "Şimdi Kemal'nın kaç fındıki var?",
+  "gold": 81
+ },
+ {
+  "ID": "ho-transfer46",
+  "kind": "transfer",
+  "Body_tr": "Yasemin'nın 83 puli vardı. Güneş doğmuştu. Yasemin Zehra'ye 48 pul verdi.",
+  "Question_tr": "Yasemin'nın kaç puli kaldı?",
+  "gold": 35
+ },
+ {
+  "ID": "ho-gains46",
+  "kind": "gains",
+  "Body_tr": "Zehra 18 bant buldu, Önder 30 bant buldu. Zehra 11 bant daha aldı.",
+  "Question_tr": "İkisinin toplam kaç banti var?",
+  "gold": 59
+ },
+ {
+  "ID": "ho-after46",
+  "kind": "after",
+  "Body_tr": "Cem'nın 54 çorapi vardı. Güneş doğmuştu. Cem 12 tane çorap yedi.",
+  "Question_tr": "Şimdi Cem'nın kaç çorapi var?",
+  "gold": 42
+ },
+ {
+  "ID": "ho-transfer47",
+  "kind": "transfer",
+  "Body_tr": "Cem'nın 27 puli vardı. Sokakta sessizlik vardı. Cem Gamze'ye 23 pul verdi.",
+  "Question_tr": "Cem'nın kaç puli kaldı?",
+  "gold": 4
+ },
+ {
+  "ID": "ho-gains47",
+  "kind": "gains",
+  "Body_tr": "Gamze 14 çorap buldu, Zehra 21 çorap buldu. Gamze 15 çorap daha aldı.",
+  "Question_tr": "İkisinin toplam kaç çorapi var?",
+  "gold": 50
+ },
+ {
+  "ID": "ho-after47",
+  "kind": "after",
+  "Body_tr": "Gamze'nın 87 mısıri vardı. Kimse konuşmuyordu. Gamze 4 tane mısır yedi.",
+  "Question_tr": "Şimdi Gamze'nın kaç mısıri var?",
+  "gold": 83
+ },
+ {
+  "ID": "ho-transfer48",
+  "kind": "transfer",
+  "Body_tr": "Cem'nın 47 fındıki vardı. Kimse konuşmuyordu. Cem Zehra'ye 44 fındık verdi.",
+  "Question_tr": "Cem'nın kaç fındıki kaldı?",
+  "gold": 3
+ },
+ {
+  "ID": "ho-gains48",
+  "kind": "gains",
+  "Body_tr": "Gamze 29 fındık buldu, Kemal 5 fındık buldu. Gamze 15 fındık daha aldı.",
+  "Question_tr": "İkisinin toplam kaç fındıki var?",
+  "gold": 49
+ },
+ {
+  "ID": "ho-after48",
+  "kind": "after",
+  "Body_tr": "Gamze'nın 48 puli vardı. Sokakta sessizlik vardı. Gamze 11 tane pul yedi.",
+  "Question_tr": "Şimdi Gamze'nın kaç puli var?",
+  "gold": 37
+ },
+ {
+  "ID": "ho-transfer49",
+  "kind": "transfer",
+  "Body_tr": "Yasemin'nın 57 banti vardı. Güneş doğmuştu. Yasemin Gamze'ye 43 bant verdi.",
+  "Question_tr": "Yasemin'nın kaç banti kaldı?",
+  "gold": 14
+ },
+ {
+  "ID": "ho-gains49",
+  "kind": "gains",
+  "Body_tr": "Zehra 36 çorap buldu, Cem 30 çorap buldu. Zehra 4 çorap daha aldı.",
+  "Question_tr": "İkisinin toplam kaç çorapi var?",
+  "gold": 70
+ },
+ {
+  "ID": "ho-after49",
+  "kind": "after",
+  "Body_tr": "Önder'nın 86 banti vardı. Kimse konuşmuyordu. Önder 18 tane bant yedi.",
+  "Question_tr": "Şimdi Önder'nın kaç banti var?",
+  "gold": 68
+ },
+ {
+  "ID": "ho-transfer50",
+  "kind": "transfer",
+  "Body_tr": "Yasemin'nın 45 çorapi vardı. Güneş doğmuştu. Yasemin Kemal'ye 13 çorap verdi.",
+  "Question_tr": "Yasemin'nın kaç çorapi kaldı?",
+  "gold": 32
+ },
+ {
+  "ID": "ho-gains50",
+  "kind": "gains",
+  "Body_tr": "Önder 14 tabak buldu, Kemal 17 tabak buldu. Önder 15 tabak daha aldı.",
+  "Question_tr": "İkisinin toplam kaç tabaki var?",
+  "gold": 46
+ },
+ {
+  "ID": "ho-after50",
+  "kind": "after",
+  "Body_tr": "Gamze'nın 32 banti vardı. Güneş doğmuştu. Gamze 9 tane bant yedi.",
+  "Question_tr": "Şimdi Gamze'nın kaç banti var?",
+  "gold": 23
+ },
+ {
+  "ID": "ho-transfer51",
+  "kind": "transfer",
+  "Body_tr": "Zehra'nın 52 puli vardı. Güneş doğmuştu. Zehra Önder'ye 3 pul verdi.",
+  "Question_tr": "Zehra'nın kaç puli kaldı?",
+  "gold": 49
+ },
+ {
+  "ID": "ho-gains51",
+  "kind": "gains",
+  "Body_tr": "Cem 14 bant buldu, Kemal 12 bant buldu. Cem 5 bant daha aldı.",
+  "Question_tr": "İkisinin toplam kaç banti var?",
+  "gold": 31
+ },
+ {
+  "ID": "ho-after51",
+  "kind": "after",
+  "Body_tr": "Gamze'nın 67 çorapi vardı. Kimse konuşmuyordu. Gamze 14 tane çorap yedi.",
+  "Question_tr": "Şimdi Gamze'nın kaç çorapi var?",
+  "gold": 53
+ },
+ {
+  "ID": "ho-transfer52",
+  "kind": "transfer",
+  "Body_tr": "Gamze'nın 68 mısıri vardı. Güneş doğmuştu. Gamze Cem'ye 6 mısır verdi.",
+  "Question_tr": "Gamze'nın kaç mısıri kaldı?",
+  "gold": 62
+ },
+ {
+  "ID": "ho-gains52",
+  "kind": "gains",
+  "Body_tr": "Yasemin 19 bant buldu, Gamze 33 bant buldu. Yasemin 8 bant daha aldı.",
+  "Question_tr": "İkisinin toplam kaç banti var?",
+  "gold": 60
+ },
+ {
+  "ID": "ho-after52",
+  "kind": "after",
+  "Body_tr": "Cem'nın 84 fındıki vardı. Güneş doğmuştu. Cem 12 tane fındık yedi.",
+  "Question_tr": "Şimdi Cem'nın kaç fındıki var?",
+  "gold": 72
+ },
+ {
+  "ID": "ho-transfer53",
+  "kind": "transfer",
+  "Body_tr": "Yasemin'nın 61 mısıri vardı. Güneş doğmuştu. Yasemin Önder'ye 14 mısır verdi.",
+  "Question_tr": "Yasemin'nın kaç mısıri kaldı?",
+  "gold": 47
+ },
+ {
+  "ID": "ho-gains53",
+  "kind": "gains",
+  "Body_tr": "Yasemin 12 fındık buldu, Cem 32 fındık buldu. Yasemin 14 fındık daha aldı.",
+  "Question_tr": "İkisinin toplam kaç fındıki var?",
+  "gold": 58
+ },
+ {
+  "ID": "ho-after53",
+  "kind": "after",
+  "Body_tr": "Kemal'nın 81 banti vardı. Kimse konuşmuyordu. Kemal 10 tane bant yedi.",
+  "Question_tr": "Şimdi Kemal'nın kaç banti var?",
+  "gold": 71
+ },
+ {
+  "ID": "ho-transfer54",
+  "kind": "transfer",
+  "Body_tr": "Zehra'nın 41 çorapi vardı. Sokakta sessizlik vardı. Zehra Gamze'ye 11 çorap verdi.",
+  "Question_tr": "Zehra'nın kaç çorapi kaldı?",
+  "gold": 30
+ },
+ {
+  "ID": "ho-gains54",
+  "kind": "gains",
+  "Body_tr": "Önder 21 pul buldu, Gamze 31 pul buldu. Önder 10 pul daha aldı.",
+  "Question_tr": "İkisinin toplam kaç puli var?",
+  "gold": 62
+ },
+ {
+  "ID": "ho-after54",
+  "kind": "after",
+  "Body_tr": "Zehra'nın 81 banti vardı. Kimse konuşmuyordu. Zehra 19 tane bant yedi.",
+  "Question_tr": "Şimdi Zehra'nın kaç banti var?",
+  "gold": 62
+ },
+ {
+  "ID": "ho-transfer55",
+  "kind": "transfer",
+  "Body_tr": "Kemal'nın 40 puli vardı. Kimse konuşmuyordu. Kemal Önder'ye 28 pul verdi.",
+  "Question_tr": "Kemal'nın kaç puli kaldı?",
+  "gold": 12
+ },
+ {
+  "ID": "ho-gains55",
+  "kind": "gains",
+  "Body_tr": "Gamze 29 çorap buldu, Önder 32 çorap buldu. Gamze 14 çorap daha aldı.",
+  "Question_tr": "İkisinin toplam kaç çorapi var?",
+  "gold": 75
+ },
+ {
+  "ID": "ho-after55",
+  "kind": "after",
+  "Body_tr": "Önder'nın 83 banti vardı. Sokakta sessizlik vardı. Önder 21 tane bant yedi.",
+  "Question_tr": "Şimdi Önder'nın kaç banti var?",
+  "gold": 62
+ },
+ {
+  "ID": "ho-transfer56",
+  "kind": "transfer",
+  "Body_tr": "Yasemin'nın 54 banti vardı. Kimse konuşmuyordu. Yasemin Cem'ye 43 bant verdi.",
+  "Question_tr": "Yasemin'nın kaç banti kaldı?",
+  "gold": 11
+ },
+ {
+  "ID": "ho-gains56",
+  "kind": "gains",
+  "Body_tr": "Gamze 25 pul buldu, Yasemin 26 pul buldu. Gamze 3 pul daha aldı.",
+  "Question_tr": "İkisinin toplam kaç puli var?",
+  "gold": 54
+ },
+ {
+  "ID": "ho-after56",
+  "kind": "after",
+  "Body_tr": "Cem'nın 53 çorapi vardı. Kimse konuşmuyordu. Cem 7 tane çorap yedi.",
+  "Question_tr": "Şimdi Cem'nın kaç çorapi var?",
+  "gold": 46
+ },
+ {
+  "ID": "ho-transfer57",
+  "kind": "transfer",
+  "Body_tr": "Önder'nın 81 çorapi vardı. Kimse konuşmuyordu. Önder Yasemin'ye 54 çorap verdi.",
+  "Question_tr": "Önder'nın kaç çorapi kaldı?",
+  "gold": 27
+ },
+ {
+  "ID": "ho-gains57",
+  "kind": "gains",
+  "Body_tr": "Cem 14 çorap buldu, Yasemin 12 çorap buldu. Cem 6 çorap daha aldı.",
+  "Question_tr": "İkisinin toplam kaç çorapi var?",
+  "gold": 32
+ },
+ {
+  "ID": "ho-after57",
+  "kind": "after",
+  "Body_tr": "Yasemin'nın 33 çorapi vardı. Sokakta sessizlik vardı. Yasemin 1 tane çorap yedi.",
+  "Question_tr": "Şimdi Yasemin'nın kaç çorapi var?",
+  "gold": 32
+ },
+ {
+  "ID": "ho-transfer58",
+  "kind": "transfer",
+  "Body_tr": "Önder'nın 24 çorapi vardı. Kimse konuşmuyordu. Önder Cem'ye 13 çorap verdi.",
+  "Question_tr": "Önder'nın kaç çorapi kaldı?",
+  "gold": 11
+ },
+ {
+  "ID": "ho-gains58",
+  "kind": "gains",
+  "Body_tr": "Önder 18 bant buldu, Yasemin 17 bant buldu. Önder 4 bant daha aldı.",
+  "Question_tr": "İkisinin toplam kaç banti var?",
+  "gold": 39
+ },
+ {
+  "ID": "ho-after58",
+  "kind": "after",
+  "Body_tr": "Kemal'nın 64 fındıki vardı. Sokakta sessizlik vardı. Kemal 20 tane fındık yedi.",
+  "Question_tr": "Şimdi Kemal'nın kaç fındıki var?",
+  "gold": 44
+ },
+ {
+  "ID": "ho-transfer59",
+  "kind": "transfer",
+  "Body_tr": "Kemal'nın 20 çorapi vardı. Güneş doğmuştu. Kemal Gamze'ye 18 çorap verdi.",
+  "Question_tr": "Kemal'nın kaç çorapi kaldı?",
+  "gold": 2
+ },
+ {
+  "ID": "ho-gains59",
+  "kind": "gains",
+  "Body_tr": "Önder 33 çorap buldu, Gamze 40 çorap buldu. Önder 2 çorap daha aldı.",
+  "Question_tr": "İkisinin toplam kaç çorapi var?",
+  "gold": 75
+ },
+ {
+  "ID": "ho-after59",
+  "kind": "after",
+  "Body_tr": "Kemal'nın 78 çorapi vardı. Sokakta sessizlik vardı. Kemal 6 tane çorap yedi.",
+  "Question_tr": "Şimdi Kemal'nın kaç çorapi var?",
+  "gold": 72
+ }
+]

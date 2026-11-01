@@ -125,7 +125,8 @@ def weekday_from(raw: str) -> tuple[str, str] | None:
 
 def word_problem(raw: str) -> tuple[str, str] | None:
     """İki sayılı basit kelime problemi: çıkarma, toplama ve 'bir X'in N Y varsa, M X'in kaç Y' çarpması."""
-    words = _words(raw)
+    s_clean = re.sub(r"^[\s>]*\d+\s*[.)]\s+", "", (raw or "").strip())
+    words = _words(s_clean)
     if "kaç" not in words and not any(w.startswith("kaç") for w in words):
         return None
     wset = set(words)
@@ -137,21 +138,40 @@ def word_problem(raw: str) -> tuple[str, str] | None:
             n, m = per_unit[0], asked[0]
             return (f"{m} × {n} = {m * n}; toplamda {m * n} olur.",
                     f"Her birinde {n} tane var; {m} tane için {m} × {n} = {m * n} buldum")
+    # Çok cümleli veya birim/oran/hayvan ayağı içeren soruları story_math çözer; burada kör toplam yapılmaz.
+    sents = [p.strip() for p in re.split(r"(?<=[.!?])\s+", s_clean) if p.strip()]
+    if len(sents) > 3:
+        return None
+    if wset & {"her", "bacak", "bacağı", "ayak", "ayağı", "tekerlek", "tekerleği", "kanat", "kanadı",
+               "bazı", "birkaç", "ondan", "fazla", "eksik", "geri"}:
+        return None
     nums = _numbers(words)
-    if "toplam" in wset and not removal_any(words) and len(nums) >= 2:
-        total = sum(nums)
-        parts = " + ".join(str(n) for n in nums)
-        return f"{parts} = {total}; toplamda {total} olur.", f"Kelime problemi: {parts} = {total} buldum"
+    if "toplam" in wset and not removal_any(words) and len(nums) >= 2 and len(sents) <= 2:
+        # Tüm sayılar ilk cümlede yan yana listelenmiş ve soru sadece "Toplam kaç ...?" olmalı
+        sent_num_counts = [len(_numbers(_words(st))) for st in sents]
+        q_words = _words(sents[-1])
+        if sent_num_counts[0] == len(nums) and len(nums) >= 3 and "ve" not in q_words:
+            total = sum(nums)
+            parts = " + ".join(str(n) for n in nums)
+            return f"{parts} = {total}; toplamda {total} olur.", f"Kelime problemi: {parts} = {total} buldum"
+    if wset & {"kutu", "kutuda", "paket", "pakette", "torba", "torbada", "sepet", "sepette",
+               "grup", "grupta", "sıra", "sırada", "rafa", "rafta"}:
+        return None
     if len(nums) != 2:
+        return None
+    # "toplam 14 kitap varsa daha kaç..." gibi ters/fark sorularında toplama yapma
+    if len(sents) >= 2 and ("toplam" in _words(sents[0]) or "toplamda" in _words(sents[0]) or "varsa" in _words(sents[-1])):
         return None
     a, b = nums
     asks_left = bool(wset & {"kalır", "kalan", "geriye", "kaldı", "kalacak"})
     asks_total = bool(wset & {"olur", "eder", "toplam", "toplamda"})
-    removal = any(_is_removal(w) for w in words)
+    removal = any(_is_removal(w) for w in words) or bool(
+        re.search(r"(?:arkadaşına|kardeşine|annesine|babasına)\s+ver", s_clean.lower()))
     if asks_left and removal and a >= b:
         return f"{a} - {b} = {a - b}; geriye {a - b} kalır.", f"Kelime problemi: {a} - {b} = {a - b} buldum"
-    if asks_total and not removal and (wset & ADD_WORDS or wset & {"toplam", "toplamda"}):
-        return f"{a} + {b} = {a + b}; toplamda {a + b} olur.", f"Kelime problemi: {a} + {b} = {a + b} buldum"
+    if asks_total and not removal and not asks_left and "hâlâ" not in wset and (wset & ADD_WORDS or wset & {"toplam", "toplamda"}):
+        if len(sents) <= 2 or "ona" in wset:
+            return f"{a} + {b} = {a + b}; toplamda {a + b} olur.", f"Kelime problemi: {a} + {b} = {a + b} buldum"
     return None
 
 

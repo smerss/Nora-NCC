@@ -39,6 +39,9 @@ from dataclasses import dataclass, field
 from nora_lang import tr_lower
 
 _INHERIT_RELS = ("HAS_PROP", "CAN_DO", "USED_FOR", "CAUSES", "HAS_PART")
+# Nesne olamayacak işlev sözcükleri: "dünya HAS_PART bir" gibi türetimler bilgi değildir.
+_JUNK_OBJECTS = frozenset({"bir", "biri", "her", "bu", "şu", "daha", "çok", "en", "ve", "ile",
+                           "da", "de", "ki", "ise", "olan", "şey"})
 
 
 @dataclass
@@ -84,11 +87,16 @@ class InferenceEngine:
         start = self._cursor % n
         self._cursor = (self._cursor + window) % max(1, n)
         idxs = [(start + i) % n for i in range(min(window, n))]
+        # Güven süzgeci: türetmeler yalnız güvenilir ISA kenarlarından başlar (kenarlar silinmez).
+        from nora.reasoning.deliberation import DeliberativeMind as _Mind
+        generic = _Mind._generic_isa_objects(agi)
         for i in idxs:
             if len(out) >= budget:
                 break
             e = edges[i]
             if e.rel not in ("ISA",) + _INHERIT_RELS:
+                continue
+            if e.rel == "ISA" and not _Mind._trusted_isa(e, generic):
                 continue
             subj, rel, obj = tr_lower(e.subj), e.rel, tr_lower(e.obj)
             if not subj or not obj or subj == obj:
@@ -99,6 +107,8 @@ class InferenceEngine:
             if rel == "ISA":
                 for e2 in graph._out_edges.get(obj, ()):   # noqa: SLF001 (yerel indeks, O(1))
                     if e2.weight <= 0.25:
+                        continue
+                    if e2.rel == "ISA" and not _Mind._trusted_isa(e2, generic):
                         continue
                     o2 = tr_lower(e2.obj)
                     if e2.rel == "ISA":
@@ -137,6 +147,8 @@ class InferenceEngine:
     def _make(self, subj: str, rel: str, obj: str, *, conf: float,
               basis: list[tuple[str, str, str]], kind: str, step: int) -> Inference | None:
         if not subj or not obj or subj == obj:
+            return None
+        if subj in _JUNK_OBJECTS or obj in _JUNK_OBJECTS or len(obj) < 3:
             return None
         key = (subj, rel, obj)
         if key in self._keys:

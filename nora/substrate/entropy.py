@@ -258,6 +258,10 @@ class Individuality:
     def identity_line(self) -> str:
         return f"{self.uid[:6]} · doğum {self.birth_iso}"
 
+    def unit(self) -> float:
+        """[0, 1) donanım entropisiyle düzgün sayı: söz zarı bu kaynaktan atılır."""
+        return self.src.unit()
+
     # -------------------------------------------------------- adım gürültüsü
     def perturb_step(self, agi, rel: float = 2.0e-4, abs_floor: float = 2.0e-6) -> None:
         """Her yaşam adımında sinir sistemine FİZİKSEL gürültü ekle (O(1), ~4 µs).

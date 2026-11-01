@@ -1,0 +1,2102 @@
+[
+ {
+  "ID": "dev-0",
+  "kind": "add",
+  "Body_tr": "Burak'nin 24 kitapi vardı. 10 kitap daha kazandı.",
+  "Question_tr": "Kaç kitap oldu toplam?",
+  "gold": 34
+ },
+ {
+  "ID": "dev-1",
+  "kind": "add",
+  "Body_tr": "Selin'nin 95 karti vardı. 26 kart daha topladı.",
+  "Question_tr": "Kaç kart oldu toplam?",
+  "gold": 121
+ },
+ {
+  "ID": "dev-2",
+  "kind": "sub",
+  "Body_tr": "Elif'nin 93 baloni vardı. 69 tanesini harcadı.",
+  "Question_tr": "Kaç balon kaldı?",
+  "gold": 24
+ },
+ {
+  "ID": "dev-3",
+  "kind": "add",
+  "Body_tr": "Mehmet'nin 15 kurabiyei vardı. 21 kurabiye daha topladı.",
+  "Question_tr": "Kaç kurabiye oldu toplam?",
+  "gold": 36
+ },
+ {
+  "ID": "dev-4",
+  "kind": "add",
+  "Body_tr": "Mehmet'nin 29 bilyei vardı. 56 bilye daha aldı.",
+  "Question_tr": "Kaç bilye oldu toplam?",
+  "gold": 85
+ },
+ {
+  "ID": "dev-5",
+  "kind": "sub",
+  "Body_tr": "Ayşe'nin 45 elmai vardı. 23 tanesini harcadı.",
+  "Question_tr": "Kaç elma kaldı?",
+  "gold": 22
+ },
+ {
+  "ID": "dev-6",
+  "kind": "add",
+  "Body_tr": "Ali'nin 76 şekeri vardı. 39 şeker daha getirdi.",
+  "Question_tr": "Kaç şeker oldu toplam?",
+  "gold": 115
+ },
+ {
+  "ID": "dev-7",
+  "kind": "add",
+  "Body_tr": "Elif'nin 22 kurabiyei vardı. 47 kurabiye daha buldu.",
+  "Question_tr": "Kaç kurabiye oldu toplam?",
+  "gold": 69
+ },
+ {
+  "ID": "dev-8",
+  "kind": "sub",
+  "Body_tr": "Mehmet'nin 55 karti vardı. 42 tanesini attı.",
+  "Question_tr": "Kaç kart kaldı?",
+  "gold": 13
+ },
+ {
+  "ID": "dev-9",
+  "kind": "sub",
+  "Body_tr": "Zeynep'nin 63 şekeri vardı. 48 tanesini harcadı.",
+  "Question_tr": "Kaç şeker kaldı?",
+  "gold": 15
+ },
+ {
+  "ID": "dev-10",
+  "kind": "sub",
+  "Body_tr": "Derya'nin 45 kurabiyei vardı. 31 tanesini harcadı.",
+  "Question_tr": "Kaç kurabiye kaldı?",
+  "gold": 14
+ },
+ {
+  "ID": "dev-11",
+  "kind": "add",
+  "Body_tr": "Ali'nin 51 kalemi vardı. 59 kalem daha topladı.",
+  "Question_tr": "Kaç kalem oldu toplam?",
+  "gold": 110
+ },
+ {
+  "ID": "dev-12",
+  "kind": "add",
+  "Body_tr": "Elif'nin 99 bilyei vardı. 60 bilye daha topladı.",
+  "Question_tr": "Kaç bilye oldu toplam?",
+  "gold": 159
+ },
+ {
+  "ID": "dev-13",
+  "kind": "sub",
+  "Body_tr": "Can'nin 51 elmai vardı. 29 tanesini kaybetti.",
+  "Question_tr": "Kaç elma kaldı?",
+  "gold": 22
+ },
+ {
+  "ID": "dev-14",
+  "kind": "sub",
+  "Body_tr": "Can'nin 76 kitapi vardı. 39 tanesini attı.",
+  "Question_tr": "Kaç kitap kaldı?",
+  "gold": 37
+ },
+ {
+  "ID": "dev-15",
+  "kind": "add",
+  "Body_tr": "Emre'nin 36 bilyei vardı. 29 bilye daha aldı.",
+  "Question_tr": "Kaç bilye oldu toplam?",
+  "gold": 65
+ },
+ {
+  "ID": "dev-16",
+  "kind": "sub",
+  "Body_tr": "Can'nin 33 baloni vardı. 28 tanesini kaybetti.",
+  "Question_tr": "Kaç balon kaldı?",
+  "gold": 5
+ },
+ {
+  "ID": "dev-17",
+  "kind": "sub",
+  "Body_tr": "Mehmet'nin 24 karti vardı. 21 tanesini sattı.",
+  "Question_tr": "Kaç kart kaldı?",
+  "gold": 3
+ },
+ {
+  "ID": "dev-18",
+  "kind": "sub",
+  "Body_tr": "Burak'nin 60 kitapi vardı. 35 tanesini sattı.",
+  "Question_tr": "Kaç kitap kaldı?",
+  "gold": 25
+ },
+ {
+  "ID": "dev-19",
+  "kind": "add",
+  "Body_tr": "Derya'nin 50 çiçeki vardı. 8 çiçek daha kazandı.",
+  "Question_tr": "Kaç çiçek oldu toplam?",
+  "gold": 58
+ },
+ {
+  "ID": "dev-20",
+  "kind": "add",
+  "Body_tr": "Selin'nin 35 baloni vardı. 53 balon daha aldı.",
+  "Question_tr": "Kaç balon oldu toplam?",
+  "gold": 88
+ },
+ {
+  "ID": "dev-21",
+  "kind": "add",
+  "Body_tr": "Zeynep'nin 29 çiçeki vardı. 53 çiçek daha getirdi.",
+  "Question_tr": "Kaç çiçek oldu toplam?",
+  "gold": 82
+ },
+ {
+  "ID": "dev-22",
+  "kind": "sub",
+  "Body_tr": "Selin'nin 28 çiçeki vardı. 14 tanesini verdi.",
+  "Question_tr": "Kaç çiçek kaldı?",
+  "gold": 14
+ },
+ {
+  "ID": "dev-23",
+  "kind": "sub",
+  "Body_tr": "Derya'nin 40 kitapi vardı. 2 tanesini sattı.",
+  "Question_tr": "Kaç kitap kaldı?",
+  "gold": 38
+ },
+ {
+  "ID": "dev-24",
+  "kind": "sub",
+  "Body_tr": "Ayşe'nin 62 bilyei vardı. 7 tanesini sattı.",
+  "Question_tr": "Kaç bilye kaldı?",
+  "gold": 55
+ },
+ {
+  "ID": "dev-25",
+  "kind": "sub",
+  "Body_tr": "Derya'nin 91 bilyei vardı. 18 tanesini yedi.",
+  "Question_tr": "Kaç bilye kaldı?",
+  "gold": 73
+ },
+ {
+  "ID": "dev-26",
+  "kind": "add",
+  "Body_tr": "Ali'nin 21 baloni vardı. 2 balon daha buldu.",
+  "Question_tr": "Kaç balon oldu toplam?",
+  "gold": 23
+ },
+ {
+  "ID": "dev-27",
+  "kind": "add",
+  "Body_tr": "Zeynep'nin 34 kurabiyei vardı. 36 kurabiye daha buldu.",
+  "Question_tr": "Kaç kurabiye oldu toplam?",
+  "gold": 70
+ },
+ {
+  "ID": "dev-28",
+  "kind": "sub",
+  "Body_tr": "Zeynep'nin 18 kitapi vardı. 11 tanesini attı.",
+  "Question_tr": "Kaç kitap kaldı?",
+  "gold": 7
+ },
+ {
+  "ID": "dev-29",
+  "kind": "sub",
+  "Body_tr": "Ayşe'nin 77 kurabiyei vardı. 12 tanesini harcadı.",
+  "Question_tr": "Kaç kurabiye kaldı?",
+  "gold": 65
+ },
+ {
+  "ID": "dev-30",
+  "kind": "sub",
+  "Body_tr": "Can'nin 38 karti vardı. 5 tanesini yedi.",
+  "Question_tr": "Kaç kart kaldı?",
+  "gold": 33
+ },
+ {
+  "ID": "dev-31",
+  "kind": "sub",
+  "Body_tr": "Can'nin 99 çiçeki vardı. 4 tanesini yedi.",
+  "Question_tr": "Kaç çiçek kaldı?",
+  "gold": 95
+ },
+ {
+  "ID": "dev-32",
+  "kind": "sub",
+  "Body_tr": "Derya'nin 52 kurabiyei vardı. 28 tanesini harcadı.",
+  "Question_tr": "Kaç kurabiye kaldı?",
+  "gold": 24
+ },
+ {
+  "ID": "dev-33",
+  "kind": "add",
+  "Body_tr": "Zeynep'nin 26 kurabiyei vardı. 24 kurabiye daha buldu.",
+  "Question_tr": "Kaç kurabiye oldu toplam?",
+  "gold": 50
+ },
+ {
+  "ID": "dev-34",
+  "kind": "add",
+  "Body_tr": "Elif'nin 20 şekeri vardı. 52 şeker daha kazandı.",
+  "Question_tr": "Kaç şeker oldu toplam?",
+  "gold": 72
+ },
+ {
+  "ID": "dev-35",
+  "kind": "sub",
+  "Body_tr": "Derya'nin 20 bilyei vardı. 18 tanesini sattı.",
+  "Question_tr": "Kaç bilye kaldı?",
+  "gold": 2
+ },
+ {
+  "ID": "dev-36",
+  "kind": "add",
+  "Body_tr": "Ayşe'nin 32 bilyei vardı. 33 bilye daha topladı.",
+  "Question_tr": "Kaç bilye oldu toplam?",
+  "gold": 65
+ },
+ {
+  "ID": "dev-37",
+  "kind": "sub",
+  "Body_tr": "Burak'nin 80 bilyei vardı. 61 tanesini kaybetti.",
+  "Question_tr": "Kaç bilye kaldı?",
+  "gold": 19
+ },
+ {
+  "ID": "dev-38",
+  "kind": "sub",
+  "Body_tr": "Burak'nin 26 şekeri vardı. 20 tanesini kaybetti.",
+  "Question_tr": "Kaç şeker kaldı?",
+  "gold": 6
+ },
+ {
+  "ID": "dev-39",
+  "kind": "add",
+  "Body_tr": "Burak'nin 26 kitapi vardı. 47 kitap daha getirdi.",
+  "Question_tr": "Kaç kitap oldu toplam?",
+  "gold": 73
+ },
+ {
+  "ID": "dev-40",
+  "kind": "sub",
+  "Body_tr": "Elif'nin 46 baloni vardı. 16 tanesini harcadı.",
+  "Question_tr": "Kaç balon kaldı?",
+  "gold": 30
+ },
+ {
+  "ID": "dev-41",
+  "kind": "add",
+  "Body_tr": "Burak'nin 66 şekeri vardı. 58 şeker daha aldı.",
+  "Question_tr": "Kaç şeker oldu toplam?",
+  "gold": 124
+ },
+ {
+  "ID": "dev-42",
+  "kind": "add",
+  "Body_tr": "Burak'nin 76 kutui vardı. 40 kutu daha kazandı.",
+  "Question_tr": "Kaç kutu oldu toplam?",
+  "gold": 116
+ },
+ {
+  "ID": "dev-43",
+  "kind": "add",
+  "Body_tr": "Ali'nin 12 baloni vardı. 19 balon daha buldu.",
+  "Question_tr": "Kaç balon oldu toplam?",
+  "gold": 31
+ },
+ {
+  "ID": "dev-44",
+  "kind": "sub",
+  "Body_tr": "Ali'nin 16 kitapi vardı. 14 tanesini verdi.",
+  "Question_tr": "Kaç kitap kaldı?",
+  "gold": 2
+ },
+ {
+  "ID": "dev-45",
+  "kind": "sub",
+  "Body_tr": "Derya'nin 72 kurabiyei vardı. 16 tanesini kaybetti.",
+  "Question_tr": "Kaç kurabiye kaldı?",
+  "gold": 56
+ },
+ {
+  "ID": "dev-46",
+  "kind": "sub",
+  "Body_tr": "Burak'nin 57 çiçeki vardı. 28 tanesini sattı.",
+  "Question_tr": "Kaç çiçek kaldı?",
+  "gold": 29
+ },
+ {
+  "ID": "dev-47",
+  "kind": "add",
+  "Body_tr": "Ayşe'nin 46 şekeri vardı. 39 şeker daha aldı.",
+  "Question_tr": "Kaç şeker oldu toplam?",
+  "gold": 85
+ },
+ {
+  "ID": "dev-48",
+  "kind": "add",
+  "Body_tr": "Burak'nin 65 kutui vardı. 35 kutu daha getirdi.",
+  "Question_tr": "Kaç kutu oldu toplam?",
+  "gold": 100
+ },
+ {
+  "ID": "dev-49",
+  "kind": "add",
+  "Body_tr": "Zeynep'nin 83 bilyei vardı. 26 bilye daha buldu.",
+  "Question_tr": "Kaç bilye oldu toplam?",
+  "gold": 109
+ },
+ {
+  "ID": "dev-50",
+  "kind": "add",
+  "Body_tr": "Mehmet'nin 37 kalemi vardı. 57 kalem daha kazandı.",
+  "Question_tr": "Kaç kalem oldu toplam?",
+  "gold": 94
+ },
+ {
+  "ID": "dev-51",
+  "kind": "sub",
+  "Body_tr": "Mehmet'nin 13 baloni vardı. 3 tanesini sattı.",
+  "Question_tr": "Kaç balon kaldı?",
+  "gold": 10
+ },
+ {
+  "ID": "dev-52",
+  "kind": "add",
+  "Body_tr": "Mehmet'nin 53 baloni vardı. 9 balon daha getirdi.",
+  "Question_tr": "Kaç balon oldu toplam?",
+  "gold": 62
+ },
+ {
+  "ID": "dev-53",
+  "kind": "add",
+  "Body_tr": "Zeynep'nin 53 bilyei vardı. 6 bilye daha topladı.",
+  "Question_tr": "Kaç bilye oldu toplam?",
+  "gold": 59
+ },
+ {
+  "ID": "dev-54",
+  "kind": "sub",
+  "Body_tr": "Ayşe'nin 60 şekeri vardı. 6 tanesini harcadı.",
+  "Question_tr": "Kaç şeker kaldı?",
+  "gold": 54
+ },
+ {
+  "ID": "dev-55",
+  "kind": "sub",
+  "Body_tr": "Ayşe'nin 45 kutui vardı. 17 tanesini yedi.",
+  "Question_tr": "Kaç kutu kaldı?",
+  "gold": 28
+ },
+ {
+  "ID": "dev-56",
+  "kind": "add",
+  "Body_tr": "Selin'nin 39 baloni vardı. 28 balon daha kazandı.",
+  "Question_tr": "Kaç balon oldu toplam?",
+  "gold": 67
+ },
+ {
+  "ID": "dev-57",
+  "kind": "add",
+  "Body_tr": "Can'nin 58 elmai vardı. 15 elma daha aldı.",
+  "Question_tr": "Kaç elma oldu toplam?",
+  "gold": 73
+ },
+ {
+  "ID": "dev-58",
+  "kind": "add",
+  "Body_tr": "Zeynep'nin 75 şekeri vardı. 58 şeker daha aldı.",
+  "Question_tr": "Kaç şeker oldu toplam?",
+  "gold": 133
+ },
+ {
+  "ID": "dev-59",
+  "kind": "add",
+  "Body_tr": "Burak'nin 33 karti vardı. 42 kart daha topladı.",
+  "Question_tr": "Kaç kart oldu toplam?",
+  "gold": 75
+ },
+ {
+  "ID": "dev-60",
+  "kind": "sub",
+  "Body_tr": "Selin'nin 54 şekeri vardı. 46 tanesini sattı.",
+  "Question_tr": "Kaç şeker kaldı?",
+  "gold": 8
+ },
+ {
+  "ID": "dev-61",
+  "kind": "sub",
+  "Body_tr": "Ali'nin 36 baloni vardı. 4 tanesini sattı.",
+  "Question_tr": "Kaç balon kaldı?",
+  "gold": 32
+ },
+ {
+  "ID": "dev-62",
+  "kind": "sub",
+  "Body_tr": "Selin'nin 54 kitapi vardı. 15 tanesini sattı.",
+  "Question_tr": "Kaç kitap kaldı?",
+  "gold": 39
+ },
+ {
+  "ID": "dev-63",
+  "kind": "sub",
+  "Body_tr": "Derya'nin 16 karti vardı. 15 tanesini attı.",
+  "Question_tr": "Kaç kart kaldı?",
+  "gold": 1
+ },
+ {
+  "ID": "dev-64",
+  "kind": "add",
+  "Body_tr": "Ali'nin 49 kutui vardı. 56 kutu daha getirdi.",
+  "Question_tr": "Kaç kutu oldu toplam?",
+  "gold": 105
+ },
+ {
+  "ID": "dev-65",
+  "kind": "sub",
+  "Body_tr": "Derya'nin 13 şekeri vardı. 12 tanesini verdi.",
+  "Question_tr": "Kaç şeker kaldı?",
+  "gold": 1
+ },
+ {
+  "ID": "dev-66",
+  "kind": "add",
+  "Body_tr": "Burak'nin 96 şekeri vardı. 14 şeker daha getirdi.",
+  "Question_tr": "Kaç şeker oldu toplam?",
+  "gold": 110
+ },
+ {
+  "ID": "dev-67",
+  "kind": "sub",
+  "Body_tr": "Ali'nin 22 baloni vardı. 9 tanesini harcadı.",
+  "Question_tr": "Kaç balon kaldı?",
+  "gold": 13
+ },
+ {
+  "ID": "dev-68",
+  "kind": "add",
+  "Body_tr": "Zeynep'nin 23 elmai vardı. 2 elma daha aldı.",
+  "Question_tr": "Kaç elma oldu toplam?",
+  "gold": 25
+ },
+ {
+  "ID": "dev-69",
+  "kind": "add",
+  "Body_tr": "Derya'nin 33 baloni vardı. 23 balon daha aldı.",
+  "Question_tr": "Kaç balon oldu toplam?",
+  "gold": 56
+ },
+ {
+  "ID": "dev-70",
+  "kind": "sub",
+  "Body_tr": "Can'nin 22 karti vardı. 21 tanesini sattı.",
+  "Question_tr": "Kaç kart kaldı?",
+  "gold": 1
+ },
+ {
+  "ID": "dev-71",
+  "kind": "sub",
+  "Body_tr": "Selin'nin 38 kalemi vardı. 20 tanesini harcadı.",
+  "Question_tr": "Kaç kalem kaldı?",
+  "gold": 18
+ },
+ {
+  "ID": "dev-72",
+  "kind": "add",
+  "Body_tr": "Elif'nin 87 elmai vardı. 33 elma daha buldu.",
+  "Question_tr": "Kaç elma oldu toplam?",
+  "gold": 120
+ },
+ {
+  "ID": "dev-73",
+  "kind": "add",
+  "Body_tr": "Burak'nin 39 karti vardı. 56 kart daha kazandı.",
+  "Question_tr": "Kaç kart oldu toplam?",
+  "gold": 95
+ },
+ {
+  "ID": "dev-74",
+  "kind": "sub",
+  "Body_tr": "Burak'nin 71 karti vardı. 52 tanesini harcadı.",
+  "Question_tr": "Kaç kart kaldı?",
+  "gold": 19
+ },
+ {
+  "ID": "dev-75",
+  "kind": "add",
+  "Body_tr": "Can'nin 34 kurabiyei vardı. 18 kurabiye daha topladı.",
+  "Question_tr": "Kaç kurabiye oldu toplam?",
+  "gold": 52
+ },
+ {
+  "ID": "dev-76",
+  "kind": "sub",
+  "Body_tr": "Elif'nin 60 karti vardı. 36 tanesini sattı.",
+  "Question_tr": "Kaç kart kaldı?",
+  "gold": 24
+ },
+ {
+  "ID": "dev-77",
+  "kind": "add",
+  "Body_tr": "Mehmet'nin 41 karti vardı. 40 kart daha kazandı.",
+  "Question_tr": "Kaç kart oldu toplam?",
+  "gold": 81
+ },
+ {
+  "ID": "dev-78",
+  "kind": "sub",
+  "Body_tr": "Can'nin 50 bilyei vardı. 46 tanesini yedi.",
+  "Question_tr": "Kaç bilye kaldı?",
+  "gold": 4
+ },
+ {
+  "ID": "dev-79",
+  "kind": "add",
+  "Body_tr": "Zeynep'nin 45 kurabiyei vardı. 21 kurabiye daha getirdi.",
+  "Question_tr": "Kaç kurabiye oldu toplam?",
+  "gold": 66
+ },
+ {
+  "ID": "dev-80",
+  "kind": "add",
+  "Body_tr": "Can'nin 28 kutui vardı. 49 kutu daha aldı.",
+  "Question_tr": "Kaç kutu oldu toplam?",
+  "gold": 77
+ },
+ {
+  "ID": "dev-81",
+  "kind": "add",
+  "Body_tr": "Zeynep'nin 69 kalemi vardı. 12 kalem daha aldı.",
+  "Question_tr": "Kaç kalem oldu toplam?",
+  "gold": 81
+ },
+ {
+  "ID": "dev-82",
+  "kind": "sub",
+  "Body_tr": "Ali'nin 76 kalemi vardı. 49 tanesini sattı.",
+  "Question_tr": "Kaç kalem kaldı?",
+  "gold": 27
+ },
+ {
+  "ID": "dev-83",
+  "kind": "add",
+  "Body_tr": "Mehmet'nin 53 karti vardı. 41 kart daha topladı.",
+  "Question_tr": "Kaç kart oldu toplam?",
+  "gold": 94
+ },
+ {
+  "ID": "dev-84",
+  "kind": "add",
+  "Body_tr": "Ali'nin 71 kitapi vardı. 31 kitap daha aldı.",
+  "Question_tr": "Kaç kitap oldu toplam?",
+  "gold": 102
+ },
+ {
+  "ID": "dev-85",
+  "kind": "sub",
+  "Body_tr": "Mehmet'nin 73 elmai vardı. 13 tanesini attı.",
+  "Question_tr": "Kaç elma kaldı?",
+  "gold": 60
+ },
+ {
+  "ID": "dev-86",
+  "kind": "sub",
+  "Body_tr": "Zeynep'nin 59 şekeri vardı. 2 tanesini yedi.",
+  "Question_tr": "Kaç şeker kaldı?",
+  "gold": 57
+ },
+ {
+  "ID": "dev-87",
+  "kind": "sub",
+  "Body_tr": "Elif'nin 67 baloni vardı. 40 tanesini harcadı.",
+  "Question_tr": "Kaç balon kaldı?",
+  "gold": 27
+ },
+ {
+  "ID": "dev-88",
+  "kind": "add",
+  "Body_tr": "Can'nin 13 kitapi vardı. 31 kitap daha buldu.",
+  "Question_tr": "Kaç kitap oldu toplam?",
+  "gold": 44
+ },
+ {
+  "ID": "dev-89",
+  "kind": "add",
+  "Body_tr": "Emre'nin 53 şekeri vardı. 28 şeker daha kazandı.",
+  "Question_tr": "Kaç şeker oldu toplam?",
+  "gold": 81
+ },
+ {
+  "ID": "dev-90",
+  "kind": "add",
+  "Body_tr": "Mehmet'nin 98 kitapi vardı. 2 kitap daha getirdi.",
+  "Question_tr": "Kaç kitap oldu toplam?",
+  "gold": 100
+ },
+ {
+  "ID": "dev-91",
+  "kind": "sub",
+  "Body_tr": "Elif'nin 76 baloni vardı. 34 tanesini attı.",
+  "Question_tr": "Kaç balon kaldı?",
+  "gold": 42
+ },
+ {
+  "ID": "dev-92",
+  "kind": "sub",
+  "Body_tr": "Ali'nin 99 baloni vardı. 17 tanesini attı.",
+  "Question_tr": "Kaç balon kaldı?",
+  "gold": 82
+ },
+ {
+  "ID": "dev-93",
+  "kind": "add",
+  "Body_tr": "Can'nin 94 kutui vardı. 28 kutu daha aldı.",
+  "Question_tr": "Kaç kutu oldu toplam?",
+  "gold": 122
+ },
+ {
+  "ID": "dev-94",
+  "kind": "sub",
+  "Body_tr": "Emre'nin 93 çiçeki vardı. 1 tanesini attı.",
+  "Question_tr": "Kaç çiçek kaldı?",
+  "gold": 92
+ },
+ {
+  "ID": "dev-95",
+  "kind": "add",
+  "Body_tr": "Can'nin 99 kutui vardı. 47 kutu daha aldı.",
+  "Question_tr": "Kaç kutu oldu toplam?",
+  "gold": 146
+ },
+ {
+  "ID": "dev-96",
+  "kind": "add",
+  "Body_tr": "Can'nin 96 elmai vardı. 22 elma daha getirdi.",
+  "Question_tr": "Kaç elma oldu toplam?",
+  "gold": 118
+ },
+ {
+  "ID": "dev-97",
+  "kind": "sub",
+  "Body_tr": "Derya'nin 11 şekeri vardı. 8 tanesini harcadı.",
+  "Question_tr": "Kaç şeker kaldı?",
+  "gold": 3
+ },
+ {
+  "ID": "dev-98",
+  "kind": "sub",
+  "Body_tr": "Zeynep'nin 27 şekeri vardı. 7 tanesini yedi.",
+  "Question_tr": "Kaç şeker kaldı?",
+  "gold": 20
+ },
+ {
+  "ID": "dev-99",
+  "kind": "sub",
+  "Body_tr": "Selin'nin 53 kurabiyei vardı. 43 tanesini harcadı.",
+  "Question_tr": "Kaç kurabiye kaldı?",
+  "gold": 10
+ },
+ {
+  "ID": "dev-100",
+  "kind": "add",
+  "Body_tr": "Zeynep'nin 77 baloni vardı. 28 balon daha kazandı.",
+  "Question_tr": "Kaç balon oldu toplam?",
+  "gold": 105
+ },
+ {
+  "ID": "dev-101",
+  "kind": "sub",
+  "Body_tr": "Ali'nin 38 baloni vardı. 8 tanesini verdi.",
+  "Question_tr": "Kaç balon kaldı?",
+  "gold": 30
+ },
+ {
+  "ID": "dev-102",
+  "kind": "add",
+  "Body_tr": "Derya'nin 24 elmai vardı. 58 elma daha topladı.",
+  "Question_tr": "Kaç elma oldu toplam?",
+  "gold": 82
+ },
+ {
+  "ID": "dev-103",
+  "kind": "add",
+  "Body_tr": "Selin'nin 53 kurabiyei vardı. 23 kurabiye daha buldu.",
+  "Question_tr": "Kaç kurabiye oldu toplam?",
+  "gold": 76
+ },
+ {
+  "ID": "dev-104",
+  "kind": "sub",
+  "Body_tr": "Zeynep'nin 58 çiçeki vardı. 56 tanesini sattı.",
+  "Question_tr": "Kaç çiçek kaldı?",
+  "gold": 2
+ },
+ {
+  "ID": "dev-105",
+  "kind": "sub",
+  "Body_tr": "Derya'nin 27 kutui vardı. 20 tanesini attı.",
+  "Question_tr": "Kaç kutu kaldı?",
+  "gold": 7
+ },
+ {
+  "ID": "dev-106",
+  "kind": "sub",
+  "Body_tr": "Ali'nin 96 çiçeki vardı. 35 tanesini sattı.",
+  "Question_tr": "Kaç çiçek kaldı?",
+  "gold": 61
+ },
+ {
+  "ID": "dev-107",
+  "kind": "sub",
+  "Body_tr": "Ayşe'nin 41 şekeri vardı. 11 tanesini yedi.",
+  "Question_tr": "Kaç şeker kaldı?",
+  "gold": 30
+ },
+ {
+  "ID": "dev-108",
+  "kind": "add",
+  "Body_tr": "Selin'nin 13 kurabiyei vardı. 36 kurabiye daha aldı.",
+  "Question_tr": "Kaç kurabiye oldu toplam?",
+  "gold": 49
+ },
+ {
+  "ID": "dev-109",
+  "kind": "add",
+  "Body_tr": "Elif'nin 53 kalemi vardı. 57 kalem daha kazandı.",
+  "Question_tr": "Kaç kalem oldu toplam?",
+  "gold": 110
+ },
+ {
+  "ID": "dev-110",
+  "kind": "add",
+  "Body_tr": "Ali'nin 63 elmai vardı. 56 elma daha kazandı.",
+  "Question_tr": "Kaç elma oldu toplam?",
+  "gold": 119
+ },
+ {
+  "ID": "dev-111",
+  "kind": "sub",
+  "Body_tr": "Emre'nin 56 elmai vardı. 30 tanesini attı.",
+  "Question_tr": "Kaç elma kaldı?",
+  "gold": 26
+ },
+ {
+  "ID": "dev-112",
+  "kind": "add",
+  "Body_tr": "Mehmet'nin 10 kitapi vardı. 21 kitap daha kazandı.",
+  "Question_tr": "Kaç kitap oldu toplam?",
+  "gold": 31
+ },
+ {
+  "ID": "dev-113",
+  "kind": "sub",
+  "Body_tr": "Zeynep'nin 81 kitapi vardı. 39 tanesini kaybetti.",
+  "Question_tr": "Kaç kitap kaldı?",
+  "gold": 42
+ },
+ {
+  "ID": "dev-114",
+  "kind": "sub",
+  "Body_tr": "Derya'nin 60 bilyei vardı. 1 tanesini yedi.",
+  "Question_tr": "Kaç bilye kaldı?",
+  "gold": 59
+ },
+ {
+  "ID": "dev-115",
+  "kind": "add",
+  "Body_tr": "Elif'nin 85 kurabiyei vardı. 14 kurabiye daha topladı.",
+  "Question_tr": "Kaç kurabiye oldu toplam?",
+  "gold": 99
+ },
+ {
+  "ID": "dev-116",
+  "kind": "sub",
+  "Body_tr": "Ali'nin 21 elmai vardı. 3 tanesini harcadı.",
+  "Question_tr": "Kaç elma kaldı?",
+  "gold": 18
+ },
+ {
+  "ID": "dev-117",
+  "kind": "add",
+  "Body_tr": "Ali'nin 18 kurabiyei vardı. 1 kurabiye daha getirdi.",
+  "Question_tr": "Kaç kurabiye oldu toplam?",
+  "gold": 19
+ },
+ {
+  "ID": "dev-118",
+  "kind": "add",
+  "Body_tr": "Can'nin 97 kitapi vardı. 16 kitap daha buldu.",
+  "Question_tr": "Kaç kitap oldu toplam?",
+  "gold": 113
+ },
+ {
+  "ID": "dev-119",
+  "kind": "add",
+  "Body_tr": "Derya'nin 26 çiçeki vardı. 9 çiçek daha aldı.",
+  "Question_tr": "Kaç çiçek oldu toplam?",
+  "gold": 35
+ },
+ {
+  "ID": "dev-120",
+  "kind": "sub",
+  "Body_tr": "Can'nin 68 çiçeki vardı. 25 tanesini sattı.",
+  "Question_tr": "Kaç çiçek kaldı?",
+  "gold": 43
+ },
+ {
+  "ID": "dev-121",
+  "kind": "add",
+  "Body_tr": "Zeynep'nin 96 kurabiyei vardı. 36 kurabiye daha kazandı.",
+  "Question_tr": "Kaç kurabiye oldu toplam?",
+  "gold": 132
+ },
+ {
+  "ID": "dev-122",
+  "kind": "add",
+  "Body_tr": "Can'nin 87 kurabiyei vardı. 45 kurabiye daha buldu.",
+  "Question_tr": "Kaç kurabiye oldu toplam?",
+  "gold": 132
+ },
+ {
+  "ID": "dev-123",
+  "kind": "sub",
+  "Body_tr": "Ayşe'nin 12 elmai vardı. 8 tanesini verdi.",
+  "Question_tr": "Kaç elma kaldı?",
+  "gold": 4
+ },
+ {
+  "ID": "dev-124",
+  "kind": "sub",
+  "Body_tr": "Ayşe'nin 24 kutui vardı. 11 tanesini attı.",
+  "Question_tr": "Kaç kutu kaldı?",
+  "gold": 13
+ },
+ {
+  "ID": "dev-125",
+  "kind": "add",
+  "Body_tr": "Ayşe'nin 82 karti vardı. 44 kart daha getirdi.",
+  "Question_tr": "Kaç kart oldu toplam?",
+  "gold": 126
+ },
+ {
+  "ID": "dev-126",
+  "kind": "add",
+  "Body_tr": "Ayşe'nin 90 baloni vardı. 57 balon daha aldı.",
+  "Question_tr": "Kaç balon oldu toplam?",
+  "gold": 147
+ },
+ {
+  "ID": "dev-127",
+  "kind": "sub",
+  "Body_tr": "Emre'nin 91 şekeri vardı. 74 tanesini attı.",
+  "Question_tr": "Kaç şeker kaldı?",
+  "gold": 17
+ },
+ {
+  "ID": "dev-128",
+  "kind": "sub",
+  "Body_tr": "Burak'nin 83 elmai vardı. 20 tanesini verdi.",
+  "Question_tr": "Kaç elma kaldı?",
+  "gold": 63
+ },
+ {
+  "ID": "dev-129",
+  "kind": "sub",
+  "Body_tr": "Selin'nin 74 karti vardı. 20 tanesini kaybetti.",
+  "Question_tr": "Kaç kart kaldı?",
+  "gold": 54
+ },
+ {
+  "ID": "dev-130",
+  "kind": "add",
+  "Body_tr": "Burak'nin 83 şekeri vardı. 23 şeker daha aldı.",
+  "Question_tr": "Kaç şeker oldu toplam?",
+  "gold": 106
+ },
+ {
+  "ID": "dev-131",
+  "kind": "sub",
+  "Body_tr": "Selin'nin 24 bilyei vardı. 8 tanesini kaybetti.",
+  "Question_tr": "Kaç bilye kaldı?",
+  "gold": 16
+ },
+ {
+  "ID": "dev-132",
+  "kind": "add",
+  "Body_tr": "Burak'nin 90 bilyei vardı. 7 bilye daha getirdi.",
+  "Question_tr": "Kaç bilye oldu toplam?",
+  "gold": 97
+ },
+ {
+  "ID": "dev-133",
+  "kind": "add",
+  "Body_tr": "Emre'nin 15 kurabiyei vardı. 25 kurabiye daha getirdi.",
+  "Question_tr": "Kaç kurabiye oldu toplam?",
+  "gold": 40
+ },
+ {
+  "ID": "dev-134",
+  "kind": "sub",
+  "Body_tr": "Elif'nin 10 şekeri vardı. 2 tanesini verdi.",
+  "Question_tr": "Kaç şeker kaldı?",
+  "gold": 8
+ },
+ {
+  "ID": "dev-135",
+  "kind": "sub",
+  "Body_tr": "Mehmet'nin 74 bilyei vardı. 13 tanesini sattı.",
+  "Question_tr": "Kaç bilye kaldı?",
+  "gold": 61
+ },
+ {
+  "ID": "dev-136",
+  "kind": "sub",
+  "Body_tr": "Selin'nin 56 kurabiyei vardı. 15 tanesini kaybetti.",
+  "Question_tr": "Kaç kurabiye kaldı?",
+  "gold": 41
+ },
+ {
+  "ID": "dev-137",
+  "kind": "add",
+  "Body_tr": "Derya'nin 38 şekeri vardı. 28 şeker daha topladı.",
+  "Question_tr": "Kaç şeker oldu toplam?",
+  "gold": 66
+ },
+ {
+  "ID": "dev-138",
+  "kind": "sub",
+  "Body_tr": "Selin'nin 91 bilyei vardı. 39 tanesini yedi.",
+  "Question_tr": "Kaç bilye kaldı?",
+  "gold": 52
+ },
+ {
+  "ID": "dev-139",
+  "kind": "add",
+  "Body_tr": "Emre'nin 50 kalemi vardı. 20 kalem daha aldı.",
+  "Question_tr": "Kaç kalem oldu toplam?",
+  "gold": 70
+ },
+ {
+  "ID": "dev-140",
+  "kind": "add",
+  "Body_tr": "Mehmet'nin 37 kitapi vardı. 19 kitap daha topladı.",
+  "Question_tr": "Kaç kitap oldu toplam?",
+  "gold": 56
+ },
+ {
+  "ID": "dev-141",
+  "kind": "sub",
+  "Body_tr": "Burak'nin 87 şekeri vardı. 22 tanesini attı.",
+  "Question_tr": "Kaç şeker kaldı?",
+  "gold": 65
+ },
+ {
+  "ID": "dev-142",
+  "kind": "add",
+  "Body_tr": "Zeynep'nin 10 kalemi vardı. 15 kalem daha aldı.",
+  "Question_tr": "Kaç kalem oldu toplam?",
+  "gold": 25
+ },
+ {
+  "ID": "dev-143",
+  "kind": "add",
+  "Body_tr": "Mehmet'nin 17 kitapi vardı. 8 kitap daha kazandı.",
+  "Question_tr": "Kaç kitap oldu toplam?",
+  "gold": 25
+ },
+ {
+  "ID": "dev-144",
+  "kind": "add",
+  "Body_tr": "Derya'nin 63 bilyei vardı. 55 bilye daha getirdi.",
+  "Question_tr": "Kaç bilye oldu toplam?",
+  "gold": 118
+ },
+ {
+  "ID": "dev-145",
+  "kind": "sub",
+  "Body_tr": "Selin'nin 18 baloni vardı. 2 tanesini yedi.",
+  "Question_tr": "Kaç balon kaldı?",
+  "gold": 16
+ },
+ {
+  "ID": "dev-146",
+  "kind": "sub",
+  "Body_tr": "Derya'nin 56 karti vardı. 12 tanesini harcadı.",
+  "Question_tr": "Kaç kart kaldı?",
+  "gold": 44
+ },
+ {
+  "ID": "dev-147",
+  "kind": "sub",
+  "Body_tr": "Selin'nin 59 kalemi vardı. 29 tanesini yedi.",
+  "Question_tr": "Kaç kalem kaldı?",
+  "gold": 30
+ },
+ {
+  "ID": "dev-148",
+  "kind": "add",
+  "Body_tr": "Elif'nin 33 kitapi vardı. 25 kitap daha aldı.",
+  "Question_tr": "Kaç kitap oldu toplam?",
+  "gold": 58
+ },
+ {
+  "ID": "dev-149",
+  "kind": "add",
+  "Body_tr": "Ayşe'nin 94 elmai vardı. 56 elma daha topladı.",
+  "Question_tr": "Kaç elma oldu toplam?",
+  "gold": 150
+ },
+ {
+  "ID": "dev-150",
+  "kind": "add",
+  "Body_tr": "Mehmet'nin 43 baloni vardı. 37 balon daha getirdi.",
+  "Question_tr": "Kaç balon oldu toplam?",
+  "gold": 80
+ },
+ {
+  "ID": "dev-151",
+  "kind": "add",
+  "Body_tr": "Mehmet'nin 35 şekeri vardı. 51 şeker daha buldu.",
+  "Question_tr": "Kaç şeker oldu toplam?",
+  "gold": 86
+ },
+ {
+  "ID": "dev-152",
+  "kind": "add",
+  "Body_tr": "Zeynep'nin 59 bilyei vardı. 15 bilye daha aldı.",
+  "Question_tr": "Kaç bilye oldu toplam?",
+  "gold": 74
+ },
+ {
+  "ID": "dev-153",
+  "kind": "add",
+  "Body_tr": "Burak'nin 98 kitapi vardı. 15 kitap daha aldı.",
+  "Question_tr": "Kaç kitap oldu toplam?",
+  "gold": 113
+ },
+ {
+  "ID": "dev-154",
+  "kind": "add",
+  "Body_tr": "Ali'nin 66 çiçeki vardı. 8 çiçek daha aldı.",
+  "Question_tr": "Kaç çiçek oldu toplam?",
+  "gold": 74
+ },
+ {
+  "ID": "dev-155",
+  "kind": "sub",
+  "Body_tr": "Selin'nin 87 çiçeki vardı. 85 tanesini verdi.",
+  "Question_tr": "Kaç çiçek kaldı?",
+  "gold": 2
+ },
+ {
+  "ID": "dev-156",
+  "kind": "add",
+  "Body_tr": "Ayşe'nin 31 baloni vardı. 51 balon daha topladı.",
+  "Question_tr": "Kaç balon oldu toplam?",
+  "gold": 82
+ },
+ {
+  "ID": "dev-157",
+  "kind": "sub",
+  "Body_tr": "Derya'nin 59 bilyei vardı. 17 tanesini kaybetti.",
+  "Question_tr": "Kaç bilye kaldı?",
+  "gold": 42
+ },
+ {
+  "ID": "dev-158",
+  "kind": "sub",
+  "Body_tr": "Zeynep'nin 23 kurabiyei vardı. 9 tanesini attı.",
+  "Question_tr": "Kaç kurabiye kaldı?",
+  "gold": 14
+ },
+ {
+  "ID": "dev-159",
+  "kind": "add",
+  "Body_tr": "Ayşe'nin 99 kitapi vardı. 57 kitap daha getirdi.",
+  "Question_tr": "Kaç kitap oldu toplam?",
+  "gold": 156
+ },
+ {
+  "ID": "dev-160",
+  "kind": "add",
+  "Body_tr": "Ali'nin 53 kalemi vardı. 49 kalem daha buldu.",
+  "Question_tr": "Kaç kalem oldu toplam?",
+  "gold": 102
+ },
+ {
+  "ID": "dev-161",
+  "kind": "add",
+  "Body_tr": "Mehmet'nin 48 bilyei vardı. 58 bilye daha getirdi.",
+  "Question_tr": "Kaç bilye oldu toplam?",
+  "gold": 106
+ },
+ {
+  "ID": "dev-162",
+  "kind": "add",
+  "Body_tr": "Mehmet'nin 54 kutui vardı. 26 kutu daha buldu.",
+  "Question_tr": "Kaç kutu oldu toplam?",
+  "gold": 80
+ },
+ {
+  "ID": "dev-163",
+  "kind": "add",
+  "Body_tr": "Derya'nin 90 bilyei vardı. 18 bilye daha aldı.",
+  "Question_tr": "Kaç bilye oldu toplam?",
+  "gold": 108
+ },
+ {
+  "ID": "dev-164",
+  "kind": "add",
+  "Body_tr": "Ayşe'nin 27 baloni vardı. 12 balon daha topladı.",
+  "Question_tr": "Kaç balon oldu toplam?",
+  "gold": 39
+ },
+ {
+  "ID": "dev-165",
+  "kind": "add",
+  "Body_tr": "Can'nin 11 şekeri vardı. 24 şeker daha buldu.",
+  "Question_tr": "Kaç şeker oldu toplam?",
+  "gold": 35
+ },
+ {
+  "ID": "dev-166",
+  "kind": "sub",
+  "Body_tr": "Mehmet'nin 99 şekeri vardı. 46 tanesini kaybetti.",
+  "Question_tr": "Kaç şeker kaldı?",
+  "gold": 53
+ },
+ {
+  "ID": "dev-167",
+  "kind": "add",
+  "Body_tr": "Derya'nin 16 elmai vardı. 48 elma daha getirdi.",
+  "Question_tr": "Kaç elma oldu toplam?",
+  "gold": 64
+ },
+ {
+  "ID": "dev-168",
+  "kind": "sub",
+  "Body_tr": "Selin'nin 87 bilyei vardı. 75 tanesini sattı.",
+  "Question_tr": "Kaç bilye kaldı?",
+  "gold": 12
+ },
+ {
+  "ID": "dev-169",
+  "kind": "sub",
+  "Body_tr": "Emre'nin 41 bilyei vardı. 35 tanesini sattı.",
+  "Question_tr": "Kaç bilye kaldı?",
+  "gold": 6
+ },
+ {
+  "ID": "dev-170",
+  "kind": "add",
+  "Body_tr": "Elif'nin 39 şekeri vardı. 14 şeker daha buldu.",
+  "Question_tr": "Kaç şeker oldu toplam?",
+  "gold": 53
+ },
+ {
+  "ID": "dev-171",
+  "kind": "add",
+  "Body_tr": "Elif'nin 81 çiçeki vardı. 42 çiçek daha getirdi.",
+  "Question_tr": "Kaç çiçek oldu toplam?",
+  "gold": 123
+ },
+ {
+  "ID": "dev-172",
+  "kind": "sub",
+  "Body_tr": "Mehmet'nin 72 elmai vardı. 48 tanesini verdi.",
+  "Question_tr": "Kaç elma kaldı?",
+  "gold": 24
+ },
+ {
+  "ID": "dev-173",
+  "kind": "sub",
+  "Body_tr": "Derya'nin 83 karti vardı. 59 tanesini harcadı.",
+  "Question_tr": "Kaç kart kaldı?",
+  "gold": 24
+ },
+ {
+  "ID": "dev-174",
+  "kind": "add",
+  "Body_tr": "Elif'nin 41 baloni vardı. 37 balon daha buldu.",
+  "Question_tr": "Kaç balon oldu toplam?",
+  "gold": 78
+ },
+ {
+  "ID": "dev-175",
+  "kind": "sub",
+  "Body_tr": "Emre'nin 71 kurabiyei vardı. 32 tanesini verdi.",
+  "Question_tr": "Kaç kurabiye kaldı?",
+  "gold": 39
+ },
+ {
+  "ID": "dev-176",
+  "kind": "sub",
+  "Body_tr": "Mehmet'nin 69 çiçeki vardı. 66 tanesini attı.",
+  "Question_tr": "Kaç çiçek kaldı?",
+  "gold": 3
+ },
+ {
+  "ID": "dev-177",
+  "kind": "add",
+  "Body_tr": "Selin'nin 54 bilyei vardı. 11 bilye daha topladı.",
+  "Question_tr": "Kaç bilye oldu toplam?",
+  "gold": 65
+ },
+ {
+  "ID": "dev-178",
+  "kind": "add",
+  "Body_tr": "Can'nin 82 kurabiyei vardı. 45 kurabiye daha buldu.",
+  "Question_tr": "Kaç kurabiye oldu toplam?",
+  "gold": 127
+ },
+ {
+  "ID": "dev-179",
+  "kind": "sub",
+  "Body_tr": "Derya'nin 49 bilyei vardı. 21 tanesini attı.",
+  "Question_tr": "Kaç bilye kaldı?",
+  "gold": 28
+ },
+ {
+  "ID": "dev-180",
+  "kind": "sub",
+  "Body_tr": "Ayşe'nin 86 şekeri vardı. 47 tanesini harcadı.",
+  "Question_tr": "Kaç şeker kaldı?",
+  "gold": 39
+ },
+ {
+  "ID": "dev-181",
+  "kind": "add",
+  "Body_tr": "Emre'nin 58 elmai vardı. 37 elma daha topladı.",
+  "Question_tr": "Kaç elma oldu toplam?",
+  "gold": 95
+ },
+ {
+  "ID": "dev-182",
+  "kind": "add",
+  "Body_tr": "Mehmet'nin 99 bilyei vardı. 24 bilye daha kazandı.",
+  "Question_tr": "Kaç bilye oldu toplam?",
+  "gold": 123
+ },
+ {
+  "ID": "dev-183",
+  "kind": "add",
+  "Body_tr": "Ayşe'nin 54 bilyei vardı. 19 bilye daha buldu.",
+  "Question_tr": "Kaç bilye oldu toplam?",
+  "gold": 73
+ },
+ {
+  "ID": "dev-184",
+  "kind": "sub",
+  "Body_tr": "Derya'nin 55 karti vardı. 25 tanesini attı.",
+  "Question_tr": "Kaç kart kaldı?",
+  "gold": 30
+ },
+ {
+  "ID": "dev-185",
+  "kind": "add",
+  "Body_tr": "Burak'nin 20 karti vardı. 6 kart daha kazandı.",
+  "Question_tr": "Kaç kart oldu toplam?",
+  "gold": 26
+ },
+ {
+  "ID": "dev-186",
+  "kind": "add",
+  "Body_tr": "Zeynep'nin 18 baloni vardı. 36 balon daha getirdi.",
+  "Question_tr": "Kaç balon oldu toplam?",
+  "gold": 54
+ },
+ {
+  "ID": "dev-187",
+  "kind": "add",
+  "Body_tr": "Elif'nin 57 bilyei vardı. 33 bilye daha getirdi.",
+  "Question_tr": "Kaç bilye oldu toplam?",
+  "gold": 90
+ },
+ {
+  "ID": "dev-188",
+  "kind": "add",
+  "Body_tr": "Elif'nin 72 bilyei vardı. 7 bilye daha aldı.",
+  "Question_tr": "Kaç bilye oldu toplam?",
+  "gold": 79
+ },
+ {
+  "ID": "dev-189",
+  "kind": "add",
+  "Body_tr": "Selin'nin 45 elmai vardı. 56 elma daha getirdi.",
+  "Question_tr": "Kaç elma oldu toplam?",
+  "gold": 101
+ },
+ {
+  "ID": "dev-190",
+  "kind": "sub",
+  "Body_tr": "Can'nin 99 elmai vardı. 71 tanesini sattı.",
+  "Question_tr": "Kaç elma kaldı?",
+  "gold": 28
+ },
+ {
+  "ID": "dev-191",
+  "kind": "add",
+  "Body_tr": "Elif'nin 16 elmai vardı. 60 elma daha kazandı.",
+  "Question_tr": "Kaç elma oldu toplam?",
+  "gold": 76
+ },
+ {
+  "ID": "dev-192",
+  "kind": "sub",
+  "Body_tr": "Ayşe'nin 10 kurabiyei vardı. 9 tanesini sattı.",
+  "Question_tr": "Kaç kurabiye kaldı?",
+  "gold": 1
+ },
+ {
+  "ID": "dev-193",
+  "kind": "sub",
+  "Body_tr": "Selin'nin 71 kutui vardı. 17 tanesini attı.",
+  "Question_tr": "Kaç kutu kaldı?",
+  "gold": 54
+ },
+ {
+  "ID": "dev-194",
+  "kind": "sub",
+  "Body_tr": "Selin'nin 12 baloni vardı. 2 tanesini yedi.",
+  "Question_tr": "Kaç balon kaldı?",
+  "gold": 10
+ },
+ {
+  "ID": "dev-195",
+  "kind": "sub",
+  "Body_tr": "Ali'nin 29 elmai vardı. 20 tanesini verdi.",
+  "Question_tr": "Kaç elma kaldı?",
+  "gold": 9
+ },
+ {
+  "ID": "dev-196",
+  "kind": "add",
+  "Body_tr": "Ali'nin 22 bilyei vardı. 8 bilye daha buldu.",
+  "Question_tr": "Kaç bilye oldu toplam?",
+  "gold": 30
+ },
+ {
+  "ID": "dev-197",
+  "kind": "add",
+  "Body_tr": "Derya'nin 28 çiçeki vardı. 27 çiçek daha aldı.",
+  "Question_tr": "Kaç çiçek oldu toplam?",
+  "gold": 55
+ },
+ {
+  "ID": "dev-198",
+  "kind": "sub",
+  "Body_tr": "Burak'nin 61 kurabiyei vardı. 21 tanesini verdi.",
+  "Question_tr": "Kaç kurabiye kaldı?",
+  "gold": 40
+ },
+ {
+  "ID": "dev-199",
+  "kind": "add",
+  "Body_tr": "Derya'nin 61 kitapi vardı. 57 kitap daha kazandı.",
+  "Question_tr": "Kaç kitap oldu toplam?",
+  "gold": 118
+ },
+ {
+  "ID": "dev-200",
+  "kind": "sub",
+  "Body_tr": "Zeynep'nin 32 kutui vardı. 26 tanesini verdi.",
+  "Question_tr": "Kaç kutu kaldı?",
+  "gold": 6
+ },
+ {
+  "ID": "dev-201",
+  "kind": "sub",
+  "Body_tr": "Can'nin 62 kurabiyei vardı. 33 tanesini verdi.",
+  "Question_tr": "Kaç kurabiye kaldı?",
+  "gold": 29
+ },
+ {
+  "ID": "dev-202",
+  "kind": "sub",
+  "Body_tr": "Ayşe'nin 71 kalemi vardı. 10 tanesini attı.",
+  "Question_tr": "Kaç kalem kaldı?",
+  "gold": 61
+ },
+ {
+  "ID": "dev-203",
+  "kind": "add",
+  "Body_tr": "Elif'nin 22 baloni vardı. 22 balon daha kazandı.",
+  "Question_tr": "Kaç balon oldu toplam?",
+  "gold": 44
+ },
+ {
+  "ID": "dev-204",
+  "kind": "sub",
+  "Body_tr": "Ali'nin 89 şekeri vardı. 37 tanesini harcadı.",
+  "Question_tr": "Kaç şeker kaldı?",
+  "gold": 52
+ },
+ {
+  "ID": "dev-205",
+  "kind": "add",
+  "Body_tr": "Elif'nin 33 kurabiyei vardı. 8 kurabiye daha aldı.",
+  "Question_tr": "Kaç kurabiye oldu toplam?",
+  "gold": 41
+ },
+ {
+  "ID": "dev-206",
+  "kind": "sub",
+  "Body_tr": "Zeynep'nin 32 şekeri vardı. 4 tanesini attı.",
+  "Question_tr": "Kaç şeker kaldı?",
+  "gold": 28
+ },
+ {
+  "ID": "dev-207",
+  "kind": "sub",
+  "Body_tr": "Selin'nin 36 kutui vardı. 35 tanesini verdi.",
+  "Question_tr": "Kaç kutu kaldı?",
+  "gold": 1
+ },
+ {
+  "ID": "dev-208",
+  "kind": "add",
+  "Body_tr": "Burak'nin 96 karti vardı. 18 kart daha kazandı.",
+  "Question_tr": "Kaç kart oldu toplam?",
+  "gold": 114
+ },
+ {
+  "ID": "dev-209",
+  "kind": "sub",
+  "Body_tr": "Emre'nin 93 kutui vardı. 31 tanesini harcadı.",
+  "Question_tr": "Kaç kutu kaldı?",
+  "gold": 62
+ },
+ {
+  "ID": "dev-210",
+  "kind": "sub",
+  "Body_tr": "Ali'nin 27 kurabiyei vardı. 15 tanesini kaybetti.",
+  "Question_tr": "Kaç kurabiye kaldı?",
+  "gold": 12
+ },
+ {
+  "ID": "dev-211",
+  "kind": "sub",
+  "Body_tr": "Ali'nin 74 karti vardı. 17 tanesini sattı.",
+  "Question_tr": "Kaç kart kaldı?",
+  "gold": 57
+ },
+ {
+  "ID": "dev-212",
+  "kind": "add",
+  "Body_tr": "Burak'nin 48 kutui vardı. 47 kutu daha getirdi.",
+  "Question_tr": "Kaç kutu oldu toplam?",
+  "gold": 95
+ },
+ {
+  "ID": "dev-213",
+  "kind": "sub",
+  "Body_tr": "Can'nin 44 baloni vardı. 32 tanesini verdi.",
+  "Question_tr": "Kaç balon kaldı?",
+  "gold": 12
+ },
+ {
+  "ID": "dev-214",
+  "kind": "sub",
+  "Body_tr": "Derya'nin 25 karti vardı. 16 tanesini attı.",
+  "Question_tr": "Kaç kart kaldı?",
+  "gold": 9
+ },
+ {
+  "ID": "dev-215",
+  "kind": "add",
+  "Body_tr": "Emre'nin 12 kurabiyei vardı. 54 kurabiye daha getirdi.",
+  "Question_tr": "Kaç kurabiye oldu toplam?",
+  "gold": 66
+ },
+ {
+  "ID": "dev-216",
+  "kind": "add",
+  "Body_tr": "Derya'nin 82 çiçeki vardı. 14 çiçek daha kazandı.",
+  "Question_tr": "Kaç çiçek oldu toplam?",
+  "gold": 96
+ },
+ {
+  "ID": "dev-217",
+  "kind": "add",
+  "Body_tr": "Ayşe'nin 74 çiçeki vardı. 58 çiçek daha aldı.",
+  "Question_tr": "Kaç çiçek oldu toplam?",
+  "gold": 132
+ },
+ {
+  "ID": "dev-218",
+  "kind": "add",
+  "Body_tr": "Derya'nin 43 kitapi vardı. 53 kitap daha topladı.",
+  "Question_tr": "Kaç kitap oldu toplam?",
+  "gold": 96
+ },
+ {
+  "ID": "dev-219",
+  "kind": "sub",
+  "Body_tr": "Mehmet'nin 96 baloni vardı. 40 tanesini verdi.",
+  "Question_tr": "Kaç balon kaldı?",
+  "gold": 56
+ },
+ {
+  "ID": "dev-220",
+  "kind": "add",
+  "Body_tr": "Derya'nin 56 şekeri vardı. 55 şeker daha getirdi.",
+  "Question_tr": "Kaç şeker oldu toplam?",
+  "gold": 111
+ },
+ {
+  "ID": "dev-221",
+  "kind": "add",
+  "Body_tr": "Mehmet'nin 61 kitapi vardı. 30 kitap daha buldu.",
+  "Question_tr": "Kaç kitap oldu toplam?",
+  "gold": 91
+ },
+ {
+  "ID": "dev-222",
+  "kind": "sub",
+  "Body_tr": "Elif'nin 69 kutui vardı. 33 tanesini yedi.",
+  "Question_tr": "Kaç kutu kaldı?",
+  "gold": 36
+ },
+ {
+  "ID": "dev-223",
+  "kind": "add",
+  "Body_tr": "Can'nin 95 çiçeki vardı. 47 çiçek daha buldu.",
+  "Question_tr": "Kaç çiçek oldu toplam?",
+  "gold": 142
+ },
+ {
+  "ID": "dev-224",
+  "kind": "add",
+  "Body_tr": "Can'nin 85 kurabiyei vardı. 39 kurabiye daha buldu.",
+  "Question_tr": "Kaç kurabiye oldu toplam?",
+  "gold": 124
+ },
+ {
+  "ID": "dev-225",
+  "kind": "sub",
+  "Body_tr": "Ali'nin 40 kalemi vardı. 29 tanesini yedi.",
+  "Question_tr": "Kaç kalem kaldı?",
+  "gold": 11
+ },
+ {
+  "ID": "dev-226",
+  "kind": "add",
+  "Body_tr": "Emre'nin 72 kutui vardı. 6 kutu daha getirdi.",
+  "Question_tr": "Kaç kutu oldu toplam?",
+  "gold": 78
+ },
+ {
+  "ID": "dev-227",
+  "kind": "add",
+  "Body_tr": "Zeynep'nin 94 kitapi vardı. 60 kitap daha getirdi.",
+  "Question_tr": "Kaç kitap oldu toplam?",
+  "gold": 154
+ },
+ {
+  "ID": "dev-228",
+  "kind": "add",
+  "Body_tr": "Zeynep'nin 40 kutui vardı. 60 kutu daha getirdi.",
+  "Question_tr": "Kaç kutu oldu toplam?",
+  "gold": 100
+ },
+ {
+  "ID": "dev-229",
+  "kind": "sub",
+  "Body_tr": "Elif'nin 87 kalemi vardı. 36 tanesini yedi.",
+  "Question_tr": "Kaç kalem kaldı?",
+  "gold": 51
+ },
+ {
+  "ID": "dev-230",
+  "kind": "add",
+  "Body_tr": "Ali'nin 90 baloni vardı. 24 balon daha topladı.",
+  "Question_tr": "Kaç balon oldu toplam?",
+  "gold": 114
+ },
+ {
+  "ID": "dev-231",
+  "kind": "sub",
+  "Body_tr": "Elif'nin 36 kurabiyei vardı. 26 tanesini sattı.",
+  "Question_tr": "Kaç kurabiye kaldı?",
+  "gold": 10
+ },
+ {
+  "ID": "dev-232",
+  "kind": "sub",
+  "Body_tr": "Mehmet'nin 69 çiçeki vardı. 33 tanesini kaybetti.",
+  "Question_tr": "Kaç çiçek kaldı?",
+  "gold": 36
+ },
+ {
+  "ID": "dev-233",
+  "kind": "add",
+  "Body_tr": "Ayşe'nin 22 karti vardı. 36 kart daha getirdi.",
+  "Question_tr": "Kaç kart oldu toplam?",
+  "gold": 58
+ },
+ {
+  "ID": "dev-234",
+  "kind": "add",
+  "Body_tr": "Can'nin 17 karti vardı. 34 kart daha getirdi.",
+  "Question_tr": "Kaç kart oldu toplam?",
+  "gold": 51
+ },
+ {
+  "ID": "dev-235",
+  "kind": "sub",
+  "Body_tr": "Derya'nin 70 baloni vardı. 64 tanesini sattı.",
+  "Question_tr": "Kaç balon kaldı?",
+  "gold": 6
+ },
+ {
+  "ID": "dev-236",
+  "kind": "add",
+  "Body_tr": "Burak'nin 74 çiçeki vardı. 6 çiçek daha aldı.",
+  "Question_tr": "Kaç çiçek oldu toplam?",
+  "gold": 80
+ },
+ {
+  "ID": "dev-237",
+  "kind": "sub",
+  "Body_tr": "Burak'nin 18 karti vardı. 15 tanesini harcadı.",
+  "Question_tr": "Kaç kart kaldı?",
+  "gold": 3
+ },
+ {
+  "ID": "dev-238",
+  "kind": "sub",
+  "Body_tr": "Zeynep'nin 95 çiçeki vardı. 28 tanesini sattı.",
+  "Question_tr": "Kaç çiçek kaldı?",
+  "gold": 67
+ },
+ {
+  "ID": "dev-239",
+  "kind": "sub",
+  "Body_tr": "Can'nin 54 kalemi vardı. 22 tanesini kaybetti.",
+  "Question_tr": "Kaç kalem kaldı?",
+  "gold": 32
+ },
+ {
+  "ID": "dev-240",
+  "kind": "sub",
+  "Body_tr": "Emre'nin 53 karti vardı. 25 tanesini verdi.",
+  "Question_tr": "Kaç kart kaldı?",
+  "gold": 28
+ },
+ {
+  "ID": "dev-241",
+  "kind": "add",
+  "Body_tr": "Selin'nin 59 karti vardı. 43 kart daha topladı.",
+  "Question_tr": "Kaç kart oldu toplam?",
+  "gold": 102
+ },
+ {
+  "ID": "dev-242",
+  "kind": "sub",
+  "Body_tr": "Mehmet'nin 61 kitapi vardı. 47 tanesini sattı.",
+  "Question_tr": "Kaç kitap kaldı?",
+  "gold": 14
+ },
+ {
+  "ID": "dev-243",
+  "kind": "add",
+  "Body_tr": "Burak'nin 99 şekeri vardı. 10 şeker daha getirdi.",
+  "Question_tr": "Kaç şeker oldu toplam?",
+  "gold": 109
+ },
+ {
+  "ID": "dev-244",
+  "kind": "sub",
+  "Body_tr": "Selin'nin 89 çiçeki vardı. 71 tanesini yedi.",
+  "Question_tr": "Kaç çiçek kaldı?",
+  "gold": 18
+ },
+ {
+  "ID": "dev-245",
+  "kind": "sub",
+  "Body_tr": "Ali'nin 91 kutui vardı. 68 tanesini attı.",
+  "Question_tr": "Kaç kutu kaldı?",
+  "gold": 23
+ },
+ {
+  "ID": "dev-246",
+  "kind": "add",
+  "Body_tr": "Can'nin 34 karti vardı. 56 kart daha kazandı.",
+  "Question_tr": "Kaç kart oldu toplam?",
+  "gold": 90
+ },
+ {
+  "ID": "dev-247",
+  "kind": "sub",
+  "Body_tr": "Ali'nin 56 baloni vardı. 37 tanesini sattı.",
+  "Question_tr": "Kaç balon kaldı?",
+  "gold": 19
+ },
+ {
+  "ID": "dev-248",
+  "kind": "sub",
+  "Body_tr": "Mehmet'nin 88 elmai vardı. 50 tanesini sattı.",
+  "Question_tr": "Kaç elma kaldı?",
+  "gold": 38
+ },
+ {
+  "ID": "dev-249",
+  "kind": "add",
+  "Body_tr": "Burak'nin 74 kutui vardı. 45 kutu daha aldı.",
+  "Question_tr": "Kaç kutu oldu toplam?",
+  "gold": 119
+ },
+ {
+  "ID": "dev-250",
+  "kind": "sub",
+  "Body_tr": "Derya'nin 37 kurabiyei vardı. 21 tanesini kaybetti.",
+  "Question_tr": "Kaç kurabiye kaldı?",
+  "gold": 16
+ },
+ {
+  "ID": "dev-251",
+  "kind": "add",
+  "Body_tr": "Can'nin 93 elmai vardı. 5 elma daha topladı.",
+  "Question_tr": "Kaç elma oldu toplam?",
+  "gold": 98
+ },
+ {
+  "ID": "dev-252",
+  "kind": "add",
+  "Body_tr": "Selin'nin 43 baloni vardı. 39 balon daha buldu.",
+  "Question_tr": "Kaç balon oldu toplam?",
+  "gold": 82
+ },
+ {
+  "ID": "dev-253",
+  "kind": "add",
+  "Body_tr": "Ali'nin 74 kurabiyei vardı. 32 kurabiye daha getirdi.",
+  "Question_tr": "Kaç kurabiye oldu toplam?",
+  "gold": 106
+ },
+ {
+  "ID": "dev-254",
+  "kind": "sub",
+  "Body_tr": "Emre'nin 69 kutui vardı. 38 tanesini kaybetti.",
+  "Question_tr": "Kaç kutu kaldı?",
+  "gold": 31
+ },
+ {
+  "ID": "dev-255",
+  "kind": "sub",
+  "Body_tr": "Burak'nin 83 kalemi vardı. 8 tanesini sattı.",
+  "Question_tr": "Kaç kalem kaldı?",
+  "gold": 75
+ },
+ {
+  "ID": "dev-256",
+  "kind": "add",
+  "Body_tr": "Ali'nin 58 şekeri vardı. 4 şeker daha topladı.",
+  "Question_tr": "Kaç şeker oldu toplam?",
+  "gold": 62
+ },
+ {
+  "ID": "dev-257",
+  "kind": "add",
+  "Body_tr": "Mehmet'nin 19 kutui vardı. 13 kutu daha aldı.",
+  "Question_tr": "Kaç kutu oldu toplam?",
+  "gold": 32
+ },
+ {
+  "ID": "dev-258",
+  "kind": "sub",
+  "Body_tr": "Elif'nin 23 kurabiyei vardı. 11 tanesini verdi.",
+  "Question_tr": "Kaç kurabiye kaldı?",
+  "gold": 12
+ },
+ {
+  "ID": "dev-259",
+  "kind": "add",
+  "Body_tr": "Elif'nin 87 şekeri vardı. 13 şeker daha kazandı.",
+  "Question_tr": "Kaç şeker oldu toplam?",
+  "gold": 100
+ },
+ {
+  "ID": "dev-260",
+  "kind": "sub",
+  "Body_tr": "Mehmet'nin 43 kalemi vardı. 16 tanesini verdi.",
+  "Question_tr": "Kaç kalem kaldı?",
+  "gold": 27
+ },
+ {
+  "ID": "dev-261",
+  "kind": "sub",
+  "Body_tr": "Mehmet'nin 89 çiçeki vardı. 83 tanesini harcadı.",
+  "Question_tr": "Kaç çiçek kaldı?",
+  "gold": 6
+ },
+ {
+  "ID": "dev-262",
+  "kind": "sub",
+  "Body_tr": "Elif'nin 54 bilyei vardı. 44 tanesini harcadı.",
+  "Question_tr": "Kaç bilye kaldı?",
+  "gold": 10
+ },
+ {
+  "ID": "dev-263",
+  "kind": "sub",
+  "Body_tr": "Selin'nin 66 kurabiyei vardı. 42 tanesini verdi.",
+  "Question_tr": "Kaç kurabiye kaldı?",
+  "gold": 24
+ },
+ {
+  "ID": "dev-264",
+  "kind": "add",
+  "Body_tr": "Can'nin 61 kurabiyei vardı. 5 kurabiye daha kazandı.",
+  "Question_tr": "Kaç kurabiye oldu toplam?",
+  "gold": 66
+ },
+ {
+  "ID": "dev-265",
+  "kind": "add",
+  "Body_tr": "Burak'nin 81 karti vardı. 16 kart daha kazandı.",
+  "Question_tr": "Kaç kart oldu toplam?",
+  "gold": 97
+ },
+ {
+  "ID": "dev-266",
+  "kind": "add",
+  "Body_tr": "Ayşe'nin 61 elmai vardı. 34 elma daha topladı.",
+  "Question_tr": "Kaç elma oldu toplam?",
+  "gold": 95
+ },
+ {
+  "ID": "dev-267",
+  "kind": "add",
+  "Body_tr": "Ali'nin 11 kurabiyei vardı. 17 kurabiye daha buldu.",
+  "Question_tr": "Kaç kurabiye oldu toplam?",
+  "gold": 28
+ },
+ {
+  "ID": "dev-268",
+  "kind": "sub",
+  "Body_tr": "Emre'nin 87 kitapi vardı. 4 tanesini attı.",
+  "Question_tr": "Kaç kitap kaldı?",
+  "gold": 83
+ },
+ {
+  "ID": "dev-269",
+  "kind": "add",
+  "Body_tr": "Elif'nin 10 çiçeki vardı. 34 çiçek daha kazandı.",
+  "Question_tr": "Kaç çiçek oldu toplam?",
+  "gold": 44
+ },
+ {
+  "ID": "dev-270",
+  "kind": "sub",
+  "Body_tr": "Mehmet'nin 68 şekeri vardı. 35 tanesini yedi.",
+  "Question_tr": "Kaç şeker kaldı?",
+  "gold": 33
+ },
+ {
+  "ID": "dev-271",
+  "kind": "sub",
+  "Body_tr": "Ali'nin 13 elmai vardı. 10 tanesini attı.",
+  "Question_tr": "Kaç elma kaldı?",
+  "gold": 3
+ },
+ {
+  "ID": "dev-272",
+  "kind": "add",
+  "Body_tr": "Burak'nin 72 kitapi vardı. 39 kitap daha topladı.",
+  "Question_tr": "Kaç kitap oldu toplam?",
+  "gold": 111
+ },
+ {
+  "ID": "dev-273",
+  "kind": "add",
+  "Body_tr": "Selin'nin 28 baloni vardı. 19 balon daha aldı.",
+  "Question_tr": "Kaç balon oldu toplam?",
+  "gold": 47
+ },
+ {
+  "ID": "dev-274",
+  "kind": "add",
+  "Body_tr": "Zeynep'nin 69 karti vardı. 39 kart daha topladı.",
+  "Question_tr": "Kaç kart oldu toplam?",
+  "gold": 108
+ },
+ {
+  "ID": "dev-275",
+  "kind": "add",
+  "Body_tr": "Zeynep'nin 83 kalemi vardı. 51 kalem daha kazandı.",
+  "Question_tr": "Kaç kalem oldu toplam?",
+  "gold": 134
+ },
+ {
+  "ID": "dev-276",
+  "kind": "sub",
+  "Body_tr": "Elif'nin 19 kalemi vardı. 4 tanesini yedi.",
+  "Question_tr": "Kaç kalem kaldı?",
+  "gold": 15
+ },
+ {
+  "ID": "dev-277",
+  "kind": "sub",
+  "Body_tr": "Zeynep'nin 57 kitapi vardı. 25 tanesini kaybetti.",
+  "Question_tr": "Kaç kitap kaldı?",
+  "gold": 32
+ },
+ {
+  "ID": "dev-278",
+  "kind": "add",
+  "Body_tr": "Derya'nin 29 kutui vardı. 38 kutu daha buldu.",
+  "Question_tr": "Kaç kutu oldu toplam?",
+  "gold": 67
+ },
+ {
+  "ID": "dev-279",
+  "kind": "sub",
+  "Body_tr": "Ayşe'nin 23 kutui vardı. 5 tanesini verdi.",
+  "Question_tr": "Kaç kutu kaldı?",
+  "gold": 18
+ },
+ {
+  "ID": "dev-280",
+  "kind": "sub",
+  "Body_tr": "Zeynep'nin 56 karti vardı. 41 tanesini yedi.",
+  "Question_tr": "Kaç kart kaldı?",
+  "gold": 15
+ },
+ {
+  "ID": "dev-281",
+  "kind": "add",
+  "Body_tr": "Selin'nin 45 elmai vardı. 15 elma daha aldı.",
+  "Question_tr": "Kaç elma oldu toplam?",
+  "gold": 60
+ },
+ {
+  "ID": "dev-282",
+  "kind": "add",
+  "Body_tr": "Mehmet'nin 37 kitapi vardı. 49 kitap daha getirdi.",
+  "Question_tr": "Kaç kitap oldu toplam?",
+  "gold": 86
+ },
+ {
+  "ID": "dev-283",
+  "kind": "add",
+  "Body_tr": "Zeynep'nin 97 elmai vardı. 46 elma daha aldı.",
+  "Question_tr": "Kaç elma oldu toplam?",
+  "gold": 143
+ },
+ {
+  "ID": "dev-284",
+  "kind": "sub",
+  "Body_tr": "Emre'nin 39 kurabiyei vardı. 7 tanesini verdi.",
+  "Question_tr": "Kaç kurabiye kaldı?",
+  "gold": 32
+ },
+ {
+  "ID": "dev-285",
+  "kind": "sub",
+  "Body_tr": "Can'nin 38 kalemi vardı. 4 tanesini attı.",
+  "Question_tr": "Kaç kalem kaldı?",
+  "gold": 34
+ },
+ {
+  "ID": "dev-286",
+  "kind": "sub",
+  "Body_tr": "Elif'nin 97 kalemi vardı. 70 tanesini kaybetti.",
+  "Question_tr": "Kaç kalem kaldı?",
+  "gold": 27
+ },
+ {
+  "ID": "dev-287",
+  "kind": "sub",
+  "Body_tr": "Ayşe'nin 17 kurabiyei vardı. 15 tanesini kaybetti.",
+  "Question_tr": "Kaç kurabiye kaldı?",
+  "gold": 2
+ },
+ {
+  "ID": "dev-288",
+  "kind": "add",
+  "Body_tr": "Derya'nin 19 çiçeki vardı. 16 çiçek daha kazandı.",
+  "Question_tr": "Kaç çiçek oldu toplam?",
+  "gold": 35
+ },
+ {
+  "ID": "dev-289",
+  "kind": "sub",
+  "Body_tr": "Mehmet'nin 54 kitapi vardı. 31 tanesini yedi.",
+  "Question_tr": "Kaç kitap kaldı?",
+  "gold": 23
+ },
+ {
+  "ID": "dev-290",
+  "kind": "sub",
+  "Body_tr": "Elif'nin 99 kalemi vardı. 27 tanesini kaybetti.",
+  "Question_tr": "Kaç kalem kaldı?",
+  "gold": 72
+ },
+ {
+  "ID": "dev-291",
+  "kind": "sub",
+  "Body_tr": "Ali'nin 15 elmai vardı. 9 tanesini yedi.",
+  "Question_tr": "Kaç elma kaldı?",
+  "gold": 6
+ },
+ {
+  "ID": "dev-292",
+  "kind": "add",
+  "Body_tr": "Ayşe'nin 42 bilyei vardı. 46 bilye daha getirdi.",
+  "Question_tr": "Kaç bilye oldu toplam?",
+  "gold": 88
+ },
+ {
+  "ID": "dev-293",
+  "kind": "sub",
+  "Body_tr": "Zeynep'nin 75 kitapi vardı. 15 tanesini harcadı.",
+  "Question_tr": "Kaç kitap kaldı?",
+  "gold": 60
+ },
+ {
+  "ID": "dev-294",
+  "kind": "sub",
+  "Body_tr": "Ayşe'nin 73 kutui vardı. 58 tanesini kaybetti.",
+  "Question_tr": "Kaç kutu kaldı?",
+  "gold": 15
+ },
+ {
+  "ID": "dev-295",
+  "kind": "sub",
+  "Body_tr": "Elif'nin 66 şekeri vardı. 9 tanesini yedi.",
+  "Question_tr": "Kaç şeker kaldı?",
+  "gold": 57
+ },
+ {
+  "ID": "dev-296",
+  "kind": "add",
+  "Body_tr": "Emre'nin 59 kurabiyei vardı. 39 kurabiye daha kazandı.",
+  "Question_tr": "Kaç kurabiye oldu toplam?",
+  "gold": 98
+ },
+ {
+  "ID": "dev-297",
+  "kind": "add",
+  "Body_tr": "Ayşe'nin 68 karti vardı. 39 kart daha buldu.",
+  "Question_tr": "Kaç kart oldu toplam?",
+  "gold": 107
+ },
+ {
+  "ID": "dev-298",
+  "kind": "sub",
+  "Body_tr": "Emre'nin 24 baloni vardı. 14 tanesini sattı.",
+  "Question_tr": "Kaç balon kaldı?",
+  "gold": 10
+ },
+ {
+  "ID": "dev-299",
+  "kind": "sub",
+  "Body_tr": "Derya'nin 23 kitapi vardı. 8 tanesini yedi.",
+  "Question_tr": "Kaç kitap kaldı?",
+  "gold": 15
+ }
+]

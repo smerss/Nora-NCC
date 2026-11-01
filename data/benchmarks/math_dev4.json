@@ -1,0 +1,1262 @@
+[
+ {
+  "ID": "dev4-share0",
+  "kind": "share",
+  "Body_tr": "Deniz 18 jetoni 6 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç jeton aldı?",
+  "gold": 3
+ },
+ {
+  "ID": "dev4-more0",
+  "kind": "more",
+  "Body_tr": "Tuğba 58 jeton topladı. Işık 46 jeton topladı.",
+  "Question_tr": "Tuğba, Işık'den ne kadar daha çok jeton topladı?",
+  "gold": 12
+ },
+ {
+  "ID": "dev4-two0",
+  "kind": "two",
+  "Body_tr": "Işık'in 71 anahtari vardı. Birinden 11 anahtar aldı. Sonra 7 anahtar kaybetti.",
+  "Question_tr": "Şu an kaç anahtar var?",
+  "gold": 75
+ },
+ {
+  "ID": "dev4-share1",
+  "kind": "share",
+  "Body_tr": "Pelin 75 fincani 5 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç fincan aldı?",
+  "gold": 15
+ },
+ {
+  "ID": "dev4-more1",
+  "kind": "more",
+  "Body_tr": "Deniz 13 lale topladı. Pelin 5 lale topladı.",
+  "Question_tr": "Deniz, Pelin'den ne kadar daha çok lale topladı?",
+  "gold": 8
+ },
+ {
+  "ID": "dev4-two1",
+  "kind": "two",
+  "Body_tr": "Tuğba'in 45 lalei vardı. Birinden 20 lale aldı. Sonra 14 lale kaybetti.",
+  "Question_tr": "Şu an kaç lale var?",
+  "gold": 51
+ },
+ {
+  "ID": "dev4-share2",
+  "kind": "share",
+  "Body_tr": "Berk 68 lalei 4 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç lale aldı?",
+  "gold": 17
+ },
+ {
+  "ID": "dev4-more2",
+  "kind": "more",
+  "Body_tr": "Volkan 47 anahtar topladı. Pelin 22 anahtar topladı.",
+  "Question_tr": "Volkan, Pelin'den ne kadar daha çok anahtar topladı?",
+  "gold": 25
+ },
+ {
+  "ID": "dev4-two2",
+  "kind": "two",
+  "Body_tr": "Işık'in 61 fındıki vardı. Birinden 14 fındık aldı. Sonra 7 fındık kaybetti.",
+  "Question_tr": "Şu an kaç fındık var?",
+  "gold": 68
+ },
+ {
+  "ID": "dev4-share3",
+  "kind": "share",
+  "Body_tr": "Deniz 16 anahtari 2 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç anahtar aldı?",
+  "gold": 8
+ },
+ {
+  "ID": "dev4-more3",
+  "kind": "more",
+  "Body_tr": "Pelin 24 bilet topladı. Deniz 22 bilet topladı.",
+  "Question_tr": "Pelin, Deniz'den ne kadar daha çok bilet topladı?",
+  "gold": 2
+ },
+ {
+  "ID": "dev4-two3",
+  "kind": "two",
+  "Body_tr": "Işık'in 21 jetoni vardı. Birinden 23 jeton aldı. Sonra 10 jeton kaybetti.",
+  "Question_tr": "Şu an kaç jeton var?",
+  "gold": 34
+ },
+ {
+  "ID": "dev4-share4",
+  "kind": "share",
+  "Body_tr": "Yusuf 66 bileti 6 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç bilet aldı?",
+  "gold": 11
+ },
+ {
+  "ID": "dev4-more4",
+  "kind": "more",
+  "Body_tr": "Yusuf 53 anahtar topladı. Tuğba 42 anahtar topladı.",
+  "Question_tr": "Yusuf, Tuğba'den ne kadar daha çok anahtar topladı?",
+  "gold": 11
+ },
+ {
+  "ID": "dev4-two4",
+  "kind": "two",
+  "Body_tr": "Pelin'in 38 anahtari vardı. Birinden 19 anahtar aldı. Sonra 6 anahtar kaybetti.",
+  "Question_tr": "Şu an kaç anahtar var?",
+  "gold": 51
+ },
+ {
+  "ID": "dev4-share5",
+  "kind": "share",
+  "Body_tr": "Pelin 76 jetoni 2 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç jeton aldı?",
+  "gold": 38
+ },
+ {
+  "ID": "dev4-more5",
+  "kind": "more",
+  "Body_tr": "Deniz 13 fındık topladı. Berk 7 fındık topladı.",
+  "Question_tr": "Deniz, Berk'den ne kadar daha çok fındık topladı?",
+  "gold": 6
+ },
+ {
+  "ID": "dev4-two5",
+  "kind": "two",
+  "Body_tr": "Pelin'in 54 bileti vardı. Birinden 7 bilet aldı. Sonra 15 bilet kaybetti.",
+  "Question_tr": "Şu an kaç bilet var?",
+  "gold": 46
+ },
+ {
+  "ID": "dev4-share6",
+  "kind": "share",
+  "Body_tr": "Onur 36 jetoni 6 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç jeton aldı?",
+  "gold": 6
+ },
+ {
+  "ID": "dev4-more6",
+  "kind": "more",
+  "Body_tr": "Volkan 50 fincan topladı. Berk 33 fincan topladı.",
+  "Question_tr": "Volkan, Berk'den ne kadar daha çok fincan topladı?",
+  "gold": 17
+ },
+ {
+  "ID": "dev4-two6",
+  "kind": "two",
+  "Body_tr": "Volkan'in 82 fındıki vardı. Birinden 11 fındık aldı. Sonra 4 fındık kaybetti.",
+  "Question_tr": "Şu an kaç fındık var?",
+  "gold": 89
+ },
+ {
+  "ID": "dev4-share7",
+  "kind": "share",
+  "Body_tr": "Volkan 36 jetoni 6 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç jeton aldı?",
+  "gold": 6
+ },
+ {
+  "ID": "dev4-more7",
+  "kind": "more",
+  "Body_tr": "Onur 45 lale topladı. Deniz 27 lale topladı.",
+  "Question_tr": "Onur, Deniz'den ne kadar daha çok lale topladı?",
+  "gold": 18
+ },
+ {
+  "ID": "dev4-two7",
+  "kind": "two",
+  "Body_tr": "Işık'in 20 anahtari vardı. Birinden 5 anahtar aldı. Sonra 7 anahtar kaybetti.",
+  "Question_tr": "Şu an kaç anahtar var?",
+  "gold": 18
+ },
+ {
+  "ID": "dev4-share8",
+  "kind": "share",
+  "Body_tr": "Yusuf 66 fındıki 2 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç fındık aldı?",
+  "gold": 33
+ },
+ {
+  "ID": "dev4-more8",
+  "kind": "more",
+  "Body_tr": "Volkan 33 lale topladı. Pelin 5 lale topladı.",
+  "Question_tr": "Volkan, Pelin'den ne kadar daha çok lale topladı?",
+  "gold": 28
+ },
+ {
+  "ID": "dev4-two8",
+  "kind": "two",
+  "Body_tr": "Pelin'in 48 fındıki vardı. Birinden 3 fındık aldı. Sonra 2 fındık kaybetti.",
+  "Question_tr": "Şu an kaç fındık var?",
+  "gold": 49
+ },
+ {
+  "ID": "dev4-share9",
+  "kind": "share",
+  "Body_tr": "Deniz 33 lalei 3 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç lale aldı?",
+  "gold": 11
+ },
+ {
+  "ID": "dev4-more9",
+  "kind": "more",
+  "Body_tr": "Deniz 30 bilet topladı. Berk 4 bilet topladı.",
+  "Question_tr": "Deniz, Berk'den ne kadar daha çok bilet topladı?",
+  "gold": 26
+ },
+ {
+  "ID": "dev4-two9",
+  "kind": "two",
+  "Body_tr": "Onur'in 87 anahtari vardı. Birinden 14 anahtar aldı. Sonra 2 anahtar kaybetti.",
+  "Question_tr": "Şu an kaç anahtar var?",
+  "gold": 99
+ },
+ {
+  "ID": "dev4-share10",
+  "kind": "share",
+  "Body_tr": "Volkan 66 lalei 6 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç lale aldı?",
+  "gold": 11
+ },
+ {
+  "ID": "dev4-more10",
+  "kind": "more",
+  "Body_tr": "Volkan 61 jeton topladı. Işık 35 jeton topladı.",
+  "Question_tr": "Volkan, Işık'den ne kadar daha çok jeton topladı?",
+  "gold": 26
+ },
+ {
+  "ID": "dev4-two10",
+  "kind": "two",
+  "Body_tr": "Deniz'in 88 bileti vardı. Birinden 22 bilet aldı. Sonra 16 bilet kaybetti.",
+  "Question_tr": "Şu an kaç bilet var?",
+  "gold": 94
+ },
+ {
+  "ID": "dev4-share11",
+  "kind": "share",
+  "Body_tr": "Yusuf 70 fındıki 5 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç fındık aldı?",
+  "gold": 14
+ },
+ {
+  "ID": "dev4-more11",
+  "kind": "more",
+  "Body_tr": "Tuğba 59 jeton topladı. Onur 49 jeton topladı.",
+  "Question_tr": "Tuğba, Onur'den ne kadar daha çok jeton topladı?",
+  "gold": 10
+ },
+ {
+  "ID": "dev4-two11",
+  "kind": "two",
+  "Body_tr": "Volkan'in 79 anahtari vardı. Birinden 12 anahtar aldı. Sonra 13 anahtar kaybetti.",
+  "Question_tr": "Şu an kaç anahtar var?",
+  "gold": 78
+ },
+ {
+  "ID": "dev4-share12",
+  "kind": "share",
+  "Body_tr": "Volkan 16 lalei 4 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç lale aldı?",
+  "gold": 4
+ },
+ {
+  "ID": "dev4-more12",
+  "kind": "more",
+  "Body_tr": "Tuğba 31 lale topladı. Yusuf 7 lale topladı.",
+  "Question_tr": "Tuğba, Yusuf'den ne kadar daha çok lale topladı?",
+  "gold": 24
+ },
+ {
+  "ID": "dev4-two12",
+  "kind": "two",
+  "Body_tr": "Deniz'in 72 bileti vardı. Birinden 25 bilet aldı. Sonra 19 bilet kaybetti.",
+  "Question_tr": "Şu an kaç bilet var?",
+  "gold": 78
+ },
+ {
+  "ID": "dev4-share13",
+  "kind": "share",
+  "Body_tr": "Onur 57 lalei 3 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç lale aldı?",
+  "gold": 19
+ },
+ {
+  "ID": "dev4-more13",
+  "kind": "more",
+  "Body_tr": "Volkan 21 lale topladı. Pelin 11 lale topladı.",
+  "Question_tr": "Volkan, Pelin'den ne kadar daha çok lale topladı?",
+  "gold": 10
+ },
+ {
+  "ID": "dev4-two13",
+  "kind": "two",
+  "Body_tr": "Pelin'in 84 lalei vardı. Birinden 10 lale aldı. Sonra 14 lale kaybetti.",
+  "Question_tr": "Şu an kaç lale var?",
+  "gold": 80
+ },
+ {
+  "ID": "dev4-share14",
+  "kind": "share",
+  "Body_tr": "Tuğba 66 fındıki 6 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç fındık aldı?",
+  "gold": 11
+ },
+ {
+  "ID": "dev4-more14",
+  "kind": "more",
+  "Body_tr": "Yusuf 33 lale topladı. Berk 28 lale topladı.",
+  "Question_tr": "Yusuf, Berk'den ne kadar daha çok lale topladı?",
+  "gold": 5
+ },
+ {
+  "ID": "dev4-two14",
+  "kind": "two",
+  "Body_tr": "Işık'in 49 jetoni vardı. Birinden 16 jeton aldı. Sonra 15 jeton kaybetti.",
+  "Question_tr": "Şu an kaç jeton var?",
+  "gold": 50
+ },
+ {
+  "ID": "dev4-share15",
+  "kind": "share",
+  "Body_tr": "Volkan 16 fincani 4 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç fincan aldı?",
+  "gold": 4
+ },
+ {
+  "ID": "dev4-more15",
+  "kind": "more",
+  "Body_tr": "Pelin 37 fındık topladı. Onur 19 fındık topladı.",
+  "Question_tr": "Pelin, Onur'den ne kadar daha çok fındık topladı?",
+  "gold": 18
+ },
+ {
+  "ID": "dev4-two15",
+  "kind": "two",
+  "Body_tr": "Volkan'in 52 anahtari vardı. Birinden 18 anahtar aldı. Sonra 5 anahtar kaybetti.",
+  "Question_tr": "Şu an kaç anahtar var?",
+  "gold": 65
+ },
+ {
+  "ID": "dev4-share16",
+  "kind": "share",
+  "Body_tr": "Tuğba 36 fincani 6 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç fincan aldı?",
+  "gold": 6
+ },
+ {
+  "ID": "dev4-more16",
+  "kind": "more",
+  "Body_tr": "Berk 37 fındık topladı. Pelin 31 fındık topladı.",
+  "Question_tr": "Berk, Pelin'den ne kadar daha çok fındık topladı?",
+  "gold": 6
+ },
+ {
+  "ID": "dev4-two16",
+  "kind": "two",
+  "Body_tr": "Onur'in 65 lalei vardı. Birinden 24 lale aldı. Sonra 18 lale kaybetti.",
+  "Question_tr": "Şu an kaç lale var?",
+  "gold": 71
+ },
+ {
+  "ID": "dev4-share17",
+  "kind": "share",
+  "Body_tr": "Volkan 24 lalei 3 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç lale aldı?",
+  "gold": 8
+ },
+ {
+  "ID": "dev4-more17",
+  "kind": "more",
+  "Body_tr": "Tuğba 16 fincan topladı. Pelin 9 fincan topladı.",
+  "Question_tr": "Tuğba, Pelin'den ne kadar daha çok fincan topladı?",
+  "gold": 7
+ },
+ {
+  "ID": "dev4-two17",
+  "kind": "two",
+  "Body_tr": "Berk'in 81 fındıki vardı. Birinden 14 fındık aldı. Sonra 11 fındık kaybetti.",
+  "Question_tr": "Şu an kaç fındık var?",
+  "gold": 84
+ },
+ {
+  "ID": "dev4-share18",
+  "kind": "share",
+  "Body_tr": "Volkan 70 jetoni 5 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç jeton aldı?",
+  "gold": 14
+ },
+ {
+  "ID": "dev4-more18",
+  "kind": "more",
+  "Body_tr": "Berk 49 fındık topladı. Deniz 36 fındık topladı.",
+  "Question_tr": "Berk, Deniz'den ne kadar daha çok fındık topladı?",
+  "gold": 13
+ },
+ {
+  "ID": "dev4-two18",
+  "kind": "two",
+  "Body_tr": "Işık'in 60 jetoni vardı. Birinden 24 jeton aldı. Sonra 16 jeton kaybetti.",
+  "Question_tr": "Şu an kaç jeton var?",
+  "gold": 68
+ },
+ {
+  "ID": "dev4-share19",
+  "kind": "share",
+  "Body_tr": "Volkan 48 fındıki 6 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç fındık aldı?",
+  "gold": 8
+ },
+ {
+  "ID": "dev4-more19",
+  "kind": "more",
+  "Body_tr": "Işık 52 fincan topladı. Volkan 43 fincan topladı.",
+  "Question_tr": "Işık, Volkan'den ne kadar daha çok fincan topladı?",
+  "gold": 9
+ },
+ {
+  "ID": "dev4-two19",
+  "kind": "two",
+  "Body_tr": "Tuğba'in 83 fincani vardı. Birinden 18 fincan aldı. Sonra 9 fincan kaybetti.",
+  "Question_tr": "Şu an kaç fincan var?",
+  "gold": 92
+ },
+ {
+  "ID": "dev4-share20",
+  "kind": "share",
+  "Body_tr": "Volkan 54 lalei 3 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç lale aldı?",
+  "gold": 18
+ },
+ {
+  "ID": "dev4-more20",
+  "kind": "more",
+  "Body_tr": "Pelin 51 anahtar topladı. Berk 38 anahtar topladı.",
+  "Question_tr": "Pelin, Berk'den ne kadar daha çok anahtar topladı?",
+  "gold": 13
+ },
+ {
+  "ID": "dev4-two20",
+  "kind": "two",
+  "Body_tr": "Işık'in 70 lalei vardı. Birinden 23 lale aldı. Sonra 2 lale kaybetti.",
+  "Question_tr": "Şu an kaç lale var?",
+  "gold": 91
+ },
+ {
+  "ID": "dev4-share21",
+  "kind": "share",
+  "Body_tr": "Pelin 52 jetoni 4 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç jeton aldı?",
+  "gold": 13
+ },
+ {
+  "ID": "dev4-more21",
+  "kind": "more",
+  "Body_tr": "Işık 51 anahtar topladı. Tuğba 49 anahtar topladı.",
+  "Question_tr": "Işık, Tuğba'den ne kadar daha çok anahtar topladı?",
+  "gold": 2
+ },
+ {
+  "ID": "dev4-two21",
+  "kind": "two",
+  "Body_tr": "Tuğba'in 41 fincani vardı. Birinden 15 fincan aldı. Sonra 7 fincan kaybetti.",
+  "Question_tr": "Şu an kaç fincan var?",
+  "gold": 49
+ },
+ {
+  "ID": "dev4-share22",
+  "kind": "share",
+  "Body_tr": "Yusuf 15 lalei 3 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç lale aldı?",
+  "gold": 5
+ },
+ {
+  "ID": "dev4-more22",
+  "kind": "more",
+  "Body_tr": "Deniz 61 jeton topladı. Berk 37 jeton topladı.",
+  "Question_tr": "Deniz, Berk'den ne kadar daha çok jeton topladı?",
+  "gold": 24
+ },
+ {
+  "ID": "dev4-two22",
+  "kind": "two",
+  "Body_tr": "Berk'in 70 fincani vardı. Birinden 22 fincan aldı. Sonra 10 fincan kaybetti.",
+  "Question_tr": "Şu an kaç fincan var?",
+  "gold": 82
+ },
+ {
+  "ID": "dev4-share23",
+  "kind": "share",
+  "Body_tr": "Berk 68 bileti 4 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç bilet aldı?",
+  "gold": 17
+ },
+ {
+  "ID": "dev4-more23",
+  "kind": "more",
+  "Body_tr": "Onur 66 fincan topladı. Tuğba 47 fincan topladı.",
+  "Question_tr": "Onur, Tuğba'den ne kadar daha çok fincan topladı?",
+  "gold": 19
+ },
+ {
+  "ID": "dev4-two23",
+  "kind": "two",
+  "Body_tr": "Yusuf'in 22 fındıki vardı. Birinden 14 fındık aldı. Sonra 18 fındık kaybetti.",
+  "Question_tr": "Şu an kaç fındık var?",
+  "gold": 18
+ },
+ {
+  "ID": "dev4-share24",
+  "kind": "share",
+  "Body_tr": "Pelin 72 bileti 6 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç bilet aldı?",
+  "gold": 12
+ },
+ {
+  "ID": "dev4-more24",
+  "kind": "more",
+  "Body_tr": "Yusuf 32 fındık topladı. Işık 19 fındık topladı.",
+  "Question_tr": "Yusuf, Işık'den ne kadar daha çok fındık topladı?",
+  "gold": 13
+ },
+ {
+  "ID": "dev4-two24",
+  "kind": "two",
+  "Body_tr": "Yusuf'in 57 fındıki vardı. Birinden 5 fındık aldı. Sonra 3 fındık kaybetti.",
+  "Question_tr": "Şu an kaç fındık var?",
+  "gold": 59
+ },
+ {
+  "ID": "dev4-share25",
+  "kind": "share",
+  "Body_tr": "Işık 62 fincani 2 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç fincan aldı?",
+  "gold": 31
+ },
+ {
+  "ID": "dev4-more25",
+  "kind": "more",
+  "Body_tr": "Pelin 31 fincan topladı. Deniz 18 fincan topladı.",
+  "Question_tr": "Pelin, Deniz'den ne kadar daha çok fincan topladı?",
+  "gold": 13
+ },
+ {
+  "ID": "dev4-two25",
+  "kind": "two",
+  "Body_tr": "Pelin'in 51 bileti vardı. Birinden 19 bilet aldı. Sonra 2 bilet kaybetti.",
+  "Question_tr": "Şu an kaç bilet var?",
+  "gold": 68
+ },
+ {
+  "ID": "dev4-share26",
+  "kind": "share",
+  "Body_tr": "Deniz 72 lalei 6 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç lale aldı?",
+  "gold": 12
+ },
+ {
+  "ID": "dev4-more26",
+  "kind": "more",
+  "Body_tr": "Deniz 76 anahtar topladı. Volkan 48 anahtar topladı.",
+  "Question_tr": "Deniz, Volkan'den ne kadar daha çok anahtar topladı?",
+  "gold": 28
+ },
+ {
+  "ID": "dev4-two26",
+  "kind": "two",
+  "Body_tr": "Işık'in 54 fındıki vardı. Birinden 19 fındık aldı. Sonra 17 fındık kaybetti.",
+  "Question_tr": "Şu an kaç fındık var?",
+  "gold": 56
+ },
+ {
+  "ID": "dev4-share27",
+  "kind": "share",
+  "Body_tr": "Tuğba 16 bileti 2 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç bilet aldı?",
+  "gold": 8
+ },
+ {
+  "ID": "dev4-more27",
+  "kind": "more",
+  "Body_tr": "Berk 64 lale topladı. Yusuf 48 lale topladı.",
+  "Question_tr": "Berk, Yusuf'den ne kadar daha çok lale topladı?",
+  "gold": 16
+ },
+ {
+  "ID": "dev4-two27",
+  "kind": "two",
+  "Body_tr": "Volkan'in 59 fincani vardı. Birinden 19 fincan aldı. Sonra 9 fincan kaybetti.",
+  "Question_tr": "Şu an kaç fincan var?",
+  "gold": 69
+ },
+ {
+  "ID": "dev4-share28",
+  "kind": "share",
+  "Body_tr": "Pelin 54 lalei 6 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç lale aldı?",
+  "gold": 9
+ },
+ {
+  "ID": "dev4-more28",
+  "kind": "more",
+  "Body_tr": "Tuğba 14 bilet topladı. Berk 7 bilet topladı.",
+  "Question_tr": "Tuğba, Berk'den ne kadar daha çok bilet topladı?",
+  "gold": 7
+ },
+ {
+  "ID": "dev4-two28",
+  "kind": "two",
+  "Body_tr": "Onur'in 70 lalei vardı. Birinden 8 lale aldı. Sonra 4 lale kaybetti.",
+  "Question_tr": "Şu an kaç lale var?",
+  "gold": 74
+ },
+ {
+  "ID": "dev4-share29",
+  "kind": "share",
+  "Body_tr": "Berk 60 bileti 3 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç bilet aldı?",
+  "gold": 20
+ },
+ {
+  "ID": "dev4-more29",
+  "kind": "more",
+  "Body_tr": "Deniz 31 jeton topladı. Volkan 19 jeton topladı.",
+  "Question_tr": "Deniz, Volkan'den ne kadar daha çok jeton topladı?",
+  "gold": 12
+ },
+ {
+  "ID": "dev4-two29",
+  "kind": "two",
+  "Body_tr": "Volkan'in 31 fındıki vardı. Birinden 3 fındık aldı. Sonra 13 fındık kaybetti.",
+  "Question_tr": "Şu an kaç fındık var?",
+  "gold": 21
+ },
+ {
+  "ID": "dev4-share30",
+  "kind": "share",
+  "Body_tr": "Berk 72 anahtari 4 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç anahtar aldı?",
+  "gold": 18
+ },
+ {
+  "ID": "dev4-more30",
+  "kind": "more",
+  "Body_tr": "Işık 50 fincan topladı. Tuğba 23 fincan topladı.",
+  "Question_tr": "Işık, Tuğba'den ne kadar daha çok fincan topladı?",
+  "gold": 27
+ },
+ {
+  "ID": "dev4-two30",
+  "kind": "two",
+  "Body_tr": "Işık'in 64 lalei vardı. Birinden 21 lale aldı. Sonra 5 lale kaybetti.",
+  "Question_tr": "Şu an kaç lale var?",
+  "gold": 80
+ },
+ {
+  "ID": "dev4-share31",
+  "kind": "share",
+  "Body_tr": "Işık 30 bileti 6 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç bilet aldı?",
+  "gold": 5
+ },
+ {
+  "ID": "dev4-more31",
+  "kind": "more",
+  "Body_tr": "Volkan 52 bilet topladı. Onur 39 bilet topladı.",
+  "Question_tr": "Volkan, Onur'den ne kadar daha çok bilet topladı?",
+  "gold": 13
+ },
+ {
+  "ID": "dev4-two31",
+  "kind": "two",
+  "Body_tr": "Yusuf'in 67 anahtari vardı. Birinden 12 anahtar aldı. Sonra 12 anahtar kaybetti.",
+  "Question_tr": "Şu an kaç anahtar var?",
+  "gold": 67
+ },
+ {
+  "ID": "dev4-share32",
+  "kind": "share",
+  "Body_tr": "Berk 34 lalei 2 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç lale aldı?",
+  "gold": 17
+ },
+ {
+  "ID": "dev4-more32",
+  "kind": "more",
+  "Body_tr": "Pelin 46 lale topladı. Berk 36 lale topladı.",
+  "Question_tr": "Pelin, Berk'den ne kadar daha çok lale topladı?",
+  "gold": 10
+ },
+ {
+  "ID": "dev4-two32",
+  "kind": "two",
+  "Body_tr": "Onur'in 38 fındıki vardı. Birinden 13 fındık aldı. Sonra 19 fındık kaybetti.",
+  "Question_tr": "Şu an kaç fındık var?",
+  "gold": 32
+ },
+ {
+  "ID": "dev4-share33",
+  "kind": "share",
+  "Body_tr": "Volkan 15 fincani 5 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç fincan aldı?",
+  "gold": 3
+ },
+ {
+  "ID": "dev4-more33",
+  "kind": "more",
+  "Body_tr": "Onur 17 bilet topladı. Tuğba 9 bilet topladı.",
+  "Question_tr": "Onur, Tuğba'den ne kadar daha çok bilet topladı?",
+  "gold": 8
+ },
+ {
+  "ID": "dev4-two33",
+  "kind": "two",
+  "Body_tr": "Yusuf'in 46 anahtari vardı. Birinden 24 anahtar aldı. Sonra 16 anahtar kaybetti.",
+  "Question_tr": "Şu an kaç anahtar var?",
+  "gold": 54
+ },
+ {
+  "ID": "dev4-share34",
+  "kind": "share",
+  "Body_tr": "Onur 36 bileti 4 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç bilet aldı?",
+  "gold": 9
+ },
+ {
+  "ID": "dev4-more34",
+  "kind": "more",
+  "Body_tr": "Yusuf 61 anahtar topladı. Işık 35 anahtar topladı.",
+  "Question_tr": "Yusuf, Işık'den ne kadar daha çok anahtar topladı?",
+  "gold": 26
+ },
+ {
+  "ID": "dev4-two34",
+  "kind": "two",
+  "Body_tr": "Berk'in 69 lalei vardı. Birinden 25 lale aldı. Sonra 15 lale kaybetti.",
+  "Question_tr": "Şu an kaç lale var?",
+  "gold": 79
+ },
+ {
+  "ID": "dev4-share35",
+  "kind": "share",
+  "Body_tr": "Berk 48 fincani 4 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç fincan aldı?",
+  "gold": 12
+ },
+ {
+  "ID": "dev4-more35",
+  "kind": "more",
+  "Body_tr": "Işık 53 anahtar topladı. Pelin 44 anahtar topladı.",
+  "Question_tr": "Işık, Pelin'den ne kadar daha çok anahtar topladı?",
+  "gold": 9
+ },
+ {
+  "ID": "dev4-two35",
+  "kind": "two",
+  "Body_tr": "Deniz'in 55 jetoni vardı. Birinden 18 jeton aldı. Sonra 11 jeton kaybetti.",
+  "Question_tr": "Şu an kaç jeton var?",
+  "gold": 62
+ },
+ {
+  "ID": "dev4-share36",
+  "kind": "share",
+  "Body_tr": "Işık 20 fincani 4 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç fincan aldı?",
+  "gold": 5
+ },
+ {
+  "ID": "dev4-more36",
+  "kind": "more",
+  "Body_tr": "Deniz 39 anahtar topladı. Onur 33 anahtar topladı.",
+  "Question_tr": "Deniz, Onur'den ne kadar daha çok anahtar topladı?",
+  "gold": 6
+ },
+ {
+  "ID": "dev4-two36",
+  "kind": "two",
+  "Body_tr": "Berk'in 89 bileti vardı. Birinden 6 bilet aldı. Sonra 12 bilet kaybetti.",
+  "Question_tr": "Şu an kaç bilet var?",
+  "gold": 83
+ },
+ {
+  "ID": "dev4-share37",
+  "kind": "share",
+  "Body_tr": "Pelin 46 fincani 2 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç fincan aldı?",
+  "gold": 23
+ },
+ {
+  "ID": "dev4-more37",
+  "kind": "more",
+  "Body_tr": "Deniz 62 bilet topladı. Işık 34 bilet topladı.",
+  "Question_tr": "Deniz, Işık'den ne kadar daha çok bilet topladı?",
+  "gold": 28
+ },
+ {
+  "ID": "dev4-two37",
+  "kind": "two",
+  "Body_tr": "Pelin'in 73 fındıki vardı. Birinden 22 fındık aldı. Sonra 7 fındık kaybetti.",
+  "Question_tr": "Şu an kaç fındık var?",
+  "gold": 88
+ },
+ {
+  "ID": "dev4-share38",
+  "kind": "share",
+  "Body_tr": "Pelin 30 jetoni 5 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç jeton aldı?",
+  "gold": 6
+ },
+ {
+  "ID": "dev4-more38",
+  "kind": "more",
+  "Body_tr": "Onur 30 anahtar topladı. Deniz 23 anahtar topladı.",
+  "Question_tr": "Onur, Deniz'den ne kadar daha çok anahtar topladı?",
+  "gold": 7
+ },
+ {
+  "ID": "dev4-two38",
+  "kind": "two",
+  "Body_tr": "Volkan'in 27 fındıki vardı. Birinden 4 fındık aldı. Sonra 11 fındık kaybetti.",
+  "Question_tr": "Şu an kaç fındık var?",
+  "gold": 20
+ },
+ {
+  "ID": "dev4-share39",
+  "kind": "share",
+  "Body_tr": "Işık 78 lalei 2 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç lale aldı?",
+  "gold": 39
+ },
+ {
+  "ID": "dev4-more39",
+  "kind": "more",
+  "Body_tr": "Volkan 67 fincan topladı. Onur 50 fincan topladı.",
+  "Question_tr": "Volkan, Onur'den ne kadar daha çok fincan topladı?",
+  "gold": 17
+ },
+ {
+  "ID": "dev4-two39",
+  "kind": "two",
+  "Body_tr": "Yusuf'in 31 fındıki vardı. Birinden 24 fındık aldı. Sonra 7 fındık kaybetti.",
+  "Question_tr": "Şu an kaç fındık var?",
+  "gold": 48
+ },
+ {
+  "ID": "dev4-share40",
+  "kind": "share",
+  "Body_tr": "Berk 36 fındıki 4 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç fındık aldı?",
+  "gold": 9
+ },
+ {
+  "ID": "dev4-more40",
+  "kind": "more",
+  "Body_tr": "Tuğba 39 fincan topladı. Işık 23 fincan topladı.",
+  "Question_tr": "Tuğba, Işık'den ne kadar daha çok fincan topladı?",
+  "gold": 16
+ },
+ {
+  "ID": "dev4-two40",
+  "kind": "two",
+  "Body_tr": "Berk'in 36 anahtari vardı. Birinden 5 anahtar aldı. Sonra 16 anahtar kaybetti.",
+  "Question_tr": "Şu an kaç anahtar var?",
+  "gold": 25
+ },
+ {
+  "ID": "dev4-share41",
+  "kind": "share",
+  "Body_tr": "Berk 30 fincani 3 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç fincan aldı?",
+  "gold": 10
+ },
+ {
+  "ID": "dev4-more41",
+  "kind": "more",
+  "Body_tr": "Işık 56 bilet topladı. Berk 32 bilet topladı.",
+  "Question_tr": "Işık, Berk'den ne kadar daha çok bilet topladı?",
+  "gold": 24
+ },
+ {
+  "ID": "dev4-two41",
+  "kind": "two",
+  "Body_tr": "Berk'in 86 lalei vardı. Birinden 16 lale aldı. Sonra 4 lale kaybetti.",
+  "Question_tr": "Şu an kaç lale var?",
+  "gold": 98
+ },
+ {
+  "ID": "dev4-share42",
+  "kind": "share",
+  "Body_tr": "Işık 42 lalei 6 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç lale aldı?",
+  "gold": 7
+ },
+ {
+  "ID": "dev4-more42",
+  "kind": "more",
+  "Body_tr": "Yusuf 53 jeton topladı. Onur 34 jeton topladı.",
+  "Question_tr": "Yusuf, Onur'den ne kadar daha çok jeton topladı?",
+  "gold": 19
+ },
+ {
+  "ID": "dev4-two42",
+  "kind": "two",
+  "Body_tr": "Volkan'in 85 lalei vardı. Birinden 18 lale aldı. Sonra 16 lale kaybetti.",
+  "Question_tr": "Şu an kaç lale var?",
+  "gold": 87
+ },
+ {
+  "ID": "dev4-share43",
+  "kind": "share",
+  "Body_tr": "Onur 74 fincani 2 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç fincan aldı?",
+  "gold": 37
+ },
+ {
+  "ID": "dev4-more43",
+  "kind": "more",
+  "Body_tr": "Deniz 34 fındık topladı. Yusuf 23 fındık topladı.",
+  "Question_tr": "Deniz, Yusuf'den ne kadar daha çok fındık topladı?",
+  "gold": 11
+ },
+ {
+  "ID": "dev4-two43",
+  "kind": "two",
+  "Body_tr": "Yusuf'in 78 fincani vardı. Birinden 3 fincan aldı. Sonra 2 fincan kaybetti.",
+  "Question_tr": "Şu an kaç fincan var?",
+  "gold": 79
+ },
+ {
+  "ID": "dev4-share44",
+  "kind": "share",
+  "Body_tr": "Deniz 72 bileti 3 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç bilet aldı?",
+  "gold": 24
+ },
+ {
+  "ID": "dev4-more44",
+  "kind": "more",
+  "Body_tr": "Tuğba 60 bilet topladı. Onur 32 bilet topladı.",
+  "Question_tr": "Tuğba, Onur'den ne kadar daha çok bilet topladı?",
+  "gold": 28
+ },
+ {
+  "ID": "dev4-two44",
+  "kind": "two",
+  "Body_tr": "Işık'in 28 fincani vardı. Birinden 21 fincan aldı. Sonra 12 fincan kaybetti.",
+  "Question_tr": "Şu an kaç fincan var?",
+  "gold": 37
+ },
+ {
+  "ID": "dev4-share45",
+  "kind": "share",
+  "Body_tr": "Yusuf 45 anahtari 5 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç anahtar aldı?",
+  "gold": 9
+ },
+ {
+  "ID": "dev4-more45",
+  "kind": "more",
+  "Body_tr": "Tuğba 34 bilet topladı. Berk 5 bilet topladı.",
+  "Question_tr": "Tuğba, Berk'den ne kadar daha çok bilet topladı?",
+  "gold": 29
+ },
+ {
+  "ID": "dev4-two45",
+  "kind": "two",
+  "Body_tr": "Volkan'in 63 fındıki vardı. Birinden 20 fındık aldı. Sonra 11 fındık kaybetti.",
+  "Question_tr": "Şu an kaç fındık var?",
+  "gold": 72
+ },
+ {
+  "ID": "dev4-share46",
+  "kind": "share",
+  "Body_tr": "Volkan 72 lalei 3 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç lale aldı?",
+  "gold": 24
+ },
+ {
+  "ID": "dev4-more46",
+  "kind": "more",
+  "Body_tr": "Işık 45 lale topladı. Deniz 16 lale topladı.",
+  "Question_tr": "Işık, Deniz'den ne kadar daha çok lale topladı?",
+  "gold": 29
+ },
+ {
+  "ID": "dev4-two46",
+  "kind": "two",
+  "Body_tr": "Işık'in 42 bileti vardı. Birinden 19 bilet aldı. Sonra 15 bilet kaybetti.",
+  "Question_tr": "Şu an kaç bilet var?",
+  "gold": 46
+ },
+ {
+  "ID": "dev4-share47",
+  "kind": "share",
+  "Body_tr": "Tuğba 36 fincani 4 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç fincan aldı?",
+  "gold": 9
+ },
+ {
+  "ID": "dev4-more47",
+  "kind": "more",
+  "Body_tr": "Yusuf 62 bilet topladı. Berk 33 bilet topladı.",
+  "Question_tr": "Yusuf, Berk'den ne kadar daha çok bilet topladı?",
+  "gold": 29
+ },
+ {
+  "ID": "dev4-two47",
+  "kind": "two",
+  "Body_tr": "Volkan'in 87 anahtari vardı. Birinden 14 anahtar aldı. Sonra 4 anahtar kaybetti.",
+  "Question_tr": "Şu an kaç anahtar var?",
+  "gold": 97
+ },
+ {
+  "ID": "dev4-share48",
+  "kind": "share",
+  "Body_tr": "Yusuf 45 lalei 5 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç lale aldı?",
+  "gold": 9
+ },
+ {
+  "ID": "dev4-more48",
+  "kind": "more",
+  "Body_tr": "Yusuf 62 fındık topladı. Tuğba 36 fındık topladı.",
+  "Question_tr": "Yusuf, Tuğba'den ne kadar daha çok fındık topladı?",
+  "gold": 26
+ },
+ {
+  "ID": "dev4-two48",
+  "kind": "two",
+  "Body_tr": "Pelin'in 62 fındıki vardı. Birinden 24 fındık aldı. Sonra 14 fındık kaybetti.",
+  "Question_tr": "Şu an kaç fındık var?",
+  "gold": 72
+ },
+ {
+  "ID": "dev4-share49",
+  "kind": "share",
+  "Body_tr": "Tuğba 24 lalei 3 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç lale aldı?",
+  "gold": 8
+ },
+ {
+  "ID": "dev4-more49",
+  "kind": "more",
+  "Body_tr": "Tuğba 45 anahtar topladı. Volkan 28 anahtar topladı.",
+  "Question_tr": "Tuğba, Volkan'den ne kadar daha çok anahtar topladı?",
+  "gold": 17
+ },
+ {
+  "ID": "dev4-two49",
+  "kind": "two",
+  "Body_tr": "Deniz'in 28 fındıki vardı. Birinden 21 fındık aldı. Sonra 4 fındık kaybetti.",
+  "Question_tr": "Şu an kaç fındık var?",
+  "gold": 45
+ },
+ {
+  "ID": "dev4-share50",
+  "kind": "share",
+  "Body_tr": "Deniz 15 anahtari 5 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç anahtar aldı?",
+  "gold": 3
+ },
+ {
+  "ID": "dev4-more50",
+  "kind": "more",
+  "Body_tr": "Tuğba 57 fındık topladı. Onur 41 fındık topladı.",
+  "Question_tr": "Tuğba, Onur'den ne kadar daha çok fındık topladı?",
+  "gold": 16
+ },
+ {
+  "ID": "dev4-two50",
+  "kind": "two",
+  "Body_tr": "Tuğba'in 48 anahtari vardı. Birinden 11 anahtar aldı. Sonra 9 anahtar kaybetti.",
+  "Question_tr": "Şu an kaç anahtar var?",
+  "gold": 50
+ },
+ {
+  "ID": "dev4-share51",
+  "kind": "share",
+  "Body_tr": "Volkan 60 anahtari 6 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç anahtar aldı?",
+  "gold": 10
+ },
+ {
+  "ID": "dev4-more51",
+  "kind": "more",
+  "Body_tr": "Volkan 51 fincan topladı. Yusuf 45 fincan topladı.",
+  "Question_tr": "Volkan, Yusuf'den ne kadar daha çok fincan topladı?",
+  "gold": 6
+ },
+ {
+  "ID": "dev4-two51",
+  "kind": "two",
+  "Body_tr": "Işık'in 66 bileti vardı. Birinden 25 bilet aldı. Sonra 7 bilet kaybetti.",
+  "Question_tr": "Şu an kaç bilet var?",
+  "gold": 84
+ },
+ {
+  "ID": "dev4-share52",
+  "kind": "share",
+  "Body_tr": "Berk 50 anahtari 5 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç anahtar aldı?",
+  "gold": 10
+ },
+ {
+  "ID": "dev4-more52",
+  "kind": "more",
+  "Body_tr": "Berk 36 anahtar topladı. Tuğba 27 anahtar topladı.",
+  "Question_tr": "Berk, Tuğba'den ne kadar daha çok anahtar topladı?",
+  "gold": 9
+ },
+ {
+  "ID": "dev4-two52",
+  "kind": "two",
+  "Body_tr": "Yusuf'in 60 bileti vardı. Birinden 22 bilet aldı. Sonra 3 bilet kaybetti.",
+  "Question_tr": "Şu an kaç bilet var?",
+  "gold": 79
+ },
+ {
+  "ID": "dev4-share53",
+  "kind": "share",
+  "Body_tr": "Berk 52 jetoni 4 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç jeton aldı?",
+  "gold": 13
+ },
+ {
+  "ID": "dev4-more53",
+  "kind": "more",
+  "Body_tr": "Işık 27 jeton topladı. Deniz 11 jeton topladı.",
+  "Question_tr": "Işık, Deniz'den ne kadar daha çok jeton topladı?",
+  "gold": 16
+ },
+ {
+  "ID": "dev4-two53",
+  "kind": "two",
+  "Body_tr": "Yusuf'in 45 jetoni vardı. Birinden 23 jeton aldı. Sonra 4 jeton kaybetti.",
+  "Question_tr": "Şu an kaç jeton var?",
+  "gold": 64
+ },
+ {
+  "ID": "dev4-share54",
+  "kind": "share",
+  "Body_tr": "Onur 54 fındıki 2 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç fındık aldı?",
+  "gold": 27
+ },
+ {
+  "ID": "dev4-more54",
+  "kind": "more",
+  "Body_tr": "Onur 75 jeton topladı. Tuğba 49 jeton topladı.",
+  "Question_tr": "Onur, Tuğba'den ne kadar daha çok jeton topladı?",
+  "gold": 26
+ },
+ {
+  "ID": "dev4-two54",
+  "kind": "two",
+  "Body_tr": "Pelin'in 45 anahtari vardı. Birinden 10 anahtar aldı. Sonra 12 anahtar kaybetti.",
+  "Question_tr": "Şu an kaç anahtar var?",
+  "gold": 43
+ },
+ {
+  "ID": "dev4-share55",
+  "kind": "share",
+  "Body_tr": "Onur 60 jetoni 6 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç jeton aldı?",
+  "gold": 10
+ },
+ {
+  "ID": "dev4-more55",
+  "kind": "more",
+  "Body_tr": "Yusuf 27 fincan topladı. Onur 16 fincan topladı.",
+  "Question_tr": "Yusuf, Onur'den ne kadar daha çok fincan topladı?",
+  "gold": 11
+ },
+ {
+  "ID": "dev4-two55",
+  "kind": "two",
+  "Body_tr": "Tuğba'in 59 lalei vardı. Birinden 12 lale aldı. Sonra 9 lale kaybetti.",
+  "Question_tr": "Şu an kaç lale var?",
+  "gold": 62
+ },
+ {
+  "ID": "dev4-share56",
+  "kind": "share",
+  "Body_tr": "Onur 28 lalei 2 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç lale aldı?",
+  "gold": 14
+ },
+ {
+  "ID": "dev4-more56",
+  "kind": "more",
+  "Body_tr": "Onur 42 jeton topladı. Yusuf 21 jeton topladı.",
+  "Question_tr": "Onur, Yusuf'den ne kadar daha çok jeton topladı?",
+  "gold": 21
+ },
+ {
+  "ID": "dev4-two56",
+  "kind": "two",
+  "Body_tr": "Deniz'in 47 fincani vardı. Birinden 14 fincan aldı. Sonra 4 fincan kaybetti.",
+  "Question_tr": "Şu an kaç fincan var?",
+  "gold": 57
+ },
+ {
+  "ID": "dev4-share57",
+  "kind": "share",
+  "Body_tr": "Deniz 70 fındıki 5 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç fındık aldı?",
+  "gold": 14
+ },
+ {
+  "ID": "dev4-more57",
+  "kind": "more",
+  "Body_tr": "Berk 41 lale topladı. Volkan 32 lale topladı.",
+  "Question_tr": "Berk, Volkan'den ne kadar daha çok lale topladı?",
+  "gold": 9
+ },
+ {
+  "ID": "dev4-two57",
+  "kind": "two",
+  "Body_tr": "Volkan'in 23 fındıki vardı. Birinden 7 fındık aldı. Sonra 12 fındık kaybetti.",
+  "Question_tr": "Şu an kaç fındık var?",
+  "gold": 18
+ },
+ {
+  "ID": "dev4-share58",
+  "kind": "share",
+  "Body_tr": "Tuğba 15 fincani 3 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç fincan aldı?",
+  "gold": 5
+ },
+ {
+  "ID": "dev4-more58",
+  "kind": "more",
+  "Body_tr": "Deniz 48 jeton topladı. Berk 31 jeton topladı.",
+  "Question_tr": "Deniz, Berk'den ne kadar daha çok jeton topladı?",
+  "gold": 17
+ },
+ {
+  "ID": "dev4-two58",
+  "kind": "two",
+  "Body_tr": "Volkan'in 50 bileti vardı. Birinden 14 bilet aldı. Sonra 2 bilet kaybetti.",
+  "Question_tr": "Şu an kaç bilet var?",
+  "gold": 62
+ },
+ {
+  "ID": "dev4-share59",
+  "kind": "share",
+  "Body_tr": "Tuğba 12 anahtari 4 kişiye eşit olarak paylaştırdı.",
+  "Question_tr": "Her kişi kaç anahtar aldı?",
+  "gold": 3
+ },
+ {
+  "ID": "dev4-more59",
+  "kind": "more",
+  "Body_tr": "Deniz 57 anahtar topladı. Berk 42 anahtar topladı.",
+  "Question_tr": "Deniz, Berk'den ne kadar daha çok anahtar topladı?",
+  "gold": 15
+ },
+ {
+  "ID": "dev4-two59",
+  "kind": "two",
+  "Body_tr": "Deniz'in 57 bileti vardı. Birinden 3 bilet aldı. Sonra 4 bilet kaybetti.",
+  "Question_tr": "Şu an kaç bilet var?",
+  "gold": 56
+ }
+]

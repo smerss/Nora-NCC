@@ -656,7 +656,7 @@ class EpisodicDialogueCortex:
 
     N_FIBERS = 4096
     K_ACTIVE = 12
-    BUCKET_CAP = 36
+    BUCKET_CAP = 1024
 
     def __init__(self):
         self.episodes: list[DialogueEpisode] = []

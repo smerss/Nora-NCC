@@ -1305,6 +1305,20 @@ class NoraAGI:
         # ve kendi grafik kanıtı/nöral-validator kapısını uygular.
         if bool(getattr(self.deliberation, "tutorial", {}).get("active")):
             return ""
+        # Okul korteksinin uzmanlık alanına giren sorular (yüzde, kesir, basamak,
+        # sembol, sayı sayma vb.) tanım sorgusu gibi erken yakalanmamalıdır.
+        if getattr(self, "school", None) is not None:
+            try:
+                if self.school.answer(text, self) is not None:
+                    return ""
+            except Exception:
+                pass
+        # Epizodik diyalog / genel bilgi hafızasında bu soruya verilmiş doğrulanmış bir yanıt varsa tanım kapısı kesmemeli
+        try:
+            if self._recall_episodic_qa(text) is not None:
+                return ""
+        except Exception:
+            pass
         parts = [p for p in re.split(r"(?<=[.!?…])\s+|\n+", text) if p.strip()]
         if len(parts) != 1:
             return ""
@@ -2225,6 +2239,12 @@ class NoraAGI:
         # sözcükler bilinmeyen kavram sayılıp problem çözülmeden reddedilmesin.
         _structured = (None if _cot_preflight else
                        puzzles.solve(raw, self.__dict__.setdefault("_puzzle_memory", {})))
+        if _structured is None and not _cot_preflight:
+            # Çok cümleli kelime problemi: başlangıç + olaylar + 'kaç kaldı/toplam' yapısı.
+            from nora.cognition.story_math import answer_text as _story_answer, solve_story
+            _story = solve_story(raw)
+            if _story is not None:
+                _structured = _story_answer(_story)
         if _structured is not None:
             _reply, _why = _structured
             self.lang.wernicke.last_explanation = _why
@@ -2484,6 +2504,29 @@ class NoraAGI:
         raw = text.strip()
         if not raw:
             return "..."
+        # MATEMATİK ÖN-KAPISI: açık bir hesap isteği ('2pi kaç eder', '-2'den 3'e ... integralini hesapla')
+        # vektör-analoji, öğrenme, grafik ve epizodik geri çağırma yollarından ÖNCE çözülür; aksi
+        # hâlde 'a - b + c' biçimli polinomlar analoji sanılır. Aynı soru tekrar sorulsa da hesap
+        # yeniden yapılır: tekrar farkındalığı hesabın yerini almaz.
+        try:
+            _math_pre = self.math_cortex.try_solve(raw) if getattr(self, "math_cortex", None) is not None else None
+        except Exception:
+            _math_pre = None
+        if _math_pre is not None:
+            try:
+                self.life.on_interaction(self, raw, speaker)
+                self.initiative.on_user_reply()
+            except Exception:
+                pass
+            self._turn_path = "parietal_math"
+            self._intent_locked = True
+            self.last_gw_trace = {
+                "winner": "parietal_math", "confidence": float(_math_pre["confidence"]),
+                "trace": str(_math_pre["trace"]), "bids": {"parietal_math": float(_math_pre["confidence"])},
+                "used_s2": True,
+            }
+            self._log_turn(speaker, raw, _math_pre["reply"], t0)
+            return _math_pre["reply"]
         # Bağlı vektör cebiri ve MB bağlam çözümü, genel tanım/aritmetik
         # uzmanlarından önce kendi kanıt yolunda çalışır.
         _special = self._vector_analogy_turn(raw)
@@ -2942,6 +2985,17 @@ class NoraAGI:
         if _tr:
             self._log_turn(speaker, raw, _tr, t0)
             return _tr
+        try:
+            _qa_ep = self._recall_episodic_qa(raw)
+        except Exception:
+            _qa_ep = None
+        if _qa_ep:
+            self._intent_locked = True
+            self._turn_path = "episodic_qa_recall"
+            # Gövde doğrulanmış kayıttan gelir; açılış çerçevesi her turda yarışır.
+            _qa_ep = self._say("memory.replay", {"body": _qa_ep}, fallback=_qa_ep)
+            self._log_turn(speaker, raw, _qa_ep, t0)
+            return _qa_ep
 
         # --- OKUL: sayı/basamak/okunuş/sembol ve aşamalı problemler.
         # Önce "öğretme cümlesi mi?" diye bakar (kullanıcı konuşarak öğretir), sonra soru olarak çözer.
@@ -5757,6 +5811,8 @@ class NoraAGI:
             self.num_facts.setdefault(attr, {})[who] = num
             wrote += 1
         if wrote:
+            if any(w in tl for w in ("kaç", "ne kadar", "kaçtır", "olur", "kalır", "toplam")):
+                return None
             _pairs = []
             for attr, table in self.num_facts.items():
                 for who, num in table.items():
@@ -6073,6 +6129,135 @@ class NoraAGI:
                         {"subj": hit["subj"], "src": src, "val": val},
                         ctx={"kind": "single"}, fallback="")
         return _ts or None
+
+    def _chance(self) -> float:
+        """Söz zarı: [0, 1) arası, her çekimde donanım entropisinden. Tohum tekrar üretilemez."""
+        ent = getattr(self, "entropy", None)
+        if ent is not None:
+            return float(ent.unit())
+        return int.from_bytes(os.urandom(8), "big") / 2.0 ** 64
+
+    def refresh_chance_streams(self) -> None:
+        """Her oturumun örnekleme zarları yeniden tohumlanır: kayıtlı tohum aynı sözleri geri getirmesin.
+
+        Nora'nın iç nesnelerindeki (iki düzey) `random.Random` ve torch üreteçleri bulunup
+        işletim sisteminin entropisiyle tohumlanır. Tohum artık seed'den değil, her açılışta
+        yeniden çekilir; yani aynı kayıt iki oturumda aynı zarları atmaz.
+        """
+        import random as _random
+        seen: set[int] = set()
+
+        def reseed(owner, depth: int) -> None:
+            if depth > 2 or id(owner) in seen:
+                return
+            seen.add(id(owner))
+            for val in list(vars(owner).values()):
+                if isinstance(val, _random.Random):
+                    val.seed(int.from_bytes(os.urandom(16), "big"))
+                elif type(val).__name__ == "Generator" and type(val).__module__.startswith("torch"):
+                    val.seed()
+                elif type(val).__module__.startswith("nora") and hasattr(val, "__dict__"):
+                    reseed(val, depth + 1)
+
+        reseed(self, 0)
+
+    def _strip_replay_frame(self, text: str) -> str:
+        """Önceki turdan kalan açılış çerçevesini sıyır: çerçeve hafızada birikmez, gövde kalır."""
+        try:
+            frames = [a.text.split("{body}")[0].rstrip() for a in self.priors.kinds.get("memory.replay", ())]
+        except Exception:
+            frames = []
+        frames = [f for f in frames if f]
+        t = (text or "").strip()
+        changed = True
+        while changed:
+            changed = False
+            for f in frames:
+                if t.startswith(f):
+                    t = t[len(f):].lstrip()
+                    changed = True
+        return t
+
+    def _recall_episodic_qa(self, raw: str) -> str | None:
+        """Epizodik diyalog ve prosedürel hafızadan (CA3) eşleşen QA cevabını geri çağırır."""
+        epi = getattr(getattr(self, "broca_organ", None), "episodic", None)
+        if epi is None or not epi.episodes:
+            return None
+        low = tr_lower(raw or "")
+        # Soru kalıbı veya bilgi arama isteği
+        is_q = "?" in raw or any(low.startswith(w) for w in ("nasıl", "nedir", "neler", "kim", "hangi", "ne "))
+        if not is_q:
+            return None
+        # Meta bellek sorguları kendi özel organlarına aittir (A22 testleri vs.)
+        if any(k in low for k in ("ne söylemiştim", "ne dedim", "ne konuştuk", "ilk ne", "kaç konuşma anısı", "adım neydi", "ne demiştim")):
+            return None
+
+        # Matematik veya fizik korteksinin uzmanlık alanına giren hesaplamaları epizodik genel diyalog gasp etmemeli
+        if getattr(self, "math_cortex", None) is not None:
+            try:
+                if self.math_cortex.try_solve(raw) is not None:
+                    return None
+            except Exception:
+                pass
+        # Sayılı ya da 'artı/eksi/çarpı/bölü' içeren hesap sorusu ('96 + 48 kaç eder?') bir bellek
+        # sorusu değildir: eski bir diyalog kaydı hesabın yerine geçmez; aritmetik yolu çözer.
+        if (re.search(r"\d", low) or re.search(r"\b(?:artı|eksi|çarpı|bölü)\b", low)) and (
+                "kaç" in low or "hesapla" in low):
+            return None
+
+        stop_words = {"ne", "nasıl", "nedir", "neydi", "kim", "kimdir", "hangi", "hangisi", "hangisidir", "kaç", "kaçtır", "nerede", "neresi", "neresidir", "nerededir", "yapılır", "et", "ol", "bir", "mi", "mı", "mu", "mü", "ve", "veya", "ile", "için", "dan", "den", "tan", "ten"}
+        words = re.findall(r"\b[\wçğıöşü]+\b", low)
+        stems = [w for w in words if len(w) > 2 and w not in stop_words]
+        if not stems:
+            return None
+
+        # Yalnız bilgi kaynağının kayıtları geri çağrılır. Sohbette söylenmiş sözlerin cevabı
+        # (ses-*) doğrulanmış bilgi değildir; onları verbatim tekrarlamak kalıp cevap üretir.
+        # (recall konuşmacıyı yalnız bonusla öne alır, süzmez: burada süzülür.)
+        hits = [ep for ep in epi.recall(stems, speaker="sixfinger_bilgi", exclude_last=0, top_k=64)
+                if getattr(ep, "speaker", "") == "sixfinger_bilgi"][:15]
+        if not hits:
+            return None
+
+        q_clean = tr_lower(raw).strip("?. ")
+        q_words = set(re.findall(r"\b[\wçğıöşü]+\b", q_clean))
+        # Cevap sorunun her anahtar sözcüğünü taşımalı: "başkent" sorusuna turizm listesi
+        # gibi konuyu kaçıran bir kayıt verbatim geri dönmesin (kısa önek eşleşmesi).
+        q_keys = [w[:5] for w in stems if len(w) >= 4]
+        cands: list[tuple[float, str]] = []
+
+        for ep in hits:
+            rep = (getattr(ep, "reply_text", "") or "").strip()
+            if not rep:
+                continue
+            if q_keys and not all(k in tr_lower(rep) for k in q_keys):
+                continue
+            ep_clean = tr_lower(ep.user_text or "").strip("?. ")
+            ep_words = set(re.findall(r"\b[\wçğıöşü]+\b", ep_clean))
+            inter = q_words & ep_words
+            union = q_words | ep_words
+            jaccard = len(inter) / max(len(union), 1)
+            exact_bonus = 2.0 if q_clean == ep_clean else (0.5 if q_clean in ep_clean or ep_clean in q_clean else 0.0)
+            score = jaccard + exact_bonus
+            if score >= 0.20 and len(inter) >= 1:
+                cands.append((score, self._strip_replay_frame(rep)))
+
+        if not cands:
+            return None
+        # Yalnız en iyi eşleşmeye yakın kayıtlar yarışır: zayıf bir kayıt nadir de olsa konuyu kaçırmasın.
+        top = max(score for score, _ in cands)
+        cands = [c for c in cands if c[0] >= 0.6 * top]
+        # Aynı soruya az önce verilen cevap yerine başka bir kayıt varsa onu seç: tekrar etmesin.
+        prev = str((self._prev_answers or {}).get(tr_lower(raw).strip(" .!?…")) or "")
+        fresh = [c for c in cands if c[1] not in prev] or cands
+        # En iyi kayıt hep kazanmaz: puanla orantılı seçim; eşdeğer kayıtlar dönüşümlü konuşur.
+        roll = self._chance() * sum(score for score, _ in fresh)
+        acc = 0.0
+        for score, rep in fresh:
+            acc += score
+            if roll <= acc:
+                return rep
+        return fresh[-1][1]
 
     def _synth_program(self):
         """Yazılmış son dönüşüm programı (yeni oturumda defterden geri kurulur)."""
@@ -6985,6 +7170,47 @@ class NoraAGI:
             return t
         up = {"i": "İ", "ı": "I"}.get(t[0], t[0].upper())
         return up + t[1:]
+
+    @staticmethod
+    def _make_tr_genitive(noun: str) -> str:
+        """Türkçe ilgi (iyelik) eki ekler: Türkiye'nin, Fransa'nın, Rusya'nın, Irak'ın vb."""
+        vowels = "aeıioöuüAEIİOÖUÜ"
+        clean = noun.strip().rstrip("'\"")
+        if not clean:
+            return clean
+        last_char = clean[-1]
+        last_vowel = next((ch for ch in reversed(clean) if ch in vowels), "e")
+        is_vowel_ending = last_char in vowels
+        if last_vowel in "eiEİ":
+            suffix = "nin" if is_vowel_ending else "in"
+        elif last_vowel in "öüÖÜ":
+            suffix = "nün" if is_vowel_ending else "ün"
+        elif last_vowel in "aıAI":
+            suffix = "nın" if is_vowel_ending else "ın"
+        else:
+            suffix = "nun" if is_vowel_ending else "un"
+        return f"{clean}'{suffix}"
+
+    @staticmethod
+    def _make_tr_copula(noun: str) -> str:
+        """Türkçe bildirme eki ekler: Ankara'dır, Paris'tir, Berlin'dir, Tokyo'dur vb."""
+        vowels = "aeıioöuüAEIİOÖUÜ"
+        voiceless = "fstkçşhpFSTKÇŞHP"
+        clean = noun.strip().rstrip("'\"")
+        if not clean:
+            return clean
+        last_char = clean[-1]
+        last_vowel = next((ch for ch in reversed(clean) if ch in vowels), "e")
+        lead = "t" if last_char in voiceless else "d"
+        if last_vowel in "eiEİ":
+            v = "ir"
+        elif last_vowel in "öüÖÜ":
+            v = "ür"
+        elif last_vowel in "aıAI":
+            v = "ır"
+        else:
+            v = "ur"
+        return f"{clean}'{lead}{v}"
 
     @staticmethod
     def _fact_phrase(rec: dict) -> str:
@@ -8171,6 +8397,116 @@ class NoraAGI:
         morph = self.lang.morph
         self._higher_graph_s2_success = False
         text = tr_lower(raw).strip().rstrip("?.! ")
+
+        # --- EVRENSEL İLİŞKİSEL SORGULAYICI (Universal Relational Query Resolver) ---
+        # Her yeni veri türü için özel kod yazmak yerine grafiğin tüm ilişkilerini
+        # (CAUSES, CAUSES_BY, USED_FOR, CAN_DO, CAPITAL, HAS_PROP, vb.) otomatik çözer.
+
+        # 1) Ters İlişki / Aitlik: "X hangi Y'nin Z'sidir?" veya "X neyin/nerenin Z'sidir?"
+        rev_m = re.search(r"([\wçğıöşü\s]+?)\s+(?:hangi\s+[\wçğıöşü]+nin|hangi\s+[\wçğıöşü]+nın|nerenin|neyin)\s+([\wçğıöşü]+)idir", text)
+        if rev_m:
+            val_raw = rev_m.group(1).strip()
+            val_clean = re.sub(r"^(?:acaba|peki|bana\s+söyle|lütfen)\s+", "", val_raw).strip()
+            rel_word = rev_m.group(2).strip()
+            for edge in graph.edges:
+                if (tr_lower(edge.obj) == tr_lower(val_clean) or tr_lower(val_clean) in tr_lower(edge.obj)):
+                    u_surf = tr_capitalize(graph.surface_name(edge.subj))
+                    v_surf = tr_capitalize(graph.surface_name(val_clean))
+                    u_gen = self._make_tr_genitive(u_surf)
+                    self._higher_graph_s2_success = True
+                    self._intent_locked = True
+                    return f"{v_surf}, {u_gen} {rel_word}idir."
+
+        # 2) İşlev / Amaç: "X ne işe yarar?" / "X ne için kullanılır?" / "X neye yarar?" / "amacı nedir?"
+        used_m = re.search(r"([\wçğıöşü\s]+?)\s+(?:ne\s+işe\s+yarar|ne\s+için\s+kullanılır|amacı\s+nedir|neye\s+yarar|hangi\s+amaçla\s+kullanılır)", text)
+        if used_m:
+            subj_raw = used_m.group(1).strip()
+            subj = re.sub(r"^(?:acaba|peki|lütfen)\s+", "", subj_raw).strip()
+            hits = graph.query(subj, ("USED_FOR", "CAUSES", "CAN_DO"))
+            if hits:
+                edge = hits[0][0]
+                s_cap = tr_capitalize(subj)
+                self._higher_graph_s2_success = True
+                self._intent_locked = True
+                if edge.rel == "USED_FOR":
+                    return f"{s_cap}, {edge.obj} için kullanılır."
+                elif edge.rel == "CAUSES":
+                    return f"{s_cap}, {edge.obj} sağlar."
+                else:
+                    return f"{s_cap}, {edge.obj} yapar."
+
+        # 3) Neden / Nasıl Oluşur (Causal Ters): "X nasıl oluşur?" / "X neden olur?" / "X nasıl meydana gelir?"
+        cause_rev_m = re.search(r"([\wçğıöşü\s]+?)\s+(?:nasıl\s+oluşur|nasıl\s+meydana\s+gelir|nasıl\s+gerçekleşir|neden\s+olur|neden\s+kaynaklanır|sebebi\s+nedir)", text)
+        if cause_rev_m:
+            subj_raw = cause_rev_m.group(1).strip()
+            subj = re.sub(r"^(?:acaba|peki|lütfen)\s+", "", subj_raw).strip()
+            cause_hits = [e[0].obj for e in graph.query(subj, ("CAUSES_BY",))]
+            if not cause_hits:
+                for e in graph._in_edges.get(subj, ()):
+                    if e.rel == "CAUSES":
+                        cause_hits.append(e.subj)
+            if not cause_hits:
+                for e in graph.edges:
+                    if e.rel == "CAUSES" and (tr_lower(e.obj) == tr_lower(subj) or tr_lower(subj) in tr_lower(e.obj)):
+                        cause_hits.append(e.subj)
+            if cause_hits:
+                s_cap = tr_capitalize(subj)
+                self._higher_graph_s2_success = True
+                self._intent_locked = True
+                return f"{s_cap}, {cause_hits[0]} nedeniyle oluşur."
+
+        # 4) Causal Düz (Etki / Sonuç): "X neye yol açar?" / "X neye neden olur?" / "X neye sebep olur?"
+        cause_fwd_m = re.search(r"([\wçğıöşü\s]+?)\s+(?:neye\s+yol\s+açar|neye\s+neden\s+olur|neye\s+sebep\s+olur|sonucu\s+nedir)", text)
+        if cause_fwd_m:
+            subj_raw = cause_fwd_m.group(1).strip()
+            subj = re.sub(r"^(?:acaba|peki|lütfen)\s+", "", subj_raw).strip()
+            hits = graph.query(subj, ("CAUSES",))
+            if hits:
+                s_cap = tr_capitalize(subj)
+                self._higher_graph_s2_success = True
+                self._intent_locked = True
+                return f"{s_cap}, {hits[0][0].obj} durumuna yol açar."
+
+        # 5) Dinamik Özellik / İyelik: "X'in [özellik] nedir / neresidir / nasıldır?"
+        prop_m = re.search(r"(?:^|.*?)\b([\wçğıöşü\s]+?)(?:'nin|'nın|'nün|'nun|'in|'ın|'ün|'un|nin|nın|nün|nun|in|ın|ün|un)?\s+([\wçğıöşü]+)(?:\s+(?:neresidir|neresi|nedir|nerededir|nasıldır|ne|kim))", text)
+        if prop_m:
+            raw_u = prop_m.group(1).strip()
+            raw_u = re.sub(r"^(?:peki|acaba|bana\s+söyle|söyler\s+misin|lütfen)\s+", "", raw_u).strip()
+            rel_name = prop_m.group(2).strip()
+            words_u = raw_u.split()
+            candidate_subjs = []
+            for n_w in (len(words_u), 3, 2, 1):
+                if 0 < n_w <= len(words_u):
+                    candidate_subjs.append(" ".join(words_u[-n_w:]))
+            for cand in candidate_subjs:
+                cand_clean = cand.rstrip("'\" ")
+                cand_stripped = re.sub(r"(?:'nin|'nın|'nün|'nun|'in|'ın|'ün|'un|nin|nın|nün|nun|in|ın|ün|un)$", "", cand_clean).strip()
+                for c_try in (cand_clean, cand_stripped):
+                    rel_upper = rel_name.upper().rstrip("iıuü")
+                    if rel_upper == "BAŞKENT":
+                        rel_upper = "CAPITAL"
+                    hits = graph.query(c_try, (rel_upper,))
+                    if not hits:
+                        for e, _ in graph.query(c_try, ("HAS_PROP",)):
+                            if e.obj.startswith(f"{rel_name} "):
+                                found_obj = e.obj[len(rel_name)+1:]
+                                u_surf = tr_capitalize(graph.surface_name(c_try))
+                                c_surf = tr_capitalize(graph.surface_name(found_obj))
+                                u_gen = self._make_tr_genitive(u_surf)
+                                c_cop = self._make_tr_copula(c_surf)
+                                self._higher_graph_s2_success = True
+                                self._intent_locked = True
+                                return f"{u_gen} {rel_name} {c_cop}."
+                    if hits:
+                        edge = hits[0][0]
+                        u_surf = tr_capitalize(graph.surface_name(edge.subj))
+                        c_surf = tr_capitalize(graph.surface_name(edge.obj))
+                        u_gen = self._make_tr_genitive(u_surf)
+                        c_cop = self._make_tr_copula(c_surf)
+                        self._higher_graph_s2_success = True
+                        self._intent_locked = True
+                        return f"{u_gen} {rel_name} {c_cop}."
+
         # “X ile Y'nin ortak noktası/özelliği nedir?”: iki ayrı MB okuması,
         # ilişki+nesne ters önerileri ve iki taraflı graf doğrulaması.
         shared_match = re.fullmatch(
@@ -8881,7 +9217,7 @@ class NoraAGI:
     def _load_legacy(cls, path_prefix: str, attach_broca_async: bool = False) -> "NoraAGI":
         with open(path_prefix + ".agi.json", "r", encoding="utf-8") as f:
             meta = json.load(f)
-        agi = cls(name=meta["name"], seed=int(meta["seed"]), boot_thinker=False)
+        agi = cls(name=meta["name"], seed=int(meta["seed"]), boot_thinker=False, code_pretrain=False)
         agi.mind.load(path_prefix + ".mind.npz")
         agi.chem.load_state_dict(meta["chem"])
         agi.self_model.load_state_dict(meta["self_model"])

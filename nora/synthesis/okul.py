@@ -551,30 +551,71 @@ class SchoolCortex:
     # 9) aşamalı problem
     def _q_word_problem(self, s: str) -> str | None:
         """'Sepette 3 elma var, 2 elma daha koydum, kaç elma oldu?' -> adımlar."""
+        s = re.sub(r"^[\s>]*\d+\s*[.)]\s+", "", (s or "").strip())
         if "kaç" not in s:
             return None
         # "en küçük ortak kat", "ortak bölen", "katı", "böleni" bir ALIŞVERİŞ problemi değil,
         # sayılar teorisi sorusudur; okul burada çarpma uydurmamalı.
         if re.search(r"ortak\s+(kat|bölen)|(ebob|ekok)|\bkatı\b|\bbölen", s):
             return None
-        nums = [int(n) for n in re.findall(r"\b(\d{1,6})\b", s)]
-        if len(nums) < 2:
+        # Oran, kesir, yüzde veya birim dönüşümü sorularında tahmin yürütme.
+        if re.search(r"\b(?:oranı|yüzde|ortalama|yarısı|çeyreği)\b", s):
             return None
-        add_cues = ("daha", "ekle", "koy", "aldım", "getir", "verdi", "arttı", "oldu")
-        sub_cues = ("yedim", "yedi", "verdim", "kaybettim", "düştü", "gitti", "azaldı", "çıkardım")
-        mul_cues = ("her birinde", "her biri", "kere", "katı", "çarptım")
-        a, b = nums[0], nums[1]
-        if any(c in s for c in mul_cues):
-            op, res, sym = "çarpma", a * b, "×"
-        elif any(c in s for c in sub_cues):
-            op, res, sym = "çıkarma", a - b, "-"
-        elif any(c in s for c in add_cues):
-            op, res, sym = "toplama", a + b, "+"
-        else:
+        parts = [p.strip() for p in re.split(r"[,;.]+|\b(?:ve|sonra|ardından)\b", s) if p.strip()]
+        actions = []
+        for p in parts:
+            found = [int(n) for n in re.findall(r"\b(\d{1,6})\b", p)]
+            for n in found:
+                actions.append((n, p))
+        if len(actions) < 2:
             return None
-        steps = [f"1. adım: elimde {a} var ({number_words(a)}).",
-                 f"2. adım: {b} ({number_words(b)}) {('ekleniyor' if op == 'toplama' else 'çıkarılıyor' if op == 'çıkarma' else 'ile çarpılıyor')}.",
-                 f"3. adım: {a} {sym} {b} = {res}."]
+
+        add_cues = ("daha", "ekle", "koy", "aldım", "aldı", "alıyor", "getir", "verdi", "veriyor",
+                    "arttı", "oldu", "buldum", "buldu", "kazandı", "katıldı", "bindi")
+        sub_cues = ("yedim", "yedi", "yiyor", "verdim", "verildi", "kaybettim", "kaybetti",
+                    "düştü", "gitti", "azaldı", "çıkardım", "çıkardı", "harcadı", "harcıyor",
+                    "harcadım", "sattı", "sattım", "okuyor", "okudu", "indi", "kullandı",
+                    "kırdı", "eksildi", "dağıttı")
+        mul_cues = ("her birinde", "her biri", "her kutuda", "her pakette", "her torbada",
+                    "kere", "katı", "çarptım")
+        left_q_cues = ("kalır", "kaldı", "kalan", "geriye", "eksik")
+
+        curr_val = actions[0][0]
+        steps = [f"1. adım: elimde {curr_val} var ({number_words(curr_val)})."]
+
+        step_num = 2
+        for n, p in actions[1:]:
+            # Eğer aynı kişi bir başkasına veriyorsa ("arkadaşına veriyor") bu eksiltmedir;
+            # ama bir başkası ("babası 12 TL veriyor", "ona ... veriyor") özneye veriyorsa eklemedir.
+            is_giving_away = bool(re.search(r"(?:arkadaşına|kardeşine|annesine|babasına|komşusuna)\s+ver", p))
+            if any(c in p for c in mul_cues):
+                sym, verb = "×", "ile çarpılıyor"
+                new_val = curr_val * n
+            elif is_giving_away or any(c in p for c in sub_cues):
+                sym, verb = "-", "çıkarılıyor"
+                new_val = curr_val - n
+            elif any(c in p for c in add_cues):
+                sym, verb = "+", "ekleniyor"
+                new_val = curr_val + n
+            elif any(c in s for c in mul_cues):
+                sym, verb = "×", "ile çarpılıyor"
+                new_val = curr_val * n
+            elif any(c in s for c in sub_cues) or any(c in s for c in left_q_cues):
+                sym, verb = "-", "çıkarılıyor"
+                new_val = curr_val - n
+            elif any(c in s for c in add_cues):
+                sym, verb = "+", "ekleniyor"
+                new_val = curr_val + n
+            else:
+                return None
+
+            steps.append(f"{step_num}. adım: {n} ({number_words(n)}) {verb}.")
+            step_num += 1
+            steps.append(f"{step_num}. adım: {curr_val} {sym} {n} = {new_val}.")
+            step_num += 1
+            curr_val = new_val
+
+        res = curr_val
         return " ".join(steps) + f" Sonuç: {res}. " + self._pick(
             ("Böyle hesapladım.", "Adımlar bunlar.", "Baştan sona izledim."))
 

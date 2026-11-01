@@ -1,0 +1,50 @@
+concept,subject,relation,object
+gökkuşağı,gökkuşağı,ISA,optik doğa olayı
+gökkuşağı,gökkuşağı,CAUSES_BY,güneş ışığının yağmur damlacıklarında kırılması ve yansıması
+gökkuşağı,güneş ışığının yağmur damlacıklarında kırılması ve yansıması,CAUSES,gökkuşağı
+fotosentez,fotosentez,ISA,biyolojik süreç
+fotosentez,fotosentez,USED_FOR,bitkilerin güneş ışığıyla besin ve oksijen üretmesi
+fotosentez,fotosentez,CAUSES,oksijen ve glikoz üretimi
+fotosentez,fotosentez,CAUSES_BY,"klorofilin güneş ışığı, su ve karbondioksiti birleştirmesi"
+deprem,deprem,ISA,jeolojik doğa olayı
+deprem,deprem,CAUSES_BY,yer kabuğundaki fay hatlarının kırılması ve enerji boşalması
+deprem,fay hatlarının kırılması,CAUSES,deprem
+deprem,deprem,CAUSES,yer kabuğunda sarsıntılar ve sismik dalgalar
+yağmur,yağmur,ISA,yağış türü
+yağmur,yağmur,CAUSES_BY,su buharının atmosferde soğuyarak yoğunlaşması
+yağmur,su buharının yoğuşması,CAUSES,yağmur
+yağmur,yağmur,USED_FOR,tatlı su kaynaklarının yenilenmesi ve toprağın sulanması
+yağmur,yağmur,CAUSES,toprağın nemlenmesi ve su döngüsünün sürmesi
+rüzgâr,rüzgâr,ISA,meteorolojik hava hareketi
+rüzgâr,rüzgâr,CAUSES_BY,yüksek basınç ile alçak basınç alanları arasındaki basınç farkı
+rüzgâr,basınç farkı,CAUSES,rüzgâr
+rüzgâr,rüzgâr,USED_FOR,hava sirkülasyonu ve rüzgâr türbinleriyle elektrik üretmek
+güneş tutulması,güneş tutulması,ISA,astronomik olay
+güneş tutulması,güneş tutulması,CAUSES_BY,Ay'ın Dünya ile Güneş arasına girerek Güneş'i örtmesi
+güneş tutulması,Ay'ın Dünya ile Güneş arasına girmesi,CAUSES,güneş tutulması
+ay tutulması,ay tutulması,ISA,astronomik olay
+ay tutulması,ay tutulması,CAUSES_BY,Dünya'nın Güneş ile Ay arasına girip Ay'ın üzerine gölge düşürmesi
+aşı,aşı,ISA,biyolojik koruyucu tıp aracı
+aşı,aşı,USED_FOR,bağışıklık sistemini mikroplara karşı eğitmek ve hastalıklardan korumak
+aşı,aşı,CAUSES,antikor üretimi ve bağışıklık hafızasının oluşması
+antibiyotik,antibiyotik,ISA,tedavi edici ilaç
+antibiyotik,antibiyotik,USED_FOR,bakteriyel enfeksiyonları tedavi etmek ve bakterileri yok etmek
+antibiyotik,antibiyotik,PREVENTS,bakterilerin çoğalması
+erozyon,erozyon,ISA,toprak aşınması
+erozyon,erozyon,CAUSES_BY,rüzgâr ve su akıntılarının verimli üst toprağı süpürmesi
+erozyon,erozyon,CAUSES,verimli tarım arazilerinin kaybı ve çölleşme
+sera etkisi,sera etkisi,ISA,atmosferik ısınma mekanizması
+sera etkisi,sera etkisi,CAUSES_BY,atmosferdeki karbondioksit ve metan gibi sera gazlarının ısıyı hapsetmesi
+sera etkisi,sera etkisi,CAUSES,küresel sıcaklık artışı ve iklim değişikliği
+yerçekimi,yerçekimi,ISA,temel kütleçekim kuvveti
+yerçekimi,yerçekimi,CAUSES,kütlelerin birbirini çekmesi ve cisimlerin yere düşmesi
+yerçekimi,yerçekimi,USED_FOR,gezegenlerin yörüngede kalması ve atmosferin uzaya dağılmaması
+gelgit,gelgit,ISA,okyanus ve deniz su hareketi
+gelgit,gelgit,CAUSES_BY,Ay ve Güneş'in Dünya üzerindeki sulara uyguladığı kütleçekim kuvveti
+volkan patlaması,volkan patlaması,ISA,jeolojik doğa olayı
+volkan patlaması,volkan patlaması,CAUSES_BY,magmanın yer kabuğundaki yüksek basınç nedeniyle yüzeye püskürmesi
+volkan patlaması,volkan patlaması,CAUSES,"lav, kül ve volkanik gazların yayılması"
+buharlaşma,buharlaşma,ISA,fiziksel hâl değişimi
+buharlaşma,buharlaşma,CAUSES_BY,sıvı moleküllerinin ısı enerjisi alarak gaz fazına geçmesi
+yoğuşma,yoğuşma,ISA,fiziksel hâl değişimi
+yoğuşma,yoğuşma,CAUSES_BY,gaz moleküllerinin ısı verip soğuyarak sıvı fazına geçmesi

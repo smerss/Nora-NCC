@@ -1,0 +1,1682 @@
+[
+ {
+  "ID": "dev5-double0",
+  "kind": "double",
+  "Body_tr": "Furkan'nin 15 karti var. Arkadaşının karti bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç karti var?",
+  "gold": 30
+ },
+ {
+  "ID": "dev5-perunit0",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 13 kitap konuyor. Taner 9 kutu doldurdu.",
+  "Question_tr": "Toplam kaç kitap konmuş oldu?",
+  "gold": 117
+ },
+ {
+  "ID": "dev5-pair0",
+  "kind": "pair",
+  "Body_tr": "Büşra'nin 13 silgii var. Kaan'nin de 29 silgii var.",
+  "Question_tr": "İkisinin toplam kaç silgii var?",
+  "gold": 42
+ },
+ {
+  "ID": "dev5-left0",
+  "kind": "left",
+  "Body_tr": "Kaan'nin 84 karti vardı. Bunların 9 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar kart kaldı?",
+  "gold": 75
+ },
+ {
+  "ID": "dev5-double1",
+  "kind": "double",
+  "Body_tr": "Oğuz'nin 15 kitapi var. Arkadaşının kitapi bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç kitapi var?",
+  "gold": 30
+ },
+ {
+  "ID": "dev5-perunit1",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 10 kitap konuyor. Taner 8 kutu doldurdu.",
+  "Question_tr": "Toplam kaç kitap konmuş oldu?",
+  "gold": 80
+ },
+ {
+  "ID": "dev5-pair1",
+  "kind": "pair",
+  "Body_tr": "Lale'nin 48 silgii var. Kaan'nin de 5 silgii var.",
+  "Question_tr": "İkisinin toplam kaç silgii var?",
+  "gold": 53
+ },
+ {
+  "ID": "dev5-left1",
+  "kind": "left",
+  "Body_tr": "İpek'nin 72 çanaki vardı. Bunların 12 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar çanak kaldı?",
+  "gold": 60
+ },
+ {
+  "ID": "dev5-double2",
+  "kind": "double",
+  "Body_tr": "Büşra'nin 3 tencerei var. Arkadaşının tencerei bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç tencerei var?",
+  "gold": 6
+ },
+ {
+  "ID": "dev5-perunit2",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 7 kart konuyor. İpek 6 kutu doldurdu.",
+  "Question_tr": "Toplam kaç kart konmuş oldu?",
+  "gold": 42
+ },
+ {
+  "ID": "dev5-pair2",
+  "kind": "pair",
+  "Body_tr": "Nisa'nin 23 karti var. Taner'nin de 16 karti var.",
+  "Question_tr": "İkisinin toplam kaç karti var?",
+  "gold": 39
+ },
+ {
+  "ID": "dev5-left2",
+  "kind": "left",
+  "Body_tr": "Taner'nin 23 rozeti vardı. Bunların 16 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar rozet kaldı?",
+  "gold": 7
+ },
+ {
+  "ID": "dev5-double3",
+  "kind": "double",
+  "Body_tr": "Büşra'nin 34 çanaki var. Arkadaşının çanaki bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç çanaki var?",
+  "gold": 68
+ },
+ {
+  "ID": "dev5-perunit3",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 3 kart konuyor. Furkan 11 kutu doldurdu.",
+  "Question_tr": "Toplam kaç kart konmuş oldu?",
+  "gold": 33
+ },
+ {
+  "ID": "dev5-pair3",
+  "kind": "pair",
+  "Body_tr": "Oğuz'nin 54 silgii var. Nisa'nin de 22 silgii var.",
+  "Question_tr": "İkisinin toplam kaç silgii var?",
+  "gold": 76
+ },
+ {
+  "ID": "dev5-left3",
+  "kind": "left",
+  "Body_tr": "Oğuz'nin 44 silgii vardı. Bunların 14 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar silgi kaldı?",
+  "gold": 30
+ },
+ {
+  "ID": "dev5-double4",
+  "kind": "double",
+  "Body_tr": "Furkan'nin 12 silgii var. Arkadaşının silgii bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç silgii var?",
+  "gold": 24
+ },
+ {
+  "ID": "dev5-perunit4",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 3 kart konuyor. Oğuz 11 kutu doldurdu.",
+  "Question_tr": "Toplam kaç kart konmuş oldu?",
+  "gold": 33
+ },
+ {
+  "ID": "dev5-pair4",
+  "kind": "pair",
+  "Body_tr": "Lale'nin 20 çanaki var. Büşra'nin de 31 çanaki var.",
+  "Question_tr": "İkisinin toplam kaç çanaki var?",
+  "gold": 51
+ },
+ {
+  "ID": "dev5-left4",
+  "kind": "left",
+  "Body_tr": "Taner'nin 55 silgii vardı. Bunların 3 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar silgi kaldı?",
+  "gold": 52
+ },
+ {
+  "ID": "dev5-double5",
+  "kind": "double",
+  "Body_tr": "Oğuz'nin 27 kitapi var. Arkadaşının kitapi bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç kitapi var?",
+  "gold": 54
+ },
+ {
+  "ID": "dev5-perunit5",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 5 çanak konuyor. Kaan 8 kutu doldurdu.",
+  "Question_tr": "Toplam kaç çanak konmuş oldu?",
+  "gold": 40
+ },
+ {
+  "ID": "dev5-pair5",
+  "kind": "pair",
+  "Body_tr": "Taner'nin 29 çanaki var. Nisa'nin de 35 çanaki var.",
+  "Question_tr": "İkisinin toplam kaç çanaki var?",
+  "gold": 64
+ },
+ {
+  "ID": "dev5-left5",
+  "kind": "left",
+  "Body_tr": "Taner'nin 52 rozeti vardı. Bunların 15 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar rozet kaldı?",
+  "gold": 37
+ },
+ {
+  "ID": "dev5-double6",
+  "kind": "double",
+  "Body_tr": "Kaan'nin 10 kitapi var. Arkadaşının kitapi bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç kitapi var?",
+  "gold": 20
+ },
+ {
+  "ID": "dev5-perunit6",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 14 tencere konuyor. Taner 7 kutu doldurdu.",
+  "Question_tr": "Toplam kaç tencere konmuş oldu?",
+  "gold": 98
+ },
+ {
+  "ID": "dev5-pair6",
+  "kind": "pair",
+  "Body_tr": "İpek'nin 42 çanaki var. Büşra'nin de 53 çanaki var.",
+  "Question_tr": "İkisinin toplam kaç çanaki var?",
+  "gold": 95
+ },
+ {
+  "ID": "dev5-left6",
+  "kind": "left",
+  "Body_tr": "Taner'nin 83 kitapi vardı. Bunların 10 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar kitap kaldı?",
+  "gold": 73
+ },
+ {
+  "ID": "dev5-double7",
+  "kind": "double",
+  "Body_tr": "Büşra'nin 23 silgii var. Arkadaşının silgii bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç silgii var?",
+  "gold": 46
+ },
+ {
+  "ID": "dev5-perunit7",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 13 silgi konuyor. Oğuz 5 kutu doldurdu.",
+  "Question_tr": "Toplam kaç silgi konmuş oldu?",
+  "gold": 65
+ },
+ {
+  "ID": "dev5-pair7",
+  "kind": "pair",
+  "Body_tr": "Oğuz'nin 61 rozeti var. Kaan'nin de 7 rozeti var.",
+  "Question_tr": "İkisinin toplam kaç rozeti var?",
+  "gold": 68
+ },
+ {
+  "ID": "dev5-left7",
+  "kind": "left",
+  "Body_tr": "Kaan'nin 82 kitapi vardı. Bunların 3 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar kitap kaldı?",
+  "gold": 79
+ },
+ {
+  "ID": "dev5-double8",
+  "kind": "double",
+  "Body_tr": "İpek'nin 21 tencerei var. Arkadaşının tencerei bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç tencerei var?",
+  "gold": 42
+ },
+ {
+  "ID": "dev5-perunit8",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 13 kart konuyor. İpek 10 kutu doldurdu.",
+  "Question_tr": "Toplam kaç kart konmuş oldu?",
+  "gold": 130
+ },
+ {
+  "ID": "dev5-pair8",
+  "kind": "pair",
+  "Body_tr": "Lale'nin 26 rozeti var. İpek'nin de 20 rozeti var.",
+  "Question_tr": "İkisinin toplam kaç rozeti var?",
+  "gold": 46
+ },
+ {
+  "ID": "dev5-left8",
+  "kind": "left",
+  "Body_tr": "Furkan'nin 68 çanaki vardı. Bunların 6 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar çanak kaldı?",
+  "gold": 62
+ },
+ {
+  "ID": "dev5-double9",
+  "kind": "double",
+  "Body_tr": "Kaan'nin 33 karti var. Arkadaşının karti bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç karti var?",
+  "gold": 66
+ },
+ {
+  "ID": "dev5-perunit9",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 4 kitap konuyor. Furkan 11 kutu doldurdu.",
+  "Question_tr": "Toplam kaç kitap konmuş oldu?",
+  "gold": 44
+ },
+ {
+  "ID": "dev5-pair9",
+  "kind": "pair",
+  "Body_tr": "İpek'nin 34 tencerei var. Lale'nin de 27 tencerei var.",
+  "Question_tr": "İkisinin toplam kaç tencerei var?",
+  "gold": 61
+ },
+ {
+  "ID": "dev5-left9",
+  "kind": "left",
+  "Body_tr": "İpek'nin 40 karti vardı. Bunların 16 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar kart kaldı?",
+  "gold": 24
+ },
+ {
+  "ID": "dev5-double10",
+  "kind": "double",
+  "Body_tr": "Nisa'nin 6 karti var. Arkadaşının karti bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç karti var?",
+  "gold": 12
+ },
+ {
+  "ID": "dev5-perunit10",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 7 rozet konuyor. Kaan 4 kutu doldurdu.",
+  "Question_tr": "Toplam kaç rozet konmuş oldu?",
+  "gold": 28
+ },
+ {
+  "ID": "dev5-pair10",
+  "kind": "pair",
+  "Body_tr": "Furkan'nin 5 rozeti var. Taner'nin de 27 rozeti var.",
+  "Question_tr": "İkisinin toplam kaç rozeti var?",
+  "gold": 32
+ },
+ {
+  "ID": "dev5-left10",
+  "kind": "left",
+  "Body_tr": "İpek'nin 59 tencerei vardı. Bunların 13 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar tencere kaldı?",
+  "gold": 46
+ },
+ {
+  "ID": "dev5-double11",
+  "kind": "double",
+  "Body_tr": "Furkan'nin 17 çanaki var. Arkadaşının çanaki bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç çanaki var?",
+  "gold": 34
+ },
+ {
+  "ID": "dev5-perunit11",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 12 rozet konuyor. Lale 11 kutu doldurdu.",
+  "Question_tr": "Toplam kaç rozet konmuş oldu?",
+  "gold": 132
+ },
+ {
+  "ID": "dev5-pair11",
+  "kind": "pair",
+  "Body_tr": "Oğuz'nin 31 rozeti var. Nisa'nin de 59 rozeti var.",
+  "Question_tr": "İkisinin toplam kaç rozeti var?",
+  "gold": 90
+ },
+ {
+  "ID": "dev5-left11",
+  "kind": "left",
+  "Body_tr": "Lale'nin 33 kitapi vardı. Bunların 3 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar kitap kaldı?",
+  "gold": 30
+ },
+ {
+  "ID": "dev5-double12",
+  "kind": "double",
+  "Body_tr": "Furkan'nin 30 kitapi var. Arkadaşının kitapi bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç kitapi var?",
+  "gold": 60
+ },
+ {
+  "ID": "dev5-perunit12",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 11 silgi konuyor. Büşra 9 kutu doldurdu.",
+  "Question_tr": "Toplam kaç silgi konmuş oldu?",
+  "gold": 99
+ },
+ {
+  "ID": "dev5-pair12",
+  "kind": "pair",
+  "Body_tr": "İpek'nin 26 silgii var. Taner'nin de 16 silgii var.",
+  "Question_tr": "İkisinin toplam kaç silgii var?",
+  "gold": 42
+ },
+ {
+  "ID": "dev5-left12",
+  "kind": "left",
+  "Body_tr": "Taner'nin 48 çanaki vardı. Bunların 14 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar çanak kaldı?",
+  "gold": 34
+ },
+ {
+  "ID": "dev5-double13",
+  "kind": "double",
+  "Body_tr": "Lale'nin 15 kitapi var. Arkadaşının kitapi bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç kitapi var?",
+  "gold": 30
+ },
+ {
+  "ID": "dev5-perunit13",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 9 çanak konuyor. Büşra 9 kutu doldurdu.",
+  "Question_tr": "Toplam kaç çanak konmuş oldu?",
+  "gold": 81
+ },
+ {
+  "ID": "dev5-pair13",
+  "kind": "pair",
+  "Body_tr": "Nisa'nin 10 silgii var. Kaan'nin de 15 silgii var.",
+  "Question_tr": "İkisinin toplam kaç silgii var?",
+  "gold": 25
+ },
+ {
+  "ID": "dev5-left13",
+  "kind": "left",
+  "Body_tr": "Büşra'nin 88 rozeti vardı. Bunların 15 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar rozet kaldı?",
+  "gold": 73
+ },
+ {
+  "ID": "dev5-double14",
+  "kind": "double",
+  "Body_tr": "Lale'nin 20 rozeti var. Arkadaşının rozeti bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç rozeti var?",
+  "gold": 40
+ },
+ {
+  "ID": "dev5-perunit14",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 2 rozet konuyor. Nisa 9 kutu doldurdu.",
+  "Question_tr": "Toplam kaç rozet konmuş oldu?",
+  "gold": 18
+ },
+ {
+  "ID": "dev5-pair14",
+  "kind": "pair",
+  "Body_tr": "Taner'nin 43 kitapi var. İpek'nin de 28 kitapi var.",
+  "Question_tr": "İkisinin toplam kaç kitapi var?",
+  "gold": 71
+ },
+ {
+  "ID": "dev5-left14",
+  "kind": "left",
+  "Body_tr": "Nisa'nin 28 karti vardı. Bunların 14 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar kart kaldı?",
+  "gold": 14
+ },
+ {
+  "ID": "dev5-double15",
+  "kind": "double",
+  "Body_tr": "Taner'nin 25 çanaki var. Arkadaşının çanaki bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç çanaki var?",
+  "gold": 50
+ },
+ {
+  "ID": "dev5-perunit15",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 3 çanak konuyor. Büşra 8 kutu doldurdu.",
+  "Question_tr": "Toplam kaç çanak konmuş oldu?",
+  "gold": 24
+ },
+ {
+  "ID": "dev5-pair15",
+  "kind": "pair",
+  "Body_tr": "Büşra'nin 29 silgii var. Nisa'nin de 48 silgii var.",
+  "Question_tr": "İkisinin toplam kaç silgii var?",
+  "gold": 77
+ },
+ {
+  "ID": "dev5-left15",
+  "kind": "left",
+  "Body_tr": "İpek'nin 66 kitapi vardı. Bunların 15 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar kitap kaldı?",
+  "gold": 51
+ },
+ {
+  "ID": "dev5-double16",
+  "kind": "double",
+  "Body_tr": "Lale'nin 17 çanaki var. Arkadaşının çanaki bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç çanaki var?",
+  "gold": 34
+ },
+ {
+  "ID": "dev5-perunit16",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 6 kitap konuyor. Furkan 12 kutu doldurdu.",
+  "Question_tr": "Toplam kaç kitap konmuş oldu?",
+  "gold": 72
+ },
+ {
+  "ID": "dev5-pair16",
+  "kind": "pair",
+  "Body_tr": "İpek'nin 27 tencerei var. Büşra'nin de 34 tencerei var.",
+  "Question_tr": "İkisinin toplam kaç tencerei var?",
+  "gold": 61
+ },
+ {
+  "ID": "dev5-left16",
+  "kind": "left",
+  "Body_tr": "Lale'nin 33 kitapi vardı. Bunların 11 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar kitap kaldı?",
+  "gold": 22
+ },
+ {
+  "ID": "dev5-double17",
+  "kind": "double",
+  "Body_tr": "Büşra'nin 10 karti var. Arkadaşının karti bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç karti var?",
+  "gold": 20
+ },
+ {
+  "ID": "dev5-perunit17",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 5 çanak konuyor. Kaan 5 kutu doldurdu.",
+  "Question_tr": "Toplam kaç çanak konmuş oldu?",
+  "gold": 25
+ },
+ {
+  "ID": "dev5-pair17",
+  "kind": "pair",
+  "Body_tr": "Nisa'nin 10 kitapi var. Kaan'nin de 39 kitapi var.",
+  "Question_tr": "İkisinin toplam kaç kitapi var?",
+  "gold": 49
+ },
+ {
+  "ID": "dev5-left17",
+  "kind": "left",
+  "Body_tr": "Oğuz'nin 71 kitapi vardı. Bunların 6 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar kitap kaldı?",
+  "gold": 65
+ },
+ {
+  "ID": "dev5-double18",
+  "kind": "double",
+  "Body_tr": "Büşra'nin 10 karti var. Arkadaşının karti bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç karti var?",
+  "gold": 20
+ },
+ {
+  "ID": "dev5-perunit18",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 15 tencere konuyor. Furkan 5 kutu doldurdu.",
+  "Question_tr": "Toplam kaç tencere konmuş oldu?",
+  "gold": 75
+ },
+ {
+  "ID": "dev5-pair18",
+  "kind": "pair",
+  "Body_tr": "Kaan'nin 47 silgii var. Nisa'nin de 18 silgii var.",
+  "Question_tr": "İkisinin toplam kaç silgii var?",
+  "gold": 65
+ },
+ {
+  "ID": "dev5-left18",
+  "kind": "left",
+  "Body_tr": "Kaan'nin 71 kitapi vardı. Bunların 12 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar kitap kaldı?",
+  "gold": 59
+ },
+ {
+  "ID": "dev5-double19",
+  "kind": "double",
+  "Body_tr": "Furkan'nin 32 rozeti var. Arkadaşının rozeti bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç rozeti var?",
+  "gold": 64
+ },
+ {
+  "ID": "dev5-perunit19",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 14 rozet konuyor. Furkan 11 kutu doldurdu.",
+  "Question_tr": "Toplam kaç rozet konmuş oldu?",
+  "gold": 154
+ },
+ {
+  "ID": "dev5-pair19",
+  "kind": "pair",
+  "Body_tr": "Nisa'nin 53 çanaki var. Furkan'nin de 62 çanaki var.",
+  "Question_tr": "İkisinin toplam kaç çanaki var?",
+  "gold": 115
+ },
+ {
+  "ID": "dev5-left19",
+  "kind": "left",
+  "Body_tr": "Furkan'nin 40 silgii vardı. Bunların 17 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar silgi kaldı?",
+  "gold": 23
+ },
+ {
+  "ID": "dev5-double20",
+  "kind": "double",
+  "Body_tr": "Oğuz'nin 17 çanaki var. Arkadaşının çanaki bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç çanaki var?",
+  "gold": 34
+ },
+ {
+  "ID": "dev5-perunit20",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 7 tencere konuyor. Nisa 12 kutu doldurdu.",
+  "Question_tr": "Toplam kaç tencere konmuş oldu?",
+  "gold": 84
+ },
+ {
+  "ID": "dev5-pair20",
+  "kind": "pair",
+  "Body_tr": "Büşra'nin 14 rozeti var. Lale'nin de 16 rozeti var.",
+  "Question_tr": "İkisinin toplam kaç rozeti var?",
+  "gold": 30
+ },
+ {
+  "ID": "dev5-left20",
+  "kind": "left",
+  "Body_tr": "Lale'nin 49 tencerei vardı. Bunların 15 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar tencere kaldı?",
+  "gold": 34
+ },
+ {
+  "ID": "dev5-double21",
+  "kind": "double",
+  "Body_tr": "İpek'nin 38 çanaki var. Arkadaşının çanaki bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç çanaki var?",
+  "gold": 76
+ },
+ {
+  "ID": "dev5-perunit21",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 13 silgi konuyor. Taner 7 kutu doldurdu.",
+  "Question_tr": "Toplam kaç silgi konmuş oldu?",
+  "gold": 91
+ },
+ {
+  "ID": "dev5-pair21",
+  "kind": "pair",
+  "Body_tr": "Kaan'nin 32 rozeti var. Oğuz'nin de 64 rozeti var.",
+  "Question_tr": "İkisinin toplam kaç rozeti var?",
+  "gold": 96
+ },
+ {
+  "ID": "dev5-left21",
+  "kind": "left",
+  "Body_tr": "Oğuz'nin 87 silgii vardı. Bunların 13 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar silgi kaldı?",
+  "gold": 74
+ },
+ {
+  "ID": "dev5-double22",
+  "kind": "double",
+  "Body_tr": "Lale'nin 14 rozeti var. Arkadaşının rozeti bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç rozeti var?",
+  "gold": 28
+ },
+ {
+  "ID": "dev5-perunit22",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 4 kitap konuyor. Büşra 8 kutu doldurdu.",
+  "Question_tr": "Toplam kaç kitap konmuş oldu?",
+  "gold": 32
+ },
+ {
+  "ID": "dev5-pair22",
+  "kind": "pair",
+  "Body_tr": "İpek'nin 24 kitapi var. Taner'nin de 38 kitapi var.",
+  "Question_tr": "İkisinin toplam kaç kitapi var?",
+  "gold": 62
+ },
+ {
+  "ID": "dev5-left22",
+  "kind": "left",
+  "Body_tr": "Büşra'nin 47 çanaki vardı. Bunların 12 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar çanak kaldı?",
+  "gold": 35
+ },
+ {
+  "ID": "dev5-double23",
+  "kind": "double",
+  "Body_tr": "Büşra'nin 20 çanaki var. Arkadaşının çanaki bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç çanaki var?",
+  "gold": 40
+ },
+ {
+  "ID": "dev5-perunit23",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 8 kitap konuyor. Oğuz 11 kutu doldurdu.",
+  "Question_tr": "Toplam kaç kitap konmuş oldu?",
+  "gold": 88
+ },
+ {
+  "ID": "dev5-pair23",
+  "kind": "pair",
+  "Body_tr": "Kaan'nin 36 çanaki var. İpek'nin de 26 çanaki var.",
+  "Question_tr": "İkisinin toplam kaç çanaki var?",
+  "gold": 62
+ },
+ {
+  "ID": "dev5-left23",
+  "kind": "left",
+  "Body_tr": "Furkan'nin 47 karti vardı. Bunların 13 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar kart kaldı?",
+  "gold": 34
+ },
+ {
+  "ID": "dev5-double24",
+  "kind": "double",
+  "Body_tr": "Furkan'nin 11 rozeti var. Arkadaşının rozeti bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç rozeti var?",
+  "gold": 22
+ },
+ {
+  "ID": "dev5-perunit24",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 6 çanak konuyor. Oğuz 3 kutu doldurdu.",
+  "Question_tr": "Toplam kaç çanak konmuş oldu?",
+  "gold": 18
+ },
+ {
+  "ID": "dev5-pair24",
+  "kind": "pair",
+  "Body_tr": "Oğuz'nin 59 rozeti var. Taner'nin de 40 rozeti var.",
+  "Question_tr": "İkisinin toplam kaç rozeti var?",
+  "gold": 99
+ },
+ {
+  "ID": "dev5-left24",
+  "kind": "left",
+  "Body_tr": "Lale'nin 63 silgii vardı. Bunların 14 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar silgi kaldı?",
+  "gold": 49
+ },
+ {
+  "ID": "dev5-double25",
+  "kind": "double",
+  "Body_tr": "Kaan'nin 12 rozeti var. Arkadaşının rozeti bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç rozeti var?",
+  "gold": 24
+ },
+ {
+  "ID": "dev5-perunit25",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 6 kitap konuyor. Oğuz 8 kutu doldurdu.",
+  "Question_tr": "Toplam kaç kitap konmuş oldu?",
+  "gold": 48
+ },
+ {
+  "ID": "dev5-pair25",
+  "kind": "pair",
+  "Body_tr": "İpek'nin 51 silgii var. Nisa'nin de 6 silgii var.",
+  "Question_tr": "İkisinin toplam kaç silgii var?",
+  "gold": 57
+ },
+ {
+  "ID": "dev5-left25",
+  "kind": "left",
+  "Body_tr": "Taner'nin 66 çanaki vardı. Bunların 3 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar çanak kaldı?",
+  "gold": 63
+ },
+ {
+  "ID": "dev5-double26",
+  "kind": "double",
+  "Body_tr": "Büşra'nin 22 tencerei var. Arkadaşının tencerei bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç tencerei var?",
+  "gold": 44
+ },
+ {
+  "ID": "dev5-perunit26",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 14 rozet konuyor. Kaan 4 kutu doldurdu.",
+  "Question_tr": "Toplam kaç rozet konmuş oldu?",
+  "gold": 56
+ },
+ {
+  "ID": "dev5-pair26",
+  "kind": "pair",
+  "Body_tr": "Kaan'nin 51 çanaki var. İpek'nin de 44 çanaki var.",
+  "Question_tr": "İkisinin toplam kaç çanaki var?",
+  "gold": 95
+ },
+ {
+  "ID": "dev5-left26",
+  "kind": "left",
+  "Body_tr": "Lale'nin 32 kitapi vardı. Bunların 9 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar kitap kaldı?",
+  "gold": 23
+ },
+ {
+  "ID": "dev5-double27",
+  "kind": "double",
+  "Body_tr": "Taner'nin 34 çanaki var. Arkadaşının çanaki bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç çanaki var?",
+  "gold": 68
+ },
+ {
+  "ID": "dev5-perunit27",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 3 kart konuyor. İpek 6 kutu doldurdu.",
+  "Question_tr": "Toplam kaç kart konmuş oldu?",
+  "gold": 18
+ },
+ {
+  "ID": "dev5-pair27",
+  "kind": "pair",
+  "Body_tr": "Nisa'nin 69 silgii var. Oğuz'nin de 66 silgii var.",
+  "Question_tr": "İkisinin toplam kaç silgii var?",
+  "gold": 135
+ },
+ {
+  "ID": "dev5-left27",
+  "kind": "left",
+  "Body_tr": "Oğuz'nin 61 karti vardı. Bunların 4 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar kart kaldı?",
+  "gold": 57
+ },
+ {
+  "ID": "dev5-double28",
+  "kind": "double",
+  "Body_tr": "Lale'nin 40 karti var. Arkadaşının karti bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç karti var?",
+  "gold": 80
+ },
+ {
+  "ID": "dev5-perunit28",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 11 çanak konuyor. Furkan 4 kutu doldurdu.",
+  "Question_tr": "Toplam kaç çanak konmuş oldu?",
+  "gold": 44
+ },
+ {
+  "ID": "dev5-pair28",
+  "kind": "pair",
+  "Body_tr": "Nisa'nin 18 rozeti var. İpek'nin de 18 rozeti var.",
+  "Question_tr": "İkisinin toplam kaç rozeti var?",
+  "gold": 36
+ },
+ {
+  "ID": "dev5-left28",
+  "kind": "left",
+  "Body_tr": "Büşra'nin 77 kitapi vardı. Bunların 10 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar kitap kaldı?",
+  "gold": 67
+ },
+ {
+  "ID": "dev5-double29",
+  "kind": "double",
+  "Body_tr": "Lale'nin 30 rozeti var. Arkadaşının rozeti bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç rozeti var?",
+  "gold": 60
+ },
+ {
+  "ID": "dev5-perunit29",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 10 silgi konuyor. Kaan 4 kutu doldurdu.",
+  "Question_tr": "Toplam kaç silgi konmuş oldu?",
+  "gold": 40
+ },
+ {
+  "ID": "dev5-pair29",
+  "kind": "pair",
+  "Body_tr": "Büşra'nin 67 tencerei var. Taner'nin de 24 tencerei var.",
+  "Question_tr": "İkisinin toplam kaç tencerei var?",
+  "gold": 91
+ },
+ {
+  "ID": "dev5-left29",
+  "kind": "left",
+  "Body_tr": "Taner'nin 41 silgii vardı. Bunların 10 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar silgi kaldı?",
+  "gold": 31
+ },
+ {
+  "ID": "dev5-double30",
+  "kind": "double",
+  "Body_tr": "Taner'nin 35 rozeti var. Arkadaşının rozeti bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç rozeti var?",
+  "gold": 70
+ },
+ {
+  "ID": "dev5-perunit30",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 4 tencere konuyor. Furkan 10 kutu doldurdu.",
+  "Question_tr": "Toplam kaç tencere konmuş oldu?",
+  "gold": 40
+ },
+ {
+  "ID": "dev5-pair30",
+  "kind": "pair",
+  "Body_tr": "Furkan'nin 61 çanaki var. İpek'nin de 17 çanaki var.",
+  "Question_tr": "İkisinin toplam kaç çanaki var?",
+  "gold": 78
+ },
+ {
+  "ID": "dev5-left30",
+  "kind": "left",
+  "Body_tr": "Taner'nin 24 kitapi vardı. Bunların 14 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar kitap kaldı?",
+  "gold": 10
+ },
+ {
+  "ID": "dev5-double31",
+  "kind": "double",
+  "Body_tr": "Oğuz'nin 33 silgii var. Arkadaşının silgii bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç silgii var?",
+  "gold": 66
+ },
+ {
+  "ID": "dev5-perunit31",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 8 tencere konuyor. Büşra 7 kutu doldurdu.",
+  "Question_tr": "Toplam kaç tencere konmuş oldu?",
+  "gold": 56
+ },
+ {
+  "ID": "dev5-pair31",
+  "kind": "pair",
+  "Body_tr": "Kaan'nin 19 rozeti var. Furkan'nin de 59 rozeti var.",
+  "Question_tr": "İkisinin toplam kaç rozeti var?",
+  "gold": 78
+ },
+ {
+  "ID": "dev5-left31",
+  "kind": "left",
+  "Body_tr": "Büşra'nin 38 silgii vardı. Bunların 10 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar silgi kaldı?",
+  "gold": 28
+ },
+ {
+  "ID": "dev5-double32",
+  "kind": "double",
+  "Body_tr": "İpek'nin 7 kitapi var. Arkadaşının kitapi bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç kitapi var?",
+  "gold": 14
+ },
+ {
+  "ID": "dev5-perunit32",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 12 rozet konuyor. Büşra 4 kutu doldurdu.",
+  "Question_tr": "Toplam kaç rozet konmuş oldu?",
+  "gold": 48
+ },
+ {
+  "ID": "dev5-pair32",
+  "kind": "pair",
+  "Body_tr": "Furkan'nin 24 çanaki var. Kaan'nin de 40 çanaki var.",
+  "Question_tr": "İkisinin toplam kaç çanaki var?",
+  "gold": 64
+ },
+ {
+  "ID": "dev5-left32",
+  "kind": "left",
+  "Body_tr": "Oğuz'nin 49 tencerei vardı. Bunların 10 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar tencere kaldı?",
+  "gold": 39
+ },
+ {
+  "ID": "dev5-double33",
+  "kind": "double",
+  "Body_tr": "Oğuz'nin 8 silgii var. Arkadaşının silgii bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç silgii var?",
+  "gold": 16
+ },
+ {
+  "ID": "dev5-perunit33",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 14 kart konuyor. Lale 5 kutu doldurdu.",
+  "Question_tr": "Toplam kaç kart konmuş oldu?",
+  "gold": 70
+ },
+ {
+  "ID": "dev5-pair33",
+  "kind": "pair",
+  "Body_tr": "Lale'nin 62 kitapi var. İpek'nin de 43 kitapi var.",
+  "Question_tr": "İkisinin toplam kaç kitapi var?",
+  "gold": 105
+ },
+ {
+  "ID": "dev5-left33",
+  "kind": "left",
+  "Body_tr": "Büşra'nin 84 silgii vardı. Bunların 11 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar silgi kaldı?",
+  "gold": 73
+ },
+ {
+  "ID": "dev5-double34",
+  "kind": "double",
+  "Body_tr": "Furkan'nin 11 kitapi var. Arkadaşının kitapi bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç kitapi var?",
+  "gold": 22
+ },
+ {
+  "ID": "dev5-perunit34",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 11 kart konuyor. Büşra 3 kutu doldurdu.",
+  "Question_tr": "Toplam kaç kart konmuş oldu?",
+  "gold": 33
+ },
+ {
+  "ID": "dev5-pair34",
+  "kind": "pair",
+  "Body_tr": "Oğuz'nin 33 kitapi var. Nisa'nin de 64 kitapi var.",
+  "Question_tr": "İkisinin toplam kaç kitapi var?",
+  "gold": 97
+ },
+ {
+  "ID": "dev5-left34",
+  "kind": "left",
+  "Body_tr": "Lale'nin 78 çanaki vardı. Bunların 11 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar çanak kaldı?",
+  "gold": 67
+ },
+ {
+  "ID": "dev5-double35",
+  "kind": "double",
+  "Body_tr": "Furkan'nin 15 silgii var. Arkadaşının silgii bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç silgii var?",
+  "gold": 30
+ },
+ {
+  "ID": "dev5-perunit35",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 6 silgi konuyor. Kaan 3 kutu doldurdu.",
+  "Question_tr": "Toplam kaç silgi konmuş oldu?",
+  "gold": 18
+ },
+ {
+  "ID": "dev5-pair35",
+  "kind": "pair",
+  "Body_tr": "Oğuz'nin 33 karti var. Kaan'nin de 64 karti var.",
+  "Question_tr": "İkisinin toplam kaç karti var?",
+  "gold": 97
+ },
+ {
+  "ID": "dev5-left35",
+  "kind": "left",
+  "Body_tr": "Büşra'nin 54 tencerei vardı. Bunların 14 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar tencere kaldı?",
+  "gold": 40
+ },
+ {
+  "ID": "dev5-double36",
+  "kind": "double",
+  "Body_tr": "Oğuz'nin 22 kitapi var. Arkadaşının kitapi bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç kitapi var?",
+  "gold": 44
+ },
+ {
+  "ID": "dev5-perunit36",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 12 çanak konuyor. Oğuz 5 kutu doldurdu.",
+  "Question_tr": "Toplam kaç çanak konmuş oldu?",
+  "gold": 60
+ },
+ {
+  "ID": "dev5-pair36",
+  "kind": "pair",
+  "Body_tr": "Taner'nin 43 çanaki var. Büşra'nin de 27 çanaki var.",
+  "Question_tr": "İkisinin toplam kaç çanaki var?",
+  "gold": 70
+ },
+ {
+  "ID": "dev5-left36",
+  "kind": "left",
+  "Body_tr": "İpek'nin 75 tencerei vardı. Bunların 8 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar tencere kaldı?",
+  "gold": 67
+ },
+ {
+  "ID": "dev5-double37",
+  "kind": "double",
+  "Body_tr": "Taner'nin 24 kitapi var. Arkadaşının kitapi bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç kitapi var?",
+  "gold": 48
+ },
+ {
+  "ID": "dev5-perunit37",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 12 tencere konuyor. Oğuz 4 kutu doldurdu.",
+  "Question_tr": "Toplam kaç tencere konmuş oldu?",
+  "gold": 48
+ },
+ {
+  "ID": "dev5-pair37",
+  "kind": "pair",
+  "Body_tr": "Büşra'nin 67 kitapi var. Nisa'nin de 15 kitapi var.",
+  "Question_tr": "İkisinin toplam kaç kitapi var?",
+  "gold": 82
+ },
+ {
+  "ID": "dev5-left37",
+  "kind": "left",
+  "Body_tr": "Taner'nin 78 silgii vardı. Bunların 3 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar silgi kaldı?",
+  "gold": 75
+ },
+ {
+  "ID": "dev5-double38",
+  "kind": "double",
+  "Body_tr": "Kaan'nin 21 rozeti var. Arkadaşının rozeti bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç rozeti var?",
+  "gold": 42
+ },
+ {
+  "ID": "dev5-perunit38",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 3 rozet konuyor. Furkan 3 kutu doldurdu.",
+  "Question_tr": "Toplam kaç rozet konmuş oldu?",
+  "gold": 9
+ },
+ {
+  "ID": "dev5-pair38",
+  "kind": "pair",
+  "Body_tr": "Taner'nin 19 kitapi var. Kaan'nin de 5 kitapi var.",
+  "Question_tr": "İkisinin toplam kaç kitapi var?",
+  "gold": 24
+ },
+ {
+  "ID": "dev5-left38",
+  "kind": "left",
+  "Body_tr": "İpek'nin 83 silgii vardı. Bunların 15 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar silgi kaldı?",
+  "gold": 68
+ },
+ {
+  "ID": "dev5-double39",
+  "kind": "double",
+  "Body_tr": "Lale'nin 5 tencerei var. Arkadaşının tencerei bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç tencerei var?",
+  "gold": 10
+ },
+ {
+  "ID": "dev5-perunit39",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 9 çanak konuyor. Furkan 4 kutu doldurdu.",
+  "Question_tr": "Toplam kaç çanak konmuş oldu?",
+  "gold": 36
+ },
+ {
+  "ID": "dev5-pair39",
+  "kind": "pair",
+  "Body_tr": "Kaan'nin 7 rozeti var. Lale'nin de 25 rozeti var.",
+  "Question_tr": "İkisinin toplam kaç rozeti var?",
+  "gold": 32
+ },
+ {
+  "ID": "dev5-left39",
+  "kind": "left",
+  "Body_tr": "Furkan'nin 39 kitapi vardı. Bunların 10 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar kitap kaldı?",
+  "gold": 29
+ },
+ {
+  "ID": "dev5-double40",
+  "kind": "double",
+  "Body_tr": "Nisa'nin 19 tencerei var. Arkadaşının tencerei bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç tencerei var?",
+  "gold": 38
+ },
+ {
+  "ID": "dev5-perunit40",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 8 kart konuyor. Büşra 4 kutu doldurdu.",
+  "Question_tr": "Toplam kaç kart konmuş oldu?",
+  "gold": 32
+ },
+ {
+  "ID": "dev5-pair40",
+  "kind": "pair",
+  "Body_tr": "Lale'nin 32 rozeti var. Taner'nin de 44 rozeti var.",
+  "Question_tr": "İkisinin toplam kaç rozeti var?",
+  "gold": 76
+ },
+ {
+  "ID": "dev5-left40",
+  "kind": "left",
+  "Body_tr": "Nisa'nin 58 karti vardı. Bunların 7 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar kart kaldı?",
+  "gold": 51
+ },
+ {
+  "ID": "dev5-double41",
+  "kind": "double",
+  "Body_tr": "Taner'nin 23 karti var. Arkadaşının karti bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç karti var?",
+  "gold": 46
+ },
+ {
+  "ID": "dev5-perunit41",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 5 kart konuyor. Lale 11 kutu doldurdu.",
+  "Question_tr": "Toplam kaç kart konmuş oldu?",
+  "gold": 55
+ },
+ {
+  "ID": "dev5-pair41",
+  "kind": "pair",
+  "Body_tr": "İpek'nin 53 tencerei var. Kaan'nin de 16 tencerei var.",
+  "Question_tr": "İkisinin toplam kaç tencerei var?",
+  "gold": 69
+ },
+ {
+  "ID": "dev5-left41",
+  "kind": "left",
+  "Body_tr": "Lale'nin 76 silgii vardı. Bunların 5 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar silgi kaldı?",
+  "gold": 71
+ },
+ {
+  "ID": "dev5-double42",
+  "kind": "double",
+  "Body_tr": "İpek'nin 17 karti var. Arkadaşının karti bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç karti var?",
+  "gold": 34
+ },
+ {
+  "ID": "dev5-perunit42",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 5 çanak konuyor. Furkan 9 kutu doldurdu.",
+  "Question_tr": "Toplam kaç çanak konmuş oldu?",
+  "gold": 45
+ },
+ {
+  "ID": "dev5-pair42",
+  "kind": "pair",
+  "Body_tr": "Büşra'nin 6 kitapi var. Taner'nin de 27 kitapi var.",
+  "Question_tr": "İkisinin toplam kaç kitapi var?",
+  "gold": 33
+ },
+ {
+  "ID": "dev5-left42",
+  "kind": "left",
+  "Body_tr": "Lale'nin 30 kitapi vardı. Bunların 3 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar kitap kaldı?",
+  "gold": 27
+ },
+ {
+  "ID": "dev5-double43",
+  "kind": "double",
+  "Body_tr": "Büşra'nin 28 silgii var. Arkadaşının silgii bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç silgii var?",
+  "gold": 56
+ },
+ {
+  "ID": "dev5-perunit43",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 4 çanak konuyor. Furkan 6 kutu doldurdu.",
+  "Question_tr": "Toplam kaç çanak konmuş oldu?",
+  "gold": 24
+ },
+ {
+  "ID": "dev5-pair43",
+  "kind": "pair",
+  "Body_tr": "İpek'nin 12 çanaki var. Taner'nin de 20 çanaki var.",
+  "Question_tr": "İkisinin toplam kaç çanaki var?",
+  "gold": 32
+ },
+ {
+  "ID": "dev5-left43",
+  "kind": "left",
+  "Body_tr": "İpek'nin 20 karti vardı. Bunların 14 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar kart kaldı?",
+  "gold": 6
+ },
+ {
+  "ID": "dev5-double44",
+  "kind": "double",
+  "Body_tr": "Nisa'nin 23 tencerei var. Arkadaşının tencerei bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç tencerei var?",
+  "gold": 46
+ },
+ {
+  "ID": "dev5-perunit44",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 6 tencere konuyor. Büşra 6 kutu doldurdu.",
+  "Question_tr": "Toplam kaç tencere konmuş oldu?",
+  "gold": 36
+ },
+ {
+  "ID": "dev5-pair44",
+  "kind": "pair",
+  "Body_tr": "İpek'nin 43 silgii var. Lale'nin de 64 silgii var.",
+  "Question_tr": "İkisinin toplam kaç silgii var?",
+  "gold": 107
+ },
+ {
+  "ID": "dev5-left44",
+  "kind": "left",
+  "Body_tr": "Kaan'nin 27 kitapi vardı. Bunların 17 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar kitap kaldı?",
+  "gold": 10
+ },
+ {
+  "ID": "dev5-double45",
+  "kind": "double",
+  "Body_tr": "İpek'nin 18 rozeti var. Arkadaşının rozeti bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç rozeti var?",
+  "gold": 36
+ },
+ {
+  "ID": "dev5-perunit45",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 13 çanak konuyor. Kaan 6 kutu doldurdu.",
+  "Question_tr": "Toplam kaç çanak konmuş oldu?",
+  "gold": 78
+ },
+ {
+  "ID": "dev5-pair45",
+  "kind": "pair",
+  "Body_tr": "İpek'nin 70 çanaki var. Furkan'nin de 23 çanaki var.",
+  "Question_tr": "İkisinin toplam kaç çanaki var?",
+  "gold": 93
+ },
+ {
+  "ID": "dev5-left45",
+  "kind": "left",
+  "Body_tr": "Oğuz'nin 85 karti vardı. Bunların 6 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar kart kaldı?",
+  "gold": 79
+ },
+ {
+  "ID": "dev5-double46",
+  "kind": "double",
+  "Body_tr": "Furkan'nin 4 karti var. Arkadaşının karti bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç karti var?",
+  "gold": 8
+ },
+ {
+  "ID": "dev5-perunit46",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 9 çanak konuyor. Taner 8 kutu doldurdu.",
+  "Question_tr": "Toplam kaç çanak konmuş oldu?",
+  "gold": 72
+ },
+ {
+  "ID": "dev5-pair46",
+  "kind": "pair",
+  "Body_tr": "Nisa'nin 65 silgii var. Oğuz'nin de 20 silgii var.",
+  "Question_tr": "İkisinin toplam kaç silgii var?",
+  "gold": 85
+ },
+ {
+  "ID": "dev5-left46",
+  "kind": "left",
+  "Body_tr": "Taner'nin 50 rozeti vardı. Bunların 12 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar rozet kaldı?",
+  "gold": 38
+ },
+ {
+  "ID": "dev5-double47",
+  "kind": "double",
+  "Body_tr": "Lale'nin 22 kitapi var. Arkadaşının kitapi bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç kitapi var?",
+  "gold": 44
+ },
+ {
+  "ID": "dev5-perunit47",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 12 rozet konuyor. Furkan 6 kutu doldurdu.",
+  "Question_tr": "Toplam kaç rozet konmuş oldu?",
+  "gold": 72
+ },
+ {
+  "ID": "dev5-pair47",
+  "kind": "pair",
+  "Body_tr": "Taner'nin 6 tencerei var. Kaan'nin de 38 tencerei var.",
+  "Question_tr": "İkisinin toplam kaç tencerei var?",
+  "gold": 44
+ },
+ {
+  "ID": "dev5-left47",
+  "kind": "left",
+  "Body_tr": "Oğuz'nin 83 tencerei vardı. Bunların 4 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar tencere kaldı?",
+  "gold": 79
+ },
+ {
+  "ID": "dev5-double48",
+  "kind": "double",
+  "Body_tr": "Taner'nin 29 rozeti var. Arkadaşının rozeti bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç rozeti var?",
+  "gold": 58
+ },
+ {
+  "ID": "dev5-perunit48",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 3 tencere konuyor. Kaan 6 kutu doldurdu.",
+  "Question_tr": "Toplam kaç tencere konmuş oldu?",
+  "gold": 18
+ },
+ {
+  "ID": "dev5-pair48",
+  "kind": "pair",
+  "Body_tr": "Taner'nin 69 tencerei var. Kaan'nin de 24 tencerei var.",
+  "Question_tr": "İkisinin toplam kaç tencerei var?",
+  "gold": 93
+ },
+ {
+  "ID": "dev5-left48",
+  "kind": "left",
+  "Body_tr": "Taner'nin 49 rozeti vardı. Bunların 16 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar rozet kaldı?",
+  "gold": 33
+ },
+ {
+  "ID": "dev5-double49",
+  "kind": "double",
+  "Body_tr": "Kaan'nin 29 rozeti var. Arkadaşının rozeti bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç rozeti var?",
+  "gold": 58
+ },
+ {
+  "ID": "dev5-perunit49",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 13 tencere konuyor. Büşra 11 kutu doldurdu.",
+  "Question_tr": "Toplam kaç tencere konmuş oldu?",
+  "gold": 143
+ },
+ {
+  "ID": "dev5-pair49",
+  "kind": "pair",
+  "Body_tr": "Lale'nin 54 karti var. Furkan'nin de 68 karti var.",
+  "Question_tr": "İkisinin toplam kaç karti var?",
+  "gold": 122
+ },
+ {
+  "ID": "dev5-left49",
+  "kind": "left",
+  "Body_tr": "Oğuz'nin 25 tencerei vardı. Bunların 13 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar tencere kaldı?",
+  "gold": 12
+ },
+ {
+  "ID": "dev5-double50",
+  "kind": "double",
+  "Body_tr": "Büşra'nin 11 kitapi var. Arkadaşının kitapi bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç kitapi var?",
+  "gold": 22
+ },
+ {
+  "ID": "dev5-perunit50",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 15 çanak konuyor. Oğuz 10 kutu doldurdu.",
+  "Question_tr": "Toplam kaç çanak konmuş oldu?",
+  "gold": 150
+ },
+ {
+  "ID": "dev5-pair50",
+  "kind": "pair",
+  "Body_tr": "Furkan'nin 12 çanaki var. Büşra'nin de 11 çanaki var.",
+  "Question_tr": "İkisinin toplam kaç çanaki var?",
+  "gold": 23
+ },
+ {
+  "ID": "dev5-left50",
+  "kind": "left",
+  "Body_tr": "İpek'nin 70 tencerei vardı. Bunların 11 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar tencere kaldı?",
+  "gold": 59
+ },
+ {
+  "ID": "dev5-double51",
+  "kind": "double",
+  "Body_tr": "Oğuz'nin 33 rozeti var. Arkadaşının rozeti bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç rozeti var?",
+  "gold": 66
+ },
+ {
+  "ID": "dev5-perunit51",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 14 çanak konuyor. Oğuz 4 kutu doldurdu.",
+  "Question_tr": "Toplam kaç çanak konmuş oldu?",
+  "gold": 56
+ },
+ {
+  "ID": "dev5-pair51",
+  "kind": "pair",
+  "Body_tr": "Furkan'nin 67 silgii var. Nisa'nin de 17 silgii var.",
+  "Question_tr": "İkisinin toplam kaç silgii var?",
+  "gold": 84
+ },
+ {
+  "ID": "dev5-left51",
+  "kind": "left",
+  "Body_tr": "Furkan'nin 42 karti vardı. Bunların 5 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar kart kaldı?",
+  "gold": 37
+ },
+ {
+  "ID": "dev5-double52",
+  "kind": "double",
+  "Body_tr": "Furkan'nin 34 tencerei var. Arkadaşının tencerei bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç tencerei var?",
+  "gold": 68
+ },
+ {
+  "ID": "dev5-perunit52",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 11 kart konuyor. Büşra 11 kutu doldurdu.",
+  "Question_tr": "Toplam kaç kart konmuş oldu?",
+  "gold": 121
+ },
+ {
+  "ID": "dev5-pair52",
+  "kind": "pair",
+  "Body_tr": "Taner'nin 18 silgii var. İpek'nin de 46 silgii var.",
+  "Question_tr": "İkisinin toplam kaç silgii var?",
+  "gold": 64
+ },
+ {
+  "ID": "dev5-left52",
+  "kind": "left",
+  "Body_tr": "Oğuz'nin 24 karti vardı. Bunların 8 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar kart kaldı?",
+  "gold": 16
+ },
+ {
+  "ID": "dev5-double53",
+  "kind": "double",
+  "Body_tr": "Furkan'nin 7 kitapi var. Arkadaşının kitapi bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç kitapi var?",
+  "gold": 14
+ },
+ {
+  "ID": "dev5-perunit53",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 14 kitap konuyor. Nisa 5 kutu doldurdu.",
+  "Question_tr": "Toplam kaç kitap konmuş oldu?",
+  "gold": 70
+ },
+ {
+  "ID": "dev5-pair53",
+  "kind": "pair",
+  "Body_tr": "Kaan'nin 22 kitapi var. Lale'nin de 35 kitapi var.",
+  "Question_tr": "İkisinin toplam kaç kitapi var?",
+  "gold": 57
+ },
+ {
+  "ID": "dev5-left53",
+  "kind": "left",
+  "Body_tr": "Lale'nin 79 kitapi vardı. Bunların 6 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar kitap kaldı?",
+  "gold": 73
+ },
+ {
+  "ID": "dev5-double54",
+  "kind": "double",
+  "Body_tr": "Furkan'nin 22 karti var. Arkadaşının karti bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç karti var?",
+  "gold": 44
+ },
+ {
+  "ID": "dev5-perunit54",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 5 silgi konuyor. İpek 7 kutu doldurdu.",
+  "Question_tr": "Toplam kaç silgi konmuş oldu?",
+  "gold": 35
+ },
+ {
+  "ID": "dev5-pair54",
+  "kind": "pair",
+  "Body_tr": "Nisa'nin 12 rozeti var. Büşra'nin de 64 rozeti var.",
+  "Question_tr": "İkisinin toplam kaç rozeti var?",
+  "gold": 76
+ },
+ {
+  "ID": "dev5-left54",
+  "kind": "left",
+  "Body_tr": "Furkan'nin 47 tencerei vardı. Bunların 14 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar tencere kaldı?",
+  "gold": 33
+ },
+ {
+  "ID": "dev5-double55",
+  "kind": "double",
+  "Body_tr": "Kaan'nin 5 çanaki var. Arkadaşının çanaki bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç çanaki var?",
+  "gold": 10
+ },
+ {
+  "ID": "dev5-perunit55",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 6 kart konuyor. Oğuz 8 kutu doldurdu.",
+  "Question_tr": "Toplam kaç kart konmuş oldu?",
+  "gold": 48
+ },
+ {
+  "ID": "dev5-pair55",
+  "kind": "pair",
+  "Body_tr": "Nisa'nin 6 çanaki var. Lale'nin de 5 çanaki var.",
+  "Question_tr": "İkisinin toplam kaç çanaki var?",
+  "gold": 11
+ },
+ {
+  "ID": "dev5-left55",
+  "kind": "left",
+  "Body_tr": "Nisa'nin 84 rozeti vardı. Bunların 15 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar rozet kaldı?",
+  "gold": 69
+ },
+ {
+  "ID": "dev5-double56",
+  "kind": "double",
+  "Body_tr": "Taner'nin 39 rozeti var. Arkadaşının rozeti bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç rozeti var?",
+  "gold": 78
+ },
+ {
+  "ID": "dev5-perunit56",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 14 rozet konuyor. Büşra 9 kutu doldurdu.",
+  "Question_tr": "Toplam kaç rozet konmuş oldu?",
+  "gold": 126
+ },
+ {
+  "ID": "dev5-pair56",
+  "kind": "pair",
+  "Body_tr": "Taner'nin 65 silgii var. Furkan'nin de 16 silgii var.",
+  "Question_tr": "İkisinin toplam kaç silgii var?",
+  "gold": 81
+ },
+ {
+  "ID": "dev5-left56",
+  "kind": "left",
+  "Body_tr": "Büşra'nin 57 tencerei vardı. Bunların 16 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar tencere kaldı?",
+  "gold": 41
+ },
+ {
+  "ID": "dev5-double57",
+  "kind": "double",
+  "Body_tr": "Kaan'nin 26 rozeti var. Arkadaşının rozeti bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç rozeti var?",
+  "gold": 52
+ },
+ {
+  "ID": "dev5-perunit57",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 5 silgi konuyor. Lale 11 kutu doldurdu.",
+  "Question_tr": "Toplam kaç silgi konmuş oldu?",
+  "gold": 55
+ },
+ {
+  "ID": "dev5-pair57",
+  "kind": "pair",
+  "Body_tr": "İpek'nin 68 karti var. Oğuz'nin de 64 karti var.",
+  "Question_tr": "İkisinin toplam kaç karti var?",
+  "gold": 132
+ },
+ {
+  "ID": "dev5-left57",
+  "kind": "left",
+  "Body_tr": "Büşra'nin 73 çanaki vardı. Bunların 14 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar çanak kaldı?",
+  "gold": 59
+ },
+ {
+  "ID": "dev5-double58",
+  "kind": "double",
+  "Body_tr": "Furkan'nin 9 çanaki var. Arkadaşının çanaki bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç çanaki var?",
+  "gold": 18
+ },
+ {
+  "ID": "dev5-perunit58",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 6 silgi konuyor. Oğuz 11 kutu doldurdu.",
+  "Question_tr": "Toplam kaç silgi konmuş oldu?",
+  "gold": 66
+ },
+ {
+  "ID": "dev5-pair58",
+  "kind": "pair",
+  "Body_tr": "Lale'nin 27 silgii var. İpek'nin de 27 silgii var.",
+  "Question_tr": "İkisinin toplam kaç silgii var?",
+  "gold": 54
+ },
+ {
+  "ID": "dev5-left58",
+  "kind": "left",
+  "Body_tr": "Taner'nin 30 karti vardı. Bunların 3 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar kart kaldı?",
+  "gold": 27
+ },
+ {
+  "ID": "dev5-double59",
+  "kind": "double",
+  "Body_tr": "Taner'nin 15 tencerei var. Arkadaşının tencerei bundan iki kat fazla.",
+  "Question_tr": "Arkadaşının kaç tencerei var?",
+  "gold": 30
+ },
+ {
+  "ID": "dev5-perunit59",
+  "kind": "perunit",
+  "Body_tr": "Her kutuya 7 kitap konuyor. Nisa 5 kutu doldurdu.",
+  "Question_tr": "Toplam kaç kitap konmuş oldu?",
+  "gold": 35
+ },
+ {
+  "ID": "dev5-pair59",
+  "kind": "pair",
+  "Body_tr": "Oğuz'nin 9 tencerei var. Kaan'nin de 64 tencerei var.",
+  "Question_tr": "İkisinin toplam kaç tencerei var?",
+  "gold": 73
+ },
+ {
+  "ID": "dev5-left59",
+  "kind": "left",
+  "Body_tr": "Taner'nin 73 kitapi vardı. Bunların 10 tanesini kullandı.",
+  "Question_tr": "Geriye ne kadar kitap kaldı?",
+  "gold": 63
+ }
+]

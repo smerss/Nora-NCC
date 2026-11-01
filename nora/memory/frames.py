@@ -635,7 +635,12 @@ class ConstructionCortex:
         gen = self._quote_inflect(target, "GEN")
         acc = self._quote_inflect(target, "ACC")
         # 1) Dürüst boşluk: önce 'bilgim yok', sonra tam olarak neyi bilmediğim
-        head = f"{tr_capitalize(target)} hakkında bilgim yok; {gen} ne demek olduğunu bilmiyorum"
+        heads = (
+            f"{tr_capitalize(target)} hakkında bilgim yok; {gen} ne demek olduğunu bilmiyorum",
+            f"{tr_capitalize(target)} bende henüz yerleşmemiş; {gen} ne demek olduğunu bilmiyorum",
+            f"{tr_capitalize(target)} hakkında elimde bir şey yok; {gen} ne anlama geldiğini bilmiyorum",
+        )
+        head = heads[self.rng.randrange(len(heads))]
         # 2) Bu yüzden SORULAN ŞEY de yapılamaz: yapıya göre adlaştırma
         if mq.kind == "HOW_SAY":
             try:
