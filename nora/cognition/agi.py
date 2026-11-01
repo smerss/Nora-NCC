@@ -2164,6 +2164,13 @@ class NoraAGI:
         ne zaman söylendiğini, o an ne cevap verdiğini hatırlar ve bunu sözüne katar.
         """
         raw = (text or "").strip()
+        # Tur sınırı: erken dönen kanallar dahil hiçbir cevap önceki CoT izini
+        # devralmasın. Ön-kapıda da yalnız sarmalayıcı kaldırılır; kullanıcının
+        # özgün metni günlükte ve diyalog belleğinde korunur.
+        self.deliberation.last_cot_trace = {}
+        _cot_preflight = self.deliberation.is_stepwise_request(raw)
+        _cot_semantic_raw = (self.deliberation.strip_stepwise_request(raw)
+                             if _cot_preflight else raw)
         # Checkpoint'teki eski anılarla bu canlı oturumu ayır. Açık-uçlu
         # düşünce/merak, yıllar önceki grafik ya da diyalog kuyruğundan değil,
         # gerçekten bu konuşmada yaşanan turlardan beslenir.
@@ -2216,7 +2223,8 @@ class NoraAGI:
         _preflight_t0 = time.perf_counter()
         # Yapısal çözücüler (takvim, kelime problemi) kavram kapısından ÖNCE bakar: 'elması' gibi
         # sözcükler bilinmeyen kavram sayılıp problem çözülmeden reddedilmesin.
-        _structured = puzzles.solve(raw, self.__dict__.setdefault("_puzzle_memory", {}))
+        _structured = (None if _cot_preflight else
+                       puzzles.solve(raw, self.__dict__.setdefault("_puzzle_memory", {})))
         if _structured is not None:
             _reply, _why = _structured
             self.lang.wernicke.last_explanation = _why
@@ -2224,7 +2232,7 @@ class NoraAGI:
             self._journal("tur", g=raw, y=_reply, s="", yas=int(getattr(self.mind, "age", 0)),
                           d=round(float(getattr(getattr(self, "entropy", None), "drift", 0.0) or 0.0), 6))
             return _reply
-        _preflight_unknown = self._epistemic_gate(raw)
+        _preflight_unknown = self._epistemic_gate(_cot_semantic_raw)
         if _preflight_unknown:
             self._log_turn(speaker, raw, _preflight_unknown, _preflight_t0)
             self._journal("tur", g=raw, y=_preflight_unknown, s="",
@@ -2467,6 +2475,7 @@ class NoraAGI:
 
     def _converse_core(self, text: str, speaker: str = "insan") -> str:
         self._turn_path = "chat"
+        self.deliberation.last_cot_trace = {}
         """Gelen Türkçe cümleyi algılar, önce içsel monolog yürütür, öz-benlik ve nörokimya süzgecinden geçirip yanıt üretir."""
         t0 = time.perf_counter()
         if not self.mortality.is_alive:
@@ -3186,6 +3195,9 @@ class NoraAGI:
             "temporal_conversation": 0.96 + 0.16 * self.chem.oxy + 0.10 * self.self_model.traits["meraklılık"],
             "associative_semantic": 0.92 + 0.14 * self.chem.ach + 0.10 * self.self_model.traits["meraklılık"],
             "prefrontal_autonomous_logic": 1.02 + 0.16 * self.chem.ne + 0.10 * self.self_model.traits["düşünsellik"],
+            # Aynı ilişkiyi yalnız geri çağıran teklif yerine canlı ara bağları ve
+            # bağımsız doğrulaması olan System-2 koalisyonu yayınlanır.
+            "prefrontal_deliberative_cot": 1.18 + 0.16 * self.chem.ne + 0.10 * self.self_model.traits["düşünsellik"],
             "social_phatic": 0.98 + 0.14 * self.chem.oxy + 0.12 * self.self_model.traits["sosyal_güven"],
             "epistemic_prefrontal": 1.05 + 0.16 * self.chem.ne + 0.10 * self.self_model.traits["düşünsellik"]
                                     + 0.08 * self.self_model.traits["temkinlilik"],
@@ -3268,6 +3280,15 @@ class NoraAGI:
         broca = self.lang.broca
         morph = self.lang.morph
         graph = self.lang.graph
+        # CoT isteği yalnız sarmalayıcıdır; asıl soru aynı Wernicke/Graph/Math
+        # organlarına gider. Her turda eski iz silinir: başka bir cevap kazanırsa
+        # önceki muhakeme bu turun kanıtı gibi görünemez.
+        _cot_explicit = self.deliberation.is_stepwise_request(raw)
+        if _cot_explicit:
+            raw = self.deliberation.strip_stepwise_request(raw) or raw
+        self.deliberation.last_cot_trace = {}
+        _cot_bid = None
+        _cot_result = None
         # Çok cümleli akışta da özel anlam hesabı tanım kapısına kurban gitmez.
         _special = self._vector_analogy_turn(raw)
         if _special is None:
@@ -3296,6 +3317,36 @@ class NoraAGI:
             _fr_pre = None
         _world_fact_pre = bool(_fr_pre is not None and _fr_pre.kind in {"teach_fact", "teach_val", "invent_relation"})
         _semantic_query_pre = bool(_fr_pre is not None and _fr_pre.kind in {"yn_query", "wh_query", "analogy_query"})
+
+        # --- SÜTUN 0-CoT: yalnız gerçekten çok-adımlı ve bağımsız doğrulanmış
+        # ilişki/neden/aritmetik zinciri teklif olur. Tek-kenar geri çağırma veya
+        # başarısız zincir burada cevap üretmez; normal dürüst bilinmezlik yolu sürer.
+        try:
+            _cot_result = self.deliberation.reason_stepwise(
+                self, raw, _fr_pre, explicit=_cot_explicit,
+            )
+        except Exception:
+            _cot_result = None
+        if _cot_result and _cot_result.get("text") and _cot_result.get("trace"):
+            _cot_trace = dict(_cot_result["trace"])
+            _cot_bid = CorticalBid(
+                module="prefrontal_deliberative_cot",
+                salience=0.999,
+                precision=0.99,
+                reply=str(_cot_result["text"]),
+                trace=f"chain_of_thought:{_cot_trace.get('domain')}",
+                used_s2=True,
+                speech_plan={
+                    "volition_acts": ["STEPWISE_REASONING"],
+                    "surface_tr": str(_cot_result["text"]),
+                    "ask_back_chosen": False,
+                    "raw_thought_nodes": [
+                        str(step.get("surface") or "") for step in _cot_trace.get("steps") or []
+                    ],
+                    "cot_trace": _cot_trace,
+                },
+            )
+            bids.append(_cot_bid)
 
         # --- SÜTUN -1: KİŞİSEL ANLATI — karşıdaki kendi yaşantısını anlatıyorsa Nora ders vermez.
         # İnsan değil mi? Bir şey anlatan birine ansiklopedi maddesi okumayız; dinler, yansıtır, sorarız.
@@ -4019,6 +4070,13 @@ class NoraAGI:
             bids.append(self._synthesize_associative_dialogue(raw, s_low, speaker=speaker))
 
         winner = self._compete_workspace(bids)
+        if _cot_bid is not None and winner is _cot_bid:
+            # Yalnız Global Workspace'i kazanan zincir görünür iz olur; kaybeden
+            # adayın gerekçesi başka bir cevabın üstüne yapıştırılmaz.
+            self.deliberation.last_cot_trace = dict(_cot_result["trace"])
+            self._turn_path = "chain_of_thought"
+            self._intent_locked = True
+            self._structured_output = True
         # ÖLÇÜM KAPSAMI: kazanan teklifin izi (trace) kaynağa çevrilir. Böylece çıkarım,
         # komut, matematik ve öz-rapor yolları da provenance'a yazılır; ölçer yalan söylemez.
         try:
