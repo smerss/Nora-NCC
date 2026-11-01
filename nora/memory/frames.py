@@ -428,24 +428,28 @@ class ConstructionCortex:
         if not w:
             return False
         low = tr_lower(w)
+        base = re.sub(r"(?:'|\b)?(?:nin|nın|nün|nun|in|ın|ün|un|ye|ya|e|a|de|da|den|dan)$", "", low)
+        variants = {low, low.replace("ı", "i"), w.lower(), base, base.replace("ı", "i")}
         try:
             from nora_knowledge import (COMMON_ADJECTIVES, COMMON_NOUNS, CORE_TURKISH_VERBS,
                                         PROPER_NOUNS, STATE_ADJECTIVES, WORD_CLASSES)
-            if low in (COMMON_NOUNS | COMMON_ADJECTIVES | STATE_ADJECTIVES | PROPER_NOUNS):
-                return True
-            if low in CORE_TURKISH_VERBS or low in WORD_CLASSES:
-                return True
+            for v in variants:
+                if v in (COMMON_NOUNS | COMMON_ADJECTIVES | STATE_ADJECTIVES | PROPER_NOUNS):
+                    return True
+                if v in CORE_TURKISH_VERBS or v in WORD_CLASSES:
+                    return True
         except Exception:
             pass
-        if self.lexicon and low in self.lexicon:
+        if self.lexicon and any(v in self.lexicon for v in variants):
             return True
         if agi is not None:
             try:
                 graph = agi.lang.graph
-                if low in getattr(graph, "nodes", {}) or graph.query(low, None):
-                    return True
-                if low in getattr(graph, "_out_edges", {}):
-                    return True
+                for v in variants:
+                    if v in getattr(graph, "nodes", {}) or graph.query(v, None):
+                        return True
+                    if v in getattr(graph, "_out_edges", {}):
+                        return True
             except Exception:
                 pass
         return False
@@ -823,13 +827,19 @@ class ConstructionCortex:
         # query (kenar, isa_yolu) çiftleri döndürür; öncelik sırası anlamlı tanım içindir.
         prio = {"ISA": 0, "HAS_PROP": 1, "USED_FOR": 2, "CAN_DO": 3, "CAUSES": 4}
         edges = []
-        try:
-            for item in graph.query(concept, tuple(prio.keys())):
-                e = item[0] if isinstance(item, (tuple, list)) else item
-                if e is not None:
-                    edges.append(e)
-        except Exception:
-            return ""
+        base = re.sub(r"(?:'|\b)?(?:nin|nın|nün|nun|in|ın|ün|un|ye|ya|e|a|de|da|den|dan)$", "", concept)
+        variants = [concept, concept.replace("ı", "i"), concept.lower(), base, base.replace("ı", "i")]
+        for c in variants:
+            try:
+                for item in graph.query(c, tuple(prio.keys())):
+                    e = item[0] if isinstance(item, (tuple, list)) else item
+                    if e is not None:
+                        edges.append(e)
+            except Exception:
+                pass
+            if edges:
+                concept = c
+                break
         edges.sort(key=lambda e: prio.get(e.rel, 9))
         if any(getattr(e, "rel", "") == "ISA" for e in edges):
             # Tanım varsa yalnız tanım: 'kuantum daldır' gibi kopuk özellikler kafa karıştırır.

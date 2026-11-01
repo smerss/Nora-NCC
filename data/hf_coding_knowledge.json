@@ -1,0 +1,2505 @@
+[
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "LinkedIn, Indeed, Glassdoor ve Monster, iş bulmak için harika web siteleridir."
+    ],
+    "qa": [
+      [
+        "İş bulmak için kullanılabilecek 4 web sitesi belirleyin.",
+        "LinkedIn, Indeed, Glassdoor ve Monster, iş bulmak için harika web siteleridir."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Harekete geçirici mesaj: Hizmetlerimiz hakkında daha fazla bilgi edinmek ve bugün kullanmaya başlamak için şimdi web sitemizi ziyaret edin!"
+    ],
+    "qa": [
+      [
+        "Bir web sitesi için harekete geçirici mesaj oluşturun",
+        "Harekete geçirici mesaj: Hizmetlerimiz hakkında daha fazla bilgi edinmek ve bugün kullanmaya başlamak için şimdi web sitemizi ziyaret edin!"
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "İlk internet protokolü olan ARPANET, 1960'ların sonunda ABD ordusu tarafından geliştirildi.",
+      "1989'da, ilk web tarayıcısı olan World Wide Web, bilgisayar bilimcisi Tim Berners-Lee tarafından oluşturuldu.",
+      "1997'de çevrimiçi olarak 2000'den fazla web sitesi vardı."
+    ],
+    "qa": [
+      [
+        "İnternetin tarihi hakkında üç gerçek belirtin.",
+        "1. İlk internet protokolü olan ARPANET, 1960'ların sonunda ABD ordusu tarafından geliştirildi. 2. 1989'da, ilk web tarayıcısı olan World Wide Web, bilgisayar bilimcisi Tim Berners-Lee tarafından oluşturuldu. 3. 1997'de çevrimiçi olarak 2000'den fazla web sitesi vardı."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Web sitesi arayüzü, insanların iş ilanlarında iş türüne, sektöre, konuma ve diğer kriterlere göre kolayca gezinmesine olanak tanıyan kategoriler sağlamalıdır.",
+      "Ek olarak, iş ilanları, insanlara becerilerine ve deneyimlerine göre iş aramaları için bir yol sağlamalıdır.",
+      "Arayüz aynı zamanda insanların ilgilendikleri işleri kaydetmeleri ve yeni iş ilanları mevcut olduğunda bildirimler ayarlamaları için bir yol sağlamalıdır."
+    ],
+    "qa": [
+      [
+        "İnsanların iş bulmasına yardımcı olacak bir web sitesi arayüzü oluşturun.",
+        "Web sitesi arayüzü, insanların iş ilanlarında iş türüne, sektöre, konuma ve diğer kriterlere göre kolayca gezinmesine olanak tanıyan kategoriler sağlamalıdır. Ek olarak, iş ilanları, insanlara becerilerine ve deneyimlerine göre iş aramaları için bir yol sağlamalıdır. Arayüz aynı zamanda insanların ilgilendikleri işleri kaydetmeleri ve yeni iş ilanları mevcut olduğunda bildirimler ayarlamaları için bir yol sağlamalıdır."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Bir web sitesi tasarlama süreci, görsel bir tasarım ve kullanıcı arayüzü oluşturmanın yanı sıra tasarımı hayata geçirmek ve düzgün çalışmasını sağlamak için kod yazmayı içerir.",
+      "Web sitesinin kullanıcının beklentilerini karşılamasını ve kullanımının ve gezinmesinin kolay olmasını sağlamak için test ve ayarlamalar gerekebilir."
+    ],
+    "qa": [
+      [
+        "Bir web sitesi tasarlama sürecinin iki cümlelik bir açıklamasını oluşturun",
+        "Bir web sitesi tasarlama süreci, görsel bir tasarım ve kullanıcı arayüzü oluşturmanın yanı sıra tasarımı hayata geçirmek ve düzgün çalışmasını sağlamak için kod yazmayı içerir. Web sitesinin kullanıcının beklentilerini karşılamasını ve kullanımının ve gezinmesinin kolay olmasını sağlamak için test ve ayarlamalar gerekebilir."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Bir ana sayfa için tel kafes, üst kısımda kullanıcıları sitenin içeriğini keşfetmeye davet eden büyük bir kahraman başlığından oluşur.",
+      "Aşağıda, yaklaşan etkinlikleri, en son haberleri ve öne çıkan içerikleri duyuran renkli bloklar ve başlıklar içeren bölümler bulunmaktadır.",
+      "Sayfanın alt kısmında, bir işletme için kısa bir harekete geçirici mesaj ve iletişim bilgileri bulunur."
+    ],
+    "qa": [
+      [
+        "Bir ana sayfa için bir web sayfası tel kafes geliştirin.",
+        "Bir ana sayfa için tel kafes, üst kısımda kullanıcıları sitenin içeriğini keşfetmeye davet eden büyük bir kahraman başlığından oluşur. Aşağıda, yaklaşan etkinlikleri, en son haberleri ve öne çıkan içerikleri duyuran renkli bloklar ve başlıklar içeren bölümler bulunmaktadır. Sayfanın alt kısmında, bir işletme için kısa bir harekete geçirici mesaj ve iletişim bilgileri bulunur. Son olarak, site hakkında daha fazla bilgiye bağlantılar içeren bir altbilgi var."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "İşte web geliştirme için gerekli araçların bir listesi: - Sublime Text veya Visual Studio Code gibi bir metin düzenleyici.",
+      "- Google Chrome, Firefox veya Safari gibi bir tarayıcı.",
+      "- Kodunuzu depolamak, izlemek ve sürümlendirmek için GitHub veya Bitbucket gibi bir kod deposu."
+    ],
+    "qa": [
+      [
+        "Web geliştirme için gerekli olan araçların bir listesini sağlayın.",
+        "İşte web geliştirme için gerekli araçların bir listesi: - Sublime Text veya Visual Studio Code gibi bir metin düzenleyici. - Google Chrome, Firefox veya Safari gibi bir tarayıcı. - Kodunuzu depolamak, izlemek ve sürümlendirmek için GitHub veya Bitbucket gibi bir kod deposu. - Kodunuzu çalıştırmak ve test etmek için Apache veya Nginx gibi bir geliştirme sunucusu. - Sıkıcı görevleri otomatikleştirmek için Gulp veya Grunt gibi bir görev çalıştırıcı. - Hızlı geliştirme deneyimi için Bootstrap veya ZURB Foundation gibi bir Çerçeve. - Ön uç bağımlılıklarını yönetmek için NPM veya Yarn gibi bir paket yöneticisi. - Web siteleri oluşturmak ve yönetmek için WordPress, Drupal veya Joomla gibi bir içerik yönetim sistemi (CMS)."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "html\">Filmler</a></li></ul></div><div class=\"col-sm-8\"><h2>Yeni Çıkanlar</h2><ul><li><a href =\"book1.html\">1.",
+      "Kitap</a></li><li><a href=\"magazine1.html\">1.",
+      "Dergi</a></li><li><a href=\"journal1."
+    ],
+    "qa": [
+      [
+        "Çevrimiçi bir kitaplığa uygun bir web sayfası düzeni tasarlayın.",
+        "<html><head><title>Kütüphane</title></head><body><h1>Çevrimiçi Kitaplığa Hoş Geldiniz!</h1><div class=\"container\"><div class=\"row\"><div class=\"col-sm-4\"><h2>Kategorilere Göz Atın</h2><ul><li><a href=\"books.html\">Kitaplar</a></li><li><a href=\"magazines.html\">Dergiler</a></li><li><a href=\"journals.html\">Dergiler</a></li><li><a href=\"movies. html\">Filmler</a></li></ul></div><div class=\"col-sm-8\"><h2>Yeni Çıkanlar</h2><ul><li><a href =\"book1.html\">1. Kitap</a></li><li><a href=\"magazine1.html\">1. Dergi</a></li><li><a href=\"journal1. html\">Günlük 1</a></li><li><a href=\"movie1.html\">Film 1</a></li></ul></div></div></div></body></html>"
+      ]
+    ]
+  },
+  {
+    "concept": "tablo",
+    "triples": [
+      [
+        "tablo",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "tablo",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "tablo web sayfalarını yapılandırmak için kullanılan temel bir HTML standardıdır."
+    ],
+    "qa": [
+      [
+        "Tablo içeren bir web sayfası için geçerli bir HTML kodu oluşturun.",
+        "<html><head><title>Tablo Sayfası</title></head><body><h1>Tablo</h1><table><tr><th>Ülke</th><th>Başkent</th></tr><tr><td>Amerika Birleşik Devletleri</td><td>Washington DC</td></tr><tr><td>Fransa</td><td>Paris</td></tr><tr><td>Japonya</td><td>Tokyo</td></tr></table></body></html>"
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Bulut Depolama Hizmeti Web Sitesi için Anahtar Kelimeler: 1.",
+      "Bulut Depolama 2.",
+      "Çevrimiçi Depolama 3."
+    ],
+    "qa": [
+      [
+        "Verilen web sitesinin hedeflemesi gereken beş anahtar kelimeden oluşan bir liste oluşturun (Bir bulut depolama hizmeti için web sitesi)",
+        "Bulut Depolama Hizmeti Web Sitesi için Anahtar Kelimeler: 1. Bulut Depolama 2. Çevrimiçi Depolama 3. Veri Depolama 4. Dosya Depolama 5. Güvenli Depolama"
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "SEO Arama Motoru Optimizasyonu anlamına gelir."
+    ],
+    "qa": [
+      [
+        "Bir web sitesi için SEO ne anlama gelir?",
+        "SEO Arama Motoru Optimizasyonu anlamına gelir."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "- Metin düzenleyici - FTP yazılımı - CSS ön işlemcisi - Barındırma sağlayıcısı - Duyarlı tasarım aracı - Görüntü düzenleyici - JavaScript kitaplığı - Web tasarım çerçevesi - Renk paleti oluşturucu"
+    ],
+    "qa": [
+      [
+        "Bir kişinin bir web tasarım projesine hızla başlamak için kullanabileceği araçların bir listesini oluşturun.",
+        "- Metin düzenleyici - FTP yazılımı - CSS ön işlemcisi - Barındırma sağlayıcısı - Duyarlı tasarım aracı - Görüntü düzenleyici - JavaScript kitaplığı - Web tasarım çerçevesi - Renk paleti oluşturucu"
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Fruit Delivery'ye hoş geldiniz!",
+      "Kapınıza kadar taze ve sağlıklı meyveler sunuyoruz.",
+      "Meyvelerimiz en yüksek kaliteyi sağlamak için elle toplanır ve çok çeşitli elma, portakal, muz, armut, üzüm ve daha fazlası arasından seçim yapabilirsiniz."
+    ],
+    "qa": [
+      [
+        "Meyve dağıtım hizmeti için bir web sitesi açıklaması yazın.",
+        "Fruit Delivery'ye hoş geldiniz! Kapınıza kadar taze ve sağlıklı meyveler sunuyoruz. Meyvelerimiz en yüksek kaliteyi sağlamak için elle toplanır ve çok çeşitli elma, portakal, muz, armut, üzüm ve daha fazlası arasından seçim yapabilirsiniz. Teslimat hizmetimizin rahatlığının ve uygun fiyatının keyfini çıkarın ve bugün sağlıklı beslenmeye başlayın!"
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Web sitesinin karmaşıklığına ve özelliklerine bağlı olarak sıfırdan bir web sitesi oluşturmak yaklaşık 1-3 ay sürecektir."
+    ],
+    "qa": [
+      [
+        "Görevi tamamlamanın ne kadar süreceğini tahmin edin. (Görev: Sıfırdan bir web sitesi oluşturmak)",
+        "Web sitesinin karmaşıklığına ve özelliklerine bağlı olarak sıfırdan bir web sitesi oluşturmak yaklaşık 1-3 ay sürecektir."
+      ]
+    ]
+  },
+  {
+    "concept": "css",
+    "triples": [
+      [
+        "css",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "css",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "h1 { yazı tipi boyutu: 18 piksel; renk: #000; } gövde { arka plan rengi: #f7f; }"
+    ],
+    "qa": [
+      [
+        "Bir web sayfasına birkaç stil kuralı uygulamak için bir CSS kodu yazın. (Başlık yazı tipi boyutu: 18 piksel Arka Plan Rengi: #f7f :)",
+        "h1 { yazı tipi boyutu: 18 piksel; renk: #000; } gövde { arka plan rengi: #f7f; }"
+      ]
+    ]
+  },
+  {
+    "concept": "css",
+    "triples": [
+      [
+        "css",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "css",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "CSS float özelliği, bir öğeyi içinde bulunduğu öğenin soluna veya sağına konumlandırmak için kullanılır.",
+      "Bu özellik, yüzdürme ve konumlandırma kullanmaya gerek kalmadan öğelerin yan yana yerleştirildiği, bilinen iki sütunlu veya üç sütunlu düzeni oluşturmak için kullanılabilir.",
+      "Kayan öğeler, tarayıcı yeniden boyutlandırıldığında değişen pencere boyutuna otomatik olarak ayarlanacağından, bu özellikle duyarlı tasarıma sahip web siteleri oluşturmak için yararlı olabilir."
+    ],
+    "qa": [
+      [
+        "CSS float özelliğinin işlevini tanımlayın.",
+        "CSS float özelliği, bir öğeyi içinde bulunduğu öğenin soluna veya sağına konumlandırmak için kullanılır. Bu özellik, yüzdürme ve konumlandırma kullanmaya gerek kalmadan öğelerin yan yana yerleştirildiği, bilinen iki sütunlu veya üç sütunlu düzeni oluşturmak için kullanılabilir. Kayan öğeler, tarayıcı yeniden boyutlandırıldığında değişen pencere boyutuna otomatik olarak ayarlanacağından, bu özellikle duyarlı tasarıma sahip web siteleri oluşturmak için yararlı olabilir."
+      ]
+    ]
+  },
+  {
+    "concept": "html",
+    "triples": [
+      [
+        "html",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "HTML 5'in üç özelliği Semantic Elements, Audio/Video Elements ve Canvas'ı içerir.",
+      "Anlamsal Öğeler, web içeriğine anlam ve yapı sağlar.",
+      "Ses/Video öğeleri, ses ve video dosyalarının oynatılmasına izin verir."
+    ],
+    "qa": [
+      [
+        "HTML 5'in üç özelliğini adlandırın.",
+        "HTML 5'in üç özelliği Semantic Elements, Audio/Video Elements ve Canvas'ı içerir. Anlamsal Öğeler, web içeriğine anlam ve yapı sağlar. Ses/Video öğeleri, ses ve video dosyalarının oynatılmasına izin verir. Canvas öğesi, grafik işleme için bir çizim yüzeyi sağlar."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Web geliştirmede kullanılan üç ana yazılım HTML, CSS ve JavaScript'tir.",
+      "HTML, bir web sitesini yapılandırmak için kullanılırken, CSS web sitesine stil vermek için kullanılır.",
+      "JavaScript, web sitesine etkileşim eklemek, hesaplamalar yapmak ve web sitesinin akışını kontrol etmek için kullanılır."
+    ],
+    "qa": [
+      [
+        "Web geliştirmede kullanılan üç ana yazılım parçası nedir?",
+        "Web geliştirmede kullanılan üç ana yazılım HTML, CSS ve JavaScript'tir. HTML, bir web sitesini yapılandırmak için kullanılırken, CSS web sitesine stil vermek için kullanılır. JavaScript, web sitesine etkileşim eklemek, hesaplamalar yapmak ve web sitesinin akışını kontrol etmek için kullanılır."
+      ]
+    ]
+  },
+  {
+    "concept": "formu",
+    "triples": [
+      [
+        "formu",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "formu",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "formu web sayfalarını yapılandırmak için kullanılan temel bir HTML standardıdır."
+    ],
+    "qa": [
+      [
+        "\"Bültene abone ol\" metniyle bir onay kutusu formu oluşturan bir HTML kodu oluşturun",
+        "<input type=\"checkbox\" name=\"newsletter\" value=\"newsletter\">Bültene abone ol"
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Çevrimiçi ödemeler sırasında dolandırıcılığı önlemek için güvenli ve güvenilir bir ödeme platformu kullandığınızdan emin olmalı, güçlü ve benzersiz bir şifre kullanmalı, yalnızca güvenli web siteleri kullanmalı, satıcının kimlik bilgilerini kontrol etmeli, URL'de \"S\" olup olmadığından emin olmalısınız.",
+      "Web sitesi güvenlidir ve banka kartı yerine kredi kartı kullanın."
+    ],
+    "qa": [
+      [
+        "Çevrimiçi ödeme yaparken dolandırıcılığı nasıl önleyebilirsiniz?",
+        "Çevrimiçi ödemeler sırasında dolandırıcılığı önlemek için güvenli ve güvenilir bir ödeme platformu kullandığınızdan emin olmalı, güçlü ve benzersiz bir şifre kullanmalı, yalnızca güvenli web siteleri kullanmalı, satıcının kimlik bilgilerini kontrol etmeli, URL'de \"S\" olup olmadığından emin olmalısınız. Web sitesi güvenlidir ve banka kartı yerine kredi kartı kullanın."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Mobilya Bölgesi."
+    ],
+    "qa": [
+      [
+        "Kullanılabilir ve farklı türde mobilya satan bir işletmeyle ilgili bir web sitesi adı önerin.",
+        "Mobilya Bölgesi."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Yazılım Geliştirici, Yazılım Mühendisi, Web Geliştirici, Ön Uç Geliştirici, Arka Uç Geliştirici, Mobil Geliştirici, Bulut Geliştirici, Full-Stack Geliştirici, Sistem Mimarı, Yazılım Mimarı, UX Tasarımcısı, Teknik Yazar, Veritabanı Yöneticisi, DevOps Mühendisi, Uygulama Geliştirici , Ağ Yöneticisi, Gömülü Geliştirici, Biyoinformatik Geliştirici, Yazılım Kalite Güvence Mühendisi."
+    ],
+    "qa": [
+      [
+        "Bir yazılım geliştiricisi için olası iş unvanlarının bir listesini oluşturun.",
+        "Yazılım Geliştirici, Yazılım Mühendisi, Web Geliştirici, Ön Uç Geliştirici, Arka Uç Geliştirici, Mobil Geliştirici, Bulut Geliştirici, Full-Stack Geliştirici, Sistem Mimarı, Yazılım Mimarı, UX Tasarımcısı, Teknik Yazar, Veritabanı Yöneticisi, DevOps Mühendisi, Uygulama Geliştirici , Ağ Yöneticisi, Gömülü Geliştirici, Biyoinformatik Geliştirici, Yazılım Kalite Güvence Mühendisi."
+      ]
+    ]
+  },
+  {
+    "concept": "html",
+    "triples": [
+      [
+        "html",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Java, nesne yönelimli bir dildir."
+    ],
+    "qa": [
+      [
+        "Aşağıdaki dillerden hangisinin nesne yönelimli bir dil olduğunu belirleyin (Java, HTML, JavaScript)",
+        "Java, nesne yönelimli bir dildir."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "html ve web web sayfalarını yapılandırmak için kullanılan temel bir HTML standardıdır."
+    ],
+    "qa": [
+      [
+        "Bu belgedeki metnin yazı tipi stilini ve boyutunu değiştirin. (<p style=\"font-family: Arial; font-size: 12px;\">Bu bir test belgesidir.</p>)",
+        "<p style=\"font-family: Times New Roman; font-size: 24px;\">Bu bir test belgesidir.</p>"
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Böyle bir web sitesi tasarımı için özel bir renk paleti, yumuşak kırmızımsı kahverengiler ve kremsi beyazlar içerebilir.",
+      "Bu renkler, arka plandaki sıradağların fotoğrafına çok yakışacak rahat, doğal bir his yaratır.",
+      "Kırmızımsı kahverengiler, sıradağları vurgulamak için kullanılabilirken, kremsi beyazlar tasarımı kaldırıyor ve aydınlatıyor."
+    ],
+    "qa": [
+      [
+        "Arka planda sıradağların fotoğrafı olan bir web sitesi için özel bir renk paleti oluşturun.",
+        "Böyle bir web sitesi tasarımı için özel bir renk paleti, yumuşak kırmızımsı kahverengiler ve kremsi beyazlar içerebilir. Bu renkler, arka plandaki sıradağların fotoğrafına çok yakışacak rahat, doğal bir his yaratır. Kırmızımsı kahverengiler, sıradağları vurgulamak için kullanılabilirken, kremsi beyazlar tasarımı kaldırıyor ve aydınlatıyor."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Dünyayı okumak - Kitap satın alın ve bilgi edinin."
+    ],
+    "qa": [
+      [
+        "Kitap satan bir web sitesi için kısa açıklama oluşturun.",
+        "Dünyayı okumak - Kitap satın alın ve bilgi edinin."
+      ]
+    ]
+  },
+  {
+    "concept": "html",
+    "triples": [
+      [
+        "html",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "HTML (HyperText Markup Language), web siteleri oluşturmak için kullanılan bir kodlama dilidir.",
+      "Tutarlı ve düzenli bir şekilde görüntülenmesini sağlayan web sitesinin içeriği için yapı sağlar.",
+      "HTML, gezinmeye, sayfa düzenine ve stil vermeye yardımcı olduğu ve multimedya içeriğinin entegrasyonuna izin verdiği için web sitesi tasarımcıları için önemli bir araçtır."
+    ],
+    "qa": [
+      [
+        "HTML'nin web sitesi tasarımındaki önemini açıklayın.",
+        "HTML (HyperText Markup Language), web siteleri oluşturmak için kullanılan bir kodlama dilidir. Tutarlı ve düzenli bir şekilde görüntülenmesini sağlayan web sitesinin içeriği için yapı sağlar. HTML, gezinmeye, sayfa düzenine ve stil vermeye yardımcı olduğu ve multimedya içeriğinin entegrasyonuna izin verdiği için web sitesi tasarımcıları için önemli bir araçtır."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Bir web sitesi barındırma maliyetlerini azaltmanın birkaç yolu vardır.",
+      "En bariz olanı, daha düşük bir ücretle bir web barındırma sağlayıcısı seçmektir.",
+      "Ayrıca indirimler veya gruplama hizmetleri sunan sağlayıcıları da arayabilirsiniz."
+    ],
+    "qa": [
+      [
+        "Bir web sitesi barındırma maliyetlerini azaltmak için ne yapabilirim?",
+        "Bir web sitesi barındırma maliyetlerini azaltmanın birkaç yolu vardır. En bariz olanı, daha düşük bir ücretle bir web barındırma sağlayıcısı seçmektir. Ayrıca indirimler veya gruplama hizmetleri sunan sağlayıcıları da arayabilirsiniz. Ek olarak, web sitenizi paylaşılan bir barındırma platformunda barındırmayı veya trafiğiniz yüksekse dağıtılmış barındırmayı tercih edebilirsiniz. Son olarak, ücretsiz SSL veya web uygulaması güvenlik duvarları sunan barındırma sağlayıcılarını arayın, çünkü bu özellikler barındırma maliyetlerini düşürmeye yardımcı olabilir."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Bir web sitesi tasarlamak için ilgili bir araç, WordPress, Wix veya Squarespace gibi bir web sitesi oluşturucudur.",
+      "Bu araçlar, kullanıcıların kodlama bilgisi olmadan kolayca güzel web siteleri oluşturmasını sağlar.",
+      "Bu, kodlama zorluğu olmadan profesyonel görünümlü bir web sitesi oluşturmayı kolaylaştırır."
+    ],
+    "qa": [
+      [
+        "Verilen görev için ilgili aracı adlandırın. (Web sitesi tasarlamak)",
+        "Bir web sitesi tasarlamak için ilgili bir araç, WordPress, Wix veya Squarespace gibi bir web sitesi oluşturucudur. Bu araçlar, kullanıcıların kodlama bilgisi olmadan kolayca güzel web siteleri oluşturmasını sağlar. Bu, kodlama zorluğu olmadan profesyonel görünümlü bir web sitesi oluşturmayı kolaylaştırır."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Bir şirketin web sitesi için en iyi güvenlik uygulamalarının listesi şunları içerir: - Yazılımın güncel olmasını sağlama - Güvenlik duvarları ve antivirüs yazılımı kullanma - Dış güvenlik denetimleri talep etme - Yönetici sayısını sınırlama - Verileri yedekleme - Güçlü parolalar uygulama - Erişim ayrıcalıklarını sınırlama - Veritabanlarının güvenliğini sağlama - İletişimleri şifreleme - HTTPS ile web sitelerinin güvenliğini sağlama"
+    ],
+    "qa": [
+      [
+        "Bir şirketin web sitesi için en iyi güvenlik uygulamalarının bir listesini oluşturun.",
+        "Bir şirketin web sitesi için en iyi güvenlik uygulamalarının listesi şunları içerir: - Yazılımın güncel olmasını sağlama - Güvenlik duvarları ve antivirüs yazılımı kullanma - Dış güvenlik denetimleri talep etme - Yönetici sayısını sınırlama - Verileri yedekleme - Güçlü parolalar uygulama - Erişim ayrıcalıklarını sınırlama - Veritabanlarının güvenliğini sağlama - İletişimleri şifreleme - HTTPS ile web sitelerinin güvenliğini sağlama"
+      ]
+    ]
+  },
+  {
+    "concept": "html",
+    "triples": [
+      [
+        "html",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Temel bir blog oluşturmak için gerekli olan HTML ve CSS kodu, HTML'de yazılan düzen bilgilerini ve CSS'de yazılan stil bilgilerini içerir.",
+      "Başlıklar, resimler, başlıklar ve paragraf etiketleri gibi HTML öğeleri, tutarlı bir blog sayfası oluşturmak için uygun biçimlendirmeyle düzenlenmelidir.",
+      "CSS, arka plan renkleri, metin renkleri ve yazı tipi boyutları ekleyerek blog sayfasını biçimlendirmek için kullanılır."
+    ],
+    "qa": [
+      [
+        "HTML ve CSS kullanarak temel bir blog oluşturun.",
+        "Temel bir blog oluşturmak için gerekli olan HTML ve CSS kodu, HTML'de yazılan düzen bilgilerini ve CSS'de yazılan stil bilgilerini içerir. Başlıklar, resimler, başlıklar ve paragraf etiketleri gibi HTML öğeleri, tutarlı bir blog sayfası oluşturmak için uygun biçimlendirmeyle düzenlenmelidir. CSS, arka plan renkleri, metin renkleri ve yazı tipi boyutları ekleyerek blog sayfasını biçimlendirmek için kullanılır."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Web sitesi tasarımı için önerilen çevrimiçi araçlar arasında Wix, Weebly, Squarespace, Dreamweaver, WordPress ve SiteBuilder bulunur."
+    ],
+    "qa": [
+      [
+        "Web sitesi tasarımı için çevrimiçi araçlar önerin.",
+        "Web sitesi tasarımı için önerilen çevrimiçi araçlar arasında Wix, Weebly, Squarespace, Dreamweaver, WordPress ve SiteBuilder bulunur."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Mükemmel bir arkadaş mı arıyorsunuz?",
+      "Puff'tan başka yere bakmayın!",
+      "Bu tatlı 8 aylık dişi köpek ideal evcil hayvandır."
+    ],
+    "qa": [
+      [
+        "Bir evcil hayvan evlat edinme web sitesi için girdiler verildiğinde, sahiplenilmesi gereken bir evcil hayvan için ikna edici bir reklam oluşturun. (Evcil Hayvan Adı: Puf Türü: Köpek Yaşı: 8 aylık Cinsiyeti: Dişi Mizacı: Sevgi Dolu ve Dost canlısı)",
+        "Mükemmel bir arkadaş mı arıyorsunuz? Puff'tan başka yere bakmayın! Bu tatlı 8 aylık dişi köpek ideal evcil hayvandır. Sevgi dolu, arkadaş canlısı ve insanların yanında olmayı seviyor. Puff zaten ev eğitimi aldı ve hem içeride hem de dışarıda oynamayı seviyor. Hepsinden iyisi, çocuklarla arası harika! Sadık ve sevgi dolu bir arkadaş arıyorsanız, Puff sizin için mükemmel bir seçimdir. Bu muhteşem fırsatın sizi geçmesine izin vermeyin!"
+      ]
+    ]
+  },
+  {
+    "concept": "css",
+    "triples": [
+      [
+        "css",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "css",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "h1 {renk: kırmızı; }"
+    ],
+    "qa": [
+      [
+        "Bir web sitesinin başlığının yazı tipi rengini kırmızı yapmak için geçerli bir CSS programı oluşturun",
+        "h1 {renk: kırmızı; }"
+      ]
+    ]
+  },
+  {
+    "concept": "html",
+    "triples": [
+      [
+        "html",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "html web sayfalarını yapılandırmak için kullanılan temel bir HTML standardıdır."
+    ],
+    "qa": [
+      [
+        "Tüm gereksiz etiketleri kaldırarak HTML kodunu temizleyin. (<html><head><title>Web sitesi</title></head><body><p>Bu bir paragraftır.</p><p>Bu ikinci paragraftır</p></body> </html>)",
+        "<html><head><title>Web sitesi</title></head><body>Bu bir paragraftır.<p>Bu ikinci paragraftır</p></body></html>"
+      ]
+    ]
+  },
+  {
+    "concept": "html",
+    "triples": [
+      [
+        "html",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "html web sayfalarını yapılandırmak için kullanılan temel bir HTML standardıdır."
+    ],
+    "qa": [
+      [
+        "Aşağıdaki HTML metnini karşılık gelen CSS ile güncelleyin (<p> En sevdiğim renk mavidir. </p>)",
+        "<p style=\"color:blue;\">En sevdiğim renk mavidir. </p>"
+      ]
+    ]
+  },
+  {
+    "concept": "html",
+    "triples": [
+      [
+        "html",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "HTML, Köprü Metni İşaretleme Dili anlamına gelir ve web siteleri ve web uygulamaları oluşturmak için özel bir dildir.",
+      "HTML, bilgileri yapılandırmak için etiketleri ve nitelikleri kullanır ve CSS, HTML belgelerine stil vermek ve biçimlendirme uygulamak için kullanılır."
+    ],
+    "qa": [
+      [
+        "HTML'nin ne anlama geldiğini açıklayın.",
+        "HTML, Köprü Metni İşaretleme Dili anlamına gelir ve web siteleri ve web uygulamaları oluşturmak için özel bir dildir. HTML, bilgileri yapılandırmak için etiketleri ve nitelikleri kullanır ve CSS, HTML belgelerine stil vermek ve biçimlendirme uygulamak için kullanılır."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Doğal dil işlemeye (NLP) odaklanarak GPT-3 ile web sitesi için müşteri hizmetleri sohbet robotu tasarlardım.",
+      "Chatbot, kullanıcı sorularına ve sorgularına doğru ve hızlı bir şekilde yanıt vermek üzere eğitilecek ve kullanıcılara en alakalı yanıtları sağlamak için duygu analizi ve niyet algılama gibi NLP tekniklerini kullanacak.",
+      "Ayrıca, kişiselleştirilmiş yanıtlar sağlamak için kullanım durumları ve örnek konuşmalar ile müşteri terminolojisi konusunda da eğitim verilecektir."
+    ],
+    "qa": [
+      [
+        "GPT-3 ile oluşturulmuş bir müşteri hizmetleri web sitesi için bir sohbet robotu tasarlayın.",
+        "Doğal dil işlemeye (NLP) odaklanarak GPT-3 ile web sitesi için müşteri hizmetleri sohbet robotu tasarlardım. Chatbot, kullanıcı sorularına ve sorgularına doğru ve hızlı bir şekilde yanıt vermek üzere eğitilecek ve kullanıcılara en alakalı yanıtları sağlamak için duygu analizi ve niyet algılama gibi NLP tekniklerini kullanacak. Ayrıca, kişiselleştirilmiş yanıtlar sağlamak için kullanım durumları ve örnek konuşmalar ile müşteri terminolojisi konusunda da eğitim verilecektir. Ayrıca, sistem birden çok dilde destek sunacak ve asla aynı yanıtı ikinci kez vermeyecek şekilde tasarlanacaktır."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Web sitesi, grup gezileri, kültürel deneyimler, macera gezileri ve daha fazlası gibi sunulan farklı seyahat hizmetleri türleri hakkında bilgi içermelidir.",
+      "Ayrıca, kullanıcıların gezileri kolayca rezerve etmelerini sağlayan bir rezervasyon formu da içermelidir.",
+      "Ek olarak, web sitesinde seyahat ipuçları ve bilgileri için ayrılmış bir sayfanın yanı sıra kullanıcıların seyahat hikayelerini paylaşabilecekleri bir blog sayfası bulunmalıdır."
+    ],
+    "qa": [
+      [
+        "Yeni bir seyahat hizmeti türü için bir web sitesi oluşturun.",
+        "Web sitesi, grup gezileri, kültürel deneyimler, macera gezileri ve daha fazlası gibi sunulan farklı seyahat hizmetleri türleri hakkında bilgi içermelidir. Ayrıca, kullanıcıların gezileri kolayca rezerve etmelerini sağlayan bir rezervasyon formu da içermelidir. Ek olarak, web sitesinde seyahat ipuçları ve bilgileri için ayrılmış bir sayfanın yanı sıra kullanıcıların seyahat hikayelerini paylaşabilecekleri bir blog sayfası bulunmalıdır."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Best Buy (www.bestbuy.com), elektronik ürünler satan bir web sitesidir."
+    ],
+    "qa": [
+      [
+        "Elektronik satan bir web sitesi bulun.",
+        "Best Buy (www.bestbuy.com), elektronik ürünler satan bir web sitesidir."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Kodlama için kullanılan bazı diller arasında C, C++, Java, Python, JavaScript, Ruby, SQL, Swift, HTML, CSS ve PHP bulunur."
+    ],
+    "qa": [
+      [
+        "Kodlama için kullanılan bazı dilleri adlandırın",
+        "Kodlama için kullanılan bazı diller arasında C, C++, Java, Python, JavaScript, Ruby, SQL, Swift, HTML, CSS ve PHP bulunur."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Web sitesinin kullanılabilirliğine dikkat edin ve ziyaretçilerin aradıkları tüm bilgileri kolayca bulabilmelerini sağlayın.",
+      "Kullanıcıların bundan sonra nereye gitmeleri gerektiğini açıkça gösteren basit ve etkili gezinmeyi kullanın.",
+      "Kullanıcı etkileşimini sürdürmek için her zaman görseller kullanın."
+    ],
+    "qa": [
+      [
+        "Etkili bir web sitesi tasarlamak için üç ipucu verin",
+        "1. Web sitesinin kullanılabilirliğine dikkat edin ve ziyaretçilerin aradıkları tüm bilgileri kolayca bulabilmelerini sağlayın. 2. Kullanıcıların bundan sonra nereye gitmeleri gerektiğini açıkça gösteren basit ve etkili gezinmeyi kullanın. 3. Kullanıcı etkileşimini sürdürmek için her zaman görseller kullanın."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Özel biri için mükemmel, benzersiz bir hediye mi arıyorsunuz?",
+      "Firmamız her türlü fırsat için el yapımı, türünün tek örneği hediyeler sunmaktadır.",
+      "İster doğum günü, ister mezuniyet, yıl dönümü veya düğün için alışveriş yapıyor olun, sevdikleriniz için mükemmel, anlamlı hediyelerimiz var."
+    ],
+    "qa": [
+      [
+        "SEO için geliştirmek için bu web sitesi kopyasını yeniden yazın. (Şirketimiz, her durum için mükemmel, el yapımı, türünün tek örneği hediyeler satmaktadır.)",
+        "Özel biri için mükemmel, benzersiz bir hediye mi arıyorsunuz? Firmamız her türlü fırsat için el yapımı, türünün tek örneği hediyeler sunmaktadır. İster doğum günü, ister mezuniyet, yıl dönümü veya düğün için alışveriş yapıyor olun, sevdikleriniz için mükemmel, anlamlı hediyelerimiz var."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Piyasadaki en havalı yeni ürünü deneyimlemeye hazır olun.",
+      "Hemen harekete geçin ve bu sınırlı süreli teklifi kaçırmayın!"
+    ],
+    "qa": [
+      [
+        "Bir web sayfası için etkileyici bir harekete geçirici mesaj yazın.",
+        "Piyasadaki en havalı yeni ürünü deneyimlemeye hazır olun. Hemen harekete geçin ve bu sınırlı süreli teklifi kaçırmayın!"
+      ]
+    ]
+  },
+  {
+    "concept": "html",
+    "triples": [
+      [
+        "html",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "html web sayfalarını yapılandırmak için kullanılan temel bir HTML standardıdır."
+    ],
+    "qa": [
+      [
+        "Başlık ve gövde içeren bir web sitesi için HTML kodunu oluşturun.",
+        "<html><head></head><body></body></html>"
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Web sitesi, mağazanın ürün ve hizmetlerini sergileyen kullanışlı ve sezgisel bir deneyim sağlamalıdır.",
+      "Masaüstü ve mobil görüntüleme için optimize edilmeli, arama motoru optimize edilmeli ve net gezinme, yüksek kaliteli görseller ve ayrıntılı ürün açıklamaları içermelidir.",
+      "Ek olarak, müşterilerin ürünleri doğrudan web sitesinden satın alabilmeleri için bir çevrimiçi mağaza bölümü eklenmelidir."
+    ],
+    "qa": [
+      [
+        "Bir ev geliştirme mağazası için bir web sitesi oluşturmanız isteniyor.",
+        "Web sitesi, mağazanın ürün ve hizmetlerini sergileyen kullanışlı ve sezgisel bir deneyim sağlamalıdır. Masaüstü ve mobil görüntüleme için optimize edilmeli, arama motoru optimize edilmeli ve net gezinme, yüksek kaliteli görseller ve ayrıntılı ürün açıklamaları içermelidir. Ek olarak, müşterilerin ürünleri doğrudan web sitesinden satın alabilmeleri için bir çevrimiçi mağaza bölümü eklenmelidir."
+      ]
+    ]
+  },
+  {
+    "concept": "formu",
+    "triples": [
+      [
+        "formu",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "formu",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Web sayfası, kullanıcının adı, e-posta adresi ve mesajı için alanlar içeren bir bize ulaşın formu içerecek şekilde tasarlanmalıdır.",
+      "Form ayrıca, form içeriğini uygun iletişim e-posta adresine göndermek için bir gönder düğmesi içermelidir."
+    ],
+    "qa": [
+      [
+        "Bize ulaşın formu görüntüleyen bir web sayfası oluşturun.",
+        "Web sayfası, kullanıcının adı, e-posta adresi ve mesajı için alanlar içeren bir bize ulaşın formu içerecek şekilde tasarlanmalıdır. Form ayrıca, form içeriğini uygun iletişim e-posta adresine göndermek için bir gönder düğmesi içermelidir."
+      ]
+    ]
+  },
+  {
+    "concept": "html",
+    "triples": [
+      [
+        "html",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "HTML bir biçimlendirme dilidir."
+    ],
+    "qa": [
+      [
+        "\"HTML\" ne tür bir dildir?",
+        "HTML bir biçimlendirme dilidir."
+      ]
+    ]
+  },
+  {
+    "concept": "css",
+    "triples": [
+      [
+        "css",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "css",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Izgaranızı bir kap ve satırlarla tanımlayarak başlayın ve birkaç basit satır ve sütun ayarlayın.",
+      "Belirli bir kap içindeki satır ve sütunların sayısını belirlemek için ızgara otomatik akış özelliğini kullanın 3.",
+      "Kesin ızgara ölçümleri için kesirleri ve kullanıma hazır daha hızlı yanıt verme için yüzdeleri kullanın."
+    ],
+    "qa": [
+      [
+        "CSS Grid kullanımıyla ilgili 3 ipucu verin.",
+        "1. Izgaranızı bir kap ve satırlarla tanımlayarak başlayın ve birkaç basit satır ve sütun ayarlayın. 2. Belirli bir kap içindeki satır ve sütunların sayısını belirlemek için ızgara otomatik akış özelliğini kullanın 3. Kesin ızgara ölçümleri için kesirleri ve kullanıma hazır daha hızlı yanıt verme için yüzdeleri kullanın."
+      ]
+    ]
+  },
+  {
+    "concept": "html",
+    "triples": [
+      [
+        "html",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Her zamankinden daha kullanışlı ve [fayda 1] ve [fayda 2]'de en iyisini sunuyor.</p><p>Ayrıca, [ürün adı] satın alarak [olumlu etki] elde etmemize yardımcı oluyorsunuz.</p><p>Web sitemizi ziyaret edin ve [ürün adı] ürününü tükenmeden bugün alın!</p></body></html>"
+    ],
+    "qa": [
+      [
+        "Yeni bir ürünü tanıtan bir HTML e-posta şablonu oluşturun.",
+        "<html><header><title>Yeni Ürün Sürümü</title></header><body><h1>En Yeni Ürünümüzü Tanıtıyoruz!</h1><p>[şirket adı] olarak, ürün grubumuzun en yeni sürümü: [ürün adı].</p><p>Bu heyecan verici yeni ürün, [uygulama] için mükemmeldir: [yetenek] ve [özellik 1], [özellik 2] ve [özellik 3] . Her zamankinden daha kullanışlı ve [fayda 1] ve [fayda 2]'de en iyisini sunuyor.</p><p>Ayrıca, [ürün adı] satın alarak [olumlu etki] elde etmemize yardımcı oluyorsunuz.</p><p>Web sitemizi ziyaret edin ve [ürün adı] ürününü tükenmeden bugün alın!</p></body></html>"
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "- Yarınki toplantı için eksiksiz rapor - Web sitesi için blog yazısı yazın - Yeni müşteri için sunum hazırlayın - Potansiyel ortaklara takip e-postaları gönderin - Pazar günü için market alışverişi planlayın"
+    ],
+    "qa": [
+      [
+        "Beş maddelik bir yapılacaklar listesi oluşturun.",
+        "- Yarınki toplantı için eksiksiz rapor - Web sitesi için blog yazısı yazın - Yeni müşteri için sunum hazırlayın - Potansiyel ortaklara takip e-postaları gönderin - Pazar günü için market alışverişi planlayın"
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "İlgili sayfaları bulmayı kolaylaştırmak için gezinme menüsünü iyileştirin.",
+      "Siteyi daha duyarlı ve mobil uyumlu hale getirin.",
+      "Kodu ve varlıkları optimize ederek sayfa yükleme sürelerini hızlandırın."
+    ],
+    "qa": [
+      [
+        "Bir web sitesi için 5 potansiyel iyileştirmenin bir listesini oluşturun.",
+        "1. İlgili sayfaları bulmayı kolaylaştırmak için gezinme menüsünü iyileştirin. 2. Siteyi daha duyarlı ve mobil uyumlu hale getirin. 3. Kodu ve varlıkları optimize ederek sayfa yükleme sürelerini hızlandırın. 4. Daha modern ve çekici hale getirmek için site tasarımını iyileştirin. 5. Kullanıcı girişi ve hesap yönetimi gibi özellikler ekleyin."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Reddit'e benzer bir web sitesi oluşturmak için ilk adım, web sitesinin temel çerçevesini tasarlamak olacaktır.",
+      "Bu, ana sayfa, kullanıcı hesapları, farklı kategorilerdeki sayfalar, yorum/gönderme bölümleri gibi web sitesinin yapısının oluşturulmasını içerir.",
+      "Bir sonraki adım, web sitesini oluşturmak için gereken HTML'yi tasarlamak olacaktır."
+    ],
+    "qa": [
+      [
+        "Reddit'e benzer bir web sitesini nasıl oluşturursunuz?",
+        "Reddit'e benzer bir web sitesi oluşturmak için ilk adım, web sitesinin temel çerçevesini tasarlamak olacaktır. Bu, ana sayfa, kullanıcı hesapları, farklı kategorilerdeki sayfalar, yorum/gönderme bölümleri gibi web sitesinin yapısının oluşturulmasını içerir. Bir sonraki adım, web sitesini oluşturmak için gereken HTML'yi tasarlamak olacaktır. Bu adımda, gezinme çubuğu, düğmeler, yorum kutuları vb. gibi web sitesinin ihtiyaç duyduğu görsel öğeleri oluşturmamız gerekir. HTML oluşturulduktan sonra, bir sonraki adım, HTML'ye CSS stili eklemek ve onu yapmak olacaktır. görsel olarak çekici görünün. Bir sonraki adım, web sitesi için kullanıcı kimlik doğrulaması, veritabanları ve algoritmalar gibi arka uç kodunu oluşturmak olacaktır. Son adım, web sitesini başlatmak olacaktır. Bu, sunucu yapılandırmasını oluşturmayı ve web sitesini barındırmayı içerir. Web sitesi yayına girdikten sonra izlenmesi ve bakımının yapılması gerekir."
+      ]
+    ]
+  },
+  {
+    "concept": "html",
+    "triples": [
+      [
+        "html",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "html web sayfalarını yapılandırmak için kullanılan temel bir HTML standardıdır."
+    ],
+    "qa": [
+      [
+        "Aşağıdaki web sayfasını optimize edin. (<html> <head> <title> Web Sayfası Optimizasyonu </title> </head> <body> <p> Bu, optimize edilmesi gereken bir web sayfasıdır. </p> </body> </html>)",
+        "<html><head><title>Web Sayfası Optimizasyonu</title><meta charset=\"utf-8\" /><meta name=\"viewport\" content=\"width=device-width, Initial-scale=1.0\" /><link rel=\"stylesheet\" href=\"style.css\" /></head><body><p>Bu, optimize edilmesi gereken bir web sayfasıdır.</p></body></html>"
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Serbest yazarlık, sanal asistan, müşteri hizmetleri temsilcisi ve web tasarımı, öğrencilere ihtiyaç duydukları deneyimi sağlayabilecek harika esnek işlerdir."
+    ],
+    "qa": [
+      [
+        "Esnek olmak ve biraz iş deneyimi kazanmak isteyen bir öğrenciye ne tür işler önerirsiniz?",
+        "Serbest yazarlık, sanal asistan, müşteri hizmetleri temsilcisi ve web tasarımı, öğrencilere ihtiyaç duydukları deneyimi sağlayabilecek harika esnek işlerdir."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "html ve web web sayfalarını yapılandırmak için kullanılan temel bir HTML standardıdır."
+    ],
+    "qa": [
+      [
+        "Aşağıdaki metni kopyalayıp yeni bir belgeye yapıştırın ve tüm isimleri vurgulayın. (Kuş, solucan aramak için ağacın dalları arasında zıpladı.)",
+        "<span style=\"background-color:#FDFDFD\">kuş</span>, <span style=\"background-color\"ın <span style=\"background-color:#FDFDFD\">dalları</span>arasında zıpladı :#FDFDFD\">ağaç</span><span style=\"background-color:#FDFDFD\">solucanları</span>arıyor."
+      ]
+    ]
+  },
+  {
+    "concept": "css",
+    "triples": [
+      [
+        "css",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "css",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "div {arka plan rengi: kırmızı; yeşil renk; }"
+    ],
+    "qa": [
+      [
+        "Kırmızı arka plana ve yeşil yazı tipine sahip bir öğeyi görüntülemek için bir css kodu yazın.",
+        "div {arka plan rengi: kırmızı; yeşil renk; }"
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Bu tasarım, restoranın adını çarpıcı bir resimle birlikte sayfanın üst kısmında belirgin bir şekilde gösterebilir.",
+      "Bunun altında, kullanıcıları ilgili sayfalara yönlendirmek için \"Menüyü Görüntüle\", \"Rezervasyon Yap\" ve \"Tura Çık\" gibi harekete geçirici mesaj düğmeleri yer alabilir.",
+      "Restoran çağırma özelliği de eklenebilir."
+    ],
+    "qa": [
+      [
+        "Yeni bir restoranı tanıtan bir web sitesi için bir tasarım oluşturun.",
+        "Bu tasarım, restoranın adını çarpıcı bir resimle birlikte sayfanın üst kısmında belirgin bir şekilde gösterebilir. Bunun altında, kullanıcıları ilgili sayfalara yönlendirmek için \"Menüyü Görüntüle\", \"Rezervasyon Yap\" ve \"Tura Çık\" gibi harekete geçirici mesaj düğmeleri yer alabilir. Restoran çağırma özelliği de eklenebilir. Menüler, iç fotoğraflar, restoranın yerini gösteren harita ve restoranla ilgili diğer bilgilere, kullanıcının ana sayfadan erişebileceği diğer sayfalardan erişilebilir olmalıdır."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Çevre Dostu Yaşayın - Sorumlu Alışveriş Yapın!"
+    ],
+    "qa": [
+      [
+        "Ekoloji dostu ürünler satan bir web sitesi için slogan tasarlayın.",
+        "Çevre Dostu Yaşayın - Sorumlu Alışveriş Yapın!"
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Web tasarımı, ortaokul öğrencileri için çok uygun olabilecek yaratıcı bir alandır.",
+      "Bu öğrenciler için harika bir başlangıç noktası olabilecek çevrimiçi bir kurs, Codecademy'nin 'HTML ve CSS'yi Öğrenin' kursudur.",
+      "Kurs, yeni başlayanlar için tasarlanmıştır ve HTML ve CSS'nin temellerini öğrenmek için sezgisel, adım adım bir yaklaşım sunar."
+    ],
+    "qa": [
+      [
+        "Web tasarımına ilgi duyan bir ortaokul öğrencisine uygun bir çevrimiçi kurs önerin.",
+        "Web tasarımı, ortaokul öğrencileri için çok uygun olabilecek yaratıcı bir alandır. Bu öğrenciler için harika bir başlangıç noktası olabilecek çevrimiçi bir kurs, Codecademy'nin 'HTML ve CSS'yi Öğrenin' kursudur. Kurs, yeni başlayanlar için tasarlanmıştır ve HTML ve CSS'nin temellerini öğrenmek için sezgisel, adım adım bir yaklaşım sunar. Ayrıca Bootstrap ve Foundation gibi popüler web tasarım çerçevelerine bir giriş sağlar ve bir dizi etkileşimli eğitim ve uygulama sağlar. Kurs kendi hızındadır, bu nedenle öğrenciler kendi hızlarında ilerleyebilecek ve her zaman geri dönüp kurs materyalini tekrar ziyaret edebileceklerdir."
+      ]
+    ]
+  },
+  {
+    "concept": "html",
+    "triples": [
+      [
+        "html",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      ".test { kenarlık: 1 piksel düz siyah; }"
+    ],
+    "qa": [
+      [
+        "\"Test\" sınıfına sahip bir HTML öğesine siyah kenarlık uygulayan bir CSS sınıfı yazın",
+        ".test { kenarlık: 1 piksel düz siyah; }"
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "PHP-MySQL tabanlı bir oturum açma sistemi, bir HTML formu oluşturmaktan, kullanıcı kimlik doğrulaması için tablo içeren MySQL veritabanı oluşturmaktan, veritabanı bağlantısı ve kimlik doğrulaması için PHP betiği yazmaktan ve kimlik doğrulama için bir PHP dosyası oluşturmaktan oluşur.",
+      "HTML formunu oluşturmak için e-posta ve şifre gibi gerekli form alanlarını eklememiz gerekiyor; daha sonra, kullanıcıların kimlik bilgilerini saklayan tablolu bir MySQL veritabanı oluşturabiliriz.",
+      "Bundan sonra, veritabanına bağlanmak ve gerekli kullanıcı kimlik bilgilerini almak için bir PHP betiği yazmamız gerekiyor."
+    ],
+    "qa": [
+      [
+        "PHP-MySQL tabanlı bir oturum açma sistemine örnek veriniz.",
+        "PHP-MySQL tabanlı bir oturum açma sistemi, bir HTML formu oluşturmaktan, kullanıcı kimlik doğrulaması için tablo içeren MySQL veritabanı oluşturmaktan, veritabanı bağlantısı ve kimlik doğrulaması için PHP betiği yazmaktan ve kimlik doğrulama için bir PHP dosyası oluşturmaktan oluşur. HTML formunu oluşturmak için e-posta ve şifre gibi gerekli form alanlarını eklememiz gerekiyor; daha sonra, kullanıcıların kimlik bilgilerini saklayan tablolu bir MySQL veritabanı oluşturabiliriz. Bundan sonra, veritabanına bağlanmak ve gerekli kullanıcı kimlik bilgilerini almak için bir PHP betiği yazmamız gerekiyor. Son olarak, kimlik doğrulama için bir PHP sayfası oluşturmamız gerekiyor. Bu sayfa form verilerini alacak ve veritabanındaki verilerle karşılaştıracak ve eşleşmesi durumunda başarılı bir giriş gerçekleştirilecektir."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "ClassifiedsX mobil uygulaması, kullanıcıların sınıflandırılmış reklamlar yayınlamasına ve bu reklamlara göz atmasına ve diğer kullanıcılarla doğrudan iletişim kurmasına izin vermelidir.",
+      "Ayrıca ücret listeleri, yer imleri ve kullanıcı profilleri gibi özellikleri de içermelidir.",
+      "Ek olarak, uygulamanın bir arama özelliği olmalıdır, böylece kullanıcılar aradıkları öğeleri kolayca bulabilirler."
+    ],
+    "qa": [
+      [
+        "Bir sınıflandırılmış reklam web sitesi için bir mobil uygulama oluşturun (Web Sitesi Adı: ClassifiedsX)",
+        "ClassifiedsX mobil uygulaması, kullanıcıların sınıflandırılmış reklamlar yayınlamasına ve bu reklamlara göz atmasına ve diğer kullanıcılarla doğrudan iletişim kurmasına izin vermelidir. Ayrıca ücret listeleri, yer imleri ve kullanıcı profilleri gibi özellikleri de içermelidir. Ek olarak, uygulamanın bir arama özelliği olmalıdır, böylece kullanıcılar aradıkları öğeleri kolayca bulabilirler."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Genel stil kılavuzu, logo, renk paleti, tipografi, grafik öğeler, resimler vb.",
+      "dahil ancak bunlarla sınırlı olmamak üzere web sitesi tasarımının nasıl görünmesi gerektiğini tanımlamalıdır.",
+      "Ayrıca web sitesi yapısı, içerik düzeni ve gezinme, sayfa için yönergeler ve standartlar belirtmelidir."
+    ],
+    "qa": [
+      [
+        "Bir web sitesi tasarım projesi için bir stil kılavuzu tasarlayın",
+        "Genel stil kılavuzu, logo, renk paleti, tipografi, grafik öğeler, resimler vb. dahil ancak bunlarla sınırlı olmamak üzere web sitesi tasarımının nasıl görünmesi gerektiğini tanımlamalıdır. Ayrıca web sitesi yapısı, içerik düzeni ve gezinme, sayfa için yönergeler ve standartlar belirtmelidir. şablonlar ve etkileşimli öğeler."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Teknolojinin iş yeri üzerinde büyük etkisi oldu.",
+      "Üretkenliği, etkinliği ve iletişimi geliştirmiştir.",
+      "Birçok durumda, süreçleri kolaylaştırmak, maliyetleri azaltmak ve üretimi hızlandırmak için kullanılmıştır."
+    ],
+    "qa": [
+      [
+        "Şu konuda bir makale yazın: Teknolojinin İş Yeri Üzerindeki Etkisi",
+        "Teknolojinin iş yeri üzerinde büyük etkisi oldu. Üretkenliği, etkinliği ve iletişimi geliştirmiştir. Birçok durumda, süreçleri kolaylaştırmak, maliyetleri azaltmak ve üretimi hızlandırmak için kullanılmıştır. Bilgisayarların, internetin ve diğer teknolojik araçların kullanımı, şirketlerin küresel pazarda daha çevik ve duyarlı olmalarını sağlamıştır. Teknoloji, şirketlerin çalışma şekillerinde devrim yarattı. Yine de teknolojinin bazı olumsuz etkileri de oldu. Artan gizlilik ve güvenlik endişelerine, azalan yüz yüze etkileşime ve otomasyon nedeniyle iş kayıplarına yol açabilir. Ancak programlama, web geliştirme ve veri analizi gibi alanlarda da yeni iş fırsatları yarattı. Teknoloji, işyerini birçok yönden dönüştürdü. Çalışma saatleri ve konumlar açısından daha fazla esneklik sağladı ve veri işlemenin hızını ve doğruluğunu büyük ölçüde geliştirdi. Büyük kuruluşlarda teknoloji, yönetimin projeleri ve ekip performansını izlemesine ve ayrıca departmanlar arasındaki iletişimin verimliliğini artırmasına olanak tanır. Teknoloji ayrıca şirketlerin rekabette önde olmalarını ve değişen pazar koşullarına ayak uydurmalarını sağlar. Sonuç olarak, teknoloji işyerinin çalışma şeklini değiştirmiştir. Kuruluşların pazardaki değişikliklere daha verimli ve duyarlı olmalarını sağladı. Teknolojinin bazı olumsuz yönleri olsa da, birçok endüstride üretkenliği ve verimliliği artırdı. Gelecekte teknoloji şüphesiz çalışma şeklimizi değiştirmeye devam edecek. Şirketler ve bireyler rekabette önde olmaya çabalarken, teknoloji kullanımı başarı için temel bir unsur olmaya devam edecek."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "www.example.com web sitesinde yapılabilecek bir iyileştirme, tasarımı estetik açıdan daha hoş olan modern bir görünümle güncellemektir.",
+      "Ek olarak, kullanıcıların web sitesinde gezinmesini ve aradıkları bilgileri bulmalarını kolaylaştırmak için içerik yeniden yapılandırılabilir.",
+      "Ürünleri için video eğitimleri veya müşteri forumları gibi yeni özellikler eklemek de web sitesi için faydalı olabilir."
+    ],
+    "qa": [
+      [
+        "Belirli bir web sitesinde yapılabilecek bir iyileştirmeyi tanımlayın. (www.example.com)",
+        "www.example.com web sitesinde yapılabilecek bir iyileştirme, tasarımı estetik açıdan daha hoş olan modern bir görünümle güncellemektir. Ek olarak, kullanıcıların web sitesinde gezinmesini ve aradıkları bilgileri bulmalarını kolaylaştırmak için içerik yeniden yapılandırılabilir. Ürünleri için video eğitimleri veya müşteri forumları gibi yeni özellikler eklemek de web sitesi için faydalı olabilir."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Bir web sitesi tasarlarken dikkate alınması gereken en önemli unsurlar nelerdir?"
+    ],
+    "qa": [
+      [
+        "Web sitesi tasarımı hakkında bir soru yazın",
+        "Bir web sitesi tasarlarken dikkate alınması gereken en önemli unsurlar nelerdir?"
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Bir startup'ı başarılı bir şekilde başlatmanın adımları şunları içerir: 1.",
+      "Yenilikçi bir ürün veya hizmet geliştirin.",
+      "Sektörü ve pazarı araştırın."
+    ],
+    "qa": [
+      [
+        "Bir startup'ı başarıyla başlatmak için gerekli adımları ana hatlarıyla belirtin.",
+        "Bir startup'ı başarılı bir şekilde başlatmanın adımları şunları içerir: 1. Yenilikçi bir ürün veya hizmet geliştirin. 2. Sektörü ve pazarı araştırın. 3. Bir iş planı oluşturun. 4. Finansmanı sağlayın ve bir ekip oluşturun. 5. Bir web sitesi ve promosyon malzemeleri oluşturun. 6. Ürünü veya hizmeti pazarda test edin. 7. Üründe ince ayar yapın ve iş planını buna göre ayarlayın. 8. Ürünü veya hizmeti başlatın. 9. Sonuçları izleyin ve gerekli ayarlamaları yapın."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Web geliştirme için en önemli beceri, yaratıcı çözümler bulmayı ve programlamadaki hataları etkili bir şekilde gidermeyi içerdiğinden problem çözmedir.",
+      "Ek olarak, problem çözme, kodu test etmek, performansı optimize etmek ve teknolojideki değişikliklere uyum sağlamak için hayati önem taşır."
+    ],
+    "qa": [
+      [
+        "Bir web geliştirme için en önemli beceri hangisidir ve neden?",
+        "Web geliştirme için en önemli beceri, yaratıcı çözümler bulmayı ve programlamadaki hataları etkili bir şekilde gidermeyi içerdiğinden problem çözmedir. Ek olarak, problem çözme, kodu test etmek, performansı optimize etmek ve teknolojideki değişikliklere uyum sağlamak için hayati önem taşır."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "3.000.000 ziyaret ve 75.000 dönüşüm olduğu için web sitesinin dönüşüm oranı %2,5'tir, bu da her 40 ziyaret için 1 dönüşüm oranı verir."
+    ],
+    "qa": [
+      [
+        "Aşağıdaki web sitesinin dönüşüm oranını hesaplayın. (Web sitesi 3.000.000 ziyaret ve 75.000 dönüşüm elde etti)",
+        "3.000.000 ziyaret ve 75.000 dönüşüm olduğu için web sitesinin dönüşüm oranı %2,5'tir, bu da her 40 ziyaret için 1 dönüşüm oranı verir."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "www.example.com web sitesi kullanıcı dostudur ve ilgili tüm bilgilere kolayca erişilebilir.",
+      "Net, sezgisel bir gezinme menüsü vardır ve tasarım basit ve derli topludur, bu da gerekli bilgileri bulmayı kolaylaştırır.",
+      "Sayfalar hızlı bir şekilde yüklenir ve web sayfalarında açıkça görülebilen arama kutuları ve düğmeleri bulunur."
+    ],
+    "qa": [
+      [
+        "Kullanılabilirliği için aşağıdaki web sitesini değerlendirin. (www.example.com)",
+        "www.example.com web sitesi kullanıcı dostudur ve ilgili tüm bilgilere kolayca erişilebilir. Net, sezgisel bir gezinme menüsü vardır ve tasarım basit ve derli topludur, bu da gerekli bilgileri bulmayı kolaylaştırır. Sayfalar hızlı bir şekilde yüklenir ve web sayfalarında açıkça görülebilen arama kutuları ve düğmeleri bulunur. Sonuç olarak, bu web sitesinin kullanılabilirliği mükemmel."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "En sevdiğim web sitesi, gezinmeyi daha sezgisel hale getirerek kullanıcı deneyimini geliştirebilir.",
+      "Bazı sayfaların bulunması zor olabilir ve arama işlevi geliştirilebilir.",
+      "Ek olarak, içeriği kaydetmeyi ve paylaşmayı kolaylaştırmak için daha fazla özellik ekleyebilirler."
+    ],
+    "qa": [
+      [
+        "Favori web siteniz için iyileştirme için potansiyel bir alan belirleyin.",
+        "En sevdiğim web sitesi, gezinmeyi daha sezgisel hale getirerek kullanıcı deneyimini geliştirebilir. Bazı sayfaların bulunması zor olabilir ve arama işlevi geliştirilebilir. Ek olarak, içeriği kaydetmeyi ve paylaşmayı kolaylaştırmak için daha fazla özellik ekleyebilirler."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Bir web sitesi kurmak, alan adını, barındırma ortamını ve içeriği hazırlamayı gerektirir.",
+      "Öncelikle, bir alan adı kayıt kuruluşundan bir alan adı almanız gerekir.",
+      "Ardından, web sitenizin bulunabileceği bir barındırma sağlayıcısı seçmelisiniz."
+    ],
+    "qa": [
+      [
+        "Web sitesi nasıl kurulur onu anlatın.",
+        "Bir web sitesi kurmak, alan adını, barındırma ortamını ve içeriği hazırlamayı gerektirir. Öncelikle, bir alan adı kayıt kuruluşundan bir alan adı almanız gerekir. Ardından, web sitenizin bulunabileceği bir barındırma sağlayıcısı seçmelisiniz. Son olarak, web siteniz için içerik oluşturmanız ve bunu barındırma sağlayıcısının sunucusuna yüklemeniz gerekir. Kurulum tamamlandıktan sonra, web sitenize alan adı yazılarak erişilebilir."
+      ]
+    ]
+  },
+  {
+    "concept": "html",
+    "triples": [
+      [
+        "html",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "html web sayfalarını yapılandırmak için kullanılan temel bir HTML standardıdır."
+    ],
+    "qa": [
+      [
+        "Daha sağlam hale getirmek için bu web sitesinin HTML kodunu yeniden biçimlendirin (<html> <head> <title>Web Sitem</title> </head> <body> <h1>Web Sitem</h1> <p>Web siteme hoş geldiniz!</p> </body> </html >)",
+        "<html><head><title>Web Sitem</title><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, Initial-scale=1.0\"></head><body><h1>Web Sitem</h1><p>Web siteme hoş geldiniz!</p></body></html>"
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Web sayfası banner'ı, markanın değerlerini yansıtan modern, profesyonel bir görünüme sahip olmalıdır.",
+      "Göz alıcı ve dikkat çekici renk ve görselleri bünyesinde barındırmalıdır.",
+      "Herhangi bir cihazda ve herhangi bir boyutta kolayca görüntülenebilir olmalıdır."
+    ],
+    "qa": [
+      [
+        "Bir işletme web sitesi için bir web sayfası banner'ı tasarlayın.",
+        "Web sayfası banner'ı, markanın değerlerini yansıtan modern, profesyonel bir görünüme sahip olmalıdır. Göz alıcı ve dikkat çekici renk ve görselleri bünyesinde barındırmalıdır. Herhangi bir cihazda ve herhangi bir boyutta kolayca görüntülenebilir olmalıdır. Afiş ayrıca, izleyiciyi daha fazla keşfetmeye teşvik eden ve onları satın almaya yaklaştıran bir harekete geçirici mesaj da içermelidir."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "OAuth, yetkilendirme için güvenli bir açık standarttır.",
+      "Kullanıcılara, oturum açma bilgilerini paylaşmak zorunda kalmadan verilerine web sitesi ve uygulama erişimi verme olanağı sağlar.",
+      "OAuth, artırılmış güvenlik, kullanıcı kolaylığı ve uygulamaların ayrıştırılması gibi çeşitli avantajlar sunar."
+    ],
+    "qa": [
+      [
+        "OAuth kullanmanın avantajlarını adlandırın.",
+        "OAuth, yetkilendirme için güvenli bir açık standarttır. Kullanıcılara, oturum açma bilgilerini paylaşmak zorunda kalmadan verilerine web sitesi ve uygulama erişimi verme olanağı sağlar. OAuth, artırılmış güvenlik, kullanıcı kolaylığı ve uygulamaların ayrıştırılması gibi çeşitli avantajlar sunar. Ayrıca, web sitelerinin veya uygulamaların kullanıcı verilerine izinle erişmesine izin verirken, kullanıcıların şifrelerini gizli tutmalarına da olanak tanır. OAuth ayrıca kullanıcıların verileri üzerinde daha fazla kontrole sahip olmalarını sağlar ve tek bir girişle birden çok hesaba erişmek için kullanılabilir."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Google Chrome'un en son sürümü (sürüm 86.0.4240.111) çeşitli yeni özelliklere, iyileştirmelere ve hata düzeltmelerine sahiptir.",
+      "Öne çıkan özelliklerden bazıları, kullanıcı gizliliğini ve kontrolünü iyileştirmek için yeni bir güvenlik göstergesi, geliştiricilerin ortak görevleri kolaylaştırmasına yardımcı olan yeni API'ler, JavaScript'te performans iyileştirmeleri ve HTML ve CSS için ek destek içerir.",
+      "Ek olarak, çeşitli güvenlik ve kararlılık düzeltmeleri dahil edildi."
+    ],
+    "qa": [
+      [
+        "Google Chrome'un en son sürümü için yazılım sürüm notlarını bulun.",
+        "Google Chrome'un en son sürümü (sürüm 86.0.4240.111) çeşitli yeni özelliklere, iyileştirmelere ve hata düzeltmelerine sahiptir. Öne çıkan özelliklerden bazıları, kullanıcı gizliliğini ve kontrolünü iyileştirmek için yeni bir güvenlik göstergesi, geliştiricilerin ortak görevleri kolaylaştırmasına yardımcı olan yeni API'ler, JavaScript'te performans iyileştirmeleri ve HTML ve CSS için ek destek içerir. Ek olarak, çeşitli güvenlik ve kararlılık düzeltmeleri dahil edildi. Değişikliklerin tam listesi için lütfen Google Chrome web sitesindeki resmi sürüm notlarına bakın."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Yazı tipi: Lato, modern bir sans serif yazı tipi Renkler: mavinin tonları, yumuşak yeşil ve turuncu vurgu renkleri."
+    ],
+    "qa": [
+      [
+        "Aşağıdaki web sitesi için bir yazı tipi ve renk paleti seçin. (Çevrimiçi evcil hayvan dükkanı)",
+        "Yazı tipi: Lato, modern bir sans serif yazı tipi Renkler: mavinin tonları, yumuşak yeşil ve turuncu vurgu renkleri."
+      ]
+    ]
+  },
+  {
+    "concept": "formu",
+    "triples": [
+      [
+        "formu",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "formu",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "formu web sayfalarını yapılandırmak için kullanılan temel bir HTML standardıdır."
+    ],
+    "qa": [
+      [
+        "Bir giriş / kayıt formu oluşturun",
+        "<html><head><title>Giriş / Kayıt Formu</title></head><body><!-- Mevcut bir kullanıcının oturum açma formu --><h1>Giriş</h1><form action= \"process_login.php\" method=\"post\"><div><label for=\"username\">Kullanıcı adı:</label><input type=\"text\" name=\"username\" id=\"username\"></div><div><label for=\"password\">Şifre:</label><input type=\"password\" name=\"password\" id=\"password\"></div><input type=\"gönder\" name=\"gönder \" value=\"Login\"></form><!-- Yeni bir hesap oluşturmak için form --><h1>Kaydol</h1><form action=\"process_signup.php\" method=\"post\"><div><label for=\"username\">Bir Kullanıcı Adı Oluşturun:</label><input type=\"text\" name=\"username\" id=\"username\"></div><div><label for=\"password\">Oluştur a Parola:</label><input type=\"password\" name=\"password\" id=\"password\"></div><div><label for=\"email\">E-postanızı girin:</label><input type=\"text\" name=\"email\" id=\"email\"></div><input type=\"submit\" name=\"submit\" value=\"Signup\"></form></body></html>"
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "(1-5, 1=çok zayıf, 5=mükemmel)</p><div><label for=\"service_quality\">Hizmet Kalitesi:</label><input type=\"number\" name=\"service_quality\" min= \"1\" max=\"5\" id=\"service_quality\"></div><p>Lütfen web sitemizin kullanılabilirliğini derecelendirin.",
+      "(1-5, 1=çok zayıf, 5=mükemmel)</p><div><label for=\"website_usability\">Web Sitesi Kullanılabilirliği:</label><input type=\"number\" name=\"website_usability\" min= \"1\" max=\"5\" id=\"website_usability\"></div><p>Geliştirmek için herhangi bir öneriniz var mı?</p><div><label for=\"suggestions\">Öneriler:</label><textarea name=\"suggestions\" id=\"suggestions\"></textarea></div><input type=\"submit\" name=\"submit\" value=\"Submit\"></form></body></html>"
+    ],
+    "qa": [
+      [
+        "Müşteri geri bildirimlerini toplamak için bir anket geliştirin",
+        "<html><head><title>Müşteri Geri Bildirim Anketi</title></head><body><h1>Müşteri Geri Bildirim Anketi</h1><form action=\"process_feedback.php\" method=\"post\"><h2>Genel Bilgiler</h2><p>Lütfen kendiniz hakkında biraz bilgi verin.</p><div><label for=\"name\">Ad:</label><input type=\"text\" name=\"name\" id=\"name\"></div><div><label for=\"age\">Yaş:</label><input type=\"number\" name=\"yaş\" min=\"1\" max=\"120\" id =\"yaş\"></div><div><label for=\"occupation\">Meslek:</label><input type=\"text\" name=\"occupation\" id=\"occupation\"></div><h2>Geri bildirim</h2><p>Lütfen hizmetimizin kalitesini açıklayın. (1-5, 1=çok zayıf, 5=mükemmel)</p><div><label for=\"service_quality\">Hizmet Kalitesi:</label><input type=\"number\" name=\"service_quality\" min= \"1\" max=\"5\" id=\"service_quality\"></div><p>Lütfen web sitemizin kullanılabilirliğini derecelendirin. (1-5, 1=çok zayıf, 5=mükemmel)</p><div><label for=\"website_usability\">Web Sitesi Kullanılabilirliği:</label><input type=\"number\" name=\"website_usability\" min= \"1\" max=\"5\" id=\"website_usability\"></div><p>Geliştirmek için herhangi bir öneriniz var mı?</p><div><label for=\"suggestions\">Öneriler:</label><textarea name=\"suggestions\" id=\"suggestions\"></textarea></div><input type=\"submit\" name=\"submit\" value=\"Submit\"></form></body></html>"
+      ]
+    ]
+  },
+  {
+    "concept": "html",
+    "triples": [
+      [
+        "html",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "html web sayfalarını yapılandırmak için kullanılan temel bir HTML standardıdır."
+    ],
+    "qa": [
+      [
+        "Temel bir HTML sayfası oluşturun",
+        "<html><head><title>Temel HTML Sayfası</title></head><body><h1>Merhaba Dünya!</h1><p>Bu, temel bir HTML sayfasıdır.</p></body></html>"
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Web sitesi genel olarak erişilebilir bir düzene sahiptir ve gezinmesi kolaydır.",
+      "Düzen sezgiseldir, yani kullanıcılar aradıkları bilgilere hızlı ve verimli bir şekilde erişebilir.",
+      "Ek olarak, yapı, kullanıcıların aradıklarını minimum çabayla bulmalarına olanak tanır."
+    ],
+    "qa": [
+      [
+        "Aşağıdaki web sitesini erişilebilirlik, kullanılabilirlik ve tasarım kriterlerini kullanarak değerlendirin.",
+        "Web sitesi genel olarak erişilebilir bir düzene sahiptir ve gezinmesi kolaydır. Düzen sezgiseldir, yani kullanıcılar aradıkları bilgilere hızlı ve verimli bir şekilde erişebilir. Ek olarak, yapı, kullanıcıların aradıklarını minimum çabayla bulmalarına olanak tanır. Web sitesinin tasarımı da çekici, canlı renkler ve grafiklerle modern ve şık bir görünüme sahip. Web sitesinin geliştirebileceği tek alan kullanılabilirliğidir. Arama çubuğu biraz gizlidir ve bazı kullanıcılar için kolayca erişilebilir olmayabilir. Ek olarak, sayfalardan birkaçı yavaş yükleniyor ve bu da web sitesinde gezinmeyi zorlaştırabilir. Özetle, web sitesi genel olarak erişilebilir, estetik olarak tasarlanmış ve sezgisel gezinme ile iyi yapılandırılmıştır. Birkaç kullanılabilirlik iyileştirmesi ile web sitesi daha da iyi olacaktır."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Web sayfası, mağazanın logosunu, farklı ürün kategorilerini içeren bir gezinme çubuğunu ve öğeleri hızlı bir şekilde aramak için basit bir arama kutusunu içermelidir.",
+      "Logo dikkat çekici olmalı, gezinme çubuğu ve arama çubuğunun kullanımı basit ve sezgisel olmalıdır."
+    ],
+    "qa": [
+      [
+        "Aşağıdaki unsurları içeren yeni bir bakkal hikayesi için bir web sayfası oluşturun. (- Bir logo - Bir gezinme çubuğu - Basit bir arama kutusu)",
+        "Web sayfası, mağazanın logosunu, farklı ürün kategorilerini içeren bir gezinme çubuğunu ve öğeleri hızlı bir şekilde aramak için basit bir arama kutusunu içermelidir. Logo dikkat çekici olmalı, gezinme çubuğu ve arama çubuğunun kullanımı basit ve sezgisel olmalıdır."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Model tarafından oluşturulamayan bir resim talep ediyorsunuz."
+    ],
+    "qa": [
+      [
+        "Verilen ürünün ön uç kullanıcı arayüzünü tasarlayın. (Market teslimatı uygulaması)",
+        "Model tarafından oluşturulamayan bir resim talep ediyorsunuz."
+      ]
+    ]
+  },
+  {
+    "concept": "html",
+    "triples": [
+      [
+        "html",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "html web sayfalarını yapılandırmak için kullanılan temel bir HTML standardıdır."
+    ],
+    "qa": [
+      [
+        "\"Sayfama hoş geldiniz\" metnini içeren bir HTML sayfası oluşturun.",
+        "<html><head><title>Sayfam</title></head><body><p>Sayfama hoş geldiniz!</p></body></html>"
+      ]
+    ]
+  },
+  {
+    "concept": "tablo",
+    "triples": [
+      [
+        "tablo",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "tablo",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "tablo web sayfalarını yapılandırmak için kullanılan temel bir HTML standardıdır."
+    ],
+    "qa": [
+      [
+        "Aşağıdaki bilgilerle basit bir tablo oluşturmak için HTML kodu oluşturun (Başlık | Sanatçı | Yıl Despacito | Luis Fonsi | 2017 Şeklin | Ed Sheeran | 2017)",
+        "<table><tr><th>Başlık</th><th>Sanatçı</th><th>Yıl</th></tr><tr><td>Despacito</td><td>Luis Fonsi </td><td>2017</td></tr><tr><td>Shape Of You</td><td>Ed Sheeran</td><td>2017</td></tr></tablo>"
+      ]
+    ]
+  },
+  {
+    "concept": "html",
+    "triples": [
+      [
+        "html",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "HTML, Köprü Metni İşaretleme Dili anlamına gelir ve internette web sayfaları oluşturmak için kullanılır.",
+      "Bir işaretleme dilidir, yani bir web sayfasının içeriğini ve yapısını tanımlamak için kullanılan bir etiket koleksiyonudur.",
+      "Örneğin, başlık metni için <h1>etiketini ve paragraf metni için <p>etiketini kullanabilirsiniz."
+    ],
+    "qa": [
+      [
+        "HTML'nin temellerini yeni başlayanlara açıklayın.",
+        "HTML, Köprü Metni İşaretleme Dili anlamına gelir ve internette web sayfaları oluşturmak için kullanılır. Bir işaretleme dilidir, yani bir web sayfasının içeriğini ve yapısını tanımlamak için kullanılan bir etiket koleksiyonudur. Örneğin, başlık metni için <h1>etiketini ve paragraf metni için <p>etiketini kullanabilirsiniz. Bir web sayfasına resimler, videolar veya diğer ortamları eklemek için HTML'yi de kullanabilirsiniz."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Web sitesindeki kullanıcı deneyimini iyileştirmek için, bir eylem planı, web sitesi gezinmesini kullanımı kolaylaştıracak şekilde ayarlamayı, web sitesi yükleme sürelerini optimize etmeyi ve tüm içeriğin duyarlı ve farklı görüntü alanı boyutlarına uyarlanmış olmasını sağlamayı içermelidir.",
+      "Ayrıca web sitesi farklı tarayıcılarda test edilmeli ve kullanıcı geri bildirimleri dikkate alınmalıdır."
+    ],
+    "qa": [
+      [
+        "Bir web sitesindeki kullanıcı deneyimini iyileştirmek için bir eylem planı önerin.",
+        "Web sitesindeki kullanıcı deneyimini iyileştirmek için, bir eylem planı, web sitesi gezinmesini kullanımı kolaylaştıracak şekilde ayarlamayı, web sitesi yükleme sürelerini optimize etmeyi ve tüm içeriğin duyarlı ve farklı görüntü alanı boyutlarına uyarlanmış olmasını sağlamayı içermelidir. Ayrıca web sitesi farklı tarayıcılarda test edilmeli ve kullanıcı geri bildirimleri dikkate alınmalıdır."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Web sitesi tasarımı, baştan sona yumuşak pastel renk paleti ile temiz ve minimalist unsurlar kullanmalıdır.",
+      "Yazı tipi sans-serif veya modern ince olmalı ve arka plan açık renk olmalıdır.",
+      "Kullanılan görseller parlak ve çarpıcı olmalı, ancak çok dağınık olmamalıdır."
+    ],
+    "qa": [
+      [
+        "Verilen stille eşleşen bir web sitesi tasarımı oluşturun. (Pastel renkler kullanılarak temiz ve minimalist)",
+        "Web sitesi tasarımı, baştan sona yumuşak pastel renk paleti ile temiz ve minimalist unsurlar kullanmalıdır. Yazı tipi sans-serif veya modern ince olmalı ve arka plan açık renk olmalıdır. Kullanılan görseller parlak ve çarpıcı olmalı, ancak çok dağınık olmamalıdır. Tasarımı görsel olarak hoş ve gezinmesi kolay tutmak için bol miktarda beyaz alan olmalıdır. Menü açık, sezgisel ve öz olmalı ve içerik, ilgili başlıklarla net bölümlere ayrılmalıdır."
+      ]
+    ]
+  },
+  {
+    "concept": "html",
+    "triples": [
+      [
+        "html",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "html web sayfalarını yapılandırmak için kullanılan temel bir HTML standardıdır."
+    ],
+    "qa": [
+      [
+        "Açılır liste için geçerli bir HTML öğesi sağlayın.",
+        "<select><option value=\"value1\">value1</option><option value=\"value2\">value2</option><option value=\"value3\">value3</option></select>"
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Web sitesinin arayüzü, müşterilerin kitap aramasına olanak tanıyan bir arama çubuğuna sahip bir ana sayfa, gezinmesi kolay bir menü, sonuçları daraltmak ve çeşitli kategorilerde sıralamak için filtreler ve ayrıca yazarlar için filtreler içermelidir.",
+      "türler ve fiyat.",
+      "Web sitesi, başlığı, yazarı, fiyatı, derecelendirmesi ve incelemeleri dahil olmak üzere her kitapla ilgili ayrıntıları göstermelidir."
+    ],
+    "qa": [
+      [
+        "Kitap satan bir web sitesi için bir arayüz oluşturun.",
+        "Web sitesinin arayüzü, müşterilerin kitap aramasına olanak tanıyan bir arama çubuğuna sahip bir ana sayfa, gezinmesi kolay bir menü, sonuçları daraltmak ve çeşitli kategorilerde sıralamak için filtreler ve ayrıca yazarlar için filtreler içermelidir. türler ve fiyat. Web sitesi, başlığı, yazarı, fiyatı, derecelendirmesi ve incelemeleri dahil olmak üzere her kitapla ilgili ayrıntıları göstermelidir. Ayrıca, müşterilerin sepetlerine kitap eklemelerine ve satın aldıkları ürünleri kontrol etmelerine olanak tanıyan bir alışveriş sepeti özelliğine de sahip olmalıdır. Ek olarak, web sitesinde müşterinin kişisel bilgilerini, gönderim detaylarını ve ödeme yöntemlerini içeren bir sayfa bulunmalıdır."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "- Codecademy - freeCodeCamp - SoloLearn - Code Avengers - Bilgisayar Bilimi Yolu - Coursera - Udemy - edX - Khan Academy - Udacity - Odin Projesi - HTML5 Rocks - Yığın Taşması - MDN Web Belgeleri - CodePen - GitHub - W3 Okulları - CodeConquest - DevDocs"
+    ],
+    "qa": [
+      [
+        "Yeni başlayanların kullanması gereken programlama ile ilgili kaynakların bir listesini sentezleyin.",
+        "- Codecademy - freeCodeCamp - SoloLearn - Code Avengers - Bilgisayar Bilimi Yolu - Coursera - Udemy - edX - Khan Academy - Udacity - Odin Projesi - HTML5 Rocks - Yığın Taşması - MDN Web Belgeleri - CodePen - GitHub - W3 Okulları - CodeConquest - DevDocs"
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Java, web geliştirme dünyasına önemli katkılarda bulunmuştur.",
+      "Web siteleri, web uygulamaları ve mobil uygulamalar oluşturmak için yaygın olarak kullanılan güçlü, çok yönlü bir dildir.",
+      "Java, karmaşık uygulamalar oluşturmak için kullanılabilecek iyi belgelenmiş bir API kitaplığına sahiptir."
+    ],
+    "qa": [
+      [
+        "Web geliştirmede Java'nın katkısı nedir?",
+        "Java, web geliştirme dünyasına önemli katkılarda bulunmuştur. Web siteleri, web uygulamaları ve mobil uygulamalar oluşturmak için yaygın olarak kullanılan güçlü, çok yönlü bir dildir. Java, karmaşık uygulamalar oluşturmak için kullanılabilecek iyi belgelenmiş bir API kitaplığına sahiptir. Ayrıca oldukça güvenlidir ve platformlar arası geliştirmeyi destekler, bu da onu web geliştirme için ideal bir seçim haline getirir."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Bir web sitesi için beş farklı kullanıcı türü şunlardır: 1.",
+      "Normal kullanıcılar 5."
+    ],
+    "qa": [
+      [
+        "Bir web sitesi için beş farklı kullanıcı türünü listeleyin",
+        "Bir web sitesi için beş farklı kullanıcı türü şunlardır: 1. Yöneticiler 2. Moderatörler 3. Aboneler 4. Normal kullanıcılar 5. Misafirler"
+      ]
+    ]
+  },
+  {
+    "concept": "html",
+    "triples": [
+      [
+        "html",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "html web sayfalarını yapılandırmak için kullanılan temel bir HTML standardıdır."
+    ],
+    "qa": [
+      [
+        "Bir HTML ızgara düzeni oluşturun. (6 satır, 3 sütun)",
+        "<stil>.grid-container { ekran: ızgara; grid-template-columns: tekrar(3, 1fr); grid-template-rows: tekrarla(6, 1fr); ızgara aralığı: 10 piksel; } </style><div class=\"grid-container\"><div>İçerik 1 </div><div>İçerik 2 </div><div>İçerik 3 </div><div>İçerik 4 </div><div>İçerik 5 </div><div>İçerik 6 </div></div>"
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Bu web sayfası, Floransa şehrinin sıcaklığını gösterecektir.",
+      "Sayfa, mevcut sıcaklığı ve önümüzdeki birkaç günün tahminini görüntülemek için hava durumu hizmetlerinden alınan verileri kullanır.",
+      "Sıcaklık modellerine genel bir bakış sağlamak için grafikler ve çizelgeler kullanılabilir."
+    ],
+    "qa": [
+      [
+        "Floransa şehrinin sıcaklığını gösteren bir web sayfası oluşturun.",
+        "Bu web sayfası, Floransa şehrinin sıcaklığını gösterecektir. Sayfa, mevcut sıcaklığı ve önümüzdeki birkaç günün tahminini görüntülemek için hava durumu hizmetlerinden alınan verileri kullanır. Sıcaklık modellerine genel bir bakış sağlamak için grafikler ve çizelgeler kullanılabilir. Sayfa ayrıca mevcut rüzgar hızı, nem seviyeleri ve hava basıncı gibi diğer bilgileri de içerecektir."
+      ]
+    ]
+  },
+  {
+    "concept": "html",
+    "triples": [
+      [
+        "html",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "HTML ve CSS arasındaki iki temel fark, HTML'nin içeriği yapılandırmak ve bir web sayfasında öğeler oluşturmak için kullanılması, CSS'nin ise bir web sayfasının içeriğine ve tasarımına stil vermek için kullanılmasıdır.",
+      "HTML etiketlerden, niteliklerden ve içerikten oluşurken, CSS seçicilerden, kurallardan ve bildirimlerden oluşur."
+    ],
+    "qa": [
+      [
+        "Bana HTML ve CSS arasındaki iki farkı söyleyin.",
+        "HTML ve CSS arasındaki iki temel fark, HTML'nin içeriği yapılandırmak ve bir web sayfasında öğeler oluşturmak için kullanılması, CSS'nin ise bir web sayfasının içeriğine ve tasarımına stil vermek için kullanılmasıdır. HTML etiketlerden, niteliklerden ve içerikten oluşurken, CSS seçicilerden, kurallardan ve bildirimlerden oluşur."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Bir web sayfası genellikle bir başlık, gövde ve alt bilgiden oluşur.",
+      "Başlık tipik olarak sayfa başlığını, logosunu ve gezinme çubuğunu içerir.",
+      "Gövde, metin, resimler ve videolar gibi sayfanın ana içeriğini içerir."
+    ],
+    "qa": [
+      [
+        "Bir web sayfasını şu formatta tanımlayın: Üstbilgi, Gövde, Altbilgi.",
+        "Bir web sayfası genellikle bir başlık, gövde ve alt bilgiden oluşur. Başlık tipik olarak sayfa başlığını, logosunu ve gezinme çubuğunu içerir. Gövde, metin, resimler ve videolar gibi sayfanın ana içeriğini içerir. Alt bilgi genellikle telif hakkı bilgilerini, iletişim bilgilerini ve ilgili sayfalara bağlantılar içerir."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "Kodlamanın temellerini öğrenmek için harika bir çevrimiçi kaynak, kullanıcıların HTML, CSS, JavaScript ve Python gibi kodlama dillerini öğrenmelerine yardımcı olacak etkileşimli eğitimler ve projeler sunan Codecademy'dir."
+    ],
+    "qa": [
+      [
+        "Birisinin temel kodlamayı öğrenebileceği bir çevrimiçi kaynak örneği verin.",
+        "Kodlamanın temellerini öğrenmek için harika bir çevrimiçi kaynak, kullanıcıların HTML, CSS, JavaScript ve Python gibi kodlama dillerini öğrenmelerine yardımcı olacak etkileşimli eğitimler ve projeler sunan Codecademy'dir."
+      ]
+    ]
+  },
+  {
+    "concept": "html ve web",
+    "triples": [
+      [
+        "html ve web",
+        "USED_FOR",
+        "web sayfaları ve kullanıcı arayüzü geliştirmek"
+      ],
+      [
+        "html ve web",
+        "ISA",
+        "web işaretleme ve geliştirme teknolojisi"
+      ]
+    ],
+    "sentences": [
+      "İçerik yönetim sistemi (CMS), web siteleri oluşturma ve yönetme sürecini basitleştiren web tabanlı bir yazılım uygulamasıdır.",
+      "Kullanıcıların HTML veya diğer web teknolojilerini öğrenmek zorunda kalmadan web sitelerinde içerik oluşturmasına, düzenlemesine ve yayınlamasına olanak tanır.",
+      "Bir CMS'nin özellikleri arasında kullanıcı dostu içerik girişi ve düzenleme, şablon tabanlı tasarım, kullanıcı ve rol yönetimi, denetim kaydı ve sürüm oluşturma, görüntü ve dosya yönetimi, içerik arama ve dizine ekleme, iş akışı yönetimi ve yayınlama yetenekleri yer alır."
+    ],
+    "qa": [
+      [
+        "Bir içerik yönetim sisteminin (CMS) özelliklerini ve işlevlerini tanımlayın.",
+        "İçerik yönetim sistemi (CMS), web siteleri oluşturma ve yönetme sürecini basitleştiren web tabanlı bir yazılım uygulamasıdır. Kullanıcıların HTML veya diğer web teknolojilerini öğrenmek zorunda kalmadan web sitelerinde içerik oluşturmasına, düzenlemesine ve yayınlamasına olanak tanır. Bir CMS'nin özellikleri arasında kullanıcı dostu içerik girişi ve düzenleme, şablon tabanlı tasarım, kullanıcı ve rol yönetimi, denetim kaydı ve sürüm oluşturma, görüntü ve dosya yönetimi, içerik arama ve dizine ekleme, iş akışı yönetimi ve yayınlama yetenekleri yer alır."
+      ]
+    ]
+  }
+]

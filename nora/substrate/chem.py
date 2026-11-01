@@ -499,7 +499,7 @@ class HDCMushroomBody:
         root.mkdir(parents=True, exist_ok=True)
         self._disk_tmp = tempfile.TemporaryDirectory(prefix="mb-", dir=root)
         self.disk_path = str(Path(self._disk_tmp.name) / "passive.sqlite3")
-        self._db = sqlite3.connect(self.disk_path)
+        self._db = sqlite3.connect(self.disk_path, check_same_thread=False)
         self._db.execute("PRAGMA journal_mode=DELETE")
         self._db.execute("PRAGMA synchronous=NORMAL")
         self._db.execute(

@@ -509,18 +509,31 @@ class MathCortex:
             out.append((n, 1))
         return out
 
-    def try_solve(self, raw_text: str) -> dict | None:
+    def try_solve(self, raw_text: str, mind: Any = None, agi: Any = None) -> dict | None:
         """Gelen Türkçe cümlede ileri matematiksel bir problem varsa çözer ve yapılandırılmış açıklama döndürür."""
         s = _tr_low(raw_text).strip()
 
-        # 1) 2x2 Doğrusal Denklem Sistemi ('x + y = 12 ve x - y = 4')
-        eqs = re.findall(r"([0-9xXyY\+\-\*\s\.]+)=([0-9xXyY\+\-\*\s\.]+)", s)
-        if len(eqs) == 2 and ("x" in s and "y" in s):
-            res = self._solve_2x2(eqs)
+        # 1) Kalkülüs: Sembolik Türev ('3x^3 - 4x^2 + 5x - 2 türevi nedir?', 'f(x) = 3x^2 + 2x türevini al')
+        # Türev veya türev alma isteği, denklem eşitliklerinden ('=') önce kontrol edilir!
+        if any(k in s for k in ("türev", "türevi", "türevini", "d/dx", "d/dt")):
+            res = self._solve_derivative(s, raw_text=raw_text, agi=agi)
             if res is not None:
                 return res
 
-        # 2) Tek Değişkenli Cebirsel Denklem ('2x + 7 = 23', 'x^2 - 5x + 6 = 0')
+        # 2) Kalkülüs: Belirli / Belirsiz İntegral ("0'dan 3'e x^2 integrali", "2x + 4 integrali nedir", "integralini al: 2x + 4")
+        if any(k in s for k in ("integral", "integrali", "integralini", "ilkel fonksiyon")):
+            res = self._solve_integral(s, raw_text=raw_text, agi=agi)
+            if res is not None:
+                return res
+
+        # 3) 2x2 Doğrusal Denklem Sistemi ('x + y = 12 ve x - y = 4')
+        eqs = re.findall(r"([0-9xXyY\+\-\*\s\.]+)=([0-9xXyY\+\-\*\s\.]+)", s)
+        if len(eqs) == 2 and ("x" in s and "y" in s):
+            res = self._solve_2x2(eqs, raw_text=raw_text, agi=agi)
+            if res is not None:
+                return res
+
+        # 4) Tek Değişkenli Cebirsel Denklem ('2x + 7 = 23', 'x^2 - 5x + 6 = 0')
         if "=" in s and "::" not in s and "->" not in s and any(v in s for v in ("x", "t", "z")):
             var_name = "x" if "x" in s else ("t" if "t" in s else "z")
             m_eq = re.search(rf"([0-9{var_name}\^\+\-\*\/\(\)\s\.]+)=\s*([0-9{var_name}\^\+\-\*\/\(\)\s\.\-]+)", s)
@@ -529,21 +542,9 @@ class MathCortex:
                 # Sağ taraftaki Türkçe soru eklerini temizle ('23 ise x', '0 denkleminin')
                 rhs_clean = re.match(rf"^[\d{var_name}\^\+\-\*\/\(\)\s\.]+", rhs_s)
                 if rhs_clean:
-                    res = self._solve_single_eq(lhs_s, rhs_clean.group(0).strip(), var_name)
+                    res = self._solve_single_eq(lhs_s, rhs_clean.group(0).strip(), var_name, raw_text=raw_text, agi=agi)
                     if res is not None:
                         return res
-
-        # 3) Sembolik Türev ('3x^3 - 4x^2 + 5x - 2 türevi nedir?', 'sin(3x) fonksiyonunun türevi')
-        if "türev" in s:
-            res = self._solve_derivative(s)
-            if res is not None:
-                return res
-
-        # 4) Belirli / Belirsiz İntegral ("0'dan 3'e x^2 integrali", "2x + 4 integrali nedir")
-        if "integral" in s:
-            res = self._solve_integral(s)
-            if res is not None:
-                return res
 
         # 5) Sayılar Teorisi: Asallık & Asal Çarpanlar & EBOB/EKOK & Faktöriyel & Kombinasyon/Permütasyon
         wants_gcd = any(k in s for k in ("ebob", "obeb", "en büyük ortak bölen", "ortak bölen"))
@@ -713,7 +714,199 @@ class MathCortex:
             "trace": f"{span} = {_fmt_num(val, 6)}",
         }
 
-    def _solve_single_eq(self, lhs_s: str, rhs_s: str, var: str) -> dict | None:
+    @classmethod
+    def _extract_calculus_target(cls, s: str, kind: str = "derivative") -> tuple[str, str]:
+        cleaned = s
+        # If there is a colon, take the part after the colon if it contains math variables or digits
+        if ":" in cleaned:
+            after_colon = cleaned.split(":", 1)[1].strip()
+            if re.search(r"\d|[a-zA-Z_]\([a-zA-Z_]\)|[xXyYtT]", after_colon):
+                cleaned = after_colon
+        # If there is f(x) = ..., take from f(x) = onwards to discard conversational lead-in
+        m_fn = re.search(r"\b[a-zA-Z_]\([a-zA-Z_]\)\s*=", cleaned)
+        if m_fn:
+            cleaned = cleaned[m_fn.start():]
+
+        cleaned = re.sub(r"(-?\d+(?:\.\d+)?)['’\s]*(?:dan|den|tan|ten)\s*(-?\d+(?:\.\d+)?)['’\s]*(?:e|a|ye|ya)(?:\s+kadar)?", " ", cleaned)
+        cleaned = re.sub(r"^[a-zA-Z_]\([a-zA-Z_]\)\s*=\s*", " ", cleaned.strip())
+        cleaned = re.sub(r"\b[a-zA-Z_]\([a-zA-Z_]\)\s*=\s*", " ", cleaned)
+        cleaned = re.sub(r"\b[yY]\s*=\s*", " ", cleaned)
+        if kind == "derivative":
+            cleaned = re.sub(r"\b(türevini\s+al|türevi\s+nedir|türevini\s+hesapla|türevi\s+kaçtır|türevi\s+ne|türev\s+al|türevi|türevini|türev)\b", " ", cleaned)
+        elif kind == "integral":
+            cleaned = re.sub(r"\b(integralini\s+al|integrali\s+nedir|integralini\s+hesapla|integrali\s+kaçtır|integrali\s+ne|integral\s+al|integrali|integralini|integral)\b", " ", cleaned)
+        cleaned = re.sub(r"\b(fonksiyonunun|fonksiyonun|fonksiyonu|fonksiyon|ifadesinin|ifadesi|ifade|polinomunun|polinomu|polinom|değerinin|değeri|hesapla|al|bul|çöz|nedir|kaçtır|kaç\s+eder|sonucu)\b", " ", cleaned)
+        cleaned = re.sub(r"\b[a-zA-Z_][’'](?:e|a|ye|ya|in|ın|ün|un)\s+göre\b", " ", cleaned)
+        cleaned = re.sub(r"[’'][a-zçğıöşü]+\b", "", cleaned)
+        cleaned = re.sub(r"\b(dx|dt|dz)\b", " ", cleaned)
+        cleaned = re.sub(r"[?!.,]", " ", cleaned)
+        expr = cleaned.strip()
+        var = "t" if ("t" in expr and "x" not in expr) else "x"
+        return expr, var
+
+    @classmethod
+    def _compose_math_reply(
+        cls,
+        kind: str,
+        expr_display: str,
+        steps: list[str],
+        result_str: str,
+        verif_note: str = "",
+        raw_text: str = "",
+        agi: Any = None,
+    ) -> str:
+        chem = getattr(agi, "chem", None) if agi is not None else None
+        da = float(getattr(chem, "da_tonic", 0.5) or 0.5) + max(0.0, float(getattr(chem, "da_phasic", 0.0) or 0.0))
+        sht = float(getattr(chem, "sht", 0.65) or 0.65)
+        oxy = float(getattr(chem, "oxy", 0.5) or 0.5)
+        cort = float(getattr(chem, "cort", 0.1) or 0.1)
+        turn_num = len(getattr(agi, "dialogue_log", []) or []) + int(getattr(getattr(agi, "style", None), "turn", 0) or 0)
+
+        s_low = _tr_low(raw_text or "")
+        is_testing = any(k in s_low for k in ("test", "bakalım", "çözebilir misin", "basit", "temel", "dene", "deneyelim", "seviye"))
+
+        if kind == "derivative":
+            if is_testing:
+                openers = [
+                    "Evet, Nora'nın basit türev ve integralleri çözebildiğini söylüyorsan önce temel seviyeden test etmek daha mantıklı. 😄",
+                    "Temel seviyeden başlayarak türev adımlarını doğrulamak ve test etmek en sağlıklı yaklaşım.",
+                    "Nora'nın temel kalkülüs becerilerini sınamak için harika bir soru! Birlikte adım adım inceleyelim:",
+                    "Elbette; temel türev kurallarıyla test etmek sağlam bir zemin kurar. Adım adım bakalım:",
+                ]
+            elif da > 0.58:
+                openers = [
+                    "Harika bir kalkülüs sorusu! Fonksiyonun türevini terim terim kuvvet kuralıyla çıkaralım:",
+                    "Kalkülüsün en zevkli kısımlarından biri; fonksiyonun türevini adım adım inceleyelim:",
+                    "Çok güzel bir türev problemi! İfadeyi terim terim ayrıştırıp çözelim:",
+                ]
+            elif sht > 0.55:
+                openers = [
+                    "Tabii, verilen fonksiyonu adım adım inceleyerek türevini hesaplayalım:",
+                    "Elbette; türev kurallarını terim terim uygulayarak çözüme ulaşalım:",
+                    "Verilen matematiksel ifadeyi dikkatle ayrıştırıp türevini alalım:",
+                ]
+            else:
+                openers = [
+                    "Verilen fonksiyonun türevini adım adım çözelim:",
+                    "Fonksiyonu terim terim inceleyerek türevine ulaşalım:",
+                    "Kuvvet kuralını uygulayarak türevi adım adım çıkaralım:",
+                ]
+        elif kind == "indefinite_integral":
+            if is_testing:
+                openers = [
+                    "Evet, Nora'nın basit integralleri çözebildiğini adım adım test etmek çok mantıklı. 😄",
+                    "Temel integral kurallarıyla başlamak ve adım adım doğrulamak en doğrusu.",
+                    "Nora'nın integral alma becerisini test etmek için güzel bir soru! Birlikte bakalım:",
+                    "Elbette; temel integral adımlarını sınamak harika bir yaklaşım:",
+                ]
+            elif da > 0.58:
+                openers = [
+                    "Harika bir integral problemi! Fonksiyonu ters kuvvet kuralıyla adım adım entegre edelim:",
+                    "İntegral hesabını terim terim açarak ilkel fonksiyona ulaşalım:",
+                    "Çok güzel bir integral sorusu! Terimleri adım adım entegre edelim:",
+                ]
+            elif sht > 0.55:
+                openers = [
+                    "Tabii, verilen fonksiyonun belirsiz integralini adım adım hesaplayalım:",
+                    "Elbette; entegrasyon kurallarını terim terim uygulayalım:",
+                    "Verilen matematiksel ifadeyi dikkatle ayrıştırıp integralini alalım:",
+                ]
+            else:
+                openers = [
+                    "Belirsiz integrali adım adım çözelim:",
+                    "Fonksiyonu terim terim entegre ederek ilkel fonksiyonu bulalım:",
+                    "Ters kuvvet kuralını uygulayarak integrali hesaplayalım:",
+                ]
+        elif kind == "definite_integral":
+            if is_testing:
+                openers = [
+                    "Evet, belirli integralleri ve sınır değerlerini test etmek çok mantıklı bir yaklaşım.",
+                    "Belirli integrali kalkülüsün temel teoremiyle adım adım doğrulayalım:",
+                ]
+            elif da > 0.58:
+                openers = [
+                    "Harika bir belirli integral problemi! Sınırlar arasındaki alanı adım adım hesaplayalım:",
+                    "Kalkülüsün temel teoremini uygulayarak belirli integrali adım adım çözelim:",
+                ]
+            else:
+                openers = [
+                    "Belirli integrali kalkülüsün temel teoremiyle adım adım hesaplayalım:",
+                    "Verilen sınır değerleri için belirli integrali adım adım çözelim:",
+                ]
+        else:
+            if is_testing:
+                openers = [
+                    "Denklem çözme adımlarını temelden test etmek gayet mantıklı; birlikte çözelim:",
+                    "Nora'nın cebirsel problem çözme adımlarını sınamak için güzel bir soru:",
+                ]
+            elif da > 0.58:
+                openers = [
+                    "Harika bir cebir problemi! Denklemi adım adım çözelim:",
+                    "Çok güzel bir denklem sorusu! Bilinmeyeni yalnız bırakalım:",
+                ]
+            else:
+                openers = [
+                    "Verilen denklemi adım adım çözelim:",
+                    "Denklemdeki bilinmeyeni bulmak için adım adım ilerleyelim:",
+                ]
+
+        state_idx = (int(da * 73 + sht * 47 + oxy * 31 + cort * 19 + turn_num * 13)) % len(openers)
+        if hasattr(cls, "_last_math_opener_idx") and getattr(cls, "_last_math_opener_idx") == state_idx:
+            state_idx = (state_idx + 1) % len(openers)
+        cls._last_math_opener_idx = state_idx
+        opening = openers[state_idx]
+
+        lines = [opening]
+        if kind == "derivative":
+            lines.append(f"İnceleyeceğimiz fonksiyon: f(x) = {expr_display}")
+            if steps:
+                lines.append("\nKuvvet kuralını ve türev özelliklerini terim terim uygulayalım:")
+                lines.extend(steps)
+            lines.append(f"\nToparladığımızda sembolik türev: {result_str} olur{verif_note}.")
+        elif kind == "indefinite_integral":
+            lines.append(f"Hesaplayacağımız belirsiz integral: ∫ ({expr_display}) dx")
+            if steps:
+                lines.append("\nTers kuvvet kuralını (entegrasyon) terim terim uygulayalım:")
+                lines.extend(steps)
+            lines.append(f"\nSonuç olarak belirsiz integral: {result_str} olur.")
+        elif kind == "definite_integral":
+            lines.append(f"Hesaplayacağımız belirli integral: {expr_display}")
+            if steps:
+                lines.extend(steps)
+            lines.append(f"\nBelirli integralin kesin değeri: {result_str} olur{verif_note}.")
+        elif kind in ("linear_eq", "quadratic_eq", "cubic_eq", "linear_system"):
+            lines.append(f"Çözeceğimiz denklem: {expr_display}")
+            if steps:
+                lines.extend(steps)
+            lines.append(f"\nSonuç: {result_str}")
+        else:
+            lines.append(result_str)
+
+        return "\n".join(lines).strip()
+
+    @classmethod
+    def _calculus_clarification(cls, kind: str, expr_s: str, var: str, agi: Any = None) -> dict:
+        if kind == "türev":
+            reply = (
+                "Türev alma isteğini anladım; ancak türevini almak istediğin matematiksel ifadeyi "
+                "tam olarak ayrıştıramadım. Örneğin 'f(x) = 3x^2 + 2x türevi nedir?' ya da '3x^2 + 2x türevini al' "
+                "biçiminde standart cebirsel gösterimle yazarsan terim terim hesaplayabilirim."
+            )
+        else:
+            reply = (
+                "İntegral hesaplama isteğini anladım; ancak entegre edilecek matematiksel ifadeyi "
+                "tam olarak ayrıştıramadım. Örneğin '2x + 4 integrali nedir?' ya da '0'dan 3'e x^2 integrali' "
+                "şeklinde belirtirsen adım adım hesaplayabilirim."
+            )
+        return {
+            "domain": "math",
+            "kind": "calculus_clarification",
+            "confidence": 0.96,
+            "reply": reply,
+            "trace": f"{kind}_clarification",
+        }
+
+    def _solve_single_eq(self, lhs_s: str, rhs_s: str, var: str, raw_text: str = "", agi: Any = None) -> dict | None:
         try:
             lhs = SymbolicAST.parse(lhs_s)
             rhs = SymbolicAST.parse(rhs_s)
@@ -728,12 +921,25 @@ class MathCortex:
                 root = -b / a
                 chk_l = SymbolicAST.eval_expr(lhs, {var: root})
                 chk_r = SymbolicAST.eval_expr(rhs, {var: root})
-                return {
-                    "domain": "math", "kind": "linear_eq", "confidence": 0.97,
-                    "reply": (
+                steps = [
+                    f"1. Denklemi standart hale getirelim: {SymbolicAST.format_poly(pc, var)} = 0",
+                    f"2. Bilinmeyeni yalnız bırakalım: {var} = -({_fmt_num(b)}) / {_fmt_num(a)} => {var} = {_fmt_num(root)}",
+                    f"3. Sağlama: Sol taraf {_fmt_num(chk_l)} = Sağ taraf {_fmt_num(chk_r)}"
+                ]
+                reply_txt = self._compose_math_reply(
+                    kind="linear_eq",
+                    expr_display=f"{lhs_s} = {rhs_s}",
+                    steps=steps,
+                    result_str=(
                         f"Denklemi {SymbolicAST.format_poly(pc, var)} = 0 biçimine getirdim; buradan {var} = {_fmt_num(root)} bulunur "
                         f"(sağlama: sol taraf {_fmt_num(chk_l)} = sağ taraf {_fmt_num(chk_r)})."
                     ),
+                    raw_text=raw_text,
+                    agi=agi,
+                )
+                return {
+                    "domain": "math", "kind": "linear_eq", "confidence": 0.97,
+                    "reply": reply_txt,
                     "trace": f"{var}={_fmt_num(root)}",
                 }
             if deg == 2:
@@ -741,22 +947,45 @@ class MathCortex:
                 b = pc.get(1, 0.0)
                 c = pc.get(0, 0.0)
                 disc = b * b - 4.0 * a * c
+                steps = [
+                    f"1. Denklemi standart ax² + bx + c = 0 biçimine getirelim: {SymbolicAST.format_poly(pc, var)} = 0",
+                    f"   (Katsayılar: a = {_fmt_num(a)}, b = {_fmt_num(b)}, c = {_fmt_num(c)})",
+                    f"2. Diskriminantı (Δ) hesaplayalım: Δ = b² - 4ac = ({_fmt_num(b)})² - 4({_fmt_num(a)})({_fmt_num(c)}) = {_fmt_num(disc)}",
+                ]
                 if disc < -1e-9:
                     re_p = -b / (2.0 * a)
                     im_p = math.sqrt(-disc) / abs(2.0 * a)
-                    return {
-                        "domain": "math", "kind": "quadratic_eq", "confidence": 0.97,
-                        "reply": (
+                    steps.append("3. Δ < 0 olduğu için denklemin reel kökü yoktur; karmaşık kökleri vardır.")
+                    reply_txt = self._compose_math_reply(
+                        kind="quadratic_eq",
+                        expr_display=f"{lhs_s} = {rhs_s}",
+                        steps=steps,
+                        result_str=(
                             f"Diskriminant Δ = b² - 4ac = {_fmt_num(disc)} < 0 olduğu için reel kök yoktur; "
                             f"karmaşık kökler {var}₁,₂ = {_fmt_num(re_p)} ± {_fmt_num(im_p)}i olur."
                         ),
+                        raw_text=raw_text,
+                        agi=agi,
+                    )
+                    return {
+                        "domain": "math", "kind": "quadratic_eq", "confidence": 0.97,
+                        "reply": reply_txt,
                         "trace": f"Δ={_fmt_num(disc)}<0",
                     }
                 if abs(disc) <= 1e-9:
                     r1 = -b / (2.0 * a)
+                    steps.append(f"3. Δ = 0 olduğu için çakışık tek reel kök vardır: {var} = -b / (2a) = {_fmt_num(r1)}.")
+                    reply_txt = self._compose_math_reply(
+                        kind="quadratic_eq",
+                        expr_display=f"{lhs_s} = {rhs_s}",
+                        steps=steps,
+                        result_str=f"Diskriminant Δ = 0 olduğu için çakışık tek reel kök vardır: {var} = {_fmt_num(r1)}.",
+                        raw_text=raw_text,
+                        agi=agi,
+                    )
                     return {
                         "domain": "math", "kind": "quadratic_eq", "confidence": 0.97,
-                        "reply": f"Diskriminant Δ = 0 olduğu için çakışık tek reel kök vardır: {var} = {_fmt_num(r1)}.",
+                        "reply": reply_txt,
                         "trace": f"{var}={_fmt_num(r1)}",
                     }
                 sq = math.sqrt(disc)
@@ -765,28 +994,47 @@ class MathCortex:
                 roots = sorted([r1, r2])
                 c1 = abs(SymbolicAST.eval_expr(diff_node, {var: roots[0]}))
                 c2 = abs(SymbolicAST.eval_expr(diff_node, {var: roots[1]}))
-                return {
-                    "domain": "math", "kind": "quadratic_eq", "confidence": 0.98,
-                    "reply": (
+                steps.append(f"3. Δ > 0 olduğu için iki farklı reel kök bulunur: {var}₁,₂ = (-b ± √Δ) / 2a")
+                steps.append(f"   • {var}₁ = {_fmt_num(roots[0])}")
+                steps.append(f"   • {var}₂ = {_fmt_num(roots[1])}")
+                reply_txt = self._compose_math_reply(
+                    kind="quadratic_eq",
+                    expr_display=f"{lhs_s} = {rhs_s}",
+                    steps=steps,
+                    result_str=(
                         f"Δ = b² - 4ac = {_fmt_num(disc)} üzerinden denklemin kökleri {var}₁ = {_fmt_num(roots[0])} ve "
                         f"{var}₂ = {_fmt_num(roots[1])} bulunur (yerine koyma sağlaması hatası: {max(c1, c2):.1e})."
                     ),
+                    raw_text=raw_text,
+                    agi=agi,
+                )
+                return {
+                    "domain": "math", "kind": "quadratic_eq", "confidence": 0.98,
+                    "reply": reply_txt,
                     "trace": f"roots=({_fmt_num(roots[0])}, {_fmt_num(roots[1])})",
                 }
             if deg == 3:
                 np_roots = np.roots([pc.get(3, 0.0), pc.get(2, 0.0), pc.get(1, 0.0), pc.get(0, 0.0)])
                 real_roots = sorted([float(r.real) for r in np_roots if abs(r.imag) < 1e-6])
                 r_txt = ", ".join(_fmt_num(r) for r in real_roots)
+                reply_txt = self._compose_math_reply(
+                    kind="cubic_eq",
+                    expr_display=f"{lhs_s} = {rhs_s}",
+                    steps=[f"1. Üçüncü dereceden polinom kökleri çözüldü: {SymbolicAST.format_poly(pc, var)} = 0"],
+                    result_str=f"Üçüncü derece denklemin reel kökleri: {var} ∈ {{{r_txt}}}.",
+                    raw_text=raw_text,
+                    agi=agi,
+                )
                 return {
                     "domain": "math", "kind": "cubic_eq", "confidence": 0.95,
-                    "reply": f"Üçüncü derece denklemin reel kökleri: {var} ∈ {{{r_txt}}}.",
+                    "reply": reply_txt,
                     "trace": f"cubic_roots={r_txt}",
                 }
         except Exception:
             return None
         return None
 
-    def _solve_2x2(self, eqs: list[tuple[str, str]]) -> dict | None:
+    def _solve_2x2(self, eqs: list[tuple[str, str]], raw_text: str = "", agi: Any = None) -> dict | None:
         try:
             A = np.zeros((2, 2), dtype=np.float64)
             B = np.zeros(2, dtype=np.float64)
@@ -805,34 +1053,37 @@ class MathCortex:
                 return None
             sol = np.linalg.solve(A, B)
             xv, yv = float(sol[0]), float(sol[1])
-            return {
-                "domain": "math", "kind": "linear_system", "confidence": 0.98,
-                "reply": (
+            eq_txt = " ve ".join(f"{lhs.strip()} = {rhs.strip()}" for lhs, rhs in eqs)
+            steps = [
+                f"1. Denklem sistemini matris / yok etme katsayılarıyla düzenleyelim (det(A) = {_fmt_num(det)})",
+                f"2. Doğrusal çözümü elde edelim: x = {_fmt_num(xv)}, y = {_fmt_num(yv)}"
+            ]
+            reply_txt = self._compose_math_reply(
+                kind="linear_system",
+                expr_display=eq_txt,
+                steps=steps,
+                result_str=(
                     f"Doğrusal denklem sistemini yok etme/matris yöntemiyle (det = {_fmt_num(det)}) çözdüm: "
                     f"x = {_fmt_num(xv)} ve y = {_fmt_num(yv)} bulunur."
                 ),
+                raw_text=raw_text,
+                agi=agi,
+            )
+            return {
+                "domain": "math", "kind": "linear_system", "confidence": 0.98,
+                "reply": reply_txt,
                 "trace": f"x={_fmt_num(xv)}, y={_fmt_num(yv)}",
             }
         except Exception:
             return None
 
-    def _extract_math_phrase(self, s: str, stop_words: tuple[str, ...]) -> str:
-        cleaned = s
-        for sw in stop_words:
-            idx = cleaned.find(sw)
-            if idx != -1:
-                cleaned = cleaned[:idx]
-                break
-        cleaned = re.sub(r"\b(fonksiyonunun|ifadesinin|polinomunun|değerinin|nedir|kaçtır|hesapla|al|bul)\b", " ", cleaned)
-        cleaned = re.sub(r"['’][a-zçğıöşü]+\b", " ", cleaned)
-        return cleaned.strip()
-
-    def _solve_derivative(self, s: str) -> dict | None:
-        expr_s = self._extract_math_phrase(s, ("türevi", "türevini", "türev"))
+    def _solve_derivative(self, s: str, raw_text: str = "", agi: Any = None) -> dict | None:
+        expr_s, var = self._extract_calculus_target(s, kind="derivative")
         if not expr_s:
+            if "türev" in s:
+                return self._calculus_clarification("türev", expr_s, var, agi=agi)
             return None
         try:
-            var = "t" if ("t" in expr_s and "x" not in expr_s) else "x"
             ast = SymbolicAST.parse(expr_s)
             d_ast = SymbolicAST.diff(ast, var)
             d_str = SymbolicAST.to_str(d_ast, var)
@@ -845,23 +1096,70 @@ class MathCortex:
                 ver_note = f" (sayısal eğim sağlaması Δ={err:.1e} ile doğrulandı)"
             except Exception:
                 ver_note = ""
+
+            steps = []
+            pc = SymbolicAST.poly_coeffs(ast, var)
+            if pc is not None:
+                for deg in sorted(pc.keys(), reverse=True):
+                    c = pc[deg]
+                    if abs(c) < 1e-9:
+                        continue
+                    c_str = _fmt_num(abs(c))
+                    sgn_str = "-" if c < 0 else ""
+                    if deg > 1:
+                        new_c = c * deg
+                        new_deg = deg - 1
+                        deg_str = f"{var}^{new_deg}" if new_deg > 1 else var
+                        res_term = f"{_fmt_num(new_c)}{deg_str}" if abs(abs(new_c) - 1.0) > 1e-9 else f"{'-' if new_c < 0 else ''}{deg_str}"
+                        term_disp = f"{sgn_str}{c_str}{var}^{deg}" if abs(abs(c) - 1.0) > 1e-9 else f"{sgn_str}{var}^{deg}"
+                        steps.append(f"• {term_disp} terimi için kuvvet kuralı uygulanır: üs ({deg}) katsayı ile çarpılır ve üs 1 azaltılır ({deg} × {sgn_str}{c_str} · {deg_str} = {res_term}).")
+                    elif deg == 1:
+                        res_term = _fmt_num(c)
+                        term_disp = f"{sgn_str}{c_str}{var}" if abs(abs(c) - 1.0) > 1e-9 else f"{sgn_str}{var}"
+                        steps.append(f"• {term_disp} doğrusal teriminin türevi doğrudan katsayısı {res_term} olur.")
+                    elif deg == 0:
+                        steps.append(f"• {sgn_str}{c_str} sabit teriminin türevi 0 olur.")
+            elif isinstance(ast, Call):
+                if ast.fn == "sin":
+                    steps.append(f"• sin({SymbolicAST.to_str(ast.arg, var)}) türevi zincir kuralıyla cos({SymbolicAST.to_str(ast.arg, var)}) ile iç türevin çarpımıdır.")
+                elif ast.fn == "cos":
+                    steps.append(f"• cos({SymbolicAST.to_str(ast.arg, var)}) türevi zincir kuralıyla -sin({SymbolicAST.to_str(ast.arg, var)}) ile iç türevin çarpımıdır.")
+                elif ast.fn == "exp":
+                    steps.append(f"• e^{SymbolicAST.to_str(ast.arg, var)} fonksiyonunun türevi kendisi ile iç türevin çarpımıdır.")
+                elif ast.fn == "ln":
+                    steps.append(f"• ln({SymbolicAST.to_str(ast.arg, var)}) türevi 1/({SymbolicAST.to_str(ast.arg, var)}) ile iç türevin çarpımıdır.")
+
+            reply_txt = self._compose_math_reply(
+                kind="derivative",
+                expr_display=SymbolicAST.to_str(ast, var),
+                steps=steps,
+                result_str=f"f'({var}) = {d_str}",
+                verif_note=ver_note,
+                raw_text=raw_text or s,
+                agi=agi,
+            )
             return {
                 "domain": "math", "kind": "derivative", "confidence": 0.98,
-                "reply": f"f({var}) = {SymbolicAST.to_str(ast, var)} ifadesinin {var}'e göre sembolik türevi f'({var}) = {d_str} olur{ver_note}.",
+                "reply": reply_txt,
                 "trace": f"d/d{var}({SymbolicAST.to_str(ast, var)}) = {d_str}",
             }
         except Exception:
+            if "türev" in s:
+                return self._calculus_clarification("türev", expr_s, var, agi=agi)
             return None
 
-    def _solve_integral(self, s: str) -> dict | None:
-        # Belirli integral: "0'dan 3'e x^2 integrali"
-        m_bounds = re.search(r"(-?\d+(?:\.\d+)?)['’\s]*(?:dan|den|tan|ten)\s*(-?\d+(?:\.\d+)?)['’\s]*(?:e|a|ye|ya)(?:\s+kadar)?\s+(.+?)\s+integral", s)
+    def _solve_integral(self, s: str, raw_text: str = "", agi: Any = None) -> dict | None:
+        # Belirli integral: "0'dan 3'e x^2 integrali", "-2'den 3'e 4x^3 - 3x^2 + 2x - 7 ifadesinde integral"
+        m_bounds = re.search(r"(-?\d+(?:\.\d+)?)['’\s]*(?:dan|den|tan|ten)\s*(-?\d+(?:\.\d+)?)['’\s]*(?:e|a|ye|ya)(?:\s+kadar)?\s+(.+?)(?:\s+ifadesinde)?\s+integral", s)
         if m_bounds:
             a, b = float(m_bounds.group(1)), float(m_bounds.group(2))
-            # "...ifadesinin integrali": ifadenin çevresindeki Türkçe dolgu sözcükleri atılır.
-            expr_s = _math_span(m_bounds.group(3))
+            raw_expr = m_bounds.group(3)
+            raw_expr = re.sub(r"^[a-zA-Z_]\([a-zA-Z_]\)\s*=\s*", "", raw_expr.strip())
+            raw_expr = re.sub(r"\b(dx|dt|dz)\b", "", raw_expr)
+            raw_expr = re.sub(r"\b(ifadesinde|ifadesinin|fonksiyonunun)\b", "", raw_expr).strip()
+            expr_s = _math_span(raw_expr)
+            var = "t" if (re.search(r"\bt\b", expr_s) and not re.search(r"\bx\b", expr_s)) else "x"
             try:
-                var = "t" if (re.search(r"\bt\b", expr_s) and not re.search(r"\bx\b", expr_s)) else "x"
                 ast = SymbolicAST.parse(expr_s)
                 val_num = SymbolicAST.simpson_integral(ast, var, a, b)
                 pc = SymbolicAST.poly_coeffs(ast, var)
@@ -871,40 +1169,126 @@ class MathCortex:
                     fb = sum(coef * (b ** deg) for deg, coef in anti.items())
                     fa = sum(coef * (a ** deg) for deg, coef in anti.items())
                     val_exact = fb - fa
+                    steps = [
+                        f"1. İlkel fonksiyonu (belirsiz integrali) bulalım: F({var}) = {anti_str}",
+                        f"2. Kalkülüsün temel teoremine göre üst ve alt sınırları F({var}) fonksiyonuna yerleştirelim:",
+                        f"   • F({_fmt_num(b)}) = {_fmt_num(fb)}",
+                        f"   • F({_fmt_num(a)}) = {_fmt_num(fa)}",
+                        f"   • F({_fmt_num(b)}) - F({_fmt_num(a)}) = {_fmt_num(val_exact)}",
+                    ]
+                    reply_txt = self._compose_math_reply(
+                        kind="definite_integral",
+                        expr_display=f"∫[{_fmt_num(a)}..{_fmt_num(b)}] ({SymbolicAST.to_str(ast, var)}) d{var}",
+                        steps=steps,
+                        result_str=f"F({_fmt_num(b)}) - F({_fmt_num(a)}) = {_fmt_num(val_exact)}",
+                        verif_note=f" (Simpson sayısal sağlaması: {_fmt_num(val_num, 5)})",
+                        raw_text=raw_text or s,
+                        agi=agi,
+                    )
                     return {
                         "domain": "math", "kind": "definite_integral", "confidence": 0.98,
-                        "reply": (
-                            f"∫[{_fmt_num(a)}..{_fmt_num(b)}] ({SymbolicAST.to_str(ast, var)}) d{var} için ilkel fonksiyon "
-                            f"F({var}) = {anti_str} bulunur; F({_fmt_num(b)}) - F({_fmt_num(a)}) = {_fmt_num(val_exact)} "
-                            f"(Simpson sayısal sağlaması: {_fmt_num(val_num, 5)})."
-                        ),
+                        "reply": reply_txt,
                         "trace": f"int_{a}^{b} = {_fmt_num(val_exact)}",
                     }
+                reply_txt = self._compose_math_reply(
+                    kind="definite_integral",
+                    expr_display=f"∫[{_fmt_num(a)}..{_fmt_num(b)}] ({SymbolicAST.to_str(ast, var)}) d{var}",
+                    steps=[],
+                    result_str=f"= {_fmt_num(val_num, 5)}",
+                    verif_note="",
+                    raw_text=raw_text or s,
+                    agi=agi,
+                )
                 return {
                     "domain": "math", "kind": "definite_integral", "confidence": 0.95,
-                    "reply": f"∫[{_fmt_num(a)}..{_fmt_num(b)}] ({SymbolicAST.to_str(ast, var)}) d{var} belirli integralinin değeri {_fmt_num(val_num, 5)} bulunur.",
+                    "reply": reply_txt,
                     "trace": f"simpson={_fmt_num(val_num, 5)}",
                 }
             except Exception:
+                if "integral" in s:
+                    return self._calculus_clarification("integral", expr_s, var, agi=agi)
                 return None
 
-        # Belirsiz polinom integrali: "3x^2 + 4x integrali nedir?"
-        expr_s = self._extract_math_phrase(s, ("integrali", "integralini", "integral"))
-        if expr_s:
-            try:
-                var = "t" if ("t" in expr_s and "x" not in expr_s) else "x"
-                ast = SymbolicAST.parse(expr_s)
-                pc = SymbolicAST.poly_coeffs(ast, var)
-                if pc is not None:
-                    anti = {deg + 1: coef / (deg + 1) for deg, coef in pc.items()}
-                    anti_str = SymbolicAST.format_poly(anti, var)
-                    return {
-                        "domain": "math", "kind": "indefinite_integral", "confidence": 0.97,
-                        "reply": f"∫ ({SymbolicAST.to_str(ast, var)}) d{var} belirsiz integrali {anti_str} + C olur.",
-                        "trace": f"F({var}) = {anti_str} + C",
-                    }
-            except Exception:
-                return None
+        # Belirsiz polinom integrali: "3x^2 + 4x integrali nedir?", "integralini al: 2x + 4", "f(x) = 2x + 4 integralini al"
+        expr_s, var = self._extract_calculus_target(s, kind="integral")
+        if not expr_s:
+            if "integral" in s:
+                return self._calculus_clarification("integral", expr_s, var, agi=agi)
+            return None
+        try:
+            ast = SymbolicAST.parse(expr_s)
+            pc = SymbolicAST.poly_coeffs(ast, var)
+            if pc is not None:
+                anti = {deg + 1: coef / (deg + 1) for deg, coef in pc.items()}
+                anti_str = SymbolicAST.format_poly(anti, var)
+                steps = []
+                for deg in sorted(pc.keys(), reverse=True):
+                    c = pc[deg]
+                    if abs(c) < 1e-9:
+                        continue
+                    c_str = _fmt_num(abs(c))
+                    sgn_str = "-" if c < 0 else ""
+                    new_deg = deg + 1
+                    new_c = c / new_deg
+                    deg_str = f"{var}^{new_deg}" if new_deg > 1 else var
+                    res_term = f"{_fmt_num(new_c)}{deg_str}" if abs(abs(new_c) - 1.0) > 1e-9 else f"{'-' if new_c < 0 else ''}{deg_str}"
+                    if deg > 0:
+                        term_disp = f"{sgn_str}{c_str}{var}^{deg}" if deg > 1 else f"{sgn_str}{c_str}{var}"
+                        steps.append(f"• {term_disp} teriminin integralinde üssü 1 artırıp ({new_deg}) katsayıyı yeni üsse böleriz ({c_str}/{new_deg} · {deg_str} = {res_term}).")
+                    else:
+                        steps.append(f"• {sgn_str}{c_str} sabit teriminin integrali {res_term} olur.")
+                steps.append("• Belirsiz integral olduğu için genel entegrasyon sabiti + C eklenir.")
+
+                reply_txt = self._compose_math_reply(
+                    kind="indefinite_integral",
+                    expr_display=SymbolicAST.to_str(ast, var),
+                    steps=steps,
+                    result_str=f"∫ ({SymbolicAST.to_str(ast, var)}) d{var} = {anti_str} + C",
+                    verif_note="",
+                    raw_text=raw_text or s,
+                    agi=agi,
+                )
+                return {
+                    "domain": "math", "kind": "indefinite_integral", "confidence": 0.97,
+                    "reply": reply_txt,
+                    "trace": f"F({var}) = {anti_str} + C",
+                }
+            # Analitik temel fonksiyonlar (sin, cos, exp)
+            if isinstance(ast, Call):
+                if ast.fn == "sin" and isinstance(ast.arg, Var) and ast.arg.name == var:
+                    reply_txt = self._compose_math_reply(
+                        kind="indefinite_integral",
+                        expr_display=f"sin({var})",
+                        steps=[f"• sin({var}) fonksiyonunun integrali -cos({var})'dir.", "• Belirsiz integral sabiti + C eklenir."],
+                        result_str=f"∫ sin({var}) d{var} = -cos({var}) + C",
+                        raw_text=raw_text or s,
+                        agi=agi,
+                    )
+                    return {"domain": "math", "kind": "indefinite_integral", "confidence": 0.97, "reply": reply_txt, "trace": f"F({var}) = -cos({var}) + C"}
+                if ast.fn == "cos" and isinstance(ast.arg, Var) and ast.arg.name == var:
+                    reply_txt = self._compose_math_reply(
+                        kind="indefinite_integral",
+                        expr_display=f"cos({var})",
+                        steps=[f"• cos({var}) fonksiyonunun integrali sin({var})'dir.", "• Belirsiz integral sabiti + C eklenir."],
+                        result_str=f"∫ cos({var}) d{var} = sin({var}) + C",
+                        raw_text=raw_text or s,
+                        agi=agi,
+                    )
+                    return {"domain": "math", "kind": "indefinite_integral", "confidence": 0.97, "reply": reply_txt, "trace": f"F({var}) = sin({var}) + C"}
+                if ast.fn == "exp" and isinstance(ast.arg, Var) and ast.arg.name == var:
+                    reply_txt = self._compose_math_reply(
+                        kind="indefinite_integral",
+                        expr_display=f"e^{var}",
+                        steps=[f"• e^{var} fonksiyonunun integrali kendisidir.", "• Belirsiz integral sabiti + C eklenir."],
+                        result_str=f"∫ e^{var} d{var} = e^{var} + C",
+                        raw_text=raw_text or s,
+                        agi=agi,
+                    )
+                    return {"domain": "math", "kind": "indefinite_integral", "confidence": 0.97, "reply": reply_txt, "trace": f"F({var}) = exp({var}) + C"}
+        except Exception:
+            if "integral" in s:
+                return self._calculus_clarification("integral", expr_s, var, agi=agi)
+            return None
         return None
 
 

@@ -2509,7 +2509,7 @@ class NoraAGI:
         # hâlde 'a - b + c' biçimli polinomlar analoji sanılır. Aynı soru tekrar sorulsa da hesap
         # yeniden yapılır: tekrar farkındalığı hesabın yerini almaz.
         try:
-            _math_pre = self.math_cortex.try_solve(raw) if getattr(self, "math_cortex", None) is not None else None
+            _math_pre = self.math_cortex.try_solve(raw, agi=self) if getattr(self, "math_cortex", None) is not None else None
         except Exception:
             _math_pre = None
         if _math_pre is not None:
@@ -3622,7 +3622,7 @@ class NoraAGI:
             ))
 
         # --- SÜTUN 2: Parietal Matematik, Cebir ve Kalkülüs Korteksi ---
-        math_res = self.math_cortex.try_solve(raw)
+        math_res = self.math_cortex.try_solve(raw, agi=self)
         if math_res is not None and phys_res is None:
             bids.append(CorticalBid(
                 module="parietal_math",
@@ -4299,7 +4299,7 @@ class NoraAGI:
             if self.code_cortex.is_document(raw):
                 res = self.code_cortex.handle_document(raw)
                 self.last_code = res
-                return self.code_cortex.speak(res), "code:document", 0.988
+                return self.code_cortex.speak(res, agi=self), "code:document", 0.988
             if not self.code_cortex.is_requested(raw):
                 # Representation hedefi payload+anaförle zaten kanıtlanmıştır;
                 # genel DISPLAY eşiğini diğer niyetler için değiştirmeden geç.
@@ -4309,15 +4309,15 @@ class NoraAGI:
                     _goal = None
                 if getattr(_goal, "operation", None) != "representation":
                     return None, "", 0.0
-            res = self.code_cortex.handle(raw)
+            res = self.code_cortex.handle(raw, agi=self)
             self.last_code = res
             if res.get("ok"):
                 self.chem.pulse_learning(novelty=0.5, valence=0.35)
-                self._structured_output = res.get("path") == "composed"
+                self._structured_output = res.get("path") in ("composed", "html")
                 self._apply_tag("islem", 1)
-                return self.code_cortex.speak(res), f"code:{res.get('path')}", 0.988
+                return self.code_cortex.speak(res, agi=self), f"code:{res.get('path')}", 0.988
             if res.get("reply_hint"):
-                return self.code_cortex.speak(res), f"code:{res.get('reason')}", 0.958
+                return self.code_cortex.speak(res, agi=self), f"code:{res.get('reason')}", 0.958
         except Exception:
             return None, "", 0.0
         return None, "", 0.0
@@ -6195,7 +6195,7 @@ class NoraAGI:
         # Matematik veya fizik korteksinin uzmanlık alanına giren hesaplamaları epizodik genel diyalog gasp etmemeli
         if getattr(self, "math_cortex", None) is not None:
             try:
-                if self.math_cortex.try_solve(raw) is not None:
+                if self.math_cortex.try_solve(raw, agi=self) is not None:
                     return None
             except Exception:
                 pass

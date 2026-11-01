@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""chat.py — Nora Interactive Terminal Chat wrapper."""
+"""chat.py — Nora Interactive WebUI & Terminal Chat launcher."""
 import os
 import sys
 
