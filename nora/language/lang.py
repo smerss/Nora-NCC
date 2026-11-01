@@ -1820,7 +1820,7 @@ class RelationEdge:
     weight: float = 1.0
     source: str = "duyum"     # deneyim | duyum | doğuştan
     speaker: str = "insan"
-    status: str = "accepted" # accepted | provisional | probation | rejected
+    status: str = "accepted" # accepted | provisional | corroborated | probation | rejected | retracted
     verb: str = ""           # icat edilen ilişkinin duyulan fiil kökü
     obj_surface: str = ""    # artikülasyon için öğrenilen nesne yüzeyi
     obj_case: str = "NOM"
@@ -1878,6 +1878,8 @@ class GroundedConceptGraph:
         # W_fast/W_slow aktivasyonundan çıkar. Graf bu adayları sonradan doğrular.
         self.relation_mb = HDCMushroomBody(dim=256, n_kc=2048, sparsity=0.06, seed=seed + 71)
         self.relation_ledger: dict[str, dict] = {}
+        # Bu konuşma turunda sorgunun kanıt olarak döndürdüğü kenarlar (cevabın dayanağı).
+        self.turn_evidence: list[RelationEdge] = []
         self.relation_by_verb: dict[str, str] = {}
         self.last_decision: dict = {}
         self.last_invention: dict = {}
@@ -2028,6 +2030,20 @@ class GroundedConceptGraph:
             return w[:-1]
         return w
 
+    def mark_unwitnessed(self, interlocutors: set[str]) -> int:
+        """Muhatabı olmayan bir kaynaktan (okunan metin) tek tanıkla gelmiş kenarları 'provisional' işaretler.
+
+        Ölçüt veridendir: konuşma kaydında hiç söz almamış bir 'konuşan' bir metindir. Doğuştan,
+        yapılandırılmış (atlas) ya da Nora'nın kendi çıkardığı kenarlar 'duyum' değildir; dokunulmaz.
+        Ağırlık değişmez: bilgi hemen kullanılır, yalnız söylenirken kaynağıyla çekinerek söylenir."""
+        n = 0
+        for edge in self.edges:
+            if (edge.status == "accepted" and edge.source == "duyum"
+                    and edge.speaker not in interlocutors):
+                edge.status = "provisional"
+                n += 1
+        return n
+
     def retract_edges(self, predicate) -> int:
         """Koşulu sağlayan kenarları sorgu indekslerinden çıkarır; kayıt silinmez.
 
@@ -2063,6 +2079,12 @@ class GroundedConceptGraph:
         self.register_concept(s, bind_mb=bind_mb)
         self.register_concept(o, bind_mb=bind_mb)
         existing = self._edge_map.get((s, rel, o))
+        if existing is not None and existing.status == "provisional":
+            # Aynı kaynağın tekrarı tanık sayılmaz; bağımsız bir kaynak (ya da muhatap) ilişkiyi doğrular.
+            if speaker != existing.speaker:
+                existing.status = "corroborated"
+                existing.weight = float(min(2.0, existing.weight + 0.4 * weight))
+            return existing
         if existing is not None:
             existing.weight = float(min(2.0, existing.weight + 0.4 * weight))
             if source == "deneyim":
@@ -2304,13 +2326,16 @@ class GroundedConceptGraph:
                         edge._last_mb_activation = 1.0
                         if edge.rel == "CANNOT_DO":
                             blocked_actions.add(edge.obj)
-                        if edge.rel == "ISA" and edge.obj not in visited:
+                        # Tek tanıklı okuma (provisional) zincirin ara basamağı olmaz:
+                        # doğrudan söylenebilir ama üstüne çıkarım kurulmaz.
+                        if edge.rel == "ISA" and edge.obj not in visited and edge.status != "provisional":
                             next_frontier.append((edge.obj, list(isa_path) + [edge]))
                         if rels is not None and edge.rel not in rels:
                             continue
                         if edge.rel == "CAN_DO" and edge.obj in blocked_actions and isa_path:
                             continue
                         results.append((edge, list(isa_path)))
+                        self.turn_evidence.append(edge)
                 else:
                     for slot, activation in recalled:
                         if not 0 <= slot < len(self.edges):
@@ -2327,13 +2352,16 @@ class GroundedConceptGraph:
                         edge._last_mb_activation = float(activation)
                         if edge.rel == "CANNOT_DO":
                             blocked_actions.add(edge.obj)
-                        if edge.rel == "ISA" and edge.obj not in visited:
+                        # Tek tanıklı okuma (provisional) zincirin ara basamağı olmaz:
+                        # doğrudan söylenebilir ama üstüne çıkarım kurulmaz.
+                        if edge.rel == "ISA" and edge.obj not in visited and edge.status != "provisional":
                             next_frontier.append((edge.obj, list(isa_path) + [edge]))
                         if rels is not None and edge.rel not in rels:
                             continue
                         if edge.rel == "CAN_DO" and edge.obj in blocked_actions and isa_path:
                             continue
                         results.append((edge, list(isa_path)))
+                        self.turn_evidence.append(edge)
             frontier = next_frontier
             if not frontier:
                 break
@@ -4516,8 +4544,13 @@ class NoraLanguage:
         self.wernicke = WernickeComprehender(graph=self.graph, chem=chem, seed=seed)
         self.broca = BrocaGenerator()
 
-    def teach_sentence(self, text: str, speaker: str = "insan") -> list[RelationEdge]:
-        """Bir Türkçe cümleyi ('ama/ancak/ve' bağlaçlarıyla bileşik cümleler dahil) 1-atışta (0 epoch) öğrenir."""
+    def teach_sentence(self, text: str, speaker: str = "insan", read: bool = False) -> list[RelationEdge]:
+        """Bir Türkçe cümleyi ('ama/ancak/ve' bağlaçlarıyla bileşik cümleler dahil) 1-atışta (0 epoch) öğrenir.
+
+        read=True: cümle bir metinden OKUNDU, bir muhatap söylemedi. Tek tanıklı okuma bir dünya olgusu
+        değil, bir adaydır: kenar 'provisional' kurulur ve bağımsız ikinci bir kaynak aynı ilişkiyi
+        verene dek sorgulara katılmaz."""
+        status = "provisional" if read else "accepted"
         clauses = re.split(r"\s+(?:ama|ancak|fakat)\s+|;\s*|\.\s+", text.strip())
         # "X ... ve Y ..." birleşik YÜKLEM cümlesi iki ayrı iddiadır: her iki yarı da kendi başına
         # yüklem taşıyorsa bölünür. Böylece bütün bir yan cümle, ilişki nesnesi olarak kaydedilmez
@@ -4623,16 +4656,16 @@ class NoraLanguage:
                     owner, _, part = str(fr.sub_kind).partition("|")
                     if not owner or not part:
                         continue
-                    learned.append(self.graph.add_edge(fr.subj, "HAS_PROP", fr.obj, source="duyum", speaker=speaker))
-                    learned.append(self.graph.add_edge(fr.subj, "PART_OF", owner, source="duyum", speaker=speaker))
-                    learned.append(self.graph.add_edge(owner, "HAS_PART", part, source="duyum", speaker=speaker))
+                    learned.append(self.graph.add_edge(fr.subj, "HAS_PROP", fr.obj, source="duyum", speaker=speaker, status=status))
+                    learned.append(self.graph.add_edge(fr.subj, "PART_OF", owner, source="duyum", speaker=speaker, status=status))
+                    learned.append(self.graph.add_edge(owner, "HAS_PART", part, source="duyum", speaker=speaker, status=status))
                 elif fr.rel == "ADJ_ISA":
                     adj, noun = fr.obj.split("|", 1)
-                    learned.append(self.graph.add_edge(fr.subj, "ISA", f"{adj} {noun}", source="duyum", speaker=speaker))
-                    learned.append(self.graph.add_edge(f"{adj} {noun}", "ISA", noun, source="duyum", speaker=speaker))
-                    learned.append(self.graph.add_edge(fr.subj, "HAS_PROP", adj, source="duyum", speaker=speaker))
+                    learned.append(self.graph.add_edge(fr.subj, "ISA", f"{adj} {noun}", source="duyum", speaker=speaker, status=status))
+                    learned.append(self.graph.add_edge(f"{adj} {noun}", "ISA", noun, source="duyum", speaker=speaker, status=status))
+                    learned.append(self.graph.add_edge(fr.subj, "HAS_PROP", adj, source="duyum", speaker=speaker, status=status))
                 else:
-                    learned.append(self.graph.add_edge(fr.subj, fr.rel, fr.obj, source="duyum", speaker=speaker))
+                    learned.append(self.graph.add_edge(fr.subj, fr.rel, fr.obj, source="duyum", speaker=speaker, status=status))
                     # "X bir Y türüdür" ifadesinde tür kavramı ile üst kavram
                     # arasındaki genel köprü de öğrenilir. Böylece yüzeydeki
                     # "türü" sözcüğü ISA zincirini koparmaz; kural bütün tür
@@ -4641,10 +4674,10 @@ class NoraLanguage:
                         parent = fr.obj.rsplit(" ", 1)[0].strip()
                         if parent and parent != fr.subj:
                             learned.append(self.graph.add_edge(
-                                fr.obj, "ISA", parent, source="duyum", speaker=speaker,
+                                fr.obj, "ISA", parent, source="duyum", speaker=speaker, status=status,
                             ))
             elif fr.kind == "teach_val":
-                learned.append(self.graph.add_edge(fr.subj, fr.rel, fr.obj, source="duyum", speaker=speaker))
+                learned.append(self.graph.add_edge(fr.subj, fr.rel, fr.obj, source="duyum", speaker=speaker, status=status))
         return learned
 
     @staticmethod

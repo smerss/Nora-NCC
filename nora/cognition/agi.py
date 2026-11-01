@@ -722,6 +722,48 @@ class NoraAGI:
         except Exception:
             self.workspace = None
 
+    def _hedge_read_knowledge(self, ans: str) -> str:
+        """Cevap yalnız tek tanıklı okumaya (provisional) dayanıyorsa bunu kaynağıyla söyler.
+
+        Bilgi kullanılır (tek-sunum ilkesi) ama kesin dünya olgusu gibi sunulmaz; aynı nesneyi
+        kabul edilmiş bir kenar da destekliyorsa çekinceye gerek yoktur."""
+        if not ans or getattr(self, "_structured_output", False):
+            return ans
+        words = re.findall(r"[\wçğıöşüâîû]+", tr_lower(ans))
+
+        def said(phrase: str) -> bool:
+            # Öbeğin her sözcüğü sırayla, en çok bir ek kadar uzamış hâlde geçmeli:
+            # 'alet' ~ 'alettir' evet, 'gel' ~ 'gelişmeler' hayır.
+            parts = phrase.split()
+            for i in range(len(words) - len(parts) + 1):
+                if all(words[i + j].startswith(p) and len(words[i + j]) - len(p) <= 4
+                       for j, p in enumerate(parts)):
+                    return True
+            return False
+
+        evidence = list(getattr(self.lang.graph, "turn_evidence", ()) or ())
+        firm = {e.obj for e in evidence if e.status != "provisional"}
+        # Önermenin kendisi söylenmiş olmalı: özne VE nesne cevapta geçer. Yalnız nesnenin rastlantıyla
+        # geçmesi (ör. hafızadan gelen uzun bir metinde) o kenara dayanıldığını göstermez.
+        read = [e for e in evidence if e.status == "provisional" and len(e.obj) >= 4
+                and e.obj not in firm and said(e.obj) and said(e.subj)]
+        if not read:
+            return ans
+        sources = sorted({str(e.speaker).split(":", 1)[-1] for e in read})
+        morph = TurkishMorphology
+        lead = (f"{tr_capitalize(morph.participle_form('oku', kind='dik', poss=1))} bir "
+                f"{morph.inflect_noun('metin', 'DAT')} göre ({', '.join(sources)})")
+        return f"{lead}: {ans}"
+
+    def interlocutors(self) -> set[str]:
+        """Nora'yla gerçekten konuşmuş olanlar (konuşma kaydından) ve Nora'nın kendisi."""
+        out = {"insan", "kendi"}
+        for turn in getattr(self, "dialogue_log", []) or ():
+            speaker = turn[0] if isinstance(turn, (tuple, list)) and turn else None
+            if speaker:
+                out.add(str(speaker))
+        return out
+
     def read_corpus(self, path: str):
         """Corpusu tek geçişte yapı ve doğrulanabilir anlam olarak öğren.
 
@@ -744,6 +786,8 @@ class NoraAGI:
         }
         observed = 0
         errors = 0
+        # Okunan her metin kendi adıyla tanıklık eder: aynı metnin tekrarı ikinci tanık sayılmaz.
+        source_name = "okuma:" + os.path.basename(str(path))
         with open(path, "r", encoding="utf-8", errors="ignore") as f:
             while True:
                 chunk = f.read(2_000_000)
@@ -757,7 +801,7 @@ class NoraAGI:
                     try:
                         # Epoch/replay yok: cümle bir kez çözümlenir, çıkan
                         # önermeler ayrı HDC olayları olarak hemen kullanılabilir.
-                        self.lang.teach_sentence(sentence)
+                        self.lang.teach_sentence(sentence, speaker=source_name, read=True)
                         if getattr(self, "frames", None) is not None:
                             self.frames.observe(sentence)
                         self.schema_cortex.observe_human_schema(
@@ -2263,8 +2307,13 @@ class NoraAGI:
             self._journal("tur", g=raw, y=_reply, s="", yas=int(getattr(self.mind, "age", 0)),
                           d=round(float(getattr(getattr(self, "entropy", None), "drift", 0.0) or 0.0), 6))
             return _reply
+        self.lang.graph.turn_evidence = []
         _preflight_unknown = self._epistemic_gate(_cot_semantic_raw)
         if _preflight_unknown:
+            try:
+                _preflight_unknown = self._hedge_read_knowledge(_preflight_unknown)
+            except Exception:
+                pass
             self._log_turn(speaker, raw, _preflight_unknown, _preflight_t0)
             self._journal("tur", g=raw, y=_preflight_unknown, s="",
                           yas=int(getattr(self.mind, "age", 0)),
@@ -2302,7 +2351,12 @@ class NoraAGI:
                 self.priors.learn(repeated=_meta is not None)
         except Exception:
             pass
+        self.lang.graph.turn_evidence = []
         ans = self._converse_core(_heard, _vid)
+        try:
+            ans = self._hedge_read_knowledge(ans)
+        except Exception:
+            pass
         # KALİBRASYON: bir önceki turda verilen GÜVEN SÖZÜ, bu turun SONUCUYLA eşleşir.
         try:
             self._calib_note_outcome()
@@ -9441,6 +9495,12 @@ class NoraAGI:
             from nora_lang import NoraLanguage
             agi.lang.graph.retract_edges(
                 lambda e: e.source != "doğuştan" and NoraLanguage.is_deictic(e.subj))
+        except Exception:
+            pass
+        # Okunan metinden tek tanıkla gelen ilişki bir adaydır, olgu değil (README: 'akla yatkın bir
+        # tamamlama doğrulanmış bir dünya olgusu değildir'). Muhatap kümesi konuşma kaydından gelir.
+        try:
+            agi.lang.graph.mark_unwitnessed(agi.interlocutors())
         except Exception:
             pass
         if not agi.mortality.is_alive:
