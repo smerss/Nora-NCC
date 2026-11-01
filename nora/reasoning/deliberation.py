@@ -31,7 +31,7 @@ from nora_broca import NP, PredSpec, TurkishSyntaxEngine as SYN, VerbSpec
 from nora_lang import Proposition, tr_capitalize, tr_lower
 
 # Söz edimi tetikleyicileri (algısal ipuçları; cevap metni değil)
-_CUE_IDENTITY = ("kimsin", "sen nesin", "kendini tanıt", "kendinden bahset")
+_CUE_IDENTITY = ("kimsin", "sen nesin", "kendini tanıt", "kendinden bahse")
 _CUE_THOUGHT = ("ne düşünüyorsun", "aklından ne geçiyor", "kafanda ne var")
 _CUE_DESIRE = ("ne yapmak istersin", "canın ne ister", "ne yapmayı istersin", "neyi istersin")
 _CUE_JUSTIFY = ("söylüyorsun", "diyorsun", "söyledin", "dedin", "iddia ediyorsun")
@@ -90,6 +90,9 @@ class DeliberativeMind:
         # Açık-uçlu konuşmanın anlam planı. Yüzeyden bağımsız kanıt/bağlam
         # taşıdığı için 'bunu aç' isteği önceki cümleyi yankılamak zorunda kalmaz.
         self.last_open_trace: dict = {}
+        # Son System-2 zinciri: yalnız denetlenebilir ara işlem/bağ özetleri.
+        # Ham iç-monolog veya sonradan uydurulmuş gerekçe burada tutulmaz.
+        self.last_cot_trace: dict = {}
         self.recent_reflection_topics: deque[str] = deque(maxlen=8)
         self.recent_story_arcs: deque[str] = deque(maxlen=6)
 
@@ -704,6 +707,406 @@ class DeliberativeMind:
             f"geri bağladığımda {state(probe.get('restored'))}"
         )
 
+    # ------------------------------------------------------ doğrulanmış System-2 / CoT
+    @staticmethod
+    def is_stepwise_request(raw: str) -> bool:
+        low = tr_lower(str(raw or ""))
+        if "chain of thought" in low:
+            return True
+        if not any(cue in low for cue in ("adım adım", "adim adim")):
+            return False
+        # 'çözer' içindeki 'çöz' alt dizesi istek değildir; fiil biçimi veya
+        # soru işareti gerekir. Böylece öğretilen olgular CoT'a dönüşmez.
+        action = re.search(
+            r"(?:^|[\s,:;!?])(?:düşün(?:erek)?|açıkla(?:r\s+mısın)?|"
+            r"çöz(?:er\s+misin)?|hesapla|anlat|göster|muhakeme|cevapla)(?=$|[\s,:;!?])",
+            low,
+        )
+        return bool(action or "?" in low)
+
+    @classmethod
+    def strip_stepwise_request(cls, raw: str) -> str:
+        """İstek sarmalayıcısını kaldır; asıl problem aynı organlara gider."""
+        text = str(raw or "").strip()
+        action = r"(?:düşün(?:erek)?|açıkla(?:r\s+mısın)?|çöz(?:er\s+misin)?|hesapla|anlat|göster|muhakeme\s+et|cevapla)"
+        patterns = (
+            rf"^\s*(?:adım adım|adim adim)\s*(?:{action}\s*)?[:\-!?]?\s*",
+            rf"^\s*chain\s+of\s+thought(?:\s+ile)?\s*(?:{action}\s*)?[:\-!?]?\s*",
+        )
+        for pattern in patterns:
+            stripped = re.sub(pattern, "", text, count=1, flags=re.IGNORECASE).strip()
+            if stripped != text:
+                return stripped
+        return text
+
+    @staticmethod
+    def _cot_number(value: float) -> str:
+        value = float(value)
+        if abs(value - round(value)) < 1e-9:
+            return str(int(round(value)))
+        return f"{value:.6f}".rstrip("0").rstrip(".")
+
+    @staticmethod
+    def _cot_summary(steps: list[dict], conclusion: str) -> str:
+        """Ham iç ses değil, gerçekleşen işlemlerin kısa ve denetlenebilir özeti."""
+        lines = ["Muhakeme özeti:"]
+        for index, step in enumerate(steps, 1):
+            surface = str(step.get("surface") or "").strip().rstrip(".!?")
+            if surface:
+                lines.append(f"{index}. {tr_capitalize(surface)}.")
+        lines.append(f"Sonuç: {conclusion.strip()}")
+        return "\n".join(lines)
+
+    def _reason_columns(self, agi, a, op: str, b, *, question: str) -> dict | None:
+        """Her basamağın elde/borç çıktısı bir sonraki basamağın girdisidir."""
+        try:
+            a, b = int(a), int(b)
+        except (TypeError, ValueError):
+            return None
+        op = {"artı": "+", "eksi": "-"}.get(str(op), str(op))
+        if op not in {"+", "-"} or a < 0 or b < 0 or (op == "-" and a < b):
+            return None
+        sa, sb = str(a)[::-1], str(b)[::-1]
+        n = max(len(sa), len(sb))
+        if n < 2:
+            return None                       # tek ilkel işlem CoT değil, doğrudan hesaptır
+        names = ("birler", "onlar", "yüzler", "binler", "on binler", "yüz binler")
+        digits: list[int] = []
+        steps: list[dict] = []
+        carry = 0
+        for i in range(n):
+            da = ord(sa[i]) - 48 if i < len(sa) else 0
+            db = ord(sb[i]) - 48 if i < len(sb) else 0
+            old_carry = carry
+            if op == "+":
+                total = da + db + old_carry
+                digit, carry = total % 10, total // 10
+                surface = (f"{da} + {db} + {old_carry} elde = {total}; "
+                           f"{digit} yazılır" + (f", {carry} elde" if carry else ""))
+            else:
+                borrowed = da - old_carry < db
+                top = da + (10 if borrowed else 0) - old_carry
+                digit = top - db
+                carry = 1 if borrowed else 0
+                surface = (f"{da} - {old_carry} borç" if old_carry else f"{da}")
+                if borrowed:
+                    surface += f" için 10 eklenir; {top} - {db} = {digit} yazılır, 1 borç"
+                else:
+                    surface += f" - {db} = {digit} yazılır"
+            name = names[i] if i < len(names) else f"10^{i}"
+            steps.append({
+                "surface": f"{name} basamağı: {surface}",
+                "column": i, "input": {"a": da, "b": db, "carry": old_carry},
+                "output": {"digit": digit, "carry": carry}, "operation": op,
+            })
+            digits.append(digit)
+        if op == "+" and carry:
+            digits.append(carry)
+        value = 0
+        for digit in reversed(digits):
+            value = value * 10 + digit
+        expected = a + b if op == "+" else a - b
+        try:
+            independent = agi._working_memory_column_verify(a, op, b)
+        except Exception:
+            independent = expected
+        if value != expected or independent != expected:
+            return None
+        conclusion = f"{a} {op} {b} = {value}"
+        trace = {
+            "kind": "chain_of_thought", "domain": "arithmetic", "status": "verified",
+            "question": question, "explicit": True, "steps": steps,
+            "conclusion": conclusion, "result": value, "verified": True,
+            "verification": {"independent_result": independent, "carry_chain": True},
+            "engine": "deliberative_columns+working_memory", "replay": 0,
+        }
+        return {"text": self._cot_summary(steps, conclusion + "."), "trace": trace}
+
+    def _reason_arithmetic_ast(self, expression: str, *, question: str) -> dict | None:
+        """AST alt düğümlerinin sayısal çıktısıyla üst düğümü hesapla ve çapraz doğrula."""
+        import math
+        try:
+            from nora_stem import Bin, Call, Num, SymbolicAST, Unary, Var
+            # Genel çözücü sabit katlamayı kullanır; CoT için ara düğümler
+            # bilinçli olarak korunur, aksi hâlde (15+9)*4 yalnız Num(96) olur.
+            node = SymbolicAST.parse(expression, simplify=False)
+        except Exception:
+            return None
+        steps: list[dict] = []
+
+        def render(current) -> str:
+            """to_str()'un polinom katlamasını kullanmadan AST'yi olduğu gibi göster."""
+            if isinstance(current, Num):
+                return self._cot_number(current.val)
+            if isinstance(current, Var):
+                return current.name
+            if isinstance(current, Unary):
+                return f"{current.op}{render(current.arg)}"
+            if isinstance(current, Call):
+                return f"{current.fn}({render(current.arg)})"
+            if isinstance(current, Bin):
+                left, right = render(current.left), render(current.right)
+                if isinstance(current.left, Bin) and current.op in {"*", "/", "^"}:
+                    left = f"({left})"
+                if isinstance(current.right, Bin) and current.op in {"*", "/", "^"}:
+                    right = f"({right})"
+                return f"{left} {current.op} {right}"
+            return str(current)
+
+        def evaluate(current) -> float:
+            if isinstance(current, Num):
+                return float(current.val)
+            if isinstance(current, Var):
+                raise ValueError("değişkenli ifade sayısal CoT değildir")
+            if isinstance(current, Unary):
+                arg = evaluate(current.arg)
+                value = -arg if current.op == "-" else arg
+                steps.append({
+                    "surface": f"{current.op}{self._cot_number(arg)} = {self._cot_number(value)}",
+                    "input": arg, "output": value, "operation": current.op,
+                })
+                return value
+            if isinstance(current, Bin):
+                left = evaluate(current.left)
+                right = evaluate(current.right)
+                if current.op == "+":
+                    value = left + right
+                elif current.op == "-":
+                    value = left - right
+                elif current.op == "*":
+                    value = left * right
+                elif current.op == "/":
+                    if abs(right) < 1e-12:
+                        raise ValueError("sıfıra bölme")
+                    value = left / right
+                elif current.op == "^":
+                    value = left ** right
+                else:
+                    raise ValueError("desteklenmeyen işlem")
+                if not math.isfinite(value):
+                    raise ValueError("sonlu olmayan ara sonuç")
+                steps.append({
+                    "surface": (f"{self._cot_number(left)} {current.op} {self._cot_number(right)} "
+                                f"= {self._cot_number(value)}"),
+                    "expression": render(current),
+                    "input": {"left": left, "right": right}, "output": value,
+                    "operation": current.op,
+                })
+                return value
+            if isinstance(current, Call):
+                arg = evaluate(current.arg)
+                value = float(SymbolicAST.eval_expr(Call(current.fn, Num(arg))))
+                steps.append({
+                    "surface": f"{current.fn}({self._cot_number(arg)}) = {self._cot_number(value)}",
+                    "input": arg, "output": value, "operation": current.fn,
+                })
+                return value
+            raise ValueError("bilinmeyen AST düğümü")
+
+        try:
+            value = float(evaluate(node))
+            independent = float(SymbolicAST.eval_expr(node))
+        except Exception:
+            return None
+        if len(steps) < 2 or not math.isclose(value, independent, rel_tol=1e-9, abs_tol=1e-9):
+            return None
+        expression_surface = render(node)
+        conclusion = f"{expression_surface} = {self._cot_number(value)}"
+        trace = {
+            "kind": "chain_of_thought", "domain": "arithmetic", "status": "verified",
+            "question": question, "explicit": True, "steps": steps,
+            "conclusion": conclusion, "result": value, "verified": True,
+            "verification": {"independent_result": independent, "ast_children_feed_parents": True},
+            "engine": "deliberative_ast+symbolic_crosscheck", "replay": 0,
+        }
+        return {"text": self._cot_summary(steps, conclusion + "."), "trace": trace}
+
+    @staticmethod
+    def _cot_proposition(agi, edge, *, subj: str = "", rel: str = "", obj: str = "") -> str:
+        graph = agi.lang.graph
+        proposition = Proposition(
+            subj=graph.surface_name(subj or edge.subj), rel=rel or edge.rel,
+            obj=graph.surface_name(obj or edge.obj), verb=edge.verb,
+            obj_surface=edge.obj_surface, obj_case=edge.obj_case,
+            obj_plural=edge.obj_plural,
+        )
+        return agi.lang.broca.realize_prop(proposition).strip().rstrip(".!?")
+
+    def _reason_relation(self, agi, origin: str, path: list, *, answer: bool,
+                         causal: bool, yes_no: bool, explicit: bool,
+                         question: str) -> dict | None:
+        """Canlı kenar ve yön sürekliliği olmadan çıkarım cümlesi kurma."""
+        graph = agi.lang.graph
+        if len(path) < 2:
+            return None                         # tek kenar geri çağırmadır, CoT değil
+        current = tr_lower(origin).strip()
+        steps: list[dict] = []
+        for index, edge in enumerate(path):
+            if tr_lower(edge.subj) != current or float(edge.weight) <= 0.25:
+                return None
+            if graph._edge_map.get((edge.subj, edge.rel, edge.obj)) is not edge:
+                return None
+            if str(getattr(edge, "status", "accepted")) != "accepted":
+                return None                    # provisional kanıt 'doğrulandı' diye sunulmaz
+            if causal:
+                if edge.rel != "CAUSES":
+                    return None
+            elif index < len(path) - 1 and edge.rel != "ISA":
+                return None
+            surface = self._cot_proposition(agi, edge)
+            if not surface:
+                return None
+            steps.append({
+                "surface": surface, "input": current, "output": edge.obj,
+                "relation": edge.rel,
+                "evidence": [edge.subj, edge.rel, edge.obj],
+            })
+            current = tr_lower(edge.obj)
+        final = path[-1]
+        conclusion_rel = "CAUSES" if causal else final.rel
+        if yes_no and not answer and conclusion_rel != "CANNOT_DO":
+            conclusion_rel = "CANNOT_DO"
+        conclusion_body = self._cot_proposition(
+            agi, final, subj=origin, rel=conclusion_rel, obj=final.obj,
+        )
+        if not conclusion_body:
+            return None
+        # Sonuç yalnız aynı yolun tekrarıyla değil, ayrı bir Graph sorgusuyla
+        # de doğrulanır. Sorgu sonucu değişmişse eski iz cevap olarak yayınlanmaz.
+        independent_query = False
+        if yes_no:
+            try:
+                confirmation = graph.check_relation(origin, final.obj)
+            except Exception:
+                return None
+            if (confirmation.get("answer") != bool(answer)
+                    or confirmation.get("edge") is None):
+                return None
+            independent_query = True
+        conclusion = ((f"{'Evet' if answer else 'Hayır'}, {conclusion_body}.")
+                      if yes_no else tr_capitalize(conclusion_body) + ".")
+        premises = " ve ".join(step["surface"] for step in steps)
+        if yes_no:
+            normal = f"{'Evet' if answer else 'Hayır'}, {premises}; dolayısıyla {conclusion_body}."
+        else:
+            normal = tr_capitalize(f"{premises}; dolayısıyla {conclusion_body}.")
+        trace = {
+            "kind": "chain_of_thought", "domain": "relational", "status": "verified",
+            "question": question, "explicit": bool(explicit), "steps": steps,
+            "conclusion": conclusion, "answer": bool(answer), "verified": True,
+            "verification": {
+                "live_edges": len(steps), "continuity": True,
+                "accepted_edges": len(steps), "causal": bool(causal),
+                "independent_query": independent_query,
+            },
+            "engine": "hdc_mb_graph+deliberative_chain", "replay": 0,
+        }
+        return {"text": self._cot_summary(steps, conclusion) if explicit else normal,
+                "trace": trace}
+
+    def reason_stepwise(self, agi, raw: str, fr=None, *, explicit: bool = False) -> dict | None:
+        """Ara sonucu sonraki işleme bağla; doğrulanamayan zinciri cevap diye sunma.
+
+        Otomatik yol yalnız çok-halkalı evet/hayır çıkarımında çalışır. Açık
+        ``adım adım`` isteğinde nedensel/WH ve aritmetik ara işlemler de kısa
+        özetlenebilir. Tek-kenar geri çağırma bilinçli olarak CoT sayılmaz.
+        """
+        explicit = bool(explicit or self.is_stepwise_request(raw))
+        question = self.strip_stepwise_request(raw) if explicit else str(raw or "").strip()
+        if not question:
+            return None
+        try:
+            # Açık istek sarmalayıcısı kaldırıldıysa dışarıdan gelen eski
+            # çerçeveyi kullanma; sorunun kendisini yeniden ayrıştır.
+            frame = (agi.lang.wernicke.parse(question)
+                     if fr is None or (explicit and getattr(fr, "raw", question) != question)
+                     else fr)
+        except Exception:
+            return None
+        kind = str(getattr(frame, "kind", "") or "")
+
+        if explicit and kind == "math_query":
+            expression = getattr(frame, "math_expr", None)
+            if isinstance(expression, tuple) and len(expression) == 3:
+                result = self._reason_columns(agi, *expression, question=question)
+                if result is not None:
+                    return result
+            elif isinstance(expression, str):
+                result = self._reason_arithmetic_ast(expression, question=question)
+                if result is not None:
+                    return result
+                match = re.fullmatch(r"\s*(\d+)\s*([+\-])\s*(\d+)\s*", expression)
+                if match:
+                    result = self._reason_columns(
+                        agi, int(match.group(1)), match.group(2), int(match.group(3)),
+                        question=question,
+                    )
+                    if result is not None:
+                        return result
+        if explicit:
+            try:
+                math_result = agi.math_cortex.try_solve(question)
+            except Exception:
+                math_result = None
+            if math_result and math_result.get("kind") == "arithmetic_ast":
+                expression = str(math_result.get("trace") or "").split("=", 1)[0].strip()
+                result = self._reason_arithmetic_ast(expression, question=question)
+                if result is not None:
+                    return result
+
+        graph = agi.lang.graph
+        if kind == "yn_query":
+            try:
+                checked = graph.check_relation(frame.subj, frame.obj)
+            except Exception:
+                return None
+            answer = checked.get("answer")
+            if answer is None or checked.get("edge") is None or checked.get("contrast"):
+                return None
+            causal_path = list(checked.get("causal_path") or [])
+            path = causal_path or list(checked.get("isa_path") or []) + [checked["edge"]]
+            return self._reason_relation(
+                agi, frame.subj, path, answer=bool(answer), causal=bool(causal_path),
+                yes_no=True, explicit=explicit, question=question,
+            )
+
+        if not explicit or kind != "wh_query" or not getattr(frame, "subj", ""):
+            return None
+        if frame.rel == "CAUSES":
+            try:
+                chains = graph.causal_chain(frame.subj, max_hops=4)
+            except Exception:
+                return None
+            target = tr_lower(getattr(frame, "obj", "") or "")
+            candidates = []
+            for effect, path in chains:
+                if len(path) < 2 or any(edge.rel != "CAUSES" for edge in path):
+                    continue
+                if target and not (target == effect or target in effect or effect in target):
+                    continue
+                candidates.append(path)
+            if not candidates:
+                return None
+            path = max(candidates, key=len)
+            return self._reason_relation(
+                agi, frame.subj, path, answer=True, causal=True,
+                yes_no=False, explicit=True, question=question,
+            )
+        if not frame.rel or frame.rel == "ALL":
+            return None
+        try:
+            hits = graph.query(frame.subj, (frame.rel,))
+        except Exception:
+            return None
+        for edge, isa_path in hits:
+            if not isa_path:
+                continue
+            return self._reason_relation(
+                agi, frame.subj, list(isa_path) + [edge], answer=True, causal=False,
+                yes_no=False, explicit=True, question=question,
+            )
+        return None
+
     # ------------------------------------------------------------------ genel giriş
     def handle(self, agi, raw: str, fr=None) -> str | None:
         """Söz konusuysa Nora'nın kendi cevabını kurar; değilse None (alt katmanlar konuşur)."""
@@ -769,6 +1172,8 @@ class DeliberativeMind:
             out = self._expand_open(agi, raw)
         elif act == "self_eval":
             out = self._self_eval(agi, raw)
+        elif act == "learn_why":
+            out = self._learn_why(agi, raw)
         elif act == "learn_how":
             out = self._learn_how(agi)
         elif act == "conditional":
@@ -861,11 +1266,28 @@ class DeliberativeMind:
         return bool(previous_user and str(trace.get("raw") or "") == previous_user)
 
     @staticmethod
+    def _is_learning_purpose(low: str) -> bool:
+        """Nora'nın öğrenme amacını, kullanıcının öğrenme nedeninden ayır.
+
+        Kişi eki yüzeyde okunur; böylece "neden öğreniyorsun" Nora'ya,
+        "neden öğreniyorum" ise kullanıcıya ait kalır. "Onun öğrenmesini
+        istiyorsun" gibi üçüncü-kişi içerikli istekler bu çerçeveye girmez.
+        """
+        if not any(c in low for c in ("neden", "niye", "niçin")):
+            return False
+        second = r"(?:sın|sin|sun|sün|sınız|siniz|sunuz|sünüz)"
+        direct = re.search(rf"\böğren[\wçğıöşü]*{second}\b", low)
+        desire = re.search(rf"\böğren(?:mek|meyi)\s+ist[\wçğıöşü]*{second}\b", low)
+        return bool(direct or desire)
+
+    @staticmethod
     def _classify(low: str) -> str | None:
         # Özgür irade sorusu mevcut Broca/öz-model felsefe organının
         # uzmanlığıdır; genel açık-refleksiyon bunu 'özgür' diye bölmesin.
         if "özgür irade" in low:
             return None
+        if DeliberativeMind._is_learning_purpose(low):
+            return "learn_why"
         if any(c in low for c in _CUE_LEARN_HOW):
             return "learn_how"
         if any(c in low for c in _CUE_EXPERIENCE):
@@ -878,6 +1300,11 @@ class DeliberativeMind:
             return "narrate"
         if "ne anlat" in low or "anlatabilirsin" in low:
             return "narrate"                       # 'başka ne anlatabilirsin?'
+        # "Kendinden bahset/bahseder misin?" bir dünya kavramı anlatımı değil,
+        # Nora'nın öz-modelinden kimlik söz-edimidir. Genel "bahset" dalından önce
+        # okunmalıdır; "bahse" ortak gövdesi iki çekimi de kapsar.
+        if any(c in low for c in _CUE_IDENTITY):
+            return "identity"
         if (any(c in low for c in _CUE_NARRATE)
                 and not any(c in low for c in ("neden", "niye", "nasıl"))):
             return "narrate" if any(c in low for c in ("bahset", "anlat")) else None
@@ -888,8 +1315,6 @@ class DeliberativeMind:
             return "justify"                            # 'neden sevdiğini söylüyorsun?'
         if any(c in low for c in _CUE_META):
             return "meta"
-        if any(c in low for c in _CUE_IDENTITY):
-            return "identity"
         if any(c in low for c in _CUE_DESIRE):
             return "desire"
         if any(c in low for c in _CUE_ASSOCIATION):
@@ -1763,6 +2188,36 @@ class DeliberativeMind:
                                       wh_word="nasıl", tense="PRES", person="2SG"))
         items.append(q.rstrip(".?!") + "?")
         self.last_reason = "kendini değerlendirme"
+        return self._compose(agi, items)
+
+    def _learn_why(self, agi, raw: str) -> str:
+        """'Neden öğreniyorsun?' — amaç, kişi çevrilmeden öz-güdüden kurulur.
+
+        Spekülatif kavram sorgusu fiil yüzeyini konu sanıp soruyu kullanıcıya
+        geri çeviriyordu. Burada yüklem Nora'nın birinci-şahıs öğrenmesidir;
+        gerekçe ise bilgi boşluğunu kapatma isteği ve ölçülen merak eğilimidir.
+        """
+        want = SYN.nominalize_inf(
+            "kapat", short_ma=False, case="NOM",
+            obj=NP("boşluk", mods=("bilgi",), poss=1, plural=True, case="ACC"),
+        )
+        reason = SYN.nominalize_dik(
+            "iste", poss=1, case="NOM", postpos="için", obj=want,
+        )
+        items = [SYN.realize_verb(VerbSpec(
+            verb_root="öğren", pre_clause=reason, tense="PRES", person="1SG",
+        ))]
+        try:
+            curiosity = float(agi.self_model.traits.get("meraklılık", 0.0))
+        except Exception:
+            curiosity = 0.0
+        if curiosity > 0.0:
+            items.append(SYN.realize_verb(VerbSpec(
+                verb_root="merak et",
+                obj=NP("ilişki", mods=("yeni",), plural=True, case="ACC"),
+                tense="PRES", person="1SG",
+            )))
+        self.last_reason = "öğrenme amacı"
         return self._compose(agi, items)
 
     def _learn_how(self, agi) -> str:
