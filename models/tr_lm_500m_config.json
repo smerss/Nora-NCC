@@ -1,0 +1,12 @@
+{
+  "vocab": 16003,
+  "d_model": 1280,
+  "layers": 24,
+  "heads": 20,
+  "ffn": 5120,
+  "context": 1024,
+  "tied_embeddings": true,
+  "total_parameters": 494055680,
+  "trained": false,
+  "note": "mimari ve sayım; eğitim yapılmadı"
+}
