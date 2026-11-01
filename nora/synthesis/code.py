@@ -39,6 +39,7 @@ from nora_architecture import capability
 from nora_broca import NP, VerbSpec, TurkishSyntaxEngine
 from nora_lang import tr_capitalize, tr_lower
 from nora_semantic_code import CompositionalCodeLearner, SemanticGoal, ProgramPlan
+from nora_sayfa import PageCortex
 
 
 # ============================================================================
@@ -299,6 +300,8 @@ class CodeSynthesisCortex:
         return float(sum(self.CUE_STRENGTH.get(c, 0.5) * v for c, v in feats.items()))
 
     def is_requested(self, raw: str) -> bool:
+        if self.page.is_requested(raw):
+            return True
         if self.requested_evidence(raw) < self.REQUEST_THRESHOLD:
             return False
         op, probs = self.cortex.select(raw)
@@ -313,6 +316,8 @@ class CodeSynthesisCortex:
         self.feedback_log: list[dict] = []
         self.min_score = 0.30
         self.semantic = CompositionalCodeLearner()
+        # Sayfa organı boş başlar: hiçbir sayfa, düğme ya da betik kodda yazılı değildir.
+        self.page = PageCortex()
         if pretrain:
             primer = REPO_ROOT / "data" / "python_semantics_primer.md"
             try:
@@ -407,6 +412,13 @@ class CodeSynthesisCortex:
                 or (has_url and any(cue in low for cue in ("öğren", "oku", "belge", "doküman"))))
 
     def handle_document(self, request: str) -> dict:
+        if self.page.has_markup(request):
+            result = self.page.teach_document(request)
+            result.update({"path": "document", "program": "", "verified": False})
+            if not result.get("ok"):
+                result["reply_hint"] = self.page.speak({"ok": False, "unknown": [
+                    str(f.get("reason")) for f in result.get("failed") or ()]})
+            return result
         url = re.search(r"https?://[^\s<>]+", request)
         if url:
             result = self.semantic.learn_url(url.group(0).rstrip(".,;"))
@@ -428,6 +440,10 @@ class CodeSynthesisCortex:
                 validator=lambda value: isinstance(value, dict) and bool(value.get("ok")))
     def handle(self, request: str, agi: Any = None) -> dict:
         t0 = time.perf_counter()
+        if self.page.is_requested(request):
+            res = self.page.handle(request)
+            res["ms"] = round((time.perf_counter() - t0) * 1000, 2)
+            return res
         goal = self.semantic.request(request)
         if goal is not None:
             return self._handle_semantic(goal, request, t0)
@@ -492,6 +508,9 @@ class CodeSynthesisCortex:
     def speak(self, res: dict, agi: Any = None) -> str:
         """Doğrulanmış programı, kendi kök çekimiyle kurulmuş Türkçe bir beyana dönüştürür."""
         syn = self.syn
+        if res.get("language") == "html":
+            return self.page.speak(res) if res.get("ok") or not res.get("reply_hint") \
+                else str(res["reply_hint"])
         if not res.get("ok"):
             return str(res.get("reply_hint") or "")
         if res.get("path") == "document":
@@ -543,7 +562,8 @@ class CodeSynthesisCortex:
                 "skills": {k: {"program": v["program"], "payload": v["payload"], "hits": v.get("hits", 1)}
                            for k, v in list(self.skills.items())[-400:]},
                 "events": self.cortex.learning_events,
-                "semantic": self.semantic.state_dict()}
+                "semantic": self.semantic.state_dict(),
+                "page": self.page.state_dict()}
 
     def load_state_dict(self, d: dict):
         for opn, wmap in (d.get("W") or {}).items():
@@ -553,3 +573,5 @@ class CodeSynthesisCortex:
         self.cortex.learning_events = int(d.get("events", 0))
         if d.get("semantic") is not None:
             self.semantic.load_state_dict(d.get("semantic") or {})
+        if d.get("page"):
+            self.page.load_state_dict(d["page"])

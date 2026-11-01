@@ -4313,7 +4313,7 @@ class NoraAGI:
             self.last_code = res
             if res.get("ok"):
                 self.chem.pulse_learning(novelty=0.5, valence=0.35)
-                self._structured_output = res.get("path") == "composed"
+                self._structured_output = res.get("path") in ("composed", "page")
                 self._apply_tag("islem", 1)
                 return self.code_cortex.speak(res, agi=self), f"code:{res.get('path')}", 0.988
             if res.get("reply_hint"):
@@ -8956,7 +8956,7 @@ class NoraAGI:
         parent = os.path.dirname(os.path.abspath(target))
         os.makedirs(parent, exist_ok=True)
         self.ensure_broca_ready()
-        with tempfile.TemporaryDirectory(prefix="nora-brain-save-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="nora-brain-save-", ignore_cleanup_errors=True) as tmpdir:
             prefix = os.path.join(tmpdir, "brain")
             # Mevcut organların kayıp yaşatmayan serileştiricileri tek kaynaktır;
             # burada yeni ve daha sığ bir checkpoint kopyası tutulmaz.
@@ -9022,7 +9022,8 @@ class NoraAGI:
                     elif getattr(self, "_embedded_journal", None) is not None:
                         archive.writestr("brain.journal.ndjson", self._embedded_journal)
                 # Flush + fsync, ardından aynı dosya sisteminde atomik değiştirme.
-                with open(temporary, "rb") as handle:
+                # Windows fsync'i salt-okunur tanıtıcıda reddeder (EBADF); yazma kipi gerekir.
+                with open(temporary, "r+b") as handle:
                     os.fsync(handle.fileno())
                 os.replace(temporary, target)
             finally:
@@ -9164,7 +9165,7 @@ class NoraAGI:
             agi.brain_path = unified
             return agi
 
-        with tempfile.TemporaryDirectory(prefix="nora-brain-load-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="nora-brain-load-", ignore_cleanup_errors=True) as tmpdir:
             prefix = os.path.join(tmpdir, "brain")
             with zipfile.ZipFile(unified, "r") as archive:
                 try:

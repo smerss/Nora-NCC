@@ -82,6 +82,7 @@ MODULE_MAP = {
     "nora_besle": "nora.synthesis.besle",
     "nora_egit": "nora.synthesis.egit",
     "nora_audit": "nora.synthesis.audit",
+    "nora_sayfa": "nora.synthesis.sayfa",
     # Models
     "nora_bridge": "nora.models.bridge",
     "nora_think": "nora.models.think",

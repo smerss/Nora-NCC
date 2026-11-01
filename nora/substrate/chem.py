@@ -497,7 +497,7 @@ class HDCMushroomBody:
     def _init_disk_store(self) -> None:
         root = Path(os.environ.get("NORA_HDC_CACHE", ".cache/nora_hdc"))
         root.mkdir(parents=True, exist_ok=True)
-        self._disk_tmp = tempfile.TemporaryDirectory(prefix="mb-", dir=root)
+        self._disk_tmp = tempfile.TemporaryDirectory(prefix="mb-", dir=root, ignore_cleanup_errors=True)
         self.disk_path = str(Path(self._disk_tmp.name) / "passive.sqlite3")
         self._db = sqlite3.connect(self.disk_path, check_same_thread=False)
         self._db.execute("PRAGMA journal_mode=DELETE")
