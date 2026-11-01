@@ -130,7 +130,7 @@ def normalize(text: str, *, force: bool = False) -> str:
     out = _REQ2.sub(_sub2, out)
     out = _REQ.sub(_sub, out)
     out = re.sub(r"\s+", " ", out).strip()
-    out = re.sub(r"\.\s*\?\s*$", ".", out)          # "... iyi olur.?" -> "... iyi olur."
+    out = re.sub(r"\.\s*\?(?=\s|$)", ".", out)      # "... iyi olur.?" -> "... iyi olur." (cümle ortasında da)
     out = re.sub(r"\?\s*$", "?", out)
     if out and out[0].islower() and t and t[0].isupper():
         out = out[0].upper() + out[1:]

@@ -2307,6 +2307,15 @@ class NoraAGI:
             self._journal("tur", g=raw, y=_reply, s="", yas=int(getattr(self.mind, "age", 0)),
                           d=round(float(getattr(getattr(self, "entropy", None), "drift", 0.0) or 0.0), 6))
             return _reply
+        # 'En sevdiğin X' Nora'nın kendisi hakkındadır: kavram kapısı onu 'X nedir' sanmadan önce bakılır.
+        _favorite = None if _cot_preflight else self._answer_favorite(raw)
+        if _favorite:
+            from nora_register import normalize as _reg_norm
+            _favorite = _reg_norm(_favorite)
+            self._log_turn(speaker, raw, _favorite, _preflight_t0)
+            self._journal("tur", g=raw, y=_favorite, s="", yas=int(getattr(self.mind, "age", 0)),
+                          d=round(float(getattr(getattr(self, "entropy", None), "drift", 0.0) or 0.0), 6))
+            return _favorite
         self.lang.graph.turn_evidence = []
         _preflight_unknown = self._epistemic_gate(_cot_semantic_raw)
         if _preflight_unknown:
@@ -3644,6 +3653,11 @@ class NoraAGI:
                 "insular_self", 0.988, 0.94, _delib, "deliberation",
                 used_s2=bool(_open_trace), speech_plan=_open_plan))
 
+        # --- SÜTUN 0a: 'EN SEVDİĞİN X' — X'in tanımı değil, Nora'nın kendi tercihi (kanıtsa uydurmaz)
+        _fav = self._answer_favorite(raw)
+        if _fav:
+            bids.append(CorticalBid("prefrontal_autonomous_logic", 0.979, 0.96, _fav, "preference"))
+
         # --- SÜTUN 0b: TERCİH SORUSU ('sence kediler mi köpekler mi daha iyi?') — ansiklopedi değil görüş
         _pref = self._answer_preference(raw, speaker=speaker)
         if _pref:
@@ -4622,6 +4636,56 @@ class NoraAGI:
             if e.rel in want and e.obj and (self.speculation._tokens2(e.obj) & focus):
                 return True
         return False
+
+    # Tercih bildiren fiiller: 'en sevdiğin', 'en beğendiğin'.
+    _FAVORITE_VERBS = ("sev", "beğen")
+
+    def _answer_favorite(self, raw):
+        """'En sevdiğin X ne?': soru Nora'nın KENDİSİ hakkındadır, X'in tanımı hakkında değil.
+
+        Adaylar X'in grafikteki üyeleridir (Y ISA X); her biri tercih sorusundaki aynı duygusal kanıtla
+        (_affect_evidence) tartılır. Kanıt yoksa tercih uydurulmaz; X'i hiç tanımıyorsa bunu söyler."""
+        from nora_broca import TurkishSyntaxEngine as SYN
+        morph = TurkishMorphology
+        words = re.findall(r"[\wçğıöşü]+", tr_lower(raw))
+        asked = {morph.participle_form(v, kind="dik", poss=2) for v in self._FAVORITE_VERBS}
+        category = ""
+        for i in range(len(words) - 2):
+            if words[i] == "en" and words[i + 1] in asked:
+                category = str(morph.analyze_word(words[i + 2]).get("stem") or words[i + 2])
+                break
+        if not category:
+            return ""
+        g = self.lang.graph
+        members = sorted({e.subj for e in g._in_edges.get(category, ())
+                          if e.rel == "ISA" and e.weight > 0.25 and e.status != "provisional"
+                          and len(e.subj.split()) == 1})
+        if not members:
+            c = SYN.realize_verb(VerbSpec(verb_root="tanı", obj=NP(category, plural=True, case="ACC"),
+                                          neg=True, tense="PRES", person="1SG"))
+            q = SYN.realize_verb(VerbSpec(verb_root="anlat", dat=NP("ben", case="DAT"),
+                                          obj=NP(category, mods=("birkaç",)), question_yn=True,
+                                          tense="AOR", person="2SG"))
+            return f"{tr_capitalize(c)}. {tr_capitalize(q).rstrip('.?!')}?"
+        scored = sorted(((self._affect_evidence(m), m) for m in members),
+                        key=lambda x: -x[0]["val"])
+        best_ev, best = scored[0]
+        runner = scored[1][0]["val"] if len(scored) > 1 else 0.0
+        if best_ev["ev"] > 0 and best_ev["val"] > 0 and best_ev["val"] > runner:
+            lead = f"En {morph.participle_form('sev', kind='dik', poss=1)} {category} {best}."
+            if best_ev.get("rel") and best_ev.get("obj"):
+                try:
+                    why = self.lang.broca.realize_prop(
+                        Proposition(subj=best, rel=best_ev["rel"], obj=best_ev["obj"]))
+                    return f"{lead} {tr_capitalize(why).rstrip('.')}."
+                except Exception:
+                    pass
+            return lead
+        none = SYN.realize_pred(PredSpec(pred_root="yok", subj=NP("kanıt", mods=("duygusal",), poss=1),
+                                         advs=("hiçbiri için",)))
+        refuse = SYN.realize_verb(VerbSpec(verb_root="uydur", obj="tercih", neg=True,
+                                           tense="PRES", person="1SG"))
+        return f"{tr_capitalize(', '.join(members[:5]))}: {none}; {refuse}."
 
     def _answer_preference(self, raw, speaker="insan"):
         """İki aday arasında tercih: kararı Nora'nın KENDİ duygusal kanıtı verir (beden deneyimi ya da
@@ -9489,6 +9553,8 @@ class NoraAGI:
         # Dinamik yaşam durumu en son geri yazılır: organların eski state_dict'leri
         # bazı alanları varsayılan bırakır; runtime katmanı bunları tek kaynaktan eşitler.
         agi._load_runtime_state(meta.get("runtime") or {})
+        # Yüklenen beyin yeni bir konuşma oturumu başlatır (kayıtlı geçmiş korunur, tekrar sayılmaz).
+        agi.deliberation.session = int(getattr(agi.deliberation, "session", 0) or 0) + 1
         # Zamir özneli kenarlar öğrenmede artık kurulmuyor; eski beyinlerde kalanlar da
         # aynı kuralla sorgudan çekilir ('benim ISA böbrek üstümde tümörüm var' gibi).
         try:

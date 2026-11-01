@@ -79,7 +79,10 @@ class DeliberativeMind:
 
     def __init__(self, seed: int = 0):
         self.rng = random.Random(seed)
-        self.history: deque[dict] = deque(maxlen=48)     # (norm, act, topic, reply)
+        self.history: deque[dict] = deque(maxlen=48)     # (norm, act, topic, reply, session)
+        # Canlı konuşma oturumu: beyin her yüklendiğinde yenilenir. Önceki bir oturumda sorulmuş
+        # soru 'aynı soruyu ikinci kez sordun' sayılmaz; tekrar, bu konuşmanın içindeki tekrardır.
+        self.session = 0
         self.last_reason = ""                              # en son neden bir şey söyledim
         self.last_deep_topic = ""
         self.tutorial = {"active": False, "speaker": "", "history": []}
@@ -1302,7 +1305,7 @@ class DeliberativeMind:
                     agi, raw, text, act="thought", kind="shared_fact", topic=str(edge.subj),
                     evidence=[self._edge_key(edge)], context_turns=[])
 
-        prev = [h for h in self.history if h["norm"] == norm]
+        prev = [h for h in self.history if h["norm"] == norm and h.get("session") == self.session]
         act = self._classify(low)
         if self.is_contextual_continuation(agi, raw):
             act = "expand"
@@ -1381,7 +1384,8 @@ class DeliberativeMind:
 
     def remember(self, raw: str, act: str, topic: str, reply: str) -> None:
         norm = re.sub(r"[^\wçğıöşü ]+", "", tr_lower(raw)).strip()
-        self.history.append({"norm": norm, "act": act, "topic": topic, "reply": reply})
+        self.history.append({"norm": norm, "act": act, "topic": topic, "reply": reply,
+                             "session": self.session})
 
     # ------------------------------------------------------------------ 1. ALGILA
     @staticmethod
