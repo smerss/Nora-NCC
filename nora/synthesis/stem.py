@@ -513,6 +513,43 @@ class MathCortex:
         """Gelen Türkçe cümlede ileri matematiksel bir problem varsa çözer ve yapılandırılmış açıklama döndürür."""
         s = _tr_low(raw_text).strip()
 
+        # 0) Doğrudan Temel İki-Terimli Aritmetik ('25 ile 17\'nin toplamı kaçtır?', '50 eksi 12', '6 çarpı 7', '100\'ün 4\'e bölümü', '25 artı 17')
+        m_op = re.search(r"(\d+(?:[.,]\d+)?)\s*(?:ile|ve)?\s*(\d+(?:[.,]\d+)?)(?:'nin|'nın|'nün|'nun|'in|'ın|'ün|'un)?\s*(toplamı|farkı|çarpımı|bölümü)", s)
+        if not m_op:
+            m_op = re.search(r"(\d+(?:[.,]\d+)?)\s*(?:sayısının|sayısıyla)?\s*(\d+(?:[.,]\d+)?)\s*(?:sayısının|sayısıyla)?\s*(toplamı|farkı|çarpımı|bölümü)", s)
+        if not m_op:
+            m_op = re.search(r"(\d+(?:[.,]\d+)?)\s*(artı|eksi|çarpı|bölü|\+|\-|\*|\/)\s*(\d+(?:[.,]\d+)?)", s)
+        if m_op and not any(v in s for v in ("elma", "armut", "kalem", "sayfa", "bilye", "kutu", "dakika", "gün", "tane", "yaşında")):
+            if m_op.re.pattern.endswith(r"(\d+(?:[.,]\d+)?)"):
+                a_v = float(m_op.group(1).replace(",", "."))
+                op_v = m_op.group(2)
+                b_v = float(m_op.group(3).replace(",", "."))
+            else:
+                a_v = float(m_op.group(1).replace(",", "."))
+                b_v = float(m_op.group(2).replace(",", "."))
+                op_v = m_op.group(3)
+
+            val = None
+            expr_sym = ""
+            op_word = ""
+            if op_v in ("toplamı", "artı", "+"):
+                val = a_v + b_v; expr_sym = "+"; op_word = "toplam"
+            elif op_v in ("farkı", "eksi", "-"):
+                val = a_v - b_v; expr_sym = "-"; op_word = "fark"
+            elif op_v in ("çarpımı", "çarpı", "*"):
+                val = a_v * b_v; expr_sym = "×"; op_word = "çarpım"
+            elif op_v in ("bölümü", "bölü", "/"):
+                if b_v != 0:
+                    val = a_v / b_v; expr_sym = "÷"; op_word = "bölüm"
+
+            if val is not None:
+                a_s = _fmt_num(a_v); b_s = _fmt_num(b_v); val_s = _fmt_num(val)
+                return {
+                    "domain": "math", "kind": "arithmetic", "confidence": 0.98,
+                    "reply": f"{a_s} {expr_sym} {b_s} = {val_s}; {op_word} {val_s} eder.",
+                    "trace": f"{a_v}{expr_sym}{b_v}={val}"
+                }
+
         # 1) 2x2 Doğrusal Denklem Sistemi ('x + y = 12 ve x - y = 4')
         eqs = re.findall(r"([0-9xXyY\+\-\*\s\.]+)=([0-9xXyY\+\-\*\s\.]+)", s)
         if len(eqs) == 2 and ("x" in s and "y" in s):

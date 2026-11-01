@@ -1845,6 +1845,12 @@ class Proposition:
     obj_plural: bool = False
 
 
+GRAPH_STOP_WORDS = frozenset({
+    "en", "bir", "bu", "şu", "o", "ve", "ile", "de", "da", "ki", "için", "gibi",
+    "kadar", "daha", "çok", "her", "ne", "hangi", "kim", "nasıl", "nerede", "kaç",
+    "ise", "mi", "mı", "mu", "mü", "ama", "fakat", "lakin", "çünkü", "ya", "hem",
+})
+
 class GroundedConceptGraph:
     """Bedenlenmiş kavram uzayı + 1-atış ilişkisel sinaps ağı + yayılan aktivasyon çıkarımı."""
 
@@ -2029,6 +2035,8 @@ class GroundedConceptGraph:
                  sentence: str = "") -> RelationEdge:
         s = tr_lower(subj).strip()
         o = tr_lower(obj).strip()
+        if s in GRAPH_STOP_WORDS or len(s) <= 1:
+            return None
         rel = str(rel).strip()
         self.register_concept(s, bind_mb=bind_mb)
         self.register_concept(o, bind_mb=bind_mb)
@@ -2247,6 +2255,8 @@ class GroundedConceptGraph:
         kapanış listesini okuyup ona "nöral karar" demek mümkün değildir.
         """
         start = tr_lower(subj).strip()
+        if start in GRAPH_STOP_WORDS or len(start) <= 1:
+            return []
         frontier: list[tuple[str, list[RelationEdge]]] = [(start, [])]
         visited: set[str] = set()
         blocked_actions: set[str] = set()

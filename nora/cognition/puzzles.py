@@ -164,12 +164,13 @@ def word_problem(raw: str) -> tuple[str, str] | None:
         return None
     a, b = nums
     asks_left = bool(wset & {"kalır", "kalan", "geriye", "kaldı", "kalacak"})
-    asks_total = bool(wset & {"olur", "eder", "toplam", "toplamda"})
+    asks_total = bool(wset & {"olur", "eder", "toplam", "toplamda", "toplamı", "toplamını", "toplamının", "toplamları"})
+    asks_diff = bool(wset & {"farkı", "farkını", "farkının"})
     removal = any(_is_removal(w) for w in words) or bool(
         re.search(r"(?:arkadaşına|kardeşine|annesine|babasına)\s+ver", s_clean.lower()))
-    if asks_left and removal and a >= b:
-        return f"{a} - {b} = {a - b}; geriye {a - b} kalır.", f"Kelime problemi: {a} - {b} = {a - b} buldum"
-    if asks_total and not removal and not asks_left and "hâlâ" not in wset and (wset & ADD_WORDS or wset & {"toplam", "toplamda"}):
+    if (asks_left or asks_diff) and (removal or asks_diff) and a >= b:
+        return f"{a} - {b} = {a - b}; geriye {a - b} kalır." if asks_left else f"{a} - {b} = {a - b}; fark {a - b} olur.", f"Kelime problemi: {a} - {b} = {a - b} buldum"
+    if asks_total and not removal and not asks_left and "hâlâ" not in wset and (wset & ADD_WORDS or wset & {"toplam", "toplamda", "toplamı", "toplamını"}):
         if len(sents) <= 2 or "ona" in wset:
             return f"{a} + {b} = {a + b}; toplamda {a + b} olur.", f"Kelime problemi: {a} + {b} = {a + b} buldum"
     return None

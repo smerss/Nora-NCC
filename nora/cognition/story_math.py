@@ -468,7 +468,11 @@ def _equation_model_answer(raw: str, min_prob: float = 0.55) -> tuple[int, str] 
 def solve_story(raw: str) -> tuple[int, str] | None:
     """Kurallar önce; hiçbiri çözmezse öğrenilmiş şablon modeli (yüksek güven, sayı sayısı eşleşmesi şartıyla)."""
     found = _solve_story(raw)
-    return found if found is not None else _equation_model_answer(raw)
+    if found is not None:
+        return found
+    if len(_sentences(raw)) < 2:
+        return None
+    return _equation_model_answer(raw)
 
 
 def _covered(raw: str, result: tuple[int, str] | None) -> tuple[int, str] | None:

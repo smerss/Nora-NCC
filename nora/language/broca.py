@@ -2888,7 +2888,10 @@ class GenerativeBrocaOrgan:
         u = self.comprehend_discourse(raw, s_low, morph, graph.lexicon)
         resonances: list[str] = []
         focus_concept = ""
+        from nora.language.lang import GRAPH_STOP_WORDS
         for st in u["stems"]:
+            if st in GRAPH_STOP_WORDS or len(st) <= 1:
+                continue
             hits = graph.query(st, None)
             if hits:
                 if not focus_concept:
@@ -2963,6 +2966,11 @@ class GenerativeBrocaOrgan:
             clauses.append(disc_res["text"])
             nodes.append(f"SÖYLEM[{disc_res['act']}]")
             focus = u["stems"][0] if u["stems"] else "düşünce"
+        elif u.get("is_question"):
+            cands = [w for w in u.get("stems", []) if w not in GRAPH_STOP_WORDS and len(w) >= 3]
+            focus = cands[0] if cands else "bu konu"
+            clauses.append(f"“{focus}” hakkında doğrulanmış bir bilgim yok. Bana tek cümleyle öğretebilirsin.")
+            nodes.append(f"DÜRÜST_BİLİNMEZ({focus})")
         else:
             focus = u["stems"][0] if u["stems"] else "düşünce"
             _an = morph.analyze_word(focus, graph.lexicon)
