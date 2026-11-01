@@ -7211,6 +7211,93 @@ def a146_konusma_anlami_kisi_ve_cok_kelimeli_rota():
     return passed == len(checks), detail
 
 
+def a147_dogrulanmis_chain_of_thought_yurutme():
+    """Ara sonuçlar sonraki adımı besler; özet ve kalıcı iz aynı hesaptan gelir."""
+    from pathlib import Path
+
+    probe = NoraAGI(seed=147, boot_thinker=False)
+    if not hasattr(probe.deliberation, "reason_stepwise"):
+        return False, "doğrulanmış CoT yürütücüsü henüz yok"
+    checks = {}
+
+    probe.converse("Karga bir kuştur.")
+    probe.converse("Kuş uçar.")
+    automatic = probe.converse("Karga uçar mı?")
+    trace = dict(getattr(probe.deliberation, "last_cot_trace", {}) or {})
+    checks["otomatik-graf-zinciri"] = (
+        tr_lower(automatic).startswith("evet") and "karga" in tr_lower(automatic)
+        and trace.get("status") == "verified" and trace.get("domain") == "relational"
+        and len(trace.get("steps") or []) >= 2 and trace.get("verified") is True
+    )
+
+    explicit = probe.converse("Adım adım açıkla: Karga uçar mı?")
+    explicit_trace = dict(getattr(probe.deliberation, "last_cot_trace", {}) or {})
+    checks["acik-ozet-hesaptan"] = (
+        "1." in explicit and "2." in explicit and "Sonuç:" in explicit
+        and "karga" in tr_lower(explicit) and "kuş" in tr_lower(explicit)
+        and explicit_trace.get("explicit") is True
+        and explicit_trace.get("conclusion")
+        and probe._turn_path == "chain_of_thought"
+    )
+
+    causal = NoraAGI(seed=1471, boot_thinker=False)
+    causal.converse("Kuraklık susuzluğa yol açar.")
+    causal.converse("Susuzluk güçsüzlüğe yol açar.")
+    causal_reply = causal.converse("Adım adım açıkla: Kuraklık güçsüzlüğe yol açar mı?")
+    causal_trace = dict(getattr(causal.deliberation, "last_cot_trace", {}) or {})
+    checks["nedensel-iki-halka"] = (
+        tr_lower(causal_reply).startswith("1.") or "Muhakeme özeti:" in causal_reply
+    ) and "güçsüzlüğe yol açar" in tr_lower(causal_reply) and (
+        causal_trace.get("status") == "verified"
+        and [s.get("relation") for s in causal_trace.get("steps") or []] == ["CAUSES", "CAUSES"]
+    )
+
+    arithmetic = NoraAGI(seed=1472, boot_thinker=False)
+    column_reply = arithmetic.converse("Adım adım çöz: 128 + 256 kaç eder?")
+    column_trace = dict(getattr(arithmetic.deliberation, "last_cot_trace", {}) or {})
+    checks["basamak-ara-sonuclari"] = (
+        "384" in column_reply and len(column_trace.get("steps") or []) == 3
+        and column_trace.get("verified") is True
+        and column_trace.get("domain") == "arithmetic"
+    )
+    ast_reply = arithmetic.converse("Adım adım çöz: (15 + 9) * 4 kaç eder?")
+    ast_trace = dict(getattr(arithmetic.deliberation, "last_cot_trace", {}) or {})
+    checks["ast-ara-islem-besler"] = (
+        "96" in ast_reply and "24" in ast_reply
+        and len(ast_trace.get("steps") or []) >= 2
+        and ast_trace.get("verified") is True
+    )
+
+    missing = NoraAGI(seed=1473, boot_thinker=False)
+    missing.converse("Karga bir kuştur.")
+    missing_chain = missing.deliberation.reason_stepwise(
+        missing, "Karga uçar mı?", explicit=True,
+    )
+    recall = NoraAGI(seed=1474, boot_thinker=False)
+    recall.converse("Karga uçar.")
+    direct_recall = recall.deliberation.reason_stepwise(
+        recall, "Karga uçar mı?", explicit=True,
+    )
+    checks["ablasyon-ve-geri-cagirma-cot-degil"] = missing_chain is None and direct_recall is None
+
+    with tempfile.TemporaryDirectory(prefix="nora-a147-") as td:
+        prefix = str(Path(td) / "cot")
+        probe.save(prefix)
+        restored = NoraAGI.load(prefix)
+        restored_trace = dict(getattr(restored.deliberation, "last_cot_trace", {}) or {})
+        checks["iz-tek-nora-kalici"] = (
+            restored_trace.get("status") == "verified"
+            and restored_trace.get("steps") == explicit_trace.get("steps")
+            and restored_trace.get("conclusion") == explicit_trace.get("conclusion")
+        )
+
+    passed = sum(bool(v) for v in checks.values())
+    detail = f"{passed}/{len(checks)} — ilişki/neden/aritmetik/ablasyon/kalıcılık"
+    if passed != len(checks):
+        detail += " | " + str([k for k, v in checks.items() if not v])
+    return passed == len(checks), detail
+
+
 TESTS = {
     "A1": ("üretken Türkçe morfoloji ve sayı sistemi", a1_morphology_and_generation),
     "A2": ("epoch'suz 1-atış kavram, istisna ve nedensel zincir öğrenme", a2_oneshot_language_and_inference),
@@ -7353,6 +7440,7 @@ TESTS = {
     "A144": ("durumlu öğretici diyalog: takip, örnek, quiz, düzeltme ve özet", a144_durumlu_ogretici_diyalog),
     "A145": ("felsefi argüman: öz-inanç, bilinç/anlama ayrımı ve kanıt sınırı", a145_felsefi_arguman_ve_kanit_siniri),
     "A146": ("konuşma anlamı: çok-kelimeli tanım ve doğru kişi/rota", a146_konusma_anlami_kisi_ve_cok_kelimeli_rota),
+    "A147": ("doğrulanmış Chain-of-Thought: ara sonuç, ablasyon ve kalıcı iz", a147_dogrulanmis_chain_of_thought_yurutme),
     "A111": ("icadın şeması: görülmemiş parametre icat gerektirmez", a111_icadin_semasi),
     "A110": ("dil: buyruk sarmalayıcısı ve X mi Y mi seçim sorusu", a110_sarmalayici_ve_secim_sorusu),
     "A108": ("şema: delikli makro görülmemiş parametreyi kapsar", a108_sema_delikli_makro),

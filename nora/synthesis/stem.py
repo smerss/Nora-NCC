@@ -109,7 +109,8 @@ class SymbolicAST:
         return toks
 
     @classmethod
-    def parse(cls, raw: str) -> Expr:
+    def parse(cls, raw: str, *, simplify: bool = True) -> Expr:
+        """İfadeyi ayrıştır; ``simplify=False`` ara işlem ağacını denetim için korur."""
         toks = cls.tokenize(raw)
         if not toks:
             raise ValueError("Boş matematiksel ifade")
@@ -191,7 +192,7 @@ class SymbolicAST:
         res = parse_add()
         if pos[0] != len(toks):
             raise ValueError(f"Artık belirteç: {toks[pos[0]:]}")
-        return cls.simplify(res)
+        return cls.simplify(res) if simplify else res
 
     @classmethod
     def eval_expr(cls, node: Expr, env: dict[str, float] | None = None) -> float:
